@@ -1,6 +1,15 @@
 # comprakt
 the compiler
 
+## Install Rust
+
+[rust-lang.org](https://www.rust-lang.org/en-US/install.html)
+
+```bash
+curl https://sh.rustup.rs -sSf | sh
+rustup toolchain install nightly-2018-10-14
+```
+
 ---
 ## License
 
