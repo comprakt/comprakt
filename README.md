@@ -1,5 +1,6 @@
 # comprakt
-the compiler
+
+A [MiniJava](https://pp.ipd.kit.edu/lehre/WS201819/compprakt/intern/sprachbericht.pdf) compiler
 
 ## Install Rust
 
@@ -9,6 +10,20 @@ the compiler
 curl https://sh.rustup.rs -sSf | sh
 rustup toolchain install nightly-2018-10-14
 ```
+
+## Merging Pull Requests
+
+To always have a building master branch we want to use
+[bors-ng](https://bors.tech/). Bors is a GitHub bot that prevents merge skew /
+semantic merge conflicts, so when a developer checks out the master branch, they
+can expect all of the tests to pass out-of-the-box.
+
+To test a PR comment with `bors try`.
+
+To approve (and merge) a PR comment with `bors r+`
+
+More commands for the bors bot can be found in the
+[documentation](https://bors.tech/documentation/)
 
 ---
 ## License
