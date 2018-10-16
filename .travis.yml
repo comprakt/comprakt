@@ -3,6 +3,15 @@ language: rust
 rust:
   - nightly-2018-10-14
 
+branches:
+  only:
+    # This is where pull requests from "bors r+" are built.
+    - staging
+    # This is where pull requests from "bors try" are built.
+    - trying
+    # This is enabled to build pull requests.
+    - master
+
 matrix:
   include:
     - os: linux
