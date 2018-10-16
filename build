@@ -1,0 +1,6 @@
+#!/bin/sh
+set -ex
+cargo clippy --all-targets --all-features -- -D warnings
+# NOTE: for --release builds also change ./run to actually use it!
+cargo build
+cargo check
