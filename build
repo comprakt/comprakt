@@ -1,5 +1,22 @@
 #!/bin/sh
-set -ex
+set -e
+
+# change to this script's directory
+# credits to https://stackoverflow.com/questions/4774054/reliable-way-for-a-bash-script-to-get-the-full-path-to-itself/12197518#12197518
+pushd . > /dev/null
+SCRIPT_PATH="${BASH_SOURCE[0]}";
+while([ -h "${SCRIPT_PATH}" ]); do
+    cd "`dirname "${SCRIPT_PATH}"`"
+    SCRIPT_PATH="$(readlink "`basename "${SCRIPT_PATH}"`")";
+done
+cd "`dirname "${SCRIPT_PATH}"`" > /dev/null
+SCRIPT_PATH="`pwd`";
+popd  > /dev/null
+echo "change working directory to '$SCRIPT_PATH'"
+cd "$SCRIPT_PATH"
+
+set -x
+
 cargo clippy --all-targets --all-features -- -D warnings
 # NOTE: for --release builds also change ./run to actually use it!
 cargo build
