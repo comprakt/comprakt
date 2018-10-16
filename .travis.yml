@@ -26,5 +26,4 @@ script:
   # let build fail on Clippy warnings
   # and also check tests and none-default crate features
   - cargo clippy --all-targets --all-features -- -D warnings
-  - cargo build
-  - cargo check
+  - cargo test

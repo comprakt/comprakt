@@ -13,4 +13,16 @@ cd "`dirname "${SCRIPT_PATH}"`" > /dev/null
 SCRIPT_PATH="`pwd`";
 popd  > /dev/null
 
-exec "$SCRIPT_PATH/target/debug/comprakt" $@
+target="release"
+while [ "$#" -ne 0 ]; do
+case "$1" in
+    "--debug")
+        target="debug"
+        ;;
+    *)
+        echo "invalid argument: $1" >&2
+esac
+shift
+done
+
+exec "$SCRIPT_PATH/target/$target/comprakt" $@

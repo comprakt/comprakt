@@ -12,12 +12,53 @@ done
 cd "`dirname "${SCRIPT_PATH}"`" > /dev/null
 SCRIPT_PATH="`pwd`";
 popd  > /dev/null
-echo "change working directory to '$SCRIPT_PATH'"
+echo "[INFO] change working directory to '$SCRIPT_PATH'"
 cd "$SCRIPT_PATH"
 
-set -x
+# default config for speedcenter
+BUILD_FLAGS="--release"
+DO_CLEAN=1
+DO_CLIPPY=0
+DO_BUILD=1
+DO_TEST=0
+DO_CHECK=0
+while [ "$#" -ne 0 ]; do
+case "$1" in
+    "--speedcenter") ;;
+    "--noclean") DO_CLEAN=0 ;;
+    "--debug")  BUILD_FLAGS="" ;;
+    "--release")  BUILD_FLAGS="--release" ;;
+    "--ci") # shortcut to emulate CI build
+        BUILD_FLAGS=""
+        DO_CLEAN=0
+        DO_CLIPPY=1
+        DO_BUILD=0
+        DO_TEST=1
+        DO_CHECK=0
+        ;;
+    *)
+        echo "[ERROR] invalid argument: $1" >&2
+        exit 1
+        ;;
+esac
+shift
+done
 
-cargo clippy --all-targets --all-features -- -D warnings
-# NOTE: for --release builds also change ./run to actually use it!
-cargo build
-cargo check
+run_if() {
+    cond="$1"
+    shift
+    if [ "$cond" = 1 ]; then
+        echo "$@"
+        eval "$@"
+    else
+        echo "[SKIP] $@"
+    fi
+}
+
+run_if "$DO_CLEAN"  cargo clean
+# let build fail on Clippy warnings
+run_if "$DO_CLIPPY" cargo clippy $BUILD_FLAGS --all-targets --all-features -- -D warnings
+run_if "$DO_BUILD"  cargo build  $BUILD_FLAGS
+run_if "$DO_TEST"   cargo test   $BUILD_FLAGS
+# and also check tests and none-default crate features
+run_if "$DO_CHECK"  cargo check  $BUILD_FLAGS
