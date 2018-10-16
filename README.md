@@ -9,6 +9,7 @@ A [MiniJava](https://pp.ipd.kit.edu/lehre/WS201819/compprakt/intern/sprachberich
 ```bash
 curl https://sh.rustup.rs -sSf | sh
 rustup toolchain install nightly-2018-10-14
+rustup component add clippy-preview
 ```
 
 ## Merging Pull Requests
