@@ -1,4 +1,5 @@
-extern crate structopt;
+#![warn(rust_2018_idioms)]
+
 use structopt::StructOpt;
 
 use std::path::PathBuf;
