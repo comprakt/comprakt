@@ -1,0 +1,14 @@
+# Break comments to fit on the line
+wrap_comments = true
+# Merge multiple imports into a single nested import.
+merge_imports = true
+# Maximum width of each line (default 100)
+#max_width = 100
+# Error if Rustfmt is unable to get all lines within `max_width`, except for
+# comments and string literals.
+error_on_line_overflow = true
+# Error if unable to get comments or string literals within `max_width`, or
+# they are left with trailing whitespaces.
+error_on_unformatted = true
+# Specifies which edition is used by the parser.
+edition = "2018"

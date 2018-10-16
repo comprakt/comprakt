@@ -22,7 +22,9 @@ matrix:
 
 before_script:
   - rustup component add clippy-preview
+  - rustup component add rustfmt-preview
 script:
+  - cargo fmt --all -- --check
   # let build fail on Clippy warnings
   # and also check tests and none-default crate features
   - cargo clippy --all-targets --all-features -- -D warnings
