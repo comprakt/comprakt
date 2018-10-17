@@ -39,12 +39,19 @@ For code that should **not** get formatted by `rustfmt` mark the code with
 #[rustfmt::skip]
 ```
 
+This should only be used sparingly, e.g. for tabular constant definitions where
+you want to align the columns and similar cases.
+
 A Clippy lint can be disabled similar to `rustc` lints:
 
 ```rust
 #![allow(clippy::lint_group)]
 #[allow(clippy::lint_name)]
 ```
+
+Fixing a Clippy warning instead of just `allow`ing it, is almost always the
+better option. Lints should only be disabled if it **really** does not make
+sense to fix them or if it is a false positive.
 
 ## Workflow
 
