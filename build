@@ -18,6 +18,7 @@ cd "$SCRIPT_PATH"
 # default config for speedcenter
 BUILD_FLAGS="--release"
 DO_CLEAN=1
+DO_RUSTFMT=0
 DO_CLIPPY=0
 DO_BUILD=1
 DO_TEST=0
@@ -31,6 +32,7 @@ case "$1" in
     "--ci") # shortcut to emulate CI build
         BUILD_FLAGS=""
         DO_CLEAN=0
+        DO_RUSTFMT=1
         DO_CLIPPY=1
         DO_BUILD=0
         DO_TEST=1
@@ -55,10 +57,11 @@ run_if() {
     fi
 }
 
-run_if "$DO_CLEAN"  cargo clean
+run_if "$DO_CLEAN"   cargo clean
+run_if "$DO_RUSTFMT" cargo fmt --all -- --check
 # let build fail on Clippy warnings
-run_if "$DO_CLIPPY" cargo clippy $BUILD_FLAGS --all-targets --all-features -- -D warnings
-run_if "$DO_BUILD"  cargo build  $BUILD_FLAGS
-run_if "$DO_TEST"   cargo test   $BUILD_FLAGS
+run_if "$DO_CLIPPY"  cargo clippy $BUILD_FLAGS --all-targets --all-features -- -D warnings
+run_if "$DO_BUILD"   cargo build  $BUILD_FLAGS
+run_if "$DO_TEST"    cargo test   $BUILD_FLAGS
 # and also check tests and none-default crate features
-run_if "$DO_CHECK"  cargo check  $BUILD_FLAGS
+run_if "$DO_CHECK"   cargo check  $BUILD_FLAGS
