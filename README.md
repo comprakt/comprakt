@@ -11,7 +11,39 @@ A [MiniJava](https://pp.ipd.kit.edu/lehre/WS201819/compprakt/intern/sprachberich
 ```bash
 curl https://sh.rustup.rs -sSf | sh
 rustup toolchain install nightly-2018-10-14
+```
+
+## Tools
+
+We're using the tools [`rustfmt`](https://github.com/rust-lang-nursery/rustfmt)
+to format our code and
+[`clippy`](https://github.com/rust-lang-nursery/rust-clippy) as a linter to keep
+the code clean, idiomatic and correct. These tools are available in
+`nightly-2018-10-14` via `rustup`:
+
+```bash
 rustup component add clippy-preview
+rustup component add rustfmt-preview
+```
+
+To run those tools use
+
+```bash
+cargo clippy
+cargo fmt --all
+```
+
+For code that should **not** get formatted by `rustfmt` mark the code with
+
+```rust
+#[rustfmt::skip]
+```
+
+A Clippy lint can be disabled similar to `rustc` lints:
+
+```rust
+#![allow(clippy::lint_group)]
+#[allow(clippy::lint_name)]
 ```
 
 ## Merging Pull Requests
