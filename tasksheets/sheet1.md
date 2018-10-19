@@ -34,9 +34,13 @@ to "allocate" more memory. Since there is no mechanism for getting the address o
 
 (3) Subset of Java
 --------------
-Yes, because the grammar yields a sublanguage of that of Java, and for the semantics only
-additional constraints are given to the semantics of Java, so any valid MiniJava program
-is a valid Java program.
+Yes, because the ignored characters ("Leerraum"), the Comment-patterns and the keywords
+(<=SE8, see note below) are a subset of those of Java; because the grammar yields a sublanguage
+of that of Java; and for the semantics only additional constraints are given to the semantics
+of Java, so any valid MiniJava program is a valid Java (<=SE8) program.
+
+However, since Java release 9 [1], the underscore `_` is a reserved keyword, which it is not
+in MiniJava, so that MiniJava is no longer a subset of Java.
 
 (4) Word Problems
 -------------
@@ -44,3 +48,6 @@ is a valid Java program.
 - Program 2: No, because accessing the argument to *MainMethod* is forbidden
 - Program 3: No, because only a single `public static void` method is allowed, the *MainMethod*,
   which is required to have a single argument `String[] IDENT`.
+
+
+[1]: https://docs.oracle.com/javase/specs/jls/se10/html/jls-3.html#jls-3.9
