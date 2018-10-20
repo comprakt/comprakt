@@ -28,19 +28,20 @@ class Foo {
 MiniJava is turing complete, since it provides both conditional expressions (*IfStatement*),
 as well as an iteration construct (*WhileStatement*). Unlimited memory is achieved via the
 32-bit `int` type as a local variable and using recursion (*Method* and *MethodInvocation*)
-to "allocate" more memory. Since there is no mechanism for getting the address of a variable
-(like e.g. `&varname` in C), the size of the Stack is not bounded, and can grow arbitrarily
-(at least in theory).
+to "allocate" more memory on the stack. The size of the stack (and thus the available memory)
+is not bounded (at least in theory), since there are no features that allow bounded enumeration of the
+available memory locations, such as storing the address of a variable in a fixed-length integer
+(like `&varname` in C, which is `<= 2^(8*sizeof(void*))`, a static number).
 
 (3) Subset of Java
 --------------
-Yes, because the ignored characters ("Leerraum"), the Comment-patterns and the keywords
-(<=SE8, see note below) are a subset of those of Java; because the grammar yields a sublanguage
+Yes (of Java <= SE8), because the ignored characters ("Leerraum"), the Comment-patterns and the keywords
+(at least for Java <= SE8, see note below) are a subset of those of Java; because the grammar yields a sublanguage
 of that of Java; and for the semantics only additional constraints are given to the semantics
-of Java, so any valid MiniJava program is a valid Java (<=SE8) program.
+of Java, so any valid MiniJava program is a valid Java (<= SE8) program.
 
-However, since Java release 9 [1], the underscore `_` is a reserved keyword, which it is not
-in MiniJava, so that MiniJava is no longer a subset of Java.
+However, since Java SE9 [1], the underscore `_` is a reserved keyword, which it is not
+in MiniJava, so that MiniJava not a subset of Java >= SE9.
 
 (4) Word Problems
 -------------
