@@ -1,8 +1,11 @@
 #![warn(rust_2018_idioms)]
+#![feature(try_from)]
+#![feature(if_while_or_patterns)]
 
 use failure::{Error, Fail, ResultExt};
 use std::{fs::File, io, path::PathBuf, process::exit};
 mod asciifile;
+mod lexer;
 mod strtab;
 use structopt::StructOpt;
 
