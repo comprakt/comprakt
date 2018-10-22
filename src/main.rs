@@ -3,6 +3,7 @@
 use failure::{Error, Fail, ResultExt};
 use std::{fs::File, io, path::PathBuf, process::exit};
 mod asciifile;
+mod strtab;
 use structopt::StructOpt;
 
 #[macro_use]
