@@ -45,11 +45,12 @@ impl<'a> AsciiFile {
         Ok(AsciiFile { file, mapping })
     }
 
-    fn iter(&'a self) -> impl Iterator<Item = Char> + 'a {
+    fn iter(&self) -> Chars<std::str::Chars<'_>> {
         let s: &str = self;
         Chars {
             curpos: Position { row: 0, col: 0 },
             af: s.chars(),
+            peeked: None,
         }
     }
 }
@@ -79,6 +80,7 @@ where
 {
     curpos: Position,
     af: I, // form ascii file
+    peeked: Option<char>,
 }
 
 impl<I> Iterator for Chars<I>
@@ -87,14 +89,27 @@ where
 {
     type Item = Char;
     fn next(&mut self) -> Option<Char> {
-        let c = self.af.next()?;
+        let c = self.peek()?;
+        self.peeked = None;
+
         let retpos = self.curpos;
         self.curpos.col += 1;
         if c == '\n' {
             self.curpos.row += 1;
             self.curpos.col = 0;
         }
+
         Some(Char(retpos, c))
+    }
+}
+
+impl<I> Chars<I>
+where
+    I: Iterator<Item = char>,
+{
+    pub fn peek(&mut self) -> Option<char> {
+        self.peeked = self.peeked.or_else(|| self.af.next());
+        self.peeked
     }
 }
 
@@ -181,4 +196,16 @@ mod tests {
         assert_eq!(exp, res);
     }
 
+    #[test]
+    fn peeking_works() {
+        let f = testfile("one\ntwo three\nfour\n");
+        let af = AsciiFile::new(f).unwrap();
+        let mut i = af.iter();
+
+        let mut peeked = i.peek();
+        while let Some(Char(_, c)) = i.next() {
+            assert_eq!(c, peeked.unwrap());
+            peeked = i.peek();
+        }
+    }
 }
