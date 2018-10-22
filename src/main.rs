@@ -71,9 +71,16 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         }
         CliCommand::LexerTest { path } => {
             let f = File::open(&path).context(CliError::OpenInputError { path: path.clone() })?;
-
             let f = asciifile::AsciiFile::new(f).unwrap();
-            println!("ASCII file\n{}", &f as &str);
+
+            let strtab = strtab::StringTable::new();
+            let lexer = lexer::Lexer::new(f.iter(), &strtab);
+
+            for t in lexer {
+                println!("{:?}", t.data);
+            }
+
+            eprintln!("{:?}", strtab);
         }
     }
 
