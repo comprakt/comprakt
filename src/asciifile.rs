@@ -72,7 +72,7 @@ impl Display for Position {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Char(Position, char);
+pub struct Char(pub Position, pub char);
 
 pub struct Chars<I>
 where
