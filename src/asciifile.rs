@@ -45,7 +45,7 @@ impl<'a> AsciiFile {
         Ok(AsciiFile { file, mapping })
     }
 
-    fn iter(&self) -> Chars<std::str::Chars<'_>> {
+    pub fn iter(&self) -> Chars<std::str::Chars<'_>> {
         let s: &str = self;
         Chars {
             curpos: Position { row: 0, col: 0 },
