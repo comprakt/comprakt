@@ -50,7 +50,7 @@ impl<'a> AsciiFile {
         Chars {
             curpos: Position { row: 0, col: 0 },
             af: s.chars(),
-            peeked: None,
+            peeked: String::new(),
         }
     }
 }
@@ -80,7 +80,7 @@ where
 {
     curpos: Position,
     af: I, // form ascii file
-    peeked: Option<char>,
+    peeked: String,
 }
 
 impl<I> Iterator for Chars<I>
@@ -90,7 +90,7 @@ where
     type Item = Char;
     fn next(&mut self) -> Option<Char> {
         let c = self.peek()?;
-        self.peeked = None;
+        self.peeked.remove(0);
 
         let retpos = self.curpos;
         self.curpos.col += 1;
@@ -107,9 +107,37 @@ impl<I> Chars<I>
 where
     I: Iterator<Item = char>,
 {
+    /// Peek the next n characters, without advancing the iteratior (it is
+    /// actually advanced, of course, but this is hidden by a buffer).
+    /// If there are less than n charcters left, the returned slice is shorter
+    /// than that
+    pub fn peek_multiple(&mut self, n: usize) -> &str {
+        // We already have .len() characters "in stock", so we get the remaining n-len,
+        // if there are then many
+        for _ in self.peeked.len()..n {
+            match self.af.next() {
+                Some(next) => self.peeked.push(next),
+                None => break,
+            }
+        }
+
+        &self.peeked[0..self.peeked.len().min(n)]
+    }
+
+    /// Can't use peekable, pecause we don't care about position when peeking
     pub fn peek(&mut self) -> Option<char> {
-        self.peeked = self.peeked.or_else(|| self.af.next());
-        self.peeked
+        self.peek_multiple(1).chars().next()
+    }
+
+    pub fn eof_position(&mut self) -> Position {
+        if self.next().is_some() {
+            panic!("Must only be called at EOF")
+        }
+
+        let mut pos = self.curpos;
+        pos.col += 1;
+
+        pos
     }
 }
 
@@ -207,5 +235,44 @@ mod tests {
             assert_eq!(c, peeked.unwrap());
             peeked = i.peek();
         }
+    }
+
+    #[test]
+    fn multi_peeking_works() {
+        let s = "one\ntwo three\nfour\n\n";
+        let f = testfile(s);
+        let af = AsciiFile::new(f).unwrap();
+        let mut i = af.iter();
+
+        let peeked = i.peek_multiple(s.len());
+
+        assert_eq!(s, peeked);
+
+        let exp = vec![
+            Char(Position { row: 0, col: 0 }, 'o'),
+            Char(Position { row: 0, col: 1 }, 'n'),
+            Char(Position { row: 0, col: 2 }, 'e'),
+            Char(Position { row: 0, col: 3 }, '\n'),
+            Char(Position { row: 1, col: 0 }, 't'),
+            Char(Position { row: 1, col: 1 }, 'w'),
+            Char(Position { row: 1, col: 2 }, 'o'),
+            Char(Position { row: 1, col: 3 }, ' '),
+            Char(Position { row: 1, col: 4 }, 't'),
+            Char(Position { row: 1, col: 5 }, 'h'),
+            Char(Position { row: 1, col: 6 }, 'r'),
+            Char(Position { row: 1, col: 7 }, 'e'),
+            Char(Position { row: 1, col: 8 }, 'e'),
+            Char(Position { row: 1, col: 9 }, '\n'),
+            Char(Position { row: 2, col: 0 }, 'f'),
+            Char(Position { row: 2, col: 1 }, 'o'),
+            Char(Position { row: 2, col: 2 }, 'u'),
+            Char(Position { row: 2, col: 3 }, 'r'),
+            Char(Position { row: 2, col: 4 }, '\n'),
+            Char(Position { row: 3, col: 0 }, '\n'),
+        ];
+
+        let res: Vec<Char> = i.collect();
+
+        assert_eq!(exp, res);
     }
 }
