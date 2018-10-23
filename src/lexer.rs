@@ -252,13 +252,15 @@ where
         match self.input.peek() {
             Some('a'..='z') | Some('A'..='Z') | Some('_') => self.lex_identifier_or_keyword(),
             Some('0'..='9') => self.lex_integer_literal(),
+            Some(c) if c.is_whitespace() => self.lex_whitespace(),
             Some(_) => {
                 if self.input.peek_multiple(2) == "/*" {
-                    self.skip_comment();
-                    self.lex_token()
+                    self.lex_comment()
                 } else {
-                    self.lex_operator()
-                        .unwrap_or_else(|| panic!("error: {:?}", self.input.peek()))
+                    self.lex_operator().unwrap_or_else(|| {
+                        let asciifile::Char(pos, c) = self.input.next().unwrap();
+                        Token::new(pos, pos, TokenData::UnexpectedCharacter(c))
+                    })
                 }
             }
 
@@ -416,6 +418,8 @@ where
             let asciifile::Char(pos, _) = self.input.next().unwrap();
             end = pos;
         }
+
+        Token::new(start, end, TokenData::Whitespace)
     }
 }
 
