@@ -27,11 +27,11 @@ mod strtab;
 #[derive(Debug, Fail)]
 enum CliError {
     #[fail(display = "failed to open MiniJava file {:?}", path)]
-    OpenInputError { path: PathBuf },
+    OpenInput { path: PathBuf },
     #[fail(display = "failed to mmap MiniJava file {:?}", path)]
-    MmapError { path: PathBuf },
+    Mmap { path: PathBuf },
     #[fail(display = "failed to copy input file {:?} to stdout", input)]
-    EchoError { input: PathBuf },
+    Echo { input: PathBuf },
 }
 
 #[derive(StructOpt)]
@@ -63,19 +63,17 @@ fn main() {
 fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
     match cmd {
         CliCommand::Echo { path } => {
-            let mut f =
-                File::open(&path).context(CliError::OpenInputError { path: path.clone() })?;
+            let mut f = File::open(&path).context(CliError::OpenInput { path: path.clone() })?;
 
             let mut stdout = io::stdout();
-            io::copy(&mut f, &mut stdout).context(CliError::EchoError {
+            io::copy(&mut f, &mut stdout).context(CliError::Echo {
                 input: path.clone(),
             })?;
         }
         CliCommand::LexerTest { path } => {
-            let file =
-                File::open(&path).context(CliError::OpenInputError { path: path.clone() })?;
-            let mapping = (unsafe { Mmap::map(&file) })
-                .context(CliError::MmapError { path: path.clone() })?;
+            let file = File::open(&path).context(CliError::OpenInput { path: path.clone() })?;
+            let mapping =
+                (unsafe { Mmap::map(&file) }).context(CliError::Mmap { path: path.clone() })?;
             let ascii_file = asciifile::AsciiFile::new(mapping).unwrap();
 
             let strtab = strtab::StringTable::new();

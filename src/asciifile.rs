@@ -180,14 +180,10 @@ mod tests {
         assert!(mm.is_err());
         let e = mm.err().unwrap();
         match e {
-            EncodingError::NotAscii {
-                position: 3,
-                character: _,
-            } => (),
-            EncodingError::NotAscii {
-                position: x,
-                character: _,
-            } => panic!("detected not ascii, but wrong line {}", x),
+            EncodingError::NotAscii { position: 3, .. } => (),
+            EncodingError::NotAscii { position: x, .. } => {
+                panic!("detected not ascii, but wrong line {}", x)
+            }
         }
     }
 
