@@ -27,19 +27,13 @@
 //! [2] https://github.com/Robbepop/string-interner
 use std::{
     borrow::Cow,
-    cell::RefCell,
     collections::HashMap,
     hash::{Hash, Hasher},
-    rc::Rc,
 };
-
-//#[derive(Debug)]
-//pub struct Symbol<'a> {
-//name: &str,
-//}
 
 #[derive(Debug)]
 pub struct StringTable {
+    // TODO: use interior mutability
     //lookup: RefCell<HashMap<InternedStringRef, InternedStringRef>>,
     //entries: RefCell<Vec<Box<str>>>,
     lookup: HashMap<InternedStringRef, usize>,
@@ -129,6 +123,35 @@ mod tests {
         interner.intern("banana");
         interner.intern("banana");
         interner.intern("banana");
+        interner.assert_internal_state_size(1);
+    }
+
+    #[test]
+    fn test_can_use_both_string_types() {
+        let mut interner = StringTable::new();
+        assert_eq!("banana", interner.intern("banana"));
+        assert_eq!("banana", interner.intern("banana".to_string()));
+        interner.assert_internal_state_size(1);
+        assert_eq!("banana2", interner.intern("banana2".to_string()));
+        interner.assert_internal_state_size(2);
+    }
+
+    #[test]
+    fn test_can_resize_vector() {
+        let mut interner = StringTable::new();
+        for i in 0..1000 {
+            let which_banana = format!("banana{}", i);
+            assert_eq!(&which_banana, interner.intern(&which_banana));
+        }
+        interner.assert_internal_state_size(1000);
+    }
+
+    #[test]
+    fn test_can_intern_empty_string() {
+        let mut interner = StringTable::new();
+        assert_eq!("", interner.intern(""));
+        interner.assert_internal_state_size(1);
+        assert_eq!("", interner.intern("".to_string()));
         interner.assert_internal_state_size(1);
     }
 }

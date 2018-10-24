@@ -1,5 +1,4 @@
 #![warn(rust_2018_idioms)]
-#![feature(map_get_key_value)]
 
 use failure::{Error, Fail, ResultExt};
 use std::{fs::File, io, path::PathBuf, process::exit};
