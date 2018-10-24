@@ -1,48 +1,31 @@
-use memmap::{Mmap, MmapOptions};
-use std::fs::File;
+use failure::Fail;
+use memmap::Mmap;
 
 pub struct AsciiFile {
-    #[allow(unused)] // mapping must not outlive File
-    file: File,
     mapping: Mmap,
 }
 
-use std::io;
-
-quick_error!{
-    #[derive(Debug)]
-    pub enum Error {
-        IO(err: io::Error) {
-            cause(err)
-            from()
-        }
-        NotAscii(byte_pos: usize) {}
-    }
+#[derive(Debug, Fail)]
+pub enum EncodingError {
+    #[fail(
+        display = "input contained non-ascii character '{}' at byte offset {}",
+        character,
+        position
+    )]
+    NotAscii { position: usize, character: char },
 }
 
 impl<'a> AsciiFile {
     // cost: O(fileLen) since we need to check if all chars are ASCII
-    pub fn new(file: File) -> Result<AsciiFile, Error> {
-        let mapping = unsafe { MmapOptions::new().map(&file)? };
-
-        let (err_idx, is_ascii) = mapping
-            .iter()
-            .enumerate()
-            .fold((0, true), |(i, a), (j, b)| {
-                if !a {
-                    return (i, a);
-                }
-                if !b.is_ascii() {
-                    return (j, false);
-                }
-                (j, true)
+    pub fn new(mapping: Mmap) -> Result<AsciiFile, EncodingError> {
+        if let Some(position) = mapping.iter().position(|c| !c.is_ascii()) {
+            return Err(EncodingError::NotAscii {
+                position,
+                character: mapping[position].into(),
             });
-
-        if !is_ascii {
-            return Err(Error::NotAscii(err_idx));
         }
 
-        Ok(AsciiFile { file, mapping })
+        Ok(AsciiFile { mapping })
     }
 
     pub fn iter(&self) -> PositionedChars<std::str::Chars<'_>> {
@@ -159,13 +142,13 @@ mod tests {
 
     use super::*;
 
-    fn testfile(s: &str) -> File {
+    fn testfile(s: &str) -> Mmap {
         use std::io::{Seek, SeekFrom, Write};
         use tempfile::tempfile;
         let mut f = tempfile().unwrap();
         f.write_all(s.as_bytes()).unwrap();
         f.seek(SeekFrom::Start(0)).unwrap();
-        f
+        unsafe { Mmap::map(&f).unwrap() }
     }
 
     #[test]
@@ -184,11 +167,14 @@ mod tests {
         assert!(mm.is_err());
         let e = mm.err().unwrap();
         match e {
-            Error::NotAscii(3) => (),
-            Error::NotAscii(x) => panic!("detected not ascii, but wrong line {}", x),
-            x => {
-                panic!("wrong error type: {:?}", x);
-            }
+            EncodingError::NotAscii {
+                position: 3,
+                character: _,
+            } => (),
+            EncodingError::NotAscii {
+                position: x,
+                character: _,
+            } => panic!("detected not ascii, but wrong line {}", x),
         }
     }
 
