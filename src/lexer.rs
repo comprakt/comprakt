@@ -273,7 +273,7 @@ where
 
     fn lex_identifier_or_keyword(&mut self) -> Token<'t> {
         self.lex_while(
-            |c| c.is_alphanumeric() || c == '_',
+            |c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9'),
             |ident, strtab, _| match Keyword::try_from(ident.as_ref()) {
                 Ok(keyword) => TokenData::Keyword(keyword),
                 Err(_) => TokenData::Identifier(strtab.intern(ident)),
@@ -283,7 +283,7 @@ where
 
     fn lex_integer_literal(&mut self) -> Token<'t> {
         self.lex_while(
-            |c| c.is_numeric(),
+            |c| matches!(c, '0'..='9'),
             |lit, strtab, _| TokenData::IntegerLiteral(strtab.intern(lit)),
         )
     }
