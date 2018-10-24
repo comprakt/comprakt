@@ -8,6 +8,8 @@ use memmap::Mmap;
 use std::{fs::File, io, path::PathBuf, process::exit};
 use structopt::StructOpt;
 
+#[macro_use]
+mod utils;
 mod asciifile;
 mod lexer;
 mod strtab;
