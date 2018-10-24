@@ -1,4 +1,7 @@
-use crate::{asciifile, strtab::*};
+use crate::{
+    asciifile::{Position, PositionedChar, PositionedChars},
+    strtab::*,
+};
 
 use std::{convert::TryFrom, result::Result};
 
@@ -6,11 +9,11 @@ macro_rules! match_op {
     ($input: expr, $len: expr, $right: expr) => {{
         // Unwraps are safe, because this is only called after token of length $len,
         // is already matched and thus contained in $input
-        let asciifile::Char(begin, _) = $input.next().unwrap();
+        let PositionedChar(begin, _) = $input.next().unwrap();
         let mut end = begin;
         #[allow(clippy::reverse_range_loop)] // Macro might be called with with $len=1
         for _ in 1..$len {
-            let asciifile::Char(pos, _) = $input.next().unwrap();
+            let PositionedChar(pos, _) = $input.next().unwrap();
             end = pos;
         }
 
@@ -207,21 +210,21 @@ pub enum Operator {
 }
 
 #[derive(Debug)]
-pub struct TextSpan {
-    pub start: asciifile::Position,
-    pub end: asciifile::Position,
+pub struct Span {
+    pub start: Position,
+    pub end: Position,
 }
 
 #[derive(Debug)]
 pub struct Token<'t> {
-    pub span: TextSpan,
+    pub span: Span,
     pub data: TokenData<'t>,
 }
 
 impl<'t> Token<'t> {
-    fn new(start: asciifile::Position, end: asciifile::Position, value: TokenData<'t>) -> Self {
+    fn new(start: Position, end: Position, value: TokenData<'t>) -> Self {
         Token {
-            span: TextSpan { start, end },
+            span: Span { start, end },
             data: value,
         }
     }
@@ -231,7 +234,7 @@ pub struct Lexer<'t, I>
 where
     I: Iterator<Item = char>,
 {
-    input: asciifile::Chars<I>,
+    input: PositionedChars<I>,
     strtab: &'t StringTable,
     eof: bool,
 }
@@ -240,7 +243,7 @@ impl<'t, I> Lexer<'t, I>
 where
     I: Iterator<Item = char>,
 {
-    pub fn new(input: asciifile::Chars<I>, strtab: &'t StringTable) -> Self {
+    pub fn new(input: PositionedChars<I>, strtab: &'t StringTable) -> Self {
         Lexer {
             input,
             strtab,
@@ -258,7 +261,7 @@ where
                     self.lex_comment()
                 } else {
                     self.lex_operator().unwrap_or_else(|| {
-                        let asciifile::Char(pos, c) = self.input.next().unwrap();
+                        let PositionedChar(pos, c) = self.input.next().unwrap();
                         Token::new(pos, pos, TokenData::UnexpectedCharacter(c))
                     })
                 }
@@ -275,7 +278,7 @@ where
         let mut ident = String::new(); // TODO as member, so not always reallocate
 
         // Unwrap is safe because of previous peek in caller
-        let asciifile::Char(start_pos, first_char) = self.input.next().unwrap();
+        let PositionedChar(start_pos, first_char) = self.input.next().unwrap();
         ident.push(first_char);
 
         let mut end_pos = start_pos;
@@ -283,7 +286,7 @@ where
             self.input.peek()
         {
             // Unwrap is safe because of previous peek
-            let asciifile::Char(pos, c) = self.input.next().unwrap();
+            let PositionedChar(pos, c) = self.input.next().unwrap();
             ident.push(c);
             end_pos = pos;
         }
@@ -299,12 +302,12 @@ where
     // TODO DRY! Nearly same as lex_identifier_or_keyword
     fn lex_integer_literal(&mut self) -> Token<'t> {
         let mut lit = String::new();
-        let asciifile::Char(start_pos, first_char) = self.input.next().unwrap();
+        let PositionedChar(start_pos, first_char) = self.input.next().unwrap();
         lit.push(first_char);
 
         let mut end_pos = start_pos;
         while let Some('0'..='9') = self.input.peek() {
-            let asciifile::Char(pos, c) = self.input.next().unwrap();
+            let PositionedChar(pos, c) = self.input.next().unwrap();
             lit.push(c);
             end_pos = pos;
         }
@@ -379,13 +382,13 @@ where
     fn lex_comment(&mut self) -> Token<'t> {
         let mut text = String::new();
         // Skip `/*`: Unwraps are safe because of peek in caller
-        let asciifile::Char(start, _) = self.input.next().unwrap();
+        let PositionedChar(start, _) = self.input.next().unwrap();
         self.input.next().unwrap();
 
         let mut end = start;
         while self.input.peek_multiple(2) != "*/" {
             match self.input.next() {
-                Some(asciifile::Char(pos, c)) => {
+                Some(PositionedChar(pos, c)) => {
                     text.push(c);
                     end = pos;
                 }
@@ -406,7 +409,7 @@ where
     }
 
     fn lex_whitespace(&mut self) -> Token<'t> {
-        let asciifile::Char(start, _) = self.input.next().unwrap();
+        let PositionedChar(start, _) = self.input.next().unwrap();
 
         let mut end = start;
         while self
@@ -415,7 +418,7 @@ where
             .map(|c| c.is_whitespace())
             .unwrap_or(false)
         {
-            let asciifile::Char(pos, _) = self.input.next().unwrap();
+            let PositionedChar(pos, _) = self.input.next().unwrap();
             end = pos;
         }
 

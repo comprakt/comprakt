@@ -45,9 +45,9 @@ impl<'a> AsciiFile {
         Ok(AsciiFile { file, mapping })
     }
 
-    pub fn iter(&self) -> Chars<std::str::Chars<'_>> {
+    pub fn iter(&self) -> PositionedChars<std::str::Chars<'_>> {
         let s: &str = self;
-        Chars {
+        PositionedChars {
             curpos: Position { row: 0, col: 0 },
             af: s.chars(),
             peeked: String::new(),
@@ -72,9 +72,9 @@ impl Display for Position {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Char(pub Position, pub char);
+pub struct PositionedChar(pub Position, pub char);
 
-pub struct Chars<I>
+pub struct PositionedChars<I>
 where
     I: Iterator<Item = char>,
 {
@@ -83,12 +83,12 @@ where
     peeked: String,
 }
 
-impl<I> Iterator for Chars<I>
+impl<I> Iterator for PositionedChars<I>
 where
     I: Iterator<Item = char>,
 {
-    type Item = Char;
-    fn next(&mut self) -> Option<Char> {
+    type Item = PositionedChar;
+    fn next(&mut self) -> Option<PositionedChar> {
         let c = self.peek()?;
         self.peeked.remove(0);
 
@@ -99,11 +99,11 @@ where
             self.curpos.col = 0;
         }
 
-        Some(Char(retpos, c))
+        Some(PositionedChar(retpos, c))
     }
 }
 
-impl<I> Chars<I>
+impl<I> PositionedChars<I>
 where
     I: Iterator<Item = char>,
 {
@@ -196,29 +196,29 @@ mod tests {
     fn iterator_works() {
         let f = testfile("one\ntwo three\nfour\n\n");
         let af = AsciiFile::new(f).unwrap();
-        let res: Vec<Char> = af.iter().collect();
+        let res: Vec<PositionedChar> = af.iter().collect();
 
         let exp = vec![
-            Char(Position { row: 0, col: 0 }, 'o'),
-            Char(Position { row: 0, col: 1 }, 'n'),
-            Char(Position { row: 0, col: 2 }, 'e'),
-            Char(Position { row: 0, col: 3 }, '\n'),
-            Char(Position { row: 1, col: 0 }, 't'),
-            Char(Position { row: 1, col: 1 }, 'w'),
-            Char(Position { row: 1, col: 2 }, 'o'),
-            Char(Position { row: 1, col: 3 }, ' '),
-            Char(Position { row: 1, col: 4 }, 't'),
-            Char(Position { row: 1, col: 5 }, 'h'),
-            Char(Position { row: 1, col: 6 }, 'r'),
-            Char(Position { row: 1, col: 7 }, 'e'),
-            Char(Position { row: 1, col: 8 }, 'e'),
-            Char(Position { row: 1, col: 9 }, '\n'),
-            Char(Position { row: 2, col: 0 }, 'f'),
-            Char(Position { row: 2, col: 1 }, 'o'),
-            Char(Position { row: 2, col: 2 }, 'u'),
-            Char(Position { row: 2, col: 3 }, 'r'),
-            Char(Position { row: 2, col: 4 }, '\n'),
-            Char(Position { row: 3, col: 0 }, '\n'),
+            PositionedChar(Position { row: 0, col: 0 }, 'o'),
+            PositionedChar(Position { row: 0, col: 1 }, 'n'),
+            PositionedChar(Position { row: 0, col: 2 }, 'e'),
+            PositionedChar(Position { row: 0, col: 3 }, '\n'),
+            PositionedChar(Position { row: 1, col: 0 }, 't'),
+            PositionedChar(Position { row: 1, col: 1 }, 'w'),
+            PositionedChar(Position { row: 1, col: 2 }, 'o'),
+            PositionedChar(Position { row: 1, col: 3 }, ' '),
+            PositionedChar(Position { row: 1, col: 4 }, 't'),
+            PositionedChar(Position { row: 1, col: 5 }, 'h'),
+            PositionedChar(Position { row: 1, col: 6 }, 'r'),
+            PositionedChar(Position { row: 1, col: 7 }, 'e'),
+            PositionedChar(Position { row: 1, col: 8 }, 'e'),
+            PositionedChar(Position { row: 1, col: 9 }, '\n'),
+            PositionedChar(Position { row: 2, col: 0 }, 'f'),
+            PositionedChar(Position { row: 2, col: 1 }, 'o'),
+            PositionedChar(Position { row: 2, col: 2 }, 'u'),
+            PositionedChar(Position { row: 2, col: 3 }, 'r'),
+            PositionedChar(Position { row: 2, col: 4 }, '\n'),
+            PositionedChar(Position { row: 3, col: 0 }, '\n'),
         ];
 
         assert_eq!(exp, res);
@@ -231,7 +231,7 @@ mod tests {
         let mut i = af.iter();
 
         let mut peeked = i.peek();
-        while let Some(Char(_, c)) = i.next() {
+        while let Some(PositionedChar(_, c)) = i.next() {
             assert_eq!(c, peeked.unwrap());
             peeked = i.peek();
         }
@@ -249,29 +249,29 @@ mod tests {
         assert_eq!(s, peeked);
 
         let exp = vec![
-            Char(Position { row: 0, col: 0 }, 'o'),
-            Char(Position { row: 0, col: 1 }, 'n'),
-            Char(Position { row: 0, col: 2 }, 'e'),
-            Char(Position { row: 0, col: 3 }, '\n'),
-            Char(Position { row: 1, col: 0 }, 't'),
-            Char(Position { row: 1, col: 1 }, 'w'),
-            Char(Position { row: 1, col: 2 }, 'o'),
-            Char(Position { row: 1, col: 3 }, ' '),
-            Char(Position { row: 1, col: 4 }, 't'),
-            Char(Position { row: 1, col: 5 }, 'h'),
-            Char(Position { row: 1, col: 6 }, 'r'),
-            Char(Position { row: 1, col: 7 }, 'e'),
-            Char(Position { row: 1, col: 8 }, 'e'),
-            Char(Position { row: 1, col: 9 }, '\n'),
-            Char(Position { row: 2, col: 0 }, 'f'),
-            Char(Position { row: 2, col: 1 }, 'o'),
-            Char(Position { row: 2, col: 2 }, 'u'),
-            Char(Position { row: 2, col: 3 }, 'r'),
-            Char(Position { row: 2, col: 4 }, '\n'),
-            Char(Position { row: 3, col: 0 }, '\n'),
+            PositionedChar(Position { row: 0, col: 0 }, 'o'),
+            PositionedChar(Position { row: 0, col: 1 }, 'n'),
+            PositionedChar(Position { row: 0, col: 2 }, 'e'),
+            PositionedChar(Position { row: 0, col: 3 }, '\n'),
+            PositionedChar(Position { row: 1, col: 0 }, 't'),
+            PositionedChar(Position { row: 1, col: 1 }, 'w'),
+            PositionedChar(Position { row: 1, col: 2 }, 'o'),
+            PositionedChar(Position { row: 1, col: 3 }, ' '),
+            PositionedChar(Position { row: 1, col: 4 }, 't'),
+            PositionedChar(Position { row: 1, col: 5 }, 'h'),
+            PositionedChar(Position { row: 1, col: 6 }, 'r'),
+            PositionedChar(Position { row: 1, col: 7 }, 'e'),
+            PositionedChar(Position { row: 1, col: 8 }, 'e'),
+            PositionedChar(Position { row: 1, col: 9 }, '\n'),
+            PositionedChar(Position { row: 2, col: 0 }, 'f'),
+            PositionedChar(Position { row: 2, col: 1 }, 'o'),
+            PositionedChar(Position { row: 2, col: 2 }, 'u'),
+            PositionedChar(Position { row: 2, col: 3 }, 'r'),
+            PositionedChar(Position { row: 2, col: 4 }, '\n'),
+            PositionedChar(Position { row: 3, col: 0 }, '\n'),
         ];
 
-        let res: Vec<Char> = i.collect();
+        let res: Vec<PositionedChar> = i.collect();
 
         assert_eq!(exp, res);
     }
