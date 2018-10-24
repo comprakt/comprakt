@@ -272,47 +272,38 @@ where
     }
 
     fn lex_identifier_or_keyword(&mut self) -> Token<'t> {
-        let mut ident = String::new(); // TODO as member, so not always reallocate
-
-        // Unwrap is safe because of previous peek in caller
-        let PositionedChar(start_pos, first_char) = self.input.next().unwrap();
-        ident.push(first_char);
-
-        let mut end_pos = start_pos;
-        while let Some('a'..='z') | Some('A'..='Z') | Some('_') | Some('0'..='9') =
-            self.input.peek()
-        {
-            // Unwrap is safe because of previous peek
-            let PositionedChar(pos, c) = self.input.next().unwrap();
-            ident.push(c);
-            end_pos = pos;
-        }
-
-        let value = match Keyword::try_from(ident.as_ref()) {
-            Ok(keyword) => TokenData::Keyword(keyword),
-            Err(_) => TokenData::Identifier(self.strtab.intern(ident)),
-        };
-
-        Token::new(start_pos, end_pos, value)
+        self.lex_while(
+            |c| c.is_alphanumeric() || c == '_',
+            |ident, strtab, _| match Keyword::try_from(ident.as_ref()) {
+                Ok(keyword) => TokenData::Keyword(keyword),
+                Err(_) => TokenData::Identifier(strtab.intern(ident)),
+            },
+        )
     }
 
-    // TODO DRY! Nearly same as lex_identifier_or_keyword
     fn lex_integer_literal(&mut self) -> Token<'t> {
-        let mut lit = String::new();
-        let PositionedChar(start_pos, first_char) = self.input.next().unwrap();
-        lit.push(first_char);
+        self.lex_while(
+            |c| c.is_numeric(),
+            |lit, strtab, _| TokenData::IntegerLiteral(strtab.intern(lit)),
+        )
+    }
 
-        let mut end_pos = start_pos;
-        while let Some('0'..='9') = self.input.peek() {
-            let PositionedChar(pos, c) = self.input.next().unwrap();
-            lit.push(c);
-            end_pos = pos;
-        }
+    fn lex_comment(&mut self) -> Token<'t> {
+        self.lex_while_multiple(
+            2,
+            |s| s != "*/",
+            |text, _, eof_reached| {
+                if eof_reached {
+                    TokenData::UnclosedComment(text)
+                } else {
+                    TokenData::Comment(text)
+                }
+            },
+        )
+    }
 
-        let entry = self.strtab.intern(lit);
-        let value = TokenData::IntegerLiteral(entry);
-
-        Token::new(start_pos, end_pos, value)
+    fn lex_whitespace(&mut self) -> Token<'t> {
+        self.lex_while(|c| c.is_whitespace(), |_, _, _| TokenData::Whitespace)
     }
 
     #[allow(clippy::cyclomatic_complexity)]
@@ -376,45 +367,48 @@ where
         }
     }
 
-    fn lex_comment(&mut self) -> Token<'t> {
-        let mut text = String::new();
-        // Skip `/*`: Unwraps are safe because of peek in caller
-        let PositionedChar(start, _) = self.input.next().unwrap();
-        self.input.next().unwrap();
-
-        let mut end = start;
-        while self.input.peek_multiple(2) != "*/" {
-            match self.input.next() {
-                Some(PositionedChar(pos, c)) => {
-                    text.push(c);
-                    end = pos;
-                }
-                None => {
-                    return Token::new(
-                        start,
-                        self.input.eof_position(),
-                        TokenData::UnclosedComment(text),
-                    )
-                }
-            }
-        }
-
-        self.input.next();
-        self.input.next();
-
-        Token::new(start, end, TokenData::Comment(text))
+    /// Like `lex_while_multiple`, but only check characters
+    fn lex_while<P, D>(&mut self, predicate: P, make_token_data: D) -> Token<'t>
+    where
+        P: Fn(char) -> bool,
+        D: FnOnce(String, &'t StringTable, bool) -> TokenData<'t>,
+    {
+        // Unwrap is safe, because EOF case is handled by lex_while_multiple
+        self.lex_while_multiple(1, |s| predicate(s.chars().next().unwrap()), make_token_data)
     }
 
-    fn lex_whitespace(&mut self) -> Token<'t> {
-        let PositionedChar(start, _) = self.input.next().unwrap();
+    /// Consume n characters at a time while `predicate` returns `true`. Intern
+    /// the resulting string and convert the resulting symbol to a token
+    /// using `make_token_data`. `preddicate` is never given a less than `n`
+    /// chars. In that case, the loop is terminated and `make_token_data` is
+    /// called with 3rd argument set to `true`.
+    fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token_data: D) -> Token<'t>
+    where
+        P: Fn(&str) -> bool,
+        D: FnOnce(String, &'t StringTable, bool) -> TokenData<'t>,
+    {
+        let mut chars = String::new();
+        let PositionedChar(start_pos, first_char) = self.input.next().unwrap();
+        chars.push(first_char);
 
-        let mut end = start;
-        while self.input.peek().map_or(false, |c| c.is_whitespace()) {
-            let PositionedChar(pos, _) = self.input.next().unwrap();
-            end = pos;
+        let mut end_pos = start_pos;
+        while self.input.try_peek_multiple(n).map_or(false, &predicate) {
+            // Unwrap is safe, because `map_or` catches EOF case
+            let PositionedChar(pos, c) = self.input.next().unwrap();
+            chars.push(c);
+            end_pos = pos;
         }
 
-        Token::new(start, end, TokenData::Whitespace)
+        // Consume characters checked by `predicate` (they we're part of the token)
+        for _ in 0..n {
+            self.input.next();
+        }
+
+        Token::new(
+            start_pos,
+            end_pos,
+            make_token_data(chars, self.strtab, self.input.eof_reached()),
+        )
     }
 }
 
