@@ -90,6 +90,15 @@ impl<I> PositionedChars<I>
 where
     I: Iterator<Item = char>,
 {
+    pub fn try_peek_multiple(&mut self, n: usize) -> Option<&str> {
+        let peeked = self.peek_multiple(n);
+        if peeked.len() < n {
+            None
+        } else {
+            Some(peeked)
+        }
+    }
+
     /// Peek the next n characters, without advancing the iteratior (it is
     /// actually advanced, of course, but this is hidden by a buffer).
     /// If there are less than n charcters left, the returned slice is shorter
@@ -110,6 +119,10 @@ where
     /// Can't use peekable, pecause we don't care about position when peeking
     pub fn peek(&mut self) -> Option<char> {
         self.peek_multiple(1).chars().next()
+    }
+
+    pub fn eof_reached(&mut self) -> bool {
+        self.peek().is_some()
     }
 
     pub fn eof_position(&mut self) -> Position {
