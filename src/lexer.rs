@@ -289,7 +289,10 @@ where
     }
 
     fn lex_comment(&mut self) -> Token<'t> {
-        self.lex_while_multiple(
+        self.input.next();
+        self.input.next();
+
+        let token = self.lex_while_multiple(
             2,
             |s| s != "*/",
             |text, _, eof_reached| {
@@ -299,7 +302,12 @@ where
                     TokenData::Comment(text)
                 }
             },
-        )
+        );
+
+        self.input.next();
+        self.input.next();
+
+        token
     }
 
     fn lex_whitespace(&mut self) -> Token<'t> {
@@ -397,11 +405,6 @@ where
             let PositionedChar(pos, c) = self.input.next().unwrap();
             chars.push(c);
             end_pos = pos;
-        }
-
-        // Consume characters checked by `predicate` (they we're part of the token)
-        for _ in 0..n {
-            self.input.next();
         }
 
         Token::new(

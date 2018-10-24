@@ -122,7 +122,7 @@ where
     }
 
     pub fn eof_reached(&mut self) -> bool {
-        self.peek().is_some()
+        self.peek().is_none()
     }
 
     pub fn eof_position(&mut self) -> Position {
