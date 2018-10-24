@@ -1,6 +1,7 @@
 #![warn(rust_2018_idioms)]
 #![feature(try_from)]
 #![feature(if_while_or_patterns)]
+#![feature(bind_by_move_pattern_guards)]
 
 use failure::{Error, Fail, ResultExt};
 use std::{fs::File, io, path::PathBuf, process::exit};

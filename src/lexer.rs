@@ -31,7 +31,7 @@ pub enum TokenData<'t> {
     UnclosedComment(String),
     UnexpectedCharacter(char),
     Whitespace,
-    EOF, // TODO Remove EOF in favor of `None: Option<Token>` to signal eof?
+    EOF,
 }
 
 #[derive(Debug)]
@@ -91,10 +91,8 @@ pub enum Keyword {
     While,
 }
 
-pub struct NotAKeywordError;
-
 impl TryFrom<&str> for Keyword {
-    type Error = NotAKeywordError;
+    type Error = ();
 
     fn try_from(s: &str) -> Result<Keyword, Self::Error> {
         use self::Keyword::*;
@@ -153,7 +151,7 @@ impl TryFrom<&str> for Keyword {
             "void" => Ok(Void),
             "volatile" => Ok(Volatile),
             "while" => Ok(While),
-            _ => Err(NotAKeywordError),
+            _ => Err(()),
         }
     }
 }
@@ -254,18 +252,17 @@ where
     fn lex_token(&mut self) -> Token<'t> {
         match self.input.peek() {
             Some('a'..='z') | Some('A'..='Z') | Some('_') => self.lex_identifier_or_keyword(),
+
             Some('0'..='9') => self.lex_integer_literal(),
+
             Some(c) if c.is_whitespace() => self.lex_whitespace(),
-            Some(_) => {
-                if self.input.peek_multiple(2) == "/*" {
-                    self.lex_comment()
-                } else {
-                    self.lex_operator().unwrap_or_else(|| {
-                        let PositionedChar(pos, c) = self.input.next().unwrap();
-                        Token::new(pos, pos, TokenData::UnexpectedCharacter(c))
-                    })
-                }
-            }
+
+            Some(_) if self.input.peek_multiple(2) == "/*" => self.lex_comment(),
+
+            Some(_) => self.lex_operator().unwrap_or_else(|| {
+                let PositionedChar(pos, c) = self.input.next().unwrap();
+                Token::new(pos, pos, TokenData::UnexpectedCharacter(c))
+            }),
 
             None => {
                 let pos = self.input.eof_position();
@@ -293,7 +290,7 @@ where
 
         let value = match Keyword::try_from(ident.as_ref()) {
             Ok(keyword) => TokenData::Keyword(keyword),
-            Err(NotAKeywordError) => TokenData::Identifier(self.strtab.intern(ident)),
+            Err(_) => TokenData::Identifier(self.strtab.intern(ident)),
         };
 
         Token::new(start_pos, end_pos, value)
@@ -318,8 +315,8 @@ where
         Token::new(start_pos, end_pos, value)
     }
 
+    #[allow(clippy::cyclomatic_complexity)]
     fn lex_operator(&mut self) -> Option<Token<'t>> {
-        #![allow(clippy::cyclomatic_complexity)]
         use self::Operator::*;
 
         match self.input.peek_multiple(4) {
@@ -412,12 +409,7 @@ where
         let PositionedChar(start, _) = self.input.next().unwrap();
 
         let mut end = start;
-        while self
-            .input
-            .peek()
-            .map(|c| c.is_whitespace())
-            .unwrap_or(false)
-        {
+        while self.input.peek().map_or(false, |c| c.is_whitespace()) {
             let PositionedChar(pos, _) = self.input.next().unwrap();
             end = pos;
         }
