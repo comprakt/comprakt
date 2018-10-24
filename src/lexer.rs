@@ -272,6 +272,11 @@ where
     }
 
     fn lex_identifier_or_keyword(&mut self) -> Token<'t> {
+        assert_matches!(
+            self.input.peek(),
+            Some('a'..='z') | Some('A'..='Z') | Some('_')
+        );
+
         self.lex_while(
             |c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9'),
             |ident, strtab, _| match Keyword::try_from(ident.as_ref()) {
@@ -282,6 +287,8 @@ where
     }
 
     fn lex_integer_literal(&mut self) -> Token<'t> {
+        assert_matches!(self.input.peek(), Some('0'..='9'));
+
         self.lex_while(
             |c| matches!(c, '0'..='9'),
             |lit, strtab, _| TokenData::IntegerLiteral(strtab.intern(lit)),
@@ -289,6 +296,8 @@ where
     }
 
     fn lex_comment(&mut self) -> Token<'t> {
+        assert_eq!(self.input.peek_multiple(2), "/*");
+
         self.input.next();
         self.input.next();
 
@@ -304,6 +313,8 @@ where
             },
         );
 
+        assert_eq!(self.input.peek_multiple(2), "*/");
+
         self.input.next();
         self.input.next();
 
@@ -311,6 +322,8 @@ where
     }
 
     fn lex_whitespace(&mut self) -> Token<'t> {
+        assert!(self.input.peek().unwrap().is_whitespace());
+
         self.lex_while(|c| c.is_whitespace(), |_, _, _| TokenData::Whitespace)
     }
 
