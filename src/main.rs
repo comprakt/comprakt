@@ -43,14 +43,14 @@ enum CliCommand {
 }
 
 fn main() {
-    if let Err(msg) = run_compiler() {
+    let cmd = CliCommand::from_args();
+
+    if let Err(msg) = run_compiler(&cmd) {
         exit_with_error(&msg);
     }
 }
 
-fn run_compiler() -> Result<(), Error> {
-    let cmd = CliCommand::from_args();
-
+fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
     match cmd {
         CliCommand::Echo { path } => {
             let mut f =
