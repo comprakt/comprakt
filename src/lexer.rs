@@ -5,7 +5,15 @@ use crate::{
 use std::{convert::TryFrom, fmt, result::Result};
 
 macro_rules! match_op {
-    ($input: expr, $len: expr, $right: expr) => {{
+    ($input:expr, $( ($token_string:expr, $token:expr) ),+: $len:expr, $default:expr) => {{
+        match $input.peek_multiple($len) {
+            $(
+                $token_string => match_op!($input, $len, $token),
+            )+
+            _ => $default,
+        }
+    }};
+    ($input:expr, $len:expr, $right:expr) => {{
         // Unwraps are safe, because this is only called after token of length $len,
         // is already matched and thus contained in $input
         let PositionedChar(begin, _) = $input.next().unwrap();
@@ -471,61 +479,69 @@ where
     fn lex_operator(&mut self) -> Option<Token<'t>> {
         use self::Operator::*;
 
-        match self.input.peek_multiple(4) {
-            ">>>=" => match_op!(self.input, 4, TripleRightChevronEqual),
-            _ => match self.input.peek_multiple(3) {
-                "<<=" => match_op!(self.input, 3, DoubleLeftChevronEqual),
-                ">>=" => match_op!(self.input, 3, DoubleRightChevronEqual),
-                ">>>" => match_op!(self.input, 3, TripleRightChevron),
-                _ => match self.input.peek_multiple(2) {
-                    "!=" => match_op!(self.input, 2, ExclaimEqual),
-                    "*=" => match_op!(self.input, 2, StarEqual),
-                    "++" => match_op!(self.input, 2, DoublePlus),
-                    "+=" => match_op!(self.input, 2, PlusEqual),
-                    "-=" => match_op!(self.input, 2, MinusEqual),
-                    "--" => match_op!(self.input, 2, DoubleMinus),
-                    "/=" => match_op!(self.input, 2, SlashEqual),
-                    "<<" => match_op!(self.input, 2, DoubleLeftChevron),
-                    "<=" => match_op!(self.input, 2, LeftChevronEqual),
-                    "==" => match_op!(self.input, 2, DoubleEqual),
-                    ">=" => match_op!(self.input, 2, RightChevronEqual),
-                    ">>" => match_op!(self.input, 2, DoubleRightChevron),
-                    "%=" => match_op!(self.input, 2, PercentEqual),
-                    "&=" => match_op!(self.input, 2, AmpersandEqual),
-                    "&&" => match_op!(self.input, 2, DoubleAmpersand),
-                    "^=" => match_op!(self.input, 2, CaretEqual),
-                    "|=" => match_op!(self.input, 2, PipeEqual),
-                    "||" => match_op!(self.input, 2, DoublePipe),
-                    _ => match self.input.peek_multiple(1) {
-                        "!" => match_op!(self.input, 1, Exclaim),
-                        "(" => match_op!(self.input, 1, LeftParen),
-                        ")" => match_op!(self.input, 1, RightParen),
-                        "*" => match_op!(self.input, 1, Star),
-                        "+" => match_op!(self.input, 1, Plus),
-                        "," => match_op!(self.input, 1, Comma),
-                        "-" => match_op!(self.input, 1, Minus),
-                        "." => match_op!(self.input, 1, Dot),
-                        "/" => match_op!(self.input, 1, Slash),
-                        ":" => match_op!(self.input, 1, Colon),
-                        ";" => match_op!(self.input, 1, Semicolon),
-                        "<" => match_op!(self.input, 1, LeftChevron),
-                        "=" => match_op!(self.input, 1, Equal),
-                        ">" => match_op!(self.input, 1, RightChevron),
-                        "?" => match_op!(self.input, 1, QuestionMark),
-                        "%" => match_op!(self.input, 1, Percent),
-                        "&" => match_op!(self.input, 1, Ampersand),
-                        "[" => match_op!(self.input, 1, LeftBracket),
-                        "]" => match_op!(self.input, 1, RightBracket),
-                        "^" => match_op!(self.input, 1, Caret),
-                        "{" => match_op!(self.input, 1, LeftBrace),
-                        "}" => match_op!(self.input, 1, RightBrace),
-                        "~" => match_op!(self.input, 1, Tilde),
-                        "|" => match_op!(self.input, 1, Pipe),
-                        _ => None,
-                    },
-                },
-            },
-        }
+        match_op!(
+            self.input,
+            (">>>=", TripleRightChevronEqual):
+            4,
+            match_op!(
+                self.input,
+                ("<<=", DoubleLeftChevronEqual),
+                (">>=", DoubleRightChevronEqual),
+                (">>>", TripleRightChevron):
+                3,
+                match_op!(
+                    self.input,
+                    ("!=", ExclaimEqual),
+                    ("*=", StarEqual),
+                    ("++", DoublePlus),
+                    ("+=", PlusEqual),
+                    ("-=", MinusEqual),
+                    ("--", DoubleMinus),
+                    ("/=", SlashEqual),
+                    ("<<", DoubleLeftChevron),
+                    ("<=", LeftChevronEqual),
+                    ("==", DoubleEqual),
+                    (">=", RightChevronEqual),
+                    (">>", DoubleRightChevron),
+                    ("%=", PercentEqual),
+                    ("&=", AmpersandEqual),
+                    ("&&", DoubleAmpersand),
+                    ("^=", CaretEqual),
+                    ("|=", PipeEqual),
+                    ("||", DoublePipe):
+                    2,
+                    match_op!(
+                        self.input,
+                        ("!", Exclaim),
+                        ("(", LeftParen),
+                        (")", RightParen),
+                        ("*", Star),
+                        ("+", Plus),
+                        (",", Comma),
+                        ("-", Minus),
+                        (".", Dot),
+                        ("/", Slash),
+                        (":", Colon),
+                        (";", Semicolon),
+                        ("<", LeftChevron),
+                        ("=", Equal),
+                        (">", RightChevron),
+                        ("?", QuestionMark),
+                        ("%", Percent),
+                        ("&", Ampersand),
+                        ("[", LeftBracket),
+                        ("]", RightBracket),
+                        ("^", Caret),
+                        ("{", LeftBrace),
+                        ("}", RightBrace),
+                        ("~", Tilde),
+                        ("|", Pipe):
+                        1,
+                        None
+                    )
+                )
+            )
+        )
     }
 
     /// Like `lex_while_multiple`, but only check characters
