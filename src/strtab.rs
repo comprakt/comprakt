@@ -1,10 +1,6 @@
-//! String table with interior mutability and zero-copy ~O(1) interning
+//! String table with interior mutability and O(n) insert on miss
 //!
 //! Interior mutability achived using UnsafeCell.
-//!
-//! Zero-copy interning is achieved via `Rc`ed Strings, thus overcoming the
-//! limitation discussed in this thread [1]. Interning is ~O(1) because a
-//! `HashSet` is used internally.
 //!
 //! Using `Rc` and not `Arc`, this is not thread-safe.
 //!
@@ -12,13 +8,11 @@
 
 use std::{cell::UnsafeCell, collections::HashSet, rc::Rc};
 
-/// This is quite the complex type, but can still be derefed to `&str` as
-/// `&**sym`.
-pub type Symbol = Rc<String>;
+pub type Symbol = Rc<str>;
 
 #[derive(Debug)]
 pub struct StringTable {
-    entries: UnsafeCell<HashSet<Rc<String>>>,
+    entries: UnsafeCell<HashSet<Rc<str>>>,
 }
 
 impl StringTable {
@@ -28,11 +22,12 @@ impl StringTable {
         }
     }
 
-    pub fn intern(&self, value: String) -> Symbol {
-        let value = Rc::new(value);
+    pub fn intern(&self, value: &str) -> Symbol {
         // Entries is private, and this is the only place where it is mutated
         let entries = unsafe { &mut *self.entries.get() };
-        entries.insert(Rc::clone(&value));
-        Rc::clone(entries.get(&value).unwrap())
+        if !entries.contains(value) {
+            entries.insert(value.into());
+        }
+        Rc::clone(entries.get(value).unwrap())
     }
 }

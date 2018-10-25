@@ -463,7 +463,7 @@ where
             |ident, strtab, _| {
                 Ok(match Keyword::try_from(ident.as_ref()) {
                     Ok(keyword) => TokenKind::Keyword(keyword),
-                    Err(_) => TokenKind::Identifier(strtab.intern(ident)),
+                    Err(_) => TokenKind::Identifier(strtab.intern(&ident)),
                 })
             },
         )
@@ -474,7 +474,7 @@ where
 
         self.lex_while(
             |c| matches!(c, '0'..='9'),
-            |lit, strtab, _| Ok(TokenKind::IntegerLiteral(strtab.intern(lit))),
+            |lit, strtab, _| Ok(TokenKind::IntegerLiteral(strtab.intern(&lit))),
         )
     }
 

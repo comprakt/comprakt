@@ -171,7 +171,7 @@ mod lexertest_tests {
         let tokens = vec![
             TokenKind::Operator(Operator::Ampersand),
             TokenKind::Whitespace,
-            TokenKind::IntegerLiteral(st.intern("foo".into())),
+            TokenKind::IntegerLiteral(st.intern("foo")),
             TokenKind::Comment("comment".to_string()),
             TokenKind::Keyword(Keyword::If),
             TokenKind::EOF,
@@ -198,16 +198,14 @@ mod lexertest_tests {
     #[test]
     fn ident_prefix() {
         let st = StringTable::new();
-        let o = lexer_test_with_tokens!(vec![TokenKind::Identifier(
-            st.intern("an_identifier".into())
-        )]);
+        let o = lexer_test_with_tokens!(vec![TokenKind::Identifier(st.intern("an_identifier"))]);
         assert_eq!(&o, "identifier an_identifier\n");
     }
 
     #[test]
     fn integer_literal_prefix() {
         let st = StringTable::new();
-        let o = lexer_test_with_tokens!(vec![TokenKind::IntegerLiteral(st.intern("2342".into()))]);
+        let o = lexer_test_with_tokens!(vec![TokenKind::IntegerLiteral(st.intern("2342"))]);
         assert_eq!(&o, "integer literal 2342\n");
     }
 
