@@ -24,12 +24,12 @@ macro_rules! match_op {
             end = pos;
         }
 
-        Some(Token::new(begin, end, TokenData::Operator($right)))
+        Some(Token::new(begin, end, TokenKind::Operator($right)))
     }};
 }
 
 #[derive(Debug)]
-pub enum TokenData<'t> {
+pub enum TokenKind<'t> {
     Keyword(Keyword),
     Operator(Operator),
     Identifier(Symbol<'t>),
@@ -41,9 +41,9 @@ pub enum TokenData<'t> {
     EOF,
 }
 
-impl<'t> fmt::Display for TokenData<'t> {
+impl<'t> fmt::Display for TokenKind<'t> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use self::TokenData::*;
+        use self::TokenKind::*;
 
         match self {
             Keyword(keyword) => write!(f, "{}", keyword),
@@ -364,11 +364,11 @@ pub struct Span {
 #[derive(Debug)]
 pub struct Token<'t> {
     pub span: Span,
-    pub data: TokenData<'t>,
+    pub data: TokenKind<'t>,
 }
 
 impl<'t> Token<'t> {
-    fn new(start: Position, end: Position, value: TokenData<'t>) -> Self {
+    fn new(start: Position, end: Position, value: TokenKind<'t>) -> Self {
         Token {
             span: Span { start, end },
             data: value,
@@ -409,12 +409,12 @@ where
 
             Some(_) => self.lex_operator().unwrap_or_else(|| {
                 let PositionedChar(pos, c) = self.input.next().unwrap();
-                Token::new(pos, pos, TokenData::UnexpectedCharacter(c))
+                Token::new(pos, pos, TokenKind::UnexpectedCharacter(c))
             }),
 
             None => {
                 let pos = self.input.eof_position();
-                Token::new(pos, pos, TokenData::EOF)
+                Token::new(pos, pos, TokenKind::EOF)
             }
         }
     }
@@ -428,8 +428,8 @@ where
         self.lex_while(
             |c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9'),
             |ident, strtab, _| match Keyword::try_from(ident.as_ref()) {
-                Ok(keyword) => TokenData::Keyword(keyword),
-                Err(_) => TokenData::Identifier(strtab.intern(ident)),
+                Ok(keyword) => TokenKind::Keyword(keyword),
+                Err(_) => TokenKind::Identifier(strtab.intern(ident)),
             },
         )
     }
@@ -439,7 +439,7 @@ where
 
         self.lex_while(
             |c| matches!(c, '0'..='9'),
-            |lit, strtab, _| TokenData::IntegerLiteral(strtab.intern(lit)),
+            |lit, strtab, _| TokenKind::IntegerLiteral(strtab.intern(lit)),
         )
     }
 
@@ -454,9 +454,9 @@ where
             |s| s != "*/",
             |text, _, eof_reached| {
                 if eof_reached {
-                    TokenData::UnclosedComment(text)
+                    TokenKind::UnclosedComment(text)
                 } else {
-                    TokenData::Comment(text)
+                    TokenKind::Comment(text)
                 }
             },
         );
@@ -472,7 +472,7 @@ where
     fn lex_whitespace(&mut self) -> Token<'t> {
         assert!(self.input.peek().unwrap().is_whitespace());
 
-        self.lex_while(|c| c.is_whitespace(), |_, _, _| TokenData::Whitespace)
+        self.lex_while(|c| c.is_whitespace(), |_, _, _| TokenKind::Whitespace)
     }
 
     #[allow(clippy::cyclomatic_complexity)]
@@ -548,7 +548,7 @@ where
     fn lex_while<P, D>(&mut self, predicate: P, make_token_data: D) -> Token<'t>
     where
         P: Fn(char) -> bool,
-        D: FnOnce(String, &'t StringTable, bool) -> TokenData<'t>,
+        D: FnOnce(String, &'t StringTable, bool) -> TokenKind<'t>,
     {
         // Unwrap is safe, because EOF case is handled by lex_while_multiple
         self.lex_while_multiple(1, |s| predicate(s.chars().next().unwrap()), make_token_data)
@@ -562,7 +562,7 @@ where
     fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token_data: D) -> Token<'t>
     where
         P: Fn(&str) -> bool,
-        D: FnOnce(String, &'t StringTable, bool) -> TokenData<'t>,
+        D: FnOnce(String, &'t StringTable, bool) -> TokenKind<'t>,
     {
         let mut chars = String::new();
         let PositionedChar(start_pos, first_char) = self.input.next().unwrap();
@@ -595,7 +595,7 @@ where
             None
         } else {
             let t = self.lex_token();
-            if let TokenData::EOF = t.data {
+            if let TokenKind::EOF = t.data {
                 self.eof = true
             }
             Some(t) // TODO Some(EOF) vs. None
