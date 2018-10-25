@@ -83,7 +83,10 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
             let lexer = lexer::Lexer::new(ascii_file.iter(), &strtab);
 
             let mut stdout = io::stdout();
-            run_lexer_test(lexer.map(|t| t.data), &mut stdout)?
+            // TOOD without vector? Maybe itertools::process_results? Or for-loop and
+            // early-return?
+            let tokens: Result<Vec<_>, _> = lexer.collect();
+            run_lexer_test(tokens?.into_iter().map(|t| t.data), &mut stdout)?;
         }
     }
 
@@ -115,13 +118,13 @@ fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error> {
     Ok(())
 }
 
-fn run_lexer_test<'t, L, O>(lexer: L, out: &mut O) -> Result<(), Error>
+fn run_lexer_test<L, O>(lexer: L, out: &mut O) -> Result<(), Error>
 where
-    L: Iterator<Item = TokenKind<'t>>,
+    L: Iterator<Item = TokenKind>,
     O: io::Write,
 {
     let token_datas = lexer.filter(|token_data| match token_data {
-        TokenKind::Whitespace | TokenKind::UnclosedComment(_) | TokenKind::Comment(_) => false,
+        TokenKind::Whitespace | TokenKind::Comment(_) => false,
         _ => true,
     });
 
@@ -137,7 +140,7 @@ mod lexertest_tests {
 
     macro_rules! lexer_test_with_tokens {
         ( $toks:expr ) => {{
-            let v: Vec<TokenKind<'_>> = { $toks };
+            let v: Vec<TokenKind> = { $toks };
             let mut o = Vec::new();
             let res = run_lexer_test(v.into_iter(), &mut o);
             assert!(res.is_ok());

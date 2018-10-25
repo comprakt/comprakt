@@ -2,6 +2,7 @@ use crate::{
     asciifile::{Position, PositionedChar, PositionedChars},
     strtab::*,
 };
+use failure::Fail;
 use std::{convert::TryFrom, fmt, result::Result};
 
 macro_rules! match_op {
@@ -24,24 +25,53 @@ macro_rules! match_op {
             end = pos;
         }
 
-        Some(Token::new(begin, end, TokenKind::Operator($right)))
+        Some(Ok(Token::new(begin, end, TokenKind::Operator($right))))
     }};
 }
 
+pub type TokenResult = Result<Token, LexicalError>;
+
+pub type Token = Spanned<TokenKind>;
+pub type LexicalError = Spanned<ErrorKind>;
+
 #[derive(Debug)]
-pub enum TokenKind<'t> {
+pub struct Spanned<T> {
+    pub span: Span,
+    pub data: T,
+}
+
+impl<T> fmt::Display for Spanned<T>
+where
+    T: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} at {}", self.data, self.span)
+    }
+}
+
+impl<T> Spanned<T> {
+    fn new(start: Position, end: Position, value: T) -> Self {
+        Spanned {
+            span: Span { start, end },
+            data: value,
+        }
+    }
+}
+
+impl Fail for LexicalError {}
+
+#[derive(Debug)]
+pub enum TokenKind {
     Keyword(Keyword),
     Operator(Operator),
-    Identifier(Symbol<'t>),
-    IntegerLiteral(Symbol<'t>),
+    Identifier(Symbol),
+    IntegerLiteral(Symbol),
     Comment(String),
-    UnclosedComment(String),
-    UnexpectedCharacter(char),
     Whitespace,
     EOF,
 }
 
-impl<'t> fmt::Display for TokenKind<'t> {
+impl fmt::Display for TokenKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::TokenKind::*;
 
@@ -51,11 +81,29 @@ impl<'t> fmt::Display for TokenKind<'t> {
             Identifier(symbol) => write!(f, "identifier {}", symbol),
             IntegerLiteral(symbol) => write!(f, "integer literal {}", symbol),
             Comment(body) => write!(f, "/*{}*/", body),
-            UnclosedComment(body) => write!(f, "//{}", body),
-            UnexpectedCharacter(_chr) => write!(f, "[UNEXPECTED CHAR]"),
             Whitespace => write!(f, " "),
             EOF => write!(f, "EOF"),
         }
+    }
+}
+
+#[derive(Debug, Fail)]
+pub enum ErrorKind {
+    #[fail(display = "unclosed comment '{}'", 0)]
+    UnclosedComment(String),
+    #[fail(display = "unexpected character '{}'", 0)]
+    UnexpectedCharacter(char),
+}
+
+#[derive(Debug)]
+pub struct Span {
+    pub start: Position,
+    pub end: Position,
+}
+
+impl fmt::Display for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}-{}", self.start, self.end)
     }
 }
 
@@ -355,27 +403,6 @@ impl fmt::Display for Operator {
     }
 }
 
-#[derive(Debug)]
-pub struct Span {
-    pub start: Position,
-    pub end: Position,
-}
-
-#[derive(Debug)]
-pub struct Token<'t> {
-    pub span: Span,
-    pub data: TokenKind<'t>,
-}
-
-impl<'t> Token<'t> {
-    fn new(start: Position, end: Position, value: TokenKind<'t>) -> Self {
-        Token {
-            span: Span { start, end },
-            data: value,
-        }
-    }
-}
-
 pub struct Lexer<'t, I>
 where
     I: Iterator<Item = char>,
@@ -397,8 +424,8 @@ where
         }
     }
 
-    fn lex_token(&mut self) -> Token<'t> {
-        match self.input.peek() {
+    fn lex_token(&mut self) -> Option<TokenResult> {
+        Some(match self.input.peek() {
             Some('a'..='z') | Some('A'..='Z') | Some('_') => self.lex_identifier_or_keyword(),
 
             Some('0'..='9') => self.lex_integer_literal(),
@@ -409,17 +436,23 @@ where
 
             Some(_) => self.lex_operator().unwrap_or_else(|| {
                 let PositionedChar(pos, c) = self.input.next().unwrap();
-                Token::new(pos, pos, TokenKind::UnexpectedCharacter(c))
+                Err(LexicalError::new(
+                    pos,
+                    pos,
+                    ErrorKind::UnexpectedCharacter(c),
+                ))
             }),
 
+            None if self.eof => return None, // Early return to not wrap in surrounding `Some`
             None => {
+                self.eof = true;
                 let pos = self.input.eof_position();
-                Token::new(pos, pos, TokenKind::EOF)
+                Ok(Token::new(pos, pos, TokenKind::EOF))
             }
-        }
+        })
     }
 
-    fn lex_identifier_or_keyword(&mut self) -> Token<'t> {
+    fn lex_identifier_or_keyword(&mut self) -> TokenResult {
         assert_matches!(
             self.input.peek(),
             Some('a'..='z') | Some('A'..='Z') | Some('_')
@@ -427,23 +460,25 @@ where
 
         self.lex_while(
             |c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9'),
-            |ident, strtab, _| match Keyword::try_from(ident.as_ref()) {
-                Ok(keyword) => TokenKind::Keyword(keyword),
-                Err(_) => TokenKind::Identifier(strtab.intern(ident)),
+            |ident, strtab, _| {
+                Ok(match Keyword::try_from(ident.as_ref()) {
+                    Ok(keyword) => TokenKind::Keyword(keyword),
+                    Err(_) => TokenKind::Identifier(strtab.intern(ident)),
+                })
             },
         )
     }
 
-    fn lex_integer_literal(&mut self) -> Token<'t> {
+    fn lex_integer_literal(&mut self) -> TokenResult {
         assert_matches!(self.input.peek(), Some('0'..='9'));
 
         self.lex_while(
             |c| matches!(c, '0'..='9'),
-            |lit, strtab, _| TokenKind::IntegerLiteral(strtab.intern(lit)),
+            |lit, strtab, _| Ok(TokenKind::IntegerLiteral(strtab.intern(lit))),
         )
     }
 
-    fn lex_comment(&mut self) -> Token<'t> {
+    fn lex_comment(&mut self) -> TokenResult {
         assert_eq!(self.input.peek_multiple(2), "/*");
 
         self.input.next();
@@ -454,9 +489,9 @@ where
             |s| s != "*/",
             |text, _, eof_reached| {
                 if eof_reached {
-                    TokenKind::UnclosedComment(text)
+                    Err(ErrorKind::UnclosedComment(text))
                 } else {
-                    TokenKind::Comment(text)
+                    Ok(TokenKind::Comment(text))
                 }
             },
         );
@@ -472,14 +507,14 @@ where
         token
     }
 
-    fn lex_whitespace(&mut self) -> Token<'t> {
+    fn lex_whitespace(&mut self) -> TokenResult {
         assert!(self.input.peek().unwrap().is_whitespace());
 
-        self.lex_while(|c| c.is_whitespace(), |_, _, _| TokenKind::Whitespace)
+        self.lex_while(|c| c.is_whitespace(), |_, _, _| Ok(TokenKind::Whitespace))
     }
 
     #[allow(clippy::cyclomatic_complexity)]
-    fn lex_operator(&mut self) -> Option<Token<'t>> {
+    fn lex_operator(&mut self) -> Option<TokenResult> {
         use self::Operator::*;
 
         match_op!(
@@ -548,42 +583,54 @@ where
     }
 
     /// Like `lex_while_multiple`, but only check characters
-    fn lex_while<P, D>(&mut self, predicate: P, make_token_data: D) -> Token<'t>
+    fn lex_while<P, D>(&mut self, predicate: P, make_token: D) -> TokenResult
     where
         P: Fn(char) -> bool,
-        D: FnOnce(String, &'t StringTable, bool) -> TokenKind<'t>,
+        D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         // Unwrap is safe, because EOF case is handled by lex_while_multiple
-        self.lex_while_multiple(1, |s| predicate(s.chars().next().unwrap()), make_token_data)
+        self.lex_while_multiple(1, |s| predicate(s.chars().next().unwrap()), make_token)
     }
 
     /// Consume n characters at a time while `predicate` returns `true`. Intern
     /// the resulting string and convert the resulting symbol to a token
-    /// using `make_token_data`. `preddicate` is never given a less than `n`
-    /// chars. In that case, the loop is terminated and `make_token_data` is
+    /// using `make_token`. `preddicate` is never given a less than `n`
+    /// chars. In that case, the loop is terminated and `make_token` is
     /// called with 3rd argument set to `true`.
-    fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token_data: D) -> Token<'t>
+    fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult
     where
         P: Fn(&str) -> bool,
-        D: FnOnce(String, &'t StringTable, bool) -> TokenKind<'t>,
+        D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         let mut chars = String::new();
         let PositionedChar(start_pos, first_char) = self.input.next().unwrap();
         chars.push(first_char);
 
         let mut end_pos = start_pos;
-        while self.input.try_peek_multiple(n).map_or(false, &predicate) {
+        loop {
+            if let Some(should_continue) = self.input.try_peek_multiple(n).map(&predicate) {
+                if !should_continue {
+                    break;
+                }
+            } else {
+                // We know there is an EOF within the next n characters, but we still need to
+                // consume them
+                while let Some(PositionedChar(pos, c)) = self.input.next() {
+                    chars.push(c);
+                    end_pos = pos;
+                }
+                break;
+            }
+
             // Unwrap is safe, because `map_or` catches EOF case
             let PositionedChar(pos, c) = self.input.next().unwrap();
             chars.push(c);
             end_pos = pos;
         }
 
-        Token::new(
-            start_pos,
-            end_pos,
-            make_token_data(chars, self.strtab, self.input.eof_reached()),
-        )
+        make_token(chars, self.strtab, self.input.eof_reached())
+            .map(|kind| Token::new(start_pos, end_pos, kind))
+            .map_err(|kind| LexicalError::new(start_pos, end_pos, kind))
     }
 }
 
@@ -591,17 +638,9 @@ impl<'t, I> Iterator for Lexer<'t, I>
 where
     I: Iterator<Item = char>,
 {
-    type Item = Token<'t>;
+    type Item = TokenResult;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.eof {
-            None
-        } else {
-            let t = self.lex_token();
-            if let TokenKind::EOF = t.data {
-                self.eof = true
-            }
-            Some(t) // TODO Some(EOF) vs. None
-        }
+        self.lex_token()
     }
 }
