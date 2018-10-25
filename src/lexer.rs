@@ -2,8 +2,7 @@ use crate::{
     asciifile::{Position, PositionedChar, PositionedChars},
     strtab::*,
 };
-
-use std::{convert::TryFrom, result::Result};
+use std::{convert::TryFrom, fmt, result::Result};
 
 macro_rules! match_op {
     ($input: expr, $len: expr, $right: expr) => {{
@@ -32,6 +31,24 @@ pub enum TokenData<'t> {
     UnexpectedCharacter(char),
     Whitespace,
     EOF,
+}
+
+impl<'t> fmt::Display for TokenData<'t> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use self::TokenData::*;
+
+        match self {
+            Keyword(keyword) => write!(f, "{}", keyword),
+            Operator(operator) => write!(f, "{}", operator),
+            Identifier(symbol) => write!(f, "identifier {}", symbol),
+            IntegerLiteral(symbol) => write!(f, "integer literal {}", symbol),
+            Comment(body) => write!(f, "/*{}*/", body),
+            UnclosedComment(body) => write!(f, "//{}", body),
+            UnexpectedCharacter(_chr) => write!(f, "[UNEXPECTED CHAR]"),
+            Whitespace => write!(f, " "),
+            EOF => write!(f, "EOF"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -89,6 +106,71 @@ pub enum Keyword {
     Void,
     Volatile,
     While,
+}
+
+impl fmt::Display for Keyword {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use self::Keyword::*;
+        write!(
+            f,
+            "{}",
+            match self {
+                Abstract => "abstract",
+                Assert => "assert",
+                Boolean => "boolean",
+                Break => "break",
+                Byte => "byte",
+                Case => "case",
+                Catch => "catch",
+                Char => "char",
+                Class => "class",
+                Const => "const",
+                Continue => "continue",
+                Default => "default",
+                Double => "double",
+                Do => "do",
+                Else => "else",
+                Enum => "enum",
+                Extends => "extends",
+                False => "false",
+                Finally => "finally",
+                Final => "final",
+                Float => "float",
+                For => "for",
+                Goto => "goto",
+                If => "if",
+                Implements => "implements",
+                Import => "import",
+                InstanceOf => "instanceof",
+                Interface => "interface",
+                Int => "int",
+                Long => "long",
+                Native => "native",
+                New => "new",
+                Null => "null",
+                Package => "package",
+                Private => "private",
+                Protected => "protected",
+                Public => "public",
+                Return => "return",
+                Short => "short",
+                Static => "static",
+                StrictFp => "strictfp",
+                Super => "super",
+                Switch => "switch",
+                Synchronized => "synchronized",
+                This => "this",
+                Throws => "throws",
+                Throw => "throw",
+                Transient => "transient",
+                True => "true",
+                Try => "try",
+                Void => "void",
+                Volatile => "volatile",
+                While => "while",
+            }
+        )
+    }
 }
 
 impl TryFrom<&str> for Keyword {
@@ -205,6 +287,64 @@ pub enum Operator {
     PipeEqual,
     DoublePipe,
     Pipe,
+}
+
+impl fmt::Display for Operator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use self::Operator::*;
+        write!(
+            f,
+            "{}",
+            match self {
+                TripleRightChevronEqual => ">>>=",
+                DoubleLeftChevronEqual => "<<=",
+                DoubleRightChevronEqual => ">>=",
+                TripleRightChevron => ">>>",
+                ExclaimEqual => "!=",
+                StarEqual => "*=",
+                DoublePlus => "++",
+                PlusEqual => "+=",
+                MinusEqual => "-=",
+                DoubleMinus => "--",
+                SlashEqual => "/=",
+                DoubleLeftChevron => "<<",
+                LeftChevronEqual => "<=",
+                DoubleEqual => "==",
+                RightChevronEqual => ">=",
+                DoubleRightChevron => ">>",
+                PercentEqual => "%=",
+                AmpersandEqual => "&=",
+                DoubleAmpersand => "&&",
+                CaretEqual => "^=",
+                PipeEqual => "|=",
+                DoublePipe => "||",
+                Exclaim => "!",
+                LeftParen => "(",
+                RightParen => ")",
+                Star => "*",
+                Plus => "+",
+                Comma => ",",
+                Minus => "-",
+                Dot => ".",
+                Slash => "/",
+                Colon => ":",
+                Semicolon => ";",
+                LeftChevron => "<",
+                Equal => "=",
+                RightChevron => ">",
+                QuestionMark => "?",
+                Percent => "%",
+                Ampersand => "&",
+                LeftBracket => "[",
+                RightBracket => "]",
+                Caret => "^",
+                LeftBrace => "{",
+                RightBrace => "}",
+                Tilde => "~",
+                Pipe => "|",
+            }
+        )
+    }
 }
 
 #[derive(Debug)]
