@@ -459,7 +459,7 @@ where
         );
 
         self.lex_while(
-            |c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9'),
+            |c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_'),
             |ident, strtab, _| {
                 Ok(match Keyword::try_from(ident.as_ref()) {
                     Ok(keyword) => TokenKind::Keyword(keyword),
