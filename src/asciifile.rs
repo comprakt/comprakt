@@ -131,7 +131,7 @@ where
         &self.peeked[0..self.peeked.len().min(n)]
     }
 
-    /// Can't use peekable, pecause we don't care about position when peeking
+    /// Can't use peekable, because we don't care about position when peeking
     pub fn peek(&mut self) -> Option<char> {
         self.peek_multiple(1).chars().next()
     }
@@ -140,11 +140,7 @@ where
         self.peek().is_none()
     }
 
-    pub fn eof_position(&mut self) -> Position {
-        if self.next().is_some() {
-            panic!("Must only be called at EOF")
-        }
-
+    pub fn current_position(&mut self) -> Position {
         self.curpos
     }
 }

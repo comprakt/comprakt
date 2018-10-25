@@ -465,7 +465,7 @@ where
             None if self.eof => return None, // Early return to not wrap in surrounding `Some`
             None => {
                 self.eof = true;
-                let pos = self.input.eof_position();
+                let pos = self.input.current_position();
                 Ok(Token::new(pos, pos, TokenKind::EOF))
             }
         })
