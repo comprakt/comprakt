@@ -148,7 +148,7 @@ mod lexertest_tests {
             let mut o = Vec::new();
             let res = run_lexer_test(v.into_iter(), &mut o);
             assert!(res.is_ok());
-            String::from_utf8(o).expect("output mut be utf8")
+            String::from_utf8(o).expect("output must be utf8")
         }};
     }
 
