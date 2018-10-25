@@ -47,7 +47,7 @@ impl<'a> AsciiFile {
         let s: &str = self;
         PositionedChars {
             curpos: Position { row: 0, col: 0 },
-            af: s.chars(),
+            ascii_file: s.chars(),
             peeked: String::new(),
         }
     }
@@ -77,7 +77,7 @@ where
     I: Iterator<Item = char>,
 {
     curpos: Position,
-    af: I, // form ascii file
+    ascii_file: I,
     peeked: String,
 }
 
@@ -122,7 +122,7 @@ where
         // We already have .len() characters "in stock", so we get the remaining n-len,
         // if there are then many
         for _ in self.peeked.len()..n {
-            match self.af.next() {
+            match self.ascii_file.next() {
                 Some(next) => self.peeked.push(next),
                 None => break,
             }
