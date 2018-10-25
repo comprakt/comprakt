@@ -82,16 +82,8 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
             let strtab = strtab::StringTable::new();
             let lexer = lexer::Lexer::new(ascii_file.iter(), &strtab);
 
-            let tokens = lexer.filter(|token| match token.data {
-                TokenData::Whitespace | TokenData::UnclosedComment(_) | TokenData::Comment(_) => {
-                    false
-                }
-                _ => true,
-            });
-
-            for token in tokens {
-                println!("{}", token.data);
-            }
+            let mut stdout = io::stdout();
+            run_lexer_test(lexer.map(|t| t.data), &mut stdout)?
         }
     }
 
@@ -121,4 +113,105 @@ fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn run_lexer_test<'t, L, O>(lexer: L, out: &mut O) -> Result<(), Error>
+where
+    L: Iterator<Item = TokenData<'t>>,
+    O: io::Write,
+{
+    let token_datas = lexer.filter(|token_data| match token_data {
+        TokenData::Whitespace | TokenData::UnclosedComment(_) | TokenData::Comment(_) => false,
+        _ => true,
+    });
+
+    for td in token_datas {
+        writeln!(out, "{}", td)?;
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod lexertest_tests {
+
+    macro_rules! lexer_test_with_tokens {
+        ( $toks:expr ) => {{
+            let v: Vec<TokenData<'_>> = { $toks };
+            let mut o = Vec::new();
+            let res = run_lexer_test(v.into_iter(), &mut o);
+            assert!(res.is_ok());
+            String::from_utf8(o).expect("output mut be utf8")
+        }};
+    }
+
+    use super::{
+        lexer::{Keyword, Operator, TokenData},
+        run_lexer_test,
+        strtab::StringTable,
+    };
+
+    #[test]
+    fn newline_per_token() {
+        let tokens = vec![
+            TokenData::Operator(Operator::Ampersand),
+            TokenData::Keyword(Keyword::Int),
+        ];
+        let tokens_len = tokens.len();
+        let o = lexer_test_with_tokens![tokens];
+        assert_eq!(o.lines().count(), tokens_len);
+    }
+
+    #[test]
+    fn no_whitespace_and_comments() {
+        let st = StringTable::new();
+        let tokens = vec![
+            TokenData::Operator(Operator::Ampersand),
+            TokenData::Whitespace,
+            TokenData::IntegerLiteral(st.intern("foo".into())),
+            TokenData::Comment("comment".to_string()),
+            TokenData::Keyword(Keyword::If),
+            TokenData::EOF,
+        ];
+        let o = lexer_test_with_tokens!(tokens);
+        assert_eq!(o.lines().count(), 4);
+        assert!(!o.contains("comment"));
+        assert_eq!(&o, "&\ninteger literal foo\nif\nEOF\n")
+    }
+
+    #[test]
+    fn keywords_as_is() {
+        let tokens = vec![TokenData::Keyword(Keyword::Float)];
+        let o = lexer_test_with_tokens!(tokens);
+        assert_eq!(&o, "float\n");
+    }
+
+    #[test]
+    fn operators_as_is() {
+        let o = lexer_test_with_tokens!(vec![TokenData::Operator(Operator::Caret)]);
+        assert_eq!(&o, "^\n");
+    }
+
+    #[test]
+    fn ident_prefix() {
+        let st = StringTable::new();
+        let o = lexer_test_with_tokens!(vec![TokenData::Identifier(
+            st.intern("an_identifier".into())
+        )]);
+        assert_eq!(&o, "identifier an_identifier\n");
+    }
+
+    #[test]
+    fn integer_literal_prefix() {
+        let st = StringTable::new();
+        let o = lexer_test_with_tokens!(vec![TokenData::IntegerLiteral(st.intern("2342".into()))]);
+        assert_eq!(&o, "integer literal 2342\n");
+    }
+
+    #[test]
+    fn eof() {
+        let o = lexer_test_with_tokens!(vec![TokenData::EOF]);
+        assert_eq!(&o, "EOF\n");
+    }
+
 }
