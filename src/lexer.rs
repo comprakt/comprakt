@@ -461,7 +461,10 @@ where
             },
         );
 
-        assert_eq!(self.input.peek_multiple(2), "*/");
+        if token.is_ok() {
+            // At least 2 chars left in input
+            assert_eq!(self.input.peek_multiple(2), "*/");
+        }
 
         self.input.next();
         self.input.next();
