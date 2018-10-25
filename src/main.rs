@@ -110,13 +110,13 @@ fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error> {
     let mut causes = err.iter_chain();
 
     if let Some(err_msg) = causes.next() {
-        writeln!(writer, "Error: {}", err_msg)?;
+        writeln!(writer, "error: {}", err_msg)?;
     } else {
-        writeln!(writer, "Unknown Error")?;
+        writeln!(writer, "Unknown error")?;
     };
 
     for cause in causes {
-        writeln!(writer, "    caused by: {}", cause)?;
+        writeln!(writer, "caused by: {}", cause)?;
     }
 
     Ok(())
