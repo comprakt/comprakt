@@ -86,11 +86,10 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
             let strtab = strtab::StringTable::new();
             let lexer = lexer::Lexer::new(ascii_file.iter(), &strtab);
 
-            let mut stdout = io::stdout();
-            // TOOD without vector? Maybe itertools::process_results? Or for-loop and
-            // early-return?
-            let tokens: Result<Vec<_>, _> = lexer.collect();
-            run_lexer_test(tokens?.into_iter().map(|t| t.data), &mut stdout)?;
+            itertools::process_results(lexer, |valid_tokens| {
+                let mut stdout = io::stdout();
+                run_lexer_test(valid_tokens.map(|t| t.data), &mut stdout)
+            })??;
         }
     }
 
