@@ -412,6 +412,13 @@ where
     eof: bool,
 }
 
+fn is_minijava_whitespace(c: char) -> bool {
+    match c {
+        ' ' | '\n' | '\r' | '\t' => true,
+        _ => false,
+    }
+}
+
 impl<'t, I> Lexer<'t, I>
 where
     I: Iterator<Item = char>,
@@ -430,7 +437,7 @@ where
 
             Some('0'..='9') => self.lex_integer_literal(),
 
-            Some(c) if c.is_whitespace() => self.lex_whitespace(),
+            Some(c) if is_minijava_whitespace(c) => self.lex_whitespace(),
 
             Some(_) if self.input.peek_multiple(2) == "/*" => self.lex_comment(),
 
@@ -508,9 +515,8 @@ where
     }
 
     fn lex_whitespace(&mut self) -> TokenResult {
-        assert!(self.input.peek().unwrap().is_whitespace());
-
-        self.lex_while(|c| c.is_whitespace(), |_, _, _| Ok(TokenKind::Whitespace))
+        assert!(is_minijava_whitespace(self.input.peek().unwrap()));
+        self.lex_while(is_minijava_whitespace, |_, _, _| Ok(TokenKind::Whitespace))
     }
 
     #[allow(clippy::cyclomatic_complexity)]
@@ -642,5 +648,17 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         self.lex_token()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn minijava_whitespace_invalid_chars_rejected() {
+        let chars = "\x07\x08\x0c\x0b"; // \a \b \f \v
+        for c in chars.chars() {
+            println!("{:?}", c);
+            assert_eq!(super::is_minijava_whitespace(c), false)
+        }
     }
 }
