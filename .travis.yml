@@ -16,9 +16,6 @@ matrix:
   include:
     - os: linux
     - os: osx
-    - os: windows
-  allow_failures:
-    - os: windows
 
 before_script:
   - rustup component add clippy-preview
