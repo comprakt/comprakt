@@ -130,10 +130,7 @@ where
             panic!("Must only be called at EOF")
         }
 
-        let mut pos = self.curpos;
-        pos.col += 1;
-
-        pos
+        self.curpos
     }
 }
 
