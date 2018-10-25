@@ -2,6 +2,7 @@
 #![feature(try_from)]
 #![feature(if_while_or_patterns)]
 #![feature(bind_by_move_pattern_guards)]
+#![feature(const_str_as_bytes)]
 
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;

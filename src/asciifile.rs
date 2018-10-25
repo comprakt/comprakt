@@ -8,21 +8,36 @@ pub struct AsciiFile {
 #[derive(Debug, Fail)]
 pub enum EncodingError {
     #[fail(
-        display = "input contained non-ascii character '{}' at byte offset {}",
-        character,
-        position
+        display = "input contains non-ascii character at byte offset {}: ...{}<?>",
+        position,
+        prev
     )]
-    NotAscii { position: usize, character: char },
+    NotAscii { position: usize, prev: String },
 }
+
+const ENCODING_ERROR_MAX_CONTEXT_LEN: usize = 180;
 
 impl<'a> AsciiFile {
     // cost: O(fileLen) since we need to check if all chars are ASCII
     pub fn new(mapping: Mmap) -> Result<AsciiFile, EncodingError> {
         if let Some(position) = mapping.iter().position(|c| !c.is_ascii()) {
-            return Err(EncodingError::NotAscii {
-                position,
-                character: mapping[position].into(),
-            });
+            let end_idx = position;
+            let min_start_idx = position - ENCODING_ERROR_MAX_CONTEXT_LEN.min(position);
+            let mut start_idx = min_start_idx;
+            for x in (min_start_idx..end_idx).rev() {
+                const NEWLINE: u8 = b'\n';
+                if mapping[x] == NEWLINE {
+                    start_idx = x + 1;
+                    break;
+                }
+            }
+            assert!(position >= start_idx);
+
+            // We know everything until now has been ASCII
+            let prev: &str =
+                unsafe { std::str::from_utf8_unchecked(&mapping[start_idx..position]) };
+            let prev = prev.to_owned();
+            return Err(EncodingError::NotAscii { position, prev });
         }
 
         Ok(AsciiFile { mapping })
@@ -176,12 +191,42 @@ mod tests {
         let mm = AsciiFile::new(f);
         assert!(mm.is_err());
         let e = mm.err().unwrap();
-        match e {
-            EncodingError::NotAscii { position: 3, .. } => (),
-            EncodingError::NotAscii { position: x, .. } => {
-                panic!("detected not ascii, but wrong line {}", x)
-            }
+        println!("{:?}", e);
+        let EncodingError::NotAscii { position, prev } = e;
+        assert_eq!(position, 3);
+        assert_eq!(prev, "one");
+    }
+
+    #[test]
+    fn err_on_ascii_context_only_current_line() {
+        let f = testfile("0\n12345💩");
+        let mm = AsciiFile::new(f);
+        assert!(mm.is_err());
+        let e = mm.err().unwrap();
+        println!("{:?}", e);
+        let EncodingError::NotAscii { prev, .. } = e;
+        assert_eq!(prev, "12345");
+    }
+
+    #[test]
+    fn err_on_ascii_context_bounded() {
+        use std::fmt::Write;
+        let mut s = String::new();
+        for i in (0..ENCODING_ERROR_MAX_CONTEXT_LEN).rev() {
+            write!(s, "{}", i % 10);
         }
+        let instr = format!("{}💩", s);
+        let f = testfile(&instr);
+        let mm = AsciiFile::new(f);
+        assert!(mm.is_err());
+        let e = mm.err().unwrap();
+        println!("{:?}", e);
+        let EncodingError::NotAscii { prev, .. } = e;
+        println!("{:?}", prev);
+        let l = s.len();
+        assert_eq!(l, ENCODING_ERROR_MAX_CONTEXT_LEN);
+        let exp = &s[(l - ENCODING_ERROR_MAX_CONTEXT_LEN)..l];
+        assert_eq!(prev, exp);
     }
 
     #[test]
