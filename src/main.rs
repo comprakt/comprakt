@@ -34,6 +34,8 @@ enum CliError {
     OpenInput { path: PathBuf },
     #[fail(display = "failed to mmap MiniJava file {:?}", path)]
     Mmap { path: PathBuf },
+    #[fail(display = "failed to decode MiniJava file: {:?}", path)]
+    Ascii { path: PathBuf },
     #[fail(display = "failed to copy input file {:?} to stdout", input)]
     Echo { input: PathBuf },
 }
@@ -78,7 +80,8 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
             let file = File::open(&path).context(CliError::OpenInput { path: path.clone() })?;
             let mapping =
                 (unsafe { Mmap::map(&file) }).context(CliError::Mmap { path: path.clone() })?;
-            let ascii_file = asciifile::AsciiFile::new(mapping).unwrap();
+            let ascii_file = asciifile::AsciiFile::new(mapping)
+                .context(CliError::Ascii { path: path.clone() })?;
 
             let strtab = strtab::StringTable::new();
             let lexer = lexer::Lexer::new(ascii_file.iter(), &strtab);
