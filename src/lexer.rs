@@ -435,7 +435,19 @@ where
         Some(match self.input.peek() {
             Some('a'..='z') | Some('A'..='Z') | Some('_') => self.lex_identifier_or_keyword(),
 
-            Some('0'..='9') => self.lex_integer_literal(),
+            Some('1'..='9') => self.lex_integer_literal(),
+
+            Some('0') => {
+                let PositionedChar(pos, character) = self.input.next().unwrap();
+                let mut buf = [0; 1];
+                // won't panic because we know character is '0', hence 1 byte
+                let as_str = character.encode_utf8(&mut buf);
+                Ok(Token::new(
+                    pos,
+                    pos,
+                    TokenKind::IntegerLiteral(self.strtab.intern(as_str)),
+                ))
+            }
 
             Some(c) if is_minijava_whitespace(c) => self.lex_whitespace(),
 
@@ -477,7 +489,7 @@ where
     }
 
     fn lex_integer_literal(&mut self) -> TokenResult {
-        assert_matches!(self.input.peek(), Some('0'..='9'));
+        assert_matches!(self.input.peek(), Some('1'..='9'));
 
         self.lex_while(
             |c| matches!(c, '0'..='9'),
