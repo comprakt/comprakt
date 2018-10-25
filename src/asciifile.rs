@@ -194,6 +194,29 @@ mod tests {
     }
 
     #[test]
+    fn returns_err_on_non_ascii_non_utf8() {
+        let input: Vec<u16> = "ä".encode_utf16().collect();
+        let input: &[u8] =
+            unsafe { std::slice::from_raw_parts(input.as_ptr() as *const u8, 2 * input.len()) };
+        assert_eq!(input.len(), 2);
+        match std::str::from_utf8(input) {
+            Ok(s) => panic!("test implementation error {:?}", s),
+            Err(x) => println!("ä in utf16 is not valid utf8, but let's be sure {:?}", x),
+        }
+        use std::io::{Seek, SeekFrom, Write};
+        use tempfile::tempfile;
+        let mut f = tempfile().unwrap();
+        f.write_all(input).unwrap();
+        f.seek(SeekFrom::Start(0)).unwrap();
+        let mm = unsafe { Mmap::map(&f).unwrap() };
+        let r = AsciiFile::new(mm);
+        assert!(r.is_err());
+        let EncodingError::NotAscii { position, prev } = r.err().unwrap();
+        assert_eq!(position, 0);
+        assert_eq!(prev, "");
+    }
+
+    #[test]
     fn err_on_ascii_context_only_current_line() {
         let f = testfile("0\n12345💩");
         let mm = AsciiFile::new(f);
@@ -308,4 +331,5 @@ mod tests {
 
         assert_eq!(exp, res);
     }
+
 }
