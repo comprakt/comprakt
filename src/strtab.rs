@@ -8,7 +8,7 @@
 
 use std::{cell::UnsafeCell, collections::HashSet, rc::Rc};
 
-pub type Symbol = Rc<str>;
+pub type Symbol<'s> = &'s str;
 
 #[derive(Debug)]
 pub struct StringTable {
@@ -22,13 +22,8 @@ impl StringTable {
         }
     }
 
-    pub fn intern(&self, value: &str) -> Symbol {
-        // Entries is private, and this is the only place where it is mutated
-        let entries = unsafe { &mut *self.entries.get() };
-        if !entries.contains(value) {
-            entries.insert(value.into());
-        }
-        Rc::clone(entries.get(value).unwrap())
+    pub fn intern<'s>(&self, value: &'s str) -> Symbol<'s> {
+        value
     }
 }
 

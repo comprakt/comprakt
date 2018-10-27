@@ -122,9 +122,9 @@ fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error> {
     Ok(())
 }
 
-fn run_lexer_test<L, O>(lexer: L, out: &mut O) -> Result<(), Error>
+fn run_lexer_test<'s, L, O>(lexer: L, out: &mut O) -> Result<(), Error>
 where
-    L: Iterator<Item = TokenKind>,
+    L: Iterator<Item = TokenKind<'s>>,
     O: io::Write,
 {
     let token_datas = lexer.filter(|token_data| match token_data {

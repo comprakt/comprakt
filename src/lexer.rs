@@ -20,9 +20,9 @@ macro_rules! match_op {
     }};
 }
 
-pub type TokenResult = Result<Token, LexicalError>;
+pub type TokenResult<'s> = Result<Token<'s>, LexicalError>;
 
-pub type Token = Spanned<TokenKind>;
+pub type Token<'s> = Spanned<TokenKind<'s>>;
 pub type LexicalError = Spanned<ErrorKind>;
 
 #[derive(Debug)]
@@ -49,17 +49,17 @@ impl<T> Spanned<T> {
 impl Fail for LexicalError {}
 
 #[derive(Debug)]
-pub enum TokenKind {
+pub enum TokenKind<'s> {
     Keyword(Keyword),
     Operator(Operator),
-    Identifier(Symbol),
-    IntegerLiteral(Symbol),
+    Identifier(Symbol<'s>),
+    IntegerLiteral(Symbol<'s>),
     Comment(String),
     Whitespace,
     EOF,
 }
 
-impl fmt::Display for TokenKind {
+impl<'s> fmt::Display for TokenKind<'s> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::TokenKind::*;
 
@@ -401,7 +401,7 @@ impl<'t, 's> Lexer<'t, 's> {
         }
     }
 
-    fn lex_token(&mut self) -> Option<TokenResult> {
+    fn lex_token(&mut self) -> Option<TokenResult<'s>> {
         println!("{:?}", self.current_frame);
         assert!(self.current_frame.is_empty());
 
@@ -453,7 +453,7 @@ impl<'t, 's> Lexer<'t, 's> {
         }
     }
 
-    fn lex_identifier_or_keyword(&mut self) -> TokenResult {
+    fn lex_identifier_or_keyword(&mut self) -> TokenResult<'s> {
         assert_matches!(
             self.current_frame.first(),
             Some('a'..='z') | Some('A'..='Z') | Some('_')
@@ -470,7 +470,7 @@ impl<'t, 's> Lexer<'t, 's> {
         )
     }
 
-    fn lex_integer_literal(&mut self) -> TokenResult {
+    fn lex_integer_literal(&mut self) -> TokenResult<'s> {
         assert_matches!(self.current_frame.first(), Some('1'..='9'));
 
         self.lex_while(
@@ -479,7 +479,7 @@ impl<'t, 's> Lexer<'t, 's> {
         )
     }
 
-    fn lex_comment(&mut self) -> TokenResult {
+    fn lex_comment(&mut self) -> TokenResult<'s> {
         let res = self.current_frame.trim_head(2); // Don't need "/*"
         assert_eq!(res, Ok("/*"));
 
@@ -507,13 +507,13 @@ impl<'t, 's> Lexer<'t, 's> {
         token
     }
 
-    fn lex_whitespace(&mut self) -> TokenResult {
+    fn lex_whitespace(&mut self) -> TokenResult<'s> {
         assert!(is_minijava_whitespace(self.current_frame.first().unwrap()));
         self.lex_while(is_minijava_whitespace, |_, _, _| Ok(TokenKind::Whitespace))
     }
 
     #[allow(clippy::cyclomatic_complexity)]
-    fn lex_operator(&mut self) -> Option<TokenResult> {
+    fn lex_operator(&mut self) -> Option<TokenResult<'s>> {
         use self::Operator::*;
 
         // It's important that these are sorted by length (decreasingly)
@@ -573,10 +573,10 @@ impl<'t, 's> Lexer<'t, 's> {
     }
 
     /// Like `lex_while_multiple`, but only check characters
-    fn lex_while<P, D>(&mut self, predicate: P, make_token: D) -> TokenResult
+    fn lex_while<P, D>(&mut self, predicate: P, make_token: D) -> TokenResult<'s>
     where
         P: Fn(char) -> bool,
-        D: FnOnce(&'s str, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
+        D: FnOnce(&'s str, &'t StringTable, bool) -> Result<TokenKind<'s>, ErrorKind>,
     {
         // Unwrap is safe, because EOF case is handled by lex_while_multiple
         self.lex_while_multiple(
@@ -594,10 +594,10 @@ impl<'t, 's> Lexer<'t, 's> {
     /// using `make_token`. `preddicate` is never given a less than `n`
     /// chars. In that case, the loop is terminated and `make_token` is
     /// called with 3rd argument set to `true`.
-    fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult
+    fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult<'s>
     where
         P: Fn(&str) -> bool,
-        D: FnOnce(&'s str, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
+        D: FnOnce(&'s str, &'t StringTable, bool) -> Result<TokenKind<'s>, ErrorKind>,
     {
         let res = self.current_frame.extend_to(n).and_then(|_| {
             self.current_frame.extend_while(n, |candidate| {
@@ -617,7 +617,7 @@ impl<'t, 's> Lexer<'t, 's> {
 }
 
 impl<'t, 's> Iterator for Lexer<'t, 's> {
-    type Item = TokenResult;
+    type Item = TokenResult<'s>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.lex_token()
