@@ -17,14 +17,10 @@ macro_rules! match_op {
     ($input:expr, $len:expr, $right:expr) => {{
         // Unwraps are safe, because this is only called after token of length $len,
         // is already matched and thus contained in $input
-        let PositionedChar(begin, _) = $input.next().unwrap();
-        let mut end = begin;
-        #[allow(clippy::reverse_range_loop)] // Macro might be called with with $len=1
-        for _ in 1..$len {
-            let PositionedChar(pos, _) = $input.next().unwrap();
-            end = pos;
-        }
-
+        assert!($len >= 1);
+        let mut it = $input.by_ref().take($len);
+        let PositionedChar(begin, _) = it.next().unwrap();
+        let end = it.last().map(|pc| pc.0).unwrap_or(begin);
         Some(Ok(Token::new(begin, end, TokenKind::Operator($right))))
     }};
 }
