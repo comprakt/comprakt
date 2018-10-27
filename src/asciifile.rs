@@ -65,7 +65,7 @@ use std::fmt::{self, Display};
 
 impl Display for Position {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "{}:{}", self.row, self.col)
+        write!(fmt, "{}:{}", self.row + 1, self.col + 1)
     }
 }
 
