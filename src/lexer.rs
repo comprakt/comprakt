@@ -101,9 +101,27 @@ pub struct Span {
     pub end: Position,
 }
 
+impl Span {
+    fn is_single_char(&self) -> bool {
+        if self.start.row != self.end.row {
+            return false;
+        }
+        // ignore inconsisent end before start
+        self.end
+            .col
+            .checked_sub(self.start.col)
+            .map(|d| d <= 1)
+            .unwrap_or(false)
+    }
+}
+
 impl fmt::Display for Span {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}-{}", self.start, self.end)
+        if self.is_single_char() {
+            write!(f, "{}", self.start)
+        } else {
+            write!(f, "{}-{}", self.start, self.end)
+        }
     }
 }
 

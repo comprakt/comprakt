@@ -57,8 +57,8 @@ use std::ops::Deref;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Position {
-    row: usize,
-    col: usize,
+    pub row: usize,
+    pub col: usize,
 }
 
 use std::fmt::{self, Display};
