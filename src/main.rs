@@ -106,18 +106,10 @@ fn exit_with_error(err: &Error) -> ! {
 
 /// Print error objects in a format intended for end users
 fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error> {
-    let mut causes = err.iter_chain();
-
-    if let Some(err_msg) = causes.next() {
-        writeln!(writer, "error: {}", err_msg)?;
-    } else {
-        writeln!(writer, "Unknown error")?;
-    };
-
-    for cause in causes {
+    writeln!(writer, "error: {}", err.as_fail())?;
+    for cause in err.iter_causes() {
         writeln!(writer, "caused by: {}", cause)?;
     }
-
     Ok(())
 }
 
