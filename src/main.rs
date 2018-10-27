@@ -30,13 +30,13 @@ use self::lexer::TokenKind;
 /// [1] https://rust-lang-nursery.github.io/failure/use-error.html
 #[derive(Debug, Fail)]
 enum CliError {
-    #[fail(display = "failed to open MiniJava file {:?}", path)]
+    #[fail(display = "cannot open input file {:?}", path)]
     OpenInput { path: PathBuf },
-    #[fail(display = "failed to mmap MiniJava file {:?}", path)]
+    #[fail(display = "cannot mmap input file {:?}", path)]
     Mmap { path: PathBuf },
-    #[fail(display = "failed to decode MiniJava file: {:?}", path)]
+    #[fail(display = "cannot decode input file: {:?}", path)]
     Ascii { path: PathBuf },
-    #[fail(display = "failed to copy input file {:?} to stdout", input)]
+    #[fail(display = "cannot copy input file {:?} to stdout", input)]
     Echo { input: PathBuf },
 }
 
