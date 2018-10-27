@@ -1,6 +1,10 @@
 use failure::Fail;
 use memmap::Mmap;
 
+use std::ops::Deref;
+
+use std::fmt::{self, Display};
+
 pub struct AsciiFile {
     mapping: Mmap,
 }
@@ -17,7 +21,7 @@ pub enum EncodingError {
 
 const ENCODING_ERROR_MAX_CONTEXT_LEN: usize = 180;
 
-impl<'a> AsciiFile {
+impl AsciiFile {
     // cost: O(fileLen) since we need to check if all chars are ASCII
     pub fn new(mapping: Mmap) -> Result<AsciiFile, EncodingError> {
         if let Some(position) = mapping.iter().position(|c| !c.is_ascii()) {
@@ -43,105 +47,9 @@ impl<'a> AsciiFile {
         Ok(AsciiFile { mapping })
     }
 
-    pub fn iter(&self) -> PositionedChars<std::str::Chars<'_>> {
+    pub fn scanner(&self) -> StrFrame<'_> {
         let s: &str = self;
-        PositionedChars {
-            curpos: Position { row: 0, col: 0 },
-            ascii_file: s.chars(),
-            peeked: String::new(),
-        }
-    }
-}
-
-use std::ops::Deref;
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Position {
-    row: usize,
-    col: usize,
-}
-
-use std::fmt::{self, Display};
-
-impl Display for Position {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "{}:{}", self.row, self.col)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct PositionedChar(pub Position, pub char);
-
-pub struct PositionedChars<I>
-where
-    I: Iterator<Item = char>,
-{
-    curpos: Position,
-    ascii_file: I,
-    peeked: String,
-}
-
-impl<I> Iterator for PositionedChars<I>
-where
-    I: Iterator<Item = char>,
-{
-    type Item = PositionedChar;
-    fn next(&mut self) -> Option<PositionedChar> {
-        let c = self.peek()?;
-        self.peeked.remove(0);
-
-        let retpos = self.curpos;
-        self.curpos.col += 1;
-        if c == '\n' {
-            self.curpos.row += 1;
-            self.curpos.col = 0;
-        }
-
-        Some(PositionedChar(retpos, c))
-    }
-}
-
-impl<I> PositionedChars<I>
-where
-    I: Iterator<Item = char>,
-{
-    pub fn try_peek_multiple(&mut self, n: usize) -> Option<&str> {
-        let peeked = self.peek_multiple(n);
-        if peeked.len() < n {
-            None
-        } else {
-            Some(peeked)
-        }
-    }
-
-    /// Peek the next n characters, without advancing the iteratior (it is
-    /// actually advanced, of course, but this is hidden by a buffer).
-    /// If there are less than n charcters left, the returned slice is shorter
-    /// than that
-    pub fn peek_multiple(&mut self, n: usize) -> &str {
-        // We already have .len() characters "in stock", so we get the remaining n-len,
-        // if there are then many
-        for _ in self.peeked.len()..n {
-            match self.ascii_file.next() {
-                Some(next) => self.peeked.push(next),
-                None => break,
-            }
-        }
-
-        &self.peeked[0..self.peeked.len().min(n)]
-    }
-
-    /// Can't use peekable, because we don't care about position when peeking
-    pub fn peek(&mut self) -> Option<char> {
-        self.peek_multiple(1).chars().next()
-    }
-
-    pub fn eof_reached(&mut self) -> bool {
-        self.peek().is_none()
-    }
-
-    pub fn current_position(&mut self) -> Position {
-        self.curpos
+        StrFrame::new(s)
     }
 }
 
@@ -155,6 +63,207 @@ impl Deref for AsciiFile {
 impl<'a> Into<&'a str> for &'a AsciiFile {
     fn into(self) -> &'a str {
         self
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Position {
+    row: usize,
+    col: usize,
+}
+
+impl Display for Position {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "{}:{}", self.row, self.col)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Span {
+    pub start: Position,
+    pub end: Position,
+}
+
+impl fmt::Display for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}-{}", self.start, self.end)
+    }
+}
+
+#[derive(Debug)]
+pub struct StrFrame<'s> {
+    span: Span,
+    len: usize,
+    remainder: &'s str,
+}
+
+#[must_use]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ExtensionError {
+    NoMatch,
+    EOF,
+}
+
+type ExtendResult<'s> = Result<&'s str, ExtensionError>;
+
+impl ExtensionError {
+    pub fn eof_reached(self) -> bool {
+        self == ExtensionError::EOF
+    }
+}
+
+impl<'s> StrFrame<'s> {
+    fn new(slice: &'s str) -> Self {
+        let pos = Position { row: 0, col: 0 };
+        StrFrame {
+            span: Span {
+                start: pos,
+                end: pos,
+            },
+            len: 0,
+            remainder: slice,
+        }
+    }
+
+    /// If EOF within next `n` chars, return `false` and leave frame unchanged
+    pub fn extend_by(&mut self, n: usize) -> ExtendResult<'s> {
+        if self.remainder.len() >= self.len + n {
+            // Assumes ASCII
+            for c in self.remainder[self.len..(self.len + n)].chars() {
+                self.span.end.col += 1;
+                if c == '\n' {
+                    self.span.end.row += 1;
+                    self.span.end.col = 0;
+                }
+            }
+
+            self.len += n;
+
+            Ok(&self.remainder[..self.len])
+        } else {
+            Err(ExtensionError::EOF)
+        }
+    }
+
+    pub fn extend_to(&mut self, n: usize) -> ExtendResult<'s> {
+        n.checked_sub(self.len)
+            .ok_or(ExtensionError::NoMatch)
+            .and_then(|diff| self.extend_by(diff))
+    }
+
+    pub fn extend_to_eof(&mut self) {
+        let res = self.extend_by(self.remainder.len() - self.len);
+        assert!(res.is_ok());
+        assert!(self.remainder.len() == self.len);
+    }
+
+    /// If char stream doesn't contain `want` at begining of this frame, return
+    /// `NoMatch` and leave frame unchanged
+    pub fn extend_so_that_eq(&mut self, want: &str) -> ExtendResult<'s> {
+        // FIXME This never returns EOF?
+        let n = want.len();
+        self.remainder
+            .get(..n)
+            .ok_or(ExtensionError::EOF)
+            .and_then(|have| {
+                if have == want {
+                    self.extend_to(n)
+                } else {
+                    Err(ExtensionError::NoMatch)
+                }
+            })
+    }
+
+    pub fn extend_while<P>(&mut self, lookahead: usize, predicate: P) -> ExtendResult<'s>
+    where
+        P: Fn(&str) -> bool,
+    {
+        assert!(self.len <= self.remainder.len());
+
+        for i in self.len..self.remainder.len() {
+            if !self
+                .remainder
+                .get(..(i + lookahead))
+                .map_or(false, &predicate)
+            {
+                return Ok(&self.remainder[..i]);
+            } else {
+                let res = self.extend_by(1);
+                assert!(res.is_ok());
+            }
+        }
+
+        Err(ExtensionError::EOF)
+    }
+
+    /// Remove leading `n` chars from frame. If frame is shorter than `n`,
+    /// return `false` and leave it unchanged
+    pub fn trim_head(&mut self, n: usize) -> Result<&str, ()> {
+        assert!(self.len <= self.remainder.len());
+
+        if self.len >= n {
+            let discarded = &self.remainder[..n];
+            self.remainder = &self.remainder[n..];
+            Ok(discarded)
+        } else {
+            Err(())
+        }
+    }
+
+    /*
+    /// Remove trailing `n` chars from frame. If frame is shorter than `n`,
+    /// return `false` and leave it unchanged. The trailing characters are not
+    /// re-added to the unprocessed chars, and thus will be lost to safe code
+    pub fn trim_tail(&mut self, n: usize) -> bool {
+        unimplemented!()
+    }
+     */
+
+    /// Finalize this frame by return the span and contents, and reinitializing
+    /// it as an empty frame looking at the beginning of the remaining
+    /// unprocessed chars
+    #[allow(clippy::almost_swapped)]
+    pub fn finish(&mut self) -> (Span, &'s str) {
+        assert!(self.len <= self.remainder.len());
+        let result = (self.span, &self.remainder[..self.len]);
+
+        self.remainder = &self.remainder[self.len..];
+
+        self.span.start = self.span.end;
+        self.span.end = self.span.start;
+        self.len = 0;
+
+        result
+    }
+
+    /// Same as `finish`, but exclude the last `n` chars, from the result,
+    /// without re-addeing them to the unprocessed chars. Returns `None` if
+    /// current frame is shorter than `n`.
+    pub fn finish_with_trimmed_tail(&mut self, n: usize) -> Option<(Span, &'s str)> {
+        if self.len >= n {
+            let (c, s) = self.finish();
+            // Assumes ASCII
+            Some((c, &s[..s.len() - n]))
+        } else {
+            None
+        }
+    }
+
+    pub fn first(&self) -> Option<char> {
+        self.head(1).and_then(|s| s.chars().next())
+    }
+
+    pub fn head(&self, n: usize) -> Option<&'s str> {
+        if self.len >= n {
+            // Assumes ASCII
+            Some(&self.remainder[..n])
+        } else {
+            None
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
 }
 

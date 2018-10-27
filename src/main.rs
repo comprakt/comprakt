@@ -3,6 +3,7 @@
 #![feature(if_while_or_patterns)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(const_str_as_bytes)]
+#![feature(result_map_or_else)]
 
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
@@ -84,7 +85,7 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
                 .context(CliError::Ascii { path: path.clone() })?;
 
             let strtab = strtab::StringTable::new();
-            let lexer = lexer::Lexer::new(ascii_file.iter(), &strtab);
+            let lexer = lexer::Lexer::new(ascii_file.scanner(), &strtab);
 
             itertools::process_results(lexer, |valid_tokens| {
                 let mut stdout = io::stdout();

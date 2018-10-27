@@ -1,31 +1,22 @@
 use crate::{
-    asciifile::{Position, PositionedChar, PositionedChars},
+    asciifile::{Span, StrFrame},
     strtab::*,
 };
 use failure::Fail;
 use std::{convert::TryFrom, fmt, result::Result};
 
 macro_rules! match_op {
-    ($input:expr, $( ($token_string:expr, $token:expr) ),+: $len:expr, $default:expr) => {{
-        match $input.peek_multiple($len) {
+    ($current_frame:expr, { $( $token_string:expr => $token:expr ),+, _ => $default:expr }) => {{
+        match () {
             $(
-                $token_string => match_op!($input, $len, $token),
+                () if $current_frame.extend_so_that_eq($token_string).is_ok() => {
+                    let (span, _) = $current_frame.finish();
+
+                    Some(Ok(Token::new(span, TokenKind::Operator($token))))
+                }
             )+
             _ => $default,
         }
-    }};
-    ($input:expr, $len:expr, $right:expr) => {{
-        // Unwraps are safe, because this is only called after token of length $len,
-        // is already matched and thus contained in $input
-        let PositionedChar(begin, _) = $input.next().unwrap();
-        let mut end = begin;
-        #[allow(clippy::reverse_range_loop)] // Macro might be called with with $len=1
-        for _ in 1..$len {
-            let PositionedChar(pos, _) = $input.next().unwrap();
-            end = pos;
-        }
-
-        Some(Ok(Token::new(begin, end, TokenKind::Operator($right))))
     }};
 }
 
@@ -50,11 +41,8 @@ where
 }
 
 impl<T> Spanned<T> {
-    fn new(start: Position, end: Position, value: T) -> Self {
-        Spanned {
-            span: Span { start, end },
-            data: value,
-        }
+    fn new(span: Span, value: T) -> Self {
+        Spanned { span, data: value }
     }
 }
 
@@ -93,18 +81,6 @@ pub enum ErrorKind {
     UnclosedComment(String),
     #[fail(display = "unexpected character '{}'", 0)]
     UnexpectedCharacter(char),
-}
-
-#[derive(Debug)]
-pub struct Span {
-    pub start: Position,
-    pub end: Position,
-}
-
-impl fmt::Display for Span {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}-{}", self.start, self.end)
-    }
 }
 
 #[derive(Debug)]
@@ -403,11 +379,8 @@ impl fmt::Display for Operator {
     }
 }
 
-pub struct Lexer<'t, I>
-where
-    I: Iterator<Item = char>,
-{
-    input: PositionedChars<I>,
+pub struct Lexer<'t, 's> {
+    current_frame: StrFrame<'s>,
     strtab: &'t StringTable,
     eof: bool,
 }
@@ -419,68 +392,77 @@ fn is_minijava_whitespace(c: char) -> bool {
     }
 }
 
-impl<'t, I> Lexer<'t, I>
-where
-    I: Iterator<Item = char>,
-{
-    pub fn new(input: PositionedChars<I>, strtab: &'t StringTable) -> Self {
+impl<'t, 's> Lexer<'t, 's> {
+    pub fn new(input: StrFrame<'s>, strtab: &'t StringTable) -> Self {
         Lexer {
-            input,
+            current_frame: input,
             strtab,
             eof: false,
         }
     }
 
     fn lex_token(&mut self) -> Option<TokenResult> {
-        Some(match self.input.peek() {
-            Some('a'..='z') | Some('A'..='Z') | Some('_') => self.lex_identifier_or_keyword(),
+        println!("{:?}", self.current_frame);
+        assert!(self.current_frame.is_empty());
 
-            Some('1'..='9') => self.lex_integer_literal(),
+        match self.current_frame.extend_by(1) {
+            Ok(s) => {
+                assert_eq!(s.len(), 1);
+                Some(match s.chars().next().unwrap() {
+                    'a'..='z' | 'A'..='Z' | '_' => self.lex_identifier_or_keyword(),
 
-            Some('0') => {
-                let PositionedChar(pos, character) = self.input.next().unwrap();
-                let mut buf = [0; 1];
-                // won't panic because we know character is '0', hence 1 byte
-                let as_str = character.encode_utf8(&mut buf);
-                Ok(Token::new(
-                    pos,
-                    pos,
-                    TokenKind::IntegerLiteral(self.strtab.intern(as_str)),
-                ))
+                    '1'..='9' => self.lex_integer_literal(),
+
+                    '0' => {
+                        let (span, c) = self.current_frame.finish();
+                        Ok(Token::new(
+                            span,
+                            TokenKind::IntegerLiteral(self.strtab.intern(c)),
+                        ))
+                    }
+
+                    c if is_minijava_whitespace(c) => self.lex_whitespace(),
+
+                    _ if self.current_frame.extend_so_that_eq("/*").is_ok() => self.lex_comment(),
+
+                    _ => self.lex_operator().unwrap_or_else(|| {
+                        let (span, s) = self.current_frame.finish();
+                        assert_eq!(s.len(), 1);
+                        let c = s.chars().next().unwrap();
+
+                        Err(LexicalError::new(span, ErrorKind::UnexpectedCharacter(c)))
+                    }),
+                })
             }
 
-            Some(c) if is_minijava_whitespace(c) => self.lex_whitespace(),
+            Err(err) => {
+                assert!(err.eof_reached());
 
-            Some(_) if self.input.peek_multiple(2) == "/*" => self.lex_comment(),
+                if self.eof {
+                    None
+                } else {
+                    self.eof = true; // Next time, return None
 
-            Some(_) => self.lex_operator().unwrap_or_else(|| {
-                let PositionedChar(pos, c) = self.input.next().unwrap();
-                Err(LexicalError::new(
-                    pos,
-                    pos,
-                    ErrorKind::UnexpectedCharacter(c),
-                ))
-            }),
+                    self.current_frame.extend_to_eof();
+                    let (pos, remains) = self.current_frame.finish();
+                    assert!(remains.is_empty()); // We already were at EOF
 
-            None if self.eof => return None, // Early return to not wrap in surrounding `Some`
-            None => {
-                self.eof = true;
-                let pos = self.input.current_position();
-                Ok(Token::new(pos, pos, TokenKind::EOF))
+                    Some(Ok(Token::new(pos, TokenKind::EOF)))
+                }
             }
-        })
+        }
     }
 
     fn lex_identifier_or_keyword(&mut self) -> TokenResult {
         assert_matches!(
-            self.input.peek(),
+            self.current_frame.first(),
             Some('a'..='z') | Some('A'..='Z') | Some('_')
         );
 
         self.lex_while(
             |c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_'),
             |ident, strtab, _| {
-                Ok(match Keyword::try_from(ident.as_ref()) {
+                Ok(match Keyword::try_from(ident) {
                     Ok(keyword) => TokenKind::Keyword(keyword),
                     Err(_) => TokenKind::Identifier(strtab.intern(&ident)),
                 })
@@ -489,7 +471,7 @@ where
     }
 
     fn lex_integer_literal(&mut self) -> TokenResult {
-        assert_matches!(self.input.peek(), Some('1'..='9'));
+        assert_matches!(self.current_frame.first(), Some('1'..='9'));
 
         self.lex_while(
             |c| matches!(c, '0'..='9'),
@@ -498,36 +480,35 @@ where
     }
 
     fn lex_comment(&mut self) -> TokenResult {
-        assert_eq!(self.input.peek_multiple(2), "/*");
-
-        self.input.next();
-        self.input.next();
+        let res = self.current_frame.trim_head(2); // Don't need "/*"
+        assert_eq!(res, Ok("/*"));
 
         let token = self.lex_while_multiple(
-            2,
+            2, // Lookahead
             |s| s != "*/",
             |text, _, eof_reached| {
                 if eof_reached {
-                    Err(ErrorKind::UnclosedComment(text))
+                    Err(ErrorKind::UnclosedComment(text.to_string()))
                 } else {
-                    Ok(TokenKind::Comment(text))
+                    Ok(TokenKind::Comment(text.to_string()))
                 }
             },
         );
 
+        assert!(self.current_frame.is_empty());
         if token.is_ok() {
-            // At least 2 chars left in input
-            assert_eq!(self.input.peek_multiple(2), "*/");
+            // At least 2 chars left in input, which we don't care about
+            let res = self.current_frame.extend_by(2);
+            assert_eq!(res, Ok("*/"));
+            let (_, text) = self.current_frame.finish();
+            assert_eq!(text, "*/");
         }
-
-        self.input.next();
-        self.input.next();
 
         token
     }
 
     fn lex_whitespace(&mut self) -> TokenResult {
-        assert!(is_minijava_whitespace(self.input.peek().unwrap()));
+        assert!(is_minijava_whitespace(self.current_frame.first().unwrap()));
         self.lex_while(is_minijava_whitespace, |_, _, _| Ok(TokenKind::Whitespace))
     }
 
@@ -535,79 +516,77 @@ where
     fn lex_operator(&mut self) -> Option<TokenResult> {
         use self::Operator::*;
 
-        match_op!(
-            self.input,
-            (">>>=", TripleRightChevronEqual):
-            4,
-            match_op!(
-                self.input,
-                ("<<=", DoubleLeftChevronEqual),
-                (">>=", DoubleRightChevronEqual),
-                (">>>", TripleRightChevron):
-                3,
-                match_op!(
-                    self.input,
-                    ("!=", ExclaimEqual),
-                    ("*=", StarEqual),
-                    ("++", DoublePlus),
-                    ("+=", PlusEqual),
-                    ("-=", MinusEqual),
-                    ("--", DoubleMinus),
-                    ("/=", SlashEqual),
-                    ("<<", DoubleLeftChevron),
-                    ("<=", LeftChevronEqual),
-                    ("==", DoubleEqual),
-                    (">=", RightChevronEqual),
-                    (">>", DoubleRightChevron),
-                    ("%=", PercentEqual),
-                    ("&=", AmpersandEqual),
-                    ("&&", DoubleAmpersand),
-                    ("^=", CaretEqual),
-                    ("|=", PipeEqual),
-                    ("||", DoublePipe):
-                    2,
-                    match_op!(
-                        self.input,
-                        ("!", Exclaim),
-                        ("(", LeftParen),
-                        (")", RightParen),
-                        ("*", Star),
-                        ("+", Plus),
-                        (",", Comma),
-                        ("-", Minus),
-                        (".", Dot),
-                        ("/", Slash),
-                        (":", Colon),
-                        (";", Semicolon),
-                        ("<", LeftChevron),
-                        ("=", Equal),
-                        (">", RightChevron),
-                        ("?", QuestionMark),
-                        ("%", Percent),
-                        ("&", Ampersand),
-                        ("[", LeftBracket),
-                        ("]", RightBracket),
-                        ("^", Caret),
-                        ("{", LeftBrace),
-                        ("}", RightBrace),
-                        ("~", Tilde),
-                        ("|", Pipe):
-                        1,
-                        None
-                    )
-                )
-            )
-        )
+        // It's important that these are sorted by length (decreasingly)
+        match_op!(self.current_frame, {
+            // Length 4
+            ">>>=" => TripleRightChevronEqual,
+            // Length 3
+            "<<=" => DoubleLeftChevronEqual,
+            ">>=" => DoubleRightChevronEqual,
+            ">>>" => TripleRightChevron,
+            // Length 2
+            "!=" => ExclaimEqual,
+            "*=" => StarEqual,
+            "++" => DoublePlus,
+            "+=" => PlusEqual,
+            "-=" => MinusEqual,
+            "--" => DoubleMinus,
+            "/=" => SlashEqual,
+            "<<" => DoubleLeftChevron,
+            "<=" => LeftChevronEqual,
+            "==" => DoubleEqual,
+            ">=" => RightChevronEqual,
+            ">>" => DoubleRightChevron,
+            "%=" => PercentEqual,
+            "&=" => AmpersandEqual,
+            "&&" => DoubleAmpersand,
+            "^=" => CaretEqual,
+            "|=" => PipeEqual,
+            "||" => DoublePipe,
+            "!" => Exclaim,
+            // Length 1
+            "(" => LeftParen,
+            ")" => RightParen,
+            "*" => Star,
+            "+" => Plus,
+            "," => Comma,
+            "-" => Minus,
+            "." => Dot,
+            "/" => Slash,
+            ":" => Colon,
+            ";" => Semicolon,
+            "<" => LeftChevron,
+            "=" => Equal,
+            ">" => RightChevron,
+            "?" => QuestionMark,
+            "%" => Percent,
+            "&" => Ampersand,
+            "[" => LeftBracket,
+            "]" => RightBracket,
+            "^" => Caret,
+            "{" => LeftBrace,
+            "}" => RightBrace,
+            "~" => Tilde,
+            "|" => Pipe,
+            _ => None
+        })
     }
 
     /// Like `lex_while_multiple`, but only check characters
     fn lex_while<P, D>(&mut self, predicate: P, make_token: D) -> TokenResult
     where
         P: Fn(char) -> bool,
-        D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
+        D: FnOnce(&'s str, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         // Unwrap is safe, because EOF case is handled by lex_while_multiple
-        self.lex_while_multiple(1, |s| predicate(s.chars().next().unwrap()), make_token)
+        self.lex_while_multiple(
+            1,
+            |s| {
+                assert_eq!(s.len(), 1);
+                predicate(s.chars().next().unwrap())
+            },
+            make_token,
+        )
     }
 
     /// Consume n characters at a time while `predicate` returns `true`. Intern
@@ -618,44 +597,26 @@ where
     fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult
     where
         P: Fn(&str) -> bool,
-        D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
+        D: FnOnce(&'s str, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
-        let mut chars = String::new();
-        let PositionedChar(start_pos, first_char) = self.input.next().unwrap();
-        chars.push(first_char);
+        let res = self.current_frame.extend_to(n).and_then(|_| {
+            self.current_frame.extend_while(n, |candidate| {
+                candidate
+                    .get((candidate.len() - n)..)
+                    .map_or(false, &predicate)
+            })
+        });
 
-        let mut end_pos = start_pos;
-        loop {
-            if let Some(should_continue) = self.input.try_peek_multiple(n).map(&predicate) {
-                if !should_continue {
-                    break;
-                }
-            } else {
-                // We know there is an EOF within the next n characters, but we still need to
-                // consume them
-                while let Some(PositionedChar(pos, c)) = self.input.next() {
-                    chars.push(c);
-                    end_pos = pos;
-                }
-                break;
-            }
+        let (span, chars) = self.current_frame.finish();
+        let eof_reached = res.map_or_else(|err| err.eof_reached(), |_| false);
 
-            // Unwrap is safe, because `map_or` catches EOF case
-            let PositionedChar(pos, c) = self.input.next().unwrap();
-            chars.push(c);
-            end_pos = pos;
-        }
-
-        make_token(chars, self.strtab, self.input.eof_reached())
-            .map(|kind| Token::new(start_pos, end_pos, kind))
-            .map_err(|kind| LexicalError::new(start_pos, end_pos, kind))
+        make_token(chars, self.strtab, eof_reached)
+            .map(|kind| Token::new(span, kind))
+            .map_err(|kind| LexicalError::new(span, kind))
     }
 }
 
-impl<'t, I> Iterator for Lexer<'t, I>
-where
-    I: Iterator<Item = char>,
-{
+impl<'t, 's> Iterator for Lexer<'t, 's> {
     type Item = TokenResult;
 
     fn next(&mut self) -> Option<Self::Item> {
