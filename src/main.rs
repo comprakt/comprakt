@@ -78,9 +78,26 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         }
         CliCommand::LexerTest { path } => {
             let file = File::open(&path).context(CliError::OpenInput { path: path.clone() })?;
-            let mapping =
-                (unsafe { Mmap::map(&file) }).context(CliError::Mmap { path: path.clone() })?;
-            let ascii_file = asciifile::AsciiFile::new(mapping)
+            let mmres = unsafe { Mmap::map(&file) };
+            const EMPTY: [u8; 0] = [0; 0];
+            let bytes: &[u8] = match mmres {
+                Ok(ref m) => m,
+                Err(e) if e.kind() == io::ErrorKind::InvalidInput => {
+                    // Linux returns EINVAL on file size 0, but let's be sure
+                    let file_size = file
+                        .metadata()
+                        .map(|m| m.len())
+                        .context("could not get file metadata while interpreting mmap erorr")?;
+                    if file_size != 0 {
+                        return Err(e.context(CliError::Mmap { path: path.clone() }))?;
+                    }
+                    assert_eq!(file_size, 0);
+                    &EMPTY
+                }
+                Err(e) => return Err(e.context(CliError::Mmap { path: path.clone() }))?,
+            };
+
+            let ascii_file = asciifile::AsciiFile::new(&bytes)
                 .context(CliError::Ascii { path: path.clone() })?;
 
             let strtab = strtab::StringTable::new();

@@ -1,8 +1,7 @@
 use failure::Fail;
-use memmap::Mmap;
 
-pub struct AsciiFile {
-    mapping: Mmap,
+pub struct AsciiFile<'m> {
+    mapping: &'m [u8],
 }
 
 #[derive(Debug, Fail)]
@@ -17,9 +16,9 @@ pub enum EncodingError {
 
 const ENCODING_ERROR_MAX_CONTEXT_LEN: usize = 180;
 
-impl<'a> AsciiFile {
+impl<'m> AsciiFile<'m> {
     // cost: O(fileLen) since we need to check if all chars are ASCII
-    pub fn new(mapping: Mmap) -> Result<AsciiFile, EncodingError> {
+    pub fn new(mapping: &'m [u8]) -> Result<AsciiFile<'m>, EncodingError> {
         if let Some(position) = mapping.iter().position(|c| !c.is_ascii()) {
             let end_idx = position;
             let min_start_idx = position - ENCODING_ERROR_MAX_CONTEXT_LEN.min(position);
@@ -145,16 +144,16 @@ where
     }
 }
 
-impl Deref for AsciiFile {
+impl<'m> Deref for AsciiFile<'m> {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         unsafe { std::str::from_utf8_unchecked(&self.mapping) }
     }
 }
 
-impl<'a> Into<&'a str> for &'a AsciiFile {
-    fn into(self) -> &'a str {
-        self
+impl<'m, 'a> Into<&'m str> for &'a AsciiFile<'m> {
+    fn into(self) -> &'m str {
+        unsafe { std::str::from_utf8_unchecked(&self.mapping) }
     }
 }
 
@@ -163,13 +162,8 @@ mod tests {
 
     use super::*;
 
-    fn testfile(s: &str) -> Mmap {
-        use std::io::{Seek, SeekFrom, Write};
-        use tempfile::tempfile;
-        let mut f = tempfile().unwrap();
-        f.write_all(s.as_bytes()).unwrap();
-        f.seek(SeekFrom::Start(0)).unwrap();
-        unsafe { Mmap::map(&f).unwrap() }
+    fn testfile(s: &str) -> &[u8] {
+        s.as_bytes()
     }
 
     #[test]
@@ -203,13 +197,7 @@ mod tests {
             Ok(s) => panic!("test implementation error {:?}", s),
             Err(x) => println!("ä in utf16 is not valid utf8, but let's be sure {:?}", x),
         }
-        use std::io::{Seek, SeekFrom, Write};
-        use tempfile::tempfile;
-        let mut f = tempfile().unwrap();
-        f.write_all(input).unwrap();
-        f.seek(SeekFrom::Start(0)).unwrap();
-        let mm = unsafe { Mmap::map(&f).unwrap() };
-        let r = AsciiFile::new(mm);
+        let r = AsciiFile::new(&input);
         assert!(r.is_err());
         let EncodingError::NotAscii { position, prev } = r.err().unwrap();
         assert_eq!(position, 0);
