@@ -58,5 +58,5 @@ script:
       cargo test
     else
       cargo build --release
-      MJ_RUN=target/release/comprakt python3 ./mjtest/mjt.py $MJ_TESTS
+      MJ_TIMEOUT=60 MJ_RUN=target/release/comprakt python3 ./mjtest/mjt.py $MJ_TESTS
     fi
