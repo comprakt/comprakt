@@ -512,7 +512,7 @@ where
     }
 
     fn lex_comment(&mut self) -> TokenResult {
-        debug_assert!(self.input.peek_multiple(2) == "/*");
+        debug_assert_eq!(self.input.peek_multiple(2), "/*");
 
         self.input.next();
         self.input.next();
@@ -531,7 +531,7 @@ where
 
         if token.is_ok() {
             // At least 2 chars left in input
-            debug_assert!(self.input.peek_multiple(2) == "*/");
+            debug_assert_eq!(self.input.peek_multiple(2), "*/");
         }
 
         self.input.next();
