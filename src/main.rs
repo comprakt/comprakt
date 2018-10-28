@@ -88,13 +88,13 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
                         .metadata()
                         .map(|m| m.len())
                         .context("could not get file metadata while interpreting mmap erorr")?;
-                    if file_size != 0 {
-                        return Err(e.context(CliError::Mmap { path: path.clone() }))?;
+                    if file_size == 0 {
+                        &EMPTY
+                    } else {
+                        Err(e.context(CliError::Mmap { path: path.clone() }))?
                     }
-                    assert_eq!(file_size, 0);
-                    &EMPTY
                 }
-                Err(e) => return Err(e.context(CliError::Mmap { path: path.clone() }))?,
+                Err(e) => Err(e.context(CliError::Mmap { path: path.clone() }))?,
             };
 
             let ascii_file = asciifile::AsciiFile::new(&bytes)
