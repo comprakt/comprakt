@@ -635,8 +635,7 @@ where
         D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         let mut chars = String::new();
-        let PositionedChar(start_pos, first_char) = self.input.next().unwrap();
-        chars.push(first_char);
+        let start_pos = self.input.current_position();
 
         let mut end_pos = start_pos;
         loop {
