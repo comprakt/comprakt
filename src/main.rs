@@ -87,7 +87,7 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
                     let file_size = file
                         .metadata()
                         .map(|m| m.len())
-                        .context("could not get file metadata while interpreting mmap erorr")?;
+                        .context("could not get file metadata while interpreting mmap error")?;
                     if file_size == 0 {
                         &EMPTY
                     } else {
