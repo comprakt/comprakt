@@ -150,14 +150,11 @@ where
 #[cfg(test)]
 mod lexertest_tests {
 
-    macro_rules! lexer_test_with_tokens {
-        ( $toks:expr ) => {{
-            let v: Vec<TokenKind> = { $toks };
-            let mut o = Vec::new();
-            let res = run_lexer_test(v.into_iter(), &mut o);
-            assert!(res.is_ok());
-            String::from_utf8(o).expect("output must be utf8")
-        }};
+    fn lexer_test_with_tokens(tokens: Vec<TokenKind>) -> String {
+        let mut o = Vec::new();
+        let res = run_lexer_test(tokens.into_iter(), &mut o);
+        assert!(res.is_ok());
+        String::from_utf8(o).expect("output must be utf8")
     }
 
     use super::{
@@ -173,7 +170,7 @@ mod lexertest_tests {
             TokenKind::Keyword(Keyword::Int),
         ];
         let tokens_len = tokens.len();
-        let o = lexer_test_with_tokens![tokens];
+        let o = lexer_test_with_tokens(tokens);
         assert_eq!(o.lines().count(), tokens_len);
     }
 
@@ -188,7 +185,7 @@ mod lexertest_tests {
             TokenKind::Keyword(Keyword::If),
             TokenKind::EOF,
         ];
-        let o = lexer_test_with_tokens!(tokens);
+        let o = lexer_test_with_tokens(tokens);
         assert_eq!(o.lines().count(), 4);
         assert!(!o.contains("comment"));
         assert_eq!(&o, "&\ninteger literal foo\nif\nEOF\n")
@@ -197,33 +194,33 @@ mod lexertest_tests {
     #[test]
     fn keywords_as_is() {
         let tokens = vec![TokenKind::Keyword(Keyword::Float)];
-        let o = lexer_test_with_tokens!(tokens);
+        let o = lexer_test_with_tokens(tokens);
         assert_eq!(&o, "float\n");
     }
 
     #[test]
     fn operators_as_is() {
-        let o = lexer_test_with_tokens!(vec![TokenKind::Operator(Operator::Caret)]);
+        let o = lexer_test_with_tokens(vec![TokenKind::Operator(Operator::Caret)]);
         assert_eq!(&o, "^\n");
     }
 
     #[test]
     fn ident_prefix() {
         let st = StringTable::new();
-        let o = lexer_test_with_tokens!(vec![TokenKind::Identifier(st.intern("an_identifier"))]);
+        let o = lexer_test_with_tokens(vec![TokenKind::Identifier(st.intern("an_identifier"))]);
         assert_eq!(&o, "identifier an_identifier\n");
     }
 
     #[test]
     fn integer_literal_prefix() {
         let st = StringTable::new();
-        let o = lexer_test_with_tokens!(vec![TokenKind::IntegerLiteral(st.intern("2342"))]);
+        let o = lexer_test_with_tokens(vec![TokenKind::IntegerLiteral(st.intern("2342"))]);
         assert_eq!(&o, "integer literal 2342\n");
     }
 
     #[test]
     fn eof() {
-        let o = lexer_test_with_tokens!(vec![TokenKind::EOF]);
+        let o = lexer_test_with_tokens(vec![TokenKind::EOF]);
         assert_eq!(&o, "EOF\n");
     }
 
