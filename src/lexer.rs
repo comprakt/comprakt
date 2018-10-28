@@ -17,7 +17,7 @@ macro_rules! match_op {
     ($input:expr, $len:expr, $right:expr) => {{
         // Unwraps are safe, because this is only called after token of length $len,
         // is already matched and thus contained in $input
-        assert!($len >= 1);
+        debug_assert!($len >= 1);
         let mut it = $input.by_ref().take($len);
         let PositionedChar(begin, _) = it.next().unwrap();
         let end = it.last().map(|pc| pc.0).unwrap_or(begin);
@@ -512,7 +512,7 @@ where
     }
 
     fn lex_comment(&mut self) -> TokenResult {
-        assert_eq!(self.input.peek_multiple(2), "/*");
+        debug_assert!(self.input.peek_multiple(2) == "/*");
 
         self.input.next();
         self.input.next();
@@ -531,7 +531,7 @@ where
 
         if token.is_ok() {
             // At least 2 chars left in input
-            assert_eq!(self.input.peek_multiple(2), "*/");
+            debug_assert!(self.input.peek_multiple(2) == "*/");
         }
 
         self.input.next();
@@ -541,7 +541,7 @@ where
     }
 
     fn lex_whitespace(&mut self) -> TokenResult {
-        assert!(is_minijava_whitespace(self.input.peek().unwrap()));
+        debug_assert!(is_minijava_whitespace(self.input.peek().unwrap()));
         self.lex_while(is_minijava_whitespace, |_, _, _| Ok(TokenKind::Whitespace))
     }
 

@@ -30,7 +30,7 @@ impl<'m> AsciiFile<'m> {
                     break;
                 }
             }
-            assert!(position >= start_idx);
+            debug_assert!(position >= start_idx);
 
             // We know everything until now has been ASCII
             let prev: &str =
