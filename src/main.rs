@@ -105,13 +105,28 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
             let context = Context::default(ascii_file);
             let lexer = lexer::Lexer::new(&context);
 
-            itertools::process_results(lexer, |valid_tokens| {
-                run_lexer_test(valid_tokens.map(|t| t.data), &mut stdout)
-            })??;
+            for token in lexer {
+                // TODO: break if diagnostics says there is an error
+                //match token {
+                    //Err(msg) => {
+                        // stop compilation at first error the lexer generates.
+                        // use the diagnostics interface to print the error
+                    //}
+                    //Ok(token) =>
+                        write_token(&mut stdout, token?.data)?;
+                //}
+            }
         }
     }
 
     Ok(())
+}
+
+fn write_token<O: io::Write>(out: &mut O, token: TokenKind) -> Result<(), Error> {
+    match token {
+        TokenKind::Whitespace | TokenKind::Comment(_) => Ok(()),
+        _ => { writeln!(out, "{}", token)?; Ok(()) },
+    }
 }
 
 /// Print an error in a format intended for end users and terminate
@@ -131,36 +146,22 @@ fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error> {
     Ok(())
 }
 
-fn run_lexer_test<L, O>(lexer: L, out: &mut O) -> Result<(), Error>
-where
-    L: Iterator<Item = TokenKind>,
-    O: io::Write,
-{
-    let token_datas = lexer.filter(|token_data| match token_data {
-        TokenKind::Whitespace | TokenKind::Comment(_) => false,
-        _ => true,
-    });
-
-    for td in token_datas {
-        writeln!(out, "{}", td)?;
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod lexertest_tests {
 
     fn lexer_test_with_tokens(tokens: Vec<TokenKind>) -> String {
         let mut o = Vec::new();
-        let res = run_lexer_test(tokens.into_iter(), &mut o);
-        assert!(res.is_ok());
+        for token in tokens.into_iter() {
+            let res = write_token(&mut o, token);
+            assert!(res.is_ok());
+        }
+
         String::from_utf8(o).expect("output must be utf8")
     }
 
     use super::{
         lexer::{Keyword, Operator, TokenKind},
-        run_lexer_test,
+        write_token,
         strtab::StringTable,
     };
 
