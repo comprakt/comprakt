@@ -57,7 +57,6 @@ impl<'m> AsciiFile<'m> {
     // cost: O(fileLen) since we need to check if all chars are ASCII
     pub fn new(mapping: &'m [u8]) -> Result<AsciiFile<'m>, EncodingError> {
         if let Some(position) = mapping.iter().position(|c| !c.is_ascii()) {
-            // TODO: add max context length :)
             let start_idx = AsciiFile::get_line_start_idx(mapping, position);
             debug_assert!(position >= start_idx);
             // We know everything until now has been ASCII
