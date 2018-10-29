@@ -1,11 +1,11 @@
 use crate::{
-    asciifile::{Position, PositionedChar, PositionedChars},
+    asciifile::{AsciiFileIterator, Position, PositionedChar},
+    context::Context,
     diagnostics::{self, Diagnostics},
     strtab::*,
 };
 use failure::Fail;
 use std::{convert::TryFrom, fmt, result::Result};
-use termcolor::WriteColor;
 
 macro_rules! match_op {
     ($input:expr, $( ($token_string:expr, $token:expr) ),+: $len:expr, $default:expr) => {{
@@ -419,13 +419,9 @@ impl fmt::Display for Operator {
     }
 }
 
-pub struct Lexer<'t, I, IO>
-where
-    I: Iterator<Item = char>,
-{
-    input: PositionedChars<I>,
-    diagnostics: &'t Diagnostics<IO>,
-    strtab: &'t StringTable,
+pub struct Lexer<'t> {
+    input: AsciiFileIterator<'t>,
+    context: &'t Context<'t>,
     eof: bool,
 }
 
@@ -436,19 +432,13 @@ fn is_minijava_whitespace(c: char) -> bool {
     }
 }
 
-impl<'t, I, IO: WriteColor> Lexer<'t, I, IO>
-where
-    I: Iterator<Item = char>,
-{
-    pub fn new(
-        input: PositionedChars<I>,
-        strtab: &'t StringTable,
-        diagnostics: &'t Diagnostics<IO>,
-    ) -> Self {
-        Lexer {
-            diagnostics,
+impl<'t> Lexer<'t> {
+    pub fn new(context: &'t Context<'t>) -> Self {
+        let input = context.file.iter();
+
+        Self {
+            context,
             input,
-            strtab,
             eof: false,
         }
     }
@@ -467,7 +457,7 @@ where
                 Ok(Token::new(
                     pos,
                     pos,
-                    TokenKind::IntegerLiteral(self.strtab.intern(as_str)),
+                    TokenKind::IntegerLiteral(self.context.strtab.intern(as_str)),
                 ))
             }
 
@@ -644,7 +634,7 @@ where
     /// called with 3rd argument set to `true`.
     fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult
     where
-        P: Fn(&str, &'t Diagnostics<IO>) -> bool,
+        P: Fn(&str, &'t Diagnostics) -> bool,
         D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         let mut chars = String::new();
@@ -653,7 +643,7 @@ where
         let mut end_pos = start_pos;
         loop {
             if let Some(peeked) = self.input.try_peek_multiple(n) {
-                if !predicate(peeked, self.diagnostics) {
+                if !predicate(peeked, &self.context.diagnostics) {
                     break;
                 }
             } else {
@@ -672,16 +662,13 @@ where
             end_pos = pos;
         }
 
-        make_token(chars, self.strtab, self.input.eof_reached())
+        make_token(chars, &self.context.strtab, self.input.eof_reached())
             .map(|kind| Token::new(start_pos, end_pos, kind))
             .map_err(|kind| LexicalError::new(start_pos, end_pos, kind))
     }
 }
 
-impl<'t, I, IO: WriteColor> Iterator for Lexer<'t, I, IO>
-where
-    I: Iterator<Item = char>,
-{
+impl<'t> Iterator for Lexer<'t> {
     type Item = TokenResult;
 
     fn next(&mut self) -> Option<Self::Item> {

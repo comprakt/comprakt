@@ -4,6 +4,8 @@ pub struct AsciiFile<'m> {
     mapping: &'m [u8],
 }
 
+pub type AsciiFileIterator<'t> = PositionedChars<std::str::Chars<'t>>;
+
 #[derive(Debug, Fail)]
 pub enum EncodingError {
     #[fail(
@@ -42,7 +44,7 @@ impl<'m> AsciiFile<'m> {
         Ok(AsciiFile { mapping })
     }
 
-    pub fn iter(&self) -> PositionedChars<std::str::Chars<'_>> {
+    pub fn iter(&self) -> AsciiFileIterator<'_> {
         let s: &str = self;
         PositionedChars {
             curpos: Position { row: 0, col: 0 },

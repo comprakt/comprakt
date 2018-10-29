@@ -1,13 +1,17 @@
 //! This is a list of semantic and lexical errors and warnings the compiler
 //! emits.
 //!
-//! NOT thread-safe.
+//! Error numbers could be generated automatically, _however_ error numbers
+//! should be consistent for all versions of the compiler, even if errors or
+//! warnings are retired.
+//!
+//! This implementation is NOT thread-safe.
 
 use std::cell::RefCell;
 use termcolor::{Color, ColorSpec, WriteColor};
 
 /// Error catalog.
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum ErrorKind {
     NonAsciiCharacter,
     CommentSeparatorInsideComment,
@@ -26,7 +30,8 @@ impl ErrorKind {
     }
 
     pub fn get_id(&self) -> String {
-        format!("M{:03}", *self as u8)
+        //format!("M{:03}", *self as u8)
+        "E001".to_string()
     }
 }
 
@@ -38,15 +43,15 @@ impl ErrorKind {
 /// - we have a single source responsible for formatting compiler messages.
 /// - unit tests can run the compiler and just assert the diagnostics object
 ///   instead of stdout/stderr of another process.
-pub struct Diagnostics<T> {
+pub struct Diagnostics {
     // TODO: there is no reason to collect the messages except
     // for debugging purposes. So, maybe remove...
     messages: RefCell<Vec<Message>>,
-    writer: RefCell<Box<T>>,
+    writer: RefCell<Box<dyn WriteColor>>,
 }
 
-impl<T: WriteColor> Diagnostics<T> {
-    pub fn new(writer: Box<T>) -> Self {
+impl Diagnostics {
+    pub fn new(writer: Box<dyn WriteColor>) -> Self {
         Self {
             writer: RefCell::new(writer),
             messages: RefCell::new(Vec::new()),
@@ -100,7 +105,7 @@ pub struct Message {
 }
 
 impl Message {
-    fn write_colored<T: WriteColor>(&self, writer: &mut T) {
+    fn write_colored(&self, writer: &mut dyn WriteColor) {
         let (color, text) = match self.level {
             MessageLevel::Error => (Color::Red, "Error"),
             MessageLevel::Warning => (Color::Yellow, "Warning"),
