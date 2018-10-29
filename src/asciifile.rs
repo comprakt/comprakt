@@ -19,21 +19,32 @@ pub enum EncodingError {
 const ENCODING_ERROR_MAX_CONTEXT_LEN: usize = 180;
 
 impl<'m> AsciiFile<'m> {
+    /// return the start index of the line without the newline character (\n).
+    fn get_line_end_idx(mapping: &'m [u8], byte_offset: usize) -> usize {
+        let region = &mapping[byte_offset..];
+        region
+            .iter()
+            .position(|&chr| chr == '\n' as u8)
+            .map(|pos| pos + byte_offset)
+            .unwrap_or(mapping.len() - 1)
+    }
+
+    /// return the end index of the line without the newline character (\n)
+    fn get_line_start_idx(mapping: &'m [u8], byte_offset: usize) -> usize {
+        let region = &mapping[..byte_offset];
+        region
+            .iter()
+            .position(|&chr| chr == '\n' as u8)
+            .map(|pos| pos + 1)
+            .unwrap_or(0)
+    }
+
     // cost: O(fileLen) since we need to check if all chars are ASCII
     pub fn new(mapping: &'m [u8]) -> Result<AsciiFile<'m>, EncodingError> {
         if let Some(position) = mapping.iter().position(|c| !c.is_ascii()) {
-            let end_idx = position;
-            let min_start_idx = position - ENCODING_ERROR_MAX_CONTEXT_LEN.min(position);
-            let mut start_idx = min_start_idx;
-            for x in (min_start_idx..end_idx).rev() {
-                const NEWLINE: u8 = b'\n';
-                if mapping[x] == NEWLINE {
-                    start_idx = x + 1;
-                    break;
-                }
-            }
+            // TODO: add max context length :)
+            let start_idx = AsciiFile::get_line_start_idx(mapping, position);
             debug_assert!(position >= start_idx);
-
             // We know everything until now has been ASCII
             let prev: &str =
                 unsafe { std::str::from_utf8_unchecked(&mapping[start_idx..position]) };
@@ -47,7 +58,11 @@ impl<'m> AsciiFile<'m> {
     pub fn iter(&self) -> AsciiFileIterator<'_> {
         let s: &str = self;
         PositionedChars {
-            curpos: Position { row: 0, col: 0 },
+            curpos: Position {
+                row: 0,
+                col: 0,
+                byte_offset: 0,
+            },
             ascii_file: s.chars(),
             peeked: String::new(),
         }
@@ -60,6 +75,7 @@ use std::ops::Deref;
 pub struct Position {
     pub row: usize,
     pub col: usize,
+    byte_offset: usize,
 }
 
 use std::fmt::{self, Display};
@@ -92,6 +108,7 @@ where
         self.peeked.remove(0);
 
         let retpos = self.curpos;
+        self.curpos.byte_offset += 1;
         self.curpos.col += 1;
         if c == '\n' {
             self.curpos.row += 1;
@@ -220,22 +237,18 @@ mod tests {
     #[test]
     fn err_on_ascii_context_bounded() {
         use std::fmt::Write;
-        let mut s = String::new();
-        for i in (0..ENCODING_ERROR_MAX_CONTEXT_LEN).rev() {
-            write!(s, "{}", i % 10);
-        }
-        let instr = format!("{}💩", s);
+
+        let mut prev_expected = "9876543210".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN / 10);
+        let instr = format!("a{}💩", prev_expected);
         let f = testfile(&instr);
         let mm = AsciiFile::new(f);
+
         assert!(mm.is_err());
+
         let e = mm.err().unwrap();
-        println!("{:?}", e);
         let EncodingError::NotAscii { prev, .. } = e;
-        println!("{:?}", prev);
-        let l = s.len();
-        assert_eq!(l, ENCODING_ERROR_MAX_CONTEXT_LEN);
-        let exp = &s[(l - ENCODING_ERROR_MAX_CONTEXT_LEN)..l];
-        assert_eq!(prev, exp);
+
+        assert_eq!(prev, prev_expected);
     }
 
     #[test]
@@ -244,29 +257,29 @@ mod tests {
         let af = AsciiFile::new(f).unwrap();
         let res: Vec<PositionedChar> = af.iter().collect();
 
+        #[rustfmt::skip]
         let exp = vec![
-            PositionedChar(Position { row: 0, col: 0 }, 'o'),
-            PositionedChar(Position { row: 0, col: 1 }, 'n'),
-            PositionedChar(Position { row: 0, col: 2 }, 'e'),
-            PositionedChar(Position { row: 0, col: 3 }, '\n'),
-            PositionedChar(Position { row: 1, col: 0 }, 't'),
-            PositionedChar(Position { row: 1, col: 1 }, 'w'),
-            PositionedChar(Position { row: 1, col: 2 }, 'o'),
-            PositionedChar(Position { row: 1, col: 3 }, ' '),
-            PositionedChar(Position { row: 1, col: 4 }, 't'),
-            PositionedChar(Position { row: 1, col: 5 }, 'h'),
-            PositionedChar(Position { row: 1, col: 6 }, 'r'),
-            PositionedChar(Position { row: 1, col: 7 }, 'e'),
-            PositionedChar(Position { row: 1, col: 8 }, 'e'),
-            PositionedChar(Position { row: 1, col: 9 }, '\n'),
-            PositionedChar(Position { row: 2, col: 0 }, 'f'),
-            PositionedChar(Position { row: 2, col: 1 }, 'o'),
-            PositionedChar(Position { row: 2, col: 2 }, 'u'),
-            PositionedChar(Position { row: 2, col: 3 }, 'r'),
-            PositionedChar(Position { row: 2, col: 4 }, '\n'),
-            PositionedChar(Position { row: 3, col: 0 }, '\n'),
+            PositionedChar(Position { byte_offset:  0, row: 0, col: 0 }, 'o'),
+            PositionedChar(Position { byte_offset:  1, row: 0, col: 1 }, 'n'),
+            PositionedChar(Position { byte_offset:  2, row: 0, col: 2 }, 'e'),
+            PositionedChar(Position { byte_offset:  3, row: 0, col: 3 }, '\n'),
+            PositionedChar(Position { byte_offset:  4, row: 1, col: 0 }, 't'),
+            PositionedChar(Position { byte_offset:  5, row: 1, col: 1 }, 'w'),
+            PositionedChar(Position { byte_offset:  6, row: 1, col: 2 }, 'o'),
+            PositionedChar(Position { byte_offset:  7, row: 1, col: 3 }, ' '),
+            PositionedChar(Position { byte_offset:  8, row: 1, col: 4 }, 't'),
+            PositionedChar(Position { byte_offset:  9, row: 1, col: 5 }, 'h'),
+            PositionedChar(Position { byte_offset: 10, row: 1, col: 6 }, 'r'),
+            PositionedChar(Position { byte_offset: 11, row: 1, col: 7 }, 'e'),
+            PositionedChar(Position { byte_offset: 12, row: 1, col: 8 }, 'e'),
+            PositionedChar(Position { byte_offset: 13, row: 1, col: 9 }, '\n'),
+            PositionedChar(Position { byte_offset: 14, row: 2, col: 0 }, 'f'),
+            PositionedChar(Position { byte_offset: 15, row: 2, col: 1 }, 'o'),
+            PositionedChar(Position { byte_offset: 16, row: 2, col: 2 }, 'u'),
+            PositionedChar(Position { byte_offset: 17, row: 2, col: 3 }, 'r'),
+            PositionedChar(Position { byte_offset: 18, row: 2, col: 4 }, '\n'),
+            PositionedChar(Position { byte_offset: 19, row: 3, col: 0 }, '\n'),
         ];
-
         assert_eq!(exp, res);
     }
 
@@ -294,27 +307,28 @@ mod tests {
 
         assert_eq!(s, peeked);
 
+        #[rustfmt::skip]
         let exp = vec![
-            PositionedChar(Position { row: 0, col: 0 }, 'o'),
-            PositionedChar(Position { row: 0, col: 1 }, 'n'),
-            PositionedChar(Position { row: 0, col: 2 }, 'e'),
-            PositionedChar(Position { row: 0, col: 3 }, '\n'),
-            PositionedChar(Position { row: 1, col: 0 }, 't'),
-            PositionedChar(Position { row: 1, col: 1 }, 'w'),
-            PositionedChar(Position { row: 1, col: 2 }, 'o'),
-            PositionedChar(Position { row: 1, col: 3 }, ' '),
-            PositionedChar(Position { row: 1, col: 4 }, 't'),
-            PositionedChar(Position { row: 1, col: 5 }, 'h'),
-            PositionedChar(Position { row: 1, col: 6 }, 'r'),
-            PositionedChar(Position { row: 1, col: 7 }, 'e'),
-            PositionedChar(Position { row: 1, col: 8 }, 'e'),
-            PositionedChar(Position { row: 1, col: 9 }, '\n'),
-            PositionedChar(Position { row: 2, col: 0 }, 'f'),
-            PositionedChar(Position { row: 2, col: 1 }, 'o'),
-            PositionedChar(Position { row: 2, col: 2 }, 'u'),
-            PositionedChar(Position { row: 2, col: 3 }, 'r'),
-            PositionedChar(Position { row: 2, col: 4 }, '\n'),
-            PositionedChar(Position { row: 3, col: 0 }, '\n'),
+            PositionedChar(Position { byte_offset:  0, row: 0, col: 0 }, 'o'),
+            PositionedChar(Position { byte_offset:  1, row: 0, col: 1 }, 'n'),
+            PositionedChar(Position { byte_offset:  2, row: 0, col: 2 }, 'e'),
+            PositionedChar(Position { byte_offset:  3, row: 0, col: 3 }, '\n'),
+            PositionedChar(Position { byte_offset:  4, row: 1, col: 0 }, 't'),
+            PositionedChar(Position { byte_offset:  5, row: 1, col: 1 }, 'w'),
+            PositionedChar(Position { byte_offset:  6, row: 1, col: 2 }, 'o'),
+            PositionedChar(Position { byte_offset:  7, row: 1, col: 3 }, ' '),
+            PositionedChar(Position { byte_offset:  8, row: 1, col: 4 }, 't'),
+            PositionedChar(Position { byte_offset:  9, row: 1, col: 5 }, 'h'),
+            PositionedChar(Position { byte_offset: 10, row: 1, col: 6 }, 'r'),
+            PositionedChar(Position { byte_offset: 11, row: 1, col: 7 }, 'e'),
+            PositionedChar(Position { byte_offset: 12, row: 1, col: 8 }, 'e'),
+            PositionedChar(Position { byte_offset: 13, row: 1, col: 9 }, '\n'),
+            PositionedChar(Position { byte_offset: 14, row: 2, col: 0 }, 'f'),
+            PositionedChar(Position { byte_offset: 15, row: 2, col: 1 }, 'o'),
+            PositionedChar(Position { byte_offset: 16, row: 2, col: 2 }, 'u'),
+            PositionedChar(Position { byte_offset: 17, row: 2, col: 3 }, 'r'),
+            PositionedChar(Position { byte_offset: 18, row: 2, col: 4 }, '\n'),
+            PositionedChar(Position { byte_offset: 19, row: 3, col: 0 }, '\n'),
         ];
 
         let res: Vec<PositionedChar> = i.collect();
