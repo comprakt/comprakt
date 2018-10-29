@@ -20,23 +20,38 @@ const ENCODING_ERROR_MAX_CONTEXT_LEN: usize = 180;
 
 impl<'m> AsciiFile<'m> {
     /// return the start index of the line without the newline character (\n).
+    /// This means you can make slices that do NOT include the newline
+    /// character by simply using the return value of this function as
+    /// lower bound X in the range X..Y.
     fn get_line_end_idx(mapping: &'m [u8], byte_offset: usize) -> usize {
-        let region = &mapping[byte_offset..];
+        let region_end = mapping
+            .len()
+            .min(byte_offset + ENCODING_ERROR_MAX_CONTEXT_LEN);
+
+        let region = &mapping[byte_offset..region_end];
         region
             .iter()
             .position(|&chr| chr == '\n' as u8)
             .map(|pos| pos + byte_offset)
-            .unwrap_or(mapping.len() - 1)
+            .unwrap_or(region_end)
     }
 
-    /// return the end index of the line without the newline character (\n)
+    /// return the end index of the line includes the newline character (\n).
+    /// This means you can make slices that do NOT include the newline
+    /// character by simply using the return value of this function as
+    /// upper bound Y in the range X..Y.
     fn get_line_start_idx(mapping: &'m [u8], byte_offset: usize) -> usize {
-        let region = &mapping[..byte_offset];
+        let region_start = byte_offset
+            .checked_sub(ENCODING_ERROR_MAX_CONTEXT_LEN)
+            .unwrap_or(0);
+
+        let region = &mapping[region_start..byte_offset];
+
         region
             .iter()
             .position(|&chr| chr == '\n' as u8)
             .map(|pos| pos + 1)
-            .unwrap_or(0)
+            .unwrap_or(region_start)
     }
 
     // cost: O(fileLen) since we need to check if all chars are ASCII
@@ -239,7 +254,7 @@ mod tests {
         use std::fmt::Write;
 
         let mut prev_expected = "9876543210".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN / 10);
-        let instr = format!("a{}💩", prev_expected);
+        let instr = format!("abcd{}💩", prev_expected);
         let f = testfile(&instr);
         let mm = AsciiFile::new(f);
 
@@ -249,6 +264,56 @@ mod tests {
         let EncodingError::NotAscii { prev, .. } = e;
 
         assert_eq!(prev, prev_expected);
+    }
+
+    #[test]
+    fn test_indices() {
+        let mut single_line = "|123456789";
+
+        assert_eq!(
+            single_line,
+            &single_line[..AsciiFile::get_line_end_idx(single_line.as_bytes(), 5)]
+        );
+        assert_eq!(
+            single_line,
+            &single_line[AsciiFile::get_line_start_idx(single_line.as_bytes(), 5)..]
+        );
+
+        let mut multi_line = "|123456789\nabcdefghijklmno";
+
+        assert_eq!(
+            multi_line,
+            &multi_line[..AsciiFile::get_line_end_idx(multi_line.as_bytes(), 15)]
+        );
+        assert_eq!(
+            "|123456789",
+            &multi_line[..AsciiFile::get_line_end_idx(multi_line.as_bytes(), 5)]
+        );
+        assert_eq!(
+            "abcdefghijklmno",
+            &multi_line[AsciiFile::get_line_start_idx(multi_line.as_bytes(), 15)..]
+        );
+
+        assert_eq!(
+            multi_line,
+            &multi_line[AsciiFile::get_line_start_idx(multi_line.as_bytes(), 5)..]
+        );
+
+        let mut long_line = "|123456789\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
+
+        assert_eq!(
+            "|123456789",
+            &long_line[AsciiFile::get_line_start_idx(long_line.as_bytes(), 20)
+                ..AsciiFile::get_line_end_idx(long_line.as_bytes(), 20)]
+        );
+
+        let mut empty_line = "\n\n\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
+
+        assert_eq!(
+            "",
+            &empty_line[AsciiFile::get_line_start_idx(empty_line.as_bytes(), 1)
+                ..AsciiFile::get_line_end_idx(empty_line.as_bytes(), 1)]
+        );
     }
 
     #[test]
