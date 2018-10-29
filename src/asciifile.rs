@@ -93,6 +93,42 @@ pub struct Position {
     byte_offset: usize,
 }
 
+impl Position {
+    pub fn get_line<'m>(&self, file: &AsciiFile<'m>) -> &'m str {
+        let start = AsciiFile::get_line_start_idx(file.mapping, self.byte_offset);
+        let end = AsciiFile::get_line_end_idx(file.mapping, self.byte_offset);
+        let line = &file.mapping[start..end];
+        unsafe { std::str::from_utf8_unchecked(line) }
+    }
+
+    /// Advance the position by examining a row of input characters. Will
+    /// update the row count for each new line encountered, will update the
+    /// column count for all other characters.
+    pub fn consume(&self, upcoming: &str) -> Self {
+        let matches: Vec<_> = upcoming.match_indices('\n').collect();
+        let count = matches.len();
+
+        match matches.last() {
+            None => Self {
+                // single line
+                col: self.col + upcoming.len(),
+                row: self.row,
+                byte_offset: self.byte_offset + upcoming.len(),
+            },
+            Some((start_idx, _)) => Self {
+                // multi line
+                col: 0,
+                row: self.row + count,
+                byte_offset: self.byte_offset + upcoming.len() - start_idx,
+            },
+        }
+    }
+
+    //pub fn next_line<'m>(&self, file: AsciiFile<'m>) {
+    //AsciiFile::get_line_start_idx()
+    //}
+}
+
 use std::fmt::{self, Display};
 
 impl Display for Position {

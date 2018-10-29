@@ -3,6 +3,7 @@
 #![feature(if_while_or_patterns)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(const_str_as_bytes)]
+#![feature(box_syntax)]
 
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
@@ -106,15 +107,12 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
             let lexer = lexer::Lexer::new(&context);
 
             for token in lexer {
-                // TODO: break if diagnostics says there is an error
-                //match token {
-                    //Err(msg) => {
-                        // stop compilation at first error the lexer generates.
-                        // use the diagnostics interface to print the error
-                    //}
-                    //Ok(token) =>
-                        write_token(&mut stdout, token?.data)?;
-                //}
+                write_token(&mut stdout, token?.data)?;
+
+                // stop compilation on first error during lexing phase
+                if context.diagnostics.errored() {
+                    exit(1);
+                }
             }
         }
     }

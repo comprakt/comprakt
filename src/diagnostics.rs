@@ -7,33 +7,43 @@
 //!
 //! This implementation is NOT thread-safe.
 
+// TODO: import spanned and span into this module?
+use crate::{
+    asciifile::AsciiFile,
+    lexer::{Span, Spanned},
+};
+use failure::{AsFail, Fail};
 use std::cell::RefCell;
 use termcolor::{Color, ColorSpec, WriteColor};
 
-/// Error catalog.
-#[derive(Eq, PartialEq)]
-pub enum ErrorKind {
-    NonAsciiCharacter,
-    CommentSeparatorInsideComment,
-}
+// Error catalog.
+//#[derive(Eq, PartialEq, Fail, Debug)]
+//pub enum ErrorKind {
+//}
 
-impl ErrorKind {
-    fn get_message(&self) -> String {
-        match self {
-            ErrorKind::NonAsciiCharacter => {
-                "encountered character outside of ASCII range, which is not allowed.".to_string()
-            }
-            ErrorKind::CommentSeparatorInsideComment => {
-                "confusing usage of comment separator inside a comment.".to_string()
-            }
-        }
-    }
+//impl ErrorKind {
+//fn get_message(&self) -> String {
+//match self {
+//ErrorKind::NonAsciiCharacter => {
+//"encountered character outside of ASCII range, which is not
+//"encountered allowed.".to_string()
+//}
+//ErrorKind::CommentSeparatorInsideComment => {
+//"confusing usage of comment separator inside a comment.".to_string()
+//}
 
-    pub fn get_id(&self) -> String {
-        //format!("M{:03}", *self as u8)
-        "E001".to_string()
-    }
-}
+//pub fn get_id(&self) -> String {
+////format!("M{:03}", *self as u8)
+//"E001".to_string()
+//}
+
+/// Tagging Interface marking failures as warnings.
+/// Avoids accidental calls of error methods with warnings.
+pub trait Warning: Fail {}
+
+/// Tagging Interface marking failures as warnings.
+/// Avoids accidental calls of error methods with warnings.
+pub trait CompileError: Fail {}
 
 /// Instead of writing errors, warnings and lints generated in the different
 /// compiler stages directly to stdout, they are collected in this object.
@@ -71,18 +81,67 @@ impl Diagnostics {
         self.messages
             .borrow()
             .iter()
-            .filter(|msg| msg.level != level)
+            .filter(|msg| msg.level == level)
             .count()
     }
 
-    pub fn warning(&self, kind: ErrorKind) {
+    fn write_statistics(&self) {
+        let mut writer = self.writer.borrow_mut();
+
+        if self.errored() {
+            writer
+                .set_color(ColorSpec::new().set_fg(MessageLevel::Error.color()))
+                .ok();
+            writeln!(
+                writer,
+                "Compilation aborted due to {}",
+                match self.count(MessageLevel::Error) {
+                    1 => "an error".to_string(),
+                    n => format!("{} errors", n),
+                }
+            );
+        } else {
+            writer
+                .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
+                .ok();
+            writeln!(
+                writer,
+                "Compilation finished successfully {}",
+                match self.count(MessageLevel::Warning) {
+                    0 => "without warnings".to_string(),
+                    1 => "with a warning".to_string(),
+                    n => format!("with {} warnings", n),
+                }
+            );
+        }
+        writer.set_color(ColorSpec::new().set_fg(None)).ok();
+    }
+
+    // TODO: as we do not use warnings here. the warning trait is redundant!
+    pub fn warning(&self, kind: Box<dyn AsFail>) {
         let msg = Message {
             level: MessageLevel::Warning,
-            kind: kind,
+            kind,
         };
 
         let mut writer = self.writer.borrow_mut();
         msg.write_colored(&mut **writer);
+        &self.messages.borrow_mut().push(msg);
+    }
+
+    pub fn warning_with_source_snippet<'ctx>(
+        &self,
+        spanned: Spanned<Box<dyn AsFail>>,
+        file: &AsciiFile<'ctx>,
+    ) {
+        let msg = Message {
+            level: MessageLevel::Warning,
+            kind: spanned.data,
+        };
+
+        let mut writer = self.writer.borrow_mut();
+        msg.write_colored_with_code(&mut **writer, spanned.span, file);
+        // TODO: store span
         &self.messages.borrow_mut().push(msg);
     }
 }
@@ -93,9 +152,26 @@ pub enum MessageLevel {
     Warning,
 }
 
+impl MessageLevel {
+    fn color(&self) -> Option<Color> {
+        // Don't be confused by return type. `None` means default color!
+        match self {
+            MessageLevel::Error => Some(Color::Red),
+            MessageLevel::Warning => Some(Color::Yellow),
+        }
+    }
+
+    fn name(&self) -> &str {
+        match self {
+            MessageLevel::Error => "error",
+            MessageLevel::Warning => "warning",
+        }
+    }
+}
+
 pub struct Message {
     pub level: MessageLevel,
-    pub kind: ErrorKind,
+    pub kind: Box<dyn AsFail>,
     /* TODO: draw code segment with error highlighted
      * pub span: Span,
      * TODO: maybe add suggestions for fixes
@@ -106,19 +182,65 @@ pub struct Message {
 
 impl Message {
     fn write_colored(&self, writer: &mut dyn WriteColor) {
-        let (color, text) = match self.level {
-            MessageLevel::Error => (Color::Red, "Error"),
-            MessageLevel::Warning => (Color::Yellow, "Warning"),
-        };
-
         // ignore coloring failures using ok()
-        writer.set_color(ColorSpec::new().set_fg(Some(color))).ok();
+        writer
+            .set_color(ColorSpec::new().set_fg(self.level.color()))
+            .ok();
 
-        write!(writer, "{} [{}]: ", text, self.kind.get_id());
+        //write!(writer, "{} [{}]: ", text, self.kind.get_id());
+        write!(writer, "{}: ", self.level.name());
 
         // ignore coloring failures using ok()
         writer.set_color(ColorSpec::new().set_fg(None)).ok();
 
-        writeln!(writer, "{}\n", self.kind.get_message());
+        writeln!(writer, "{}\n", self.kind.as_fail());
+    }
+
+    fn write_colored_with_code<'ctx>(
+        &self,
+        writer: &mut dyn WriteColor,
+        span: Span,
+        file: &AsciiFile<'ctx>,
+    ) {
+        self.write_colored(writer);
+        writer
+            .set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))
+            .ok();
+        // TODO: pad with whitespace, right align
+        let line_marker_len = "XXXX | ".len();
+        write!(writer, "{:4} | ", span.start.row + 1);
+
+        if span.is_multiline() {
+            writer
+                .set_color(ColorSpec::new().set_fg(self.level.color()))
+                .ok();
+            write!(writer, ">");
+        }
+
+        writer.set_color(ColorSpec::new().set_fg(None)).ok();
+        writeln!(writer, "{}", span.start.get_line(file));
+
+        // TODO: print multiline spans correctly!
+        if !span.is_multiline() {
+            // add positional indicators.
+            let indicator = format!(
+                "{spaces}{markers}",
+                spaces = " ".repeat(line_marker_len + span.start.col + 1),
+                markers = "^".repeat(span.end.col - span.start.col)
+            );
+            writer
+                .set_color(ColorSpec::new().set_fg(self.level.color()))
+                .ok();
+            writeln!(writer, "{}", indicator);
+        }
+
+        writer.set_color(ColorSpec::new().set_fg(None)).ok();
+    }
+}
+
+/// Print a statistic at the end of compilation
+impl Drop for Diagnostics {
+    fn drop(&mut self) {
+        self.write_statistics();
     }
 }

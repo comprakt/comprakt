@@ -1,7 +1,7 @@
 use crate::{
     asciifile::{AsciiFileIterator, Position, PositionedChar},
     context::Context,
-    diagnostics::{self, Diagnostics},
+    diagnostics,
     strtab::*,
 };
 use failure::Fail;
@@ -93,6 +93,18 @@ pub enum ErrorKind {
     UnexpectedCharacter(char),
 }
 
+impl diagnostics::CompileError for Warning {}
+
+#[derive(Debug, Fail)]
+pub enum Warning {
+    #[fail(display = "confusing usage of comment separator inside a comment")]
+    CommentSeparatorInsideComment,
+    #[fail(display = "Invisible character is not valid whitespace")]
+    WeirdWhitespace,
+}
+
+impl diagnostics::Warning for Warning {}
+
 #[derive(Debug)]
 pub struct Span {
     pub start: Position,
@@ -100,7 +112,7 @@ pub struct Span {
 }
 
 impl Span {
-    fn is_single_char(&self) -> bool {
+    pub fn is_single_char(&self) -> bool {
         if self.start.row != self.end.row {
             return false;
         }
@@ -110,6 +122,14 @@ impl Span {
             .checked_sub(self.start.col)
             .map(|d| d <= 1)
             .unwrap_or(false)
+    }
+
+    /// Check if a span extends over multiple lines
+    ///
+    /// This will consider spans that contain a single trailing
+    /// whitespace, e.g. "a\n" as multiline.
+    pub fn is_multiline(&self) -> bool {
+        self.start.row != self.end.row
     }
 }
 
@@ -490,7 +510,7 @@ impl<'t> Lexer<'t> {
         );
 
         self.lex_while(
-            |c, _| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_'),
+            |c, _, _| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_'),
             |ident, strtab, _| {
                 Ok(match Keyword::try_from(ident.as_ref()) {
                     Ok(keyword) => TokenKind::Keyword(keyword),
@@ -504,7 +524,7 @@ impl<'t> Lexer<'t> {
         assert_matches!(self.input.peek(), Some('1'..='9'));
 
         self.lex_while(
-            |c, _| matches!(c, '0'..='9'),
+            |c, _, _| matches!(c, '0'..='9'),
             |lit, strtab, _| Ok(TokenKind::IntegerLiteral(strtab.intern(&lit))),
         )
     }
@@ -517,11 +537,12 @@ impl<'t> Lexer<'t> {
 
         let token = self.lex_while_multiple(
             2,
-            |s, context| {
+            |s, span, context| {
                 if s == "/*" {
-                    context
-                        .diagnostics
-                        .warning(diagnostics::ErrorKind::CommentSeparatorInsideComment)
+                    context.warning(Spanned {
+                        span,
+                        data: box Warning::CommentSeparatorInsideComment,
+                    });
                 }
                 s != "*/"
             },
@@ -548,7 +569,16 @@ impl<'t> Lexer<'t> {
     fn lex_whitespace(&mut self) -> TokenResult {
         debug_assert!(is_minijava_whitespace(self.input.peek().unwrap()));
         self.lex_while(
-            |c, _| is_minijava_whitespace(c),
+            |c, span, context| {
+                let mj_ws = is_minijava_whitespace(c);
+                if !mj_ws && c.is_whitespace() {
+                    context.warning(Spanned {
+                        span,
+                        data: box Warning::WeirdWhitespace,
+                    });
+                }
+                mj_ws
+            },
             |_, _, _| Ok(TokenKind::Whitespace),
         )
     }
@@ -625,13 +655,13 @@ impl<'t> Lexer<'t> {
     /// Like `lex_while_multiple`, but only check characters
     fn lex_while<P, D>(&mut self, predicate: P, make_token: D) -> TokenResult
     where
-        P: Fn(char, &'t Context<'t>) -> bool,
+        P: Fn(char, Span, &'t Context<'t>) -> bool,
         D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         // Unwrap is safe, because EOF case is handled by lex_while_multiple
         self.lex_while_multiple(
             1,
-            |s, context| predicate(s.chars().next().unwrap(), context),
+            |s, span, context| predicate(s.chars().next().unwrap(), span, context),
             make_token,
         )
     }
@@ -643,16 +673,24 @@ impl<'t> Lexer<'t> {
     /// called with 3rd argument set to `true`.
     fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult
     where
-        P: Fn(&str, &'t Context<'t>) -> bool,
+        P: Fn(&str, Span, &'t Context<'t>) -> bool,
         D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         let mut chars = String::new();
         let start_pos = self.input.current_position();
-
         let mut end_pos = start_pos;
         loop {
             if let Some(peeked) = self.input.try_peek_multiple(n) {
-                if !predicate(peeked, &self.context) {
+                // TODO: for error reporting, work around peek() not returning a
+                // Span/Position!!! But peek() actually contains logic to
+                // surpress the position, so changing the signature of peek to
+                // return a Span or Position might be the correct decision!!!
+                let span = Span {
+                    start: end_pos,
+                    end: end_pos.consume(peeked),
+                };
+
+                if !predicate(peeked, span, &self.context) {
                     break;
                 }
             } else {
@@ -665,6 +703,7 @@ impl<'t> Lexer<'t> {
                 break;
             }
 
+            // TODO: map_or is nowhere mentioned in the file!!!
             // Unwrap is safe, because `map_or` catches EOF case
             let PositionedChar(pos, c) = self.input.next().unwrap();
             chars.push(c);
