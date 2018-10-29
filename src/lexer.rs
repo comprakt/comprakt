@@ -1,9 +1,11 @@
 use crate::{
     asciifile::{Position, PositionedChar, PositionedChars},
+    diagnostics::{self, Diagnostics},
     strtab::*,
 };
 use failure::Fail;
 use std::{convert::TryFrom, fmt, result::Result};
+use termcolor::WriteColor;
 
 macro_rules! match_op {
     ($input:expr, $( ($token_string:expr, $token:expr) ),+: $len:expr, $default:expr) => {{
@@ -417,11 +419,12 @@ impl fmt::Display for Operator {
     }
 }
 
-pub struct Lexer<'t, I>
+pub struct Lexer<'t, I, IO>
 where
     I: Iterator<Item = char>,
 {
     input: PositionedChars<I>,
+    diagnostics: &'t Diagnostics<IO>,
     strtab: &'t StringTable,
     eof: bool,
 }
@@ -433,12 +436,17 @@ fn is_minijava_whitespace(c: char) -> bool {
     }
 }
 
-impl<'t, I> Lexer<'t, I>
+impl<'t, I, IO: WriteColor> Lexer<'t, I, IO>
 where
     I: Iterator<Item = char>,
 {
-    pub fn new(input: PositionedChars<I>, strtab: &'t StringTable) -> Self {
+    pub fn new(
+        input: PositionedChars<I>,
+        strtab: &'t StringTable,
+        diagnostics: &'t Diagnostics<IO>,
+    ) -> Self {
         Lexer {
+            diagnostics,
             input,
             strtab,
             eof: false,
@@ -519,7 +527,12 @@ where
 
         let token = self.lex_while_multiple(
             2,
-            |s| s != "*/",
+            |s, diagnostics| {
+                if s == "/*" {
+                    diagnostics.warning(diagnostics::ErrorKind::CommentSeparatorInsideComment)
+                }
+                s != "*/"
+            },
             |text, _, eof_reached| {
                 if eof_reached {
                     Err(ErrorKind::UnclosedComment(text))
@@ -621,7 +634,7 @@ where
         D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         // Unwrap is safe, because EOF case is handled by lex_while_multiple
-        self.lex_while_multiple(1, |s| predicate(s.chars().next().unwrap()), make_token)
+        self.lex_while_multiple(1, |s, _| predicate(s.chars().next().unwrap()), make_token)
     }
 
     /// Consume n characters at a time while `predicate` returns `true`. Intern
@@ -631,7 +644,7 @@ where
     /// called with 3rd argument set to `true`.
     fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult
     where
-        P: Fn(&str) -> bool,
+        P: Fn(&str, &'t Diagnostics<IO>) -> bool,
         D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         let mut chars = String::new();
@@ -639,8 +652,8 @@ where
 
         let mut end_pos = start_pos;
         loop {
-            if let Some(should_continue) = self.input.try_peek_multiple(n).map(&predicate) {
-                if !should_continue {
+            if let Some(peeked) = self.input.try_peek_multiple(n) {
+                if !predicate(peeked, self.diagnostics) {
                     break;
                 }
             } else {
@@ -665,7 +678,7 @@ where
     }
 }
 
-impl<'t, I> Iterator for Lexer<'t, I>
+impl<'t, I, IO: WriteColor> Iterator for Lexer<'t, I, IO>
 where
     I: Iterator<Item = char>,
 {
