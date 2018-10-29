@@ -490,7 +490,7 @@ impl<'t> Lexer<'t> {
         );
 
         self.lex_while(
-            |c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_'),
+            |c, _| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_'),
             |ident, strtab, _| {
                 Ok(match Keyword::try_from(ident.as_ref()) {
                     Ok(keyword) => TokenKind::Keyword(keyword),
@@ -504,7 +504,7 @@ impl<'t> Lexer<'t> {
         assert_matches!(self.input.peek(), Some('1'..='9'));
 
         self.lex_while(
-            |c| matches!(c, '0'..='9'),
+            |c, _| matches!(c, '0'..='9'),
             |lit, strtab, _| Ok(TokenKind::IntegerLiteral(strtab.intern(&lit))),
         )
     }
@@ -517,9 +517,11 @@ impl<'t> Lexer<'t> {
 
         let token = self.lex_while_multiple(
             2,
-            |s, diagnostics| {
+            |s, context| {
                 if s == "/*" {
-                    diagnostics.warning(diagnostics::ErrorKind::CommentSeparatorInsideComment)
+                    context
+                        .diagnostics
+                        .warning(diagnostics::ErrorKind::CommentSeparatorInsideComment)
                 }
                 s != "*/"
             },
@@ -545,7 +547,10 @@ impl<'t> Lexer<'t> {
 
     fn lex_whitespace(&mut self) -> TokenResult {
         debug_assert!(is_minijava_whitespace(self.input.peek().unwrap()));
-        self.lex_while(is_minijava_whitespace, |_, _, _| Ok(TokenKind::Whitespace))
+        self.lex_while(
+            |c, _| is_minijava_whitespace(c),
+            |_, _, _| Ok(TokenKind::Whitespace),
+        )
     }
 
     #[allow(clippy::cyclomatic_complexity)]
@@ -620,11 +625,15 @@ impl<'t> Lexer<'t> {
     /// Like `lex_while_multiple`, but only check characters
     fn lex_while<P, D>(&mut self, predicate: P, make_token: D) -> TokenResult
     where
-        P: Fn(char) -> bool,
+        P: Fn(char, &'t Context<'t>) -> bool,
         D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         // Unwrap is safe, because EOF case is handled by lex_while_multiple
-        self.lex_while_multiple(1, |s, _| predicate(s.chars().next().unwrap()), make_token)
+        self.lex_while_multiple(
+            1,
+            |s, context| predicate(s.chars().next().unwrap(), context),
+            make_token,
+        )
     }
 
     /// Consume n characters at a time while `predicate` returns `true`. Intern
@@ -634,7 +643,7 @@ impl<'t> Lexer<'t> {
     /// called with 3rd argument set to `true`.
     fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult
     where
-        P: Fn(&str, &'t Diagnostics) -> bool,
+        P: Fn(&str, &'t Context<'t>) -> bool,
         D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         let mut chars = String::new();
@@ -643,7 +652,7 @@ impl<'t> Lexer<'t> {
         let mut end_pos = start_pos;
         loop {
             if let Some(peeked) = self.input.try_peek_multiple(n) {
-                if !predicate(peeked, &self.context.diagnostics) {
+                if !predicate(peeked, &self.context) {
                     break;
                 }
             } else {
