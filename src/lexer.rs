@@ -665,10 +665,10 @@ impl<'t> Lexer<'t> {
         let mut end_pos = start_pos;
         loop {
             if let Some(peeked) = self.input.try_peek_multiple(n) {
-                // TODO: for error reporting, work around peek() not returning a
-                // Span/Position!!! But peek() actually contains logic to
-                // surpress the position, so changing the signature of peek to
-                // return a Span or Position might be the correct decision!!!
+                // TODO: for error reporting, we work around peek() not returning a Span or
+                // Position! But peek() actually contains logic to suppress the position, so
+                // changing the signature of peek to return a Span or Position might be the
+                // correct decision!!!
                 let span = Span {
                     start: end_pos.consume(&peeked[0..1]),
                     end: end_pos.consume(peeked),
@@ -677,6 +677,11 @@ impl<'t> Lexer<'t> {
                 if !predicate(peeked, span, &self.context) {
                     break;
                 }
+
+                // Unwrap is safe, because the call is guarded by a `try_peek_multiple`
+                let PositionedChar(pos, c) = self.input.next().unwrap();
+                chars.push(c);
+                end_pos = pos;
             } else {
                 // We know there is an EOF within the next n characters, but we still need to
                 // consume them
@@ -686,12 +691,6 @@ impl<'t> Lexer<'t> {
                 }
                 break;
             }
-
-            // TODO: map_or is nowhere mentioned in the file!!!
-            // Unwrap is safe, because `map_or` catches EOF case
-            let PositionedChar(pos, c) = self.input.next().unwrap();
-            chars.push(c);
-            end_pos = pos;
         }
 
         make_token(chars, &self.context.strtab, self.input.eof_reached())
