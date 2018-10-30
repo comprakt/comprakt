@@ -103,7 +103,7 @@ impl Diagnostics {
 
         let mut writer = self.writer.borrow_mut();
         msg.write_colored(&mut **writer);
-        &self.messages.borrow_mut().push(msg);
+        self.messages.borrow_mut().push(msg);
     }
 
     pub fn warning_with_source_snippet<'ctx>(
@@ -117,9 +117,9 @@ impl Diagnostics {
         };
 
         let mut writer = self.writer.borrow_mut();
-        msg.write_colored_with_code(&mut **writer, spanned.span, file);
+        msg.write_colored_with_code(&mut **writer, &spanned.span, file);
         // TODO: store span
-        &self.messages.borrow_mut().push(msg);
+        self.messages.borrow_mut().push(msg);
     }
 }
 
@@ -130,7 +130,7 @@ pub enum MessageLevel {
 }
 
 impl MessageLevel {
-    fn color(&self) -> Option<Color> {
+    fn color(self) -> Option<Color> {
         // Don't be confused by return type. `None` means default color!
         match self {
             MessageLevel::Error => Some(Color::Red),
@@ -199,7 +199,7 @@ impl<'a> Drop for ColorOutput<'a> {
 impl Message {
     fn write_colored(&self, writer: &mut dyn WriteColor) {
         self.write_colored_header(writer);
-        writeln!(writer, "");
+        writeln!(writer);
     }
 
     fn write_colored_header(&self, writer: &mut dyn WriteColor) {
@@ -215,7 +215,7 @@ impl Message {
     fn write_colored_with_code<'ctx>(
         &self,
         writer: &mut dyn WriteColor,
-        span: Span,
+        span: &Span,
         file: &AsciiFile<'ctx>,
     ) {
         self.write_colored_header(writer);
@@ -294,7 +294,7 @@ impl Message {
             writeln!(output.writer(), "{}", empty_line_marker);
         }
 
-        writeln!(output.writer(), "");
+        writeln!(output.writer());
     }
 }
 

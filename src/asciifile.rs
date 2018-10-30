@@ -41,7 +41,7 @@ impl<'m> AsciiFile<'m> {
         let region = &mapping[byte_offset..region_end];
         region
             .iter()
-            .position(|&chr| chr == '\n' as u8)
+            .position(|&chr| chr as char == '\n')
             .map(|pos| pos + byte_offset)
             .unwrap_or(region_end)
     }
@@ -64,7 +64,7 @@ impl<'m> AsciiFile<'m> {
 
         region
             .iter()
-            .rposition(|&chr| chr == '\n' as u8)
+            .rposition(|&chr| chr as char == '\n')
             .map(|pos| pos + 1)
             .unwrap_or(region_start)
     }
@@ -312,9 +312,7 @@ mod tests {
 
     #[test]
     fn err_on_ascii_context_bounded() {
-        use std::fmt::Write;
-
-        let mut prev_expected = "9876543210".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN / 10);
+        let prev_expected = "9876543210".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN / 10);
         let instr = format!("abcd{}💩", prev_expected);
         let f = testfile(&instr);
         let mm = AsciiFile::new(f);
@@ -329,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_indices() {
-        let mut single_line = "|123456789";
+        let single_line = "|123456789";
 
         assert_eq!(
             single_line,
@@ -340,7 +338,7 @@ mod tests {
             &single_line[AsciiFile::get_line_start_idx(single_line.as_bytes(), 5)..]
         );
 
-        let mut multi_line = "|123456789\nabcdefghijklmno";
+        let multi_line = "|123456789\nabcdefghijklmno";
 
         assert_eq!(
             multi_line,
@@ -360,7 +358,7 @@ mod tests {
             &multi_line[AsciiFile::get_line_start_idx(multi_line.as_bytes(), 5)..]
         );
 
-        let mut long_line = "|123456789\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
+        let long_line = "|123456789\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
 
         assert_eq!(
             "|123456789",
@@ -368,7 +366,7 @@ mod tests {
                 ..AsciiFile::get_line_end_idx(long_line.as_bytes(), 20)]
         );
 
-        let mut empty_line = "\n\n\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
+        let empty_line = "\n\n\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
 
         assert_eq!(
             "",
@@ -376,7 +374,7 @@ mod tests {
                 ..AsciiFile::get_line_end_idx(empty_line.as_bytes(), 1)]
         );
 
-        let mut new_line = "a\nb\nc\nd\n";
+        let new_line = "a\nb\nc\nd\n";
 
         assert_eq!(
             "a\nb",

@@ -107,7 +107,8 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
             let lexer = lexer::Lexer::new(&context);
 
             for token in lexer {
-                write_token(&mut stdout, token?.data)?;
+                // TODO: deal with Err(_) = token!!!
+                write_token(&mut stdout, &token?.data)?;
 
                 // stop compilation on first error during lexing phase
                 if context.diagnostics.errored() {
@@ -120,7 +121,7 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
     Ok(())
 }
 
-fn write_token<O: io::Write>(out: &mut O, token: TokenKind) -> Result<(), Error> {
+fn write_token<O: io::Write>(out: &mut O, token: &TokenKind) -> Result<(), Error> {
     match token {
         TokenKind::Whitespace | TokenKind::Comment(_) => Ok(()),
         _ => { writeln!(out, "{}", token)?; Ok(()) },
@@ -150,7 +151,7 @@ mod lexertest_tests {
     fn lexer_test_with_tokens(tokens: Vec<TokenKind>) -> String {
         let mut o = Vec::new();
         for token in tokens.into_iter() {
-            let res = write_token(&mut o, token);
+            let res = write_token(&mut o, &token);
             assert!(res.is_ok());
         }
 
