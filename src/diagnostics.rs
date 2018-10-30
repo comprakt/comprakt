@@ -56,7 +56,7 @@ impl Diagnostics {
             .count()
     }
 
-    fn write_statistics(&self) {
+    pub fn write_statistics(&self) {
         let mut writer = self.writer.borrow_mut();
         let mut output = ColorOutput::new(&mut **writer);
 
@@ -147,7 +147,7 @@ pub enum MessageLevel {
 
 impl MessageLevel {
     fn color(self) -> Option<Color> {
-        // Don't be confused by return type. `None` means default color!
+        // Don't be confused by the return type. `None` means default color!
         match self {
             MessageLevel::Error => Some(Color::Red),
             MessageLevel::Warning => Some(Color::Yellow),
@@ -165,12 +165,6 @@ impl MessageLevel {
 pub struct Message {
     pub level: MessageLevel,
     pub kind: Box<dyn AsFail>,
-    /* TODO: draw code segment with error highlighted
-     * pub span: Span,
-     * TODO: maybe add suggestions for fixes
-     * pub suggestions: Vec<Message>
-     * TODO: filename seems unnecessary as we only compile a single file
-     * pub filename: Path */
 }
 
 struct ColorOutput<'a> {
@@ -323,13 +317,6 @@ impl Message {
         }
 
         writeln!(output.writer());
-    }
-}
-
-/// Print a statistic at the end of compilation
-impl Drop for Diagnostics {
-    fn drop(&mut self) {
-        self.write_statistics();
     }
 }
 

@@ -112,6 +112,7 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
 
                 // stop compilation on first error during lexing phase
                 if context.diagnostics.errored() {
+                    context.diagnostics.write_statistics();
                     exit(1);
                 }
             }
