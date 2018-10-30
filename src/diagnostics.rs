@@ -9,7 +9,7 @@
 
 // TODO: import spanned and span into this module?
 use crate::{
-    asciifile::AsciiFile,
+    asciifile::{AsciiFile, LineContext},
     lexer::{Span, Spanned},
 };
 use failure::{AsFail, Fail};
@@ -239,15 +239,15 @@ impl Message {
         // are misaligned.
         let empty_line_marker = format!(" {} | ", " ".repeat(line_number_width));
 
+        // add padding line above
+        output.set_color(Some(Color::Cyan));
+        output.set_bold(true);
+
+        writeln!(output.writer(), "{}", empty_line_marker);
+
         // Add marker below the line if the error is on a single line. Add the
         // marker at the start of the line for multiline errors.
         if !span.is_multiline() {
-            // add padding line above
-            output.set_color(Some(Color::Cyan));
-            output.set_bold(true);
-
-            writeln!(output.writer(), "{}", empty_line_marker);
-
             // add line number
             write!(
                 output.writer(),
@@ -256,15 +256,32 @@ impl Message {
             );
 
             // add source code line
+            let (truncation_before, src_line, truncation_after) = span.start.get_line(file);
+
+            if truncation_before == LineContext::Truncated {
+                output.set_color(Some(Color::Cyan));
+                output.set_bold(true);
+                write!(output.writer(), "...");
+            }
+
             output.set_color(None);
             output.set_bold(false);
-            writeln!(output.writer(), "{}", span.start.get_line(file));
+            write!(output.writer(), "{}", src_line);
+
+            if truncation_after == LineContext::Truncated {
+                output.set_color(Some(Color::Cyan));
+                output.set_bold(true);
+                write!(output.writer(), "...");
+            }
+
+            writeln!(output.writer());
 
             // add positional indicators.
             output.set_color(Some(Color::Cyan));
             output.set_bold(true);
             write!(output.writer(), "{}", empty_line_marker);
 
+            // TODO: deal with truncation
             let indicator = format!(
                 "{spaces}{markers}",
                 spaces = " ".repeat(span.start.col),
@@ -276,12 +293,6 @@ impl Message {
             writeln!(output.writer(), "{}", indicator);
         } else {
             let mut position_at_line = span.start;
-
-            // add padding line above
-            output.set_color(Some(Color::Cyan));
-            output.set_bold(true);
-
-            writeln!(output.writer(), "{}", empty_line_marker);
 
             for _line_num in span.start.row..=span.end.row {
                 // add line number
@@ -302,7 +313,8 @@ impl Message {
                 // add source code line
                 output.set_color(None);
                 output.set_bold(false);
-                writeln!(output.writer(), "{}", position_at_line.get_line(file));
+                // TODO: we do not want truncation here? Just at the end?
+                writeln!(output.writer(), "{}", position_at_line.get_line(file).1);
 
                 position_at_line = match position_at_line.next_line(file) {
                     Ok(pos) => pos,

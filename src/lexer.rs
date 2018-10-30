@@ -1,7 +1,6 @@
 use crate::{
     asciifile::{AsciiFileIterator, Position, PositionedChar},
     context::Context,
-    diagnostics,
     strtab::*,
 };
 use failure::Fail;

@@ -18,10 +18,11 @@ pub enum EncodingError {
 
 const ENCODING_ERROR_MAX_CONTEXT_LEN: usize = 180;
 
-//enum LineContext {
-//Truncated,
-//NotTruncated
-//}
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum LineContext {
+    Truncated,
+    NotTruncated,
+}
 
 impl<'m> AsciiFile<'m> {
     /// return the start index of the line without the newline character (\n).
@@ -33,17 +34,25 @@ impl<'m> AsciiFile<'m> {
     /// character will belong to the previous line, meaning the return
     /// value will be the given byte offset and
     /// not the byte offset of the next new line.
-    fn get_line_end_idx(mapping: &'m [u8], byte_offset: usize) -> usize {
-        let region_end = mapping
-            .len()
-            .min(byte_offset + ENCODING_ERROR_MAX_CONTEXT_LEN);
+    fn get_line_end_idx(mapping: &'m [u8], byte_offset: usize) -> (LineContext, usize) {
+        let region_max_end = byte_offset + ENCODING_ERROR_MAX_CONTEXT_LEN;
+        let (truncation, region_end) = if mapping.len() > region_max_end {
+            (LineContext::Truncated, region_max_end)
+        } else {
+            (LineContext::NotTruncated, mapping.len())
+        };
 
         let region = &mapping[byte_offset..region_end];
-        region
+
+        let newline_position = region
             .iter()
             .position(|&chr| chr as char == '\n')
-            .map(|pos| pos + byte_offset)
-            .unwrap_or(region_end)
+            .map(|pos| pos + byte_offset);
+
+        match newline_position {
+            Some(position) => (LineContext::NotTruncated, position),
+            None => (truncation, region_end),
+        }
     }
 
     /// return the end index of the line includes the newline character (\n).
@@ -55,29 +64,37 @@ impl<'m> AsciiFile<'m> {
     /// character will belong to the previous line, meaning the return
     /// value will not be the given by the byte
     /// offset, but the byte offset of the previous new line.
-    fn get_line_start_idx(mapping: &'m [u8], byte_offset: usize) -> usize {
-        let region_start = byte_offset
+    fn get_line_start_idx(mapping: &'m [u8], byte_offset: usize) -> (LineContext, usize) {
+        let (truncation, region_start) = byte_offset
             .checked_sub(ENCODING_ERROR_MAX_CONTEXT_LEN)
-            .unwrap_or(0);
+            .map(|start| (LineContext::Truncated, start))
+            .unwrap_or((LineContext::NotTruncated, 0));
 
         let region = &mapping[region_start..byte_offset];
 
         region
             .iter()
             .rposition(|&chr| chr as char == '\n')
-            .map(|pos| pos + 1)
-            .unwrap_or(region_start)
+            .map(|pos| (LineContext::NotTruncated, pos + 1))
+            .unwrap_or((truncation, region_start))
     }
 
     // cost: O(fileLen) since we need to check if all chars are ASCII
     pub fn new(mapping: &'m [u8]) -> Result<AsciiFile<'m>, EncodingError> {
         if let Some(position) = mapping.iter().position(|c| !c.is_ascii()) {
-            let start_idx = AsciiFile::get_line_start_idx(mapping, position);
-            debug_assert!(position >= start_idx);
+            let (truncation, start_idx) = AsciiFile::get_line_start_idx(mapping, position);
             // We know everything until now has been ASCII
             let prev: &str =
                 unsafe { std::str::from_utf8_unchecked(&mapping[start_idx..position]) };
-            let prev = prev.to_owned();
+            let prev = format!(
+                "{dots}{context}",
+                context = prev,
+                dots = if truncation == LineContext::Truncated {
+                    "..."
+                } else {
+                    ""
+                }
+            );
             return Err(EncodingError::NotAscii { position, prev });
         }
 
@@ -108,11 +125,17 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn get_line<'m>(&self, file: &AsciiFile<'m>) -> &'m str {
-        let start = AsciiFile::get_line_start_idx(file.mapping, self.byte_offset);
-        let end = AsciiFile::get_line_end_idx(file.mapping, self.byte_offset);
+    pub fn get_line<'m>(&self, file: &AsciiFile<'m>) -> (LineContext, &'m str, LineContext) {
+        let (truncated_before, start) =
+            AsciiFile::get_line_start_idx(file.mapping, self.byte_offset);
+        let (truncated_after, end) = AsciiFile::get_line_end_idx(file.mapping, self.byte_offset);
         let line = &file.mapping[start..end];
-        unsafe { std::str::from_utf8_unchecked(line) }
+
+        (
+            truncated_before,
+            unsafe { std::str::from_utf8_unchecked(line) },
+            truncated_after,
+        )
     }
 
     /// Advance the position by examining a row of input characters. Will
@@ -139,7 +162,8 @@ impl Position {
     }
 
     pub fn next_line<'m>(&self, file: &AsciiFile<'m>) -> Result<Self, ()> {
-        let end_idx = AsciiFile::get_line_end_idx(file.mapping, self.byte_offset);
+        // TODO: we do not want truncation here!
+        let (end_truncated, end_idx) = AsciiFile::get_line_end_idx(file.mapping, self.byte_offset);
         let is_eof = end_idx == file.mapping.len() - 1;
 
         if is_eof {
@@ -312,8 +336,8 @@ mod tests {
 
     #[test]
     fn err_on_ascii_context_bounded() {
-        let prev_expected = "9876543210".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN / 10);
-        let instr = format!("abcd{}💩", prev_expected);
+        let long_thing = "9876543210".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN / 10);
+        let instr = format!("abcd{}💩", long_thing);
         let f = testfile(&instr);
         let mm = AsciiFile::new(f);
 
@@ -322,70 +346,93 @@ mod tests {
         let e = mm.err().unwrap();
         let EncodingError::NotAscii { prev, .. } = e;
 
-        assert_eq!(prev, prev_expected);
+        assert_eq!(prev, format!("...{}", long_thing));
     }
 
     #[test]
     fn test_indices() {
-        let single_line = "|123456789";
+        {
+            let single_line = "|123456789";
+            let (end_truncation, line_end) = AsciiFile::get_line_end_idx(single_line.as_bytes(), 5);
+            assert_eq!(LineContext::NotTruncated, end_truncation);
+            assert_eq!(single_line, &single_line[..line_end]);
+        }
 
-        assert_eq!(
-            single_line,
-            &single_line[..AsciiFile::get_line_end_idx(single_line.as_bytes(), 5)]
-        );
-        assert_eq!(
-            single_line,
-            &single_line[AsciiFile::get_line_start_idx(single_line.as_bytes(), 5)..]
-        );
+        {
+            let single_line = "|123456789";
+            let (start_truncation, line_start) =
+                AsciiFile::get_line_start_idx(single_line.as_bytes(), 5);
 
-        let multi_line = "|123456789\nabcdefghijklmno";
+            assert_eq!(LineContext::NotTruncated, start_truncation);
+            assert_eq!(single_line, &single_line[line_start..]);
+        }
 
-        assert_eq!(
-            multi_line,
-            &multi_line[..AsciiFile::get_line_end_idx(multi_line.as_bytes(), 15)]
-        );
-        assert_eq!(
-            "|123456789",
-            &multi_line[..AsciiFile::get_line_end_idx(multi_line.as_bytes(), 5)]
-        );
-        assert_eq!(
-            "abcdefghijklmno",
-            &multi_line[AsciiFile::get_line_start_idx(multi_line.as_bytes(), 15)..]
-        );
+        {
+            let multi_line = "|123456789\nabcdefghijklmno";
+            let (end_truncation, line_end) = AsciiFile::get_line_end_idx(multi_line.as_bytes(), 15);
+            assert_eq!(LineContext::NotTruncated, end_truncation);
+            assert_eq!(multi_line, &multi_line[..line_end]);
+        }
 
-        assert_eq!(
-            multi_line,
-            &multi_line[AsciiFile::get_line_start_idx(multi_line.as_bytes(), 5)..]
-        );
+        {
+            let multi_line = "|123456789\nabcdefghijklmno";
+            let (end_truncation, line_end) = AsciiFile::get_line_end_idx(multi_line.as_bytes(), 5);
+            assert_eq!(LineContext::NotTruncated, end_truncation);
+            assert_eq!("|123456789", &multi_line[..line_end]);
+        }
 
-        let long_line = "|123456789\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
+        {
+            let multi_line = "|123456789\nabcdefghijklmno";
+            let (start_truncation, line_start) =
+                AsciiFile::get_line_start_idx(multi_line.as_bytes(), 15);
+            assert_eq!(LineContext::NotTruncated, start_truncation);
+            assert_eq!("abcdefghijklmno", &multi_line[line_start..]);
+        }
 
-        assert_eq!(
-            "|123456789",
-            &long_line[AsciiFile::get_line_start_idx(long_line.as_bytes(), 20)
-                ..AsciiFile::get_line_end_idx(long_line.as_bytes(), 20)]
-        );
+        {
+            let multi_line = "|123456789\nabcdefghijklmno";
+            let (start_truncation, line_start) =
+                AsciiFile::get_line_start_idx(multi_line.as_bytes(), 5);
+            assert_eq!(LineContext::NotTruncated, start_truncation);
+            assert_eq!(multi_line, &multi_line[line_start..]);
+        }
 
-        let empty_line = "\n\n\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
+        {
+            let long_line = "|123456789\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
+            let (start_truncation, line_start) =
+                AsciiFile::get_line_start_idx(long_line.as_bytes(), 20);
+            let (end_truncation, line_end) = AsciiFile::get_line_end_idx(long_line.as_bytes(), 20);
 
-        assert_eq!(
-            "",
-            &empty_line[AsciiFile::get_line_start_idx(empty_line.as_bytes(), 1)
-                ..AsciiFile::get_line_end_idx(empty_line.as_bytes(), 1)]
-        );
+            assert_eq!(LineContext::NotTruncated, start_truncation);
+            assert_eq!(LineContext::NotTruncated, end_truncation);
+            assert_eq!("|123456789", &long_line[line_start..line_end]);
+        }
 
-        let new_line = "a\nb\nc\nd\n";
+        {
+            let empty_line = "\n\n\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
+            let (start_truncation, line_start) =
+                AsciiFile::get_line_start_idx(empty_line.as_bytes(), 1);
+            let (end_truncation, line_end) = AsciiFile::get_line_end_idx(empty_line.as_bytes(), 1);
 
-        assert_eq!(
-            "a\nb",
-            &new_line[..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3)]
-        );
+            assert_eq!(LineContext::NotTruncated, start_truncation);
+            assert_eq!(LineContext::NotTruncated, end_truncation);
+            assert_eq!("", &empty_line[line_start..line_end]);
+        }
 
-        assert_eq!(
-            "b",
-            &new_line[AsciiFile::get_line_start_idx(new_line.as_bytes(), 3)
-                ..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3)]
-        );
+        {
+            let new_line = "a\nb\nc\nd\n";
+
+            assert_eq!(
+                "a\nb",
+                &new_line[..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3).1]
+            );
+
+            assert_eq!(
+                "b",
+                &new_line[AsciiFile::get_line_start_idx(new_line.as_bytes(), 3).1
+                    ..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3).1]
+            );
+        }
     }
 
     #[test]
