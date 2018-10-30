@@ -222,20 +222,28 @@ impl Message {
 
         let mut output = ColorOutput::new(writer);
 
-        // TODO: print multiline spans correctly!
-        // Add marker below the line if the error is on a single line
+        let line_number_width = span.end.row.to_string().len();
+
+        // NOTE: this has to be the same width as the line_marker with
+        // line numbers, otherwise the indicators for single line warnings/errors
+        // are misaligned.
+        let empty_line_marker = format!(" {} | ", " ".repeat(line_number_width));
+
+        // Add marker below the line if the error is on a single line. Add the
+        // marker at the start of the line for multiline errors.
         if !span.is_multiline() {
+            // add padding line above
             output.set_color(Some(Color::Cyan));
             output.set_bold(true);
 
-            // TODO: pad with whitespace, right align
-
-            // add padding line above
-            let empty_line_marker = "     | ";
             writeln!(output.writer(), "{}", empty_line_marker);
 
             // add line number
-            write!(output.writer(), "{:4} | ", span.start.row + 1);
+            write!(
+                output.writer(),
+                " {padded_linenumber} | ",
+                padded_linenumber = pad_left(&(span.start.row + 1).to_string(), line_number_width)
+            );
 
             // add source code line
             output.set_color(None);
@@ -263,14 +271,18 @@ impl Message {
             output.set_color(Some(Color::Cyan));
             output.set_bold(true);
 
-            let empty_line_marker = "     | ";
             writeln!(output.writer(), "{}", empty_line_marker);
 
             for _line_num in span.start.row..=span.end.row {
                 // add line number
                 output.set_color(Some(Color::Cyan));
                 output.set_bold(true);
-                write!(output.writer(), "{:4} |", position_at_line.row + 1);
+                write!(
+                    output.writer(),
+                    " {padded_linenumber} |",
+                    padded_linenumber =
+                        pad_left(&(position_at_line.row + 1).to_string(), line_number_width)
+                );
 
                 // Add marker at the beginning of the line, if it spans
                 // multiple lines
@@ -302,5 +314,37 @@ impl Message {
 impl Drop for Diagnostics {
     fn drop(&mut self) {
         self.write_statistics();
+    }
+}
+
+pub fn pad_left(s: &str, pad: usize) -> String {
+    pad_left_with_char(s, pad, ' ')
+}
+
+pub fn pad_left_with_char(s: &str, pad: usize, chr: char) -> String {
+    format!(
+        "{padding}{string}",
+        padding = chr
+            .to_string()
+            .repeat(pad.checked_sub(s.len()).unwrap_or(0)),
+        string = s
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pad_left() {
+        let tests = vec![("a", "    a"), ("", "          "), ("a", "a"), ("", "")];
+
+        for (input, expected) in tests {
+            println!("Testing: {:?} => {:?}", input, expected);
+            assert_eq!(expected, pad_left(input, expected.len()));
+        }
+
+        // not enough padding does not truncate string
+        assert_eq!("a", pad_left("a", 0));
     }
 }
