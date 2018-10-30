@@ -93,15 +93,11 @@ pub enum ErrorKind {
     UnexpectedCharacter(char),
 }
 
-impl diagnostics::CompileError for Warning {}
-
 #[derive(Debug, Fail)]
 pub enum Warning {
     #[fail(display = "confusing usage of comment separator inside a comment")]
     CommentSeparatorInsideComment,
 }
-
-impl diagnostics::Warning for Warning {}
 
 #[derive(Debug)]
 pub struct Span {

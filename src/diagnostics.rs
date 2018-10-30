@@ -16,14 +16,6 @@ use failure::{AsFail, Fail};
 use std::cell::RefCell;
 use termcolor::{Color, ColorSpec, WriteColor};
 
-/// Tagging Interface marking failures as warnings.
-/// Avoids accidental calls of error methods with warnings.
-pub trait Warning: Fail {}
-
-/// Tagging Interface marking failures as warnings.
-/// Avoids accidental calls of error methods with warnings.
-pub trait CompileError: Fail {}
-
 /// Instead of writing errors, warnings and lints generated in the different
 /// compiler stages directly to stdout, they are collected in this object.
 ///
@@ -94,16 +86,23 @@ impl Diagnostics {
         }
     }
 
-    // TODO: as we do not use warnings here. the warning trait is redundant!
-    pub fn warning(&self, kind: Box<dyn AsFail>) {
-        let msg = Message {
-            level: MessageLevel::Warning,
-            kind,
-        };
+    /// Generate an error or a warning that is printed to the
+    /// writer given in the `new` constructor. Most of the time
+    /// this will be stderr.
+    pub fn emit(&self, level: MessageLevel, kind: Box<dyn AsFail>) {
+        let msg = Message { level, kind };
 
         let mut writer = self.writer.borrow_mut();
         msg.write_colored(&mut **writer);
         self.messages.borrow_mut().push(msg);
+    }
+
+    pub fn warning(&self, kind: Box<dyn AsFail>) {
+        self.emit(MessageLevel::Warning, kind)
+    }
+
+    pub fn error(&self, kind: Box<dyn AsFail>) {
+        self.emit(MessageLevel::Error, kind)
     }
 
     pub fn warning_with_source_snippet<'ctx>(
@@ -111,8 +110,25 @@ impl Diagnostics {
         spanned: Spanned<Box<dyn AsFail>>,
         file: &AsciiFile<'ctx>,
     ) {
+        self.emit_with_source_snippet(MessageLevel::Warning, spanned, file)
+    }
+
+    pub fn error_with_source_snippet<'ctx>(
+        &self,
+        spanned: Spanned<Box<dyn AsFail>>,
+        file: &AsciiFile<'ctx>,
+    ) {
+        self.emit_with_source_snippet(MessageLevel::Error, spanned, file)
+    }
+
+    pub fn emit_with_source_snippet<'ctx>(
+        &self,
+        level: MessageLevel,
+        spanned: Spanned<Box<dyn AsFail>>,
+        file: &AsciiFile<'ctx>,
+    ) {
         let msg = Message {
-            level: MessageLevel::Warning,
+            level,
             kind: spanned.data,
         };
 
