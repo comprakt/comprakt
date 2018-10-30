@@ -221,38 +221,77 @@ impl Message {
         self.write_colored_header(writer);
 
         let mut output = ColorOutput::new(writer);
-        output.set_color(Some(Color::Cyan));
-        output.set_bold(true);
-
-        // TODO: pad with whitespace, right align
-        let empty_line_marker = "     | ";
-        writeln!(output.writer(), "{}", empty_line_marker);
-        write!(output.writer(), "{:4} | ", span.start.row + 1);
-
-        if span.is_multiline() {
-            output.set_color(self.level.color());
-            write!(output.writer(), ">");
-        }
-
-        output.set_bold(false);
-        output.set_color(None);
-        writeln!(output.writer(), "{}", span.start.get_line(file));
-
-        output.set_color(Some(Color::Cyan));
-        output.set_bold(true);
-        write!(output.writer(), "{}", empty_line_marker);
 
         // TODO: print multiline spans correctly!
+        // Add marker below the line if the error is on a single line
         if !span.is_multiline() {
+            output.set_color(Some(Color::Cyan));
+            output.set_bold(true);
+
+            // TODO: pad with whitespace, right align
+
+            // add padding line above
+            let empty_line_marker = "     | ";
+            writeln!(output.writer(), "{}", empty_line_marker);
+
+            // add line number
+            write!(output.writer(), "{:4} | ", span.start.row + 1);
+
+            // add source code line
+            output.set_color(None);
+            output.set_bold(false);
+            writeln!(output.writer(), "{}", span.start.get_line(file));
+
             // add positional indicators.
+            output.set_color(Some(Color::Cyan));
+            output.set_bold(true);
+            write!(output.writer(), "{}", empty_line_marker);
+
             let indicator = format!(
                 "{spaces}{markers}",
-                spaces = " ".repeat(span.start.col + 1),
+                spaces = " ".repeat(span.start.col),
                 markers = "^".repeat(span.end.col - span.start.col)
             );
+
             output.set_bold(true);
             output.set_color(self.level.color());
             writeln!(output.writer(), "{}", indicator);
+        } else {
+            let mut position_at_line = span.start;
+
+            // add padding line above
+            output.set_color(Some(Color::Cyan));
+            output.set_bold(true);
+
+            let empty_line_marker = "     | ";
+            writeln!(output.writer(), "{}", empty_line_marker);
+
+            for _line_num in span.start.row..=span.end.row {
+                // add line number
+                output.set_color(Some(Color::Cyan));
+                output.set_bold(true);
+                write!(output.writer(), "{:4} |", position_at_line.row + 1);
+
+                // Add marker at the beginning of the line, if it spans
+                // multiple lines
+                output.set_color(self.level.color());
+                write!(output.writer(), "> ");
+
+                // add source code line
+                output.set_color(None);
+                output.set_bold(false);
+                writeln!(output.writer(), "{}", position_at_line.get_line(file));
+
+                position_at_line = match position_at_line.next_line(file) {
+                    Ok(pos) => pos,
+                    Err(_) /* EOF */ => { break; }
+                }
+            }
+
+            // add padding line below
+            output.set_color(Some(Color::Cyan));
+            output.set_bold(true);
+            writeln!(output.writer(), "{}", empty_line_marker);
         }
 
         writeln!(output.writer(), "");

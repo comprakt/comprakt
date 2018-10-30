@@ -18,11 +18,21 @@ pub enum EncodingError {
 
 const ENCODING_ERROR_MAX_CONTEXT_LEN: usize = 180;
 
+//enum LineContext {
+//Truncated,
+//NotTruncated
+//}
+
 impl<'m> AsciiFile<'m> {
     /// return the start index of the line without the newline character (\n).
     /// This means you can make slices that do NOT include the newline
     /// character by simply using the return value of this function as
     /// lower bound X in the range X..Y.
+    ///
+    /// If the cursor/byte offset is on a newline character, the newline
+    /// character will belong to the previous line, meaning the return
+    /// value will be the given byte offset and
+    /// not the byte offset of the next new line.
     fn get_line_end_idx(mapping: &'m [u8], byte_offset: usize) -> usize {
         let region_end = mapping
             .len()
@@ -40,6 +50,11 @@ impl<'m> AsciiFile<'m> {
     /// This means you can make slices that do NOT include the newline
     /// character by simply using the return value of this function as
     /// upper bound Y in the range X..Y.
+    ///
+    /// If the cursor/byte offset is on a newline character, the newline
+    /// character will belong to the previous line, meaning the return
+    /// value will not be the given by the byte
+    /// offset, but the byte offset of the previous new line.
     fn get_line_start_idx(mapping: &'m [u8], byte_offset: usize) -> usize {
         let region_start = byte_offset
             .checked_sub(ENCODING_ERROR_MAX_CONTEXT_LEN)
@@ -49,7 +64,7 @@ impl<'m> AsciiFile<'m> {
 
         region
             .iter()
-            .position(|&chr| chr == '\n' as u8)
+            .rposition(|&chr| chr == '\n' as u8)
             .map(|pos| pos + 1)
             .unwrap_or(region_start)
     }
@@ -123,9 +138,20 @@ impl Position {
         }
     }
 
-    //pub fn next_line<'m>(&self, file: AsciiFile<'m>) {
-    //AsciiFile::get_line_start_idx()
-    //}
+    pub fn next_line<'m>(&self, file: &AsciiFile<'m>) -> Result<Self, ()> {
+        let end_idx = AsciiFile::get_line_end_idx(file.mapping, self.byte_offset);
+        let is_eof = end_idx == file.mapping.len() - 1;
+
+        if is_eof {
+            return Err(());
+        }
+
+        Ok(Self {
+            col: 0,
+            row: self.row + 1,
+            byte_offset: end_idx + 1,
+        })
+    }
 }
 
 use std::fmt::{self, Display};
@@ -348,6 +374,19 @@ mod tests {
             "",
             &empty_line[AsciiFile::get_line_start_idx(empty_line.as_bytes(), 1)
                 ..AsciiFile::get_line_end_idx(empty_line.as_bytes(), 1)]
+        );
+
+        let mut new_line = "a\nb\nc\nd\n";
+
+        assert_eq!(
+            "a\nb",
+            &new_line[..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3)]
+        );
+
+        assert_eq!(
+            "b",
+            &new_line[AsciiFile::get_line_start_idx(new_line.as_bytes(), 3)
+                ..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3)]
         );
     }
 
