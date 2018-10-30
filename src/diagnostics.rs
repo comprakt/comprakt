@@ -232,7 +232,7 @@ impl Message {
 
         let mut output = ColorOutput::new(writer);
 
-        let line_number_width = span.end.row.to_string().len();
+        let line_number_width = (span.end.row + 1).to_string().len();
 
         // NOTE: this has to be the same width as the line_marker with
         // line numbers, otherwise the indicators for single line warnings/errors
