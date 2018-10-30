@@ -12,7 +12,7 @@ use crate::{
     asciifile::{AsciiFile, LineContext},
     lexer::{Span, Spanned},
 };
-use failure::{AsFail, Fail};
+use failure::AsFail;
 use std::cell::RefCell;
 use termcolor::{Color, ColorSpec, WriteColor};
 
@@ -206,6 +206,9 @@ impl<'a> Drop for ColorOutput<'a> {
     }
 }
 
+const MAX_CONTEXT_LENGTH: usize = 80;
+const MAX_CONTEXT_LENGTH_MULTILINE: usize = 160;
+
 impl Message {
     fn write_colored(&self, writer: &mut dyn WriteColor) {
         self.write_colored_header(writer);
@@ -238,6 +241,7 @@ impl Message {
         // line numbers, otherwise the indicators for single line warnings/errors
         // are misaligned.
         let empty_line_marker = format!(" {} | ", " ".repeat(line_number_width));
+        let truncation_str = "...";
 
         // add padding line above
         output.set_color(Some(Color::Cyan));
@@ -256,12 +260,14 @@ impl Message {
             );
 
             // add source code line
-            let (truncation_before, src_line, truncation_after) = span.start.get_line(file);
+            let (truncation_before, src_line, truncation_after) =
+                span.start
+                    .get_line(file, MAX_CONTEXT_LENGTH, MAX_CONTEXT_LENGTH);
 
             if truncation_before == LineContext::Truncated {
                 output.set_color(Some(Color::Cyan));
                 output.set_bold(true);
-                write!(output.writer(), "...");
+                write!(output.writer(), "{}", truncation_str);
             }
 
             output.set_color(None);
@@ -271,7 +277,7 @@ impl Message {
             if truncation_after == LineContext::Truncated {
                 output.set_color(Some(Color::Cyan));
                 output.set_bold(true);
-                write!(output.writer(), "...");
+                write!(output.writer(), "{}", truncation_str);
             }
 
             writeln!(output.writer());
@@ -281,10 +287,13 @@ impl Message {
             output.set_bold(true);
             write!(output.writer(), "{}", empty_line_marker);
 
-            // TODO: deal with truncation
             let indicator = format!(
                 "{spaces}{markers}",
-                spaces = " ".repeat(span.start.col),
+                spaces = " ".repeat(if truncation_before == LineContext::Truncated {
+                    MAX_CONTEXT_LENGTH + truncation_str.len()
+                } else {
+                    span.start.col
+                }),
                 markers = "^".repeat(1 + span.end.col - span.start.col)
             );
 
@@ -292,7 +301,7 @@ impl Message {
             output.set_color(self.level.color());
             writeln!(output.writer(), "{}", indicator);
         } else {
-            let mut position_at_line = span.start;
+            let mut line_first_char = span.start;
 
             for _line_num in span.start.row..=span.end.row {
                 // add line number
@@ -302,7 +311,7 @@ impl Message {
                     output.writer(),
                     " {padded_linenumber} |",
                     padded_linenumber =
-                        pad_left(&(position_at_line.row + 1).to_string(), line_number_width)
+                        pad_left(&(line_first_char.row + 1).to_string(), line_number_width)
                 );
 
                 // Add marker at the beginning of the line, if it spans
@@ -313,10 +322,22 @@ impl Message {
                 // add source code line
                 output.set_color(None);
                 output.set_bold(false);
-                // TODO: we do not want truncation here? Just at the end?
-                writeln!(output.writer(), "{}", position_at_line.get_line(file).1);
 
-                position_at_line = match position_at_line.next_line(file) {
+                let (truncation_before, line, truncation_after) =
+                    line_first_char.get_line(file, 1, MAX_CONTEXT_LENGTH_MULTILINE);
+                debug_assert!(truncation_before == LineContext::NotTruncated);
+
+                write!(output.writer(), "{}", line);
+
+                if truncation_after == LineContext::Truncated {
+                    output.set_color(Some(Color::Cyan));
+                    output.set_bold(true);
+                    write!(output.writer(), "{}", truncation_str);
+                }
+
+                writeln!(output.writer());
+
+                line_first_char = match line_first_char.next_line(file) {
                     Ok(pos) => pos,
                     Err(_) /* EOF */ => { break; }
                 }

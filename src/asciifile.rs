@@ -16,7 +16,7 @@ pub enum EncodingError {
     NotAscii { position: usize, prev: String },
 }
 
-const ENCODING_ERROR_MAX_CONTEXT_LEN: usize = 80;
+const ENCODING_ERROR_MAX_CONTEXT_LENGTH: usize = 80;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum LineContext {
@@ -34,10 +34,14 @@ impl<'m> AsciiFile<'m> {
     /// character will belong to the previous line, meaning the return
     /// value will be the given byte offset and
     /// not the byte offset of the next new line.
-    fn get_line_end_idx(mapping: &'m [u8], byte_offset: usize) -> (LineContext, usize) {
+    fn get_line_end_idx(
+        mapping: &'m [u8],
+        byte_offset: usize,
+        max_context_length: usize,
+    ) -> (LineContext, usize) {
         debug_assert!(byte_offset <= mapping.len());
 
-        let region_max_end = byte_offset + ENCODING_ERROR_MAX_CONTEXT_LEN;
+        let region_max_end = byte_offset + max_context_length;
         let (truncation, region_end) = if mapping.len() > region_max_end {
             (LineContext::Truncated, region_max_end)
         } else {
@@ -66,11 +70,15 @@ impl<'m> AsciiFile<'m> {
     /// character will belong to the previous line, meaning the return
     /// value will not be the given by the byte
     /// offset, but the byte offset of the previous new line.
-    fn get_line_start_idx(mapping: &'m [u8], byte_offset: usize) -> (LineContext, usize) {
+    fn get_line_start_idx(
+        mapping: &'m [u8],
+        byte_offset: usize,
+        max_context_length: usize,
+    ) -> (LineContext, usize) {
         debug_assert!(byte_offset <= mapping.len());
 
         let (truncation, region_start) = byte_offset
-            .checked_sub(ENCODING_ERROR_MAX_CONTEXT_LEN)
+            .checked_sub(max_context_length)
             .map(|start| (LineContext::Truncated, start))
             .unwrap_or((LineContext::NotTruncated, 0));
 
@@ -86,7 +94,8 @@ impl<'m> AsciiFile<'m> {
     // cost: O(fileLen) since we need to check if all chars are ASCII
     pub fn new(mapping: &'m [u8]) -> Result<AsciiFile<'m>, EncodingError> {
         if let Some(position) = mapping.iter().position(|c| !c.is_ascii()) {
-            let (truncation, start_idx) = AsciiFile::get_line_start_idx(mapping, position);
+            let (truncation, start_idx) =
+                AsciiFile::get_line_start_idx(mapping, position, ENCODING_ERROR_MAX_CONTEXT_LENGTH);
             // We know everything until now has been ASCII
             let prev: &str =
                 unsafe { std::str::from_utf8_unchecked(&mapping[start_idx..position]) };
@@ -129,10 +138,19 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn get_line<'m>(&self, file: &AsciiFile<'m>) -> (LineContext, &'m str, LineContext) {
-        let (truncated_before, start) =
-            AsciiFile::get_line_start_idx(file.mapping, self.byte_offset);
-        let (truncated_after, end) = AsciiFile::get_line_end_idx(file.mapping, self.byte_offset);
+    pub fn get_line<'m>(
+        &self,
+        file: &AsciiFile<'m>,
+        max_context_length_before: usize,
+        max_context_length_after: usize,
+    ) -> (LineContext, &'m str, LineContext) {
+        let (truncated_before, start) = AsciiFile::get_line_start_idx(
+            file.mapping,
+            self.byte_offset,
+            max_context_length_before,
+        );
+        let (truncated_after, end) =
+            AsciiFile::get_line_end_idx(file.mapping, self.byte_offset, max_context_length_after);
         let line = &file.mapping[start..end];
 
         (
@@ -166,8 +184,8 @@ impl Position {
     }
 
     pub fn next_line<'m>(&self, file: &AsciiFile<'m>) -> Result<Self, ()> {
-        // TODO: we do not want truncation here!
-        let (end_truncated, end_idx) = AsciiFile::get_line_end_idx(file.mapping, self.byte_offset);
+        let (_end_truncated, end_idx) =
+            AsciiFile::get_line_end_idx(file.mapping, self.byte_offset, file.mapping.len());
         let is_eof = end_idx == file.mapping.len() - 1;
 
         if is_eof {
