@@ -303,7 +303,13 @@ impl Message {
             output.set_color(self.level.color());
             writeln!(output.writer(), "{}", indicator);
         } else {
-            let mut line_first_char = span.start;
+            // move position to first element in line as we always want to
+            // render the first N characters if a line is way to long for
+            // an error message.
+            // TODO: would be nicer to always show the column of a multiline
+            // error. But I am not sure how the line columns should be aligned
+            // if lines are truncated differently.
+            let mut line_first_char = span.start.to_line_start(file);
 
             for _line_num in span.start.row..=span.end.row {
                 // add line number

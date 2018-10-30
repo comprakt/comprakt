@@ -183,6 +183,17 @@ impl Position {
         }
     }
 
+    pub fn to_line_start<'m>(&self, file: &AsciiFile<'m>) -> Self {
+        let (_start_truncated, start_idx) =
+            AsciiFile::get_line_start_idx(file.mapping, self.byte_offset, file.mapping.len());
+
+        Self {
+            col: 0,
+            row: self.row,
+            byte_offset: start_idx,
+        }
+    }
+
     pub fn next_line<'m>(&self, file: &AsciiFile<'m>) -> Result<Self, ()> {
         let (_end_truncated, end_idx) =
             AsciiFile::get_line_end_idx(file.mapping, self.byte_offset, file.mapping.len());
