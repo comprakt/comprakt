@@ -99,8 +99,6 @@ impl diagnostics::CompileError for Warning {}
 pub enum Warning {
     #[fail(display = "confusing usage of comment separator inside a comment")]
     CommentSeparatorInsideComment,
-    #[fail(display = "Invisible character is not valid whitespace")]
-    WeirdWhitespace,
 }
 
 impl diagnostics::Warning for Warning {}
@@ -569,16 +567,7 @@ impl<'t> Lexer<'t> {
     fn lex_whitespace(&mut self) -> TokenResult {
         debug_assert!(is_minijava_whitespace(self.input.peek().unwrap()));
         self.lex_while(
-            |c, span, context| {
-                let mj_ws = is_minijava_whitespace(c);
-                if !mj_ws && c.is_whitespace() {
-                    context.warning(Spanned {
-                        span,
-                        data: box Warning::WeirdWhitespace,
-                    });
-                }
-                mj_ws
-            },
+            |c, _, _| is_minijava_whitespace(c),
             |_, _, _| Ok(TokenKind::Whitespace),
         )
     }

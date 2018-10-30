@@ -16,27 +16,6 @@ use failure::{AsFail, Fail};
 use std::cell::RefCell;
 use termcolor::{Color, ColorSpec, WriteColor};
 
-// Error catalog.
-//#[derive(Eq, PartialEq, Fail, Debug)]
-//pub enum ErrorKind {
-//}
-
-//impl ErrorKind {
-//fn get_message(&self) -> String {
-//match self {
-//ErrorKind::NonAsciiCharacter => {
-//"encountered character outside of ASCII range, which is not
-//"encountered allowed.".to_string()
-//}
-//ErrorKind::CommentSeparatorInsideComment => {
-//"confusing usage of comment separator inside a comment.".to_string()
-//}
-
-//pub fn get_id(&self) -> String {
-////format!("M{:03}", *self as u8)
-//"E001".to_string()
-//}
-
 /// Tagging Interface marking failures as warnings.
 /// Avoids accidental calls of error methods with warnings.
 pub trait Warning: Fail {}
