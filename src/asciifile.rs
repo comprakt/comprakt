@@ -75,7 +75,7 @@ impl<'m> AsciiFile<'m> {
         region
             .iter()
             .rposition(|&chr| chr as char == '\n')
-            .map(|pos| (LineContext::NotTruncated, pos + 1))
+            .map(|pos| (LineContext::NotTruncated, pos + region_start + 1))
             .unwrap_or((truncation, region_start))
     }
 
@@ -535,4 +535,29 @@ mod tests {
         assert_eq!(chars_seen, s.len());
     }
 
+    #[test]
+    fn test_position_get_line() {
+        let s = "bkajsdlkajsdlk jalksj dlkajs lkdjd
+
+/* reiner mag /* in kommentaren nicht */
+/* some people like to see a /* */
+Reiner mag Kuchen!!! \\] and green bananas.";
+        let f = testfile(s);
+        let af = AsciiFile::new(f).unwrap();
+
+        let pos = Position {
+            row: 4,
+            col: 21,
+            byte_offset: 133,
+        };
+
+        assert_eq!(
+            pos.get_line(&af),
+            (
+                LineContext::NotTruncated,
+                "Reiner mag Kuchen!!! \\] and green bananas.",
+                LineContext::NotTruncated,
+            )
+        );
+    }
 }
