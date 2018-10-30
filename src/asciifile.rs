@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn err_on_ascii_context_bounded() {
-        let long_thing = "9876543210".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN / 10);
+        let long_thing = "9876543210".repeat(ENCODING_ERROR_MAX_CONTEXT_LENGTH / 10);
         let instr = format!("abcd{}💩", long_thing);
         let f = testfile(&instr);
         let mm = AsciiFile::new(f);
@@ -384,9 +384,11 @@ mod tests {
 
     #[test]
     fn test_indices() {
+        let max_ctx = 80;
         {
             let single_line = "|123456789";
-            let (end_truncation, line_end) = AsciiFile::get_line_end_idx(single_line.as_bytes(), 5);
+            let (end_truncation, line_end) =
+                AsciiFile::get_line_end_idx(single_line.as_bytes(), 5, max_ctx);
             assert_eq!(LineContext::NotTruncated, end_truncation);
             assert_eq!(single_line, &single_line[..line_end]);
         }
@@ -394,7 +396,7 @@ mod tests {
         {
             let single_line = "|123456789";
             let (start_truncation, line_start) =
-                AsciiFile::get_line_start_idx(single_line.as_bytes(), 5);
+                AsciiFile::get_line_start_idx(single_line.as_bytes(), 5, max_ctx);
 
             assert_eq!(LineContext::NotTruncated, start_truncation);
             assert_eq!(single_line, &single_line[line_start..]);
@@ -402,14 +404,16 @@ mod tests {
 
         {
             let multi_line = "|123456789\nabcdefghijklmno";
-            let (end_truncation, line_end) = AsciiFile::get_line_end_idx(multi_line.as_bytes(), 15);
+            let (end_truncation, line_end) =
+                AsciiFile::get_line_end_idx(multi_line.as_bytes(), 15, max_ctx);
             assert_eq!(LineContext::NotTruncated, end_truncation);
             assert_eq!(multi_line, &multi_line[..line_end]);
         }
 
         {
             let multi_line = "|123456789\nabcdefghijklmno";
-            let (end_truncation, line_end) = AsciiFile::get_line_end_idx(multi_line.as_bytes(), 5);
+            let (end_truncation, line_end) =
+                AsciiFile::get_line_end_idx(multi_line.as_bytes(), 5, max_ctx);
             assert_eq!(LineContext::NotTruncated, end_truncation);
             assert_eq!("|123456789", &multi_line[..line_end]);
         }
@@ -417,7 +421,7 @@ mod tests {
         {
             let multi_line = "|123456789\nabcdefghijklmno";
             let (start_truncation, line_start) =
-                AsciiFile::get_line_start_idx(multi_line.as_bytes(), 15);
+                AsciiFile::get_line_start_idx(multi_line.as_bytes(), 15, max_ctx);
             assert_eq!(LineContext::NotTruncated, start_truncation);
             assert_eq!("abcdefghijklmno", &multi_line[line_start..]);
         }
@@ -425,16 +429,17 @@ mod tests {
         {
             let multi_line = "|123456789\nabcdefghijklmno";
             let (start_truncation, line_start) =
-                AsciiFile::get_line_start_idx(multi_line.as_bytes(), 5);
+                AsciiFile::get_line_start_idx(multi_line.as_bytes(), 5, max_ctx);
             assert_eq!(LineContext::NotTruncated, start_truncation);
             assert_eq!(multi_line, &multi_line[line_start..]);
         }
 
         {
-            let long_line = "|123456789\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
+            let long_line = "|123456789\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LENGTH);
             let (start_truncation, line_start) =
-                AsciiFile::get_line_start_idx(long_line.as_bytes(), 20);
-            let (end_truncation, line_end) = AsciiFile::get_line_end_idx(long_line.as_bytes(), 20);
+                AsciiFile::get_line_start_idx(long_line.as_bytes(), 20, max_ctx);
+            let (end_truncation, line_end) =
+                AsciiFile::get_line_end_idx(long_line.as_bytes(), 20, max_ctx);
 
             assert_eq!(LineContext::NotTruncated, start_truncation);
             assert_eq!(LineContext::NotTruncated, end_truncation);
@@ -442,10 +447,11 @@ mod tests {
         }
 
         {
-            let empty_line = "\n\n\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LEN);
+            let empty_line = "\n\n\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LENGTH);
             let (start_truncation, line_start) =
-                AsciiFile::get_line_start_idx(empty_line.as_bytes(), 1);
-            let (end_truncation, line_end) = AsciiFile::get_line_end_idx(empty_line.as_bytes(), 1);
+                AsciiFile::get_line_start_idx(empty_line.as_bytes(), 1, max_ctx);
+            let (end_truncation, line_end) =
+                AsciiFile::get_line_end_idx(empty_line.as_bytes(), 1, max_ctx);
 
             assert_eq!(LineContext::NotTruncated, start_truncation);
             assert_eq!(LineContext::NotTruncated, end_truncation);
@@ -457,13 +463,13 @@ mod tests {
 
             assert_eq!(
                 "a\nb",
-                &new_line[..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3).1]
+                &new_line[..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3, max_ctx).1]
             );
 
             assert_eq!(
                 "b",
-                &new_line[AsciiFile::get_line_start_idx(new_line.as_bytes(), 3).1
-                    ..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3).1]
+                &new_line[AsciiFile::get_line_start_idx(new_line.as_bytes(), 3, max_ctx).1
+                    ..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3, max_ctx).1]
             );
         }
     }
@@ -584,8 +590,10 @@ Reiner mag Kuchen!!! \\] and green bananas.";
             byte_offset: 133,
         };
 
+        let max_ctx = 80;
+
         assert_eq!(
-            pos.get_line(&af),
+            pos.get_line(&af, max_ctx, max_ctx),
             (
                 LineContext::NotTruncated,
                 "Reiner mag Kuchen!!! \\] and green bananas.",
