@@ -97,10 +97,12 @@ impl Diagnostics {
         self.messages.borrow_mut().push(msg);
     }
 
+    #[allow(dead_code)]
     pub fn warning(&self, kind: Box<dyn AsFail>) {
         self.emit(MessageLevel::Warning, kind)
     }
 
+    #[allow(dead_code)]
     pub fn error(&self, kind: Box<dyn AsFail>) {
         self.emit(MessageLevel::Error, kind)
     }
