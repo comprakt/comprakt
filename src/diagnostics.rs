@@ -87,13 +87,14 @@ impl Diagnostics {
 
     fn write_statistics(&self) {
         let mut writer = self.writer.borrow_mut();
+        let mut output = ColorOutput::new(&mut **writer);
+
+        output.set_bold(true);
 
         if self.errored() {
-            writer
-                .set_color(ColorSpec::new().set_fg(MessageLevel::Error.color()))
-                .ok();
+            output.set_color(MessageLevel::Error.color());
             writeln!(
-                writer,
+                output.writer(),
                 "Compilation aborted due to {}",
                 match self.count(MessageLevel::Error) {
                     1 => "an error".to_string(),
@@ -101,11 +102,9 @@ impl Diagnostics {
                 }
             );
         } else {
-            writer
-                .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
-                .ok();
+            output.set_color(Some(Color::Green));
             writeln!(
-                writer,
+                output.writer(),
                 "Compilation finished successfully {}",
                 match self.count(MessageLevel::Warning) {
                     0 => "without warnings".to_string(),
@@ -114,7 +113,6 @@ impl Diagnostics {
                 }
             );
         }
-        writer.set_color(ColorSpec::new().set_fg(None)).ok();
     }
 
     // TODO: as we do not use warnings here. the warning trait is redundant!
@@ -277,6 +275,8 @@ impl Message {
             output.set_color(self.level.color());
             writeln!(output.writer(), "{}", indicator);
         }
+
+        writeln!(output.writer(), "");
     }
 }
 
