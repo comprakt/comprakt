@@ -1,9 +1,7 @@
-//! This is a list of semantic and lexical errors and warnings the compiler
-//! emits.
-//!
-//! Error numbers could be generated automatically, _however_ error numbers
-//! should be consistent for all versions of the compiler, even if errors or
-//! warnings are retired.
+//! The diagnostics object controls the output of warnings and errors generated
+//! by the compiler during the lexing, parsing and semantic analysis phases.
+//! The diagnostics object is tracks the number of warnings and errors
+//! generated.
 //!
 //! This implementation is NOT thread-safe.
 
