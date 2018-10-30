@@ -9,14 +9,14 @@ pub type AsciiFileIterator<'t> = PositionedChars<std::str::Chars<'t>>;
 #[derive(Debug, Fail)]
 pub enum EncodingError {
     #[fail(
-        display = "input contains non-ascii character at byte offset {}: ...{}<?>",
+        display = "input contains non-ascii character at byte offset {}: {}<?>",
         position,
         prev
     )]
     NotAscii { position: usize, prev: String },
 }
 
-const ENCODING_ERROR_MAX_CONTEXT_LEN: usize = 180;
+const ENCODING_ERROR_MAX_CONTEXT_LEN: usize = 80;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum LineContext {

@@ -36,7 +36,8 @@ enum CliError {
     OpenInput { path: PathBuf },
     #[fail(display = "cannot mmap input file {:?}", path)]
     Mmap { path: PathBuf },
-    #[fail(display = "cannot decode input file: {:?}", path)]
+    // TODO: this should not be a compiler error but a diagnostics error
+    #[fail(display = "cannot decode input file {:?}", path)]
     Ascii { path: PathBuf },
     #[fail(display = "cannot copy input file {:?} to stdout", input)]
     Echo { input: PathBuf },
