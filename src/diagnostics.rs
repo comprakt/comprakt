@@ -250,7 +250,7 @@ impl Message {
             let indicator = format!(
                 "{spaces}{markers}",
                 spaces = " ".repeat(span.start.col),
-                markers = "^".repeat(span.end.col - span.start.col)
+                markers = "^".repeat(1 + span.end.col - span.start.col)
             );
 
             output.set_bold(true);

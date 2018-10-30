@@ -475,4 +475,19 @@ mod tests {
         assert_eq!(exp, res);
     }
 
+    #[test]
+    fn next_returns_correct_position() {
+        let s = "one\ntwo three\nfour\n\n";
+        let f = testfile(s);
+        let af = AsciiFile::new(f).unwrap();
+        let mut chars_seen = 0;
+
+        for PositionedChar(pos, c) in af.iter() {
+            chars_seen += 1;
+            assert_eq!(c, s.chars().nth(pos.byte_offset).unwrap());
+        }
+
+        assert_eq!(chars_seen, s.len());
+    }
+
 }

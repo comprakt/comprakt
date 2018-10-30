@@ -675,7 +675,7 @@ impl<'t> Lexer<'t> {
                 // surpress the position, so changing the signature of peek to
                 // return a Span or Position might be the correct decision!!!
                 let span = Span {
-                    start: end_pos,
+                    start: end_pos.consume(&peeked[0..1]),
                     end: end_pos.consume(peeked),
                 };
 
