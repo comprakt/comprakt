@@ -180,20 +180,59 @@ pub struct Message {
      * pub filename: Path */
 }
 
+struct ColorOutput<'a> {
+    writer: &'a mut dyn WriteColor,
+    spec: ColorSpec,
+}
+impl<'a> ColorOutput<'a> {
+    fn new(writer: &'a mut dyn WriteColor) -> Self {
+        Self {
+            writer,
+            spec: ColorSpec::new(),
+        }
+    }
+
+    fn set_color(&mut self, color: Option<Color>) {
+        // ignore coloring failures using ok()
+        self.spec.set_fg(color);
+        self.writer.set_color(&self.spec).ok();
+    }
+
+    fn set_bold(&mut self, yes: bool) {
+        // ignore coloring failures using ok()
+        self.spec.set_bold(yes);
+        self.writer.set_color(&self.spec).ok();
+    }
+
+    fn writer(&mut self) -> &mut dyn WriteColor {
+        self.writer
+    }
+}
+
+/// reset to no color by default. Otherwise code that
+/// is not color aware will print everything in the
+/// color last used.
+impl<'a> Drop for ColorOutput<'a> {
+    fn drop(&mut self) {
+        // ignore coloring failures using ok()
+        self.writer.reset().ok();
+    }
+}
+
 impl Message {
     fn write_colored(&self, writer: &mut dyn WriteColor) {
-        // ignore coloring failures using ok()
-        writer
-            .set_color(ColorSpec::new().set_fg(self.level.color()))
-            .ok();
+        self.write_colored_header(writer);
+        writeln!(writer, "");
+    }
 
-        //write!(writer, "{} [{}]: ", text, self.kind.get_id());
-        write!(writer, "{}: ", self.level.name());
+    fn write_colored_header(&self, writer: &mut dyn WriteColor) {
+        let mut output = ColorOutput::new(writer);
+        output.set_color(self.level.color());
+        output.set_bold(true);
+        write!(output.writer(), "{}: ", self.level.name());
 
-        // ignore coloring failures using ok()
-        writer.set_color(ColorSpec::new().set_fg(None)).ok();
-
-        writeln!(writer, "{}\n", self.kind.as_fail());
+        output.set_color(None);
+        writeln!(output.writer(), "{}", self.kind.as_fail());
     }
 
     fn write_colored_with_code<'ctx>(
@@ -202,39 +241,42 @@ impl Message {
         span: Span,
         file: &AsciiFile<'ctx>,
     ) {
-        self.write_colored(writer);
-        writer
-            .set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))
-            .ok();
+        self.write_colored_header(writer);
+
+        let mut output = ColorOutput::new(writer);
+        output.set_color(Some(Color::Cyan));
+        output.set_bold(true);
+
         // TODO: pad with whitespace, right align
-        let line_marker_len = "XXXX | ".len();
-        write!(writer, "{:4} | ", span.start.row + 1);
+        let empty_line_marker = "     | ";
+        writeln!(output.writer(), "{}", empty_line_marker);
+        write!(output.writer(), "{:4} | ", span.start.row + 1);
 
         if span.is_multiline() {
-            writer
-                .set_color(ColorSpec::new().set_fg(self.level.color()))
-                .ok();
-            write!(writer, ">");
+            output.set_color(self.level.color());
+            write!(output.writer(), ">");
         }
 
-        writer.set_color(ColorSpec::new().set_fg(None)).ok();
-        writeln!(writer, "{}", span.start.get_line(file));
+        output.set_bold(false);
+        output.set_color(None);
+        writeln!(output.writer(), "{}", span.start.get_line(file));
+
+        output.set_color(Some(Color::Cyan));
+        output.set_bold(true);
+        write!(output.writer(), "{}", empty_line_marker);
 
         // TODO: print multiline spans correctly!
         if !span.is_multiline() {
             // add positional indicators.
             let indicator = format!(
                 "{spaces}{markers}",
-                spaces = " ".repeat(line_marker_len + span.start.col + 1),
+                spaces = " ".repeat(span.start.col + 1),
                 markers = "^".repeat(span.end.col - span.start.col)
             );
-            writer
-                .set_color(ColorSpec::new().set_fg(self.level.color()))
-                .ok();
-            writeln!(writer, "{}", indicator);
+            output.set_bold(true);
+            output.set_color(self.level.color());
+            writeln!(output.writer(), "{}", indicator);
         }
-
-        writer.set_color(ColorSpec::new().set_fg(None)).ok();
     }
 }
 
