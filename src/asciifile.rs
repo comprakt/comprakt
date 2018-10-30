@@ -35,6 +35,8 @@ impl<'m> AsciiFile<'m> {
     /// value will be the given byte offset and
     /// not the byte offset of the next new line.
     fn get_line_end_idx(mapping: &'m [u8], byte_offset: usize) -> (LineContext, usize) {
+        debug_assert!(byte_offset <= mapping.len());
+
         let region_max_end = byte_offset + ENCODING_ERROR_MAX_CONTEXT_LEN;
         let (truncation, region_end) = if mapping.len() > region_max_end {
             (LineContext::Truncated, region_max_end)
@@ -65,6 +67,8 @@ impl<'m> AsciiFile<'m> {
     /// value will not be the given by the byte
     /// offset, but the byte offset of the previous new line.
     fn get_line_start_idx(mapping: &'m [u8], byte_offset: usize) -> (LineContext, usize) {
+        debug_assert!(byte_offset <= mapping.len());
+
         let (truncation, region_start) = byte_offset
             .checked_sub(ENCODING_ERROR_MAX_CONTEXT_LEN)
             .map(|start| (LineContext::Truncated, start))
