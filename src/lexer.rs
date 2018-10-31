@@ -4,7 +4,7 @@ use crate::{
     strtab::*,
 };
 use failure::Fail;
-use std::{ascii::escape_default, convert::TryFrom, fmt, result::Result};
+use std::{convert::TryFrom, fmt, result::Result};
 
 macro_rules! match_op {
     ($input:expr, $( ($token_string:expr, $token:expr) ),+: $len:expr, $default:expr) => {{
@@ -87,45 +87,29 @@ impl fmt::Display for TokenKind {
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
     UnclosedComment,
-    UnexpectedCharacter(u8),
+    UnexpectedCharacter(char),
 }
 
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             ErrorKind::UnclosedComment => write!(f, "unclosed comment"),
-            ErrorKind::UnexpectedCharacter(byte) => fmt_unexpected_character(f, byte),
+            ErrorKind::UnexpectedCharacter(chr) => fmt_unexpected_character(f, chr),
         }
     }
 }
 
-fn u8_to_printable_representation(byte: u8) -> String {
-    let bytes = escape_default(byte).collect::<Vec<u8>>();
-    let rep = unsafe { std::str::from_utf8_unchecked(&bytes) };
-    rep.to_owned()
-}
-
-fn fmt_unexpected_character(f: &mut fmt::Formatter<'_>, byte: u8) -> fmt::Result {
-    match byte as char {
+fn fmt_unexpected_character(f: &mut fmt::Formatter<'_>, chr: char) -> fmt::Result {
+    match chr {
         '\n' => write!(f, "Unexpected newline"),
         '\\' => write!(f, "Unexpected backslash"),
         '\'' => write!(f, "Unexpected single quote"),
         '"' => write!(f, "Unexpected double quote"),
-        chr if chr.is_whitespace() => write!(
-            f,
-            "Unexpected whitespace '{}'",
-            u8_to_printable_representation(byte)
-        ),
-        chr if chr.is_control() => write!(
-            f,
-            "Unexpected control character '{}'",
-            u8_to_printable_representation(byte)
-        ),
-        _ => write!(
-            f,
-            "Unexpected character '{}'",
-            u8_to_printable_representation(byte)
-        ),
+        chr if chr.is_whitespace() => write!(f, "Unexpected whitespace '{}'", chr.escape_default()),
+        chr if chr.is_control() => {
+            write!(f, "Unexpected control character '{}'", chr.escape_default())
+        }
+        chr => write!(f, "Unexpected character '{}'", chr.escape_default()),
     }
 }
 
@@ -520,7 +504,7 @@ impl<'t> Lexer<'t> {
                 Err(LexicalError::new(
                     pos,
                     pos,
-                    ErrorKind::UnexpectedCharacter(c as u8),
+                    ErrorKind::UnexpectedCharacter(c),
                 ))
             }),
 
