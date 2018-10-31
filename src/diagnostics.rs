@@ -1,7 +1,6 @@
 //! The diagnostics object controls the output of warnings and errors generated
 //! by the compiler during the lexing, parsing and semantic analysis phases.
-//! The diagnostics object is tracks the number of warnings and errors
-//! generated.
+//! It also tracks the number of warnings and errors generated for flow control.
 //!
 //! This implementation is NOT thread-safe.
 
