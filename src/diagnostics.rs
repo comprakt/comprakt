@@ -344,7 +344,10 @@ impl Message {
 
                 line_first_char = match line_first_char.next_line(file) {
                     Ok(pos) => pos,
-                    Err(_) /* EOF */ => { break; }
+                    Err(_) => {
+                        /* EOF */
+                        break;
+                    }
                 }
             }
 
