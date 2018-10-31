@@ -304,7 +304,10 @@ impl Message {
                 } else {
                     formatter.get_actual_column(span.start.col)
                 }),
-                markers = "^".repeat(1 + span.end.col - span.start.col)
+                markers = "^".repeat(
+                    formatter.get_actual_column(span.end.col + 1)
+                        - formatter.get_actual_column(span.start.col)
+                )
             );
 
             output.set_bold(true);
