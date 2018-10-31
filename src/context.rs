@@ -19,7 +19,7 @@ impl<'ctx> Context<'ctx> {
     }
 
     pub fn default(file: AsciiFile<'ctx>) -> Self {
-        let stderr = StandardStream::stderr(ColorChoice::Always);
+        let stderr = StandardStream::stderr(ColorChoice::Auto);
         Self::new(file, Box::new(stderr))
     }
 
