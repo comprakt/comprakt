@@ -1,10 +1,11 @@
 use crate::{
     asciifile::{AsciiFileIterator, Position, PositionedChar},
     context::Context,
+    diagnostics::u8_to_printable_representation,
     strtab::*,
 };
 use failure::Fail;
-use std::{ascii::escape_default, convert::TryFrom, fmt, result::Result};
+use std::{convert::TryFrom, fmt, result::Result};
 
 macro_rules! match_op {
     ($input:expr, $( ($token_string:expr, $token:expr) ),+: $len:expr, $default:expr) => {{
@@ -97,12 +98,6 @@ impl fmt::Display for ErrorKind {
             ErrorKind::UnexpectedCharacter(byte) => fmt_unexpected_character(f, byte),
         }
     }
-}
-
-fn u8_to_printable_representation(byte: u8) -> String {
-    let bytes = escape_default(byte).collect::<Vec<u8>>();
-    let rep = unsafe { std::str::from_utf8_unchecked(&bytes) };
-    rep.to_owned()
 }
 
 fn fmt_unexpected_character(f: &mut fmt::Formatter<'_>, byte: u8) -> fmt::Result {

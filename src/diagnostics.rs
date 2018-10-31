@@ -10,7 +10,7 @@ use crate::{
     lexer::{Span, Spanned},
 };
 use failure::AsFail;
-use std::cell::RefCell;
+use std::{ascii::escape_default, cell::RefCell};
 use termcolor::{Color, ColorSpec, WriteColor};
 
 /// Instead of writing errors, warnings and lints generated in the different
@@ -166,12 +166,19 @@ pub struct Message {
     pub kind: Box<dyn AsFail>,
 }
 
+///
+/// Calls to functions should pass the raw writer, each function should
+/// create its own ColorOutput object that is dropped on return. This
+/// gurantees correct coloring in nested calls.
 struct ColorOutput<'a> {
     writer: &'a mut dyn WriteColor,
     spec: ColorSpec,
 }
+
 impl<'a> ColorOutput<'a> {
     fn new(writer: &'a mut dyn WriteColor) -> Self {
+        writer.reset().ok();
+
         Self {
             writer,
             spec: ColorSpec::new(),
@@ -207,6 +214,8 @@ impl<'a> Drop for ColorOutput<'a> {
 
 const MAX_CONTEXT_LENGTH: usize = 80;
 const MAX_CONTEXT_LENGTH_MULTILINE: usize = 160;
+const TAB_WIDTH: usize = 4;
+const HIGHLIGHT: Option<Color> = Some(Color::Cyan);
 
 impl Message {
     fn write_colored(&self, writer: &mut dyn WriteColor) {
@@ -243,7 +252,7 @@ impl Message {
         let truncation_str = "...";
 
         // add padding line above
-        output.set_color(Some(Color::Cyan));
+        output.set_color(HIGHLIGHT);
         output.set_bold(true);
 
         writeln!(output.writer(), "{}", empty_line_marker);
@@ -264,17 +273,19 @@ impl Message {
                     .get_line(file, MAX_CONTEXT_LENGTH, MAX_CONTEXT_LENGTH);
 
             if truncation_before == LineContext::Truncated {
-                output.set_color(Some(Color::Cyan));
+                output.set_color(HIGHLIGHT);
                 output.set_bold(true);
                 write!(output.writer(), "{}", truncation_str);
             }
 
             output.set_color(None);
             output.set_bold(false);
-            write!(output.writer(), "{}", src_line);
+
+            let formatter = LineFormatter::new(&src_line);
+            formatter.render(output.writer());
 
             if truncation_after == LineContext::Truncated {
-                output.set_color(Some(Color::Cyan));
+                output.set_color(HIGHLIGHT);
                 output.set_bold(true);
                 write!(output.writer(), "{}", truncation_str);
             }
@@ -282,16 +293,16 @@ impl Message {
             writeln!(output.writer());
 
             // add positional indicators.
-            output.set_color(Some(Color::Cyan));
+            output.set_color(HIGHLIGHT);
             output.set_bold(true);
             write!(output.writer(), "{}", empty_line_marker);
 
             let indicator = format!(
                 "{spaces}{markers}",
                 spaces = " ".repeat(if truncation_before == LineContext::Truncated {
-                    MAX_CONTEXT_LENGTH + truncation_str.len()
+                    formatter.get_actual_column(MAX_CONTEXT_LENGTH) + truncation_str.len()
                 } else {
-                    span.start.col
+                    formatter.get_actual_column(span.start.col)
                 }),
                 markers = "^".repeat(1 + span.end.col - span.start.col)
             );
@@ -310,7 +321,7 @@ impl Message {
 
             for _line_num in span.start.row..=span.end.row {
                 // add line number
-                output.set_color(Some(Color::Cyan));
+                output.set_color(HIGHLIGHT);
                 output.set_bold(true);
                 write!(
                     output.writer(),
@@ -335,7 +346,7 @@ impl Message {
                 write!(output.writer(), "{}", line);
 
                 if truncation_after == LineContext::Truncated {
-                    output.set_color(Some(Color::Cyan));
+                    output.set_color(HIGHLIGHT);
                     output.set_bold(true);
                     write!(output.writer(), "{}", truncation_str);
                 }
@@ -352,12 +363,64 @@ impl Message {
             }
 
             // add padding line below
-            output.set_color(Some(Color::Cyan));
+            output.set_color(HIGHLIGHT);
             output.set_bold(true);
             writeln!(output.writer(), "{}", empty_line_marker);
         }
 
         writeln!(output.writer());
+    }
+}
+
+pub fn u8_to_printable_representation(byte: u8) -> String {
+    let bytes = escape_default(byte).collect::<Vec<u8>>();
+    let rep = unsafe { std::str::from_utf8_unchecked(&bytes) };
+    rep.to_owned()
+}
+
+struct LineFormatter<'a> {
+    line: &'a str,
+}
+
+impl<'a> LineFormatter<'a> {
+    fn new(line: &'a str) -> Self {
+        Self { line }
+    }
+
+    fn render(&self, writer: &mut dyn WriteColor) {
+        let mut output = ColorOutput::new(writer);
+
+        for chr in self.line.chars() {
+            let (text, color) = self.render_char(chr);
+            output.set_color(color);
+            write!(output.writer(), "{}", text);
+        }
+    }
+
+    /// Each printed character does not actually take up monospace grid cell,
+    /// for example a TAB character may be represented by 4 spaces. This
+    /// function will return the actuall number of monospace grid cells
+    /// rendered before the given position.
+    fn get_actual_column(&self, col: usize) -> usize {
+        debug_assert!(col < self.line.len());
+        self.line[0..col]
+            .chars()
+            .map(|chr| self.render_char(chr).0.len())
+            .sum()
+    }
+
+    fn render_char(&self, chr: char) -> (String, Option<Color>) {
+        debug_assert!(chr != '\n');
+
+        match chr {
+            '\t' => (" ".repeat(TAB_WIDTH), None),
+            '\r' => ("".to_string(), None),
+            chr if chr.is_control() => (
+                format!("{{{}}}", u8_to_printable_representation(chr as u8)),
+                HIGHLIGHT,
+            ),
+            _ => (chr.to_string(), None),
+        }
     }
 }
 
