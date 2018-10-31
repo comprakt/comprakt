@@ -342,11 +342,12 @@ impl Message {
                 output.set_color(None);
                 output.set_bold(false);
 
-                let (truncation_before, line, truncation_after) =
+                let (truncation_before, src_line, truncation_after) =
                     line_first_char.get_line(file, 1, MAX_CONTEXT_LENGTH_MULTILINE);
                 debug_assert!(truncation_before == LineContext::NotTruncated);
 
-                write!(output.writer(), "{}", line);
+                let formatter = LineFormatter::new(&src_line);
+                formatter.render(output.writer());
 
                 if truncation_after == LineContext::Truncated {
                     output.set_color(HIGHLIGHT);
