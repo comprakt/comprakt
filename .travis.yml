@@ -35,28 +35,25 @@ matrix:
 install:
   - |
     if [ -z $MJ_TESTS ]; then
-      rustup component add clippy-preview
+      rustup component add clippy-preview &&\
       rustup component add rustfmt-preview
     else
-      curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py --user
-      pip install typing --user
-      git clone https://git.scc.kit.edu/IPDSnelting/mjtest.git
-      cd mjtest
-      git submodule update --init
-      # Always have the latest tests
-      git submodule update --remote
-      cd ..
+      curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py --user &&\
+      pip install typing --user &&\
+      git clone https://git.scc.kit.edu/IPDSnelting/mjtest.git &&\
+      cd mjtest &&\
+      git submodule update --init &&\
+      git submodule update --remote &&\
+      cd -
     fi
 
 script:
   - |
     if [ -z $MJ_TESTS ]; then
-      cargo fmt --all -- --check
-      # let build fail on Clippy warnings
-      # and also check tests and none-default crate features
-      cargo clippy --all-targets --all-features -- -D warnings
+      cargo fmt --all -- --check &&\
+      cargo clippy --all-targets --all-features -- -D warnings &&\
       cargo test
     else
-      cargo build --release
+      cargo build --release &&\
       MJ_TIMEOUT=60 MJ_RUN=target/release/comprakt python3 ./mjtest/mjt.py $MJ_TESTS
     fi
