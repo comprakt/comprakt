@@ -18,6 +18,7 @@ mod asciifile;
 mod context;
 mod diagnostics;
 mod lexer;
+mod parser;
 mod strtab;
 use self::{
     context::Context,
