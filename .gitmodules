@@ -1,3 +1,6 @@
 [submodule "mjtest-rs/tests"]
 	path = mjtest-rs/tests
 	url = https://git.scc.kit.edu/IPDSnelting/mjtest-tests.git
+[submodule "libfirm-rs-bindings/libfirm"]
+	path = libfirm-rs-bindings/libfirm
+	url = https://github.com/libfirm/libfirm.git

@@ -1,0 +1,14 @@
+[package]
+name = "libfirm-rs"
+version = "0.0.1"
+authors = [
+    "flip1995 <hello@philkrones.com>",
+    "hediet <>",
+    "joshuabach <>",
+    "problame <>",
+    "reiner-dolp <>"
+]
+edition = "2018"
+
+[dependencies]
+libfirm-rs-bindings = { path = "../libfirm-rs-bindings" }

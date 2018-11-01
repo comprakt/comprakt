@@ -1,0 +1,16 @@
+[package]
+name = "libfirm-rs-bindings"
+version = "0.0.1"
+authors = [
+    "flip1995 <hello@philkrones.com>",
+    "hediet <>",
+    "joshuabach <>",
+    "problame <>",
+    "reiner-dolp <>"
+]
+edition = "2018"
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.42"
