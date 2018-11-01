@@ -1,7 +1,7 @@
 //! All state shared by the lexer, parser and semantic analysis phases.
 use crate::{asciifile::AsciiFile, diagnostics::Diagnostics, lexer::Spanned, strtab::StringTable};
 use failure::AsFail;
-use termcolor::{ColorChoice, StandardStream, WriteColor};
+use termcolor::WriteColor;
 
 pub struct Context<'ctx> {
     pub file: AsciiFile<'ctx>,
@@ -16,11 +16,6 @@ impl<'ctx> Context<'ctx> {
             strtab: StringTable::new(),
             diagnostics: Diagnostics::new(writer),
         }
-    }
-
-    pub fn default(file: AsciiFile<'ctx>) -> Self {
-        let stderr = StandardStream::stderr(ColorChoice::Auto);
-        Self::new(file, Box::new(stderr))
     }
 
     pub fn warning(&self, spanned: Spanned<Box<dyn AsFail>>) {
