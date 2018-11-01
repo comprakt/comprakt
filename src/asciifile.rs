@@ -19,7 +19,7 @@ pub enum EncodingError {
 const ENCODING_ERROR_MAX_CONTEXT_LENGTH: usize = 80;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum LineContext {
+pub enum LineTruncation {
     Truncated,
     NotTruncated,
 }
@@ -38,14 +38,14 @@ impl<'m> AsciiFile<'m> {
         mapping: &'m [u8],
         byte_offset: usize,
         max_context_length: usize,
-    ) -> (LineContext, usize) {
+    ) -> (LineTruncation, usize) {
         debug_assert!(byte_offset <= mapping.len());
 
         let region_max_end = byte_offset + max_context_length;
         let (truncation, region_end) = if mapping.len() > region_max_end {
-            (LineContext::Truncated, region_max_end)
+            (LineTruncation::Truncated, region_max_end)
         } else {
-            (LineContext::NotTruncated, mapping.len())
+            (LineTruncation::NotTruncated, mapping.len())
         };
 
         let region = &mapping[byte_offset..region_end];
@@ -56,7 +56,7 @@ impl<'m> AsciiFile<'m> {
             .map(|pos| pos + byte_offset);
 
         match newline_position {
-            Some(position) => (LineContext::NotTruncated, position),
+            Some(position) => (LineTruncation::NotTruncated, position),
             None => (truncation, region_end),
         }
     }
@@ -74,20 +74,20 @@ impl<'m> AsciiFile<'m> {
         mapping: &'m [u8],
         byte_offset: usize,
         max_context_length: usize,
-    ) -> (LineContext, usize) {
+    ) -> (LineTruncation, usize) {
         debug_assert!(byte_offset <= mapping.len());
 
         let (truncation, region_start) = byte_offset
             .checked_sub(max_context_length)
-            .map(|start| (LineContext::Truncated, start))
-            .unwrap_or((LineContext::NotTruncated, 0));
+            .map(|start| (LineTruncation::Truncated, start))
+            .unwrap_or((LineTruncation::NotTruncated, 0));
 
         let region = &mapping[region_start..byte_offset];
 
         region
             .iter()
             .rposition(|&chr| chr as char == '\n')
-            .map(|pos| (LineContext::NotTruncated, pos + region_start + 1))
+            .map(|pos| (LineTruncation::NotTruncated, pos + region_start + 1))
             .unwrap_or((truncation, region_start))
     }
 
@@ -102,7 +102,7 @@ impl<'m> AsciiFile<'m> {
             let prev = format!(
                 "{dots}{context}",
                 context = prev,
-                dots = if truncation == LineContext::Truncated {
+                dots = if truncation == LineTruncation::Truncated {
                     "..."
                 } else {
                     ""
@@ -143,7 +143,7 @@ impl Position {
         file: &AsciiFile<'m>,
         max_context_length_before: usize,
         max_context_length_after: usize,
-    ) -> (LineContext, &'m str, LineContext) {
+    ) -> (LineTruncation, &'m str, LineTruncation) {
         let (truncated_before, start) = AsciiFile::get_line_start_idx(
             file.mapping,
             self.byte_offset,
@@ -389,7 +389,7 @@ mod tests {
             let single_line = "|123456789";
             let (end_truncation, line_end) =
                 AsciiFile::get_line_end_idx(single_line.as_bytes(), 5, max_ctx);
-            assert_eq!(LineContext::NotTruncated, end_truncation);
+            assert_eq!(LineTruncation::NotTruncated, end_truncation);
             assert_eq!(single_line, &single_line[..line_end]);
         }
 
@@ -398,7 +398,7 @@ mod tests {
             let (start_truncation, line_start) =
                 AsciiFile::get_line_start_idx(single_line.as_bytes(), 5, max_ctx);
 
-            assert_eq!(LineContext::NotTruncated, start_truncation);
+            assert_eq!(LineTruncation::NotTruncated, start_truncation);
             assert_eq!(single_line, &single_line[line_start..]);
         }
 
@@ -406,7 +406,7 @@ mod tests {
             let multi_line = "|123456789\nabcdefghijklmno";
             let (end_truncation, line_end) =
                 AsciiFile::get_line_end_idx(multi_line.as_bytes(), 15, max_ctx);
-            assert_eq!(LineContext::NotTruncated, end_truncation);
+            assert_eq!(LineTruncation::NotTruncated, end_truncation);
             assert_eq!(multi_line, &multi_line[..line_end]);
         }
 
@@ -414,7 +414,7 @@ mod tests {
             let multi_line = "|123456789\nabcdefghijklmno";
             let (end_truncation, line_end) =
                 AsciiFile::get_line_end_idx(multi_line.as_bytes(), 5, max_ctx);
-            assert_eq!(LineContext::NotTruncated, end_truncation);
+            assert_eq!(LineTruncation::NotTruncated, end_truncation);
             assert_eq!("|123456789", &multi_line[..line_end]);
         }
 
@@ -422,7 +422,7 @@ mod tests {
             let multi_line = "|123456789\nabcdefghijklmno";
             let (start_truncation, line_start) =
                 AsciiFile::get_line_start_idx(multi_line.as_bytes(), 15, max_ctx);
-            assert_eq!(LineContext::NotTruncated, start_truncation);
+            assert_eq!(LineTruncation::NotTruncated, start_truncation);
             assert_eq!("abcdefghijklmno", &multi_line[line_start..]);
         }
 
@@ -430,7 +430,7 @@ mod tests {
             let multi_line = "|123456789\nabcdefghijklmno";
             let (start_truncation, line_start) =
                 AsciiFile::get_line_start_idx(multi_line.as_bytes(), 5, max_ctx);
-            assert_eq!(LineContext::NotTruncated, start_truncation);
+            assert_eq!(LineTruncation::NotTruncated, start_truncation);
             assert_eq!(multi_line, &multi_line[line_start..]);
         }
 
@@ -441,8 +441,8 @@ mod tests {
             let (end_truncation, line_end) =
                 AsciiFile::get_line_end_idx(long_line.as_bytes(), 20, max_ctx);
 
-            assert_eq!(LineContext::NotTruncated, start_truncation);
-            assert_eq!(LineContext::NotTruncated, end_truncation);
+            assert_eq!(LineTruncation::NotTruncated, start_truncation);
+            assert_eq!(LineTruncation::NotTruncated, end_truncation);
             assert_eq!("|123456789", &long_line[line_start..line_end]);
         }
 
@@ -453,8 +453,8 @@ mod tests {
             let (end_truncation, line_end) =
                 AsciiFile::get_line_end_idx(empty_line.as_bytes(), 1, max_ctx);
 
-            assert_eq!(LineContext::NotTruncated, start_truncation);
-            assert_eq!(LineContext::NotTruncated, end_truncation);
+            assert_eq!(LineTruncation::NotTruncated, start_truncation);
+            assert_eq!(LineTruncation::NotTruncated, end_truncation);
             assert_eq!("", &empty_line[line_start..line_end]);
         }
 
@@ -595,9 +595,9 @@ Reiner mag Kuchen!!! \\] and green bananas.";
         assert_eq!(
             pos.get_line(&af, max_ctx, max_ctx),
             (
-                LineContext::NotTruncated,
+                LineTruncation::NotTruncated,
                 "Reiner mag Kuchen!!! \\] and green bananas.",
-                LineContext::NotTruncated,
+                LineTruncation::NotTruncated,
             )
         );
     }

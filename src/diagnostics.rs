@@ -6,7 +6,7 @@
 
 // TODO: import spanned and span into this module?
 use crate::{
-    asciifile::{AsciiFile, LineContext},
+    asciifile::{AsciiFile, LineTruncation},
     lexer::{Span, Spanned},
 };
 use failure::AsFail;
@@ -272,7 +272,7 @@ impl Message {
                 span.start
                     .get_line(file, MAX_CONTEXT_LENGTH, MAX_CONTEXT_LENGTH);
 
-            if truncation_before == LineContext::Truncated {
+            if truncation_before == LineTruncation::Truncated {
                 output.set_color(HIGHLIGHT);
                 output.set_bold(true);
                 write!(output.writer(), "{}", truncation_str);
@@ -284,7 +284,7 @@ impl Message {
             let formatter = LineFormatter::new(&src_line);
             formatter.render(output.writer());
 
-            if truncation_after == LineContext::Truncated {
+            if truncation_after == LineTruncation::Truncated {
                 output.set_color(HIGHLIGHT);
                 output.set_bold(true);
                 write!(output.writer(), "{}", truncation_str);
@@ -299,7 +299,7 @@ impl Message {
 
             let indicator = format!(
                 "{spaces}{markers}",
-                spaces = " ".repeat(if truncation_before == LineContext::Truncated {
+                spaces = " ".repeat(if truncation_before == LineTruncation::Truncated {
                     formatter.get_actual_column(MAX_CONTEXT_LENGTH) + truncation_str.len()
                 } else {
                     formatter.get_actual_column(span.start.col)
@@ -344,12 +344,12 @@ impl Message {
 
                 let (truncation_before, src_line, truncation_after) =
                     line_first_char.get_line(file, 1, MAX_CONTEXT_LENGTH_MULTILINE);
-                debug_assert!(truncation_before == LineContext::NotTruncated);
+                debug_assert!(truncation_before == LineTruncation::NotTruncated);
 
                 let formatter = LineFormatter::new(&src_line);
                 formatter.render(output.writer());
 
-                if truncation_after == LineContext::Truncated {
+                if truncation_after == LineTruncation::Truncated {
                     output.set_color(HIGHLIGHT);
                     output.set_bold(true);
                     write!(output.writer(), "{}", truncation_str);
