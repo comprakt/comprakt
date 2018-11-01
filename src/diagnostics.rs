@@ -6,7 +6,7 @@
 
 // TODO: import spanned and span into this module?
 use crate::{
-    asciifile::{AsciiFile, LineTruncation},
+    asciifile::LineTruncation,
     lexer::{Span, Spanned},
 };
 use failure::AsFail;
@@ -104,27 +104,18 @@ impl Diagnostics {
         self.emit(MessageLevel::Error, kind)
     }
 
-    pub fn warning_with_source_snippet<'ctx>(
-        &self,
-        spanned: Spanned<Box<dyn AsFail>>,
-        file: &AsciiFile<'ctx>,
-    ) {
-        self.emit_with_source_snippet(MessageLevel::Warning, spanned, file)
+    pub fn warning_with_source_snippet(&self, spanned: Spanned<'_, Box<dyn AsFail>>) {
+        self.emit_with_source_snippet(MessageLevel::Warning, spanned)
     }
 
-    pub fn error_with_source_snippet<'ctx>(
-        &self,
-        spanned: Spanned<Box<dyn AsFail>>,
-        file: &AsciiFile<'ctx>,
-    ) {
-        self.emit_with_source_snippet(MessageLevel::Error, spanned, file)
+    pub fn error_with_source_snippet(&self, spanned: Spanned<'_, Box<dyn AsFail>>) {
+        self.emit_with_source_snippet(MessageLevel::Error, spanned)
     }
 
-    pub fn emit_with_source_snippet<'ctx>(
+    pub fn emit_with_source_snippet(
         &self,
         level: MessageLevel,
-        spanned: Spanned<Box<dyn AsFail>>,
-        file: &AsciiFile<'ctx>,
+        spanned: Spanned<'_, Box<dyn AsFail>>,
     ) {
         let msg = Message {
             level,
@@ -132,7 +123,7 @@ impl Diagnostics {
         };
 
         let mut writer = self.writer.borrow_mut();
-        msg.write_colored_with_code(&mut **writer, &spanned.span, file);
+        msg.write_colored_with_code(&mut **writer, &spanned.span);
         // TODO: store span
         self.messages.borrow_mut().push(msg);
     }
@@ -233,12 +224,7 @@ impl Message {
         writeln!(output.writer(), "{}", self.kind.as_fail());
     }
 
-    fn write_colored_with_code<'ctx>(
-        &self,
-        writer: &mut dyn WriteColor,
-        span: &Span,
-        file: &AsciiFile<'ctx>,
-    ) {
+    fn write_colored_with_code(&self, writer: &mut dyn WriteColor, span: &Span<'_>) {
         self.write_colored_header(writer);
 
         let mut output = ColorOutput::new(writer);
@@ -269,8 +255,7 @@ impl Message {
 
             // add source code line
             let (truncation_before, src_line, truncation_after) =
-                span.start
-                    .get_line(file, MAX_CONTEXT_LENGTH, MAX_CONTEXT_LENGTH);
+                span.start.get_line(MAX_CONTEXT_LENGTH, MAX_CONTEXT_LENGTH);
 
             if truncation_before == LineTruncation::Truncated {
                 output.set_color(HIGHLIGHT);
@@ -320,7 +305,7 @@ impl Message {
             // TODO: would be nicer to always show the column of a multiline
             // error. But I am not sure how the line columns should be aligned
             // if lines are truncated differently.
-            let mut line_first_char = span.start.to_line_start(file);
+            let mut line_first_char = span.start.to_line_start();
 
             for _line_num in span.start.row..=span.end.row {
                 // add line number
@@ -343,7 +328,7 @@ impl Message {
                 output.set_bold(false);
 
                 let (truncation_before, src_line, truncation_after) =
-                    line_first_char.get_line(file, 1, MAX_CONTEXT_LENGTH_MULTILINE);
+                    line_first_char.get_line(1, MAX_CONTEXT_LENGTH_MULTILINE);
                 debug_assert!(truncation_before == LineTruncation::NotTruncated);
 
                 let formatter = LineFormatter::new(&src_line);
@@ -357,7 +342,7 @@ impl Message {
 
                 writeln!(output.writer());
 
-                line_first_char = match line_first_char.next_line(file) {
+                line_first_char = match line_first_char.next_line() {
                     Ok(pos) => pos,
                     Err(_) => {
                         /* EOF */

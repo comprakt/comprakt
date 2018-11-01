@@ -18,13 +18,11 @@ impl<'ctx> Context<'ctx> {
         }
     }
 
-    pub fn warning(&self, spanned: Spanned<Box<dyn AsFail>>) {
-        self.diagnostics
-            .warning_with_source_snippet(spanned, &self.file);
+    pub fn warning(&self, spanned: Spanned<'_, Box<dyn AsFail>>) {
+        self.diagnostics.warning_with_source_snippet(spanned);
     }
 
-    pub fn error(&self, spanned: Spanned<Box<dyn AsFail>>) {
-        self.diagnostics
-            .error_with_source_snippet(spanned, &self.file);
+    pub fn error(&self, spanned: Spanned<'_, Box<dyn AsFail>>) {
+        self.diagnostics.error_with_source_snippet(spanned);
     }
 }

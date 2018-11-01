@@ -27,18 +27,18 @@ macro_rules! match_op {
     }};
 }
 
-pub type TokenResult = Result<Token, LexicalError>;
+pub type TokenResult<'f> = Result<Token<'f>, LexicalError<'f>>;
 
-pub type Token = Spanned<TokenKind>;
-pub type LexicalError = Spanned<ErrorKind>;
+pub type Token<'f> = Spanned<'f, TokenKind>;
+pub type LexicalError<'f> = Spanned<'f, ErrorKind>;
 
 #[derive(Debug)]
-pub struct Spanned<T> {
-    pub span: Span,
+pub struct Spanned<'f, T> {
+    pub span: Span<'f>,
     pub data: T,
 }
 
-impl<T> fmt::Display for Spanned<T>
+impl<T> fmt::Display for Spanned<'_, T>
 where
     T: fmt::Display,
 {
@@ -47,8 +47,8 @@ where
     }
 }
 
-impl<T> Spanned<T> {
-    fn new(start: Position, end: Position, value: T) -> Self {
+impl<'f, T> Spanned<'f, T> {
+    fn new(start: Position<'f>, end: Position<'f>, value: T) -> Self {
         Spanned {
             span: Span { start, end },
             data: value,
@@ -56,7 +56,7 @@ impl<T> Spanned<T> {
     }
 }
 
-impl Fail for LexicalError {}
+impl<'f> Fail for LexicalError<'f> where 'f: 'static {}
 
 #[derive(Debug)]
 pub enum TokenKind {
@@ -131,12 +131,12 @@ pub enum Warning {
 }
 
 #[derive(Debug)]
-pub struct Span {
-    pub start: Position,
-    pub end: Position,
+pub struct Span<'f> {
+    pub start: Position<'f>,
+    pub end: Position<'f>,
 }
 
-impl Span {
+impl Span<'_> {
     pub fn is_single_char(&self) -> bool {
         if self.start.row != self.end.row {
             return false;
@@ -158,7 +158,7 @@ impl Span {
     }
 }
 
-impl fmt::Display for Span {
+impl fmt::Display for Span<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_single_char() {
             write!(f, "{}", self.start)
@@ -464,9 +464,9 @@ impl fmt::Display for Operator {
     }
 }
 
-pub struct Lexer<'t> {
-    input: AsciiFileIterator<'t>,
-    context: &'t Context<'t>,
+pub struct Lexer<'f> {
+    input: AsciiFileIterator<'f>,
+    context: &'f Context<'f>,
     eof: bool,
 }
 
@@ -477,8 +477,8 @@ fn is_minijava_whitespace(c: char) -> bool {
     }
 }
 
-impl<'t> Lexer<'t> {
-    pub fn new(context: &'t Context<'t>) -> Self {
+impl<'f> Lexer<'f> {
+    pub fn new(context: &'f Context<'f>) -> Self {
         let input = context.file.iter();
 
         Self {
@@ -488,7 +488,7 @@ impl<'t> Lexer<'t> {
         }
     }
 
-    fn lex_token(&mut self) -> Option<TokenResult> {
+    fn lex_token(&mut self) -> Option<TokenResult<'f>> {
         Some(match self.input.peek() {
             Some('a'..='z') | Some('A'..='Z') | Some('_') => self.lex_identifier_or_keyword(),
 
@@ -528,7 +528,7 @@ impl<'t> Lexer<'t> {
         })
     }
 
-    fn lex_identifier_or_keyword(&mut self) -> TokenResult {
+    fn lex_identifier_or_keyword(&mut self) -> TokenResult<'f> {
         assert_matches!(
             self.input.peek(),
             Some('a'..='z') | Some('A'..='Z') | Some('_')
@@ -545,7 +545,7 @@ impl<'t> Lexer<'t> {
         )
     }
 
-    fn lex_integer_literal(&mut self) -> TokenResult {
+    fn lex_integer_literal(&mut self) -> TokenResult<'f> {
         assert_matches!(self.input.peek(), Some('1'..='9'));
 
         self.lex_while(
@@ -554,7 +554,7 @@ impl<'t> Lexer<'t> {
         )
     }
 
-    fn lex_comment(&mut self) -> TokenResult {
+    fn lex_comment(&mut self) -> TokenResult<'f> {
         debug_assert_eq!(self.input.peek_multiple(2), "/*");
 
         self.input.next();
@@ -591,7 +591,7 @@ impl<'t> Lexer<'t> {
         token
     }
 
-    fn lex_whitespace(&mut self) -> TokenResult {
+    fn lex_whitespace(&mut self) -> TokenResult<'f> {
         debug_assert!(is_minijava_whitespace(self.input.peek().unwrap()));
         self.lex_while(
             |c, _, _| is_minijava_whitespace(c),
@@ -600,7 +600,7 @@ impl<'t> Lexer<'t> {
     }
 
     #[allow(clippy::cyclomatic_complexity)]
-    fn lex_operator(&mut self) -> Option<TokenResult> {
+    fn lex_operator(&mut self) -> Option<TokenResult<'f>> {
         use self::Operator::*;
 
         match_op!(
@@ -669,10 +669,10 @@ impl<'t> Lexer<'t> {
     }
 
     /// Like `lex_while_multiple`, but only check characters
-    fn lex_while<P, D>(&mut self, predicate: P, make_token: D) -> TokenResult
+    fn lex_while<P, D>(&mut self, predicate: P, make_token: D) -> TokenResult<'f>
     where
-        P: Fn(char, Span, &'t Context<'t>) -> bool,
-        D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
+        P: Fn(char, Span<'f>, &'f Context<'f>) -> bool,
+        D: FnOnce(String, &'f StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         // Unwrap is safe, because EOF case is handled by lex_while_multiple
         self.lex_while_multiple(
@@ -687,10 +687,10 @@ impl<'t> Lexer<'t> {
     /// using `make_token`. `preddicate` is never given a less than `n`
     /// chars. In that case, the loop is terminated and `make_token` is
     /// called with 3rd argument set to `true`.
-    fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult
+    fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult<'f>
     where
-        P: Fn(&str, Span, &'t Context<'t>) -> bool,
-        D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
+        P: Fn(&str, Span<'f>, &'f Context<'f>) -> bool,
+        D: FnOnce(String, &'f StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         let mut chars = String::new();
         let start_pos = self.input.current_position();
@@ -731,8 +731,8 @@ impl<'t> Lexer<'t> {
     }
 }
 
-impl<'t> Iterator for Lexer<'t> {
-    type Item = TokenResult;
+impl<'f> Iterator for Lexer<'f> {
+    type Item = TokenResult<'f>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.lex_token()
