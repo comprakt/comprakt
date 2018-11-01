@@ -1,5 +1,7 @@
 use crate::{
-    asciifile::{Position, PositionedChar, PositionedChars},
+    asciifile::{AsciiFileIterator, Position, PositionedChar},
+    context::Context,
+    diagnostics::u8_to_printable_representation,
     strtab::*,
 };
 use failure::Fail;
@@ -85,10 +87,47 @@ impl fmt::Display for TokenKind {
 
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
-    #[fail(display = "unclosed comment '{}'", 0)]
-    UnclosedComment(String),
-    #[fail(display = "unexpected character '{}'", 0)]
-    UnexpectedCharacter(char),
+    UnclosedComment,
+    UnexpectedCharacter(u8),
+}
+
+impl fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            ErrorKind::UnclosedComment => write!(f, "unclosed comment"),
+            ErrorKind::UnexpectedCharacter(byte) => fmt_unexpected_character(f, byte),
+        }
+    }
+}
+
+fn fmt_unexpected_character(f: &mut fmt::Formatter<'_>, byte: u8) -> fmt::Result {
+    match byte as char {
+        '\n' => write!(f, "Unexpected newline"),
+        '\\' => write!(f, "Unexpected backslash"),
+        '\'' => write!(f, "Unexpected single quote"),
+        '"' => write!(f, "Unexpected double quote"),
+        chr if chr.is_whitespace() => write!(
+            f,
+            "Unexpected whitespace '{}'",
+            u8_to_printable_representation(byte)
+        ),
+        chr if chr.is_control() => write!(
+            f,
+            "Unexpected control character '{}'",
+            u8_to_printable_representation(byte)
+        ),
+        _ => write!(
+            f,
+            "Unexpected character '{}'",
+            u8_to_printable_representation(byte)
+        ),
+    }
+}
+
+#[derive(Debug, Fail)]
+pub enum Warning {
+    #[fail(display = "confusing usage of comment separator inside a comment")]
+    CommentSeparatorInsideComment,
 }
 
 #[derive(Debug)]
@@ -98,7 +137,7 @@ pub struct Span {
 }
 
 impl Span {
-    fn is_single_char(&self) -> bool {
+    pub fn is_single_char(&self) -> bool {
         if self.start.row != self.end.row {
             return false;
         }
@@ -108,6 +147,14 @@ impl Span {
             .checked_sub(self.start.col)
             .map(|d| d <= 1)
             .unwrap_or(false)
+    }
+
+    /// Check if a span extends over multiple lines
+    ///
+    /// This will consider spans that contain a single trailing
+    /// whitespace, e.g. "a\n" as multiline.
+    pub fn is_multiline(&self) -> bool {
+        self.start.row != self.end.row
     }
 }
 
@@ -417,12 +464,9 @@ impl fmt::Display for Operator {
     }
 }
 
-pub struct Lexer<'t, I>
-where
-    I: Iterator<Item = char>,
-{
-    input: PositionedChars<I>,
-    strtab: &'t StringTable,
+pub struct Lexer<'t> {
+    input: AsciiFileIterator<'t>,
+    context: &'t Context<'t>,
     eof: bool,
 }
 
@@ -433,14 +477,13 @@ fn is_minijava_whitespace(c: char) -> bool {
     }
 }
 
-impl<'t, I> Lexer<'t, I>
-where
-    I: Iterator<Item = char>,
-{
-    pub fn new(input: PositionedChars<I>, strtab: &'t StringTable) -> Self {
-        Lexer {
+impl<'t> Lexer<'t> {
+    pub fn new(context: &'t Context<'t>) -> Self {
+        let input = context.file.iter();
+
+        Self {
+            context,
             input,
-            strtab,
             eof: false,
         }
     }
@@ -459,7 +502,7 @@ where
                 Ok(Token::new(
                     pos,
                     pos,
-                    TokenKind::IntegerLiteral(self.strtab.intern(as_str)),
+                    TokenKind::IntegerLiteral(self.context.strtab.intern(as_str)),
                 ))
             }
 
@@ -472,7 +515,7 @@ where
                 Err(LexicalError::new(
                     pos,
                     pos,
-                    ErrorKind::UnexpectedCharacter(c),
+                    ErrorKind::UnexpectedCharacter(c as u8),
                 ))
             }),
 
@@ -492,7 +535,7 @@ where
         );
 
         self.lex_while(
-            |c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_'),
+            |c, _, _| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_'),
             |ident, strtab, _| {
                 Ok(match Keyword::try_from(ident.as_ref()) {
                     Ok(keyword) => TokenKind::Keyword(keyword),
@@ -506,7 +549,7 @@ where
         assert_matches!(self.input.peek(), Some('1'..='9'));
 
         self.lex_while(
-            |c| matches!(c, '0'..='9'),
+            |c, _, _| matches!(c, '0'..='9'),
             |lit, strtab, _| Ok(TokenKind::IntegerLiteral(strtab.intern(&lit))),
         )
     }
@@ -519,10 +562,18 @@ where
 
         let token = self.lex_while_multiple(
             2,
-            |s| s != "*/",
+            |s, span, context| {
+                if s == "/*" {
+                    context.warning(Spanned {
+                        span,
+                        data: box Warning::CommentSeparatorInsideComment,
+                    });
+                }
+                s != "*/"
+            },
             |text, _, eof_reached| {
                 if eof_reached {
-                    Err(ErrorKind::UnclosedComment(text))
+                    Err(ErrorKind::UnclosedComment)
                 } else {
                     Ok(TokenKind::Comment(text))
                 }
@@ -542,7 +593,10 @@ where
 
     fn lex_whitespace(&mut self) -> TokenResult {
         debug_assert!(is_minijava_whitespace(self.input.peek().unwrap()));
-        self.lex_while(is_minijava_whitespace, |_, _, _| Ok(TokenKind::Whitespace))
+        self.lex_while(
+            |c, _, _| is_minijava_whitespace(c),
+            |_, _, _| Ok(TokenKind::Whitespace),
+        )
     }
 
     #[allow(clippy::cyclomatic_complexity)]
@@ -617,11 +671,15 @@ where
     /// Like `lex_while_multiple`, but only check characters
     fn lex_while<P, D>(&mut self, predicate: P, make_token: D) -> TokenResult
     where
-        P: Fn(char) -> bool,
+        P: Fn(char, Span, &'t Context<'t>) -> bool,
         D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         // Unwrap is safe, because EOF case is handled by lex_while_multiple
-        self.lex_while_multiple(1, |s| predicate(s.chars().next().unwrap()), make_token)
+        self.lex_while_multiple(
+            1,
+            |s, span, context| predicate(s.chars().next().unwrap(), span, context),
+            make_token,
+        )
     }
 
     /// Consume n characters at a time while `predicate` returns `true`. Intern
@@ -631,18 +689,31 @@ where
     /// called with 3rd argument set to `true`.
     fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult
     where
-        P: Fn(&str) -> bool,
+        P: Fn(&str, Span, &'t Context<'t>) -> bool,
         D: FnOnce(String, &'t StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         let mut chars = String::new();
         let start_pos = self.input.current_position();
-
         let mut end_pos = start_pos;
         loop {
-            if let Some(should_continue) = self.input.try_peek_multiple(n).map(&predicate) {
-                if !should_continue {
+            if let Some(peeked) = self.input.try_peek_multiple(n) {
+                // TODO: for error reporting, we work around peek() not returning a Span or
+                // Position! But peek() actually contains logic to suppress the position, so
+                // changing the signature of peek to return a Span or Position might be the
+                // correct decision!!!
+                let span = Span {
+                    start: end_pos.consume(&peeked[0..1]),
+                    end: end_pos.consume(peeked),
+                };
+
+                if !predicate(peeked, span, &self.context) {
                     break;
                 }
+
+                // Unwrap is safe, because the call is guarded by a `try_peek_multiple`
+                let PositionedChar(pos, c) = self.input.next().unwrap();
+                chars.push(c);
+                end_pos = pos;
             } else {
                 // We know there is an EOF within the next n characters, but we still need to
                 // consume them
@@ -652,23 +723,15 @@ where
                 }
                 break;
             }
-
-            // Unwrap is safe, because `map_or` catches EOF case
-            let PositionedChar(pos, c) = self.input.next().unwrap();
-            chars.push(c);
-            end_pos = pos;
         }
 
-        make_token(chars, self.strtab, self.input.eof_reached())
+        make_token(chars, &self.context.strtab, self.input.eof_reached())
             .map(|kind| Token::new(start_pos, end_pos, kind))
             .map_err(|kind| LexicalError::new(start_pos, end_pos, kind))
     }
 }
 
-impl<'t, I> Iterator for Lexer<'t, I>
-where
-    I: Iterator<Item = char>,
-{
+impl<'t> Iterator for Lexer<'t> {
     type Item = TokenResult;
 
     fn next(&mut self) -> Option<Self::Item> {
