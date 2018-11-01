@@ -78,6 +78,8 @@ Before creating a PR make sure to run
 cargo clippy
 cargo fmt --all
 cargo test
+# or
+./build --ci
 ```
 
 locally. If one of these commands produce an error the CI will fail.
