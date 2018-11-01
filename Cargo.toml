@@ -2,5 +2,7 @@
 members = [
     "compiler-lib",
     "compiler-cli",
-    "inspect-ast"
+    "inspect-ast",
+    "libfirm-rs-bindings",
+    "libfirm-rs",
 ]
