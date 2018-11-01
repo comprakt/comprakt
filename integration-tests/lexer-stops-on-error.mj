@@ -1,0 +1,26 @@
+a
+a
+a
+a
+a
+a
+a
+a
+a
+a
+a
+
+*/
+
+/* reiner mag /* in kommentaren nicht */
+/* Tabs should be indented correctly below /* */
+		Reiner mag Kuchen!!! \] and green bananas.
+
+/* should stop at the first error above and not print warnings
+   and errors below! */
+
+/* reiner mag /* in kommentaren nicht */
+/* some people like to see a /* */
+        Reiner mag Kuchen!!! \] and green bananas.
+
+/* aaa */

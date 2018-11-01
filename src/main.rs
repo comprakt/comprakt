@@ -240,3 +240,48 @@ mod lexertest_tests {
     }
 
 }
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use std::io::Read;
+
+    const INTEGRATION_TEST_DIR: &str = "integration-tests";
+
+    fn assert_cli_failure(filename: &str) {
+        let expected_path = format!("{}/{}", INTEGRATION_TEST_DIR, filename);
+
+        let mut expected_file =
+            File::open(&expected_path).expect(&format!("file does not exist: {}", expected_path));
+
+        let mut expected_stderr = String::new();
+        expected_file.read_to_string(&mut expected_stderr).unwrap();
+
+        // do not use color
+        // TODO: Environment() empty does not work for some reason
+        let env = assert_cli::Environment::inherit().insert("TERM", "dumb");
+
+        // TODO: diffing on unwrap does not work as intended?
+        let result = assert_cli::Assert::main_binary()
+            .with_env(env)
+            .with_args(&[
+                "--lextest",
+                &format!("{}/{}", INTEGRATION_TEST_DIR, filename),
+            ])
+            .fails()
+            .and()
+            .stderr()
+            .contains("error")
+            .and()
+            .stderr()
+            .is(expected_stderr.as_str())
+            .execute()
+            .unwrap();
+    }
+
+    #[test]
+    fn test_lexer() {
+        assert_cli_failure("bell.mj");
+        assert_cli_failure("lexer-stops-on-error.mj");
+    }
+}

@@ -1,0 +1,16 @@
+warning: confusing usage of comment separator inside a comment
+    | 
+ 15 | /* reiner mag /* in kommentaren nicht */
+    |               ^^
+
+warning: confusing usage of comment separator inside a comment
+    | 
+ 16 | /* Tabs should be indented correctly below /* */
+    |                                            ^^
+
+error: Unexpected backslash
+    | 
+ 17 |         Reiner mag Kuchen!!! \] and green bananas.
+    |                              ^
+
+Compilation aborted due to an error
