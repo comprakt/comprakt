@@ -262,7 +262,7 @@ mod integration_tests {
         let env = assert_cli::Environment::inherit().insert("TERM", "dumb");
 
         // TODO: diffing on unwrap does not work as intended?
-        let result = assert_cli::Assert::main_binary()
+        assert_cli::Assert::main_binary()
             .with_env(env)
             .with_args(&[
                 "--lextest",
