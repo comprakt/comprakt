@@ -1,10 +1,11 @@
 use failure::Fail;
 
+#[derive(Debug)]
 pub struct AsciiFile<'m> {
     mapping: &'m [u8],
 }
 
-pub type AsciiFileIterator<'t> = PositionedChars<std::str::Chars<'t>>;
+pub type AsciiFileIterator<'t> = PositionedChars<'t, std::str::Chars<'t>>;
 
 #[derive(Debug, Fail)]
 pub enum EncodingError {
@@ -19,7 +20,7 @@ pub enum EncodingError {
 const ENCODING_ERROR_MAX_CONTEXT_LENGTH: usize = 80;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum LineContext {
+pub enum LineTruncation {
     Truncated,
     NotTruncated,
 }
@@ -35,17 +36,25 @@ impl<'m> AsciiFile<'m> {
     /// value will be the given byte offset and
     /// not the byte offset of the next new line.
     fn get_line_end_idx(
-        mapping: &'m [u8],
+        &'m self,
         byte_offset: usize,
         max_context_length: usize,
-    ) -> (LineContext, usize) {
+    ) -> (LineTruncation, usize) {
+        AsciiFile::get_line_end_idx_byteslice(self.mapping, byte_offset, max_context_length)
+    }
+
+    fn get_line_end_idx_byteslice(
+        mapping: &[u8],
+        byte_offset: usize,
+        max_context_length: usize,
+    ) -> (LineTruncation, usize) {
         debug_assert!(byte_offset <= mapping.len());
 
         let region_max_end = byte_offset + max_context_length;
         let (truncation, region_end) = if mapping.len() > region_max_end {
-            (LineContext::Truncated, region_max_end)
+            (LineTruncation::Truncated, region_max_end)
         } else {
-            (LineContext::NotTruncated, mapping.len())
+            (LineTruncation::NotTruncated, mapping.len())
         };
 
         let region = &mapping[byte_offset..region_end];
@@ -56,7 +65,7 @@ impl<'m> AsciiFile<'m> {
             .map(|pos| pos + byte_offset);
 
         match newline_position {
-            Some(position) => (LineContext::NotTruncated, position),
+            Some(position) => (LineTruncation::NotTruncated, position),
             None => (truncation, region_end),
         }
     }
@@ -71,38 +80,49 @@ impl<'m> AsciiFile<'m> {
     /// value will not be the given by the byte
     /// offset, but the byte offset of the previous new line.
     fn get_line_start_idx(
-        mapping: &'m [u8],
+        &'m self,
         byte_offset: usize,
         max_context_length: usize,
-    ) -> (LineContext, usize) {
+    ) -> (LineTruncation, usize) {
+        AsciiFile::get_line_start_idx_byteslice(self.mapping, byte_offset, max_context_length)
+    }
+
+    fn get_line_start_idx_byteslice(
+        mapping: &[u8],
+        byte_offset: usize,
+        max_context_length: usize,
+    ) -> (LineTruncation, usize) {
         debug_assert!(byte_offset <= mapping.len());
 
         let (truncation, region_start) = byte_offset
             .checked_sub(max_context_length)
-            .map(|start| (LineContext::Truncated, start))
-            .unwrap_or((LineContext::NotTruncated, 0));
+            .map(|start| (LineTruncation::Truncated, start))
+            .unwrap_or((LineTruncation::NotTruncated, 0));
 
         let region = &mapping[region_start..byte_offset];
 
         region
             .iter()
             .rposition(|&chr| chr as char == '\n')
-            .map(|pos| (LineContext::NotTruncated, pos + region_start + 1))
+            .map(|pos| (LineTruncation::NotTruncated, pos + region_start + 1))
             .unwrap_or((truncation, region_start))
     }
 
     // cost: O(fileLen) since we need to check if all chars are ASCII
     pub fn new(mapping: &'m [u8]) -> Result<AsciiFile<'m>, EncodingError> {
         if let Some(position) = mapping.iter().position(|c| !c.is_ascii()) {
-            let (truncation, start_idx) =
-                AsciiFile::get_line_start_idx(mapping, position, ENCODING_ERROR_MAX_CONTEXT_LENGTH);
+            let (truncation, start_idx) = AsciiFile::get_line_start_idx_byteslice(
+                mapping,
+                position,
+                ENCODING_ERROR_MAX_CONTEXT_LENGTH,
+            );
             // We know everything until now has been ASCII
             let prev: &str =
                 unsafe { std::str::from_utf8_unchecked(&mapping[start_idx..position]) };
             let prev = format!(
                 "{dots}{context}",
                 context = prev,
-                dots = if truncation == LineContext::Truncated {
+                dots = if truncation == LineTruncation::Truncated {
                     "..."
                 } else {
                     ""
@@ -121,6 +141,7 @@ impl<'m> AsciiFile<'m> {
                 row: 0,
                 col: 0,
                 byte_offset: 0,
+                file: self,
             },
             ascii_file: s.chars(),
             peeked: String::new(),
@@ -130,28 +151,27 @@ impl<'m> AsciiFile<'m> {
 
 use std::ops::Deref;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Position {
+#[derive(Copy, Clone)]
+pub struct Position<'t> {
     pub row: usize,
     pub col: usize,
     byte_offset: usize,
+    file: &'t AsciiFile<'t>,
 }
 
-impl Position {
-    pub fn get_line<'m>(
+impl<'t> Position<'t> {
+    pub fn get_line(
         &self,
-        file: &AsciiFile<'m>,
         max_context_length_before: usize,
         max_context_length_after: usize,
-    ) -> (LineContext, &'m str, LineContext) {
-        let (truncated_before, start) = AsciiFile::get_line_start_idx(
-            file.mapping,
-            self.byte_offset,
-            max_context_length_before,
-        );
-        let (truncated_after, end) =
-            AsciiFile::get_line_end_idx(file.mapping, self.byte_offset, max_context_length_after);
-        let line = &file.mapping[start..end];
+    ) -> (LineTruncation, &'t str, LineTruncation) {
+        let (truncated_before, start) = self
+            .file
+            .get_line_start_idx(self.byte_offset, max_context_length_before);
+        let (truncated_after, end) = self
+            .file
+            .get_line_end_idx(self.byte_offset, max_context_length_after);
+        let line = &self.file.mapping[start..end];
 
         (
             truncated_before,
@@ -173,31 +193,36 @@ impl Position {
                 col: self.col + upcoming.len(),
                 row: self.row,
                 byte_offset: self.byte_offset + upcoming.len(),
+                file: self.file,
             },
             Some((start_idx, _)) => Self {
                 // multi line
                 col: 0,
                 row: self.row + count,
                 byte_offset: self.byte_offset + upcoming.len() - start_idx,
+                file: self.file,
             },
         }
     }
 
-    pub fn to_line_start<'m>(&self, file: &AsciiFile<'m>) -> Self {
-        let (_start_truncated, start_idx) =
-            AsciiFile::get_line_start_idx(file.mapping, self.byte_offset, file.mapping.len());
+    pub fn to_line_start(&self) -> Self {
+        let (_start_truncated, start_idx) = self
+            .file
+            .get_line_start_idx(self.byte_offset, self.file.mapping.len());
 
         Self {
             col: 0,
             row: self.row,
             byte_offset: start_idx,
+            file: self.file,
         }
     }
 
-    pub fn next_line<'m>(&self, file: &AsciiFile<'m>) -> Result<Self, ()> {
-        let (_end_truncated, end_idx) =
-            AsciiFile::get_line_end_idx(file.mapping, self.byte_offset, file.mapping.len());
-        let is_eof = end_idx == file.mapping.len() - 1;
+    pub fn next_line(&self) -> Result<Self, ()> {
+        let (_end_truncated, end_idx) = self
+            .file
+            .get_line_end_idx(self.byte_offset, self.file.mapping.len());
+        let is_eof = end_idx == self.file.mapping.len() - 1;
 
         if is_eof {
             return Err(());
@@ -207,36 +232,56 @@ impl Position {
             col: 0,
             row: self.row + 1,
             byte_offset: end_idx + 1,
+            file: self.file,
         })
     }
 }
 
-use std::fmt::{self, Display};
+use std::fmt::{self, Debug, Display};
 
-impl Display for Position {
+impl Display for Position<'_> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(fmt, "{}:{}", self.row + 1, self.col + 1)
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct PositionedChar(pub Position, pub char);
+impl Debug for Position<'_> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            fmt,
+            "Position{{row: {:?}, col: {:?}, byte_offset: {:?}, file: {:?}}}",
+            self.row, self.col, self.byte_offset, self.file as *const _
+        )
+    }
+}
 
-pub struct PositionedChars<I>
+impl PartialEq for Position<'_> {
+    fn eq(&self, rhs: &Position<'_>) -> bool {
+        self.row == rhs.row
+            && self.col == rhs.col
+            && self.byte_offset == rhs.byte_offset
+            && self.file as *const _ == (rhs.file as *const _)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PositionedChar<'t>(pub Position<'t>, pub char);
+
+pub struct PositionedChars<'t, I>
 where
     I: Iterator<Item = char>,
 {
-    curpos: Position,
+    curpos: Position<'t>,
     ascii_file: I,
     peeked: String,
 }
 
-impl<I> Iterator for PositionedChars<I>
+impl<'t, I> Iterator for PositionedChars<'t, I>
 where
     I: Iterator<Item = char>,
 {
-    type Item = PositionedChar;
-    fn next(&mut self) -> Option<PositionedChar> {
+    type Item = PositionedChar<'t>;
+    fn next(&mut self) -> Option<PositionedChar<'t>> {
         let c = self.peek()?;
         self.peeked.remove(0);
 
@@ -252,7 +297,7 @@ where
     }
 }
 
-impl<I> PositionedChars<I>
+impl<'t, I> PositionedChars<'t, I>
 where
     I: Iterator<Item = char>,
 {
@@ -291,7 +336,7 @@ where
         self.peek().is_none()
     }
 
-    pub fn current_position(&mut self) -> Position {
+    pub fn current_position(&mut self) -> Position<'t> {
         self.curpos
     }
 }
@@ -386,90 +431,91 @@ mod tests {
     fn test_indices() {
         let max_ctx = 80;
         {
-            let single_line = "|123456789";
+            let single_line = b"|123456789";
             let (end_truncation, line_end) =
-                AsciiFile::get_line_end_idx(single_line.as_bytes(), 5, max_ctx);
-            assert_eq!(LineContext::NotTruncated, end_truncation);
+                AsciiFile::get_line_end_idx_byteslice(single_line, 5, max_ctx);
+            println!("{:?} {:?}", end_truncation, line_end);
+            assert_eq!(LineTruncation::NotTruncated, end_truncation);
             assert_eq!(single_line, &single_line[..line_end]);
         }
 
         {
-            let single_line = "|123456789";
+            let single_line = b"|123456789";
             let (start_truncation, line_start) =
-                AsciiFile::get_line_start_idx(single_line.as_bytes(), 5, max_ctx);
+                AsciiFile::get_line_start_idx_byteslice(single_line, 5, max_ctx);
 
-            assert_eq!(LineContext::NotTruncated, start_truncation);
+            assert_eq!(LineTruncation::NotTruncated, start_truncation);
             assert_eq!(single_line, &single_line[line_start..]);
         }
 
         {
-            let multi_line = "|123456789\nabcdefghijklmno";
+            let multi_line = b"|123456789\nabcdefghijklmno";
             let (end_truncation, line_end) =
-                AsciiFile::get_line_end_idx(multi_line.as_bytes(), 15, max_ctx);
-            assert_eq!(LineContext::NotTruncated, end_truncation);
+                AsciiFile::get_line_end_idx_byteslice(multi_line, 15, max_ctx);
+            assert_eq!(LineTruncation::NotTruncated, end_truncation);
             assert_eq!(multi_line, &multi_line[..line_end]);
         }
 
         {
-            let multi_line = "|123456789\nabcdefghijklmno";
+            let multi_line = b"|123456789\nabcdefghijklmno";
             let (end_truncation, line_end) =
-                AsciiFile::get_line_end_idx(multi_line.as_bytes(), 5, max_ctx);
-            assert_eq!(LineContext::NotTruncated, end_truncation);
-            assert_eq!("|123456789", &multi_line[..line_end]);
+                AsciiFile::get_line_end_idx_byteslice(multi_line, 5, max_ctx);
+            assert_eq!(LineTruncation::NotTruncated, end_truncation);
+            assert_eq!(b"|123456789", &multi_line[..line_end]);
         }
 
         {
-            let multi_line = "|123456789\nabcdefghijklmno";
+            let multi_line = b"|123456789\nabcdefghijklmno";
             let (start_truncation, line_start) =
-                AsciiFile::get_line_start_idx(multi_line.as_bytes(), 15, max_ctx);
-            assert_eq!(LineContext::NotTruncated, start_truncation);
-            assert_eq!("abcdefghijklmno", &multi_line[line_start..]);
+                AsciiFile::get_line_start_idx_byteslice(multi_line, 15, max_ctx);
+            assert_eq!(LineTruncation::NotTruncated, start_truncation);
+            assert_eq!(b"abcdefghijklmno", &multi_line[line_start..]);
         }
 
         {
-            let multi_line = "|123456789\nabcdefghijklmno";
+            let multi_line = b"|123456789\nabcdefghijklmno";
             let (start_truncation, line_start) =
-                AsciiFile::get_line_start_idx(multi_line.as_bytes(), 5, max_ctx);
-            assert_eq!(LineContext::NotTruncated, start_truncation);
+                AsciiFile::get_line_start_idx_byteslice(multi_line, 5, max_ctx);
+            assert_eq!(LineTruncation::NotTruncated, start_truncation);
             assert_eq!(multi_line, &multi_line[line_start..]);
         }
 
         {
-            let long_line = "|123456789\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LENGTH);
+            let long_line = b"|123456789\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LENGTH);
             let (start_truncation, line_start) =
-                AsciiFile::get_line_start_idx(long_line.as_bytes(), 20, max_ctx);
+                AsciiFile::get_line_start_idx_byteslice(&long_line, 20, max_ctx);
             let (end_truncation, line_end) =
-                AsciiFile::get_line_end_idx(long_line.as_bytes(), 20, max_ctx);
+                AsciiFile::get_line_end_idx_byteslice(&long_line, 20, max_ctx);
 
-            assert_eq!(LineContext::NotTruncated, start_truncation);
-            assert_eq!(LineContext::NotTruncated, end_truncation);
-            assert_eq!("|123456789", &long_line[line_start..line_end]);
+            assert_eq!(LineTruncation::NotTruncated, start_truncation);
+            assert_eq!(LineTruncation::NotTruncated, end_truncation);
+            assert_eq!(b"|123456789", &long_line[line_start..line_end]);
         }
 
         {
-            let empty_line = "\n\n\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LENGTH);
+            let empty_line = b"\n\n\n".repeat(ENCODING_ERROR_MAX_CONTEXT_LENGTH);
             let (start_truncation, line_start) =
-                AsciiFile::get_line_start_idx(empty_line.as_bytes(), 1, max_ctx);
+                AsciiFile::get_line_start_idx_byteslice(&empty_line, 1, max_ctx);
             let (end_truncation, line_end) =
-                AsciiFile::get_line_end_idx(empty_line.as_bytes(), 1, max_ctx);
+                AsciiFile::get_line_end_idx_byteslice(&empty_line, 1, max_ctx);
 
-            assert_eq!(LineContext::NotTruncated, start_truncation);
-            assert_eq!(LineContext::NotTruncated, end_truncation);
-            assert_eq!("", &empty_line[line_start..line_end]);
+            assert_eq!(LineTruncation::NotTruncated, start_truncation);
+            assert_eq!(LineTruncation::NotTruncated, end_truncation);
+            assert_eq!(b"", &empty_line[line_start..line_end]);
         }
 
         {
-            let new_line = "a\nb\nc\nd\n";
+            let new_line = b"a\nb\nc\nd\n";
 
             assert_eq!(
-                "a\nb",
-                &new_line[..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3, max_ctx).1]
+                b"a\nb",
+                &new_line[..AsciiFile::get_line_end_idx_byteslice(new_line, 3, max_ctx).1]
             );
 
             assert_eq!(
-                "b",
-                &new_line[AsciiFile::get_line_start_idx(new_line.as_bytes(), 3, max_ctx).1
-                    ..AsciiFile::get_line_end_idx(new_line.as_bytes(), 3, max_ctx).1]
+                b"b",
+                &new_line[AsciiFile::get_line_start_idx_byteslice(new_line, 3, max_ctx).1
+                    ..AsciiFile::get_line_end_idx_byteslice(new_line, 3, max_ctx).1]
             );
         }
     }
@@ -478,30 +524,30 @@ mod tests {
     fn iterator_works() {
         let f = testfile("one\ntwo three\nfour\n\n");
         let af = AsciiFile::new(f).unwrap();
-        let res: Vec<PositionedChar> = af.iter().collect();
+        let res: Vec<PositionedChar<'_>> = af.iter().collect();
 
         #[rustfmt::skip]
         let exp = vec![
-            PositionedChar(Position { byte_offset:  0, row: 0, col: 0 }, 'o'),
-            PositionedChar(Position { byte_offset:  1, row: 0, col: 1 }, 'n'),
-            PositionedChar(Position { byte_offset:  2, row: 0, col: 2 }, 'e'),
-            PositionedChar(Position { byte_offset:  3, row: 0, col: 3 }, '\n'),
-            PositionedChar(Position { byte_offset:  4, row: 1, col: 0 }, 't'),
-            PositionedChar(Position { byte_offset:  5, row: 1, col: 1 }, 'w'),
-            PositionedChar(Position { byte_offset:  6, row: 1, col: 2 }, 'o'),
-            PositionedChar(Position { byte_offset:  7, row: 1, col: 3 }, ' '),
-            PositionedChar(Position { byte_offset:  8, row: 1, col: 4 }, 't'),
-            PositionedChar(Position { byte_offset:  9, row: 1, col: 5 }, 'h'),
-            PositionedChar(Position { byte_offset: 10, row: 1, col: 6 }, 'r'),
-            PositionedChar(Position { byte_offset: 11, row: 1, col: 7 }, 'e'),
-            PositionedChar(Position { byte_offset: 12, row: 1, col: 8 }, 'e'),
-            PositionedChar(Position { byte_offset: 13, row: 1, col: 9 }, '\n'),
-            PositionedChar(Position { byte_offset: 14, row: 2, col: 0 }, 'f'),
-            PositionedChar(Position { byte_offset: 15, row: 2, col: 1 }, 'o'),
-            PositionedChar(Position { byte_offset: 16, row: 2, col: 2 }, 'u'),
-            PositionedChar(Position { byte_offset: 17, row: 2, col: 3 }, 'r'),
-            PositionedChar(Position { byte_offset: 18, row: 2, col: 4 }, '\n'),
-            PositionedChar(Position { byte_offset: 19, row: 3, col: 0 }, '\n'),
+            PositionedChar(Position { byte_offset:  0, row: 0, col: 0, file:  &af }, 'o'),
+            PositionedChar(Position { byte_offset:  1, row: 0, col: 1 , file: &af }, 'n'),
+            PositionedChar(Position { byte_offset:  2, row: 0, col: 2 , file: &af }, 'e'),
+            PositionedChar(Position { byte_offset:  3, row: 0, col: 3 , file: &af }, '\n'),
+            PositionedChar(Position { byte_offset:  4, row: 1, col: 0 , file: &af }, 't'),
+            PositionedChar(Position { byte_offset:  5, row: 1, col: 1 , file: &af }, 'w'),
+            PositionedChar(Position { byte_offset:  6, row: 1, col: 2 , file: &af }, 'o'),
+            PositionedChar(Position { byte_offset:  7, row: 1, col: 3 , file: &af }, ' '),
+            PositionedChar(Position { byte_offset:  8, row: 1, col: 4 , file: &af }, 't'),
+            PositionedChar(Position { byte_offset:  9, row: 1, col: 5 , file: &af }, 'h'),
+            PositionedChar(Position { byte_offset: 10, row: 1, col: 6 , file: &af }, 'r'),
+            PositionedChar(Position { byte_offset: 11, row: 1, col: 7 , file: &af }, 'e'),
+            PositionedChar(Position { byte_offset: 12, row: 1, col: 8 , file: &af }, 'e'),
+            PositionedChar(Position { byte_offset: 13, row: 1, col: 9 , file: &af }, '\n'),
+            PositionedChar(Position { byte_offset: 14, row: 2, col: 0 , file: &af }, 'f'),
+            PositionedChar(Position { byte_offset: 15, row: 2, col: 1 , file: &af }, 'o'),
+            PositionedChar(Position { byte_offset: 16, row: 2, col: 2 , file: &af }, 'u'),
+            PositionedChar(Position { byte_offset: 17, row: 2, col: 3 , file: &af }, 'r'),
+            PositionedChar(Position { byte_offset: 18, row: 2, col: 4 , file: &af }, '\n'),
+            PositionedChar(Position { byte_offset: 19, row: 3, col: 0 , file: &af }, '\n'),
         ];
         assert_eq!(exp, res);
     }
@@ -532,29 +578,29 @@ mod tests {
 
         #[rustfmt::skip]
         let exp = vec![
-            PositionedChar(Position { byte_offset:  0, row: 0, col: 0 }, 'o'),
-            PositionedChar(Position { byte_offset:  1, row: 0, col: 1 }, 'n'),
-            PositionedChar(Position { byte_offset:  2, row: 0, col: 2 }, 'e'),
-            PositionedChar(Position { byte_offset:  3, row: 0, col: 3 }, '\n'),
-            PositionedChar(Position { byte_offset:  4, row: 1, col: 0 }, 't'),
-            PositionedChar(Position { byte_offset:  5, row: 1, col: 1 }, 'w'),
-            PositionedChar(Position { byte_offset:  6, row: 1, col: 2 }, 'o'),
-            PositionedChar(Position { byte_offset:  7, row: 1, col: 3 }, ' '),
-            PositionedChar(Position { byte_offset:  8, row: 1, col: 4 }, 't'),
-            PositionedChar(Position { byte_offset:  9, row: 1, col: 5 }, 'h'),
-            PositionedChar(Position { byte_offset: 10, row: 1, col: 6 }, 'r'),
-            PositionedChar(Position { byte_offset: 11, row: 1, col: 7 }, 'e'),
-            PositionedChar(Position { byte_offset: 12, row: 1, col: 8 }, 'e'),
-            PositionedChar(Position { byte_offset: 13, row: 1, col: 9 }, '\n'),
-            PositionedChar(Position { byte_offset: 14, row: 2, col: 0 }, 'f'),
-            PositionedChar(Position { byte_offset: 15, row: 2, col: 1 }, 'o'),
-            PositionedChar(Position { byte_offset: 16, row: 2, col: 2 }, 'u'),
-            PositionedChar(Position { byte_offset: 17, row: 2, col: 3 }, 'r'),
-            PositionedChar(Position { byte_offset: 18, row: 2, col: 4 }, '\n'),
-            PositionedChar(Position { byte_offset: 19, row: 3, col: 0 }, '\n'),
+            PositionedChar(Position { byte_offset:  0, row: 0, col: 0, file: &af}, 'o'),
+            PositionedChar(Position { byte_offset:  1, row: 0, col: 1, file: &af}, 'n'),
+            PositionedChar(Position { byte_offset:  2, row: 0, col: 2, file: &af}, 'e'),
+            PositionedChar(Position { byte_offset:  3, row: 0, col: 3, file: &af}, '\n'),
+            PositionedChar(Position { byte_offset:  4, row: 1, col: 0, file: &af}, 't'),
+            PositionedChar(Position { byte_offset:  5, row: 1, col: 1, file: &af}, 'w'),
+            PositionedChar(Position { byte_offset:  6, row: 1, col: 2, file: &af}, 'o'),
+            PositionedChar(Position { byte_offset:  7, row: 1, col: 3, file: &af}, ' '),
+            PositionedChar(Position { byte_offset:  8, row: 1, col: 4, file: &af}, 't'),
+            PositionedChar(Position { byte_offset:  9, row: 1, col: 5, file: &af}, 'h'),
+            PositionedChar(Position { byte_offset: 10, row: 1, col: 6, file: &af}, 'r'),
+            PositionedChar(Position { byte_offset: 11, row: 1, col: 7, file: &af}, 'e'),
+            PositionedChar(Position { byte_offset: 12, row: 1, col: 8, file: &af}, 'e'),
+            PositionedChar(Position { byte_offset: 13, row: 1, col: 9, file: &af}, '\n'),
+            PositionedChar(Position { byte_offset: 14, row: 2, col: 0, file: &af}, 'f'),
+            PositionedChar(Position { byte_offset: 15, row: 2, col: 1, file: &af}, 'o'),
+            PositionedChar(Position { byte_offset: 16, row: 2, col: 2, file: &af}, 'u'),
+            PositionedChar(Position { byte_offset: 17, row: 2, col: 3, file: &af}, 'r'),
+            PositionedChar(Position { byte_offset: 18, row: 2, col: 4, file: &af}, '\n'),
+            PositionedChar(Position { byte_offset: 19, row: 3, col: 0, file: &af}, '\n'),
         ];
 
-        let res: Vec<PositionedChar> = i.collect();
+        let res: Vec<PositionedChar<'_>> = i.collect();
 
         assert_eq!(exp, res);
     }
@@ -588,16 +634,17 @@ Reiner mag Kuchen!!! \\] and green bananas.";
             row: 4,
             col: 21,
             byte_offset: 133,
+            file: &af,
         };
 
         let max_ctx = 80;
 
         assert_eq!(
-            pos.get_line(&af, max_ctx, max_ctx),
+            pos.get_line(max_ctx, max_ctx),
             (
-                LineContext::NotTruncated,
+                LineTruncation::NotTruncated,
                 "Reiner mag Kuchen!!! \\] and green bananas.",
-                LineContext::NotTruncated,
+                LineTruncation::NotTruncated,
             )
         );
     }

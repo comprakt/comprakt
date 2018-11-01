@@ -4,11 +4,13 @@
 #![feature(bind_by_move_pattern_guards)]
 #![feature(const_str_as_bytes)]
 #![feature(box_syntax)]
+#![feature(repeat_generic_slice)]
 
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{fs::File, io, path::PathBuf, process::exit};
 use structopt::StructOpt;
+use termcolor::{ColorChoice, StandardStream};
 
 #[macro_use]
 mod utils;
@@ -108,7 +110,8 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
 
             let ascii_file = asciifile::AsciiFile::new(&bytes)
                 .context(CliError::Ascii { path: path.clone() })?;
-            let context = Context::default(ascii_file);
+            let stderr = StandardStream::stderr(ColorChoice::Auto);
+            let context = Context::new(ascii_file, box stderr);
             let lexer = lexer::Lexer::new(&context);
 
             for token in lexer {
