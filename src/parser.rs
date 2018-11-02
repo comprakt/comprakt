@@ -2,6 +2,7 @@
 #![allow(clippy::if_same_then_else)]
 
 use crate::{
+    ast::*,
     lexer::{Keyword, Operator, Spanned, Token, TokenKind},
     strtab::Symbol,
     utils::MultiPeekable,
@@ -46,6 +47,9 @@ pub enum SyntaxError<'f> {
         got: Token<'f>,
         expected: String, // TODO This is temporary, shouldn't be string
     },
+
+    InvalidMainMethod,
+    InvalidNewObjectExpression,
 }
 
 pub trait ExpectedToken: fmt::Debug + fmt::Display {
@@ -164,6 +168,9 @@ impl fmt::Display for SyntaxError<'_> {
             UnexpectedToken { got, expected } => {
                 write!(f, "unexpected token: got {} expected {}", got, expected)
             }
+
+            InvalidNewObjectExpression => write!(f, "invalid new object expression"),
+            InvalidMainMethod => write!(f, "invalid main method"),
         }
     }
 }
@@ -316,8 +323,10 @@ where
     fn parse_class_member(&mut self) -> ParserResult<'f> {
         self.omnomnom::<Exactly, _>(Keyword::Public)?;
 
-        self.omnomnoptional::<Exactly, _>(Keyword::Static)?;
-        self.parse_type()?;
+        let is_static = self
+            .omnomnoptional::<Exactly, _>(Keyword::Static)?
+            .is_some();
+        let return_type = self.parse_type()?;
         self.omnomnom::<Identifier, _>(Identifier)?;
 
         if self
@@ -326,9 +335,11 @@ where
         {
             // method or main method
 
-            if !self.tastes_like::<Exactly, _>(Operator::RightParen)? {
-                self.parse_parameters()?;
-            }
+            let params = if !self.tastes_like::<Exactly, _>(Operator::RightParen)? {
+                self.parse_parameters()?
+            } else {
+                ParameterList::new()
+            };
 
             self.omnomnom::<Exactly, _>(Operator::RightParen)?;
 
@@ -339,6 +350,17 @@ where
                 self.omnomnom::<Identifier, _>(Identifier)?;
             }
 
+            // Check that "static" => Type=void && ParameterList==(String[] IDENT)
+            // TODO Should be handled during semantical analysis
+            if is_static
+                && (return_type != Type::Basic(BasicType::Void)
+                    || params.len() != 1
+                    || params[0].var_type
+                        != Type::ArrayOf(box Type::Basic(BasicType::Ident(Symbol::from("String")))))
+            {
+                return Err(SyntaxError::InvalidMainMethod);
+            }
+
             self.parse_block()?;
         } else {
             self.omnomnom::<Exactly, _>(Operator::Semicolon)?;
@@ -347,48 +369,56 @@ where
         Ok(())
     }
 
-    fn parse_parameters(&mut self) -> ParserResult<'f> {
-        self.parse_parameter()?;
+    fn parse_parameters(&mut self) -> SyntaxResult<'f, ParameterList> {
+        let mut param_list = ParameterList::new();
+
+        param_list.push(self.parse_parameter()?);
         while self
             .omnomnoptional::<Exactly, _>(Operator::Comma)?
             .is_some()
         {
-            self.parse_parameter()?;
+            param_list.push(self.parse_parameter()?);
         }
 
-        Ok(())
+        Ok(param_list)
     }
 
-    fn parse_parameter(&mut self) -> ParserResult<'f> {
-        self.parse_type()?;
-        self.omnomnom::<Identifier, _>(Identifier)?;
+    fn parse_parameter(&mut self) -> SyntaxResult<'f, VariableDecl> {
+        let var_type = self.parse_type()?;
+        let name = self.omnomnom::<Identifier, _>(Identifier)?;
 
-        Ok(())
+        Ok(VariableDecl {
+            var_type,
+            name: name.data,
+        })
     }
 
-    fn parse_type(&mut self) -> ParserResult<'f> {
-        self.parse_basic_type()?;
+    fn parse_type(&mut self) -> SyntaxResult<'f, Type> {
+        let mut parsed_type = Type::Basic(self.parse_basic_type()?);
 
         while self
             .omnomnoptional::<Exactly, _>(Operator::LeftBracket)?
             .is_some()
         {
             self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
-            // Array Type
+            parsed_type = Type::ArrayOf(box parsed_type);
         }
 
-        Ok(())
+        Ok(parsed_type)
     }
 
-    fn parse_basic_type(&mut self) -> ParserResult<'f> {
-        if self.omnomnoptional::<Exactly, _>(Keyword::Int)?.is_some()
-            || self
-                .omnomnoptional::<Exactly, _>(Keyword::Boolean)?
-                .is_some()
-            || self.omnomnoptional::<Exactly, _>(Keyword::Void)?.is_some()
-            || self.omnomnoptional::<Identifier, _>(Identifier)?.is_some()
+    fn parse_basic_type(&mut self) -> SyntaxResult<'f, BasicType> {
+        if self.omnomnoptional::<Exactly, _>(Keyword::Int)?.is_some() {
+            Ok(BasicType::Int)
+        } else if self
+            .omnomnoptional::<Exactly, _>(Keyword::Boolean)?
+            .is_some()
         {
-            Ok(())
+            Ok(BasicType::Bool)
+        } else if self.omnomnoptional::<Exactly, _>(Keyword::Void)?.is_some() {
+            Ok(BasicType::Void)
+        } else if let Some(sym) = self.omnomnoptional::<Identifier, _>(Identifier)? {
+            Ok(BasicType::Ident(sym.data))
         } else {
             Err(SyntaxError::UnexpectedToken {
                 got: self.next()?,
@@ -578,7 +608,7 @@ where
 
             Ok(())
         } else if self.omnomnoptional::<Exactly, _>(Keyword::New)?.is_some() {
-            self.parse_basic_type()?;
+            let new_type = self.parse_basic_type()?;
 
             if self
                 .omnomnoptional::<Exactly, _>(Operator::LeftParen)?
@@ -586,6 +616,11 @@ where
             {
                 // new object expression
                 self.omnomnom::<Exactly, _>(Operator::RightParen)?;
+
+                // TODO should be handled during semantical analysis
+                if matches!(new_type, BasicType::Void | BasicType::Int | BasicType::Bool) {
+                    return Err(SyntaxError::InvalidNewObjectExpression);
+                }
             } else {
                 // new array expression
                 self.omnomnom::<Exactly, _>(Operator::LeftBracket)?;
@@ -756,5 +791,40 @@ mod tests {
         "#
         );
         assert_matches!(Parser::new(lx).parse(), Ok(_))
+    }
+
+    mod phase2_tests {
+        use super::*;
+
+        #[test]
+        fn invalid_main_method() {
+            lex_input!(
+                lx = r#"
+                class Foo {
+                    public static void main(int[] args) {
+                        System.out.println(42);
+                    }
+                }
+            "#
+            );
+            assert_matches!(Parser::new(lx).parse(), Err(SyntaxError::InvalidMainMethod))
+        }
+
+        #[test]
+        fn invalid_new_object_expression() {
+            lex_input!(
+                lx = r#"
+                class Foo {
+                    public static void main(String[] args) {
+                        int x = new int();
+                    }
+                }
+            "#
+            );
+            assert_matches!(
+                Parser::new(lx).parse(),
+                Err(SyntaxError::InvalidNewObjectExpression)
+            )
+        }
     }
 }

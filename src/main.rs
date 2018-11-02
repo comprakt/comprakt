@@ -19,6 +19,7 @@ use termcolor::{ColorChoice, StandardStream};
 #[macro_use]
 mod utils;
 mod asciifile;
+mod ast;
 mod context;
 mod diagnostics;
 mod lexer;
