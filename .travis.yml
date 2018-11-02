@@ -20,9 +20,9 @@ matrix:
       env: BASE_TESTS=true
     - os: linux
       env: MJ_TESTS=lexer
+    - os: linux
+      env: MJ_TESTS=syntax
     # Disable until implemented
-    # - os: linux
-    #   env: MJ_TESTS=syntax
     # - os: linux
     #   env: MJ_TESTS=ast
     # - os: linux
@@ -31,6 +31,9 @@ matrix:
     #   env: MJ_TESTS=compile-firm
     # - os: linux
     #   env: MJ_TESTS=compile
+  allow_failures:
+    - os: linux
+      env: MJ_TESTS=syntax
 
 install:
   - |
