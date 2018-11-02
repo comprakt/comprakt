@@ -32,7 +32,7 @@ pub type TokenResult<'f> = Result<Token<'f>, LexicalError<'f>>;
 pub type Token<'f> = Spanned<'f, TokenKind>;
 pub type LexicalError<'f> = Spanned<'f, ErrorKind>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Spanned<'f, T> {
     pub span: Span<'f>,
     pub data: T,
@@ -54,11 +54,21 @@ impl<'f, T> Spanned<'f, T> {
             data: value,
         }
     }
+
+    pub fn map<U, F>(&self, f: F) -> Spanned<'f, U>
+    where
+        F: FnOnce(&T) -> U,
+    {
+        Spanned {
+            span: self.span.clone(),
+            data: f(&self.data),
+        }
+    }
 }
 
 impl<'f> Fail for LexicalError<'f> where 'f: 'static {}
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenKind {
     Keyword(Keyword),
     Operator(Operator),
@@ -130,7 +140,7 @@ pub enum Warning {
     CommentSeparatorInsideComment,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Span<'f> {
     pub start: Position<'f>,
     pub end: Position<'f>,
@@ -168,7 +178,7 @@ impl fmt::Display for Span<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Keyword {
     Abstract,
     Assert,
@@ -356,7 +366,7 @@ impl TryFrom<&str> for Keyword {
 }
 
 // Use non-semantic names, since e.g. '<' might mean more than 'less-than'
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Operator {
     ExclaimEqual,
     Exclaim,
