@@ -246,7 +246,7 @@ where
     }
 
     fn parse_program(&mut self) -> ParserResult<'f> {
-        while self.omnomnoptional(EOF)?.is_none() {
+        while self.omnomnoptional::<EOF, _>(EOF)?.is_none() {
             self.parse_class_declaration()?;
         }
 
@@ -254,11 +254,14 @@ where
     }
 
     fn parse_class_declaration(&mut self) -> ParserResult<'f> {
-        self.omnomnom(Keyword::Class)?;
-        self.omnomnom(Identifier)?;
+        self.omnomnom::<Exactly, _>(Keyword::Class)?;
+        self.omnomnom::<Identifier, _>(Identifier)?;
 
-        self.omnomnom(Operator::LeftBrace)?;
-        while self.omnomnoptional(Operator::RightBrace)?.is_none() {
+        self.omnomnom::<Exactly, _>(Operator::LeftBrace)?;
+        while self
+            .omnomnoptional::<Exactly, _>(Operator::RightBrace)?
+            .is_none()
+        {
             self.parse_class_member()?;
         }
 
@@ -266,28 +269,34 @@ where
     }
 
     fn parse_class_member(&mut self) -> ParserResult<'f> {
-        self.omnomnom(Keyword::Public)?;
+        self.omnomnom::<Exactly, _>(Keyword::Public)?;
 
-        self.omnomnoptional(Keyword::Static)?;
+        self.omnomnoptional::<Exactly, _>(Keyword::Static)?;
         self.parse_type()?;
-        self.omnomnom(Identifier)?;
+        self.omnomnom::<Identifier, _>(Identifier)?;
 
-        if self.omnomnoptional(Operator::LeftParen)?.is_some() {
+        if self
+            .omnomnoptional::<Exactly, _>(Operator::LeftParen)?
+            .is_some()
+        {
             // method or main method
 
-            if !self.tastes_like(Operator::RightParen)? {
+            if !self.tastes_like::<Exactly, _>(Operator::RightParen)? {
                 self.parse_parameters()?;
             }
 
-            self.omnomnom(Operator::RightParen)?;
+            self.omnomnom::<Exactly, _>(Operator::RightParen)?;
 
-            if self.omnomnoptional(Keyword::Throws)?.is_some() {
-                self.omnomnom(Identifier)?;
+            if self
+                .omnomnoptional::<Exactly, _>(Keyword::Throws)?
+                .is_some()
+            {
+                self.omnomnom::<Identifier, _>(Identifier)?;
             }
 
             self.parse_block()?;
         } else {
-            self.omnomnom(Operator::Semicolon)?;
+            self.omnomnom::<Exactly, _>(Operator::Semicolon)?;
         }
 
         Ok(())
@@ -295,7 +304,10 @@ where
 
     fn parse_parameters(&mut self) -> ParserResult<'f> {
         self.parse_parameter()?;
-        while self.omnomnoptional(Operator::Comma)?.is_some() {
+        while self
+            .omnomnoptional::<Exactly, _>(Operator::Comma)?
+            .is_some()
+        {
             self.parse_parameter()?;
         }
 
@@ -304,7 +316,7 @@ where
 
     fn parse_parameter(&mut self) -> ParserResult<'f> {
         self.parse_type()?;
-        self.omnomnom(Identifier)?;
+        self.omnomnom::<Identifier, _>(Identifier)?;
 
         Ok(())
     }
@@ -312,8 +324,11 @@ where
     fn parse_type(&mut self) -> ParserResult<'f> {
         self.parse_basic_type()?;
 
-        while self.omnomnoptional(Operator::LeftBracket)?.is_some() {
-            self.omnomnom(Operator::RightBracket)?;
+        while self
+            .omnomnoptional::<Exactly, _>(Operator::LeftBracket)?
+            .is_some()
+        {
+            self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
             // Array Type
         }
 
@@ -321,10 +336,12 @@ where
     }
 
     fn parse_basic_type(&mut self) -> ParserResult<'f> {
-        if self.omnomnoptional(Keyword::Int)?.is_some()
-            || self.omnomnoptional(Keyword::Boolean)?.is_some()
-            || self.omnomnoptional(Keyword::Void)?.is_some()
-            || self.omnomnoptional(Identifier)?.is_some()
+        if self.omnomnoptional::<Exactly, _>(Keyword::Int)?.is_some()
+            || self
+                .omnomnoptional::<Exactly, _>(Keyword::Boolean)?
+                .is_some()
+            || self.omnomnoptional::<Exactly, _>(Keyword::Void)?.is_some()
+            || self.omnomnoptional::<Identifier, _>(Identifier)?.is_some()
         {
             Ok(())
         } else {
@@ -333,9 +350,12 @@ where
     }
 
     fn parse_block(&mut self) -> ParserResult<'f> {
-        self.omnomnom(Operator::LeftBracket)?;
+        self.omnomnom::<Exactly, _>(Operator::LeftBracket)?;
 
-        while self.omnomnoptional(Operator::RightBracket)?.is_none() {
+        while self
+            .omnomnoptional::<Exactly, _>(Operator::RightBracket)?
+            .is_none()
+        {
             self.parse_block_statement()?;
         }
 
@@ -353,39 +373,48 @@ where
     // Using a bool-flag for *LocalVarDeclStatement* allows us to delay the
     // descision on weather the statement at point is a *LocalVarDeclStatement*
     fn parse_statement_or_local_var(&mut self, allow_local_var_decl: bool) -> ParserResult<'f> {
-        if self.tastes_like(Operator::LeftBracket)? {
+        if self.tastes_like::<Exactly, _>(Operator::LeftBracket)? {
             self.parse_block()
-        } else if self.omnomnoptional(Operator::Semicolon)?.is_some() {
+        } else if self
+            .omnomnoptional::<Exactly, _>(Operator::Semicolon)?
+            .is_some()
+        {
             // empty statement
             Ok(())
-        } else if self.omnomnoptional(Keyword::If)?.is_some() {
-            self.omnomnom(Operator::LeftParen)?;
+        } else if self.omnomnoptional::<Exactly, _>(Keyword::If)?.is_some() {
+            self.omnomnom::<Exactly, _>(Operator::LeftParen)?;
             self.parse_expression()?;
-            self.omnomnom(Operator::RightParen)?;
+            self.omnomnom::<Exactly, _>(Operator::RightParen)?;
 
             self.parse_statement()
-        } else if self.omnomnoptional(Keyword::While)?.is_some() {
-            self.omnomnom(Operator::LeftParen)?;
+        } else if self.omnomnoptional::<Exactly, _>(Keyword::While)?.is_some() {
+            self.omnomnom::<Exactly, _>(Operator::LeftParen)?;
             self.parse_expression()?;
-            self.omnomnom(Operator::RightParen)?;
+            self.omnomnom::<Exactly, _>(Operator::RightParen)?;
 
             self.parse_statement()
-        } else if self.omnomnoptional(Keyword::Return)?.is_some() {
-            if !self.tastes_like(Operator::Semicolon)? {
+        } else if self
+            .omnomnoptional::<Exactly, _>(Keyword::Return)?
+            .is_some()
+        {
+            if !self.tastes_like::<Exactly, _>(Operator::Semicolon)? {
                 self.parse_expression()?;
             }
 
-            self.omnomnom(Operator::Semicolon)?;
+            self.omnomnom::<Exactly, _>(Operator::Semicolon)?;
 
             Ok(())
         } else if allow_local_var_decl {
             self.parse_type()?;
-            self.omnomnom(Identifier)?;
-            if self.omnomnoptional(Operator::Equal)?.is_some() {
+            self.omnomnom::<Identifier, _>(Identifier)?;
+            if self
+                .omnomnoptional::<Exactly, _>(Operator::Equal)?
+                .is_some()
+            {
                 self.parse_expression()?;
             }
 
-            self.omnomnom(Operator::Semicolon)?;
+            self.omnomnom::<Exactly, _>(Operator::Semicolon)?;
 
             Ok(())
         } else {
@@ -400,11 +429,12 @@ where
 
     /// Uses precedence climbing
     fn parse_binary_expression(&mut self, min_precedence: usize) -> ParserResult<'f> {
-        self.parse_expression()?;
+        self.parse_unary_expression()?;
 
         // tries to read some binary operators
-        while let Some((op, mut prec, assoc)) =
-            self.omnomnoptional(BinaryOp)?.map(|spanned| spanned.data)
+        while let Some((op, mut prec, assoc)) = self
+            .omnomnoptional::<BinaryOp, _>(BinaryOp)?
+            .map(|spanned| spanned.data)
         {
             if prec > min_precedence {
                 break;
@@ -414,7 +444,7 @@ where
                 prec += 1;
             }
 
-            self.omnomnom(op)?;
+            self.omnomnom::<Exactly, _>(op)?;
             // TODO Not tail recursive
             self.parse_binary_expression(prec)?;
         }
@@ -422,10 +452,10 @@ where
         Ok(())
     }
 
-    fn parse_unary_expr(&mut self) -> ParserResult<'f> {
+    fn parse_unary_expression(&mut self) -> ParserResult<'f> {
         // try read prefixOp
-        if self.omnomnoptional(UnaryOp)?.is_some() {
-            self.parse_unary_expr()
+        if self.omnomnoptional::<UnaryOp, _>(UnaryOp)?.is_some() {
+            self.parse_unary_expression()
         } else {
             self.parse_postfix_expression()
         }
@@ -435,19 +465,25 @@ where
         self.parse_primary_expression()?;
 
         loop {
-            if self.omnomnoptional(Operator::Dot)?.is_some() {
-                self.omnomnom(Identifier)?;
+            if self.omnomnoptional::<Exactly, _>(Operator::Dot)?.is_some() {
+                self.omnomnom::<Identifier, _>(Identifier)?;
 
-                if self.omnomnoptional(Operator::LeftParen)?.is_some() {
+                if self
+                    .omnomnoptional::<Exactly, _>(Operator::LeftParen)?
+                    .is_some()
+                {
                     // method call: EXPR.ident(arg1, arg2, ...)
                     self.parse_parenthesized_argument_list()?;
                 } else {
                     // member reference: EXPR.ident
                 }
-            } else if self.omnomnoptional(Operator::LeftBracket)?.is_some() {
+            } else if self
+                .omnomnoptional::<Exactly, _>(Operator::LeftBracket)?
+                .is_some()
+            {
                 // array access: EXPR[EXPR]
                 self.parse_expression()?;
-                self.omnomnom(Operator::RightBracket)?;
+                self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
             } else {
                 break;
             }
@@ -457,43 +493,54 @@ where
     }
 
     fn parse_primary_expression(&mut self) -> ParserResult<'f> {
-        if self.omnomnoptional(Identifier)?.is_some() {
-            if self.tastes_like(Operator::LeftParen)? {
+        if self.omnomnoptional::<Identifier, _>(Identifier)?.is_some() {
+            if self.tastes_like::<Exactly, _>(Operator::LeftParen)? {
                 // function call
                 self.parse_parenthesized_argument_list()
             } else {
                 // var ref
                 Ok(())
             }
-        } else if self.omnomnoptional(Operator::LeftParen)?.is_some() {
+        } else if self
+            .omnomnoptional::<Exactly, _>(Operator::LeftParen)?
+            .is_some()
+        {
             // parenthesized expression
             self.parse_expression()?;
-            self.omnomnom(Operator::RightParen)?;
+            self.omnomnom::<Exactly, _>(Operator::RightParen)?;
 
             Ok(())
-        } else if self.omnomnoptional(Keyword::New)?.is_some() {
+        } else if self.omnomnoptional::<Exactly, _>(Keyword::New)?.is_some() {
             self.parse_basic_type()?;
 
-            if self.omnomnoptional(Operator::LeftParen)?.is_some() {
+            if self
+                .omnomnoptional::<Exactly, _>(Operator::LeftParen)?
+                .is_some()
+            {
                 // new object expression
-                self.omnomnom(Operator::RightParen)?;
+                self.omnomnom::<Exactly, _>(Operator::RightParen)?;
             } else {
                 // new array expression
-                self.omnomnom(Operator::LeftBrace)?;
+                self.omnomnom::<Exactly, _>(Operator::LeftBrace)?;
                 self.parse_expression()?;
-                self.omnomnom(Operator::RightBrace)?;
+                self.omnomnom::<Exactly, _>(Operator::RightBrace)?;
 
-                while self.omnomnoptional(Operator::LeftBrace)?.is_some() {
-                    self.omnomnom(Operator::RightBrace)?;
+                while self
+                    .omnomnoptional::<Exactly, _>(Operator::LeftBrace)?
+                    .is_some()
+                {
+                    self.omnomnom::<Exactly, _>(Operator::RightBrace)?;
                 }
             }
 
             Ok(())
-        } else if self.omnomnoptional(Keyword::Null)?.is_some()
-            || self.omnomnoptional(Keyword::False)?.is_some()
-            || self.omnomnoptional(Keyword::True)?.is_some()
-            || self.omnomnoptional(Keyword::This)?.is_some()
-            || self.omnomnoptional(IntegerLiteral)?.is_some()
+        } else if self.omnomnoptional::<Exactly, _>(Keyword::Null)?.is_some()
+            || self.omnomnoptional::<Exactly, _>(Keyword::False)?.is_some()
+            || self.omnomnoptional::<Exactly, _>(Keyword::True)?.is_some()
+            || self.omnomnoptional::<Exactly, _>(Keyword::This)?.is_some()
+            || self
+                .omnomnoptional::<IntegerLiteral, _>(IntegerLiteral)?
+                .is_some()
         {
             Ok(())
         } else {
@@ -502,11 +549,14 @@ where
     }
 
     fn parse_parenthesized_argument_list(&mut self) -> ParserResult<'f> {
-        self.omnomnom(Operator::LeftParen)?;
-        while self.omnomnoptional(Operator::RightParen)?.is_none() {
+        self.omnomnom::<Exactly, _>(Operator::LeftParen)?;
+        while self
+            .omnomnoptional::<Exactly, _>(Operator::RightParen)?
+            .is_none()
+        {
             self.parse_expression()?;
         }
-        self.omnomnom(Operator::RightParen)?;
+        self.omnomnom::<Exactly, _>(Operator::RightParen)?;
 
         Ok(())
     }
