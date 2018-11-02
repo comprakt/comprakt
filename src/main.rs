@@ -6,6 +6,9 @@
 #![feature(box_syntax)]
 #![feature(repeat_generic_slice)]
 
+#[macro_use]
+extern crate derive_more;
+
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{fs::File, io, path::PathBuf, process::exit};
