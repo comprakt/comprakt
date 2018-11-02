@@ -193,7 +193,10 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
     match parser.parse() {
         Ok(_) => Ok(()),
         // TODO: generate error message per spec
-        Err(_) => exit(1),
+        Err(err) => {
+            eprintln!("error: {}", err);
+            exit(1);
+        }
     }
 }
 
