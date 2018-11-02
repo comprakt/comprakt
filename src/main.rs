@@ -123,8 +123,39 @@ fn cmd_echo(path: &PathBuf) -> Result<(), Error> {
     Ok(())
 }
 
+macro_rules! setup_io {
+    (let $context:ident = $path:expr) => {
+        let path: &PathBuf = $path;
+        let file = File::open(&path).context(CliError::OpenInput { path: path.clone() })?;
+        let mmres = unsafe { Mmap::map(&file) };
+        const EMPTY: [u8; 0] = [0; 0];
+        let bytes: &[u8] = match mmres {
+            Ok(ref m) => m,
+            Err(e) if e.kind() == io::ErrorKind::InvalidInput => {
+                // Linux returns EINVAL on file size 0, but let's be sure
+                let file_size = file
+                    .metadata()
+                    .map(|m| m.len())
+                    .context("could not get file metadata while interpreting mmap error")?;
+                if file_size == 0 {
+                    &EMPTY
+                } else {
+                    Err(e.context(CliError::Mmap { path: path.clone() }))?
+                }
+            }
+            Err(e) => Err(e.context(CliError::Mmap { path: path.clone() }))?,
+        };
+
+        let ascii_file =
+            asciifile::AsciiFile::new(&bytes).context(CliError::Ascii { path: path.clone() })?;
+
+        let stderr = StandardStream::stderr(ColorChoice::Auto);
+        let $context = Context::new(ascii_file, box stderr);
+    };
+}
+
 fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
-    let context = setup_io(path)?;
+    setup_io!(let context = path);
     let lexer = Lexer::new(&context);
 
     // adapt lexer to fail on first error
@@ -151,38 +182,8 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
     }
 }
 
-fn setup_io(path: &PathBuf) -> Result<Context<'static>, Error> {
-    let file = File::open(&path).context(CliError::OpenInput { path: path.clone() })?;
-    let mmres = unsafe { Mmap::map(&file) };
-    const EMPTY: [u8; 0] = [0; 0];
-    let bytes: &[u8] = match mmres {
-        Ok(ref m) => m,
-        Err(e) if e.kind() == io::ErrorKind::InvalidInput => {
-            // Linux returns EINVAL on file size 0, but let's be sure
-            let file_size = file
-                .metadata()
-                .map(|m| m.len())
-                .context("could not get file metadata while interpreting mmap error")?;
-            if file_size == 0 {
-                &EMPTY
-            } else {
-                Err(e.context(CliError::Mmap { path: path.clone() }))?
-            }
-        }
-        Err(e) => Err(e.context(CliError::Mmap { path: path.clone() }))?,
-    };
-
-    let ascii_file =
-        asciifile::AsciiFile::new(&bytes).context(CliError::Ascii { path: path.clone() })?;
-
-    let stderr = StandardStream::stderr(ColorChoice::Auto);
-    let context = Context::new(ascii_file, box stderr);
-
-    Ok(context)
-}
-
 fn cmd_lextest(path: &PathBuf) -> Result<(), Error> {
-    let context = setup_io(path)?;
+    setup_io!(let context = path);
     let lexer = Lexer::new(&context);
 
     let mut stdout = io::stdout();
