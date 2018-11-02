@@ -1,287 +1,513 @@
+use crate::{
+    lexer::{Keyword, Operator, Spanned, Token, TokenKind},
+    strtab::Symbol,
+};
 
+use std::{fmt, iter::Peekable};
 
-pub struct Parser {
+type Precedence = usize;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Assoc {
+    Left,
+    Right,
+}
+const BINARY_OPERATORS: &[(Operator, Precedence, Assoc)] = &[];
 
+#[derive(Debug, Clone)]
+pub enum SyntaxError<'f> {
+    // TODO Rather panic? If `MissingEOF` is instantiated, we have most certainly a bug
+    MissingEOF,
+    UnexpectedToken {
+        got: Token<'f>,
+        expected: String, // TODO This is temporary, shouldn't be string
+    },
 }
 
+pub trait ExpectedToken: fmt::Debug + fmt::Display {
+    type Yields;
+    fn matching(&self, token: &TokenKind) -> Option<Self::Yields>;
 
+    fn matches(&self, token: &TokenKind) -> bool {
+        self.matching(token).is_some()
+    }
+}
 
-impl Parser {
+#[derive(Debug, Clone, Display)]
+#[display(fmt = "{}", _0)]
+struct Exactly(TokenKind);
+#[derive(Debug, Clone, Display)]
+#[display(fmt = "a binary operator")]
+struct BinaryOp;
+#[derive(Debug, Clone, Display)]
+#[display(fmt = "a unary operator")]
+struct UnaryOp;
+#[derive(Debug, Clone, Display)]
+#[display(fmt = "an identifier")]
+struct Identifier;
+#[derive(Debug, Clone, Display)]
+#[display(fmt = "an integer literal")]
+struct IntegerLiteral;
+#[derive(Debug, Clone, Display)]
+#[display(fmt = "EOF")]
+struct EOF;
 
-    fn parse_program(&self) {
-        loop {
-            if self.try_peek_eof() { break; }
+impl From<Operator> for Exactly {
+    fn from(op: Operator) -> Self {
+        Exactly(TokenKind::Operator(op))
+    }
+}
 
-            self.parse_class_declaration();
+impl From<Keyword> for Exactly {
+    fn from(kw: Keyword) -> Self {
+        Exactly(TokenKind::Keyword(kw))
+    }
+}
+
+impl ExpectedToken for Exactly {
+    type Yields = ();
+    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
+        if &self.0 == token {
+            Some(())
+        } else {
+            None
         }
+    }
+}
 
-        self.read_eof();
+impl ExpectedToken for BinaryOp {
+    type Yields = (Operator, Precedence, Assoc);
+    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
+        match token {
+            // TODO Linear search. meh.
+            TokenKind::Operator(op) => BINARY_OPERATORS
+                .iter()
+                .find(|(this_op, _, _)| this_op == op)
+                .map(|elt| *elt),
+            _ => None,
+        }
+    }
+}
+
+impl ExpectedToken for UnaryOp {
+    type Yields = ();
+    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
+        match token {
+            TokenKind::Operator(Operator::Exclaim) | TokenKind::Operator(Operator::Minus) => {
+                Some(())
+            }
+            _ => None,
+        }
+    }
+}
+
+impl ExpectedToken for Identifier {
+    type Yields = Symbol;
+    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
+        match token {
+            TokenKind::Identifier(ident) => Some(ident.clone()),
+            _ => None,
+        }
+    }
+}
+
+impl ExpectedToken for IntegerLiteral {
+    type Yields = Symbol;
+    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
+        match token {
+            TokenKind::IntegerLiteral(lit) => Some(lit.clone()),
+            _ => None,
+        }
+    }
+}
+
+impl ExpectedToken for EOF {
+    type Yields = ();
+    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
+        match token {
+            TokenKind::EOF => Some(()),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for SyntaxError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use self::SyntaxError::*;
+
+        match self {
+            MissingEOF => write!(f, "lexer should yield EOF at end of iterator"),
+            UnexpectedToken { got, expected } => {
+                write!(f, "unexpected token: got {} expected {}", got, expected)
+            }
+        }
+    }
+}
+
+type SyntaxResult<'f, T> = Result<T, SyntaxError<'f>>;
+// TODO Ok-value should be AST
+type ParserResult<'f> = Result<(), SyntaxError<'f>>;
+
+pub struct Parser<'f, I>
+where
+    I: Iterator<Item = Token<'f>>,
+{
+    lexer: Peekable<I>,
+    eof_token: Option<Token<'f>>,
+}
+
+impl<'f, I> Parser<'f, I>
+where
+    I: Iterator<Item = Token<'f>>,
+{
+    pub fn new(lexer: I) -> Self {
+        Parser {
+            lexer: lexer.peekable(),
+            eof_token: None,
+        }
     }
 
-    fn parse_class_declaration(&self) {
-        self.read_keyword(Keyword.Class);
-        self.read_identifier();
-
-        self.read_op(Operator.LeftBracket);
-        loop {
-            if self.try_peek_op(Operator.RightBracket) { break; }
-
-            self.parse_class_member();
-        }
-        self.read_op(Operator.RightBracket);
+    pub fn parse(&mut self) -> ParserResult<'f> {
+        self.parse_program()
     }
 
-    fn parse_class_member(&self) {
-        self.read_keyword(Keyword.Public);
+    /// Hide `lexer.next() == None` as `next() == EOF`
+    fn next(&mut self) -> SyntaxResult<'f, Token<'f>> {
+        match self.lexer.next() {
+            Some(token) => {
+                self.eof_token = if token.data == TokenKind::EOF {
+                    // Clone is cheap because token data is EOF
+                    Some(token.clone())
+                } else {
+                    None
+                };
 
-        self.try_read_keyword(Keyword.Static);
-        self.parse_type();
-        self.read_identifier();
+                Ok(token)
+            }
+            None => self.eof_token.clone().ok_or(SyntaxError::MissingEOF),
+        }
+    }
 
-        if self.try_peek(Operator.LeftParen) {
-            self.read(Operator.RightParen);
+    /// Hide `lexer.peek() == None` as `peek() == EOF`
+    // TODO DRY! Nearly same as next()
+    fn peek(&mut self) -> SyntaxResult<'f, &Token<'f>> {
+        match self.lexer.peek() {
+            Some(token) => {
+                self.eof_token = if token.data == TokenKind::EOF {
+                    // Clone is cheap because token data is EOF
+                    Some(token.clone())
+                } else {
+                    None
+                };
 
+                Ok(token)
+            }
+            None => self.eof_token.as_ref().ok_or(SyntaxError::MissingEOF),
+        }
+    }
+
+    /// In average compilers this is sometimes called `expect`
+    fn omnomnom<E, G>(&mut self, want: G) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
+    where
+        E: ExpectedToken,
+        G: Into<E>,
+    {
+        let want = want.into();
+        let got = self.next()?;
+
+        want.matching(&got.data)
+            .map(|yielded| got.map(|_| yielded))
+            .ok_or_else(|| SyntaxError::UnexpectedToken {
+                got: got,
+                expected: want.to_string(),
+            })
+    }
+
+    /// An average programmer might call this `try_read`, or a similarily
+    /// whack-ass name
+    fn omnomnoptional<E, G>(&mut self, want: G) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
+    where
+        E: ExpectedToken,
+        G: Into<E>,
+    {
+        let want = want.into();
+        let got = self.peek()?;
+
+        Ok(want
+            .matching(&got.data)
+            .map(|yielded| self.next().unwrap().map(|_| yielded)))
+    }
+
+    fn tastes_like<E, G>(&mut self, want: G) -> SyntaxResult<'f, bool>
+    where
+        E: ExpectedToken,
+        G: Into<E>,
+    {
+        self.peek().map(|got| want.into().matches(&got.data))
+    }
+
+    fn parse_program(&mut self) -> ParserResult<'f> {
+        while self.omnomnoptional(EOF)?.is_none() {
+            self.parse_class_declaration()?;
+        }
+
+        Ok(())
+    }
+
+    fn parse_class_declaration(&mut self) -> ParserResult<'f> {
+        self.omnomnom(Keyword::Class)?;
+        self.omnomnom(Identifier)?;
+
+        self.omnomnom(Operator::LeftBrace)?;
+        while self.omnomnoptional(Operator::RightBrace)?.is_none() {
+            self.parse_class_member()?;
+        }
+
+        Ok(())
+    }
+
+    fn parse_class_member(&mut self) -> ParserResult<'f> {
+        self.omnomnom(Keyword::Public)?;
+
+        self.omnomnoptional(Keyword::Static)?;
+        self.parse_type()?;
+        self.omnomnom(Identifier)?;
+
+        if self.omnomnoptional(Operator::LeftParen)?.is_some() {
             // method or main method
-            loop {
-                // parameters
-                if self.try_peek(Operator.RightParen) { break; }
-                self.parse_parameter();
+
+            if !self.tastes_like(Operator::RightParen)? {
+                self.parse_parameters()?;
             }
 
-            self.read(Operator.RightParen);
+            self.omnomnom(Operator::RightParen)?;
 
-            if (self.try_read_keyword(Keyword.Throws)) {
-                self.read_identifier();
+            if self.omnomnoptional(Keyword::Throws)?.is_some() {
+                self.omnomnom(Identifier)?;
             }
-            self.parse_block();
+
+            self.parse_block()?;
+        } else {
+            self.omnomnom(Operator::Semicolon)?;
         }
-        else {
-            self.read_op(Operator.Semicolon);
-            // we have a field
-        }
+
+        Ok(())
     }
 
-    fn parse_parameter(&self) {
-        self.parse_type();
-        self.read_identifier();
+    fn parse_parameters(&mut self) -> ParserResult<'f> {
+        self.parse_parameter()?;
+        while self.omnomnoptional(Operator::Comma)?.is_some() {
+            self.parse_parameter()?;
+        }
+
+        Ok(())
     }
 
-    fn parse_type(&self) {
-        parse_basic_type(&self);
+    fn parse_parameter(&mut self) -> ParserResult<'f> {
+        self.parse_type()?;
+        self.omnomnom(Identifier)?;
 
-        while self.try_peek_op(Operator.LeftBrace) { // [
-            self.read_op(Operator.LeftBrace);
-            self.read_op(Operator.RightBrace);
+        Ok(())
+    }
+
+    fn parse_type(&mut self) -> ParserResult<'f> {
+        self.parse_basic_type()?;
+
+        while self.omnomnoptional(Operator::LeftBracket)?.is_some() {
+            self.omnomnom(Operator::RightBracket)?;
             // Array Type
         }
+
+        Ok(())
     }
 
-    fn parse_basic_type(&self) {
-        if self.try_peek_keyword(Keyword.Int) {
-            self.try_peek_keyword(Keyword.Int);
-            // int type
-        }
-        else if self.try_peek_keyword(Keyword.Boolean) {
-            self.read_keyword(Keyword.Boolean);
-            // bool type
-        }
-        else if self.try_peek_keyword(Keyword.Void) {
-            self.read_keyword(Keyword.Void);
-            // void type
-        }
-        else {
-            // named type
-            self.read_identifier();
+    fn parse_basic_type(&mut self) -> ParserResult<'f> {
+        if self.omnomnoptional(Keyword::Int)?.is_some()
+            || self.omnomnoptional(Keyword::Boolean)?.is_some()
+            || self.omnomnoptional(Keyword::Void)?.is_some()
+            || self.omnomnoptional(Identifier)?.is_some()
+        {
+            Ok(())
+        } else {
+            unimplemented!()
         }
     }
 
-    fn parse_block(&self) {
-        self.read_op(Operator.LeftBracket);
-        loop {
-            if self.try_peek_op(Operator.RightBracket, true) { break; }
+    fn parse_block(&mut self) -> ParserResult<'f> {
+        self.omnomnom(Operator::LeftBracket)?;
 
-            self.parse_statement_or_local_var(true);
+        while self.omnomnoptional(Operator::RightBracket)?.is_none() {
+            self.parse_block_statement()?;
         }
-        self.read_op(Operator.RightBracket);
+
+        Ok(())
     }
 
-    fn parse_statement(&self) {
+    fn parse_statement(&mut self) -> ParserResult<'f> {
         self.parse_statement_or_local_var(false)
     }
-    
-    fn parse_statement_or_local_var(&self, allow_local_var_decl: bool) {
-        if self.try_peek_op(Operator.LeftBracket) {
-            // block
-            parse_block();
-        }
-        else if self.try_peek_op(Operator.Semicolon) {
-            // empty block
-            self.read_op(Operator.Semicolon);
-        }
-        else if self.try_peek_keyword(Keyword.If) {
-            self.read_keyword(Keyword.If);
-            self.read_op(Operator.LeftParen);
-            self.parse_expression();
-            self.read_op(Operator.RightParen);
 
-            self.parse_statement();
-        }
-        else if self.try_peek_keyword(Keyword.While) {
-            self.read_keyword(Keyword.While);
-            self.read_op(Operator.LeftParen);
-            self.parse_expression();
-            self.read(Operator.RightParen);
-            self.parse_statement();
-        }
-        else if self.try_peek_keyword(Keyword.Return) {
-            self.read_keyword(Keyword.Return);
-            if !self.try_peek_op(Operator.Semicolon) {
-                self.parse_expression();
+    fn parse_block_statement(&mut self) -> ParserResult<'f> {
+        self.parse_statement_or_local_var(true)
+    }
+
+    // Using a bool-flag for *LocalVarDeclStatement* allows us to delay the
+    // descision on weather the statement at point is a *LocalVarDeclStatement*
+    fn parse_statement_or_local_var(&mut self, allow_local_var_decl: bool) -> ParserResult<'f> {
+        if self.tastes_like(Operator::LeftBracket)? {
+            self.parse_block()
+        } else if self.omnomnoptional(Operator::Semicolon)?.is_some() {
+            // empty statement
+            Ok(())
+        } else if self.omnomnoptional(Keyword::If)?.is_some() {
+            self.omnomnom(Operator::LeftParen)?;
+            self.parse_expression()?;
+            self.omnomnom(Operator::RightParen)?;
+
+            self.parse_statement()
+        } else if self.omnomnoptional(Keyword::While)?.is_some() {
+            self.omnomnom(Operator::LeftParen)?;
+            self.parse_expression()?;
+            self.omnomnom(Operator::RightParen)?;
+
+            self.parse_statement()
+        } else if self.omnomnoptional(Keyword::Return)?.is_some() {
+            if !self.tastes_like(Operator::Semicolon)? {
+                self.parse_expression()?;
             }
-            self.read_op(Operator.Semicolon);
-        }
-        else if allow_local_var_decl {
-            self.parse_type();
-            self.read_identifier();
-            if self.try_peek_op(Operator.Equals) {
-                self.read_op(Operator.Equals);
-                self.parse_expression();
+
+            self.omnomnom(Operator::Semicolon)?;
+
+            Ok(())
+        } else if allow_local_var_decl {
+            self.parse_type()?;
+            self.omnomnom(Identifier)?;
+            if self.omnomnoptional(Operator::Equal)?.is_some() {
+                self.parse_expression()?;
             }
-            self.read_op(Operator.Semicolon);
-        }
-        else {
-            self.fail(&"Could not parse statement");
+
+            self.omnomnom(Operator::Semicolon)?;
+
+            Ok(())
+        } else {
+            // TODO Error
+            unimplemented!()
         }
     }
 
-    fn parse_expression(&self) {
-        parse_binary_expression(-1)
+    fn parse_expression(&mut self) -> ParserResult<'f> {
+        self.parse_binary_expression(0)
     }
 
-    fn parse_binary_expression(&self, cur_priority: u32) {
-        parse_expression();
+    /// Uses precedence climbing
+    fn parse_binary_expression(&mut self, min_precedence: usize) -> ParserResult<'f> {
+        self.parse_expression()?;
 
         // tries to read some binary operators
-        loop {
-            if let Op(op, op_priority, associativity) = self.try_peek_binary_op() {
-                if (op_priority > priority) break;
-                
-                self.read_op(op);
-                let expr2 = self.parse_binary_expression(op_priority);
-            }
-            else {
+        while let Some((op, mut prec, assoc)) =
+            self.omnomnoptional(BinaryOp)?.map(|spanned| spanned.data)
+        {
+            if prec > min_precedence {
                 break;
             }
+
+            if assoc == Assoc::Left {
+                prec += 1;
+            }
+
+            self.omnomnom(op)?;
+            // TODO Not tail recursive
+            self.parse_binary_expression(prec)?;
         }
+
+        Ok(())
     }
 
-    fn parse_unary_expr(&self) {
+    fn parse_unary_expr(&mut self) -> ParserResult<'f> {
         // try read prefixOp
-        if self.try_peek_unary_op() {
-            self.read_op();
-
-            self.parse_unary_expr();
-        }
-        else {
-            self.parse_postfix_expression();
+        if self.omnomnoptional(UnaryOp)?.is_some() {
+            self.parse_unary_expr()
+        } else {
+            self.parse_postfix_expression()
         }
     }
 
-    fn parse_postfix_expression(&self) {
-        self.parse_primary_expression();
+    fn parse_postfix_expression(&mut self) -> ParserResult<'f> {
+        self.parse_primary_expression()?;
 
         loop {
-            if self.try_peek_op(Operator.Dot) {
-                self.read_identifier();
+            if self.omnomnoptional(Operator::Dot)?.is_some() {
+                self.omnomnom(Identifier)?;
 
-                if (self.try_peek_op(Operator.LeftParen)) {
-                    self.parse_parenthesized_argument_list();
+                if self.omnomnoptional(Operator::LeftParen)?.is_some() {
                     // method call: EXPR.ident(arg1, arg2, ...)
-                }
-                else {
+                    self.parse_parenthesized_argument_list()?;
+                } else {
                     // member reference: EXPR.ident
                 }
-            }
-            else if self.try_peek_op(Operator.LeftBrace) {
-                self.read_op(Operator.LeftBrace);
-                self.parse_expression();
-                self.read_op(Operator.RightBrace);
+            } else if self.omnomnoptional(Operator::LeftBracket)?.is_some() {
                 // array access: EXPR[EXPR]
-            }
-            else {
+                self.parse_expression()?;
+                self.omnomnom(Operator::RightBracket)?;
+            } else {
                 break;
             }
         }
+
+        Ok(())
     }
 
-    fn parse_primary_expression(&self) {
-        if self.try_peek_keyword(Keyword.Null) {
-            self.read_keyword(Keyword.Null);
-        }
-        else if self.try_peek_keyword(Keyword.False) {
-            self.read_keyword(Keyword.False);
-        }
-        else if self.try_peek_keyword(Keyword.True) {
-            self.read_keyword(Keyword.True);
-        }
-        else if self.try_peek_integer() {
-            self.read_integer();
-        }
-        else if self.try_peek_identifier() {
-            self.read_identifier();
-
-            if self.try_read_op(Operator.LeftParen) {
+    fn parse_primary_expression(&mut self) -> ParserResult<'f> {
+        if self.omnomnoptional(Identifier)?.is_some() {
+            if self.tastes_like(Operator::LeftParen)? {
                 // function call
-                self.parse_parenthesized_argument_list();
-            }
-            else {
+                self.parse_parenthesized_argument_list()
+            } else {
                 // var ref
+                Ok(())
             }
-        }
-        else if self.try_peek_keyword(Keyword.This) {
-            self.read_keyword(Keyword.This);
-        }
-        else if self.try_peek_op(Operator.LeftParen) {
+        } else if self.omnomnoptional(Operator::LeftParen)?.is_some() {
             // parenthesized expression
-            self.read_op(Operator.LeftParen);
-            self.parse_expression();
-            self.read(Operator.RightParen);
-        }
-        else if self.try_peek_keyword(Keyword.New) {
-            self.read_keyword(Keyword.New);
+            self.parse_expression()?;
+            self.omnomnom(Operator::RightParen)?;
 
-            self.parse_basic_type();
+            Ok(())
+        } else if self.omnomnoptional(Keyword::New)?.is_some() {
+            self.parse_basic_type()?;
 
-            if true {
-                // todo: "new int()" is not allowed
+            if self.omnomnoptional(Operator::LeftParen)?.is_some() {
                 // new object expression
-                self.read_op(Operator.LeftParen);
-                self.read(Operator.RightParen);
-            }
-            else {
+                self.omnomnom(Operator::RightParen)?;
+            } else {
                 // new array expression
-                self.read_op(Operator.LeftBrace);
-                self.parse_expression();
-                self.read_op(Operator.RightBrace);
+                self.omnomnom(Operator::LeftBrace)?;
+                self.parse_expression()?;
+                self.omnomnom(Operator::RightBrace)?;
 
-                while self.try_peek_op(Operator.LeftBrace) { // [
-                    self.read_op(Operator.LeftBrace);
-                    self.read_op(Operator.RightBrace);
+                while self.omnomnoptional(Operator::LeftBrace)?.is_some() {
+                    self.omnomnom(Operator::RightBrace)?;
                 }
             }
-        }
-        else {
-            self.fail();
+
+            Ok(())
+        } else if self.omnomnoptional(Keyword::Null)?.is_some()
+            || self.omnomnoptional(Keyword::False)?.is_some()
+            || self.omnomnoptional(Keyword::True)?.is_some()
+            || self.omnomnoptional(Keyword::This)?.is_some()
+            || self.omnomnoptional(IntegerLiteral)?.is_some()
+        {
+            Ok(())
+        } else {
+            unimplemented!()
         }
     }
 
-    fn parse_parenthesized_argument_list() {
-        self.read_op(Operator.LeftParen);
-        loop {
-            if self.try_peek_op(Operator.RightParen) { break; }
-
-            self.parse_expression();
+    fn parse_parenthesized_argument_list(&mut self) -> ParserResult<'f> {
+        self.omnomnom(Operator::LeftParen)?;
+        while self.omnomnoptional(Operator::RightParen)?.is_none() {
+            self.parse_expression()?;
         }
-        self.read(Operator.RightParen);
+        self.omnomnom(Operator::RightParen)?;
+
+        Ok(())
     }
 }

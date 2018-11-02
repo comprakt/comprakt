@@ -5,6 +5,7 @@
 #![feature(const_str_as_bytes)]
 #![feature(box_syntax)]
 #![feature(repeat_generic_slice)]
+#![feature(never_type)]
 
 #[macro_use]
 extern crate derive_more;
