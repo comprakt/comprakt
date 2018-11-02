@@ -4,15 +4,36 @@ use crate::{
     utils::MultiPeekable,
 };
 
-use std::{fmt, iter::Peekable};
+use std::fmt;
 
 type Precedence = usize;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Assoc {
     Left,
+    #[allow(dead_code)]
     Right,
 }
-const BINARY_OPERATORS: &[(Operator, Precedence, Assoc)] = &[];
+#[rustfmt::skip]
+const BINARY_OPERATORS: &[(Operator, Precedence, Assoc)] = &[
+    (Operator::Star,              1, Assoc::Left),
+    (Operator::Slash,             1, Assoc::Left),
+    (Operator::Percent,           1, Assoc::Left),
+
+    (Operator::Plus,              2, Assoc::Left),
+    (Operator::Minus,             2, Assoc::Left),
+
+    (Operator::LeftChevron,       3, Assoc::Left),
+    (Operator::LeftChevronEqual,  3, Assoc::Left),
+    (Operator::RightChevron,      3, Assoc::Left),
+    (Operator::RightChevronEqual, 3, Assoc::Left),
+
+    (Operator::DoubleEqual,       4, Assoc::Left),
+    (Operator::ExclaimEqual,      4, Assoc::Left),
+
+    (Operator::DoubleAmpersand,   5, Assoc::Left),
+
+    (Operator::DoublePipe,        6, Assoc::Left),
+];
 
 #[derive(Debug, Clone)]
 pub enum SyntaxError<'f> {
@@ -244,9 +265,10 @@ where
         let want = want.into();
         let got = self.peek()?;
 
-        Ok(want
-            .matching(&got.data)
-            .map(|yielded| self.next().unwrap().map(|_| yielded)))
+        Ok(want.matching(&got.data).filter(&pred).map(|yielded| {
+            let got = self.next().unwrap();
+            got.map(|_| yielded)
+        }))
     }
 
     fn tastes_like<E, G>(&mut self, want: G) -> SyntaxResult<'f, bool>
@@ -470,20 +492,14 @@ where
         self.parse_unary_expression()?;
 
         // tries to read some binary operators
-        while let Some((op, mut prec, assoc)) = self
-            .omnomnoptional::<BinaryOp, _>(BinaryOp)?
+        while let Some((_, mut prec, assoc)) = self
+            .omnomnoptional_if::<BinaryOp, _, _>(BinaryOp, |(_, prec, _)| *prec >= min_precedence)?
             .map(|spanned| spanned.data)
         {
-            if prec > min_precedence {
-                break;
-            }
-
             if assoc == Assoc::Left {
                 prec += 1;
             }
 
-            self.omnomnom::<Exactly, _>(op)?;
-            // TODO Not tail recursive
             self.parse_binary_expression(prec)?;
         }
 
