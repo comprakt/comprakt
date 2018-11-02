@@ -159,6 +159,18 @@ pub struct Position<'t> {
     file: &'t AsciiFile<'t>,
 }
 
+#[cfg(test)]
+impl<'t> Position<'t> {
+    pub fn dummy() -> Self {
+        Position {
+            row: 0,
+            col: 0,
+            byte_offset: 0,
+            file: Box::leak(box AsciiFile::new(&[]).unwrap()),
+        }
+    }
+}
+
 impl<'t> Position<'t> {
     pub fn get_line(
         &self,

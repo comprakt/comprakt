@@ -55,6 +55,12 @@ impl<'f, T> Spanned<'f, T> {
         }
     }
 
+    #[cfg(test)]
+    pub fn dummy(val: T) -> Self {
+        let pos = Position::dummy();
+        Spanned::new(pos, pos, val)
+    }
+
     pub fn map<U, F>(&self, f: F) -> Spanned<'f, U>
     where
         F: FnOnce(&T) -> U,
