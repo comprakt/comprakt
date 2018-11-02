@@ -152,7 +152,7 @@ macro_rules! setup_io {
             asciifile::AsciiFile::new(&bytes).context(CliError::Ascii { path: path.clone() })?;
 
         let stderr = StandardStream::stderr(ColorChoice::Auto);
-        let $context = Context::new(ascii_file, box stderr);
+        let $context = Context::new(&ascii_file, box stderr);
     };
 }
 
