@@ -1,6 +1,7 @@
 use crate::{
     lexer::{Keyword, Operator, Spanned, Token, TokenKind},
     strtab::Symbol,
+    utils::MultiPeekable,
 };
 
 use std::{fmt, iter::Peekable};
@@ -151,7 +152,7 @@ pub struct Parser<'f, I>
 where
     I: Iterator<Item = Token<'f>>,
 {
-    lexer: Peekable<I>,
+    lexer: MultiPeekable<I>,
     eof_token: Option<Token<'f>>,
 }
 
@@ -161,7 +162,7 @@ where
 {
     pub fn new(lexer: I) -> Self {
         Parser {
-            lexer: lexer.peekable(),
+            lexer: MultiPeekable::new(lexer),
             eof_token: None,
         }
     }
@@ -172,35 +173,32 @@ where
 
     /// Hide `lexer.next() == None` as `next() == EOF`
     fn next(&mut self) -> SyntaxResult<'f, Token<'f>> {
+        self.peek()?;
         match self.lexer.next() {
-            Some(token) => {
-                self.eof_token = if token.data == TokenKind::EOF {
-                    // Clone is cheap because token data is EOF
-                    Some(token.clone())
-                } else {
-                    None
-                };
-
-                Ok(token)
-            }
+            Some(token) => Ok(token),
             None => self.eof_token.clone().ok_or(SyntaxError::MissingEOF),
         }
     }
 
     /// Hide `lexer.peek() == None` as `peek() == EOF`
-    // TODO DRY! Nearly same as next()
     fn peek(&mut self) -> SyntaxResult<'f, &Token<'f>> {
-        match self.lexer.peek() {
-            Some(token) => {
-                self.eof_token = if token.data == TokenKind::EOF {
-                    // Clone is cheap because token data is EOF
-                    Some(token.clone())
-                } else {
-                    None
-                };
+        self.peek_nth(0)
+    }
 
-                Ok(token)
-            }
+    fn peek_nth(&mut self, n: usize) -> SyntaxResult<'f, &Token<'f>> {
+        let v = self.lexer.peek_multiple(n + 1);
+
+        for token in v.iter() {
+            self.eof_token = if token.data == TokenKind::EOF {
+                // Clone is cheap because token data is EOF
+                Some((*token).clone())
+            } else {
+                None
+            };
+        }
+
+        match v.get(n) {
+            Some(token) => Ok(token),
             None => self.eof_token.as_ref().ok_or(SyntaxError::MissingEOF),
         }
     }
@@ -229,6 +227,20 @@ where
         E: ExpectedToken,
         G: Into<E>,
     {
+        self.omnomnoptional_if(want, |_| true)
+    }
+
+    /// Only consume token if pred(E::Yields) holds
+    fn omnomnoptional_if<E, G, P>(
+        &mut self,
+        want: G,
+        pred: P,
+    ) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
+    where
+        E: ExpectedToken,
+        G: Into<E>,
+        P: Fn(&E::Yields) -> bool,
+    {
         let want = want.into();
         let got = self.peek()?;
 
@@ -242,7 +254,15 @@ where
         E: ExpectedToken,
         G: Into<E>,
     {
-        self.peek().map(|got| want.into().matches(&got.data))
+        self.nth_tastes_like(0, want)
+    }
+
+    fn nth_tastes_like<E, G>(&mut self, n: usize, want: G) -> SyntaxResult<'f, bool>
+    where
+        E: ExpectedToken,
+        G: Into<E>,
+    {
+        self.peek_nth(n).map(|got| want.into().matches(&got.data))
     }
 
     fn parse_program(&mut self) -> ParserResult<'f> {
@@ -405,22 +425,40 @@ where
 
             Ok(())
         } else if allow_local_var_decl {
-            self.parse_type()?;
-            self.omnomnom::<Identifier, _>(Identifier)?;
-            if self
-                .omnomnoptional::<Exactly, _>(Operator::Equal)?
-                .is_some()
+            // next tastes like *BasicType*
+            // next after that like *Identifier*
+            if (self.tastes_like::<Exactly, _>(Keyword::Int)?
+                || self.tastes_like::<Exactly, _>(Keyword::Boolean)?
+                || self.tastes_like::<Exactly, _>(Keyword::Void)?
+                || self.tastes_like::<Identifier, _>(Identifier)?)
+                && self.nth_tastes_like::<Identifier, _>(1, Identifier)?
             {
-                self.parse_expression()?;
-            }
+                // Local var decl
+                self.parse_type()?;
+                self.omnomnom::<Identifier, _>(Identifier)?;
+                if self
+                    .omnomnoptional::<Exactly, _>(Operator::Equal)?
+                    .is_some()
+                {
+                    self.parse_expression()?;
+                }
 
-            self.omnomnom::<Exactly, _>(Operator::Semicolon)?;
+                self.omnomnom::<Exactly, _>(Operator::Semicolon)?;
+            } else {
+                self.parse_expression_statement()?;
+            }
 
             Ok(())
         } else {
-            // TODO Error
-            unimplemented!()
+            self.parse_expression_statement()
         }
+    }
+
+    fn parse_expression_statement(&mut self) -> ParserResult<'f> {
+        self.parse_expression()?;
+        self.omnomnom::<Exactly, _>(Operator::Semicolon)?;
+
+        Ok(())
     }
 
     fn parse_expression(&mut self) -> ParserResult<'f> {
@@ -580,6 +618,9 @@ mod tests {
             .map(|token_kind| Spanned::dummy(token_kind))
             .collect()
     }
+
+    #[test]
+    fn iter_test() {}
 
     #[test]
     fn hello_world() {
