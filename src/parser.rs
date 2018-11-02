@@ -667,6 +667,7 @@ where
 }
 
 #[cfg(test)]
+#[allow(clippy::string_lit_as_bytes)]
 mod tests {
     use super::*;
     use crate::{asciifile::AsciiFile, context::Context, lexer::Lexer, strtab::StringTable};
