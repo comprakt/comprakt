@@ -129,7 +129,7 @@ We do *not* provide a proof that the grammar is SLL(4).
 However, a survey of the roots of the most important rules makes this clear.
 (Grouping is indicated by empty newlines in above notation):
 
-* `BlockStatement` is SLL(2), distinguish `ExpressionStatement` from `LocalVariableDeclarationStatement` through `{IDENT,bool,int} IDENT`
+* `BlockStatement` is SLL(2), distinguish `ExpressionStatement` from `LocalVariableDeclarationStatement` through `{IDENT,bool,int,void} IDENT`
 * `Arguments` SLL(1) because `Follow(Arguments) = {')'}` and `First(Arguments) \ eps` is disjoint from `Follow(Arguments)`
 * `PostfixOp` SLL(3) because `. IDENT` is common prefix of `MethodInvocation` and `FieldAccess`
 * `PrimaryExpression` is SLL(3), mostly because of `NewObjectExpression` and `NewArrayExpression`
