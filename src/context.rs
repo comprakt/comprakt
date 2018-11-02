@@ -16,6 +16,7 @@ impl<'m> Context<'m> {
         }
     }
 
+    #[cfg(test)]
     pub fn dummy(file: &'m AsciiFile<'m>) -> Self {
         Self::new(file, box dummy_writer())
     }
@@ -30,6 +31,7 @@ impl<'m> Context<'m> {
 }
 
 // dummy_writer returns a WriteColor meant for use in tests.
+#[cfg(test)]
 pub fn dummy_writer() -> impl termcolor::WriteColor {
     use termcolor::Buffer;
     // FIXME: actually have something that discards the output

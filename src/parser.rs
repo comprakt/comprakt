@@ -1,3 +1,6 @@
+//TODO remove after handling of else
+#![allow(clippy::if_same_then_else)]
+
 use crate::{
     lexer::{Keyword, Operator, Spanned, Token, TokenKind},
     strtab::Symbol,
@@ -104,7 +107,7 @@ impl ExpectedToken for BinaryOp {
             TokenKind::Operator(op) => BINARY_OPERATORS
                 .iter()
                 .find(|(this_op, _, _)| this_op == op)
-                .map(|elt| *elt),
+                .cloned(),
             _ => None,
         }
     }
@@ -236,7 +239,7 @@ where
         want.matching(&got.data)
             .map(|yielded| got.map(|_| yielded))
             .ok_or_else(|| SyntaxError::UnexpectedToken {
-                got: got,
+                got,
                 expected: want.to_string(),
             })
     }
@@ -631,12 +634,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        asciifile::AsciiFile,
-        context::Context,
-        lexer::{Lexer, Token},
-        strtab::{StringTable, *},
-    };
+    use crate::{asciifile::AsciiFile, context::Context, lexer::Lexer, strtab::StringTable};
 
     macro_rules! lex_input {
         ($itervar:ident = $input:expr) => {
