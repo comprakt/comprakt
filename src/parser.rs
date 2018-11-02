@@ -387,7 +387,10 @@ where
         {
             Ok(())
         } else {
-            unimplemented!()
+            Err(SyntaxError::UnexpectedToken {
+                got: self.next()?,
+                expected: "keywod int, boolean, void or an identifier".to_string(),
+            })
         }
     }
 
@@ -605,7 +608,10 @@ where
         {
             Ok(())
         } else {
-            unimplemented!()
+            Err(SyntaxError::UnexpectedToken {
+                got: self.next()?,
+                expected: "primary expression".to_string(),
+            })
         }
     }
 
