@@ -506,10 +506,7 @@ where
             if self.omnomnoptional::<Exactly, _>(Operator::Dot)?.is_some() {
                 self.omnomnom::<Identifier, _>(Identifier)?;
 
-                if self
-                    .omnomnoptional::<Exactly, _>(Operator::LeftParen)?
-                    .is_some()
-                {
+                if self.tastes_like::<Exactly, _>(Operator::LeftParen)? {
                     // method call: EXPR.ident(arg1, arg2, ...)
                     self.parse_parenthesized_argument_list()?;
                 } else {
@@ -594,7 +591,6 @@ where
         {
             self.parse_expression()?;
         }
-        self.omnomnom::<Exactly, _>(Operator::RightParen)?;
 
         Ok(())
     }
