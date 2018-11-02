@@ -16,6 +16,10 @@ impl<'m> Context<'m> {
         }
     }
 
+    pub fn dummy(file: &'m AsciiFile<'m>) -> Self {
+        Self::new(file, box dummy_writer())
+    }
+
     pub fn warning(&self, spanned: Spanned<'m, Box<dyn AsFail>>) {
         self.diagnostics.warning_with_source_snippet(spanned);
     }
@@ -23,4 +27,11 @@ impl<'m> Context<'m> {
     pub fn error(&self, spanned: Spanned<'m, Box<dyn AsFail>>) {
         self.diagnostics.error_with_source_snippet(spanned);
     }
+}
+
+// dummy_writer returns a WriteColor meant for use in tests.
+pub fn dummy_writer() -> impl termcolor::WriteColor {
+    use termcolor::Buffer;
+    // FIXME: actually have something that discards the output
+    Buffer::no_color()
 }
