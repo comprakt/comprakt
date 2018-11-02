@@ -87,6 +87,8 @@ fn main() {
     }
 }
 
+use crate::strtab::StringTable;
+
 fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
     match cmd {
         CliCommand::Echo { path } => cmd_echo(path),
@@ -156,7 +158,8 @@ macro_rules! setup_io {
 
 fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
     setup_io!(let context = path);
-    let lexer = Lexer::new(&context);
+    let strtab = StringTable::new();
+    let lexer = Lexer::new(&strtab, &context);
 
     // adapt lexer to fail on first error
     let unforgiving_lexer = lexer.map(|result| match result {
@@ -184,7 +187,8 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
 
 fn cmd_lextest(path: &PathBuf) -> Result<(), Error> {
     setup_io!(let context = path);
-    let lexer = Lexer::new(&context);
+    let strtab = StringTable::new();
+    let lexer = Lexer::new(&strtab, &context);
 
     let mut stdout = io::stdout();
 

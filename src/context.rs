@@ -1,11 +1,10 @@
 //! All state shared by the lexer, parser and semantic analysis phases.
-use crate::{asciifile::AsciiFile, diagnostics::Diagnostics, lexer::Spanned, strtab::StringTable};
+use crate::{asciifile::AsciiFile, diagnostics::Diagnostics, lexer::Spanned};
 use failure::AsFail;
 use termcolor::WriteColor;
 
 pub struct Context<'ctx> {
     pub file: AsciiFile<'ctx>,
-    pub strtab: StringTable,
     pub diagnostics: Diagnostics,
 }
 
@@ -13,7 +12,6 @@ impl<'ctx> Context<'ctx> {
     pub fn new(file: AsciiFile<'ctx>, writer: Box<dyn WriteColor>) -> Self {
         Self {
             file,
-            strtab: StringTable::new(),
             diagnostics: Diagnostics::new(writer),
         }
     }
