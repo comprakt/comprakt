@@ -484,7 +484,17 @@ where
     }
 
     fn parse_expression(&mut self) -> ParserResult<'f> {
-        self.parse_binary_expression(0)
+        self.parse_binary_expression(0)?;
+
+        // Assignment expression
+        while self
+            .omnomnoptional::<Exactly, _>(Operator::Equal)?
+            .is_some()
+        {
+            self.parse_binary_expression(0)?;
+        }
+
+        Ok(())
     }
 
     /// Uses precedence climbing
@@ -787,6 +797,33 @@ mod tests {
                 /*     String[] args          */ident("String", &strtab), Operator(LeftBracket), Operator(RightBracket), ident("args", &strtab),
                 /*   ) {                      */Operator(RightParen), Operator(LeftBrace),
                 /*     return 11 + 42 * 31;   */Keyword(Return), lit("11", &strtab), Operator(Plus), lit("42", &strtab), Operator(Star), lit("31", &strtab), Operator(Semicolon),
+                /*   }                        */Operator(RightBrace),
+                /* }                          */Operator(RightBrace),
+                /* #                          */EOF,
+            ]
+        };
+
+        let tokens = test_tokens(tokens);
+
+        assert_matches!(Parser::new(tokens.into_iter()).parse(), Ok(_))
+    }
+
+    #[test]
+    fn assignment_expression() {
+        let strtab = StringTable::new();
+
+        #[rustfmt::skip]
+        let tokens = {
+            use crate::lexer::Keyword::*;
+            use crate::lexer::Operator::*;
+            use crate::lexer::TokenKind::*;
+
+            vec![
+                /* class Foo {                */Keyword(Class), ident("Foo", &strtab), Operator(LeftBrace),
+                /*   public static void main( */Keyword(Public), Keyword(Static), Keyword(Void), ident("main", &strtab), Operator(LeftParen),
+                /*     String[] args          */ident("String", &strtab), Operator(LeftBracket), Operator(RightBracket), ident("args", &strtab),
+                /*   ) {                      */Operator(RightParen), Operator(LeftBrace),
+                /*     return x || y = z  ;   */Keyword(Return), ident("x", &strtab), Operator(DoublePipe), ident("y", &strtab), Operator(Equal), lit("z", &strtab), Operator(Semicolon),
                 /*   }                        */Operator(RightBrace),
                 /* }                          */Operator(RightBrace),
                 /* #                          */EOF,
