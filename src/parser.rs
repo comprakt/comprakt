@@ -370,10 +370,10 @@ where
     }
 
     fn parse_block(&mut self) -> ParserResult<'f> {
-        self.omnomnom::<Exactly, _>(Operator::LeftBracket)?;
+        self.omnomnom::<Exactly, _>(Operator::LeftBrace)?;
 
         while self
-            .omnomnoptional::<Exactly, _>(Operator::RightBracket)?
+            .omnomnoptional::<Exactly, _>(Operator::RightBrace)?
             .is_none()
         {
             self.parse_block_statement()?;
@@ -393,7 +393,7 @@ where
     // Using a bool-flag for *LocalVarDeclStatement* allows us to delay the
     // descision on weather the statement at point is a *LocalVarDeclStatement*
     fn parse_statement_or_local_var(&mut self, allow_local_var_decl: bool) -> ParserResult<'f> {
-        if self.tastes_like::<Exactly, _>(Operator::LeftBracket)? {
+        if self.tastes_like::<Exactly, _>(Operator::LeftBrace)? {
             self.parse_block()
         } else if self
             .omnomnoptional::<Exactly, _>(Operator::Semicolon)?
@@ -559,15 +559,15 @@ where
                 self.omnomnom::<Exactly, _>(Operator::RightParen)?;
             } else {
                 // new array expression
-                self.omnomnom::<Exactly, _>(Operator::LeftBrace)?;
+                self.omnomnom::<Exactly, _>(Operator::LeftBracket)?;
                 self.parse_expression()?;
-                self.omnomnom::<Exactly, _>(Operator::RightBrace)?;
+                self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
 
                 while self
-                    .omnomnoptional::<Exactly, _>(Operator::LeftBrace)?
+                    .omnomnoptional::<Exactly, _>(Operator::LeftBracket)?
                     .is_some()
                 {
-                    self.omnomnom::<Exactly, _>(Operator::RightBrace)?;
+                    self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
                 }
             }
 
