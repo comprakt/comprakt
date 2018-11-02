@@ -163,8 +163,19 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
     let lexer = Lexer::new(&strtab, &context);
 
     // adapt lexer to fail on first error
-    let unforgiving_lexer = lexer.map(|result| match result {
-        Ok(token) => token,
+    let unforgiving_lexer = lexer.filter_map(|result| match result {
+        Ok(token) => match token {
+            Spanned {
+                data: TokenKind::Whitespace,
+                ..
+            }
+            | Spanned {
+                data: TokenKind::Comment(_),
+                ..
+            } => None,
+            _ => Some(token),
+        },
+
         Err(_) => {
             context.diagnostics.write_statistics();
             exit(1);
