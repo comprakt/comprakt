@@ -631,20 +631,32 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::strtab::*;
+    use crate::{
+        asciifile::AsciiFile,
+        context::Context,
+        lexer::{Lexer, Token},
+        strtab::{StringTable, *},
+    };
 
-    fn ident(name: &str, strtab: &StringTable) -> TokenKind {
-        TokenKind::Identifier(strtab.intern(name))
-    }
-
-    fn lit(val: &str, strtab: &StringTable) -> TokenKind {
-        TokenKind::IntegerLiteral(strtab.intern(val))
-    }
-
-    fn test_tokens(raw: Vec<TokenKind>) -> Vec<Token<'static>> {
-        raw.into_iter()
-            .map(|token_kind| Spanned::dummy(token_kind))
-            .collect()
+    macro_rules! lex_input {
+        ($itervar:ident = $input:expr) => {
+            let strtab = StringTable::new();
+            let input = AsciiFile::new($input.as_bytes()).unwrap();
+            let ctx = Context::dummy(&input);
+            let $itervar = Lexer::new(&strtab, &ctx)
+                .map(|r| r.unwrap())
+                .filter(|t| match t {
+                    Spanned {
+                        data: TokenKind::Whitespace,
+                        ..
+                    }
+                    | Spanned {
+                        data: TokenKind::Comment(_),
+                        ..
+                    } => false,
+                    _ => true,
+                });
+        };
     }
 
     #[test]
@@ -652,192 +664,99 @@ mod tests {
 
     #[test]
     fn hello_world() {
-        let strtab = StringTable::new();
-
-        #[rustfmt::skip]
-        let tokens = {
-            use crate::lexer::Keyword::*;
-            use crate::lexer::Operator::*;
-            use crate::lexer::TokenKind::*;
-
-            vec![
-                /* class Foo {                */Keyword(Class), ident("Foo", &strtab), Operator(LeftBrace),
-                /*   public static void main( */Keyword(Public), Keyword(Static), Keyword(Void), ident("main", &strtab), Operator(LeftParen),
-                /*     String[] args          */ident("String", &strtab), Operator(LeftBracket), Operator(RightBracket), ident("args", &strtab),
-                /*   ) {                      */Operator(RightParen), Operator(LeftBrace),
-                /*     System.out.println     */ident("System", &strtab), Operator(Dot), ident("out", &strtab), Operator(Dot), ident("println", &strtab),
-                /*     (42);                  */Operator(LeftParen), lit("42", &strtab), Operator(RightParen), Operator(Semicolon),
-                /*   }                        */Operator(RightBrace),
-                /* }                          */Operator(RightBrace),
-                /* #                          */EOF,
-            ]
-        };
-
-        let tokens = test_tokens(tokens);
-
-        assert_matches!(Parser::new(tokens.into_iter()).parse(), Ok(_))
+        lex_input!(
+            lx = r#"
+            class Foo {
+                public static void main( String[] args) {
+                    System.out.println(42);
+                }
+            }
+        "#
+        );
+        assert_matches!(Parser::new(lx).parse(), Ok(_))
     }
 
     #[test]
     fn missing_semicolon() {
-        let strtab = StringTable::new();
-
-        #[rustfmt::skip]
-        let tokens = {
-            use crate::lexer::Keyword::*;
-            use crate::lexer::Operator::*;
-            use crate::lexer::TokenKind::*;
-
-            vec![
-                /* class Foo {                */Keyword(Class), ident("Foo", &strtab), Operator(LeftBrace),
-                /*   public static void main( */Keyword(Public), Keyword(Static), Keyword(Void), ident("main", &strtab), Operator(LeftParen),
-                /*     String[] args          */ident("String", &strtab), Operator(LeftBracket), Operator(RightBracket), ident("args", &strtab),
-                /*   ) {                      */Operator(RightParen), Operator(LeftBrace),
-                /*     System.out.println     */ident("System", &strtab), Operator(Dot), ident("out", &strtab), Operator(Dot), ident("println", &strtab),
-                /*     (42)                   */Operator(LeftParen), lit("42", &strtab), Operator(RightParen),
-                /*   }                        */Operator(RightBrace),
-                /* }                          */Operator(RightBrace),
-                /* #                          */EOF,
-            ]
-        };
-
-        let tokens = test_tokens(tokens);
-
-        assert_matches!(Parser::new(tokens.into_iter()).parse(), Err(_))
+        lex_input!(
+            lx = r#"
+            class Foo {
+                public static void main( String[] args) {
+                    System.out.println(42)
+                }
+            }
+        "#
+        );
+        assert_matches!(Parser::new(lx).parse(), Err(_))
     }
 
     #[test]
     fn invalid_basic_type() {
-        let strtab = StringTable::new();
-
-        #[rustfmt::skip]
-        let tokens = {
-            use crate::lexer::Keyword::*;
-            use crate::lexer::Operator::*;
-            use crate::lexer::TokenKind::*;
-
-            vec![
-                /* class Foo {                */Keyword(Class), ident("Foo", &strtab), Operator(LeftBrace),
-                /*   public abstract foo(     */Keyword(Public), Keyword(Abstract), ident("foo", &strtab), Operator(LeftParen),
-                /*   ) {                      */Operator(RightParen), Operator(LeftBrace),
-                /*     System.out.println     */ident("System", &strtab), Operator(Dot), ident("out", &strtab), Operator(Dot), ident("println", &strtab),
-                /*     (42);                  */Operator(LeftParen), lit("42", &strtab), Operator(RightParen), Operator(Semicolon),
-                /*   }                        */Operator(RightBrace),
-                /* }                          */Operator(RightBrace),
-                /* #                          */EOF,
-            ]
-        };
-
-        let tokens = test_tokens(tokens);
-
-        assert_matches!(Parser::new(tokens.into_iter()).parse(), Err(_))
+        lex_input!(
+            lx = r#"
+            class Foo {
+                public abstract foo() {
+                    System.out.println(42);
+                }
+            }
+        "#
+        );
+        assert_matches!(Parser::new(lx).parse(), Err(_));
     }
 
     #[test]
     fn invalid_statement() {
-        let strtab = StringTable::new();
-
-        #[rustfmt::skip]
-        let tokens = {
-            use crate::lexer::Keyword::*;
-            use crate::lexer::Operator::*;
-            use crate::lexer::TokenKind::*;
-
-            vec![
-                /* class Foo {                */Keyword(Class), ident("Foo", &strtab), Operator(LeftBrace),
-                /*   public static void main( */Keyword(Public), Keyword(Static), Keyword(Void), ident("main", &strtab), Operator(LeftParen),
-                /*     String[] args          */ident("String", &strtab), Operator(LeftBracket), Operator(RightBracket), ident("args", &strtab),
-                /*   ) {                      */Operator(RightParen), Operator(LeftBrace),
-                /*      []42;                 */Operator(LeftBracket), Operator(RightBracket), lit("42", &strtab), Operator(Semicolon),
-                /*   }                        */Operator(RightBrace),
-                /* }                          */Operator(RightBrace),
-                /* #                          */EOF,
-            ]
-        };
-
-        let tokens = test_tokens(tokens);
-
-        assert_matches!(Parser::new(tokens.into_iter()).parse(), Err(_))
+        lex_input!(
+            lx = r#"
+            class Foo {
+                public static void main(String[] args) {
+                    []42;
+                }
+            }
+        "#
+        );
+        assert_matches!(Parser::new(lx).parse(), Err(_));
     }
 
     #[test]
     fn invalid_expression() {
-        let strtab = StringTable::new();
-
-        #[rustfmt::skip]
-        let tokens = {
-            use crate::lexer::Keyword::*;
-            use crate::lexer::Operator::*;
-            use crate::lexer::TokenKind::*;
-
-            vec![
-                /* class Foo {                */Keyword(Class), ident("Foo", &strtab), Operator(LeftBrace),
-                /*   public static void main( */Keyword(Public), Keyword(Static), Keyword(Void), ident("main", &strtab), Operator(LeftParen),
-                /*     String[] args          */ident("String", &strtab), Operator(LeftBracket), Operator(RightBracket), ident("args", &strtab),
-                /*   ) {                      */Operator(RightParen), Operator(LeftBrace),
-                /*     return + 42;           */Keyword(Return), Operator(Plus), lit("42", &strtab), Operator(Semicolon),
-                /*   }                        */Operator(RightBrace),
-                /* }                          */Operator(RightBrace),
-                /* #                          */EOF,
-            ]
-        };
-
-        let tokens = test_tokens(tokens);
-
-        assert_matches!(Parser::new(tokens.into_iter()).parse(), Err(_))
+        lex_input!(
+            lx = r#"
+            class Foo {
+                public static void main(String[] args) {
+                    return + 42;
+                }
+            }
+        "#
+        );
+        assert_matches!(Parser::new(lx).parse(), Err(_));
     }
 
     #[test]
     fn valid_expression() {
-        let strtab = StringTable::new();
-
-        #[rustfmt::skip]
-        let tokens = {
-            use crate::lexer::Keyword::*;
-            use crate::lexer::Operator::*;
-            use crate::lexer::TokenKind::*;
-
-            vec![
-                /* class Foo {                */Keyword(Class), ident("Foo", &strtab), Operator(LeftBrace),
-                /*   public static void main( */Keyword(Public), Keyword(Static), Keyword(Void), ident("main", &strtab), Operator(LeftParen),
-                /*     String[] args          */ident("String", &strtab), Operator(LeftBracket), Operator(RightBracket), ident("args", &strtab),
-                /*   ) {                      */Operator(RightParen), Operator(LeftBrace),
-                /*     return 11 + 42 * 31;   */Keyword(Return), lit("11", &strtab), Operator(Plus), lit("42", &strtab), Operator(Star), lit("31", &strtab), Operator(Semicolon),
-                /*   }                        */Operator(RightBrace),
-                /* }                          */Operator(RightBrace),
-                /* #                          */EOF,
-            ]
-        };
-
-        let tokens = test_tokens(tokens);
-
-        assert_matches!(Parser::new(tokens.into_iter()).parse(), Ok(_))
+        lex_input!(
+            lx = r#"
+            class Foo {
+                public static void main(String[] args) {
+                    return 11 + 42 * 31;
+                }
+            }
+        "#
+        );
+        assert_matches!(Parser::new(lx).parse(), Ok(_));
     }
 
     #[test]
     fn assignment_expression() {
-        let strtab = StringTable::new();
-
-        #[rustfmt::skip]
-        let tokens = {
-            use crate::lexer::Keyword::*;
-            use crate::lexer::Operator::*;
-            use crate::lexer::TokenKind::*;
-
-            vec![
-                /* class Foo {                */Keyword(Class), ident("Foo", &strtab), Operator(LeftBrace),
-                /*   public static void main( */Keyword(Public), Keyword(Static), Keyword(Void), ident("main", &strtab), Operator(LeftParen),
-                /*     String[] args          */ident("String", &strtab), Operator(LeftBracket), Operator(RightBracket), ident("args", &strtab),
-                /*   ) {                      */Operator(RightParen), Operator(LeftBrace),
-                /*     return x || y = z  ;   */Keyword(Return), ident("x", &strtab), Operator(DoublePipe), ident("y", &strtab), Operator(Equal), lit("z", &strtab), Operator(Semicolon),
-                /*   }                        */Operator(RightBrace),
-                /* }                          */Operator(RightBrace),
-                /* #                          */EOF,
-            ]
-        };
-
-        let tokens = test_tokens(tokens);
-
-        assert_matches!(Parser::new(tokens.into_iter()).parse(), Ok(_))
+        lex_input!(
+            lx = r#"
+            class Foo {
+                public static void main(String[] args) {
+                    return x || y = z  ;
+                }
+            }
+        "#
+        );
+        assert_matches!(Parser::new(lx).parse(), Ok(_))
     }
 }
