@@ -1,7 +1,7 @@
 language: rust
 
 rust:
-  - nightly-2018-10-14
+  - nightly-2018-11-03
 
 branches:
   only:
