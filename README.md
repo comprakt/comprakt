@@ -19,7 +19,7 @@ We're using the tools [`rustfmt`](https://github.com/rust-lang-nursery/rustfmt)
 to format our code and
 [`clippy`](https://github.com/rust-lang-nursery/rust-clippy) as a linter to keep
 the code clean, idiomatic and correct. These tools are available in
-`nightly-2018-10-14` via `rustup`:
+`nightly-2018-11-03` via `rustup`:
 
 ```bash
 rustup component add clippy-preview
