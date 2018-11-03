@@ -423,7 +423,7 @@ where
                     span: actual.span,
                     data: SyntaxError::UnexpectedToken {
                         actual: actual.data.to_string(),
-                        expected: "keyword int, boolean, void or an identifier".to_string(),
+                        expected: "keyword `int`, `boolean`, `void` or an identifier".to_string(),
                     }
                 }
             ))
