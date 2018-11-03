@@ -6,6 +6,7 @@ use crate::{
     lexer::{Keyword, Operator, Spanned, Token, TokenKind, Span},
     strtab::Symbol,
     diagnostics::MaybeSpanned,
+    diagnostics::MaybeSpanned::*,
     utils::MultiPeekable,
 };
 
@@ -198,7 +199,7 @@ where
         self.peek()?;
         match self.lexer.next() {
             Some(token) => Ok(token),
-            None => self.eof_token.clone().ok_or(MaybeSpanned::WithoutSpan(SyntaxError::MissingEOF)),
+            None => self.eof_token.clone().ok_or(WithoutSpan(SyntaxError::MissingEOF)),
         }
     }
 
@@ -221,7 +222,7 @@ where
 
         match v.get(n) {
             Some(token) => Ok(token),
-            None => self.eof_token.as_ref().ok_or(MaybeSpanned::WithoutSpan(SyntaxError::MissingEOF)),
+            None => self.eof_token.as_ref().ok_or(WithoutSpan(SyntaxError::MissingEOF)),
         }
     }
 
@@ -236,7 +237,7 @@ where
 
         want.matching(&actual.data)
             .map(|yielded| actual.map(|_| yielded))
-            .ok_or_else(|| MaybeSpanned::WithSpan(Spanned {
+            .ok_or_else(|| WithSpan(Spanned {
                     span: actual.span,
                     data: SyntaxError::UnexpectedToken {
                     actual: actual.data.to_string(),
@@ -353,7 +354,7 @@ where
                     || params[0].var_type
                         != Type::ArrayOf(box Type::Basic(BasicType::Ident(Symbol::from("String")))))
             {
-                return Err(MaybeSpanned::WithSpan(Spanned {
+                return Err(WithSpan(Spanned {
                     span: Span { start: start_position, end: end_position },
                     data: SyntaxError::InvalidMainMethod
                     }))
@@ -419,7 +420,7 @@ where
             Ok(BasicType::Ident(sym.data))
         } else {
             let actual = self.next()?;
-            Err(MaybeSpanned::WithSpan(Spanned {
+            Err(WithSpan(Spanned {
                     span: actual.span,
                     data: SyntaxError::UnexpectedToken {
                         actual: actual.data.to_string(),
@@ -628,7 +629,7 @@ where
 
                 // TODO should be handled during semantical analysis
                 if matches!(new_type, BasicType::Void | BasicType::Int | BasicType::Bool) {
-                    return Err(MaybeSpanned::WithSpan(Spanned {
+                    return Err(WithSpan(Spanned {
                         span: Span { start: start_position, end: end_position },
                         data: SyntaxError::InvalidNewObjectExpression
                     }));
@@ -658,7 +659,7 @@ where
         {
             Ok(())
         } else {
-            Err(MaybeSpanned::WithSpan(Spanned {
+            Err(WithSpan(Spanned {
                 span: self.peek()?.span.clone(),
                 data: SyntaxError::UnexpectedToken {
                     actual: self.next()?.data.to_string(),
@@ -824,7 +825,7 @@ mod tests {
             "#
             );
             assert_matches!(Parser::new(lx).parse(),
-                    Err(MaybeSpanned::WithSpan(Spanned {
+                    Err(WithSpan(Spanned {
                         span: _,
                         data: SyntaxError::InvalidMainMethod
                     }))
@@ -843,7 +844,7 @@ mod tests {
             "#
             );
             assert_matches!(Parser::new(lx).parse(),
-                Err(MaybeSpanned::WithSpan(Spanned {
+                Err(WithSpan(Spanned {
                     span: _,
                     data: SyntaxError::InvalidNewObjectExpression
                 }))
