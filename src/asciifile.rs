@@ -11,8 +11,7 @@ pub type AsciiFileIterator<'t> = PositionedChars<'t, std::str::Chars<'t>>;
 pub enum EncodingError {
     #[fail(
         display = "input contains non-ascii character at byte offset {}: {}<?>",
-        position,
-        prev
+        position, prev
     )]
     NotAscii { position: usize, prev: String },
 }
