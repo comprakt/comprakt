@@ -88,6 +88,10 @@ impl From<Keyword> for Exactly {
     }
 }
 
+fn exactly(thing: impl Into<Exactly>) -> Exactly {
+    thing.into()
+}
+
 impl ExpectedToken for Exactly {
     type Yields = ();
     fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
@@ -230,12 +234,10 @@ where
     }
 
     /// In average compilers this is sometimes called `expect`
-    fn omnomnom<E, G>(&mut self, want: G) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
+    fn omnomnom<E>(&mut self, want: E) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
     where
         E: ExpectedToken,
-        G: Into<E>,
     {
-        let want = want.into();
         let got = self.next()?;
 
         want.matching(&got.data)
@@ -248,26 +250,23 @@ where
 
     /// An average programmer might call this `try_read`, or a similarily
     /// whack-ass name
-    fn omnomnoptional<E, G>(&mut self, want: G) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
+    fn omnomnoptional<E>(&mut self, want: E) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
     where
         E: ExpectedToken,
-        G: Into<E>,
     {
         self.omnomnoptional_if(want, |_| true)
     }
 
     /// Only consume token if pred(E::Yields) holds
-    fn omnomnoptional_if<E, G, P>(
+    fn omnomnoptional_if<E, P>(
         &mut self,
-        want: G,
+        want: E,
         pred: P,
     ) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
     where
         E: ExpectedToken,
-        G: Into<E>,
         P: Fn(&E::Yields) -> bool,
     {
-        let want = want.into();
         let got = self.peek()?;
 
         Ok(want.matching(&got.data).filter(&pred).map(|yielded| {
@@ -276,24 +275,22 @@ where
         }))
     }
 
-    fn tastes_like<E, G>(&mut self, want: G) -> SyntaxResult<'f, bool>
+    fn tastes_like<E>(&mut self, want: E) -> SyntaxResult<'f, bool>
     where
         E: ExpectedToken,
-        G: Into<E>,
     {
         self.nth_tastes_like(0, want)
     }
 
-    fn nth_tastes_like<E, G>(&mut self, n: usize, want: G) -> SyntaxResult<'f, bool>
+    fn nth_tastes_like<E>(&mut self, n: usize, want: E) -> SyntaxResult<'f, bool>
     where
         E: ExpectedToken,
-        G: Into<E>,
     {
-        self.peek_nth(n).map(|got| want.into().matches(&got.data))
+        self.peek_nth(n).map(|got| want.matches(&got.data))
     }
 
     fn parse_program(&mut self) -> ParserResult<'f> {
-        while self.omnomnoptional::<EOF, _>(EOF)?.is_none() {
+        while self.omnomnoptional(EOF)?.is_none() {
             self.parse_class_declaration()?;
         }
 
@@ -301,12 +298,12 @@ where
     }
 
     fn parse_class_declaration(&mut self) -> ParserResult<'f> {
-        self.omnomnom::<Exactly, _>(Keyword::Class)?;
-        self.omnomnom::<Identifier, _>(Identifier)?;
+        self.omnomnom(exactly(Keyword::Class))?;
+        self.omnomnom(Identifier)?;
 
-        self.omnomnom::<Exactly, _>(Operator::LeftBrace)?;
+        self.omnomnom(exactly(Operator::LeftBrace))?;
         while self
-            .omnomnoptional::<Exactly, _>(Operator::RightBrace)?
+            .omnomnoptional(exactly(Operator::RightBrace))?
             .is_none()
         {
             self.parse_class_member()?;
@@ -316,33 +313,25 @@ where
     }
 
     fn parse_class_member(&mut self) -> ParserResult<'f> {
-        self.omnomnom::<Exactly, _>(Keyword::Public)?;
+        self.omnomnom(exactly(Keyword::Public))?;
 
-        let is_static = self
-            .omnomnoptional::<Exactly, _>(Keyword::Static)?
-            .is_some();
+        let is_static = self.omnomnoptional(exactly(Keyword::Static))?.is_some();
         let return_type = self.parse_type()?;
-        self.omnomnom::<Identifier, _>(Identifier)?;
+        self.omnomnom(Identifier)?;
 
-        if self
-            .omnomnoptional::<Exactly, _>(Operator::LeftParen)?
-            .is_some()
-        {
+        if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
             // method or main method
 
-            let params = if !self.tastes_like::<Exactly, _>(Operator::RightParen)? {
+            let params = if !self.tastes_like(exactly(Operator::RightParen))? {
                 self.parse_parameters()?
             } else {
                 ParameterList::new()
             };
 
-            self.omnomnom::<Exactly, _>(Operator::RightParen)?;
+            self.omnomnom(exactly(Operator::RightParen))?;
 
-            if self
-                .omnomnoptional::<Exactly, _>(Keyword::Throws)?
-                .is_some()
-            {
-                self.omnomnom::<Identifier, _>(Identifier)?;
+            if self.omnomnoptional(exactly(Keyword::Throws))?.is_some() {
+                self.omnomnom(Identifier)?;
             }
 
             // Check that "static" => Type=void && ParameterList==(String[] IDENT)
@@ -358,7 +347,7 @@ where
 
             self.parse_block()?;
         } else {
-            self.omnomnom::<Exactly, _>(Operator::Semicolon)?;
+            self.omnomnom(exactly(Operator::Semicolon))?;
         }
 
         Ok(())
@@ -368,10 +357,7 @@ where
         let mut param_list = ParameterList::new();
 
         param_list.push(self.parse_parameter()?);
-        while self
-            .omnomnoptional::<Exactly, _>(Operator::Comma)?
-            .is_some()
-        {
+        while self.omnomnoptional(exactly(Operator::Comma))?.is_some() {
             param_list.push(self.parse_parameter()?);
         }
 
@@ -380,7 +366,7 @@ where
 
     fn parse_parameter(&mut self) -> SyntaxResult<'f, VariableDecl> {
         let ty = self.parse_type()?;
-        let name = self.omnomnom::<Identifier, _>(Identifier)?;
+        let name = self.omnomnom(Identifier)?;
 
         Ok(VariableDecl {
             ty,
@@ -392,10 +378,10 @@ where
         let mut ty = Type::Basic(self.parse_basic_type()?);
 
         while self
-            .omnomnoptional::<Exactly, _>(Operator::LeftBracket)?
+            .omnomnoptional(exactly(Operator::LeftBracket))?
             .is_some()
         {
-            self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
+            self.omnomnom(exactly(Operator::RightBracket))?;
             ty = Type::ArrayOf(box ty);
         }
 
@@ -403,16 +389,13 @@ where
     }
 
     fn parse_basic_type(&mut self) -> SyntaxResult<'f, BasicType> {
-        if self.omnomnoptional::<Exactly, _>(Keyword::Int)?.is_some() {
+        if self.omnomnoptional(exactly(Keyword::Int))?.is_some() {
             Ok(BasicType::Int)
-        } else if self
-            .omnomnoptional::<Exactly, _>(Keyword::Boolean)?
-            .is_some()
-        {
+        } else if self.omnomnoptional(exactly(Keyword::Boolean))?.is_some() {
             Ok(BasicType::Bool)
-        } else if self.omnomnoptional::<Exactly, _>(Keyword::Void)?.is_some() {
+        } else if self.omnomnoptional(exactly(Keyword::Void))?.is_some() {
             Ok(BasicType::Void)
-        } else if let Some(sym) = self.omnomnoptional::<Identifier, _>(Identifier)? {
+        } else if let Some(sym) = self.omnomnoptional(Identifier)? {
             Ok(BasicType::Ident(sym.data))
         } else {
             Err(SyntaxError::UnexpectedToken {
@@ -423,10 +406,10 @@ where
     }
 
     fn parse_block(&mut self) -> ParserResult<'f> {
-        self.omnomnom::<Exactly, _>(Operator::LeftBrace)?;
+        self.omnomnom(exactly(Operator::LeftBrace))?;
 
         while self
-            .omnomnoptional::<Exactly, _>(Operator::RightBrace)?
+            .omnomnoptional(exactly(Operator::RightBrace))?
             .is_none()
         {
             self.parse_block_statement()?;
@@ -446,64 +429,55 @@ where
     // Using a bool-flag for *LocalVarDeclStatement* allows us to delay the
     // descision on weather the statement at point is a *LocalVarDeclStatement*
     fn parse_statement_or_local_var(&mut self, allow_local_var_decl: bool) -> ParserResult<'f> {
-        if self.tastes_like::<Exactly, _>(Operator::LeftBrace)? {
+        if self.tastes_like(exactly(Operator::LeftBrace))? {
             self.parse_block()
-        } else if self
-            .omnomnoptional::<Exactly, _>(Operator::Semicolon)?
-            .is_some()
-        {
+        } else if self.omnomnoptional(exactly(Operator::Semicolon))?.is_some() {
             // empty statement
             Ok(())
-        } else if self.omnomnoptional::<Exactly, _>(Keyword::If)?.is_some() {
-            self.omnomnom::<Exactly, _>(Operator::LeftParen)?;
+        } else if self.omnomnoptional(exactly(Keyword::If))?.is_some() {
+            self.omnomnom(exactly(Operator::LeftParen))?;
             self.parse_expression()?;
-            self.omnomnom::<Exactly, _>(Operator::RightParen)?;
+            self.omnomnom(exactly(Operator::RightParen))?;
 
             self.parse_statement()?;
-            if let Ok(Some(_)) = self.omnomnoptional::<Exactly, _>(Keyword::Else) {
+            if let Ok(Some(_)) = self.omnomnoptional(exactly(Keyword::Else)) {
                 self.parse_statement()?;
             }
 
             Ok(())
-        } else if self.omnomnoptional::<Exactly, _>(Keyword::While)?.is_some() {
-            self.omnomnom::<Exactly, _>(Operator::LeftParen)?;
+        } else if self.omnomnoptional(exactly(Keyword::While))?.is_some() {
+            self.omnomnom(exactly(Operator::LeftParen))?;
             self.parse_expression()?;
-            self.omnomnom::<Exactly, _>(Operator::RightParen)?;
+            self.omnomnom(exactly(Operator::RightParen))?;
 
             self.parse_statement()
-        } else if self
-            .omnomnoptional::<Exactly, _>(Keyword::Return)?
-            .is_some()
-        {
-            if !self.tastes_like::<Exactly, _>(Operator::Semicolon)? {
+        } else if self.omnomnoptional(exactly(Keyword::Return))?.is_some() {
+            if !self.tastes_like(exactly(Operator::Semicolon))? {
                 self.parse_expression()?;
             }
 
-            self.omnomnom::<Exactly, _>(Operator::Semicolon)?;
+            self.omnomnom(exactly(Operator::Semicolon))?;
 
             Ok(())
         } else if allow_local_var_decl {
             // next (0th) tastes like *BasicType*
             // and next after that (1st) like *Identifier* or 1st+2nd like '[]'
-            if (self.tastes_like::<Exactly, _>(Keyword::Int)?
-                || self.tastes_like::<Exactly, _>(Keyword::Boolean)?
-                || self.tastes_like::<Exactly, _>(Keyword::Void)?
-                || self.tastes_like::<Identifier, _>(Identifier)?)
-                && (self.nth_tastes_like::<Identifier, _>(1, Identifier)?
-                    || (self.nth_tastes_like::<Exactly, _>(1, Operator::LeftBracket)?
-                        && self.nth_tastes_like::<Exactly, _>(2, Operator::RightBracket)?))
+            if (self.tastes_like(exactly(Keyword::Int))?
+                || self.tastes_like(exactly(Keyword::Boolean))?
+                || self.tastes_like(exactly(Keyword::Void))?
+                || self.tastes_like(Identifier)?)
+                && (self.nth_tastes_like(1, Identifier)?
+                    || (self.nth_tastes_like(1, exactly(Operator::LeftBracket))?
+                        && self.nth_tastes_like(2, exactly(Operator::RightBracket))?))
             {
                 // Local var decl
                 self.parse_type()?;
-                self.omnomnom::<Identifier, _>(Identifier)?;
-                if self
-                    .omnomnoptional::<Exactly, _>(Operator::Equal)?
-                    .is_some()
-                {
+                self.omnomnom(Identifier)?;
+                if self.omnomnoptional(exactly(Operator::Equal))?.is_some() {
                     self.parse_expression()?;
                 }
 
-                self.omnomnom::<Exactly, _>(Operator::Semicolon)?;
+                self.omnomnom(exactly(Operator::Semicolon))?;
             } else {
                 self.parse_expression_statement()?;
             }
@@ -516,7 +490,7 @@ where
 
     fn parse_expression_statement(&mut self) -> ParserResult<'f> {
         self.parse_expression()?;
-        self.omnomnom::<Exactly, _>(Operator::Semicolon)?;
+        self.omnomnom(exactly(Operator::Semicolon))?;
 
         Ok(())
     }
@@ -525,10 +499,7 @@ where
         self.parse_binary_expression(0)?;
 
         // Assignment expression
-        while self
-            .omnomnoptional::<Exactly, _>(Operator::Equal)?
-            .is_some()
-        {
+        while self.omnomnoptional(exactly(Operator::Equal))?.is_some() {
             self.parse_binary_expression(0)?;
         }
 
@@ -541,7 +512,7 @@ where
 
         // tries to read some binary operators
         while let Some((_, mut prec, assoc)) = self
-            .omnomnoptional_if::<BinaryOp, _, _>(BinaryOp, |(_, prec, _)| *prec >= min_precedence)?
+            .omnomnoptional_if(BinaryOp, |(_, prec, _)| *prec >= min_precedence)?
             .map(|spanned| spanned.data)
         {
             if assoc == Assoc::Left {
@@ -555,7 +526,7 @@ where
     }
 
     fn parse_unary_expression(&mut self) -> ParserResult<'f> {
-        if self.omnomnoptional::<UnaryOp, _>(UnaryOp)?.is_some() {
+        if self.omnomnoptional(UnaryOp)?.is_some() {
             // This is tail-recursive!
             self.parse_unary_expression()
         } else {
@@ -567,22 +538,22 @@ where
         self.parse_primary_expression()?;
 
         loop {
-            if self.omnomnoptional::<Exactly, _>(Operator::Dot)?.is_some() {
-                self.omnomnom::<Identifier, _>(Identifier)?;
+            if self.omnomnoptional(exactly(Operator::Dot))?.is_some() {
+                self.omnomnom(Identifier)?;
 
-                if self.tastes_like::<Exactly, _>(Operator::LeftParen)? {
+                if self.tastes_like(exactly(Operator::LeftParen))? {
                     // method call: EXPR.ident(arg1, arg2, ...)
                     self.parse_parenthesized_argument_list()?;
                 } else {
                     // member reference: EXPR.ident
                 }
             } else if self
-                .omnomnoptional::<Exactly, _>(Operator::LeftBracket)?
+                .omnomnoptional(exactly(Operator::LeftBracket))?
                 .is_some()
             {
                 // array access: EXPR[EXPR]
                 self.parse_expression()?;
-                self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
+                self.omnomnom(exactly(Operator::RightBracket))?;
             } else {
                 break;
             }
@@ -592,32 +563,26 @@ where
     }
 
     fn parse_primary_expression(&mut self) -> ParserResult<'f> {
-        if self.omnomnoptional::<Identifier, _>(Identifier)?.is_some() {
-            if self.tastes_like::<Exactly, _>(Operator::LeftParen)? {
+        if self.omnomnoptional(Identifier)?.is_some() {
+            if self.tastes_like(exactly(Operator::LeftParen))? {
                 // function call
                 self.parse_parenthesized_argument_list()
             } else {
                 // var ref
                 Ok(())
             }
-        } else if self
-            .omnomnoptional::<Exactly, _>(Operator::LeftParen)?
-            .is_some()
-        {
+        } else if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
             // parenthesized expression
             self.parse_expression()?;
-            self.omnomnom::<Exactly, _>(Operator::RightParen)?;
+            self.omnomnom(exactly(Operator::RightParen))?;
 
             Ok(())
-        } else if self.omnomnoptional::<Exactly, _>(Keyword::New)?.is_some() {
+        } else if self.omnomnoptional(exactly(Keyword::New))?.is_some() {
             let new_type = self.parse_basic_type()?;
 
-            if self
-                .omnomnoptional::<Exactly, _>(Operator::LeftParen)?
-                .is_some()
-            {
+            if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
                 // new object expression
-                self.omnomnom::<Exactly, _>(Operator::RightParen)?;
+                self.omnomnom(exactly(Operator::RightParen))?;
 
                 // TODO should be handled during semantical analysis
                 if matches!(new_type, BasicType::Void | BasicType::Int | BasicType::Bool) {
@@ -625,26 +590,24 @@ where
                 }
             } else {
                 // new array expression
-                self.omnomnom::<Exactly, _>(Operator::LeftBracket)?;
+                self.omnomnom(exactly(Operator::LeftBracket))?;
                 self.parse_expression()?;
-                self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
+                self.omnomnom(exactly(Operator::RightBracket))?;
 
-                while self.tastes_like::<Exactly, _>(Operator::LeftBracket)?
-                    && self.nth_tastes_like::<Exactly, _>(1, Operator::RightBracket)?
+                while self.tastes_like(exactly(Operator::LeftBracket))?
+                    && self.nth_tastes_like(1, exactly(Operator::RightBracket))?
                 {
-                    self.omnomnom::<Exactly, _>(Operator::LeftBracket)?;
-                    self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
+                    self.omnomnom(exactly(Operator::LeftBracket))?;
+                    self.omnomnom(exactly(Operator::RightBracket))?;
                 }
             }
 
             Ok(())
-        } else if self.omnomnoptional::<Exactly, _>(Keyword::Null)?.is_some()
-            || self.omnomnoptional::<Exactly, _>(Keyword::False)?.is_some()
-            || self.omnomnoptional::<Exactly, _>(Keyword::True)?.is_some()
-            || self.omnomnoptional::<Exactly, _>(Keyword::This)?.is_some()
-            || self
-                .omnomnoptional::<IntegerLiteral, _>(IntegerLiteral)?
-                .is_some()
+        } else if self.omnomnoptional(exactly(Keyword::Null))?.is_some()
+            || self.omnomnoptional(exactly(Keyword::False))?.is_some()
+            || self.omnomnoptional(exactly(Keyword::True))?.is_some()
+            || self.omnomnoptional(exactly(Keyword::This))?.is_some()
+            || self.omnomnoptional(IntegerLiteral)?.is_some()
         {
             Ok(())
         } else {
@@ -656,19 +619,16 @@ where
     }
 
     fn parse_parenthesized_argument_list(&mut self) -> ParserResult<'f> {
-        self.omnomnom::<Exactly, _>(Operator::LeftParen)?;
+        self.omnomnom(exactly(Operator::LeftParen))?;
 
-        if !self.tastes_like::<Exactly, _>(Operator::RightParen)? {
+        if !self.tastes_like(exactly(Operator::RightParen))? {
             self.parse_expression()?;
-            while self
-                .omnomnoptional::<Exactly, _>(Operator::Comma)?
-                .is_some()
-            {
+            while self.omnomnoptional(exactly(Operator::Comma))?.is_some() {
                 self.parse_expression()?;
             }
         }
 
-        self.omnomnom::<Exactly, _>(Operator::RightParen)?;
+        self.omnomnom(exactly(Operator::RightParen))?;
 
         Ok(())
     }
