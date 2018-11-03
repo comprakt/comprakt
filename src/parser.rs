@@ -464,7 +464,12 @@ where
             self.parse_expression()?;
             self.omnomnom::<Exactly, _>(Operator::RightParen)?;
 
-            self.parse_statement()
+            self.parse_statement()?;
+            if let Ok(Some(_)) = self.omnomnoptional::<Exactly, _>(Keyword::Else) {
+                self.parse_statement()?;
+            }
+
+            Ok(())
         } else if self.omnomnoptional::<Exactly, _>(Keyword::While)?.is_some() {
             self.omnomnom::<Exactly, _>(Operator::LeftParen)?;
             self.parse_expression()?;
@@ -792,6 +797,13 @@ mod tests {
         "#
         );
         assert_matches!(Parser::new(lx).parse(), Ok(_))
+    }
+
+    #[test]
+    fn else_with_empty_statement() {
+        lex_input!(lx = r#"if(angry) {} else;"#);
+        let mut p = Parser::new(lx);
+        p.parse_statement().map_err(|e| println!("{}", e)).unwrap();
     }
 
     mod phase2_tests {
