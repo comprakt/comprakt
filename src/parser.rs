@@ -634,10 +634,10 @@ where
                 self.parse_expression()?;
                 self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
 
-                while self
-                    .omnomnoptional::<Exactly, _>(Operator::LeftBracket)?
-                    .is_some()
+                while self.tastes_like::<Exactly, _>(Operator::LeftBracket)?
+                    && self.nth_tastes_like::<Exactly, _>(1, Operator::RightBracket)?
                 {
+                    self.omnomnom::<Exactly, _>(Operator::LeftBracket)?;
                     self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
                 }
             }
