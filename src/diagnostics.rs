@@ -28,6 +28,14 @@ pub struct Diagnostics {
     writer: RefCell<Box<dyn WriteColor>>,
 }
 
+// TODO: merge `warning_with_source_snippet` and `warning` into a single
+// function that takes a AsMaybeSpanned or IntoMaybe spanned.
+#[derive(Debug)]
+pub enum MaybeSpanned<'a, T> {
+    WithoutSpan(T),
+    WithSpan(Spanned<'a, T>),
+}
+
 impl Diagnostics {
     pub fn new(writer: Box<dyn WriteColor>) -> Self {
         Self {
