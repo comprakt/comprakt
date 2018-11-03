@@ -31,9 +31,6 @@ matrix:
     #   env: MJ_TESTS=compile-firm
     # - os: linux
     #   env: MJ_TESTS=compile
-  allow_failures:
-    - os: linux
-      env: MJ_TESTS=syntax
 
 install:
   - |
