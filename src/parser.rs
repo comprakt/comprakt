@@ -795,6 +795,40 @@ mod tests {
             .unwrap();
     }
 
+    use mjtest::SyntaxTestCase;
+    use mjtest_macros::gen_syntax_tests;
+
+    fn do_mjtest_syntax_test(tc: &SyntaxTestCase) {
+        println!("file name: {:?}", tc.file_name());
+        let contents = std::fs::read(tc.path()).unwrap();
+        let contents = String::from_utf8(contents).unwrap();
+        lex_input!(lx = &contents);
+        let res = Parser::new(lx).parse();
+        use self::SyntaxTestCase::*;
+        match (tc, res) {
+            (Valid(_), Ok(_)) => (),
+            (Invalid(_), Err(_)) => (),
+            (tc, res) => {
+                println!("test case: {:?}", tc);
+                println!("result:    {:?}", res);
+                assert!(false);
+            }
+        }
+    }
+    gen_syntax_tests!((
+        do_mjtest_syntax_test,
+        // releaseonly
+        [
+            "empty_blocks.java",
+            "expression_500parens_left.mj",
+            "expression_500parens_right.mj",
+            "nested_blocks.java",
+            "a_very_long_expression.mj",
+            "lots_of_methods.mj",
+            "if_chain.java",
+        ]
+    ));
+
     mod phase2_tests {
         use super::*;
 
