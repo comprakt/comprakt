@@ -10,6 +10,7 @@
 #[macro_use]
 extern crate derive_more;
 
+use self::diagnostics::MaybeSpanned;
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{fs::File, io, path::PathBuf, process::exit};
@@ -163,20 +164,18 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
     let lexer = Lexer::new(&strtab, &context);
 
     // adapt lexer to fail on first error
+    // filter whitespace and comments
     let unforgiving_lexer = lexer.filter_map(|result| match result {
-        Ok(token) => match token {
-            Spanned {
-                data: TokenKind::Whitespace,
-                ..
-            }
-            | Spanned {
-                data: TokenKind::Comment(_),
-                ..
-            } => None,
+        Ok(token) => match token.data {
+            TokenKind::Whitespace | TokenKind::Comment(_) => None,
             _ => Some(token),
         },
+        Err(lexical_error) => {
+            context.error(Spanned {
+                span: lexical_error.span,
+                data: box lexical_error.data,
+            });
 
-        Err(_) => {
             context.diagnostics.write_statistics();
             exit(1);
         }
@@ -192,9 +191,18 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
 
     match parser.parse() {
         Ok(_) => Ok(()),
-        // TODO: generate error message per spec
-        Err(err) => {
-            eprintln!("error: {}", err);
+        Err(parser_error) => {
+            // TODO: context.error should do this match automatically through
+            // generic arguments
+            match parser_error {
+                MaybeSpanned::WithSpan(spanned) => context.error(Spanned {
+                    span: spanned.span,
+                    data: box spanned.data,
+                }),
+                MaybeSpanned::WithoutSpan(error) => context.diagnostics.error(box error),
+            }
+
+            context.diagnostics.write_statistics();
             exit(1);
         }
     }

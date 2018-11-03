@@ -28,6 +28,14 @@ pub struct Diagnostics {
     writer: RefCell<Box<dyn WriteColor>>,
 }
 
+// TODO: merge `warning_with_source_snippet` and `warning` into a single
+// function that takes a AsMaybeSpanned or IntoMaybe spanned.
+#[derive(Debug)]
+pub enum MaybeSpanned<'a, T> {
+    WithoutSpan(T),
+    WithSpan(Spanned<'a, T>),
+}
+
 impl Diagnostics {
     pub fn new(writer: Box<dyn WriteColor>) -> Self {
         Self {
@@ -391,7 +399,14 @@ impl<'a> LineFormatter<'a> {
     /// function will return the actuall number of monospace grid cells
     /// rendered before the given position.
     fn get_actual_column(&self, col: usize) -> usize {
-        debug_assert!(col < self.line.len());
+        debug_assert!(
+            col <= self.line.len(),
+            format!(
+                "col = {} is not smaller than max line lengt {}",
+                col,
+                self.line.len()
+            )
+        );
         self.line[0..col]
             .chars()
             .map(|chr| self.render_char(chr).0.len())

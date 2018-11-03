@@ -1,9 +1,12 @@
 use crate::{
     ast::*,
-    lexer::{Keyword, Operator, Spanned, Token, TokenKind},
+    diagnostics::MaybeSpanned::{self, *},
+    lexer::{Keyword, Operator, Span, Spanned, Token, TokenKind},
     strtab::Symbol,
     utils::MultiPeekable,
 };
+
+use failure::Fail;
 
 use std::fmt;
 
@@ -36,15 +39,21 @@ const BINARY_OPERATORS: &[(Operator, Precedence, Assoc)] = &[
     (Operator::DoublePipe,        6, Assoc::Left),
 ];
 
-#[derive(Debug, Clone)]
-pub enum SyntaxError<'f> {
+#[rustfmt::skip]
+#[derive(Debug, Clone, Fail)]
+pub enum SyntaxError {
+    #[fail(display = "missing end of file (EOF) token")]
     MissingEOF,
+    #[fail(display = "expected {}, found {}", expected, actual)]
     UnexpectedToken {
-        got: Token<'f>,
+        actual: String,
         expected: String, // TODO This is temporary, shouldn't be string
     },
-
+    #[fail(
+        display = "invalid main method. It must be declared as `public static void main(String[] args)`"
+    )]
     InvalidMainMethod,
+    #[fail(display = "invalid new object expression")]
     InvalidNewObjectExpression,
 }
 
@@ -159,25 +168,9 @@ impl ExpectedToken for EOF {
     }
 }
 
-impl fmt::Display for SyntaxError<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use self::SyntaxError::*;
-
-        match self {
-            MissingEOF => write!(f, "lexer should yield EOF at end of iterator"),
-            UnexpectedToken { got, expected } => {
-                write!(f, "unexpected token: got {} expected {}", got, expected)
-            }
-
-            InvalidNewObjectExpression => write!(f, "invalid new object expression"),
-            InvalidMainMethod => write!(f, "invalid main method"),
-        }
-    }
-}
-
-type SyntaxResult<'f, T> = Result<T, SyntaxError<'f>>;
+type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
 // TODO Ok-value should be AST
-type ParserResult<'f> = Result<(), SyntaxError<'f>>;
+type ParserResult<'f> = Result<(), MaybeSpanned<'f, SyntaxError>>;
 
 pub struct Parser<'f, I>
 where
@@ -207,7 +200,10 @@ where
         self.peek()?;
         match self.lexer.next() {
             Some(token) => Ok(token),
-            None => self.eof_token.clone().ok_or(SyntaxError::MissingEOF),
+            None => self
+                .eof_token
+                .clone()
+                .ok_or(WithoutSpan(SyntaxError::MissingEOF)),
         }
     }
 
@@ -230,7 +226,10 @@ where
 
         match v.get(n) {
             Some(token) => Ok(token),
-            None => self.eof_token.as_ref().ok_or(SyntaxError::MissingEOF),
+            None => self
+                .eof_token
+                .as_ref()
+                .ok_or(WithoutSpan(SyntaxError::MissingEOF)),
         }
     }
 
@@ -240,13 +239,19 @@ where
     where
         E: ExpectedToken,
     {
-        let got = self.next()?;
+        let actual = self.next()?;
 
-        want.matching(&got.data)
-            .map(|yielded| got.map(|_| yielded))
-            .ok_or_else(|| SyntaxError::UnexpectedToken {
-                got,
-                expected: want.to_string(),
+        want.matching(&actual.data)
+            .map(|yielded| actual.map(|_| yielded))
+            .ok_or_else(|| {
+                WithSpan(Spanned {
+                    span: actual.span,
+                    data: SyntaxError::UnexpectedToken {
+                        actual: actual.data.to_string(),
+                        // TODO: display all expected
+                        expected: want.to_string(),
+                    },
+                })
             })
     }
 
@@ -319,7 +324,7 @@ where
     }
 
     fn parse_class_member(&mut self) -> ParserResult<'f> {
-        self.omnomnom(exactly(Keyword::Public))?;
+        let start_position = self.omnomnom(exactly(Keyword::Public))?.span.start;
 
         let is_static = self.omnomnoptional(exactly(Keyword::Static))?.is_some();
         let return_type = self.parse_type()?;
@@ -334,7 +339,7 @@ where
                 ParameterList::new()
             };
 
-            self.omnomnom(exactly(Operator::RightParen))?;
+            let end_position = self.omnomnom(exactly(Operator::RightParen))?.span.start;
 
             if self.omnomnoptional(exactly(Keyword::Throws))?.is_some() {
                 self.omnomnom(Identifier)?;
@@ -348,7 +353,13 @@ where
                     || params[0].ty
                         != Type::ArrayOf(box Type::Basic(BasicType::Ident(Symbol::from("String")))))
             {
-                return Err(SyntaxError::InvalidMainMethod);
+                return Err(WithSpan(Spanned {
+                    span: Span {
+                        start: start_position,
+                        end: end_position,
+                    },
+                    data: SyntaxError::InvalidMainMethod,
+                }));
             }
 
             self.parse_block()?;
@@ -404,10 +415,14 @@ where
         } else if let Some(sym) = self.omnomnoptional(Identifier)? {
             Ok(BasicType::Ident(sym.data))
         } else {
-            Err(SyntaxError::UnexpectedToken {
-                got: self.next()?,
-                expected: "keywod int, boolean, void or an identifier".to_string(),
-            })
+            let actual = self.next()?;
+            Err(WithSpan(Spanned {
+                span: actual.span,
+                data: SyntaxError::UnexpectedToken {
+                    actual: actual.data.to_string(),
+                    expected: "keyword `int`, `boolean`, `void` or an identifier".to_string(),
+                },
+            }))
         }
     }
 
@@ -583,16 +598,23 @@ where
             self.omnomnom(exactly(Operator::RightParen))?;
 
             Ok(())
-        } else if self.omnomnoptional(exactly(Keyword::New))?.is_some() {
+        } else if let Some(new_keyword) = self.omnomnoptional(exactly(Keyword::New))? {
+            let start_position = new_keyword.span.start;
             let new_type = self.parse_basic_type()?;
 
             if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
                 // new object expression
-                self.omnomnom(exactly(Operator::RightParen))?;
+                let end_position = self.omnomnom(exactly(Operator::RightParen))?.span.end;
 
                 // TODO should be handled during semantical analysis
                 if matches!(new_type, BasicType::Void | BasicType::Int | BasicType::Bool) {
-                    return Err(SyntaxError::InvalidNewObjectExpression);
+                    return Err(WithSpan(Spanned {
+                        span: Span {
+                            start: start_position,
+                            end: end_position,
+                        },
+                        data: SyntaxError::InvalidNewObjectExpression,
+                    }));
                 }
             } else {
                 // new array expression
@@ -617,10 +639,13 @@ where
         {
             Ok(())
         } else {
-            Err(SyntaxError::UnexpectedToken {
-                got: self.next()?,
-                expected: "primary expression".to_string(),
-            })
+            Err(WithSpan(Spanned {
+                span: self.peek()?.span.clone(),
+                data: SyntaxError::UnexpectedToken {
+                    actual: self.next()?.data.to_string(),
+                    expected: "primary expression".to_string(),
+                },
+            }))
         }
     }
 
@@ -653,15 +678,8 @@ mod tests {
             let ctx = Context::dummy(&input);
             let $itervar = Lexer::new(&strtab, &ctx)
                 .map(|r| r.unwrap())
-                .filter(|t| match t {
-                    Spanned {
-                        data: TokenKind::Whitespace,
-                        ..
-                    }
-                    | Spanned {
-                        data: TokenKind::Comment(_),
-                        ..
-                    } => false,
+                .filter(|t| match t.data {
+                    TokenKind::Whitespace | TokenKind::Comment(_) => false,
                     _ => true,
                 });
         };
@@ -772,7 +790,9 @@ mod tests {
     fn else_with_empty_statement() {
         lex_input!(lx = r#"if(angry) {} else;"#);
         let mut p = Parser::new(lx);
-        p.parse_statement().map_err(|e| println!("{}", e)).unwrap();
+        p.parse_statement()
+            .map_err(|e| println!("{:?}", e))
+            .unwrap();
     }
 
     mod phase2_tests {
@@ -789,7 +809,13 @@ mod tests {
                 }
             "#
             );
-            assert_matches!(Parser::new(lx).parse(), Err(SyntaxError::InvalidMainMethod))
+            assert_matches!(
+                Parser::new(lx).parse(),
+                Err(WithSpan(Spanned {
+                    data: SyntaxError::InvalidMainMethod,
+                    ..
+                }))
+            )
         }
 
         #[test]
@@ -805,7 +831,10 @@ mod tests {
             );
             assert_matches!(
                 Parser::new(lx).parse(),
-                Err(SyntaxError::InvalidNewObjectExpression)
+                Err(WithSpan(Spanned {
+                    data: SyntaxError::InvalidNewObjectExpression,
+                    ..
+                }))
             )
         }
     }
