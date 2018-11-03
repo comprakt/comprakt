@@ -59,6 +59,7 @@ pub trait ExpectedToken: fmt::Debug + fmt::Display {
 
 #[derive(Debug, Clone, Display)]
 #[display(fmt = "{}", _0)]
+// TODO Should be Copy, but TokenKind contains Rc
 struct Exactly(TokenKind);
 #[derive(Debug, Clone, Display)]
 #[display(fmt = "a binary operator")]
@@ -234,6 +235,7 @@ where
     }
 
     /// In average compilers this is sometimes called `expect`
+    #[allow(clippy::needless_pass_by_value)]
     fn omnomnom<E>(&mut self, want: E) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
     where
         E: ExpectedToken,
@@ -250,6 +252,7 @@ where
 
     /// An average programmer might call this `try_read`, or a similarily
     /// whack-ass name
+    #[allow(clippy::needless_pass_by_value)]
     fn omnomnoptional<E>(&mut self, want: E) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
     where
         E: ExpectedToken,
@@ -258,6 +261,7 @@ where
     }
 
     /// Only consume token if pred(E::Yields) holds
+    #[allow(clippy::needless_pass_by_value)]
     fn omnomnoptional_if<E, P>(
         &mut self,
         want: E,
@@ -275,6 +279,7 @@ where
         }))
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     fn tastes_like<E>(&mut self, want: E) -> SyntaxResult<'f, bool>
     where
         E: ExpectedToken,
@@ -282,6 +287,7 @@ where
         self.nth_tastes_like(0, want)
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     fn nth_tastes_like<E>(&mut self, n: usize, want: E) -> SyntaxResult<'f, bool>
     where
         E: ExpectedToken,
