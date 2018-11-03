@@ -3,10 +3,9 @@
 
 use crate::{
     ast::*,
-    lexer::{Keyword, Operator, Spanned, Token, TokenKind, Span},
+    diagnostics::MaybeSpanned::{self, *},
+    lexer::{Keyword, Operator, Span, Spanned, Token, TokenKind},
     strtab::Symbol,
-    diagnostics::MaybeSpanned,
-    diagnostics::MaybeSpanned::*,
     utils::MultiPeekable,
 };
 
@@ -43,6 +42,7 @@ const BINARY_OPERATORS: &[(Operator, Precedence, Assoc)] = &[
     (Operator::DoublePipe,        6, Assoc::Left),
 ];
 
+#[rustfmt::skip]
 #[derive(Debug, Clone, Fail)]
 pub enum SyntaxError {
     // TODO Rather panic? If `MissingEOF` is instantiated, we have most certainly a bug
@@ -53,8 +53,9 @@ pub enum SyntaxError {
         actual: String,
         expected: String, // TODO This is temporary, shouldn't be string
     },
-
-    #[fail(display = "invalid main method. It must be declared as `public static void main(String[] args`")]
+    #[fail(
+        display = "invalid main method. It must be declared as `public static void main(String[] args)`"
+    )]
     InvalidMainMethod,
     #[fail(display = "invalid new object expression")]
     InvalidNewObjectExpression,
@@ -199,7 +200,10 @@ where
         self.peek()?;
         match self.lexer.next() {
             Some(token) => Ok(token),
-            None => self.eof_token.clone().ok_or(WithoutSpan(SyntaxError::MissingEOF)),
+            None => self
+                .eof_token
+                .clone()
+                .ok_or(WithoutSpan(SyntaxError::MissingEOF)),
         }
     }
 
@@ -222,7 +226,10 @@ where
 
         match v.get(n) {
             Some(token) => Ok(token),
-            None => self.eof_token.as_ref().ok_or(WithoutSpan(SyntaxError::MissingEOF)),
+            None => self
+                .eof_token
+                .as_ref()
+                .ok_or(WithoutSpan(SyntaxError::MissingEOF)),
         }
     }
 
@@ -237,14 +244,16 @@ where
 
         want.matching(&actual.data)
             .map(|yielded| actual.map(|_| yielded))
-            .ok_or_else(|| WithSpan(Spanned {
+            .ok_or_else(|| {
+                WithSpan(Spanned {
                     span: actual.span,
                     data: SyntaxError::UnexpectedToken {
-                    actual: actual.data.to_string(),
-                    // TODO: display all expected
-                    expected: want.to_string(),
-                }
-                }))
+                        actual: actual.data.to_string(),
+                        // TODO: display all expected
+                        expected: want.to_string(),
+                    },
+                })
+            })
     }
 
     /// An average programmer might call this `try_read`, or a similarily
@@ -337,7 +346,10 @@ where
                 ParameterList::new()
             };
 
-            let end_position = self.omnomnom::<Exactly, _>(Operator::RightParen)?.span.start;
+            let end_position = self
+                .omnomnom::<Exactly, _>(Operator::RightParen)?
+                .span
+                .start;
 
             if self
                 .omnomnoptional::<Exactly, _>(Keyword::Throws)?
@@ -355,9 +367,12 @@ where
                         != Type::ArrayOf(box Type::Basic(BasicType::Ident(Symbol::from("String")))))
             {
                 return Err(WithSpan(Spanned {
-                    span: Span { start: start_position, end: end_position },
-                    data: SyntaxError::InvalidMainMethod
-                    }))
+                    span: Span {
+                        start: start_position,
+                        end: end_position,
+                    },
+                    data: SyntaxError::InvalidMainMethod,
+                }));
             }
 
             self.parse_block()?;
@@ -421,13 +436,12 @@ where
         } else {
             let actual = self.next()?;
             Err(WithSpan(Spanned {
-                    span: actual.span,
-                    data: SyntaxError::UnexpectedToken {
-                        actual: actual.data.to_string(),
-                        expected: "keyword `int`, `boolean`, `void` or an identifier".to_string(),
-                    }
-                }
-            ))
+                span: actual.span,
+                data: SyntaxError::UnexpectedToken {
+                    actual: actual.data.to_string(),
+                    expected: "keyword `int`, `boolean`, `void` or an identifier".to_string(),
+                },
+            }))
         }
     }
 
@@ -630,8 +644,11 @@ where
                 // TODO should be handled during semantical analysis
                 if matches!(new_type, BasicType::Void | BasicType::Int | BasicType::Bool) {
                     return Err(WithSpan(Spanned {
-                        span: Span { start: start_position, end: end_position },
-                        data: SyntaxError::InvalidNewObjectExpression
+                        span: Span {
+                            start: start_position,
+                            end: end_position,
+                        },
+                        data: SyntaxError::InvalidNewObjectExpression,
                     }));
                 }
             } else {
@@ -664,7 +681,7 @@ where
                 data: SyntaxError::UnexpectedToken {
                     actual: self.next()?.data.to_string(),
                     expected: "primary expression".to_string(),
-                }
+                },
             }))
         }
     }
@@ -807,7 +824,9 @@ mod tests {
     fn else_with_empty_statement() {
         lex_input!(lx = r#"if(angry) {} else;"#);
         let mut p = Parser::new(lx);
-        p.parse_statement().map_err(|e| println!("{:?}", e)).unwrap();
+        p.parse_statement()
+            .map_err(|e| println!("{:?}", e))
+            .unwrap();
     }
 
     mod phase2_tests {
@@ -824,11 +843,12 @@ mod tests {
                 }
             "#
             );
-            assert_matches!(Parser::new(lx).parse(),
-                    Err(WithSpan(Spanned {
-                        span: _,
-                        data: SyntaxError::InvalidMainMethod
-                    }))
+            assert_matches!(
+                Parser::new(lx).parse(),
+                Err(WithSpan(Spanned {
+                    data: SyntaxError::InvalidMainMethod,
+                    ..
+                }))
             )
         }
 
@@ -843,10 +863,11 @@ mod tests {
                 }
             "#
             );
-            assert_matches!(Parser::new(lx).parse(),
+            assert_matches!(
+                Parser::new(lx).parse(),
                 Err(WithSpan(Spanned {
-                    span: _,
-                    data: SyntaxError::InvalidNewObjectExpression
+                    data: SyntaxError::InvalidNewObjectExpression,
+                    ..
                 }))
             )
         }
