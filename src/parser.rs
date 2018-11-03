@@ -488,13 +488,15 @@ where
 
             Ok(())
         } else if allow_local_var_decl {
-            // next tastes like *BasicType*
-            // next after that like *Identifier*
+            // next (0th) tastes like *BasicType*
+            // and next after that (1st) like *Identifier* or 1st+2nd like '[]'
             if (self.tastes_like::<Exactly, _>(Keyword::Int)?
                 || self.tastes_like::<Exactly, _>(Keyword::Boolean)?
                 || self.tastes_like::<Exactly, _>(Keyword::Void)?
                 || self.tastes_like::<Identifier, _>(Identifier)?)
-                && self.nth_tastes_like::<Identifier, _>(1, Identifier)?
+                && (self.nth_tastes_like::<Identifier, _>(1, Identifier)?
+                    || (self.nth_tastes_like::<Exactly, _>(1, Operator::LeftBracket)?
+                        && self.nth_tastes_like::<Exactly, _>(2, Operator::RightBracket)?))
             {
                 // Local var decl
                 self.parse_type()?;
