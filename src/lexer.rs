@@ -32,7 +32,7 @@ pub type TokenResult<'f> = Result<Token<'f>, LexicalError<'f>>;
 pub type Token<'f> = Spanned<'f, TokenKind>;
 pub type LexicalError<'f> = Spanned<'f, ErrorKind>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Spanned<'f, T> {
     pub span: Span<'f>,
     pub data: T,
@@ -54,11 +54,21 @@ impl<'f, T> Spanned<'f, T> {
             data: value,
         }
     }
+
+    pub fn map<U, F>(&self, f: F) -> Spanned<'f, U>
+    where
+        F: FnOnce(&T) -> U,
+    {
+        Spanned {
+            span: self.span.clone(),
+            data: f(&self.data),
+        }
+    }
 }
 
 impl<'f> Fail for LexicalError<'f> where 'f: 'static {}
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenKind {
     Keyword(Keyword),
     Operator(Operator),
@@ -130,7 +140,7 @@ pub enum Warning {
     CommentSeparatorInsideComment,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Span<'f> {
     pub start: Position<'f>,
     pub end: Position<'f>,
@@ -168,7 +178,7 @@ impl fmt::Display for Span<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Keyword {
     Abstract,
     Assert,
@@ -356,7 +366,7 @@ impl TryFrom<&str> for Keyword {
 }
 
 // Use non-semantic names, since e.g. '<' might mean more than 'less-than'
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Operator {
     ExclaimEqual,
     Exclaim,
@@ -464,8 +474,9 @@ impl fmt::Display for Operator {
     }
 }
 
-pub struct Lexer<'f> {
+pub struct Lexer<'f, 's> {
     input: AsciiFileIterator<'f>,
+    strtab: &'s StringTable,
     context: &'f Context<'f>,
     eof: bool,
 }
@@ -477,12 +488,13 @@ fn is_minijava_whitespace(c: char) -> bool {
     }
 }
 
-impl<'f> Lexer<'f> {
-    pub fn new(context: &'f Context<'f>) -> Self {
+impl<'f, 's> Lexer<'f, 's> {
+    pub fn new(strtab: &'s StringTable, context: &'f Context<'f>) -> Self {
         let input = context.file.iter();
 
         Self {
             context,
+            strtab,
             input,
             eof: false,
         }
@@ -502,7 +514,7 @@ impl<'f> Lexer<'f> {
                 Ok(Token::new(
                     pos,
                     pos,
-                    TokenKind::IntegerLiteral(self.context.strtab.intern(as_str)),
+                    TokenKind::IntegerLiteral(self.strtab.intern(as_str)),
                 ))
             }
 
@@ -672,7 +684,7 @@ impl<'f> Lexer<'f> {
     fn lex_while<P, D>(&mut self, predicate: P, make_token: D) -> TokenResult<'f>
     where
         P: Fn(char, Span<'f>, &'f Context<'f>) -> bool,
-        D: FnOnce(String, &'f StringTable, bool) -> Result<TokenKind, ErrorKind>,
+        D: FnOnce(String, &'s StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         // Unwrap is safe, because EOF case is handled by lex_while_multiple
         self.lex_while_multiple(
@@ -690,7 +702,7 @@ impl<'f> Lexer<'f> {
     fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult<'f>
     where
         P: Fn(&str, Span<'f>, &'f Context<'f>) -> bool,
-        D: FnOnce(String, &'f StringTable, bool) -> Result<TokenKind, ErrorKind>,
+        D: FnOnce(String, &'s StringTable, bool) -> Result<TokenKind, ErrorKind>,
     {
         let mut chars = String::new();
         let start_pos = self.input.current_position();
@@ -725,13 +737,13 @@ impl<'f> Lexer<'f> {
             }
         }
 
-        make_token(chars, &self.context.strtab, self.input.eof_reached())
+        make_token(chars, self.strtab, self.input.eof_reached())
             .map(|kind| Token::new(start_pos, end_pos, kind))
             .map_err(|kind| LexicalError::new(start_pos, end_pos, kind))
     }
 }
 
-impl<'f> Iterator for Lexer<'f> {
+impl<'f, 's> Iterator for Lexer<'f, 's> {
     type Item = TokenResult<'f>;
 
     fn next(&mut self) -> Option<Self::Item> {
