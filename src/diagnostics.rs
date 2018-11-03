@@ -399,7 +399,14 @@ impl<'a> LineFormatter<'a> {
     /// function will return the actuall number of monospace grid cells
     /// rendered before the given position.
     fn get_actual_column(&self, col: usize) -> usize {
-        debug_assert!(col < self.line.len());
+        debug_assert!(
+            col <= self.line.len(),
+            format!(
+                "col = {} is not smaller than max line lengt {}",
+                col,
+                self.line.len()
+            )
+        );
         self.line[0..col]
             .chars()
             .map(|chr| self.render_char(chr).0.len())
