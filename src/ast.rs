@@ -16,7 +16,7 @@ pub enum Type {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct VariableDecl {
-    pub var_type: Type,
+    pub ty: Type,
     pub name: Symbol,
 }
 

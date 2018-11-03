@@ -1,6 +1,3 @@
-//TODO remove after handling of else
-#![allow(clippy::if_same_then_else)]
-
 use crate::{
     ast::*,
     lexer::{Keyword, Operator, Spanned, Token, TokenKind},
@@ -41,7 +38,6 @@ const BINARY_OPERATORS: &[(Operator, Precedence, Assoc)] = &[
 
 #[derive(Debug, Clone)]
 pub enum SyntaxError<'f> {
-    // TODO Rather panic? If `MissingEOF` is instantiated, we have most certainly a bug
     MissingEOF,
     UnexpectedToken {
         got: Token<'f>,
@@ -107,7 +103,6 @@ impl ExpectedToken for BinaryOp {
     type Yields = (Operator, Precedence, Assoc);
     fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
         match token {
-            // TODO Linear search. meh.
             TokenKind::Operator(op) => BINARY_OPERATORS
                 .iter()
                 .find(|(this_op, _, _)| this_op == op)
@@ -355,7 +350,7 @@ where
             if is_static
                 && (return_type != Type::Basic(BasicType::Void)
                     || params.len() != 1
-                    || params[0].var_type
+                    || params[0].ty
                         != Type::ArrayOf(box Type::Basic(BasicType::Ident(Symbol::from("String")))))
             {
                 return Err(SyntaxError::InvalidMainMethod);
@@ -384,27 +379,27 @@ where
     }
 
     fn parse_parameter(&mut self) -> SyntaxResult<'f, VariableDecl> {
-        let var_type = self.parse_type()?;
+        let ty = self.parse_type()?;
         let name = self.omnomnom::<Identifier, _>(Identifier)?;
 
         Ok(VariableDecl {
-            var_type,
+            ty,
             name: name.data,
         })
     }
 
     fn parse_type(&mut self) -> SyntaxResult<'f, Type> {
-        let mut parsed_type = Type::Basic(self.parse_basic_type()?);
+        let mut ty = Type::Basic(self.parse_basic_type()?);
 
         while self
             .omnomnoptional::<Exactly, _>(Operator::LeftBracket)?
             .is_some()
         {
             self.omnomnom::<Exactly, _>(Operator::RightBracket)?;
-            parsed_type = Type::ArrayOf(box parsed_type);
+            ty = Type::ArrayOf(box ty);
         }
 
-        Ok(parsed_type)
+        Ok(ty)
     }
 
     fn parse_basic_type(&mut self) -> SyntaxResult<'f, BasicType> {
@@ -560,8 +555,8 @@ where
     }
 
     fn parse_unary_expression(&mut self) -> ParserResult<'f> {
-        // try read prefixOp
         if self.omnomnoptional::<UnaryOp, _>(UnaryOp)?.is_some() {
+            // This is tail-recursive!
             self.parse_unary_expression()
         } else {
             self.parse_postfix_expression()
