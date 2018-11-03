@@ -3,7 +3,7 @@
 * Grammar symbols are generally space-separated.
 * Tokens are generally lower-case or special characters.
     * `IDENT` is the most notable exception to this rule.
-    * The `(` and `)` tokens are escaped using `\(` and `\)` because they are part of the meta-language as well.
+    * The `(`, `)`, `|` and `*` tokens are escaped with `\`, e.g. `\(`, because they are part of the meta-language as well.
 * A meta-language parentheses pair `(X)` groups the symbols `X`
 * The meta-language operator `?` with `X?` or `(Y)?` means *zero or one* occurence of symbol `X` or symbols `Y`
 * The meta-language operator `*` with `X*` or `(X)*` means *zero or more* occurences of sybmol `X` or sybmoles `Y`
