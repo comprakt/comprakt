@@ -662,12 +662,18 @@ where
 
     fn parse_parenthesized_argument_list(&mut self) -> ParserResult<'f> {
         self.omnomnom::<Exactly, _>(Operator::LeftParen)?;
-        while self
-            .omnomnoptional::<Exactly, _>(Operator::RightParen)?
-            .is_none()
-        {
+
+        if !self.tastes_like::<Exactly, _>(Operator::RightParen)? {
             self.parse_expression()?;
+            while self
+                .omnomnoptional::<Exactly, _>(Operator::Comma)?
+                .is_some()
+            {
+                self.parse_expression()?;
+            }
         }
+
+        self.omnomnom::<Exactly, _>(Operator::RightParen)?;
 
         Ok(())
     }
