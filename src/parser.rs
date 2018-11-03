@@ -842,5 +842,26 @@ mod tests {
                 Err(SyntaxError::InvalidNewObjectExpression)
             )
         }
+
+        #[test]
+        fn invalid_double_keyword_local_var() {
+            lex_input!(
+                lx = r#"
+                void do = 42;
+                "#
+            );
+            let parse_result = Parser::new(lx).parse();
+            assert_matches!(
+                parse_result,
+                Err(SyntaxError::UnexpectedToken {
+                    got:
+                        Token {
+                            data: TokenKind::Keyword(Keyword::Do),
+                            ..
+                        },
+                    ..
+                })
+            );
+        }
     }
 }
