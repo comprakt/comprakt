@@ -43,7 +43,7 @@ pub fn gen_syntax_tests(input: proc_macro::TokenStream) -> TokenStream {
         }));
 
     // parse test cases
-    let cases = SyntaxTestCase::all();
+    let cases = SyntaxTestCase::all().expect("could not load test cases");
 
     // generate test cases
     let mut out = String::new();

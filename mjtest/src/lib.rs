@@ -3,7 +3,10 @@ extern crate serde_json;
 extern crate serde_derive;
 #[macro_use]
 extern crate quote;
+#[macro_use]
+extern crate failure;
 
+use failure::{Error, ResultExt};
 use quote::TokenStreamExt;
 use std::path::PathBuf;
 
@@ -18,17 +21,19 @@ pub enum SyntaxTestCase {
 }
 
 impl SyntaxTestCase {
-    pub fn all() -> Vec<SyntaxTestCase> {
+    pub fn all() -> Result<Vec<SyntaxTestCase>, Error> {
         let p = mjtests_path().join("./syntax");
-        let files = std::fs::read_dir(&p)
-            .expect(&format!("cannot read syntax test case directory {:?}", p));
+        let files = std::fs::read_dir(&p).context(format_err!(
+            "cannot read syntax test case directory {:?}",
+            p
+        ))?;
 
         let mut cases: Vec<SyntaxTestCase> = Vec::new();
         for f in files {
             let f = f.expect("could not unwrap dir entry");
             let ft = f
                 .file_type()
-                .expect(&format!("could not get filetype of {:?}", f.path()));
+                .context(format_err!("could not get filetype of {:?}", f.path()))?;
             if !ft.is_file() {
                 continue;
             }
@@ -36,7 +41,7 @@ impl SyntaxTestCase {
             let filename = f.file_name();
             let filename = filename
                 .to_str()
-                .expect(&format!("test file name not utf-8: {:?}", filename));
+                .ok_or_else(|| format_err!("test file name not utf-8: {:?}", filename))?;
 
             match filename {
                 n if n.ends_with(".invalid.mj") || n.ends_with(".invalid.java") => {
@@ -50,11 +55,11 @@ impl SyntaxTestCase {
                     cases.push(SyntaxTestCase::Valid(f.path()))
                 }
                 n if n == ".mjtest_correct_testcases_syntax" => (),
-                _ => panic!("unexpected file {:?}", filename),
+                _ => return Err(format_err!("unexpected file {:?}", filename)),
             }
         }
 
-        cases
+        Ok(cases)
     }
 
     pub fn path(&self) -> &PathBuf {
@@ -66,13 +71,10 @@ impl SyntaxTestCase {
 
     pub fn file_name(&self) -> &str {
         let p = self.path();
-        let filename = p
-            .file_name()
-            .expect(&format!("test case path must point to file: {:?}", p));
-        let filename = filename
+        p.file_name()
+            .unwrap_or_else(|| panic!("test case path must point to file: {:?}", p))
             .to_str()
-            .expect(&format!("test file name not utf-8: {:?}", filename));
-        filename
+            .unwrap_or_else(|| panic!("test file name not utf-8: {:?}", p))
     }
 
     pub fn test_name(&self) -> String {
