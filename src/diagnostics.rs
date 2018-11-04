@@ -10,7 +10,7 @@ use crate::{
     lexer::{Span, Spanned},
 };
 use failure::AsFail;
-use std::{ascii::escape_default, cell::RefCell};
+use std::{ascii::escape_default, cell::RefCell, collections::HashMap};
 use termcolor::{Color, ColorSpec, WriteColor};
 
 /// Instead of writing errors, warnings and lints generated in the different
@@ -19,12 +19,8 @@ use termcolor::{Color, ColorSpec, WriteColor};
 /// This has several advantages:
 /// - the output level can be adapted by users.
 /// - we have a single source responsible for formatting compiler messages.
-/// - unit tests can run the compiler and just assert the diagnostics object
-///   instead of stdout/stderr of another process.
 pub struct Diagnostics {
-    // TODO: there is no reason to collect the messages except
-    // for debugging purposes. So, maybe remove...
-    messages: RefCell<Vec<Message>>,
+    message_count: RefCell<HashMap<MessageLevel, usize>>,
     writer: RefCell<Box<dyn WriteColor>>,
 }
 
@@ -40,25 +36,25 @@ impl Diagnostics {
     pub fn new(writer: Box<dyn WriteColor>) -> Self {
         Self {
             writer: RefCell::new(writer),
-            messages: RefCell::new(Vec::new()),
+            message_count: RefCell::new(HashMap::new()),
         }
     }
 
     /// True when an error message was emitted, false
     /// if only warnings were emitted.
     pub fn errored(&self) -> bool {
-        self.messages
+        self.message_count
             .borrow()
-            .iter()
-            .any(|msg| msg.level == MessageLevel::Error)
+            .get(&MessageLevel::Error)
+            .is_some()
     }
 
     pub fn count(&self, level: MessageLevel) -> usize {
-        self.messages
+        self.message_count
             .borrow()
-            .iter()
-            .filter(|msg| msg.level == level)
-            .count()
+            .get(&level)
+            .cloned()
+            .unwrap_or(0)
     }
 
     pub fn write_statistics(&self) {
@@ -99,7 +95,7 @@ impl Diagnostics {
 
         let mut writer = self.writer.borrow_mut();
         msg.write_colored(&mut **writer);
-        self.messages.borrow_mut().push(msg);
+        self.increment_level_count(level);
     }
 
     #[allow(dead_code)]
@@ -110,14 +106,6 @@ impl Diagnostics {
     #[allow(dead_code)]
     pub fn error(&self, kind: Box<dyn AsFail>) {
         self.emit(MessageLevel::Error, kind)
-    }
-
-    pub fn warning_with_source_snippet(&self, spanned: Spanned<'_, Box<dyn AsFail>>) {
-        self.emit_with_source_snippet(MessageLevel::Warning, spanned)
-    }
-
-    pub fn error_with_source_snippet(&self, spanned: Spanned<'_, Box<dyn AsFail>>) {
-        self.emit_with_source_snippet(MessageLevel::Error, spanned)
     }
 
     pub fn emit_with_source_snippet(
@@ -132,12 +120,25 @@ impl Diagnostics {
 
         let mut writer = self.writer.borrow_mut();
         msg.write_colored_with_code(&mut **writer, &spanned.span);
-        // TODO: store span
-        self.messages.borrow_mut().push(msg);
+        self.increment_level_count(level);
+    }
+
+    pub fn warning_with_source_snippet(&self, spanned: Spanned<'_, Box<dyn AsFail>>) {
+        self.emit_with_source_snippet(MessageLevel::Warning, spanned)
+    }
+
+    pub fn error_with_source_snippet(&self, spanned: Spanned<'_, Box<dyn AsFail>>) {
+        self.emit_with_source_snippet(MessageLevel::Error, spanned)
+    }
+
+    pub fn increment_level_count(&self, level: MessageLevel) {
+        let mut message_count = self.message_count.borrow_mut();
+        let counter = message_count.entry(level).or_insert(0);
+        *counter += 1;
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum MessageLevel {
     Error,
     Warning,
