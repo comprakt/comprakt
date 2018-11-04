@@ -12,7 +12,7 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [workspace]
-members = [ ".", "./mjtest", "./mjtest/mjtest_macros" ]
+members = [ ".", "./mjtest-rs", "./mjtest-rs/mjtest_macros" ]
 
 [dependencies]
 structopt = "0.2"
@@ -22,5 +22,5 @@ itertools = "0.7"
 libc = "*"
 termcolor = "1.0.4"
 derive_more = "0.13"
-mjtest = { path = "./mjtest" }
-mjtest_macros = { path = "./mjtest/mjtest_macros" }
+mjtest = { path = "./mjtest-rs" }
+mjtest_macros = { path = "./mjtest-rs/mjtest_macros" }
