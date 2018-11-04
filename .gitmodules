@@ -1,0 +1,3 @@
+[submodule "mjtest-rs/tests"]
+	path = mjtest-rs/tests
+	url = https://git.scc.kit.edu/IPDSnelting/mjtest-tests.git
