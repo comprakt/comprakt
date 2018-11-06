@@ -1,0 +1,6 @@
+error: expected primary expression, found ++
+   | 
+ 3 |         - -thisIsTotallyFine - !!!++butThisIsNot;
+   |                                   ^^
+
+Compilation aborted due to an error

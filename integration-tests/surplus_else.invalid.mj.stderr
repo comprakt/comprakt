@@ -1,0 +1,6 @@
+error: expected primary expression, found else
+    | 
+ 12 |         else return false;
+    |         ^^^^
+
+Compilation aborted due to an error

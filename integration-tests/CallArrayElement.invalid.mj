@@ -1,0 +1,6 @@
+ class ManyPostfixOps {
+
+    public static void main(String[] args) {
+        ident[ident]();
+    }
+}

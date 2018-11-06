@@ -1,0 +1,6 @@
+error: expected ;, found (
+   | 
+ 4 |         ident[ident]();
+   |                     ^
+
+Compilation aborted due to an error

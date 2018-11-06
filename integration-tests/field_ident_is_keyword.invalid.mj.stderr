@@ -1,0 +1,6 @@
+error: expected an identifier, found class
+   | 
+ 2 |     public void class;
+   |                 ^^^^^
+
+Compilation aborted due to an error

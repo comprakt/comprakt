@@ -1,0 +1,6 @@
+error: Unexpected control character '\x1b'
+   | 
+ 1 | /* Now comes ASCII \x1b (ESC) */ {\x1b}
+   |                                  ^^^^^^
+
+Compilation aborted due to an error

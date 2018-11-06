@@ -1,0 +1,6 @@
+error: expected keyword `int`, `boolean`, `void` or an identifier, found while
+   | 
+ 2 |     public while testing;
+   |            ^^^^^
+
+Compilation aborted due to an error

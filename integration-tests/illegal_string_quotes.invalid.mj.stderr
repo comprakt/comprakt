@@ -1,0 +1,6 @@
+error: Unexpected double quote
+   | 
+ 1 | System.out.println("Hello world!");
+   |                    ^
+
+Compilation aborted due to an error

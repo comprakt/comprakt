@@ -1,0 +1,7 @@
+class NestedMethods {
+    public void foo() {
+        public String bar() {
+            return new String();
+        }
+    }
+}

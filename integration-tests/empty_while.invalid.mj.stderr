@@ -1,0 +1,6 @@
+error: expected primary expression, found }
+   | 
+ 4 |     }
+   |     ^
+
+Compilation aborted due to an error

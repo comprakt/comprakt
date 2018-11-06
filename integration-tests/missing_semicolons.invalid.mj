@@ -1,0 +1,8 @@
+class MissingSemicolons {
+    public void FOO () {
+        ;
+        if (a[a] == b) true
+        else false
+        ;
+    }
+}

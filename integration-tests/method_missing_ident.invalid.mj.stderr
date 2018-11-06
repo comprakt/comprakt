@@ -1,0 +1,6 @@
+error: expected an identifier, found (
+   | 
+ 2 | public void(){}
+   |            ^
+
+Compilation aborted due to an error

@@ -1,0 +1,5 @@
+class ident {
+    public ident ident () {
+        ident[3] ident;
+    }
+}

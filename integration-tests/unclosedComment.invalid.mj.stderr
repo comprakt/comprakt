@@ -1,0 +1,6 @@
+error: unclosed comment
+   | 
+ 2 | /* This is a bad comment
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+Compilation aborted due to an error

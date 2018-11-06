@@ -1,0 +1,6 @@
+error: Unexpected whitespace '\x0b'
+   | 
+ 2 | {\x0b}{\x0c}
+   | ^^^^^^
+
+Compilation aborted due to an error
