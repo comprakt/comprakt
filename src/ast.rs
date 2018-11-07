@@ -3,23 +3,24 @@ use crate::strtab::Symbol;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Program<'t> {
-    span: Span<'t>,
-    classes: Vec<ClassDeclaration<'t>>,
+    pub span: Span<'t>,
+    pub classes: Vec<ClassDeclaration<'t>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ClassDeclaration<'t> {
-    span: Span<'t>,
-    name: Symbol,
-    members: Vec<ClassMember<'t>>,
+    pub span: Span<'t>,
+    pub name: Symbol,
+    pub members: Vec<ClassMember<'t>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ClassMember<'t> {
-    span: Span<'t>,
-    node: ClassMemberKind<'t>,
-    ty: Type<'t>,
-    name: Symbol,
+    pub span: Span<'t>,
+    pub node: ClassMemberKind<'t>,
+    pub ty: Type<'t>,
+    pub name: Symbol,
+    pub is_static: bool,
 }
 
 pub type ParameterList<'t> = Vec<Parameter<'t>>;
@@ -33,8 +34,8 @@ pub enum ClassMemberKind<'t> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct MethodRest<'t> {
-    span: Span<'t>,
-    throws: Symbol,
+    pub span: Span<'t>,
+    pub throws: Option<Symbol>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -62,14 +63,14 @@ pub enum BasicType{
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Block<'t> {
-    span: Span<'t>,
-    statements: Vec<Stmt<'t>>,
+    pub span: Span<'t>,
+    pub statements: Vec<Stmt<'t>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Stmt<'t> {
-    span: Span<'t>,
-    node: StmtKind<'t>,
+    pub span: Span<'t>,
+    pub node: StmtKind<'t>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -85,8 +86,8 @@ pub enum StmtKind<'t> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Expr<'t> {
-    span: Span<'t>,
-    node: ExprKind<'t>,
+    pub span: Span<'t>,
+    pub node: ExprKind<'t>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -136,8 +137,8 @@ pub type ArgumentList<'t> = Vec<Box<Expr<'t>>>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct PostfixOp<'t> {
-    span: Span<'t>,
-    node: PostfixOpKind<'t>,
+    pub span: Span<'t>,
+    pub node: PostfixOpKind<'t>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
