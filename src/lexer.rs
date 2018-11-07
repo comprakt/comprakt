@@ -1,9 +1,5 @@
-use crate::{
-    asciifile::{AsciiFileIterator, PositionedChar, Span, Spanned},
-    context::Context,
-    diagnostics::u8_to_printable_representation,
-    strtab::*,
-};
+use asciifile::{AsciiFileIterator, PositionedChar, Span, Spanned};
+use crate::{context::Context, diagnostics::u8_to_printable_representation, strtab::*};
 use failure::Fail;
 use std::{convert::TryFrom, fmt, result::Result};
 
@@ -31,7 +27,6 @@ pub type TokenResult<'f> = Result<Token<'f>, LexicalError<'f>>;
 
 pub type Token<'f> = Spanned<'f, TokenKind>;
 pub type LexicalError<'f> = Spanned<'f, ErrorKind>;
-impl<'f> Fail for LexicalError<'f> where 'f: 'static {}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenKind {

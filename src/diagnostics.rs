@@ -3,9 +3,7 @@
 //! It also tracks the number of warnings and errors generated for flow control.
 //!
 //! This implementation is NOT thread-safe.
-
-// TODO: import spanned and span into this module?
-use crate::asciifile::{LineTruncation, Span, Spanned};
+use asciifile::{LineTruncation, Span, Spanned};
 use failure::AsFail;
 use std::{ascii::escape_default, cell::RefCell, collections::HashMap};
 use termcolor::{Color, ColorSpec, WriteColor};
