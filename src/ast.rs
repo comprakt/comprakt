@@ -92,8 +92,18 @@ pub struct Expr<'t> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ExprKind<'t> {
     Binary(BinaryOp, Box<Expr<'t>>, Box<Expr<'t>>),
-    Unary(UnaryOp, Box<Expr<'t>>),
-    Postfix(PrimaryExprKind<'t>, Vec<PostfixOp<'t>>),
+    Unary(Vec<UnaryOp>, Box<Expr<'t>>),
+    Postfix(Box<Expr<'t>>, Vec<PostfixOp<'t>>),
+
+    // The old primary expressions
+    Null,
+    Boolean(bool),
+    Int(Symbol), // TODO Should be String?
+    Var(Symbol),
+    GlobalMethodInvocation(Symbol, ArgumentList<'t>),
+    This,
+    NewObject(BasicType),
+    NewArray(BasicType, Box<Expr<'t>>, u64),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -123,19 +133,6 @@ pub enum UnaryOp {
 pub type ArgumentList<'t> = Vec<Box<Expr<'t>>>;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum PrimaryExprKind<'t> {
-    Null,
-    Boolean(bool),
-    Int(i32),
-    Var(Symbol),
-    Method(Symbol, ArgumentList<'t>),
-    This,
-    Parenthesized(Box<Expr<'t>>),
-    NewObject(Symbol),
-    NewArray(BasicType, Box<Expr<'t>>, u64),
-}
-
-#[derive(Debug, PartialEq, Eq)]
 pub struct PostfixOp<'t> {
     span: Span<'t>,
     node: PostfixOpKind<'t>,
@@ -147,4 +144,3 @@ pub enum PostfixOpKind<'t> {
     FieldAccess(Symbol),
     ArrayAccess(Box<Expr<'t>>),
 }
-
