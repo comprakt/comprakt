@@ -1,9 +1,10 @@
 //! Checks for regresssions in the CLI interface code
 
 use assert_cmd::prelude::*;
+use difference::Changeset;
 use integration_test_codegen::gen_integration_tests;
 use predicates::prelude::*;
-use std::{ffi::OsStr, fs::File, path::PathBuf, process::Command};
+use std::{ffi::OsStr, fs::File, io::Read, path::PathBuf, process::Command};
 
 fn parsetest_cmd(filepath: &PathBuf) -> Command {
     let mut cmd = Command::main_binary().unwrap();
@@ -62,12 +63,28 @@ fn assert_parser_failure(filename: &str) {
         }
     }
 
-    let stderr_predicate = predicate::path::eq_file(filepath_stderr);
+    let assertion = parsetest_cmd(&filepath).assert();
 
-    parsetest_cmd(&filepath)
-        .assert()
+    let stderr_expected = read_file(&filepath_stderr);
+    let changeset = Changeset::new(
+        &stderr_expected,
+        &String::from_utf8_lossy(&assertion.get_output().stderr),
+        "\n",
+    );
+    let stderr_predicate = predicate::eq(stderr_expected.as_bytes());
+
+    assertion
+        .append_context("changeset stderr", format!("\n{}", changeset))
         .stderr(stderr_predicate)
         .failure();
+}
+
+fn read_file(filename: &PathBuf) -> String {
+    let mut f = File::open(filename).expect(&format!("file not found: {:?}", filename));
+    let mut contents = String::new();
+    f.read_to_string(&mut contents)
+        .expect(&format!("could not read file: {:?}", filename));
+    contents
 }
 
 gen_integration_tests!();

@@ -28,3 +28,4 @@ mjtest_macros = { path = "./mjtest-rs/mjtest_macros" }
 integration_test_codegen = { path = "./integration-test-codegen-rs" }
 assert_cmd = "0.10"
 predicates = "1.0"
+difference = "2.0"
