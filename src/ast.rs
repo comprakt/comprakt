@@ -70,7 +70,7 @@ pub struct Type<'t> {
     pub ty: BasicType,
     /// Depth of the array type (number of `[]`) i.e. this means means `self.ty
     /// []^(self.array)`
-    pub array: u64,
+    pub array_depth: u64,
 }
 
 /// A `BasicType` is either one of
