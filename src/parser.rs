@@ -334,9 +334,9 @@ where
             // method or main method
 
             let params = if !self.tastes_like(exactly(Operator::RightParen))? {
-                self.parse_parameters()?
+                Some(self.parse_parameters()?)
             } else {
-                ParameterList::new()
+                None
             };
 
             let end_position = self.omnomnom(exactly(Operator::RightParen))?.span.start;
@@ -348,10 +348,12 @@ where
             // Check that "static" => Type=void && ParameterList==(String[] IDENT)
             // TODO Should be handled during semantical analysis
             if is_static
-                && (return_type != Type::Basic(BasicType::Void)
-                    || params.len() != 1
-                    || params[0].ty
-                        != Type::ArrayOf(box Type::Basic(BasicType::Ident(Symbol::from("String")))))
+                && !(return_type.ty == BasicType::Void
+                    && params.is_some())
+                    && params.unwrap().len() == 1
+                    //TODO(flip1995): fix again
+                    // && params.unwrap()[0].ty.array.is_some()
+                    // && params.unwrap()[0].ty.array.unwrap() == 1)
             {
                 return Err(WithSpan(Spanned {
                     span: Span {
@@ -370,8 +372,8 @@ where
         Ok(())
     }
 
-    fn parse_parameters(&mut self) -> SyntaxResult<'f, ParameterList> {
-        let mut param_list = ParameterList::new();
+    fn parse_parameters(&mut self) -> SyntaxResult<'f, Vec<Parameter<'f>>> {
+        let mut param_list = vec![];
 
         param_list.push(self.parse_parameter()?);
         while self.omnomnoptional(exactly(Operator::Comma))?.is_some() {
@@ -381,39 +383,46 @@ where
         Ok(param_list)
     }
 
-    fn parse_parameter(&mut self) -> SyntaxResult<'f, VariableDecl> {
+    fn parse_parameter(&mut self) -> SyntaxResult<'f, Parameter<'f>> {
         let ty = self.parse_type()?;
         let name = self.omnomnom(Identifier)?;
 
-        Ok(VariableDecl {
+        Ok(Parameter {
+            span: Span::dummy(),
             ty,
             name: name.data,
         })
     }
 
-    fn parse_type(&mut self) -> SyntaxResult<'f, Type> {
-        let mut ty = Type::Basic(self.parse_basic_type()?);
+    fn parse_type(&mut self) -> SyntaxResult<'f, Type<'f>> {
+        let ty = self.parse_basic_type()?;
 
+        let mut array_count = 0;
         while self
             .omnomnoptional(exactly(Operator::LeftBracket))?
             .is_some()
         {
             self.omnomnom(exactly(Operator::RightBracket))?;
-            ty = Type::ArrayOf(box ty);
+            array_count += 1;
         }
 
-        Ok(ty)
+        Ok(Type {
+            span: Span::dummy(),
+            ty,
+            array: if array_count > 0 { Some(array_count) } else { None },
+        })
     }
 
     fn parse_basic_type(&mut self) -> SyntaxResult<'f, BasicType> {
+        //TODO(flip1995): parse value of int/bool
         if self.omnomnoptional(exactly(Keyword::Int))?.is_some() {
-            Ok(BasicType::Int)
+            Ok(BasicType::Int(0))
         } else if self.omnomnoptional(exactly(Keyword::Boolean))?.is_some() {
-            Ok(BasicType::Bool)
+            Ok(BasicType::Boolean(true))
         } else if self.omnomnoptional(exactly(Keyword::Void))?.is_some() {
             Ok(BasicType::Void)
         } else if let Some(sym) = self.omnomnoptional(Identifier)? {
-            Ok(BasicType::Ident(sym.data))
+            Ok(BasicType::Custom(sym.data))
         } else {
             let actual = self.next()?;
             Err(WithSpan(Spanned {
@@ -607,7 +616,7 @@ where
                 let end_position = self.omnomnom(exactly(Operator::RightParen))?.span.end;
 
                 // TODO should be handled during semantical analysis
-                if matches!(new_type, BasicType::Void | BasicType::Int | BasicType::Bool) {
+                if matches!(new_type, BasicType::Void | BasicType::Int(_) | BasicType::Boolean(_)) {
                     return Err(WithSpan(Spanned {
                         span: Span {
                             start: start_position,

@@ -140,7 +140,7 @@ pub enum Warning {
     CommentSeparatorInsideComment,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Span<'f> {
     pub start: Position<'f>,
     pub end: Position<'f>,
@@ -157,6 +157,15 @@ impl Span<'_> {
             .checked_sub(self.start.col)
             .map(|d| d <= 1)
             .unwrap_or(false)
+    }
+
+    //TODO(flip1995): remove
+    pub fn dummy() -> Self {
+        let pos = Position::dummy();
+        Self {
+            start: pos,
+            end: pos,
+        }
     }
 
     /// Check if a span extends over multiple lines
