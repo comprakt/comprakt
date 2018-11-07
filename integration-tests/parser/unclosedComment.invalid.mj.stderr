@@ -1,6 +1,6 @@
-error: unclosed comment
+error: expected class, found int
    | 
- 2 | /* This is a bad comment
-   | ^^^^^^^^^^^^^^^^^^^^^^^^
+ 1 | int a = 666;
+   | ^^^
 
 Compilation aborted due to an error

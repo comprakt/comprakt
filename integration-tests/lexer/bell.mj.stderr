@@ -1,6 +1,6 @@
-error: expected class, found identifier ring
+error: Unexpected control character '\x07'
    | 
  1 | ring ring ring {\x07} who's there? 
-   | ^^^^
+   |                ^^^^^^
 
 Compilation aborted due to an error

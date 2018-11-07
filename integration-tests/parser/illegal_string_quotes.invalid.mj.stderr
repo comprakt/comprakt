@@ -1,6 +1,6 @@
-error: Unexpected double quote
+error: expected class, found identifier System
    | 
  1 | System.out.println("Hello world!");
-   |                    ^
+   | ^^^^^^
 
 Compilation aborted due to an error

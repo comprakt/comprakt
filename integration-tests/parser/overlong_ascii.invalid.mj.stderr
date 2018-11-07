@@ -1,2 +1,2 @@
-error: cannot decode input file "/home/rd/repo/comprakt/integration-tests/overlong_ascii.invalid.mj"
+error: cannot decode input file "{ROOT}/integration-tests/parser/overlong_ascii.invalid.mj"
 caused by: input contains non-ascii character at byte offset 158: /* U+002F = c0 af             */ <?>

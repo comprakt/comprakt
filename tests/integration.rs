@@ -12,6 +12,8 @@ enum CompilerPhase {
     Parser,
 }
 
+const ROOT_DIR: &str = env!("CARGO_MANIFEST_DIR");
+
 fn compiler_flag(phase: CompilerPhase) -> &'static str {
     match phase {
         CompilerPhase::Lexer => "--lextest",
@@ -24,6 +26,10 @@ fn compiler_call(phase: CompilerPhase, filepath: &PathBuf) -> Command {
     cmd.env("TERM", "dumb");
     cmd.args(&[OsStr::new(compiler_flag(phase)), filepath.as_os_str()]);
     cmd
+}
+
+fn normalize_stderr(stderr: &str) -> String {
+    stderr.replace(ROOT_DIR, "{ROOT}")
 }
 
 fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
@@ -56,6 +62,7 @@ fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
             ext
         });
 
+        // TODO: normalize stderr
         match compiler_call(phase, &filepath)
             .stdout(File::create(&filepath_stdout_tentative).expect("write stdout file failed"))
             .stderr(File::create(&filepath_stderr_tentative).expect("write stderr file failed"))
@@ -81,10 +88,12 @@ fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
     let stderr_expected = read_file(&filepath_stderr);
     let changeset = Changeset::new(
         &stderr_expected,
-        &String::from_utf8_lossy(&assertion.get_output().stderr),
+        &normalize_stderr(&String::from_utf8_lossy(&assertion.get_output().stderr)),
         "\n",
     );
-    let stderr_predicate = predicate::eq(stderr_expected.as_bytes());
+    let stderr_predicate = predicate::function(|actual: &[u8]| {
+        normalize_stderr(&String::from_utf8_lossy(actual)) == stderr_expected
+    });
 
     assertion
         .append_context("changeset stderr", format!("\n{}", changeset))
