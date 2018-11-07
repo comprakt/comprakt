@@ -29,7 +29,6 @@ pub type ParameterList<'t> = Vec<Parameter<'t>>;
 pub enum ClassMemberKind<'t> {
     Field,
     Method(ParameterList<'t>, MethodRest<'t>, Block<'t>),
-    MainMethod(Parameter<'t>, MethodRest<'t>, Block<'t>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
