@@ -414,11 +414,10 @@ where
     }
 
     fn parse_basic_type(&mut self) -> SyntaxResult<'f, BasicType> {
-        //TODO(flip1995): parse value of int/bool
         if self.omnomnoptional(exactly(Keyword::Int))?.is_some() {
-            Ok(BasicType::Int(0))
+            Ok(BasicType::Int)
         } else if self.omnomnoptional(exactly(Keyword::Boolean))?.is_some() {
-            Ok(BasicType::Boolean(true))
+            Ok(BasicType::Boolean)
         } else if self.omnomnoptional(exactly(Keyword::Void))?.is_some() {
             Ok(BasicType::Void)
         } else if let Some(sym) = self.omnomnoptional(Identifier)? {
@@ -616,7 +615,7 @@ where
                 let end_position = self.omnomnom(exactly(Operator::RightParen))?.span.end;
 
                 // TODO should be handled during semantical analysis
-                if matches!(new_type, BasicType::Void | BasicType::Int(_) | BasicType::Boolean(_)) {
+                if matches!(new_type, BasicType::Void | BasicType::Int | BasicType::Boolean) {
                     return Err(WithSpan(Spanned {
                         span: Span {
                             start: start_position,

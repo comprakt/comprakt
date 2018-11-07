@@ -51,8 +51,8 @@ pub struct Type<'t> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BasicType{
-    Int(i32),
-    Boolean(bool),
+    Int,
+    Boolean,
     Void,
     Custom(Symbol),
 }
