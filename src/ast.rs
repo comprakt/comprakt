@@ -22,10 +22,12 @@ pub struct ClassMember<'t> {
     name: Symbol,
 }
 
+pub type ParameterList<'t> = Vec<Parameter<'t>>;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum ClassMemberKind<'t> {
     Field,
-    Method(Vec<Parameter<'t>>, MethodRest<'t>, Block<'t>),
+    Method(ParameterList<'t>, MethodRest<'t>, Block<'t>),
     MainMethod(Parameter<'t>, MethodRest<'t>, Block<'t>),
 }
 
@@ -89,15 +91,36 @@ pub struct Expr<'t> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ExprKind<'t> {
-    LogicalOr(Box<Expr<'t>>, Box<Expr<'t>>),
-    LogicalAnd(Box<Expr<'t>>, Box<Expr<'t>>),
-    Equality(Box<Expr<'t>>, Box<Expr<'t>>),
-    Relational(Box<Expr<'t>>, Box<Expr<'t>>),
-    Additive(Box<Expr<'t>>, Box<Expr<'t>>),
-    Multiplicative(Box<Expr<'t>>, Box<Expr<'t>>),
-    Unary(Box<Expr<'t>>),
+    Binary(BinaryOp, Box<Expr<'t>>, Box<Expr<'t>>),
+    Unary(UnaryOp, Box<Expr<'t>>),
     Postfix(PrimaryExprKind<'t>, Vec<PostfixOp<'t>>),
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum BinaryOp {
+    Equals,
+    NotEquals,
+    LessThan,
+    GreaterThan,
+    LessEquals,
+    GreaterEquals,
+
+    LogicalOr,
+    LogicalAnd,
+
+    Sub,
+    Add,
+    Mul,
+    Div,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum UnaryOp {
+    Not,
+    Neg,
+}
+
+pub type ArgumentList<'t> = Vec<Box<Expr<'t>>>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PrimaryExprKind<'t> {
@@ -105,7 +128,7 @@ pub enum PrimaryExprKind<'t> {
     Boolean(bool),
     Int(i32),
     Var(Symbol),
-    Method(Symbol, Vec<Box<Expr<'t>>>),
+    Method(Symbol, ArgumentList<'t>),
     This,
     Parenthesized(Box<Expr<'t>>),
     NewObject(Symbol),
@@ -120,7 +143,7 @@ pub struct PostfixOp<'t> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PostfixOpKind<'t> {
-    MethodInvocation(Symbol, Vec<Box<Expr<'t>>>),
+    MethodInvocation(Symbol, ArgumentList<'t>),
     FieldAccess(Symbol),
     ArrayAccess(Box<Expr<'t>>),
 }
