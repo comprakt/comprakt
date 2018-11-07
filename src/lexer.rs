@@ -60,7 +60,7 @@ impl<'f, T> Spanned<'f, T> {
         F: FnOnce(&T) -> U,
     {
         Spanned {
-            span: self.span.clone(),
+            span: self.span,
             data: f(&self.data),
         }
     }
@@ -140,7 +140,7 @@ pub enum Warning {
     CommentSeparatorInsideComment,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span<'f> {
     pub start: Position<'f>,
     pub end: Position<'f>,
