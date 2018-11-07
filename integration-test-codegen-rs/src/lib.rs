@@ -16,11 +16,24 @@ use std::{ffi::OsStr, fs, path::PathBuf};
 const ROOT_DIR: &str = env!("CARGO_MANIFEST_DIR");
 const INTEGRATION_TEST_DIR: &str = "../integration-tests";
 
+// TODO: expose gen_integration_tests instead and parse phase and subfolder as
+// path
 #[proc_macro]
-pub fn gen_integration_tests(_: TokenStream) -> TokenStream {
+pub fn gen_lexer_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests(quote! { CompilerPhase::Lexer }, "lexer")
+}
+
+#[proc_macro]
+pub fn gen_parser_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests(quote! { CompilerPhase::Parser }, "parser")
+}
+
+fn gen_integration_tests(phase: proc_macro2::TokenStream, subfolder: &str) -> TokenStream {
     let mut out = String::new();
 
-    let test_dir: PathBuf = [ROOT_DIR, INTEGRATION_TEST_DIR].iter().collect();
+    let test_dir: PathBuf = [ROOT_DIR, INTEGRATION_TEST_DIR, subfolder].iter().collect();
+
+    let ascii_test_dir = subfolder.replace(|c: char| !c.is_ascii_alphanumeric(), "_");
 
     let cases = fs::read_dir(&test_dir)
         .expect(&format!("test directory {:?} does not exist.", test_dir))
@@ -43,15 +56,17 @@ pub fn gen_integration_tests(_: TokenStream) -> TokenStream {
             .to_string_lossy()
             .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
 
-        let function_name =
-            Ident::new(&format!("cli_{}_{}", id, ascii_casename), Span::call_site());
+        let function_name = Ident::new(
+            &format!("cli_{}_{}_{}", ascii_test_dir, id, ascii_casename),
+            Span::call_site(),
+        );
 
         let path = case.to_str();
 
         let tokens = quote! {
             #[test]
             fn #function_name() {
-                assert_parser_failure(#path);
+                assert_compiler_phase_failure(#phase, #path);
             }
         };
 

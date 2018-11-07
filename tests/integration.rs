@@ -2,18 +2,31 @@
 
 use assert_cmd::prelude::*;
 use difference::Changeset;
-use integration_test_codegen::gen_integration_tests;
+use integration_test_codegen::{gen_lexer_integration_tests, gen_parser_integration_tests};
 use predicates::prelude::*;
 use std::{ffi::OsStr, fs::File, io::Read, path::PathBuf, process::Command};
 
-fn parsetest_cmd(filepath: &PathBuf) -> Command {
+#[derive(Debug, Copy, Clone)]
+enum CompilerPhase {
+    Lexer,
+    Parser,
+}
+
+fn compiler_flag(phase: CompilerPhase) -> &'static str {
+    match phase {
+        CompilerPhase::Lexer => "--lextest",
+        CompilerPhase::Parser => "--parsetest",
+    }
+}
+
+fn compiler_call(phase: CompilerPhase, filepath: &PathBuf) -> Command {
     let mut cmd = Command::main_binary().unwrap();
     cmd.env("TERM", "dumb");
-    cmd.args(&[OsStr::new("--parsetest"), filepath.as_os_str()]);
+    cmd.args(&[OsStr::new(compiler_flag(phase)), filepath.as_os_str()]);
     cmd
 }
 
-fn assert_parser_failure(filename: &str) {
+fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
     let filepath = PathBuf::from(filename);
     let extension = filepath
         .extension()
@@ -43,7 +56,7 @@ fn assert_parser_failure(filename: &str) {
             ext
         });
 
-        match parsetest_cmd(&filepath)
+        match compiler_call(phase, &filepath)
             .stdout(File::create(&filepath_stdout_tentative).expect("write stdout file failed"))
             .stderr(File::create(&filepath_stderr_tentative).expect("write stderr file failed"))
             .spawn()
@@ -63,7 +76,7 @@ fn assert_parser_failure(filename: &str) {
         }
     }
 
-    let assertion = parsetest_cmd(&filepath).assert();
+    let assertion = compiler_call(phase, &filepath).assert();
 
     let stderr_expected = read_file(&filepath_stderr);
     let changeset = Changeset::new(
@@ -87,4 +100,5 @@ fn read_file(filename: &PathBuf) -> String {
     contents
 }
 
-gen_integration_tests!();
+gen_lexer_integration_tests!();
+gen_parser_integration_tests!();
