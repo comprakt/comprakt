@@ -91,6 +91,7 @@ pub struct Expr<'t> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ExprKind<'t> {
+    Assignment(Box<Expr<'t>>, Vec<Expr<'t>>),
     Binary(BinaryOp, Box<Expr<'t>>, Box<Expr<'t>>),
     Unary(Vec<UnaryOp>, Box<Expr<'t>>),
     Postfix(Box<Expr<'t>>, Vec<PostfixOp<'t>>),
@@ -118,6 +119,7 @@ pub enum BinaryOp {
     LogicalOr,
     LogicalAnd,
 
+    Mod,
     Sub,
     Add,
     Mul,
