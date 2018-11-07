@@ -4,14 +4,14 @@ use crate::strtab::Symbol;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Program<'t> {
     span: Span<'t>,
-    classes: Option<Vec<ClassDeclaration<'t>>>,
+    classes: Vec<ClassDeclaration<'t>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ClassDeclaration<'t> {
     span: Span<'t>,
     name: Symbol,
-    members: Option<Vec<ClassMember<'t>>>,
+    members: Vec<ClassMember<'t>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -25,7 +25,7 @@ pub struct ClassMember<'t> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ClassMemberKind<'t> {
     Field,
-    Method(Option<Vec<Parameter<'t>>>, MethodRest<'t>, Block<'t>),
+    Method(Vec<Parameter<'t>>, MethodRest<'t>, Block<'t>),
     MainMethod(Parameter<'t>, MethodRest<'t>, Block<'t>),
 }
 
@@ -46,7 +46,8 @@ pub struct Parameter<'t> {
 pub struct Type<'t> {
     pub span: Span<'t>,
     pub ty: BasicType,
-    pub array: Option<u64>,
+    /// Depth of the array type (number of `[]`) i.e. this means means `self.ty []^(self.array)`
+    pub array: u64,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -60,7 +61,7 @@ pub enum BasicType{
 #[derive(Debug, PartialEq, Eq)]
 pub struct Block<'t> {
     span: Span<'t>,
-    statements: Option<Vec<Statement<'t>>>,
+    statements: Vec<Statement<'t>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -95,7 +96,7 @@ pub enum ExprKind<'t> {
     Additive(Box<Expr<'t>>, Box<Expr<'t>>),
     Multiplicative(Box<Expr<'t>>, Box<Expr<'t>>),
     Unary(Box<Expr<'t>>),
-    Postfix(PrimaryExprKind<'t>, Option<Vec<PostfixOp<'t>>>),
+    Postfix(PrimaryExprKind<'t>, Vec<PostfixOp<'t>>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -104,7 +105,7 @@ pub enum PrimaryExprKind<'t> {
     Boolean(bool),
     Int(i32),
     Var(Symbol),
-    Method(Symbol, Option<Vec<Box<Expr<'t>>>>),
+    Method(Symbol, Vec<Box<Expr<'t>>>),
     This,
     Parenthesized(Box<Expr<'t>>),
     NewObject(Symbol),
@@ -119,7 +120,7 @@ pub struct PostfixOp<'t> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PostfixOpKind<'t> {
-    MethodInvocation(Symbol, Option<Vec<Box<Expr<'t>>>>),
+    MethodInvocation(Symbol, Vec<Box<Expr<'t>>>),
     FieldAccess(Symbol),
     ArrayAccess(Box<Expr<'t>>),
 }
