@@ -1,5 +1,5 @@
 error: expected public, found EOF
    | 
  8 | 
-   | thread 'main' panicked at 'col = 1 is not smaller than max line lengt 0', src/diagnostics.rs:403:9
+   | thread 'main' panicked at 'col = 1 is not smaller than max line length 0', src/diagnostics.rs:400:9
 note: Run with `RUST_BACKTRACE=1` for a backtrace.

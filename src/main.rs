@@ -27,8 +27,9 @@ mod lexer;
 mod parser;
 mod strtab;
 use self::{
+    asciifile::Spanned,
     context::Context,
-    lexer::{Lexer, Spanned, TokenKind},
+    lexer::{Lexer, TokenKind},
     parser::Parser,
 };
 

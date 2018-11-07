@@ -1,7 +1,8 @@
 use crate::{
+    asciifile::{Span, Spanned},
     ast::*,
     diagnostics::MaybeSpanned::{self, *},
-    lexer::{Keyword, Operator, Span, Spanned, Token, TokenKind},
+    lexer::{Keyword, Operator, Token, TokenKind},
     strtab::Symbol,
     utils::MultiPeekable,
 };

@@ -5,10 +5,7 @@
 //! This implementation is NOT thread-safe.
 
 // TODO: import spanned and span into this module?
-use crate::{
-    asciifile::LineTruncation,
-    lexer::{Span, Spanned},
-};
+use crate::asciifile::{LineTruncation, Span, Spanned};
 use failure::AsFail;
 use std::{ascii::escape_default, cell::RefCell, collections::HashMap};
 use termcolor::{Color, ColorSpec, WriteColor};
@@ -403,7 +400,7 @@ impl<'a> LineFormatter<'a> {
         debug_assert!(
             col <= self.line.len(),
             format!(
-                "col = {} is not smaller than max line lengt {}",
+                "col = {} is not smaller than max line length {}",
                 col,
                 self.line.len()
             )

@@ -1,5 +1,5 @@
 use crate::{
-    asciifile::{AsciiFileIterator, Position, PositionedChar},
+    asciifile::{AsciiFileIterator, PositionedChar, Span, Spanned},
     context::Context,
     diagnostics::u8_to_printable_representation,
     strtab::*,
@@ -31,41 +31,6 @@ pub type TokenResult<'f> = Result<Token<'f>, LexicalError<'f>>;
 
 pub type Token<'f> = Spanned<'f, TokenKind>;
 pub type LexicalError<'f> = Spanned<'f, ErrorKind>;
-
-#[derive(Debug, Clone)]
-pub struct Spanned<'f, T> {
-    pub span: Span<'f>,
-    pub data: T,
-}
-
-impl<T> fmt::Display for Spanned<'_, T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} at {}", self.data, self.span)
-    }
-}
-
-impl<'f, T> Spanned<'f, T> {
-    fn new(start: Position<'f>, end: Position<'f>, value: T) -> Self {
-        Spanned {
-            span: Span { start, end },
-            data: value,
-        }
-    }
-
-    pub fn map<U, F>(&self, f: F) -> Spanned<'f, U>
-    where
-        F: FnOnce(&T) -> U,
-    {
-        Spanned {
-            span: self.span.clone(),
-            data: f(&self.data),
-        }
-    }
-}
-
 impl<'f> Fail for LexicalError<'f> where 'f: 'static {}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -138,44 +103,6 @@ fn fmt_unexpected_character(f: &mut fmt::Formatter<'_>, byte: u8) -> fmt::Result
 pub enum Warning {
     #[fail(display = "confusing usage of comment separator inside a comment")]
     CommentSeparatorInsideComment,
-}
-
-#[derive(Debug, Clone)]
-pub struct Span<'f> {
-    pub start: Position<'f>,
-    pub end: Position<'f>,
-}
-
-impl Span<'_> {
-    pub fn is_single_char(&self) -> bool {
-        if self.start.row != self.end.row {
-            return false;
-        }
-        // ignore inconsisent end before start
-        self.end
-            .col
-            .checked_sub(self.start.col)
-            .map(|d| d <= 1)
-            .unwrap_or(false)
-    }
-
-    /// Check if a span extends over multiple lines
-    ///
-    /// This will consider spans that contain a single trailing
-    /// whitespace, e.g. "a\n" as multiline.
-    pub fn is_multiline(&self) -> bool {
-        self.start.row != self.end.row
-    }
-}
-
-impl fmt::Display for Span<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.is_single_char() {
-            write!(f, "{}", self.start)
-        } else {
-            write!(f, "{}-{}", self.start, self.end)
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -569,7 +496,7 @@ impl<'f, 's> Lexer<'f, 's> {
     fn lex_comment(&mut self) -> TokenResult<'f> {
         debug_assert_eq!(self.input.peek_multiple(2), "/*");
 
-        self.input.next();
+        let PositionedChar(comment_separator_pos, _) = self.input.next().unwrap();
         self.input.next();
 
         let token = self.lex_while_multiple(
@@ -592,15 +519,28 @@ impl<'f, 's> Lexer<'f, 's> {
             },
         );
 
-        if token.is_ok() {
-            // At least 2 chars left in input
-            debug_assert_eq!(self.input.peek_multiple(2), "*/");
+        match token {
+            Ok(_) => {
+                // At least 2 chars left in input
+                debug_assert_eq!(self.input.peek_multiple(2), "*/");
+
+                self.input.next();
+                self.input.next();
+
+                token
+            }
+            Err(LexicalError {
+                span: comment_body_span,
+                data: error_kind @ ErrorKind::UnclosedComment,
+            }) => Err(LexicalError {
+                span: Span::combine(
+                    &comment_body_span,
+                    &comment_separator_pos.to_single_char_span(),
+                ),
+                data: error_kind,
+            }),
+            Err(variant) => Err(variant),
         }
-
-        self.input.next();
-        self.input.next();
-
-        token
     }
 
     fn lex_whitespace(&mut self) -> TokenResult<'f> {
@@ -707,6 +647,7 @@ impl<'f, 's> Lexer<'f, 's> {
         let mut chars = String::new();
         let start_pos = self.input.current_position();
         let mut end_pos = start_pos;
+
         loop {
             if let Some(peeked) = self.input.try_peek_multiple(n) {
                 // TODO: for error reporting, we work around peek() not returning a Span or

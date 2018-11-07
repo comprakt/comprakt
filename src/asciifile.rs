@@ -1,4 +1,6 @@
+use core::cmp::Ordering;
 use failure::Fail;
+use std::cmp::{max, min};
 
 #[derive(Debug)]
 pub struct AsciiFile<'m> {
@@ -149,6 +151,85 @@ impl<'m> AsciiFile<'m> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Span<'f> {
+    pub start: Position<'f>,
+    pub end: Position<'f>,
+}
+
+impl Span<'_> {
+    pub fn is_single_char(&self) -> bool {
+        if self.start.row != self.end.row {
+            return false;
+        }
+        // ignore inconsisent end before start
+        self.end
+            .col
+            .checked_sub(self.start.col)
+            .map(|d| d <= 1)
+            .unwrap_or(false)
+    }
+
+    /// Check if a span extends over multiple lines
+    ///
+    /// This will consider spans that contain a single trailing
+    /// whitespace, e.g. "a\n" as multiline.
+    pub fn is_multiline(&self) -> bool {
+        self.start.row != self.end.row
+    }
+
+    pub fn combine<'f>(a: &Span<'f>, b: &Span<'f>) -> Span<'f> {
+        Span {
+            start: min(a.start, b.start),
+            end: max(a.end, b.end),
+        }
+    }
+}
+
+impl fmt::Display for Span<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.is_single_char() {
+            write!(f, "{}", self.start)
+        } else {
+            write!(f, "{}-{}", self.start, self.end)
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Spanned<'f, T> {
+    pub span: Span<'f>,
+    pub data: T,
+}
+
+impl<T> fmt::Display for Spanned<'_, T>
+where
+    T: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} at {}", self.data, self.span)
+    }
+}
+
+impl<'f, T> Spanned<'f, T> {
+    pub fn new(start: Position<'f>, end: Position<'f>, value: T) -> Self {
+        Spanned {
+            span: Span { start, end },
+            data: value,
+        }
+    }
+
+    pub fn map<U, F>(&self, f: F) -> Spanned<'f, U>
+    where
+        F: FnOnce(&T) -> U,
+    {
+        Spanned {
+            span: self.span.clone(),
+            data: f(&self.data),
+        }
+    }
+}
+
 use std::ops::Deref;
 
 #[derive(Copy, Clone)]
@@ -171,7 +252,36 @@ impl<'t> Position<'t> {
     }
 }
 
+impl PartialOrd for Position<'_> {
+    fn partial_cmp(&self, other: &Position<'_>) -> Option<Ordering> {
+        // TODO: the typesystem does not gurantee that both positions come from the
+        // same file
+        Some(self.byte_offset.cmp(&other.byte_offset))
+    }
+}
+
+impl Ord for Position<'_> {
+    fn cmp(&self, other: &Position<'_>) -> Ordering {
+        self.byte_offset.cmp(&other.byte_offset)
+    }
+}
+
 impl<'t> Position<'t> {
+    pub fn to_single_char_span(&self) -> Span<'t> {
+        Span {
+            start: *self,
+            end: self.consume("\n"),
+        }
+    }
+
+    pub fn char(&self) -> char {
+        self.file.mapping[self.byte_offset] as char
+    }
+
+    pub fn byte(&self) -> u8 {
+        self.file.mapping[self.byte_offset]
+    }
+
     pub fn get_line(
         &self,
         max_context_length_before: usize,
@@ -269,12 +379,11 @@ impl Debug for Position<'_> {
 
 impl PartialEq for Position<'_> {
     fn eq(&self, rhs: &Position<'_>) -> bool {
-        self.row == rhs.row
-            && self.col == rhs.col
-            && self.byte_offset == rhs.byte_offset
-            && self.file as *const _ == (rhs.file as *const _)
+        self.byte_offset == rhs.byte_offset && self.file as *const _ == (rhs.file as *const _)
     }
 }
+
+impl Eq for Position<'_> {}
 
 #[derive(Debug, PartialEq)]
 pub struct PositionedChar<'t>(pub Position<'t>, pub char);

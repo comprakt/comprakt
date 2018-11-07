@@ -1,5 +1,8 @@
 //! All state shared by the lexer, parser and semantic analysis phases.
-use crate::{asciifile::AsciiFile, diagnostics::Diagnostics, lexer::Spanned};
+use crate::{
+    asciifile::{AsciiFile, Spanned},
+    diagnostics::Diagnostics,
+};
 use failure::AsFail;
 use termcolor::WriteColor;
 
