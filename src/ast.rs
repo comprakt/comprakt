@@ -61,24 +61,24 @@ pub enum BasicType{
 #[derive(Debug, PartialEq, Eq)]
 pub struct Block<'t> {
     span: Span<'t>,
-    statements: Vec<Statement<'t>>,
+    statements: Vec<Stmt<'t>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Statement<'t> {
+pub struct Stmt<'t> {
     span: Span<'t>,
-    node: StatementKind<'t>,
+    node: StmtKind<'t>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum StatementKind<'t> {
+pub enum StmtKind<'t> {
     Block(Block<'t>),
-    EmptyStatement,
-    IfStatement(Box<Expr<'t>>, Box<Statement<'t>>, Option<Box<Statement<'t>>>),
-    ExpressionStatement(Box<Expr<'t>>),
-    WhileStatement(Box<Expr<'t>>, Box<Statement<'t>>),
-    ReturnStatement(Option<Box<Expr<'t>>>),
-    LocalVariableDeclarationStatement(Type<'t>, Symbol, Option<Box<Expr<'t>>>),
+    Empty,
+    If(Box<Expr<'t>>, Box<Stmt<'t>>, Option<Box<Stmt<'t>>>),
+    Expression(Box<Expr<'t>>),
+    While(Box<Expr<'t>>, Box<Stmt<'t>>),
+    Return(Option<Box<Expr<'t>>>),
+    LocalVariableDeclaration(Type<'t>, Symbol, Option<Box<Expr<'t>>>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
