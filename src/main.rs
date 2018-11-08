@@ -27,6 +27,7 @@ mod lexer;
 mod parser;
 mod prettyprint;
 mod strtab;
+mod visitor;
 use self::{
     context::Context,
     lexer::{Lexer, Spanned, TokenKind},

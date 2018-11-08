@@ -85,6 +85,10 @@ impl<'f, T> Spanned<'f, T> {
             data: f(&self.data),
         }
     }
+
+    pub fn get_data(&self) -> &T {
+        &self.data
+    }
 }
 
 impl<'f> Fail for LexicalError<'f> where 'f: 'static {}
