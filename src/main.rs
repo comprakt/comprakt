@@ -28,7 +28,7 @@ mod parser;
 mod prettyprint;
 mod spantracker;
 mod strtab;
-
+mod visitor;
 use self::{
     context::Context,
     lexer::{Lexer, TokenKind},
