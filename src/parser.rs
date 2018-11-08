@@ -167,6 +167,7 @@ impl ExpectedToken for EOF {
 }
 
 type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
+type ParserResult<'f, T> = SyntaxResult<'f, Spanned<'f, T>>;
 
 pub struct Parser<'f, I>
 where
@@ -177,23 +178,19 @@ where
 }
 
 macro_rules! spanned {
-    ($self:expr, $code: expr => $name:path {$($var:ident),*}) => {
-        {
-            #[allow(unused_parens)]
-            let cons = |span, ($($var),*)| { $name { span, $($var),* }};
-            let start = $self.peek_span()?;
-            let state = $code?;
-            let end = $self.peek_span()?;
+    ($self:expr, $code:expr) => {{
+        let start = $self.peek_span()?;
+        let data = $code?;
+        let end = $self.peek_span()?;
 
-            Ok(cons(
-                Span {
-                    start: start.start,
-                    end: end.end,
-                },
-                state,
-            ))
-        }
-    };
+        Ok(Spanned {
+            span: Span {
+                start: start.start,
+                end: end.end,
+            },
+            data: data,
+        })
+    }};
 }
 
 impl<'f, I> Parser<'f, I>
@@ -207,7 +204,7 @@ where
         }
     }
 
-    pub fn parse(&mut self) -> SyntaxResult<'f, ast::Program<'f>> {
+    pub fn parse(&mut self) -> ParserResult<'f, ast::Program<'f>> {
         self.parse_program()
     }
 
@@ -321,35 +318,36 @@ where
         self.peek_nth(n).map(|got| want.matches(&got.data))
     }
 
-    fn parse_program(&mut self) -> SyntaxResult<'f, ast::Program<'f>> {
+    fn parse_program(&mut self) -> ParserResult<'f, ast::Program<'f>> {
         spanned!(self, {
             let mut classes = Vec::new();
             while self.omnomnoptional(EOF)?.is_none() {
                 classes.push(self.parse_class_declaration()?);
             }
-            Ok(classes)
-        } => ast::Program { classes })
+
+            Ok(ast::Program { classes })
+        })
     }
 
-    fn parse_class_declaration(&mut self) -> SyntaxResult<'f, ast::ClassDeclaration<'f>> {
+    fn parse_class_declaration(&mut self) -> ParserResult<'f, ast::ClassDeclaration<'f>> {
         spanned!(self, {
             self.omnomnom(exactly(Keyword::Class))?;
-            let name = self.omnomnom(Identifier)?;
+            let name = self.omnomnom(Identifier)?.data;
 
             let mut members = Vec::new();
             self.omnomnom(exactly(Operator::LeftBrace))?;
             while self
                 .omnomnoptional(exactly(Operator::RightBrace))?
-            .is_none()
+                .is_none()
             {
                 members.push(self.parse_class_member()?);
             }
 
-            Ok((name.data, members))
-        } => ast::ClassDeclaration { name, members })
+            Ok(ast::ClassDeclaration { name, members })
+        })
     }
 
-    fn parse_class_member(&mut self) -> SyntaxResult<'f, ast::ClassMember<'f>> {
+    fn parse_class_member(&mut self) -> ParserResult<'f, ast::ClassMember<'f>> {
         spanned!(self, {
             self.omnomnom(exactly(Keyword::Public))?;
             let is_static = self.omnomnoptional(exactly(Keyword::Static))?.is_some();
@@ -358,7 +356,7 @@ where
                 // Main Method
                 // Consume exactly `void IDENT(String[] IDENT)`
                 self.omnomnom(exactly(Keyword::Void))?;
-                let name = self.omnomnom(Identifier)?;
+                let name = self.omnomnom(Identifier)?.data;
                 self.omnomnom(exactly(Operator::LeftParen))?;
                 self.omnomnom(exactly(Symbol::from("String")))?;
                 self.omnomnom(exactly(Operator::LeftBracket))?;
@@ -369,10 +367,11 @@ where
                 self.skip_method_rest()?;
                 let body = self.parse_block()?;
 
-                (ast::ClassMemberKind::MainMethod(param, body), name.data)
+                let node = ast::ClassMemberKind::MainMethod(param, body);
+                ast::ClassMember { node, name }
             } else {
                 let ty = self.parse_type()?;
-                let name = self.omnomnom(Identifier)?;
+                let name = self.omnomnom(Identifier)?.data;
 
                 let node = if self.tastes_like(exactly(Operator::LeftParen))? {
                     // Method
@@ -387,9 +386,9 @@ where
                     ast::ClassMemberKind::Field(ty)
                 };
 
-                (node, name.data)
+                ast::ClassMember { node, name }
             })
-        } => ast::ClassMember { node, name })
+        })
     }
 
     fn skip_method_rest(&mut self) -> SyntaxResult<'f, ()> {
@@ -400,30 +399,33 @@ where
         Ok(())
     }
 
-    fn parse_parameter_declarations(&mut self) -> SyntaxResult<'f, ast::ParameterList<'f>> {
+    fn parse_parameter_declarations(&mut self) -> ParserResult<'f, ast::ParameterList<'f>> {
         self.parse_parnethesized_list(|parser| parser.parse_parameter())
     }
 
-    fn parse_parameter(&mut self) -> SyntaxResult<'f, ast::Parameter<'f>> {
+    fn parse_parameter(&mut self) -> ParserResult<'f, ast::Parameter<'f>> {
         spanned!(self, {
             let ty = self.parse_type()?;
             let name = self.omnomnom(Identifier)?.data;
-            Ok((ty, name))
-        } => ast::Parameter { ty, name })
+            Ok(ast::Parameter { ty, name })
+        })
     }
 
-    fn parse_type(&mut self) -> SyntaxResult<'f, ast::Type<'f>> {
+    fn parse_type(&mut self) -> ParserResult<'f, ast::Type> {
         spanned!(self, {
             let ty = self.parse_basic_type()?;
 
             let mut array_depth = 0;
-            while self.omnomnoptional(exactly(Operator::LeftBracket))?.is_some() {
+            while self
+                .omnomnoptional(exactly(Operator::LeftBracket))?
+                .is_some()
+            {
                 self.omnomnom(exactly(Operator::RightBracket))?;
                 array_depth += 1;
             }
 
-            Ok((ty, array_depth))
-        } => ast::Type { ty, array_depth })
+            Ok(ast::Type { ty, array_depth })
+        })
     }
 
     fn parse_basic_type(&mut self) -> SyntaxResult<'f, ast::BasicType> {
@@ -447,24 +449,27 @@ where
         }
     }
 
-    fn parse_block(&mut self) -> SyntaxResult<'f, ast::Block<'f>> {
+    fn parse_block(&mut self) -> ParserResult<'f, ast::Block<'f>> {
         spanned!(self, {
             self.omnomnom(exactly(Operator::LeftBrace))?;
 
             let mut statements = Vec::new();
-            while self.omnomnoptional(exactly(Operator::RightBrace))?.is_none() {
+            while self
+                .omnomnoptional(exactly(Operator::RightBrace))?
+                .is_none()
+            {
                 statements.push(self.parse_block_statement()?);
             }
 
-            Ok(statements)
-        } => ast::Block { statements })
+            Ok(ast::Block { statements })
+        })
     }
 
-    fn parse_statement(&mut self) -> SyntaxResult<'f, ast::Stmt<'f>> {
+    fn parse_statement(&mut self) -> ParserResult<'f, ast::Stmt<'f>> {
         self.parse_statement_or_local_var(false)
     }
 
-    fn parse_block_statement(&mut self) -> SyntaxResult<'f, ast::Stmt<'f>> {
+    fn parse_block_statement(&mut self) -> ParserResult<'f, ast::Stmt<'f>> {
         self.parse_statement_or_local_var(true)
     }
 
@@ -473,9 +478,10 @@ where
     fn parse_statement_or_local_var(
         &mut self,
         allow_local_var_decl: bool,
-    ) -> SyntaxResult<'f, ast::Stmt<'f>> {
+    ) -> ParserResult<'f, ast::Stmt<'f>> {
         spanned!(self, {
-            use self::ast::StmtKind::*;
+            use self::ast::Stmt::*;
+
             if self.tastes_like(exactly(Operator::LeftBrace))? {
                 Ok(Block(self.parse_block()?))
             } else if self.omnomnoptional(exactly(Operator::Semicolon))?.is_some() {
@@ -513,8 +519,6 @@ where
 
                 Ok(Return(expr.map(Box::new)))
             } else if allow_local_var_decl
-                // next (0th) tastes like *BasicType*
-                // and next after that (1st) like *Identifier* or 1st+2nd like '[]'
                 && (self.tastes_like(exactly(Keyword::Int))?
                     || self.tastes_like(exactly(Keyword::Boolean))?
                     || self.tastes_like(exactly(Keyword::Void))?
@@ -523,6 +527,8 @@ where
                     || (self.nth_tastes_like(1, exactly(Operator::LeftBracket))?
                         && self.nth_tastes_like(2, exactly(Operator::RightBracket))?))
             {
+                // next (0th) tastes like *BasicType*
+                // and next after that (1st) like *Identifier* or 1st+2nd like '[]'
                 // Local var decl
                 let ty = self.parse_type()?;
                 let name = self.omnomnom(Identifier)?;
@@ -541,10 +547,10 @@ where
 
                 Ok(Expression(box expr))
             }
-        } => ast::Stmt { node })
+        })
     }
 
-    fn parse_expression(&mut self) -> SyntaxResult<'f, ast::Expr<'f>> {
+    fn parse_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
         spanned!(self, {
             let lvalue = self.parse_binary_expression(0)?;
 
@@ -554,15 +560,15 @@ where
                 rvalues.push(self.parse_binary_expression(0)?);
             }
 
-            Ok(ast::ExprKind::Assignment(box lvalue, rvalues))
-        } => ast::Expr { node })
+            Ok(ast::Expr::Assignment(box lvalue, rvalues))
+        })
     }
 
     /// Uses precedence climbing
     fn parse_binary_expression(
         &mut self,
         min_precedence: usize,
-    ) -> SyntaxResult<'f, ast::Expr<'f>> {
+    ) -> ParserResult<'f, ast::Expr<'f>> {
         let mut lhs = self.parse_unary_expression()?;
 
         // tries to read some binary operators
@@ -576,19 +582,19 @@ where
 
             let rhs = self.parse_binary_expression(prec)?;
 
-            lhs = ast::Expr {
+            lhs = Spanned {
                 span: Span {
                     start: lhs.span.start,
                     end: rhs.span.end,
                 },
-                node: ast::ExprKind::Binary(op, box lhs, box rhs),
+                data: ast::Expr::Binary(op, box lhs, box rhs),
             };
         }
 
         Ok(lhs)
     }
 
-    fn parse_unary_expression(&mut self) -> SyntaxResult<'f, ast::Expr<'f>> {
+    fn parse_unary_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
         spanned!(self, {
             let mut ops = Vec::new();
             while let Some(op) = self.omnomnoptional(UnaryOp)? {
@@ -597,20 +603,20 @@ where
 
             let expr = self.parse_postfix_expression()?;
 
-            Ok(ast::ExprKind::Unary(ops, box expr))
-        } => ast::Expr { node })
+            Ok(ast::Expr::Unary(ops, box expr))
+        })
     }
 
-    fn parse_postfix_expression(&mut self) -> SyntaxResult<'f, ast::Expr<'f>> {
+    fn parse_postfix_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
         spanned!(self, {
             let base_expr = self.parse_primary_expression()?;
 
             let mut postfix_ops = Vec::new();
             loop {
                 let postfix_op = spanned!(self, {
-                    use self::ast::PostfixOpKind::*;
+                    use self::ast::PostfixOp::*;
 
-                   if self.omnomnoptional(exactly(Operator::Dot))?.is_some() {
+                    if self.omnomnoptional(exactly(Operator::Dot))?.is_some() {
                         let adressee = self.omnomnom(Identifier)?;
 
                         if self.tastes_like(exactly(Operator::LeftParen))? {
@@ -622,7 +628,10 @@ where
                             // member reference: EXPR.ident
                             Ok(FieldAccess(adressee.data))
                         }
-                    } else if self.omnomnoptional(exactly(Operator::LeftBracket))?.is_some() {
+                    } else if self
+                        .omnomnoptional(exactly(Operator::LeftBracket))?
+                        .is_some()
+                    {
                         // array access: EXPR[EXPR]
                         let index_expr = self.parse_expression()?;
                         self.omnomnom(exactly(Operator::RightBracket))?;
@@ -631,18 +640,18 @@ where
                     } else {
                         break;
                     }
-                } => ast::PostfixOp { node })?;
+                })?;
 
                 postfix_ops.push(postfix_op)
             }
 
-            Ok(ast::ExprKind::Postfix(box base_expr, postfix_ops))
-        } => ast::Expr { node })
+            Ok(ast::Expr::Postfix(box base_expr, postfix_ops))
+        })
     }
 
-    fn parse_primary_expression(&mut self) -> SyntaxResult<'f, ast::Expr<'f>> {
+    fn parse_primary_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
         spanned!(self, {
-            use self::ast::ExprKind::*;
+            use self::ast::Expr::*;
 
             if let Some(adressee) = self.omnomnoptional(Identifier)? {
                 if self.tastes_like(exactly(Operator::LeftParen))? {
@@ -653,7 +662,6 @@ where
                     // var ref
                     Ok(Var(adressee.data))
                 }
-
             } else if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
                 // parenthesized expression
                 let expr = self.parse_expression()?;
@@ -679,7 +687,7 @@ where
 
                     let mut array_depth = 0;
                     while self.tastes_like(exactly(Operator::LeftBracket))?
-                      && self.nth_tastes_like(1, exactly(Operator::RightBracket))?
+                        && self.nth_tastes_like(1, exactly(Operator::RightBracket))?
                     {
                         self.omnomnom(exactly(Operator::LeftBracket))?;
                         self.omnomnom(exactly(Operator::RightBracket))?;
@@ -707,31 +715,32 @@ where
                     },
                 }))
             }
-
-        } => ast::Expr { node })
+        })
     }
 
-    fn parse_parameter_values(&mut self) -> SyntaxResult<'f, ast::ArgumentList<'f>> {
+    fn parse_parameter_values(&mut self) -> ParserResult<'f, ast::ArgumentList<'f>> {
         self.parse_parnethesized_list(|parser| parser.parse_expression().map(Box::new))
     }
 
-    fn parse_parnethesized_list<F, T>(&mut self, parse_element: F) -> SyntaxResult<'f, Vec<T>>
+    fn parse_parnethesized_list<F, T>(&mut self, parse_element: F) -> ParserResult<'f, Vec<T>>
     where
         F: Fn(&mut Self) -> SyntaxResult<'f, T>,
     {
-        let mut list = Vec::new();
-        self.omnomnom(exactly(Operator::LeftParen))?;
+        spanned!(self, {
+            let mut list = Vec::new();
+            self.omnomnom(exactly(Operator::LeftParen))?;
 
-        if !self.tastes_like(exactly(Operator::RightParen))? {
-            list.push(parse_element(self)?);
-            while self.omnomnoptional(exactly(Operator::Comma))?.is_some() {
+            if !self.tastes_like(exactly(Operator::RightParen))? {
                 list.push(parse_element(self)?);
+                while self.omnomnoptional(exactly(Operator::Comma))?.is_some() {
+                    list.push(parse_element(self)?);
+                }
             }
-        }
 
-        self.omnomnom(exactly(Operator::RightParen))?;
+            self.omnomnom(exactly(Operator::RightParen))?;
 
-        Ok(list)
+            Ok(list)
+        })
     }
 }
 

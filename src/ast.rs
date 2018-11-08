@@ -1,32 +1,29 @@
-use crate::{lexer::Span, strtab::Symbol};
+use crate::{lexer::Spanned, strtab::Symbol};
 
 /// This is the top-level AST node. It stores all class declerations of the
 /// MiniJava program.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Program<'t> {
-    pub span: Span<'t>,
-    pub classes: Vec<ClassDeclaration<'t>>,
+    pub classes: Vec<Spanned<'t, ClassDeclaration<'t>>>,
 }
 
 /// This AST node stores the Class decleration, which consists of a name and
 /// the members of the class.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ClassDeclaration<'t> {
-    pub span: Span<'t>,
     pub name: Symbol,
-    pub members: Vec<ClassMember<'t>>,
+    pub members: Vec<Spanned<'t, ClassMember<'t>>>,
 }
 
 /// This AST node describes a class member. Variants of class members are
 /// defined in `ClassMemberKind`. Every class member has a type and a name.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ClassMember<'t> {
-    pub span: Span<'t>,
     pub node: ClassMemberKind<'t>,
     pub name: Symbol,
 }
 
-pub type ParameterList<'t> = Vec<Parameter<'t>>;
+pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 
 /// A class member is either one of
 /// * `Field`: a decleration of a field of a class
@@ -35,25 +32,27 @@ pub type ParameterList<'t> = Vec<Parameter<'t>>;
 /// allowed once in a MiniJava Program
 #[derive(Debug, PartialEq, Eq)]
 pub enum ClassMemberKind<'t> {
-    Field(Type<'t>),
-    Method(Type<'t>, ParameterList<'t>, Block<'t>),
-    MainMethod(Symbol, Block<'t>),
+    Field(Spanned<'t, Type>),
+    Method(
+        Spanned<'t, Type>,
+        Spanned<'t, ParameterList<'t>>,
+        Spanned<'t, Block<'t>>,
+    ),
+    MainMethod(Symbol, Spanned<'t, Block<'t>>),
 }
 
 /// This AST node represents a method parameter. A parameter consists of a
 /// `Type` and a name.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Parameter<'t> {
-    pub span: Span<'t>,
-    pub ty: Type<'t>,
+    pub ty: Spanned<'t, Type>,
     pub name: Symbol,
 }
 
 /// A `Type` is basically a `BasicType`. Optional it can be an (n-dimensional)
 /// array type.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Type<'t> {
-    pub span: Span<'t>,
+pub struct Type {
     pub ty: BasicType,
     /// Depth of the array type (number of `[]`) i.e. this means means `self.ty
     /// []^(self.array)`
@@ -76,15 +75,7 @@ pub enum BasicType {
 /// A `Block` in the AST is basically just a vector of statements.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Block<'t> {
-    pub span: Span<'t>,
-    pub statements: Vec<Stmt<'t>>,
-}
-
-/// A statement is one of the statements defined in `StmtKind`.
-#[derive(Debug, PartialEq, Eq)]
-pub struct Stmt<'t> {
-    pub span: Span<'t>,
-    pub node: StmtKind<'t>,
+    pub statements: Vec<Spanned<'t, Stmt<'t>>>,
 }
 
 /// A statement can have one of the kinds:
@@ -97,21 +88,22 @@ pub struct Stmt<'t> {
 /// * `LocalVariableDeclaration`: a decleration and optional initialization of
 /// a local variable
 #[derive(Debug, PartialEq, Eq)]
-pub enum StmtKind<'t> {
-    Block(Block<'t>),
+pub enum Stmt<'t> {
+    Block(Spanned<'t, Block<'t>>),
     Empty,
-    If(Box<Expr<'t>>, Box<Stmt<'t>>, Option<Box<Stmt<'t>>>),
-    Expression(Box<Expr<'t>>),
-    While(Box<Expr<'t>>, Box<Stmt<'t>>),
-    Return(Option<Box<Expr<'t>>>),
-    LocalVariableDeclaration(Type<'t>, Symbol, Option<Box<Expr<'t>>>),
-}
-
-/// An expression is one of the expressions defined in `ExprKind`
-#[derive(Debug, PartialEq, Eq)]
-pub struct Expr<'t> {
-    pub span: Span<'t>,
-    pub node: ExprKind<'t>,
+    If(
+        Box<Spanned<'t, Expr<'t>>>,
+        Box<Spanned<'t, Stmt<'t>>>,
+        Option<Box<Spanned<'t, Stmt<'t>>>>,
+    ),
+    Expression(Box<Spanned<'t, Expr<'t>>>),
+    While(Box<Spanned<'t, Expr<'t>>>, Box<Spanned<'t, Stmt<'t>>>),
+    Return(Option<Box<Spanned<'t, Expr<'t>>>>),
+    LocalVariableDeclaration(
+        Spanned<'t, Type>,
+        Symbol,
+        Option<Box<Spanned<'t, Expr<'t>>>>,
+    ),
 }
 
 /// An expression is either one of
@@ -133,21 +125,25 @@ pub struct Expr<'t> {
 /// * `NewObject`: generating a new object, e.g. `new Foo()`
 /// * `NewArray`: generating a new array, e.g. `new int[]`
 #[derive(Debug, PartialEq, Eq)]
-pub enum ExprKind<'t> {
-    Assignment(Box<Expr<'t>>, Vec<Expr<'t>>),
-    Binary(BinaryOp, Box<Expr<'t>>, Box<Expr<'t>>),
-    Unary(Vec<UnaryOp>, Box<Expr<'t>>),
-    Postfix(Box<Expr<'t>>, Vec<PostfixOp<'t>>),
+pub enum Expr<'t> {
+    Assignment(Box<Spanned<'t, Expr<'t>>>, Vec<Spanned<'t, Expr<'t>>>),
+    Binary(
+        BinaryOp,
+        Box<Spanned<'t, Expr<'t>>>,
+        Box<Spanned<'t, Expr<'t>>>,
+    ),
+    Unary(Vec<UnaryOp>, Box<Spanned<'t, Expr<'t>>>),
+    Postfix(Box<Spanned<'t, Expr<'t>>>, Vec<Spanned<'t, PostfixOp<'t>>>),
 
     // The old primary expressions
     Null,
     Boolean(bool),
     Int(Symbol), // TODO Should be String?
     Var(Symbol),
-    GlobalMethodInvocation(Symbol, ArgumentList<'t>),
+    GlobalMethodInvocation(Symbol, Spanned<'t, ArgumentList<'t>>),
     This,
     NewObject(Symbol),
-    NewArray(BasicType, Box<Expr<'t>>, u64),
+    NewArray(BasicType, Box<Spanned<'t, Expr<'t>>>, u64),
 }
 
 /// Binary operations like comparisons (`==`, `!=`, `<=`, ...), logical
@@ -178,14 +174,7 @@ pub enum UnaryOp {
     Neg,
 }
 
-pub type ArgumentList<'t> = Vec<Box<Expr<'t>>>;
-
-/// A postfix operation is one of the operations defined in `PostfixOpKind`
-#[derive(Debug, PartialEq, Eq)]
-pub struct PostfixOp<'t> {
-    pub span: Span<'t>,
-    pub node: PostfixOpKind<'t>,
-}
+pub type ArgumentList<'t> = Vec<Box<Spanned<'t, Expr<'t>>>>;
 
 /// A postfix operation is either one of
 /// * `MethodInvocation`: a method invocation on a primary expression:
@@ -193,8 +182,8 @@ pub struct PostfixOp<'t> {
 /// `foo.bar` * `ArrayAccess`: an array access on a primary expression:
 /// `foo[42]`
 #[derive(Debug, PartialEq, Eq)]
-pub enum PostfixOpKind<'t> {
-    MethodInvocation(Symbol, ArgumentList<'t>),
+pub enum PostfixOp<'t> {
+    MethodInvocation(Symbol, Spanned<'t, ArgumentList<'t>>),
     FieldAccess(Symbol),
-    ArrayAccess(Box<Expr<'t>>),
+    ArrayAccess(Box<Spanned<'t, Expr<'t>>>),
 }
