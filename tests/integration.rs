@@ -7,6 +7,7 @@ use predicates::prelude::*;
 use std::{ffi::OsStr, fs::File, io::Read, path::PathBuf, process::Command};
 
 #[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
 enum CompilerPhase {
     Lexer,
     Parser,
@@ -32,6 +33,7 @@ fn normalize_stderr(stderr: &str) -> String {
     stderr.replace(ROOT_DIR, "{ROOT}")
 }
 
+#[allow(dead_code)]
 fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
     let filepath = PathBuf::from(filename);
     let extension = filepath
