@@ -242,7 +242,7 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
     //exit(1);
     //}
 
-    match parser.parse_in_phase2_compatibility_mode() {
+    match parser.parse() {
         Ok(_) => Ok(()),
         Err(parser_error) => {
             // TODO: context.error should do this match automatically through

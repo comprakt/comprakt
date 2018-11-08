@@ -54,8 +54,6 @@ pub enum SyntaxError {
     InvalidMainMethod,
     #[fail(display = "invalid new object expression")]
     InvalidNewObjectExpression,
-    #[fail(display = "static field (which is not allowed)")]
-    StaticField,
 }
 
 pub trait ExpectedToken: fmt::Debug + fmt::Display {
@@ -211,48 +209,6 @@ where
 
     pub fn parse(&mut self) -> SyntaxResult<'f, ast::Program<'f>> {
         self.parse_program()
-    }
-
-    pub fn parse_in_phase2_compatibility_mode(&mut self) -> SyntaxResult<'f, ast::Program<'f>> {
-        let prog = self.parse_program()?;
-
-        // Check that all class members which seem to be main methods actually are
-        for member in prog.classes.iter().flat_map(|cls| &cls.members) {
-            if member.is_static {
-                let err = Err(WithSpan(Spanned {
-                    span: member.span,
-                    data: SyntaxError::InvalidMainMethod,
-                }));
-
-                let err_static_field = Err(WithSpan(Spanned {
-                    span: member.span,
-                    data: SyntaxError::StaticField,
-                }));
-
-                match &member.node {
-                    ast::ClassMemberKind::Field => return err_static_field, // Reject static fields
-                    ast::ClassMemberKind::Method(params, _, _) => {
-                        // Require a single `String[]` arg
-                        if params.len() != 1
-                            || params[0].ty.ty != ast::BasicType::Custom(Symbol::from("String"))
-                            || params[0].ty.array_depth != 1
-                        {
-                            return err;
-                        }
-                    }
-                }
-
-                if member.ty.ty != ast::BasicType::Void || member.ty.array_depth != 0 {
-                    return err;
-                }
-            }
-        }
-
-        // TODO check that no *NewObjectExpression* uses a primitive type. Probably
-        // requires a visitor. Check for invalid main method and static field
-        // could also be done nicer with a visitor.
-
-        Ok(prog)
     }
 
     /// Hide `lexer.next() == None` as `next() == EOF`
@@ -896,7 +852,7 @@ mod tests {
         let contents = std::fs::read(tc.path()).unwrap();
         let contents = String::from_utf8(contents).unwrap();
         lex_input!(lx = &contents);
-        let res = Parser::new(lx).parse_in_phase2_compatibility_mode();
+        let res = Parser::new(lx).parse();
         use self::SyntaxTestCase::*;
         match (tc, res) {
             (Valid(_), Ok(_)) => (),
@@ -937,7 +893,7 @@ mod tests {
             "#
             );
             assert_matches!(
-                Parser::new(lx).parse_in_phase2_compatibility_mode(),
+                Parser::new(lx).parse(),
                 Err(WithSpan(Spanned {
                     data: SyntaxError::InvalidMainMethod,
                     ..
@@ -957,7 +913,7 @@ mod tests {
             "#
             );
             assert_matches!(
-                Parser::new(lx).parse_in_phase2_compatibility_mode(),
+                Parser::new(lx).parse(),
                 Err(WithSpan(Spanned {
                     data: SyntaxError::InvalidNewObjectExpression,
                     ..
