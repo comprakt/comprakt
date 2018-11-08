@@ -18,30 +18,26 @@ pub use self::{
 };
 
 #[derive(Copy, Clone, Debug)]
-enum IterState<'t> {
-    NotFinished(Position<'t>),
-    Finished(Position<'t>),
-}
-
-#[derive(Copy, Clone, Debug)]
 pub struct PositionIterator<'t> {
-    current_position: IterState<'t>,
+    /// current iterator position. Always points to the next character/position
+    /// to emit
+    position_to_emit: Option<Position<'t>>,
 }
 
 impl<'t> Iterator for PositionIterator<'t> {
     type Item = Position<'t>;
     fn next(&mut self) -> Option<Position<'t>> {
-        match self.current_position {
-            IterState::Finished(_position) => None,
-            IterState::NotFinished(position) => {
+        match self.position_to_emit {
+            None => None,
+            Some(position) => {
                 // this is equivalent to `position.next()`, but lifetime analysis
                 // fails if we use it directly since we are not allowed to assert
                 // `&'t mut self` because of trait constraints.
                 let next = position.clone().next_mut();
 
-                self.current_position = match next {
-                    Ok(next_position) => IterState::NotFinished(next_position),
-                    Err(unchanged_position) => IterState::Finished(unchanged_position),
+                self.position_to_emit = match next {
+                    Ok(next_position) => Some(next_position),
+                    Err(_unchanged_position) => None,
                 };
 
                 Some(position)
@@ -51,9 +47,9 @@ impl<'t> Iterator for PositionIterator<'t> {
 }
 
 impl<'t> PositionIterator<'t> {
-    pub fn new(position: Position<'t>) -> Self {
+    pub fn new(position: Option<Position<'t>>) -> Self {
         Self {
-            current_position: IterState::NotFinished(position),
+            position_to_emit: position,
         }
     }
 
@@ -74,9 +70,9 @@ impl<'t> PositionIterator<'t> {
         debug_assert!(n >= 1);
         // spans use inclusive ranges, so we have to built one
         // from the next char and `n` characters ahead
-        match self.current_position {
-            IterState::Finished(_last_position) => None,
-            IterState::NotFinished(span_start) => {
+        match self.position_to_emit {
+            None => None,
+            Some(span_start) => {
                 // TODO: remove this unwrap()
                 // unwrap is save, since we are in a branch asserting
                 // that the iterator is not finished => has at least character
@@ -87,23 +83,12 @@ impl<'t> PositionIterator<'t> {
         }
     }
 
-    /// Can't use peekable, because we don't care about position when peeking
     pub fn peek(&'t self) -> Option<Position<'t>> {
-        match self.current_position {
-            IterState::Finished(_last_position) => None,
-            IterState::NotFinished(current_position) => Some(current_position),
-        }
+        self.position_to_emit
     }
 
     pub fn eof_reached(&self) -> bool {
         self.peek().is_none()
-    }
-
-    pub fn current_position(&'t self) -> Option<Position<'t>> {
-        match self.current_position {
-            IterState::Finished(_last_position) => None,
-            IterState::NotFinished(current_position) => Some(current_position),
-        }
     }
 }
 

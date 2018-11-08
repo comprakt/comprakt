@@ -49,21 +49,18 @@ impl<'t> Position<'t> {
     }
 
     /// Create a new Position object pointing at the first character
-    /// of a file.
-    ///
-    /// Returns None for empty files.
-    // TODO: must return error for empty files
-    pub fn at_file_start(file: &'t AsciiFile<'t>) -> Self {
-        //if file.mapping.len() == 0 {
-        //return None;
-        //}
+    /// of a file. Returns `None` for empty files.
+    pub fn at_file_start(file: &'t AsciiFile<'t>) -> Option<Self> {
+        if file.mapping.len() == 0 {
+            return None;
+        }
 
-        Self {
+        Some(Self {
             row: 0,
             col: 0,
             byte_offset: 0,
             file,
-        }
+        })
     }
 
     pub fn to_single_char_span(self) -> Span<'t> {
@@ -373,7 +370,7 @@ mod tests {
             // we iterate and collect by hand, the iterator might hide bugs
             // through custom EOF logic.
             let mut vec = Vec::new();
-            let mut pos = Some(Position::at_file_start(&file));
+            let mut pos = Position::at_file_start(&file);
 
             while let Some(next) = pos {
                 println!("{:?}: '{}'", next, next.chr());
