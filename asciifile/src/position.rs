@@ -313,6 +313,65 @@ mod tests {
     }
 
     #[test]
+    fn peeking_works() {
+        let input = b"one\ntwo three\nfour\n\n";
+        let file = AsciiFile::new(input).unwrap();
+
+        let mut i = file.iter();
+
+        while i.next().is_some() {
+            let peeked = i.peek();
+            let consumed = i.next();
+            assert_eq!(peeked, consumed);
+        }
+
+        assert_eq!(i.peek(), None);
+    }
+
+    #[test]
+    fn peeking_multiple_times_works() {
+        let input = b"abc";
+        let file = AsciiFile::new(input).unwrap();
+        let mut iter = file.iter();
+        let peeked_once = iter.peek();
+        let peeked_twice = iter.peek();
+        assert_eq!(peeked_once, peeked_twice);
+        let consumed = iter.next();
+        assert_eq!(peeked_once, consumed);
+    }
+
+    #[test]
+    fn peeking_multiple_chars_at_once_works() {
+        let input = "one\ntwo three\nfour\n\n";
+        let file = AsciiFile::new(input.as_bytes()).unwrap();
+        let iter = file.iter();
+
+        let peeked_once = iter.peek_exactly(input.len()).unwrap();
+
+        assert_eq!(input, peeked_once.as_str());
+
+        // peek a second time, state should not be forwarded
+        let peeked_twice = iter.peek_exactly(2).unwrap();
+
+        assert_eq!(&input[..2], peeked_twice.as_str());
+    }
+
+    #[test]
+    fn peeking_multiple_chars_with_at_most_works() {
+        let input = "one\ntwo three\nfour\n\n";
+        let file = AsciiFile::new(input.as_bytes()).unwrap();
+        let iter = file.iter();
+
+        let peeked_once = iter.peek_at_most(input.len() + 1).unwrap();
+
+        assert_eq!(input, peeked_once.as_str());
+
+        let peeked_twice = iter.peek_at_most(2).unwrap();
+
+        assert_eq!(&input[..2], peeked_twice.as_str());
+    }
+
+    #[test]
     fn iterator_works() {
         let input = b"one\ntwo three\nfour\n\n";
         let file = AsciiFile::new(input).unwrap();

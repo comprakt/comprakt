@@ -153,3 +153,47 @@ impl<'m, 'a> Into<&'m str> for &'a AsciiFile<'m> {
         unsafe { std::str::from_utf8_unchecked(&self.mapping) }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn works_with_ascii() {
+        let string = "ABCDEFG\n\t";
+        let file = AsciiFile::new(string.as_bytes()).unwrap();
+        let contents: &str = &file;
+        assert!(string == contents);
+    }
+
+    #[test]
+    fn returns_err_on_non_ascii() {
+        let input = "one💩two";
+        let file = AsciiFile::new(input.as_bytes());
+        assert!(file.is_err());
+        let e = file.err().unwrap();
+        println!("{:?}", e);
+        let EncodingError::NotAscii { position, prev } = e;
+        assert_eq!(position, 3);
+        assert_eq!(prev, "one");
+    }
+
+    #[test]
+    fn returns_err_on_non_ascii_non_utf8() {
+        let input: Vec<u16> = "ä".encode_utf16().collect();
+        let input: &[u8] =
+            unsafe { std::slice::from_raw_parts(input.as_ptr() as *const u8, 2 * input.len()) };
+
+        // check if we generated the invalid string correctly
+        assert_eq!(input.len(), 2);
+        assert!(std::str::from_utf8(input).is_err());
+
+        // check if it is rejected
+        let file = AsciiFile::new(&input);
+        assert!(file.is_err());
+
+        let EncodingError::NotAscii { position, prev } = file.err().unwrap();
+        assert_eq!(position, 0);
+        assert_eq!(prev, "");
+    }
+}
