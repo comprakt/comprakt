@@ -1,4 +1,4 @@
-use crate::{Position, PositionedChars};
+use crate::{Position, PositionIterator};
 use failure::Fail;
 use std::ops::Deref;
 
@@ -7,8 +7,6 @@ pub struct AsciiFile<'m> {
     // TODO: mapping should be private
     pub mapping: &'m [u8],
 }
-
-pub type AsciiFileIterator<'t> = PositionedChars<'t, std::str::Chars<'t>>;
 
 #[derive(Debug, Fail)]
 pub enum EncodingError {
@@ -138,8 +136,8 @@ impl<'m> AsciiFile<'m> {
         Ok(AsciiFile { mapping })
     }
 
-    pub fn iter(&self) -> AsciiFileIterator<'_> {
-        PositionedChars::new(Position::at_file_start(self))
+    pub fn iter(&self) -> PositionIterator<'_> {
+        PositionIterator::new(Position::at_file_start(self))
     }
 }
 

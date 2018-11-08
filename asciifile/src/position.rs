@@ -1,26 +1,26 @@
+//! abstraction over a character and its position within a file.
+//!
 //! # Doubly Linked List
 //!
 //! Positon implements a doubly linked list on the positions and therefore
 //! characters of a file it was extraced from.
 //!
-//! ```
-//! ```
 //! # End of File (EOF) Position
 //!
 //! A EOF character is automatically inserted at the end of the file (which
 //! is not emitted by the rust APIs by default.) The EOF character is positioned
 //! on the same line as the last real character advanced by a single byte.
-//! This token exists because rust 
+//! This token exists because rust
 use crate::{file::LineTruncation, AsciiFile, Span};
 use std::cmp::Ordering;
 
 #[derive(Copy, Clone)]
 pub struct Position<'t> {
     // TODO: should all be private
-    pub row: usize,
-    pub col: usize,
-    pub byte_offset: usize,
-    pub file: &'t AsciiFile<'t>,
+    row: usize,
+    col: usize,
+    byte_offset: usize,
+    file: &'t AsciiFile<'t>,
 }
 
 impl PartialOrd for Position<'_> {
@@ -44,32 +44,38 @@ impl<'t> Position<'t> {
             row: 0,
             col: 0,
             byte_offset: 0,
-            file: Box::leak(box AsciiFile::new(&[]).unwrap()),
+            file: Box::leak(Box::new(AsciiFile::new(&[]).unwrap())),
         }
     }
 
     /// Create a new Position object pointing at the first character
     /// of a file.
     ///
-    /// 
+    /// Returns None for empty files.
+    // TODO: must return error for empty files
     pub fn at_file_start(file: &'t AsciiFile<'t>) -> Self {
+        //if file.mapping.len() == 0 {
+        //return None;
+        //}
+
         Self {
             row: 0,
             col: 0,
             byte_offset: 0,
-            file
+            file,
         }
     }
 
-    pub fn to_single_char_span(&self) -> Span<'t> {
-        Span {
-            start: *self,
-            end: self.clone().consume(&self.chr().to_string()),
-        }
+    pub fn to_single_char_span(self) -> Span<'t> {
+        Span::from_single_position(self)
     }
 
     pub fn byte_offset(&self) -> usize {
         self.byte_offset
+    }
+
+    pub fn file(&self) -> &AsciiFile {
+        self.file
     }
 
     /// Get the character at this position
@@ -83,9 +89,28 @@ impl<'t> Position<'t> {
 
     /// Get the byte at this position
     ///
-    /// For matching on the character or comparisons, you probably want `chr()` instead.
+    /// For matching on the character or comparisons, you probably want `chr()`
+    /// instead.
     pub fn byte(&self) -> u8 {
         self.file.mapping[self.byte_offset]
+    }
+
+    /// Return the row of the characters position within the file.
+    ///
+    /// The row is zero based, meaning characters on the first line
+    /// of the file are in row `0`. To get the line number, add `1` to
+    /// the return value.
+    // TODO: why not use the natural representation of 1-based by default.
+    pub fn row(&self) -> usize {
+        self.row
+    }
+
+    /// Return the column of the characters position within the file.
+    ///
+    /// The column is zero based, meaning the first characters of
+    /// a line/row is positioned at column `0`.
+    pub fn column(&self) -> usize {
+        self.col
     }
 
     /// Get the position immediatly following this position or `None` if
@@ -93,18 +118,16 @@ impl<'t> Position<'t> {
     pub fn next(&'t self) -> Option<Position<'t>> {
         let pos = self.clone();
         pos.next_mut().ok()
-
-        //let next_byte = self.file.mapping.get(self.byte_offset + 1);
-        //next_byte.map(|b| self.consume_byte(*b))
     }
 
     /// The same as `next()` but in-place.
     ///
-    /// Fails if there is no next position
-    pub fn next_mut(mut self) -> Result<Self,()> {
+    /// Fails if there is no next position and returns the unchanged
+    /// position.
+    pub fn next_mut(mut self) -> Result<Self, Self> {
         let next_byte = self.file.mapping.get(self.byte_offset + 1);
         match next_byte {
-            None => Err(()),
+            None => Err(self),
             Some(&byte) => {
                 self.consume_byte_mut(byte);
                 Ok(self)
@@ -112,10 +135,49 @@ impl<'t> Position<'t> {
         }
     }
 
-    /// Check if we are at the end of the file (the last valid position/the last character of the
-    /// file).
+    /// Check if we are at the end of the file (the last valid position/the
+    /// last character of the file).
     pub fn is_last(&self) -> bool {
         self.next().is_none()
+    }
+
+    /// Get the position immediatly following this position or `None` if
+    /// this is the last position in the file.
+    pub fn prev(&'t self) -> Option<Position<'t>> {
+        let pos = self.clone();
+        pos.prev_mut().ok()
+    }
+
+    /// The same as `prev()` but in-place.
+    ///
+    /// Fails if there is no prev position and returns the unchanged
+    /// position.
+    fn prev_mut(mut self) -> Result<Self, Self> {
+        if self.byte_offset == 0 {
+            return Err(self);
+        }
+
+        match self.chr() {
+            '\n' => {
+                // we have to reconstruct the column of the
+                // last character by finding its distance
+                // to the previous newline character
+                let consumed = &self.file[..self.byte_offset];
+                let previous_newline_index: usize = consumed.rfind('\n').unwrap_or(0);
+                println!("newline_idx: {}", previous_newline_index);
+                // minus one transposes 1-indexed columns to 0-indexed columns
+                self.col = self.byte_offset - previous_newline_index - 1;
+
+                self.byte_offset -= 1;
+                self.row -= 1;
+                Ok(self)
+            }
+            _ => {
+                self.col -= 1;
+                self.byte_offset -= 1;
+                Ok(self)
+            }
+        }
     }
 
     pub fn get_line(
@@ -138,17 +200,17 @@ impl<'t> Position<'t> {
         )
     }
 
-    fn consume_byte(&self, byte :u8) -> Self {
+    fn consume_byte(&self, byte: u8) -> Self {
         let mut pos = self.clone();
         pos.consume_byte_mut(byte);
         pos
     }
 
-    fn consume_byte_mut(&mut self, byte :u8) {
-        self.consume_char(byte as char);
+    fn consume_byte_mut(&mut self, byte: u8) {
+        self.consume_char_mut(byte as char);
     }
 
-    fn consume_char(&self, byte :char) -> Self {
+    fn consume_char(&self, byte: char) -> Self {
         let mut pos = self.clone();
         pos.consume_char_mut(byte);
         pos
@@ -160,18 +222,18 @@ impl<'t> Position<'t> {
                 self.col = 0;
                 self.row += 1;
                 self.byte_offset += 1;
-            },
+            }
             _ => {
                 self.col += 1;
                 self.byte_offset += 1;
-            },
+            }
         };
     }
 
     fn consume_mut(&mut self, upcoming: &str) {
         for chr in upcoming.chars() {
             self.consume_char_mut(chr);
-        };
+        }
     }
 
     /// Advance the position by examining a row of input characters. Will
@@ -241,3 +303,103 @@ impl PartialEq for Position<'_> {
 }
 
 impl Eq for Position<'_> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pair_with_char<'f>(positions: Vec<Position<'f>>) -> Vec<(Position<'f>, char)> {
+        positions
+            .into_iter()
+            .map(|position| (position, position.chr()))
+            .collect()
+    }
+
+    #[test]
+    fn iterator_works() {
+        let input = b"one\ntwo three\nfour\n\n";
+        let file = AsciiFile::new(input).unwrap();
+        let actual = pair_with_char(file.iter().collect());
+
+        #[rustfmt::skip]
+        let expected = vec![
+            (Position { byte_offset:  0, row: 0, col: 0, file:  &file }, 'o'),
+            (Position { byte_offset:  1, row: 0, col: 1 , file: &file }, 'n'),
+            (Position { byte_offset:  2, row: 0, col: 2 , file: &file }, 'e'),
+            (Position { byte_offset:  3, row: 0, col: 3 , file: &file }, '\n'),
+            (Position { byte_offset:  4, row: 1, col: 0 , file: &file }, 't'),
+            (Position { byte_offset:  5, row: 1, col: 1 , file: &file }, 'w'),
+            (Position { byte_offset:  6, row: 1, col: 2 , file: &file }, 'o'),
+            (Position { byte_offset:  7, row: 1, col: 3 , file: &file }, ' '),
+            (Position { byte_offset:  8, row: 1, col: 4 , file: &file }, 't'),
+            (Position { byte_offset:  9, row: 1, col: 5 , file: &file }, 'h'),
+            (Position { byte_offset: 10, row: 1, col: 6 , file: &file }, 'r'),
+            (Position { byte_offset: 11, row: 1, col: 7 , file: &file }, 'e'),
+            (Position { byte_offset: 12, row: 1, col: 8 , file: &file }, 'e'),
+            (Position { byte_offset: 13, row: 1, col: 9 , file: &file }, '\n'),
+            (Position { byte_offset: 14, row: 2, col: 0 , file: &file }, 'f'),
+            (Position { byte_offset: 15, row: 2, col: 1 , file: &file }, 'o'),
+            (Position { byte_offset: 16, row: 2, col: 2 , file: &file }, 'u'),
+            (Position { byte_offset: 17, row: 2, col: 3 , file: &file }, 'r'),
+            (Position { byte_offset: 18, row: 2, col: 4 , file: &file }, '\n'),
+            (Position { byte_offset: 19, row: 3, col: 0 , file: &file }, '\n'),
+        ];
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn all_indexing_works() {
+        file_index_roundtrip(b"one\ntwo three\nfour\n\n");
+        file_index_roundtrip(b"a");
+        file_index_roundtrip(b"\n");
+        file_index_roundtrip(b"\n\n\n\n");
+        file_index_roundtrip(b"aksjdaklsd");
+        file_index_roundtrip(b"aksjd\naklsd");
+        file_index_roundtrip(b"aksjdaklsd\n");
+        file_index_roundtrip(b"");
+    }
+
+    fn file_index_roundtrip(input: &[u8]) {
+        // the only functions playing with indices are `consume_char_mut()` and
+        // `prev_mut()`. We test these here by invoking them via the doubly
+        // linked list `prev()`/`next()`. The correctness of all other
+        // functions mutating Positions and
+        // Spans should follow from testing these.
+        println!("INPUT=```{}```", String::from_utf8_lossy(input));
+        let file = AsciiFile::new(input).unwrap();
+
+        let front_to_back = {
+            println!("FRONT TO BACK");
+            // we iterate and collect by hand, the iterator might hide bugs
+            // through custom EOF logic.
+            let mut vec = Vec::new();
+            let mut pos = Some(Position::at_file_start(&file));
+
+            while let Some(next) = pos {
+                println!("{:?}: '{}'", next, next.chr());
+                vec.push(next);
+                pos = next.clone().next_mut().ok();
+            }
+
+            vec
+        };
+
+        let back_to_front = {
+            println!("BACK TO FRONT");
+            let mut vec = Vec::new();
+            let mut pos = file.iter().last();
+
+            while let Some(prev) = pos {
+                println!("{:?}: '{}'", prev, prev.chr());
+                vec.push(prev);
+                pos = prev.clone().prev_mut().ok();
+            }
+
+            vec.reverse();
+            vec
+        };
+
+        assert_eq!(back_to_front.len(), input.len());
+        assert_eq!(pair_with_char(back_to_front), pair_with_char(front_to_back));
+    }
+}

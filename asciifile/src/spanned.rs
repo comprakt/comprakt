@@ -1,4 +1,4 @@
-use crate::{Position, Span};
+use crate::Span;
 use std::fmt;
 
 #[derive(Debug, Clone)]
@@ -17,11 +17,8 @@ where
 }
 
 impl<'f, T> Spanned<'f, T> {
-    pub fn new(start: Position<'f>, end: Position<'f>, value: T) -> Self {
-        Spanned {
-            span: Span { start, end },
-            data: value,
-        }
+    pub fn new(span: Span<'f>, value: T) -> Self {
+        Spanned { span, data: value }
     }
 
     pub fn map<U, F>(&self, f: F) -> Spanned<'f, U>
