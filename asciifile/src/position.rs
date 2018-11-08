@@ -11,7 +11,7 @@
 //! is not emitted by the rust APIs by default.) The EOF character is positioned
 //! on the same line as the last real character advanced by a single byte.
 //! This token exists because rust
-use crate::{file::LineTruncation, AsciiFile, Span};
+use crate::{AsciiFile, PositionIterator, ReversePositionIterator, Span};
 use std::cmp::Ordering;
 
 #[derive(Copy, Clone)]
@@ -149,7 +149,7 @@ impl<'t> Position<'t> {
     ///
     /// Fails if there is no prev position and returns the unchanged
     /// position.
-    fn prev_mut(mut self) -> Result<Self, Self> {
+    pub fn prev_mut(mut self) -> Result<Self, Self> {
         if self.byte_offset == 0 {
             return Err(self);
         }
@@ -177,24 +177,85 @@ impl<'t> Position<'t> {
         }
     }
 
-    pub fn get_line(
-        &self,
-        max_context_length_before: usize,
-        max_context_length_after: usize,
-    ) -> (LineTruncation, &'t str, LineTruncation) {
-        let (truncated_before, start) = self
-            .file
-            .get_line_start_idx(self.byte_offset, max_context_length_before);
-        let (truncated_after, end) = self
-            .file
-            .get_line_end_idx(self.byte_offset, max_context_length_after);
-        let line = &self.file.mapping[start..end];
+    /// Get source code line containing the position.
+    ///
+    /// The returned `Span` will include the trailing newline character
+    /// of the line.
+    ///
+    /// ```
+    /// use asciifile::{AsciiFile, Position, Span};
+    ///
+    /// let file = AsciiFile::new(b"banana\napple\n\nkiwi").unwrap();
+    ///
+    /// let lines = file
+    ///     .iter()
+    ///     .map(|position| {
+    ///         let line = position.get_line();
+    ///         (position.chr(), line.as_str().to_string())
+    ///     })
+    ///     .collect::<Vec<_>>();
+    ///
+    /// let expected: Vec<(char, String)> = vec![
+    ///     ('b', "banana"),
+    ///     ('a', "banana"),
+    ///     ('n', "banana"),
+    ///     ('a', "banana"),
+    ///     ('n', "banana"),
+    ///     ('a', "banana"),
+    ///     ('\n', "\napple"),
+    ///     ('a', "\napple"),
+    ///     ('p', "\napple"),
+    ///     ('p', "\napple"),
+    ///     ('l', "\napple"),
+    ///     ('e', "\napple"),
+    ///     ('\n', "\n"),
+    ///     ('\n', "\nkiwi"),
+    ///     ('k', "\nkiwi"),
+    ///     ('i', "\nkiwi"),
+    ///     ('w', "\nkiwi"),
+    ///     ('i', "\nkiwi"),
+    /// ]
+    /// .into_iter()
+    /// .map(|(c, s)| (c, s.to_string()))
+    /// .collect();
+    ///
+    /// assert_eq!(expected, lines);
+    /// ```
+    ///
+    /// Windows style line endings are not considered. This means `'\r'`
+    /// will be evaluated as a normal character without any special meaning.
+    pub fn get_line(&self) -> Span<'t> {
+        let start = self
+            .reverse_iter()
+            .find(|position| position.column() == 0)
+            .unwrap_or(self.reverse_iter().last().unwrap());
 
-        (
-            truncated_before,
-            unsafe { std::str::from_utf8_unchecked(line) },
-            truncated_after,
-        )
+        let end = self
+            .iter()
+            .find(|position| match position.next() {
+                Some(next) if next.chr() == '\n' => true,
+                None => true,
+                _ => false,
+            })
+            .unwrap_or(self.iter().last().unwrap());
+
+        Span::new(start, end)
+    }
+
+    pub fn iter(&self) -> PositionIterator<'t> {
+        self.clone().into_iter()
+    }
+
+    pub fn reverse_iter(&self) -> ReversePositionIterator<'t> {
+        self.clone().into_reverse_iter()
+    }
+
+    pub fn into_iter(self) -> PositionIterator<'t> {
+        PositionIterator::new(Some(self))
+    }
+
+    pub fn into_reverse_iter(self) -> ReversePositionIterator<'t> {
+        ReversePositionIterator::new(Some(self))
     }
 
     fn consume_byte(&self, byte: u8) -> Self {
@@ -241,37 +302,6 @@ impl<'t> Position<'t> {
         let mut pos = self.clone();
         pos.consume_mut(upcoming);
         pos
-    }
-
-    pub fn to_line_start(&self) -> Self {
-        let (_start_truncated, start_idx) = self
-            .file
-            .get_line_start_idx(self.byte_offset, self.file.mapping.len());
-
-        Self {
-            col: 0,
-            row: self.row,
-            byte_offset: start_idx,
-            file: self.file,
-        }
-    }
-
-    pub fn next_line(&self) -> Result<Self, ()> {
-        let (_end_truncated, end_idx) = self
-            .file
-            .get_line_end_idx(self.byte_offset, self.file.mapping.len());
-        let is_eof = end_idx == self.file.mapping.len() - 1;
-
-        if is_eof {
-            return Err(());
-        }
-
-        Ok(Self {
-            col: 0,
-            row: self.row + 1,
-            byte_offset: end_idx + 1,
-            file: self.file,
-        })
     }
 }
 

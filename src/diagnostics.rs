@@ -3,7 +3,7 @@
 //! It also tracks the number of warnings and errors generated for flow control.
 //!
 //! This implementation is NOT thread-safe.
-use asciifile::{LineTruncation, Span, Spanned};
+use asciifile::{Span, Spanned};
 use failure::AsFail;
 use std::{ascii::escape_default, cell::RefCell, collections::HashMap};
 use termcolor::{Color, ColorSpec, WriteColor};
@@ -17,6 +17,14 @@ use termcolor::{Color, ColorSpec, WriteColor};
 pub struct Diagnostics {
     message_count: RefCell<HashMap<MessageLevel, usize>>,
     writer: RefCell<Box<dyn WriteColor>>,
+}
+
+const ENCODING_ERROR_MAX_CONTEXT_LENGTH: usize = 80;
+
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum LineTruncation {
+    Truncated,
+    NotTruncated,
 }
 
 // TODO: merge `warning_with_source_snippet` and `warning` into a single

@@ -16,13 +16,7 @@ impl<'t> Iterator for PositionIterator<'t> {
                 // this is equivalent to `position.next()`, but lifetime analysis
                 // fails if we use it directly since we are not allowed to assert
                 // `&'t mut self` because of trait constraints.
-                let next = position.clone().next_mut();
-
-                self.position_to_emit = match next {
-                    Ok(next_position) => Some(next_position),
-                    Err(_unchanged_position) => None,
-                };
-
+                self.position_to_emit = position.clone().next_mut().ok();
                 Some(position)
             }
         }
@@ -75,5 +69,40 @@ impl<'t> PositionIterator<'t> {
 
     pub fn eof_reached(&self) -> bool {
         self.peek().is_none()
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct ReversePositionIterator<'t> {
+    /// current iterator position. Always points to the next character/position
+    /// to emit
+    position_to_emit: Option<Position<'t>>,
+}
+
+/// Traverse a file from front to back. In contrast to `.iter().reverse()`,
+/// this efficiently walks from any given Position using the `prev()` chain
+/// of the doubly linked list.
+// TODO: is this stupid? How is this implemented on Vec<>?
+impl<'t> Iterator for ReversePositionIterator<'t> {
+    type Item = Position<'t>;
+    fn next(&mut self) -> Option<Position<'t>> {
+        match self.position_to_emit {
+            None => None,
+            Some(position) => {
+                // this is equivalent to `position.next()`, but lifetime analysis
+                // fails if we use it directly since we are not allowed to assert
+                // `&'t mut self` because of trait constraints.
+                self.position_to_emit = position.clone().prev_mut().ok();
+                Some(position)
+            }
+        }
+    }
+}
+
+impl<'t> ReversePositionIterator<'t> {
+    pub fn new(position: Option<Position<'t>>) -> Self {
+        Self {
+            position_to_emit: position,
+        }
     }
 }

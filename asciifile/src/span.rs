@@ -29,7 +29,7 @@ use std::{
 };
 
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Span<'f> {
     /// position of the first char in the span.
     start: Position<'f>,

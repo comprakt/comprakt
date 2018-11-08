@@ -12,8 +12,8 @@ pub mod spanned;
 
 // TODO: remove LinenTruncation. Will reduce performance but keep my sanity
 pub use self::{
-    file::{AsciiFile, LineTruncation},
-    iter::PositionIterator,
+    file::AsciiFile,
+    iter::{PositionIterator, ReversePositionIterator},
     position::Position,
     span::Span,
     spanned::Spanned,
