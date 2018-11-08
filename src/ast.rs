@@ -39,19 +39,8 @@ pub type ParameterList<'t> = Vec<Parameter<'t>>;
 #[derive(Debug, PartialEq, Eq)]
 pub enum ClassMemberKind<'t> {
     Field,
-    Method(ParameterList<'t>, MethodRest<'t>, Block<'t>),
-    MainMethod(Parameter<'t>, MethodRest<'t>, Block<'t>),
-}
-
-/// Holds the `Identifier` of the `throws` method rest.
-///
-/// In Java a methods can throw an exception. In MiniJava this is syntactically
-/// possible but since there are no exceptions in MiniJava, it can be ignored
-/// in later stages. We still need to type check for the `Identifier`.
-#[derive(Debug, PartialEq, Eq)]
-pub struct MethodRest<'t> {
-    pub span: Span<'t>,
-    pub throws: Option<Symbol>,
+    Method(ParameterList<'t>, Block<'t>),
+    MainMethod(Parameter<'t>, Block<'t>),
 }
 
 /// This AST node represents a method parameter. A parameter consists of a

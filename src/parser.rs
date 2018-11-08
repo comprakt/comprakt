@@ -359,10 +359,10 @@ where
             let node = if self.tastes_like(exactly(Operator::LeftParen))? {
                 // method or main method
                 let params = self.parse_parameter_declarations()?;
-                let rest = self.parse_method_rest()?;
+                self.skip_method_rest()?;
                 let body = self.parse_block()?;
 
-                ast::ClassMemberKind::Method(params, rest, body)
+                ast::ClassMemberKind::Method(params, body)
             } else {
                 self.omnomnom(exactly(Operator::Semicolon))?;
                 ast::ClassMemberKind::Field
@@ -372,14 +372,12 @@ where
         } => ast::ClassMember { node, ty, name, is_static })
     }
 
-    fn parse_method_rest(&mut self) -> SyntaxResult<'f, ast::MethodRest<'f>> {
-        spanned!(self, {
-            if self.omnomnoptional(exactly(Keyword::Throws))?.is_some() {
-                Ok(Some(self.omnomnom(Identifier)?.data))
-            } else {
-                Ok(None)
-            }
-        } => ast::MethodRest { throws })
+    fn skip_method_rest(&mut self) -> SyntaxResult<'f, ()> {
+        if self.omnomnoptional(exactly(Keyword::Throws))?.is_some() {
+            self.omnomnom(Identifier)?;
+        }
+
+        Ok(())
     }
 
     fn parse_parameter_declarations(&mut self) -> SyntaxResult<'f, ast::ParameterList<'f>> {
