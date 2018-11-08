@@ -196,24 +196,24 @@ impl<'t> Position<'t> {
     ///     .collect::<Vec<_>>();
     ///
     /// let expected: Vec<(char, String)> = vec![
-    ///     ('b', "banana"),
-    ///     ('a', "banana"),
-    ///     ('n', "banana"),
-    ///     ('a', "banana"),
-    ///     ('n', "banana"),
-    ///     ('a', "banana"),
-    ///     ('\n', "\napple"),
-    ///     ('a', "\napple"),
-    ///     ('p', "\napple"),
-    ///     ('p', "\napple"),
-    ///     ('l', "\napple"),
-    ///     ('e', "\napple"),
+    ///     ('b', "banana\n"),
+    ///     ('a', "banana\n"),
+    ///     ('n', "banana\n"),
+    ///     ('a', "banana\n"),
+    ///     ('n', "banana\n"),
+    ///     ('a', "banana\n"),
+    ///     ('\n', "banana\n"),
+    ///     ('a', "apple\n"),
+    ///     ('p', "apple\n"),
+    ///     ('p', "apple\n"),
+    ///     ('l', "apple\n"),
+    ///     ('e', "apple\n"),
+    ///     ('\n', "apple\n"),
     ///     ('\n', "\n"),
-    ///     ('\n', "\nkiwi"),
-    ///     ('k', "\nkiwi"),
-    ///     ('i', "\nkiwi"),
-    ///     ('w', "\nkiwi"),
-    ///     ('i', "\nkiwi"),
+    ///     ('k', "kiwi"),
+    ///     ('i', "kiwi"),
+    ///     ('w', "kiwi"),
+    ///     ('i', "kiwi"),
     /// ]
     /// .into_iter()
     /// .map(|(c, s)| (c, s.to_string()))
@@ -225,18 +225,24 @@ impl<'t> Position<'t> {
     /// Windows style line endings are not considered. This means `'\r'`
     /// will be evaluated as a normal character without any special meaning.
     pub fn get_line(&self) -> Span<'t> {
+        // TODO: this is way more complicated than it has to be, because we are
+        // converting our 'NEWLINE in front-position at column 0' convention to
+        // a trailing newline convention. But having the newline at the front
+        // is really weird. commit 0431f178ec33af0d2f3f14732bcdad0f3b2f56a3 contains
+        // an implementation without front-to-back conversion.
         let start = self
             .reverse_iter()
-            .find(|position| position.column() == 0)
-            .unwrap_or(self.reverse_iter().last().unwrap());
-
-        let end = self
-            .iter()
-            .find(|position| match position.next() {
+            .find(|position| match position.prev() {
                 Some(next) if next.chr() == '\n' => true,
                 None => true,
                 _ => false,
             })
+            // the find(.) call above looks one character ahead
+            .unwrap();
+
+        let end = self
+            .iter()
+            .find(|position| position.chr() == '\n')
             .unwrap_or(self.iter().last().unwrap());
 
         Span::new(start, end)
