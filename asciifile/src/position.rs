@@ -1,0 +1,243 @@
+//! # Doubly Linked List
+//!
+//! Positon implements a doubly linked list on the positions and therefore
+//! characters of a file it was extraced from.
+//!
+//! ```
+//! ```
+//! # End of File (EOF) Position
+//!
+//! A EOF character is automatically inserted at the end of the file (which
+//! is not emitted by the rust APIs by default.) The EOF character is positioned
+//! on the same line as the last real character advanced by a single byte.
+//! This token exists because rust 
+use crate::{file::LineTruncation, AsciiFile, Span};
+use std::cmp::Ordering;
+
+#[derive(Copy, Clone)]
+pub struct Position<'t> {
+    // TODO: should all be private
+    pub row: usize,
+    pub col: usize,
+    pub byte_offset: usize,
+    pub file: &'t AsciiFile<'t>,
+}
+
+impl PartialOrd for Position<'_> {
+    fn partial_cmp(&self, other: &Position<'_>) -> Option<Ordering> {
+        // TODO: the typesystem does not gurantee that both positions come from the
+        // same file
+        Some(self.byte_offset.cmp(&other.byte_offset))
+    }
+}
+
+impl Ord for Position<'_> {
+    fn cmp(&self, other: &Position<'_>) -> Ordering {
+        self.byte_offset.cmp(&other.byte_offset)
+    }
+}
+
+impl<'t> Position<'t> {
+    #[cfg(test)]
+    pub fn dummy() -> Self {
+        Position {
+            row: 0,
+            col: 0,
+            byte_offset: 0,
+            file: Box::leak(box AsciiFile::new(&[]).unwrap()),
+        }
+    }
+
+    /// Create a new Position object pointing at the first character
+    /// of a file.
+    ///
+    /// 
+    pub fn at_file_start(file: &'t AsciiFile<'t>) -> Self {
+        Self {
+            row: 0,
+            col: 0,
+            byte_offset: 0,
+            file
+        }
+    }
+
+    pub fn to_single_char_span(&self) -> Span<'t> {
+        Span {
+            start: *self,
+            end: self.clone().consume(&self.chr().to_string()),
+        }
+    }
+
+    pub fn byte_offset(&self) -> usize {
+        self.byte_offset
+    }
+
+    /// Get the character at this position
+    ///
+    /// Guranteed to be within the ASCII range of UTF-8 that does not use the
+    /// upper half of the bytes. Use `byte()` if you need a single
+    /// byte representation instead.
+    pub fn chr(&self) -> char {
+        self.file.mapping[self.byte_offset] as char
+    }
+
+    /// Get the byte at this position
+    ///
+    /// For matching on the character or comparisons, you probably want `chr()` instead.
+    pub fn byte(&self) -> u8 {
+        self.file.mapping[self.byte_offset]
+    }
+
+    /// Get the position immediatly following this position or `None` if
+    /// this is the last position in the file.
+    pub fn next(&'t self) -> Option<Position<'t>> {
+        let pos = self.clone();
+        pos.next_mut().ok()
+
+        //let next_byte = self.file.mapping.get(self.byte_offset + 1);
+        //next_byte.map(|b| self.consume_byte(*b))
+    }
+
+    /// The same as `next()` but in-place.
+    ///
+    /// Fails if there is no next position
+    pub fn next_mut(mut self) -> Result<Self,()> {
+        let next_byte = self.file.mapping.get(self.byte_offset + 1);
+        match next_byte {
+            None => Err(()),
+            Some(&byte) => {
+                self.consume_byte_mut(byte);
+                Ok(self)
+            }
+        }
+    }
+
+    /// Check if we are at the end of the file (the last valid position/the last character of the
+    /// file).
+    pub fn is_last(&self) -> bool {
+        self.next().is_none()
+    }
+
+    pub fn get_line(
+        &self,
+        max_context_length_before: usize,
+        max_context_length_after: usize,
+    ) -> (LineTruncation, &'t str, LineTruncation) {
+        let (truncated_before, start) = self
+            .file
+            .get_line_start_idx(self.byte_offset, max_context_length_before);
+        let (truncated_after, end) = self
+            .file
+            .get_line_end_idx(self.byte_offset, max_context_length_after);
+        let line = &self.file.mapping[start..end];
+
+        (
+            truncated_before,
+            unsafe { std::str::from_utf8_unchecked(line) },
+            truncated_after,
+        )
+    }
+
+    fn consume_byte(&self, byte :u8) -> Self {
+        let mut pos = self.clone();
+        pos.consume_byte_mut(byte);
+        pos
+    }
+
+    fn consume_byte_mut(&mut self, byte :u8) {
+        self.consume_char(byte as char);
+    }
+
+    fn consume_char(&self, byte :char) -> Self {
+        let mut pos = self.clone();
+        pos.consume_char_mut(byte);
+        pos
+    }
+
+    fn consume_char_mut(&mut self, chr: char) {
+        match chr {
+            '\n' => {
+                self.col = 0;
+                self.row += 1;
+                self.byte_offset += 1;
+            },
+            _ => {
+                self.col += 1;
+                self.byte_offset += 1;
+            },
+        };
+    }
+
+    fn consume_mut(&mut self, upcoming: &str) {
+        for chr in upcoming.chars() {
+            self.consume_char_mut(chr);
+        };
+    }
+
+    /// Advance the position by examining a row of input characters. Will
+    /// update the row count for each new line encountered, will update the
+    /// column count for all other characters.
+    // TODO: should be private! allows to build invalid chars
+    pub fn consume(&mut self, upcoming: &str) -> Self {
+        let mut pos = self.clone();
+        pos.consume_mut(upcoming);
+        pos
+    }
+
+    pub fn to_line_start(&self) -> Self {
+        let (_start_truncated, start_idx) = self
+            .file
+            .get_line_start_idx(self.byte_offset, self.file.mapping.len());
+
+        Self {
+            col: 0,
+            row: self.row,
+            byte_offset: start_idx,
+            file: self.file,
+        }
+    }
+
+    pub fn next_line(&self) -> Result<Self, ()> {
+        let (_end_truncated, end_idx) = self
+            .file
+            .get_line_end_idx(self.byte_offset, self.file.mapping.len());
+        let is_eof = end_idx == self.file.mapping.len() - 1;
+
+        if is_eof {
+            return Err(());
+        }
+
+        Ok(Self {
+            col: 0,
+            row: self.row + 1,
+            byte_offset: end_idx + 1,
+            file: self.file,
+        })
+    }
+}
+
+use std::fmt::{self, Debug, Display};
+
+impl Display for Position<'_> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "{}:{}", self.row + 1, self.col + 1)
+    }
+}
+
+impl Debug for Position<'_> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            fmt,
+            "Position{{row: {:?}, col: {:?}, byte_offset: {:?}, file: {:?}}}",
+            self.row, self.col, self.byte_offset, self.file as *const _
+        )
+    }
+}
+
+impl PartialEq for Position<'_> {
+    fn eq(&self, rhs: &Position<'_>) -> bool {
+        self.byte_offset == rhs.byte_offset && self.file as *const _ == (rhs.file as *const _)
+    }
+}
+
+impl Eq for Position<'_> {}

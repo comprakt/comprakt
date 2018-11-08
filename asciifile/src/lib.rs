@@ -2,466 +2,64 @@
 ///!
 ///! # Positions and Text Ranges
 ///!
-use failure::Fail;
-use std::cmp::{max, min, Ordering};
+pub mod file;
+pub mod position;
+pub mod span;
+pub mod spanned;
 
-#[derive(Debug)]
-pub struct AsciiFile<'m> {
-    mapping: &'m [u8],
-}
+// TODO: remove LinenTruncation. Will reduce performance but keep my sanity
+pub use self::{
+    file::{AsciiFile, AsciiFileIterator, LineTruncation},
+    position::Position,
+    span::Span,
+    spanned::Spanned,
+};
+use std::marker::PhantomData;
 
-pub type AsciiFileIterator<'t> = PositionedChars<'t, std::str::Chars<'t>>;
-
-#[derive(Debug, Fail)]
-pub enum EncodingError {
-    #[fail(
-        display = "input contains non-ascii character at byte offset {}: {}<?>",
-        position,
-        prev
-    )]
-    NotAscii { position: usize, prev: String },
-}
-
-const ENCODING_ERROR_MAX_CONTEXT_LENGTH: usize = 80;
-
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum LineTruncation {
-    Truncated,
-    NotTruncated,
-}
-
-impl<'m> AsciiFile<'m> {
-    /// return the start index of the line without the newline character (\n).
-    /// This means you can make slices that do NOT include the newline
-    /// character by simply using the return value of this function as
-    /// lower bound X in the range X..Y.
-    ///
-    /// If the cursor/byte offset is on a newline character, the newline
-    /// character will belong to the previous line, meaning the return
-    /// value will be the given byte offset and
-    /// not the byte offset of the next new line.
-    fn get_line_end_idx(
-        &'m self,
-        byte_offset: usize,
-        max_context_length: usize,
-    ) -> (LineTruncation, usize) {
-        AsciiFile::get_line_end_idx_byteslice(self.mapping, byte_offset, max_context_length)
-    }
-
-    fn get_line_end_idx_byteslice(
-        mapping: &[u8],
-        byte_offset: usize,
-        max_context_length: usize,
-    ) -> (LineTruncation, usize) {
-        debug_assert!(byte_offset <= mapping.len());
-
-        let region_max_end = byte_offset + max_context_length;
-        let (truncation, region_end) = if mapping.len() > region_max_end {
-            (LineTruncation::Truncated, region_max_end)
-        } else {
-            (LineTruncation::NotTruncated, mapping.len())
-        };
-
-        let region = &mapping[byte_offset..region_end];
-
-        let newline_position = region
-            .iter()
-            .position(|&chr| chr as char == '\n')
-            .map(|pos| pos + byte_offset);
-
-        match newline_position {
-            Some(position) => (LineTruncation::NotTruncated, position),
-            None => (truncation, region_end),
-        }
-    }
-
-    /// return the end index of the line includes the newline character (\n).
-    /// This means you can make slices that do NOT include the newline
-    /// character by simply using the return value of this function as
-    /// upper bound Y in the range X..Y.
-    ///
-    /// If the cursor/byte offset is on a newline character, the newline
-    /// character will belong to the previous line, meaning the return
-    /// value will not be the given by the byte
-    /// offset, but the byte offset of the previous new line.
-    fn get_line_start_idx(
-        &'m self,
-        byte_offset: usize,
-        max_context_length: usize,
-    ) -> (LineTruncation, usize) {
-        AsciiFile::get_line_start_idx_byteslice(self.mapping, byte_offset, max_context_length)
-    }
-
-    fn get_line_start_idx_byteslice(
-        mapping: &[u8],
-        byte_offset: usize,
-        max_context_length: usize,
-    ) -> (LineTruncation, usize) {
-        debug_assert!(byte_offset <= mapping.len());
-
-        let (truncation, region_start) = byte_offset
-            .checked_sub(max_context_length)
-            .map(|start| (LineTruncation::Truncated, start))
-            .unwrap_or((LineTruncation::NotTruncated, 0));
-
-        let region = &mapping[region_start..byte_offset];
-
-        region
-            .iter()
-            .rposition(|&chr| chr as char == '\n')
-            .map(|pos| (LineTruncation::NotTruncated, pos + region_start + 1))
-            .unwrap_or((truncation, region_start))
-    }
-
-    // cost: O(fileLen) since we need to check if all chars are ASCII
-    pub fn new(mapping: &'m [u8]) -> Result<AsciiFile<'m>, EncodingError> {
-        if let Some(position) = mapping.iter().position(|c| !c.is_ascii()) {
-            let (truncation, start_idx) = AsciiFile::get_line_start_idx_byteslice(
-                mapping,
-                position,
-                ENCODING_ERROR_MAX_CONTEXT_LENGTH,
-            );
-            // We know everything until now has been ASCII
-            let prev: &str =
-                unsafe { std::str::from_utf8_unchecked(&mapping[start_idx..position]) };
-            let prev = format!(
-                "{dots}{context}",
-                context = prev,
-                dots = if truncation == LineTruncation::Truncated {
-                    "..."
-                } else {
-                    ""
-                }
-            );
-            return Err(EncodingError::NotAscii { position, prev });
-        }
-
-        Ok(AsciiFile { mapping })
-    }
-
-    pub fn iter(&self) -> AsciiFileIterator<'_> {
-        let s: &str = self;
-        PositionedChars {
-            curpos: Position {
-                row: 0,
-                col: 0,
-                byte_offset: 0,
-                file: self,
-            },
-            ascii_file: s.chars(),
-            peeked: String::new(),
-        }
-    }
-}
-
-/// A guranteed valid text range of the input file.
-///
-/// A span is defined by a start and an end position. The range is inclusive on
-/// the lower bound, meaning it does contain the character at the start
-/// position, and *exclusive* on the upper bound, meaning the end position is
-/// **not** part of the span.
-///
-/// Analog to [`Position`](struct.Position.html), rows and columns are zero
-/// indexed. This means that the first character of a file is positioned at
-/// column 0 in row 0.
-#[derive(Debug, Clone)]
-pub struct Span<'f> {
-    // TODO: make private
-    /// position of the first char in the span.
-    pub start: Position<'f>,
-    /// position after the last char in the span.
-    pub end: Position<'f>,
-}
-
-impl<'f> Span<'f> {
-    pub fn new(a: Position<'f>, b: Position<'f>) -> Self {
-        Self {
-            start: min(a, b),
-            end: max(a, b),
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.end.byte_offset == self.start.byte_offset
-    }
-
-    pub fn is_single_char(&self) -> bool {
-        self.end.byte_offset - self.start.byte_offset == 1
-    }
-
-    pub fn start_position(&self) -> Position<'_> {
-        self.start
-    }
-
-    pub fn end_position(&self) -> Position<'_> {
-        self.end
-    }
-
-    /// Check if a span extends over multiple lines
-    ///
-    /// This will consider spans that contain a single trailing
-    /// whitespace as multiline.
-    ///
-    /// ```
-    /// use std::io;
-    /// # fn main() -> Result<(), ()> {
-    /// let file = AsciiFile::new("\n".as_bytes()).unwrap().iter().collect();
-    /// let first = file.next().unwrap();
-    /// let last = file.last().unwrap();
-    /// let span = Span::new(first, last);
-    /// assert!(span.is_multiline())
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn is_multiline(&self) -> bool {
-        self.start.row != self.end.row
-    }
-
-    pub fn combine(a: &Span<'f>, b: &Span<'f>) -> Span<'f> {
-        Span {
-            start: min(a.start, b.start),
-            end: max(a.end, b.end),
-        }
-    }
-}
-
-impl fmt::Display for Span<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.is_single_char() {
-            write!(f, "{}", self.start)
-        } else {
-            write!(f, "{}-{}", self.start, self.end)
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Spanned<'f, T> {
-    pub span: Span<'f>,
-    pub data: T,
-}
-
-impl<T> fmt::Display for Spanned<'_, T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} at {}", self.data, self.span)
-    }
-}
-
-impl<'f, T> Spanned<'f, T> {
-    pub fn new(start: Position<'f>, end: Position<'f>, value: T) -> Self {
-        Spanned {
-            span: Span { start, end },
-            data: value,
-        }
-    }
-
-    pub fn map<U, F>(&self, f: F) -> Spanned<'f, U>
-    where
-        F: FnOnce(&T) -> U,
-    {
-        Spanned {
-            span: self.span.clone(),
-            data: f(&self.data),
-        }
-    }
-}
-
-use std::ops::Deref;
-
-#[derive(Copy, Clone)]
-pub struct Position<'t> {
-    pub row: usize,
-    pub col: usize,
-    byte_offset: usize,
-    file: &'t AsciiFile<'t>,
-}
-
-#[cfg(test)]
-impl<'t> Position<'t> {
-    pub fn dummy() -> Self {
-        Position {
-            row: 0,
-            col: 0,
-            byte_offset: 0,
-            file: Box::leak(box AsciiFile::new(&[]).unwrap()),
-        }
-    }
-}
-
-impl PartialOrd for Position<'_> {
-    fn partial_cmp(&self, other: &Position<'_>) -> Option<Ordering> {
-        // TODO: the typesystem does not gurantee that both positions come from the
-        // same file
-        Some(self.byte_offset.cmp(&other.byte_offset))
-    }
-}
-
-impl Ord for Position<'_> {
-    fn cmp(&self, other: &Position<'_>) -> Ordering {
-        self.byte_offset.cmp(&other.byte_offset)
-    }
-}
-
-impl<'t> Position<'t> {
-    pub fn to_single_char_span(&self) -> Span<'t> {
-        Span {
-            start: *self,
-            end: self.consume("\n"),
-        }
-    }
-
-    pub fn char(&self) -> char {
-        self.file.mapping[self.byte_offset] as char
-    }
-
-    pub fn byte(&self) -> u8 {
-        self.file.mapping[self.byte_offset]
-    }
-
-    pub fn get_line(
-        &self,
-        max_context_length_before: usize,
-        max_context_length_after: usize,
-    ) -> (LineTruncation, &'t str, LineTruncation) {
-        let (truncated_before, start) = self
-            .file
-            .get_line_start_idx(self.byte_offset, max_context_length_before);
-        let (truncated_after, end) = self
-            .file
-            .get_line_end_idx(self.byte_offset, max_context_length_after);
-        let line = &self.file.mapping[start..end];
-
-        (
-            truncated_before,
-            unsafe { std::str::from_utf8_unchecked(line) },
-            truncated_after,
-        )
-    }
-
-    /// Advance the position by examining a row of input characters. Will
-    /// update the row count for each new line encountered, will update the
-    /// column count for all other characters.
-    pub fn consume(&self, upcoming: &str) -> Self {
-        let matches: Vec<_> = upcoming.match_indices('\n').collect();
-        let count = matches.len();
-
-        match matches.last() {
-            None => Self {
-                // single line
-                col: self.col + upcoming.len(),
-                row: self.row,
-                byte_offset: self.byte_offset + upcoming.len(),
-                file: self.file,
-            },
-            Some((start_idx, _)) => Self {
-                // multi line
-                col: 0,
-                row: self.row + count,
-                byte_offset: self.byte_offset + upcoming.len() - start_idx,
-                file: self.file,
-            },
-        }
-    }
-
-    pub fn to_line_start(&self) -> Self {
-        let (_start_truncated, start_idx) = self
-            .file
-            .get_line_start_idx(self.byte_offset, self.file.mapping.len());
-
-        Self {
-            col: 0,
-            row: self.row,
-            byte_offset: start_idx,
-            file: self.file,
-        }
-    }
-
-    pub fn next_line(&self) -> Result<Self, ()> {
-        let (_end_truncated, end_idx) = self
-            .file
-            .get_line_end_idx(self.byte_offset, self.file.mapping.len());
-        let is_eof = end_idx == self.file.mapping.len() - 1;
-
-        if is_eof {
-            return Err(());
-        }
-
-        Ok(Self {
-            col: 0,
-            row: self.row + 1,
-            byte_offset: end_idx + 1,
-            file: self.file,
-        })
-    }
-}
-
-use std::fmt::{self, Debug, Display};
-
-impl Display for Position<'_> {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "{}:{}", self.row + 1, self.col + 1)
-    }
-}
-
-impl Debug for Position<'_> {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            fmt,
-            "Position{{row: {:?}, col: {:?}, byte_offset: {:?}, file: {:?}}}",
-            self.row, self.col, self.byte_offset, self.file as *const _
-        )
-    }
-}
-
-impl PartialEq for Position<'_> {
-    fn eq(&self, rhs: &Position<'_>) -> bool {
-        self.byte_offset == rhs.byte_offset && self.file as *const _ == (rhs.file as *const _)
-    }
-}
-
-impl Eq for Position<'_> {}
-
+// TODO: Position has evolved to a struct that contains identical
+// information to PositionedChar. We may remove PositionedChar
 #[derive(Debug, PartialEq)]
 pub struct PositionedChar<'t>(pub Position<'t>, pub char);
 
-pub struct PositionedChars<'t, I>
-where
-    I: Iterator<Item = char>,
-{
-    curpos: Position<'t>,
-    ascii_file: I,
-    peeked: String,
+#[derive(Copy, Clone)]
+pub struct PositionedChars<'t, I: Clone> {
+    current_position: Option<Position<'t>>,
+    // TODO: phantom is here to not change the api until the refactor
+    _phantom: PhantomData<I>,
 }
 
-impl<'t, I> Iterator for PositionedChars<'t, I>
-where
-    I: Iterator<Item = char>,
-{
+impl<'t, I: Clone> Iterator for PositionedChars<'t, I> {
     type Item = PositionedChar<'t>;
     fn next(&mut self) -> Option<PositionedChar<'t>> {
-        let c = self.peek()?;
-        self.peeked.remove(0);
-
-        let retpos = self.curpos;
-        self.curpos.byte_offset += 1;
-        self.curpos.col += 1;
-        if c == '\n' {
-            self.curpos.row += 1;
-            self.curpos.col = 0;
+        if self.current_position.is_none() {
+            return None;
         }
 
-        Some(PositionedChar(retpos, c))
+        match self.current_position {
+            Some(position) => {
+                let next_position: Option<Position<'t>> = position.clone().next_mut().ok();
+
+                self.current_position = next_position;
+                let chr: char = position.chr();
+                Some(PositionedChar(position, chr))
+            }
+            None => None,
+        }
     }
 }
 
-impl<'t, I> PositionedChars<'t, I>
+impl<'t, I: Clone> PositionedChars<'t, I>
 where
-    I: Iterator<Item = char>,
+    I: Iterator<Item = char> + Clone,
 {
-    pub fn try_peek_multiple(&mut self, n: usize) -> Option<&str> {
+    pub fn new(position: Position<'t>) -> Self {
+        Self {
+            current_position: Some(position),
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn try_peek_multiple(&mut self, n: usize) -> Option<String> {
         let peeked = self.peek_multiple(n);
         if peeked.len() < n {
             None
@@ -474,17 +72,9 @@ where
     /// actually advanced, of course, but this is hidden by a buffer).
     /// If there are less than n charcters left, the returned slice is shorter
     /// than that
-    pub fn peek_multiple(&mut self, n: usize) -> &str {
-        // We already have .len() characters "in stock", so we get the remaining n-len,
-        // if there are then many
-        for _ in self.peeked.len()..n {
-            match self.ascii_file.next() {
-                Some(next) => self.peeked.push(next),
-                None => break,
-            }
-        }
-
-        &self.peeked[0..self.peeked.len().min(n)]
+    pub fn peek_multiple(&mut self, n: usize) -> String {
+        let chars: String = self.clone().take(n).map(|pos| pos.0.chr()).collect();
+        chars
     }
 
     /// Can't use peekable, because we don't care about position when peeking
@@ -496,21 +86,9 @@ where
         self.peek().is_none()
     }
 
-    pub fn current_position(&mut self) -> Position<'t> {
-        self.curpos
-    }
-}
-
-impl<'m> Deref for AsciiFile<'m> {
-    type Target = str;
-    fn deref(&self) -> &Self::Target {
-        unsafe { std::str::from_utf8_unchecked(&self.mapping) }
-    }
-}
-
-impl<'m, 'a> Into<&'m str> for &'a AsciiFile<'m> {
-    fn into(self) -> &'m str {
-        unsafe { std::str::from_utf8_unchecked(&self.mapping) }
+    pub fn current_position(&mut self) -> Option<Position<'t>> {
+        // TODO: we need a special EOF position!
+        self.current_position
     }
 }
 
