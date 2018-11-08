@@ -367,13 +367,13 @@ where
                 self.skip_method_rest()?;
                 let body = self.parse_block()?;
 
-                let node = ast::ClassMemberKind::MainMethod(param, body);
-                ast::ClassMember { node, name }
+                let kind = ast::ClassMemberKind::MainMethod(param, body);
+                ast::ClassMember { kind, name }
             } else {
                 let ty = self.parse_type()?;
                 let name = self.omnomnom(Identifier)?.data;
 
-                let node = if self.tastes_like(exactly(Operator::LeftParen))? {
+                let kind = if self.tastes_like(exactly(Operator::LeftParen))? {
                     // Method
                     let params = self.parse_parameter_declarations()?;
                     self.skip_method_rest()?;
@@ -386,7 +386,7 @@ where
                     ast::ClassMemberKind::Field(ty)
                 };
 
-                ast::ClassMember { node, name }
+                ast::ClassMember { kind, name }
             })
         })
     }
@@ -413,7 +413,7 @@ where
 
     fn parse_type(&mut self) -> ParserResult<'f, ast::Type> {
         spanned!(self, {
-            let ty = self.parse_basic_type()?;
+            let basic = self.parse_basic_type()?;
 
             let mut array_depth = 0;
             while self
@@ -424,7 +424,7 @@ where
                 array_depth += 1;
             }
 
-            Ok(ast::Type { ty, array_depth })
+            Ok(ast::Type { basic, array_depth })
         })
     }
 
@@ -657,7 +657,7 @@ where
                 if self.tastes_like(exactly(Operator::LeftParen))? {
                     // function call
                     let params = self.parse_parameter_values()?;
-                    Ok(GlobalMethodInvocation(adressee.data, params))
+                    Ok(MethodInvocation(adressee.data, params))
                 } else {
                     // var ref
                     Ok(Var(adressee.data))

@@ -180,15 +180,6 @@ impl Span<'_> {
             .unwrap_or(false)
     }
 
-    //TODO(flip1995): remove
-    pub fn dummy() -> Self {
-        let pos = Position::dummy();
-        Self {
-            start: pos,
-            end: pos,
-        }
-    }
-
     /// Check if a span extends over multiple lines
     ///
     /// This will consider spans that contain a single trailing

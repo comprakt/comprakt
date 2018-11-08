@@ -19,7 +19,7 @@ pub struct ClassDeclaration<'t> {
 /// defined in `ClassMemberKind`. Every class member has a type and a name.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ClassMember<'t> {
-    pub node: ClassMemberKind<'t>,
+    pub kind: ClassMemberKind<'t>,
     pub name: Symbol,
 }
 
@@ -53,7 +53,7 @@ pub struct Parameter<'t> {
 /// array type.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Type {
-    pub ty: BasicType,
+    pub basic: BasicType,
     /// Depth of the array type (number of `[]`) i.e. this means means `self.ty
     /// []^(self.array)`
     pub array_depth: u64,
@@ -82,7 +82,8 @@ pub struct Block<'t> {
 /// * `Block`: A bloch defined in `Block`
 /// * `Empty`: An empty statement: `;`
 /// * `If`: a if expression consisting of the condition, its body and
-/// optionally an else statement * `Expression`: an expression defined in `Expr`
+/// optionally an else statement
+/// * `Expression`: an expression defined in `Expr`
 /// * `While`: a while loop consisting of the condition and its body
 /// * `Return`: a return which can optionally return an expression
 /// * `LocalVariableDeclaration`: a decleration and optional initialization of
@@ -140,7 +141,7 @@ pub enum Expr<'t> {
     Boolean(bool),
     Int(Symbol), // TODO Should be String?
     Var(Symbol),
-    GlobalMethodInvocation(Symbol, Spanned<'t, ArgumentList<'t>>),
+    MethodInvocation(Symbol, Spanned<'t, ArgumentList<'t>>),
     This,
     NewObject(Symbol),
     NewArray(BasicType, Box<Spanned<'t, Expr<'t>>>, u64),
@@ -178,8 +179,10 @@ pub type ArgumentList<'t> = Vec<Box<Spanned<'t, Expr<'t>>>>;
 
 /// A postfix operation is either one of
 /// * `MethodInvocation`: a method invocation on a primary expression:
-/// `foo.method()` * `FieldAccess`: a field access on a primary expression:
-/// `foo.bar` * `ArrayAccess`: an array access on a primary expression:
+/// `foo.method()`
+/// * `FieldAccess`: a field access on a primary expression:
+/// `foo.bar`
+/// * `ArrayAccess`: an array access on a primary expression:
 /// `foo[42]`
 #[derive(Debug, PartialEq, Eq)]
 pub enum PostfixOp<'t> {
