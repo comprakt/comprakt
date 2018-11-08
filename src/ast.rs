@@ -40,6 +40,7 @@ pub type ParameterList<'t> = Vec<Parameter<'t>>;
 pub enum ClassMemberKind<'t> {
     Field,
     Method(ParameterList<'t>, MethodRest<'t>, Block<'t>),
+    MainMethod(Parameter<'t>, MethodRest<'t>, Block<'t>),
 }
 
 /// Holds the `Identifier` of the `throws` method rest.
