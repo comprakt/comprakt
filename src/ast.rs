@@ -23,10 +23,7 @@ pub struct ClassDeclaration<'t> {
 pub struct ClassMember<'t> {
     pub span: Span<'t>,
     pub node: ClassMemberKind<'t>,
-    /// Either the type of a `Field` or the return type of a `Method*`
-    pub ty: Type<'t>,
     pub name: Symbol,
-    pub is_static: bool,
 }
 
 pub type ParameterList<'t> = Vec<Parameter<'t>>;
@@ -38,9 +35,9 @@ pub type ParameterList<'t> = Vec<Parameter<'t>>;
 /// allowed once in a MiniJava Program
 #[derive(Debug, PartialEq, Eq)]
 pub enum ClassMemberKind<'t> {
-    Field,
-    Method(ParameterList<'t>, Block<'t>),
-    MainMethod(Parameter<'t>, Block<'t>),
+    Field(Type<'t>),
+    Method(Type<'t>, ParameterList<'t>, Block<'t>),
+    MainMethod(Symbol, Block<'t>),
 }
 
 /// This AST node represents a method parameter. A parameter consists of a
@@ -149,7 +146,7 @@ pub enum ExprKind<'t> {
     Var(Symbol),
     GlobalMethodInvocation(Symbol, ArgumentList<'t>),
     This,
-    NewObject(BasicType),
+    NewObject(Symbol),
     NewArray(BasicType, Box<Expr<'t>>, u64),
 }
 

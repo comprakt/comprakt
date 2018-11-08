@@ -48,12 +48,6 @@ pub enum SyntaxError {
         actual: String,
         expected: String, // TODO This is temporary, shouldn't be string
     },
-    #[fail(
-        display = "invalid main method. It must be declared as `public static void main(String[] args)`"
-    )]
-    InvalidMainMethod,
-    #[fail(display = "invalid new object expression")]
-    InvalidNewObjectExpression,
 }
 
 pub trait ExpectedToken: fmt::Debug + fmt::Display {
@@ -94,6 +88,12 @@ impl From<Operator> for Exactly {
 impl From<Keyword> for Exactly {
     fn from(kw: Keyword) -> Self {
         Exactly(TokenKind::Keyword(kw))
+    }
+}
+
+impl From<Symbol> for Exactly {
+    fn from(sym: Symbol) -> Self {
+        Exactly(TokenKind::Identifier(sym))
     }
 }
 
@@ -353,23 +353,43 @@ where
         spanned!(self, {
             self.omnomnom(exactly(Keyword::Public))?;
             let is_static = self.omnomnoptional(exactly(Keyword::Static))?.is_some();
-            let ty = self.parse_type()?;
-            let name = self.omnomnom(Identifier)?;
 
-            let node = if self.tastes_like(exactly(Operator::LeftParen))? {
-                // method or main method
-                let params = self.parse_parameter_declarations()?;
+            Ok(if is_static {
+                // Main Method
+                // Consume exactly `void IDENT(String[] IDENT)`
+                self.omnomnom(exactly(Keyword::Void))?;
+                let name = self.omnomnom(Identifier)?;
+                self.omnomnom(exactly(Operator::LeftParen))?;
+                self.omnomnom(exactly(Symbol::from("String")))?;
+                self.omnomnom(exactly(Operator::LeftBracket))?;
+                self.omnomnom(exactly(Operator::RightBracket))?;
+                let param = self.omnomnom(Identifier)?.data;
+                self.omnomnom(exactly(Operator::RightParen))?;
+
                 self.skip_method_rest()?;
                 let body = self.parse_block()?;
 
-                ast::ClassMemberKind::Method(params, body)
+                (ast::ClassMemberKind::MainMethod(param, body), name.data)
             } else {
-                self.omnomnom(exactly(Operator::Semicolon))?;
-                ast::ClassMemberKind::Field
-            };
+                let ty = self.parse_type()?;
+                let name = self.omnomnom(Identifier)?;
 
-            Ok((node, ty, name.data, is_static))
-        } => ast::ClassMember { node, ty, name, is_static })
+                let node = if self.tastes_like(exactly(Operator::LeftParen))? {
+                    // Method
+                    let params = self.parse_parameter_declarations()?;
+                    self.skip_method_rest()?;
+                    let body = self.parse_block()?;
+
+                    ast::ClassMemberKind::Method(ty, params, body)
+                } else {
+                    // Field
+                    self.omnomnom(exactly(Operator::Semicolon))?;
+                    ast::ClassMemberKind::Field(ty)
+                };
+
+                (node, name.data)
+            })
+        } => ast::ClassMember { node, name })
     }
 
     fn skip_method_rest(&mut self) -> SyntaxResult<'f, ()> {
@@ -643,13 +663,16 @@ where
                 // `ExprKind:Parenthesized` (for abstraction)
                 return Ok(expr);
             } else if self.omnomnoptional(exactly(Keyword::New))?.is_some() {
-                let new_type = self.parse_basic_type()?;
+                if self.nth_tastes_like(1, exactly(Operator::LeftParen))? {
+                    // new object expression
+                    let new_type = self.omnomnom(Identifier)?;
 
-                if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
+                    self.omnomnom(exactly(Operator::LeftParen))?;
                     self.omnomnom(exactly(Operator::RightParen))?;
-                    Ok(NewObject(new_type))
+                    Ok(NewObject(new_type.data))
                 } else {
                     // new array expression
+                    let new_type = self.parse_basic_type()?;
                     self.omnomnom(exactly(Operator::LeftBracket))?;
                     let first_index_expr = self.parse_expression()?;
                     self.omnomnom(exactly(Operator::RightBracket))?;
@@ -890,13 +913,7 @@ mod tests {
                 }
             "#
             );
-            assert_matches!(
-                Parser::new(lx).parse(),
-                Err(WithSpan(Spanned {
-                    data: SyntaxError::InvalidMainMethod,
-                    ..
-                }))
-            )
+            assert_matches!(Parser::new(lx).parse(), Err(_))
         }
 
         #[test]
@@ -910,13 +927,7 @@ mod tests {
                 }
             "#
             );
-            assert_matches!(
-                Parser::new(lx).parse(),
-                Err(WithSpan(Spanned {
-                    data: SyntaxError::InvalidNewObjectExpression,
-                    ..
-                }))
-            )
+            assert_matches!(Parser::new(lx).parse(), Err(_))
         }
     }
 }
