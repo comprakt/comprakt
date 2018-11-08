@@ -325,7 +325,10 @@ where
     }
 
     fn parse_class_member(&mut self) -> ParserResult<'f> {
-        let start_position = self.omnomnom(exactly(Keyword::Public))?.span.start;
+        let start_position = self
+            .omnomnom(exactly(Keyword::Public))?
+            .span
+            .start_position();
 
         let is_static = self.omnomnoptional(exactly(Keyword::Static))?.is_some();
         let return_type = self.parse_type()?;
@@ -340,7 +343,10 @@ where
                 ParameterList::new()
             };
 
-            let end_position = self.omnomnom(exactly(Operator::RightParen))?.span.start;
+            let end_position = self
+                .omnomnom(exactly(Operator::RightParen))?
+                .span
+                .start_position();
 
             if self.omnomnoptional(exactly(Keyword::Throws))?.is_some() {
                 self.omnomnom(Identifier)?;
@@ -355,10 +361,7 @@ where
                         != Type::ArrayOf(box Type::Basic(BasicType::Ident(Symbol::from("String")))))
             {
                 return Err(WithSpan(Spanned {
-                    span: Span {
-                        start: start_position,
-                        end: end_position,
-                    },
+                    span: Span::new(start_position, end_position),
                     data: SyntaxError::InvalidMainMethod,
                 }));
             }
@@ -600,20 +603,20 @@ where
 
             Ok(())
         } else if let Some(new_keyword) = self.omnomnoptional(exactly(Keyword::New))? {
-            let start_position = new_keyword.span.start;
+            let start_position = new_keyword.span.start_position();
             let new_type = self.parse_basic_type()?;
 
             if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
                 // new object expression
-                let end_position = self.omnomnom(exactly(Operator::RightParen))?.span.end;
+                let end_position = self
+                    .omnomnom(exactly(Operator::RightParen))?
+                    .span
+                    .end_position();
 
                 // TODO should be handled during semantical analysis
                 if matches!(new_type, BasicType::Void | BasicType::Int | BasicType::Bool) {
                     return Err(WithSpan(Spanned {
-                        span: Span {
-                            start: start_position,
-                            end: end_position,
-                        },
+                        span: Span::new(start_position, end_position),
                         data: SyntaxError::InvalidNewObjectExpression,
                     }));
                 }

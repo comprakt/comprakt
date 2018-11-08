@@ -1,25 +1,25 @@
-use asciifile::{AsciiFileIterator, PositionedChar, Span, Spanned};
+use asciifile::{Position, PositionIterator, Span, Spanned};
 use crate::{context::Context, diagnostics::u8_to_printable_representation, strtab::*};
 use failure::Fail;
 use std::{convert::TryFrom, fmt, result::Result};
 
 macro_rules! match_op {
     ($input:expr, $( ($token_string:expr, $token:expr) ),+: $len:expr, $default:expr) => {{
-        match $input.peek_multiple($len) {
+        // unwrap is safe because we have already peeked ahead, ensuring EOF is not the case
+        let span = $input.peek_at_most($len).unwrap();
+        match span.as_str() {
             $(
-                $token_string => match_op!($input, $len, $token),
+                $token_string => match_op!($input, span, $len, $token),
             )+
             _ => $default,
         }
     }};
-    ($input:expr, $len:expr, $right:expr) => {{
+    ($input:expr, $span:ident, $len:expr, $right:expr) => {{
         // Unwraps are safe, because this is only called after token of length $len,
         // is already matched and thus contained in $input
         debug_assert!($len >= 1);
-        let mut it = $input.by_ref().take($len);
-        let PositionedChar(begin, _) = it.next().unwrap();
-        let end = it.last().map(|pc| pc.0).unwrap_or(begin);
-        Some(Ok(Token::new(begin, end, TokenKind::Operator($right))))
+        for _ in 0..$len { $input.next().unwrap(); }
+        Some(Ok(Token::new($span, TokenKind::Operator($right))))
     }};
 }
 
@@ -397,7 +397,7 @@ impl fmt::Display for Operator {
 }
 
 pub struct Lexer<'f, 's> {
-    input: AsciiFileIterator<'f>,
+    input: PositionIterator<'f>,
     strtab: &'s StringTable,
     context: &'f Context<'f>,
     eof: bool,
@@ -423,127 +423,99 @@ impl<'f, 's> Lexer<'f, 's> {
     }
 
     fn lex_token(&mut self) -> Option<TokenResult<'f>> {
-        Some(match self.input.peek() {
-            Some('a'..='z') | Some('A'..='Z') | Some('_') => self.lex_identifier_or_keyword(),
+        match self.input.peek() {
+            Some(position) => Some(match position.chr() {
+                'a'..='z' | 'A'..='Z' | '_' => self.lex_identifier_or_keyword(),
+                '1'..='9' => self.lex_integer_literal(),
+                '0' => self.lex_zero_integer_literal(),
+                c if is_minijava_whitespace(c) => self.lex_whitespace(),
+                '/' if self.input.matches("/*") => self.lex_comment(),
 
-            Some('1'..='9') => self.lex_integer_literal(),
-
-            Some('0') => {
-                let PositionedChar(pos, character) = self.input.next().unwrap();
-                let mut buf = [0; 1];
-                // won't panic because we know character is '0', hence 1 byte
-                let as_str = character.encode_utf8(&mut buf);
-                Ok(Token::new(
-                    pos,
-                    pos,
-                    TokenKind::IntegerLiteral(self.strtab.intern(as_str)),
-                ))
-            }
-
-            Some(c) if is_minijava_whitespace(c) => self.lex_whitespace(),
-
-            Some(_) if self.input.peek_multiple(2) == "/*" => self.lex_comment(),
-
-            Some(_) => self.lex_operator().unwrap_or_else(|| {
-                let PositionedChar(pos, c) = self.input.next().unwrap();
-                Err(LexicalError::new(
-                    pos,
-                    pos,
-                    ErrorKind::UnexpectedCharacter(c as u8),
-                ))
+                _ => self.lex_operator().unwrap_or_else(|| {
+                    Err(LexicalError::new(
+                        position.to_single_char_span(),
+                        ErrorKind::UnexpectedCharacter(position.byte()),
+                    ))
+                }),
             }),
 
-            None if self.eof => return None, // Early return to not wrap in surrounding `Some`
-            None => {
-                self.eof = true;
-                let pos = self.input.current_position();
-                Ok(Token::new(pos, pos, TokenKind::EOF))
-            }
-        })
+            // TODO: eof does not have a valid span? This was the reason of our previous
+            // crashes. We have to either rebuilt everything with `MaybeSpanned` or generate
+            // the EOF token somewhere else. There is no valid Span for an EOF in an empty file.
+            None => None,
+        }
+    }
+
+    fn lex_zero_integer_literal(&mut self) -> TokenResult<'f> {
+        let position = self.input.next().unwrap();
+        Ok(Token::new(
+            position.to_single_char_span(),
+            TokenKind::IntegerLiteral(self.strtab.intern("0")),
+        ))
     }
 
     fn lex_identifier_or_keyword(&mut self) -> TokenResult<'f> {
-        assert_matches!(
-            self.input.peek(),
-            Some('a'..='z') | Some('A'..='Z') | Some('_')
+        assert_matches!(self.input.peek().unwrap().chr(), 'a'..='z' | 'A'..='Z' | '_');
+
+        let span = self.lex_while(
+            |position, _| matches!(position.chr(), 'a'..='z' | 'A'..='Z' | '0'..='9' | '_'),
         );
 
-        self.lex_while(
-            |c, _, _| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_'),
-            |ident, strtab, _| {
-                Ok(match Keyword::try_from(ident.as_ref()) {
-                    Ok(keyword) => TokenKind::Keyword(keyword),
-                    Err(_) => TokenKind::Identifier(strtab.intern(&ident)),
-                })
-            },
-        )
+        let kind = match Keyword::try_from(span.as_str()) {
+            Ok(keyword) => TokenKind::Keyword(keyword),
+            Err(_) => TokenKind::Identifier(self.strtab.intern(span.as_str())),
+        };
+
+        Ok(Token::new(span, kind))
     }
 
     fn lex_integer_literal(&mut self) -> TokenResult<'f> {
-        assert_matches!(self.input.peek(), Some('1'..='9'));
+        assert_matches!(self.input.peek().unwrap().chr(), '1'..='9');
 
-        self.lex_while(
-            |c, _, _| matches!(c, '0'..='9'),
-            |lit, strtab, _| Ok(TokenKind::IntegerLiteral(strtab.intern(&lit))),
-        )
+        let span = self.lex_while(|position, _| matches!(position.chr(), '0'..='9'));
+
+        let kind = TokenKind::IntegerLiteral(self.strtab.intern(&span.as_str()));
+
+        Ok(Token::new(span, kind))
     }
 
     fn lex_comment(&mut self) -> TokenResult<'f> {
-        debug_assert_eq!(self.input.peek_multiple(2), "/*");
+        debug_assert!(self.input.matches("/*"));
 
-        let PositionedChar(comment_separator_pos, _) = self.input.next().unwrap();
-        self.input.next();
+        let comment_start = self.input.next().unwrap();
+        self.input.next().unwrap();
 
-        let token = self.lex_while_multiple(
-            2,
-            |s, span, context| {
-                if s == "/*" {
-                    context.warning(Spanned {
-                        span,
-                        data: box Warning::CommentSeparatorInsideComment,
-                    });
-                }
-                s != "*/"
-            },
-            |text, _, eof_reached| {
-                if eof_reached {
-                    Err(ErrorKind::UnclosedComment)
-                } else {
-                    Ok(TokenKind::Comment(text))
-                }
-            },
-        );
-
-        match token {
-            Ok(_) => {
-                // At least 2 chars left in input
-                debug_assert_eq!(self.input.peek_multiple(2), "*/");
-
-                self.input.next();
-                self.input.next();
-
-                token
+        let comment_body = self.lex_while_multiple(2, |span, context| {
+            if span.as_str() == "/*" {
+                context.warning(Spanned {
+                    span: span.clone(),
+                    data: box Warning::CommentSeparatorInsideComment,
+                });
             }
-            Err(LexicalError {
-                span: comment_body_span,
-                data: error_kind @ ErrorKind::UnclosedComment,
-            }) => Err(LexicalError {
-                span: Span::combine(
-                    &comment_body_span,
-                    &comment_separator_pos.to_single_char_span(),
-                ),
-                data: error_kind,
-            }),
-            Err(variant) => Err(variant),
+            span.as_str() != "*/"
+        });
+
+        if self.input.eof_reached() {
+            let span = comment_body.extend_to_position(&comment_start);
+            return Err(LexicalError::new(span, ErrorKind::UnclosedComment));
+        } else {
+            debug_assert_eq!(self.input.peek_exactly(2).unwrap().as_str(), "*/");
+            self.input.next().unwrap();
+            let comment_end = self.input.next().unwrap();
+
+            let span = Span::new(comment_start, comment_end);
+
+            return Ok(Token::new(
+                span,
+                TokenKind::Comment(comment_body.as_str().to_string()),
+            ));
         }
     }
 
     fn lex_whitespace(&mut self) -> TokenResult<'f> {
-        debug_assert!(is_minijava_whitespace(self.input.peek().unwrap()));
-        self.lex_while(
-            |c, _, _| is_minijava_whitespace(c),
-            |_, _, _| Ok(TokenKind::Whitespace),
-        )
+        debug_assert!(is_minijava_whitespace(self.input.peek().unwrap().chr()));
+        let span = self.lex_while(|position, _| is_minijava_whitespace(position.chr()));
+        Ok(Token::new(span, TokenKind::Whitespace))
     }
 
     #[allow(clippy::cyclomatic_complexity)]
@@ -615,67 +587,59 @@ impl<'f, 's> Lexer<'f, 's> {
         )
     }
 
-    /// Like `lex_while_multiple`, but only check characters
-    fn lex_while<P, D>(&mut self, predicate: P, make_token: D) -> TokenResult<'f>
+    /// Helper method that collects characters from input until a user specified
+    /// predicte is no longer true.
+    fn lex_while<P>(&mut self, predicate: P) -> Span<'f>
     where
-        P: Fn(char, Span<'f>, &'f Context<'f>) -> bool,
-        D: FnOnce(String, &'s StringTable, bool) -> Result<TokenKind, ErrorKind>,
+        P: Fn(Position<'f>, &'f Context<'f>) -> bool,
     {
-        // Unwrap is safe, because EOF case is handled by lex_while_multiple
-        self.lex_while_multiple(
-            1,
-            |s, span, context| predicate(s.chars().next().unwrap(), span, context),
-            make_token,
-        )
+        self.lex_while_multiple(1, |span, context| predicate(span.start_position(), context))
     }
 
-    /// Consume n characters at a time while `predicate` returns `true`. Intern
-    /// the resulting string and convert the resulting symbol to a token
-    /// using `make_token`. `preddicate` is never given a less than `n`
-    /// chars. In that case, the loop is terminated and `make_token` is
-    /// called with 3rd argument set to `true`.
-    fn lex_while_multiple<P, D>(&mut self, n: usize, predicate: P, make_token: D) -> TokenResult<'f>
+    /// This consumes the input one character at a time until the user supplied
+    /// predicate is no longer true. The predicate is allowed a lookahead of
+    /// up to `n` characters. The returned range might be shorter iff the end
+    /// of the file is being reached.
+    ///
+    /// Like the other methods starting with `lex_*` in this struct, the code
+    /// assumes that the next character is guaranteed to exist and is
+    /// consumed by the caller.
+    // TODO: This function would best be replaced by some iterator method on
+    // Position or Span. In its current form its already very close to a
+    // `input.by_ref().take_while(|pos| predicate(pos.iter().peek_at_most(n)))`.
+    //
+    // NOTE, regarding the previous version of this code using peek_exactly(n):
+    // this only works by chance. The up to n-1 characters unwound on EOF
+    // are not verifiable by the caller and are just glued onto the output?!
+    // It just works because
+    // - the only direct caller is lex_comment, which can consume anything during an
+    //   unexpected EOF.
+    // - all indirect callers with n=1 skip the while loop consuming the remaining
+    //   input because next() returns None during the first call.
+    //
+    // Resulting TODO: Given that there is only one real caller. The abstraction
+    // should probably just be removed.
+    fn lex_while_multiple<P>(&mut self, n: usize, predicate: P) -> Span<'f>
     where
-        P: Fn(&str, Span<'f>, &'f Context<'f>) -> bool,
-        D: FnOnce(String, &'s StringTable, bool) -> Result<TokenKind, ErrorKind>,
+        P: Fn(Span<'f>, &'f Context<'f>) -> bool,
     {
-        let mut chars = String::new();
-        let start_pos = self.input.current_position();
-        let mut end_pos = start_pos;
+        // start the span with the next character only and extend
+        // it on each loop iteration. This assumes that the character
+        // is going to be consumed.
+        let mut consumed = self.input.peek().unwrap().to_single_char_span();
 
-        loop {
-            if let Some(peeked) = self.input.try_peek_multiple(n) {
-                // TODO: for error reporting, we work around peek() not returning a Span or
-                // Position! But peek() actually contains logic to suppress the position, so
-                // changing the signature of peek to return a Span or Position might be the
-                // correct decision!!!
-                let span = Span {
-                    start: end_pos.consume(&peeked[0..1]),
-                    end: end_pos.consume(peeked),
-                };
-
-                if !predicate(peeked, span, &self.context) {
-                    break;
-                }
-
-                // Unwrap is safe, because the call is guarded by a `try_peek_multiple`
-                let PositionedChar(pos, c) = self.input.next().unwrap();
-                chars.push(c);
-                end_pos = pos;
-            } else {
-                // We know there is an EOF within the next n characters, but we still need to
-                // consume them
-                while let Some(PositionedChar(pos, c)) = self.input.next() {
-                    chars.push(c);
-                    end_pos = pos;
-                }
+        while let Some(peeked) = self.input.peek_at_most(n) {
+            if !predicate(peeked, &self.context) {
                 break;
             }
+
+            // Unwrap is safe, because the call is guarded by a `Some(.) = peek_at_most(.)`
+            // which would be None if there is no remaining input.
+            let position = self.input.next().unwrap();
+            consumed = consumed.extend_to_position(&position);
         }
 
-        make_token(chars, self.strtab, self.input.eof_reached())
-            .map(|kind| Token::new(start_pos, end_pos, kind))
-            .map_err(|kind| LexicalError::new(start_pos, end_pos, kind))
+        consumed
     }
 }
 

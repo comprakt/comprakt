@@ -92,11 +92,11 @@ impl<'f> Span<'f> {
         self.end.byte_offset() - self.start.byte_offset() == 1
     }
 
-    pub fn start_position(&'f self) -> Position<'f> {
+    pub fn start_position(&self) -> Position<'f> {
         self.start
     }
 
-    pub fn end_position(&'f self) -> Position<'f> {
+    pub fn end_position(&self) -> Position<'f> {
         self.end
     }
 

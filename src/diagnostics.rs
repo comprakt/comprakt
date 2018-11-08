@@ -236,138 +236,136 @@ impl Message {
         writeln!(output.writer(), "{}", self.kind.as_fail());
     }
 
-    fn write_colored_with_code(&self, writer: &mut dyn WriteColor, span: &Span<'_>) {
+    fn write_colored_with_code(&self, writer: &mut dyn WriteColor, _span: &Span<'_>) {
         self.write_colored_header(writer);
 
         let mut output = ColorOutput::new(writer);
 
-        let line_number_width = (span.end.row + 1).to_string().len();
+        //let line_number_width = (span.end.row + 1).to_string().len();
 
-        // NOTE: this has to be the same width as the line_marker with
-        // line numbers, otherwise the indicators for single line warnings/errors
-        // are misaligned.
-        let empty_line_marker = format!(" {} | ", " ".repeat(line_number_width));
-        let truncation_str = "...";
+        //// NOTE: this has to be the same width as the line_marker with
+        //// line numbers, otherwise the indicators for single line warnings/errors
+        //// are misaligned.
+        //let empty_line_marker = format!(" {} | ", " ".repeat(line_number_width));
+        //let truncation_str = "...";
 
-        // add padding line above
-        output.set_color(HIGHLIGHT);
-        output.set_bold(true);
+        //// add padding line above
+        //output.set_color(HIGHLIGHT);
+        //output.set_bold(true);
 
-        writeln!(output.writer(), "{}", empty_line_marker);
+        //writeln!(output.writer(), "{}", empty_line_marker);
 
-        // Add marker below the line if the error is on a single line. Add the
-        // marker at the start of the line for multiline errors.
-        if !span.is_multiline() {
-            // add line number
-            write!(
-                output.writer(),
-                " {padded_linenumber} | ",
-                padded_linenumber = pad_left(&(span.start.row + 1).to_string(), line_number_width)
-            );
+        //// Add marker below the line if the error is on a single line. Add the
+        //// marker at the start of the line for multiline errors.
+        //if !span.is_multiline() {
+        //// add line number
+        //write!(
+        //output.writer(),
+        //" {padded_linenumber} | ",
+        //padded_linenumber = pad_left(&(span.start.row + 1).to_string(),
+        // line_number_width)
+        //);
 
-            // add source code line
-            let (truncation_before, src_line, truncation_after) =
-                span.start.get_line(MAX_CONTEXT_LENGTH, MAX_CONTEXT_LENGTH);
+        //// add source code line
+        //let (truncation_before, src_line, truncation_after) =
+        //span.start.get_line(MAX_CONTEXT_LENGTH, MAX_CONTEXT_LENGTH);
 
-            if truncation_before == LineTruncation::Truncated {
-                output.set_color(HIGHLIGHT);
-                output.set_bold(true);
-                write!(output.writer(), "{}", truncation_str);
-            }
+        //if truncation_before == LineTruncation::Truncated {
+        //output.set_color(HIGHLIGHT);
+        //output.set_bold(true);
+        //write!(output.writer(), "{}", truncation_str);
+        //}
 
-            output.set_color(None);
-            output.set_bold(false);
+        //output.set_color(None);
+        //output.set_bold(false);
 
-            let formatter = LineFormatter::new(&src_line);
-            formatter.render(output.writer());
+        //let formatter = LineFormatter::new(&src_line);
+        //formatter.render(output.writer());
 
-            if truncation_after == LineTruncation::Truncated {
-                output.set_color(HIGHLIGHT);
-                output.set_bold(true);
-                write!(output.writer(), "{}", truncation_str);
-            }
+        //if truncation_after == LineTruncation::Truncated {
+        //output.set_color(HIGHLIGHT);
+        //output.set_bold(true);
+        //write!(output.writer(), "{}", truncation_str);
+        //}
 
-            writeln!(output.writer());
+        //writeln!(output.writer());
 
-            // add positional indicators.
-            output.set_color(HIGHLIGHT);
-            output.set_bold(true);
-            write!(output.writer(), "{}", empty_line_marker);
+        //// add positional indicators.
+        //output.set_color(HIGHLIGHT);
+        //output.set_bold(true);
+        //write!(output.writer(), "{}", empty_line_marker);
 
-            let indicator = format!(
-                "{spaces}{markers}",
-                spaces = " ".repeat(if truncation_before == LineTruncation::Truncated {
-                    formatter.get_actual_column(MAX_CONTEXT_LENGTH) + truncation_str.len()
-                } else {
-                    formatter.get_actual_column(span.start.col)
-                }),
-                markers = "^".repeat(
-                    formatter.get_actual_column(span.end.col + 1)
-                        - formatter.get_actual_column(span.start.col)
-                )
-            );
+        //let indicator = format!(
+        //"{spaces}{markers}",
+        //spaces = " ".repeat(if truncation_before == LineTruncation::Truncated {
+        //formatter.get_actual_column(MAX_CONTEXT_LENGTH) + truncation_str.len()
+        //} else {
+        //formatter.get_actual_column(span.start.col)
+        //}),
+        //markers = "^".repeat(
+        //formatter.get_actual_column(span.end.col + 1)
+        //- formatter.get_actual_column(span.start.col)
+        //);
 
-            output.set_bold(true);
-            output.set_color(self.level.color());
-            writeln!(output.writer(), "{}", indicator);
-        } else {
-            // move position to first element in line as we always want to
-            // render the first N characters if a line is way to long for
-            // an error message.
-            // TODO: would be nicer to always show the column of a multiline
-            // error. But I am not sure how the line columns should be aligned
-            // if lines are truncated differently.
-            let mut line_first_char = span.start.to_line_start();
+        //output.set_bold(true);
+        //output.set_color(self.level.color());
+        //writeln!(output.writer(), "{}", indicator);
+        //} else {
+        //// move position to first element in line as we always want to
+        //// render the first N characters if a line is way to long for
+        //// an error message.
+        //// TODO: would be nicer to always show the column of a multiline
+        //// error. But I am not sure how the line columns should be aligned
+        //// if lines are truncated differently.
+        //let mut line_first_char = span.start.to_line_start();
 
-            for _line_num in span.start.row..=span.end.row {
-                // add line number
-                output.set_color(HIGHLIGHT);
-                output.set_bold(true);
-                write!(
-                    output.writer(),
-                    " {padded_linenumber} |",
-                    padded_linenumber =
-                        pad_left(&(line_first_char.row + 1).to_string(), line_number_width)
-                );
+        //for _line_num in span.start.row..=span.end.row {
+        //// add line number
+        //output.set_color(HIGHLIGHT);
+        //output.set_bold(true);
+        //write!(
+        //output.writer(),
+        //" {padded_linenumber} |",
+        //padded_linenumber =
+        //pad_left(&(line_first_char.row + 1).to_string(), line_number_width)
+        //);
 
-                // Add marker at the beginning of the line, if it spans
-                // multiple lines
-                output.set_color(self.level.color());
-                write!(output.writer(), "> ");
+        //// Add marker at the beginning of the line, if it spans
+        //// multiple lines
+        //output.set_color(self.level.color());
+        //write!(output.writer(), "> ");
 
-                // add source code line
-                output.set_color(None);
-                output.set_bold(false);
+        //// add source code line
+        //output.set_color(None);
+        //output.set_bold(false);
 
-                let (truncation_before, src_line, truncation_after) =
-                    line_first_char.get_line(1, MAX_CONTEXT_LENGTH_MULTILINE);
-                debug_assert!(truncation_before == LineTruncation::NotTruncated);
+        //let (truncation_before, src_line, truncation_after) =
+        //line_first_char.get_line(1, MAX_CONTEXT_LENGTH_MULTILINE);
+        //debug_assert!(truncation_before == LineTruncation::NotTruncated);
 
-                let formatter = LineFormatter::new(&src_line);
-                formatter.render(output.writer());
+        //let formatter = LineFormatter::new(&src_line);
+        //formatter.render(output.writer());
 
-                if truncation_after == LineTruncation::Truncated {
-                    output.set_color(HIGHLIGHT);
-                    output.set_bold(true);
-                    write!(output.writer(), "{}", truncation_str);
-                }
+        //if truncation_after == LineTruncation::Truncated {
+        //output.set_color(HIGHLIGHT);
+        //output.set_bold(true);
+        //write!(output.writer(), "{}", truncation_str);
+        //}
 
-                writeln!(output.writer());
+        //writeln!(output.writer());
 
-                line_first_char = match line_first_char.next_line() {
-                    Ok(pos) => pos,
-                    Err(_) => {
-                        /* EOF */
-                        break;
-                    }
-                }
-            }
+        //line_first_char = match line_first_char.next_line() {
+        //Ok(pos) => pos,
+        //Err(_) => {
+        //[> EOF <]
+        //break;
+        //}
 
-            // add padding line below
-            output.set_color(HIGHLIGHT);
-            output.set_bold(true);
-            writeln!(output.writer(), "{}", empty_line_marker);
-        }
+        //// add padding line below
+        //output.set_color(HIGHLIGHT);
+        //output.set_bold(true);
+        //writeln!(output.writer(), "{}", empty_line_marker);
+        //}
 
         writeln!(output.writer());
     }
