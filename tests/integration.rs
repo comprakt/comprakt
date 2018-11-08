@@ -102,10 +102,10 @@ fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
 }
 
 fn read_file(filename: &PathBuf) -> String {
-    let mut f = File::open(filename).expect(&format!("file not found: {:?}", filename));
+    let mut f = File::open(filename).unwrap_or_else(|_| panic!("file not found: {:?}", filename));
     let mut contents = String::new();
     f.read_to_string(&mut contents)
-        .expect(&format!("could not read file: {:?}", filename));
+        .unwrap_or_else(|_| panic!("could not read file: {:?}", filename));
     contents
 }
 
