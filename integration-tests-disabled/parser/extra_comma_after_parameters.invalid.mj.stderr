@@ -1,5 +1,0 @@
-error: expected keyword `int`, `boolean`, `void` or an identifier, found )
-   | 
- 2 | ...eter, int parameter, int parameter, int parameter, int parameter, int parameter,) {}
-   | thread 'main' panicked at 'col = 114 is not smaller than max line length 84', src/diagnostics.rs:400:9
-note: Run with `RUST_BACKTRACE=1` for a backtrace.
