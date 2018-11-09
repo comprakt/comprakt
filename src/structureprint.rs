@@ -66,7 +66,7 @@ impl<'w> Printer<'w> {
         Ok(())
     }
     fn print(&mut self, args: std::fmt::Arguments<'_>) -> std::io::Result<()> {
-        write!(self.writer, "{}{}\n", " ".repeat(self.indent), args)
+        writeln!(self.writer, "{}{}", " ".repeat(self.indent), args)
     }
 }
 
