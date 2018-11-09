@@ -112,7 +112,7 @@ impl<'t> Position<'t> {
 
     /// Get the position immediatly following this position or `None` if
     /// this is the last position in the file.
-    pub fn next(&'t self) -> Option<Position<'t>> {
+    pub fn next(&self) -> Option<Position<'t>> {
         let pos = self.clone();
         pos.next_mut().ok()
     }
@@ -140,7 +140,7 @@ impl<'t> Position<'t> {
 
     /// Get the position immediatly following this position or `None` if
     /// this is the last position in the file.
-    pub fn prev(&'t self) -> Option<Position<'t>> {
+    pub fn prev(&self) -> Option<Position<'t>> {
         let pos = self.clone();
         pos.prev_mut().ok()
     }
@@ -470,7 +470,7 @@ mod tests {
             while let Some(next) = pos {
                 println!("{:?}: '{}'", next, next.chr());
                 vec.push(next);
-                pos = next.clone().next_mut().ok();
+                pos = next.next().ok();
             }
 
             vec
@@ -484,7 +484,7 @@ mod tests {
             while let Some(prev) = pos {
                 println!("{:?}: '{}'", prev, prev.chr());
                 vec.push(prev);
-                pos = prev.clone().prev_mut().ok();
+                pos = prev.prev().ok();
             }
 
             vec.reverse();

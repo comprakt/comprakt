@@ -13,10 +13,7 @@ impl<'t> Iterator for PositionIterator<'t> {
         match self.position_to_emit {
             None => None,
             Some(position) => {
-                // this is equivalent to `position.next()`, but lifetime analysis
-                // fails if we use it directly since we are not allowed to assert
-                // `&'t mut self` because of trait constraints.
-                self.position_to_emit = position.clone().next_mut().ok();
+                self.position_to_emit = position.next();
                 Some(position)
             }
         }
@@ -96,10 +93,7 @@ impl<'t> Iterator for ReversePositionIterator<'t> {
         match self.position_to_emit {
             None => None,
             Some(position) => {
-                // this is equivalent to `position.next()`, but lifetime analysis
-                // fails if we use it directly since we are not allowed to assert
-                // `&'t mut self` because of trait constraints.
-                self.position_to_emit = position.clone().prev_mut().ok();
+                self.position_to_emit = position.prev();
                 Some(position)
             }
         }
