@@ -175,7 +175,7 @@ pub enum UnaryOp {
     Neg,
 }
 
-pub type ArgumentList<'t> = Vec<Box<Spanned<'t, Expr<'t>>>>;
+pub type ArgumentList<'t> = Vec<Spanned<'t, Expr<'t>>>;
 
 /// A postfix operation is either one of
 /// * `MethodInvocation`: a method invocation on a primary expression:

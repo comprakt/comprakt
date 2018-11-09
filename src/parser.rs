@@ -168,6 +168,7 @@ impl ExpectedToken for EOF {
 
 type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
 type ParserResult<'f, T> = SyntaxResult<'f, Spanned<'f, T>>;
+type BoxedResult<'f, T> = SyntaxResult<'f, Box<Spanned<'f, T>>>;
 
 pub struct Parser<'f, I>
 where
@@ -499,7 +500,7 @@ where
                     None
                 };
 
-                Ok(If(box cond, box if_arm, else_arm.map(Box::new)))
+                Ok(If(cond, box if_arm, else_arm.map(Box::new)))
             } else if self.omnomnoptional(exactly(Keyword::While))?.is_some() {
                 self.omnomnom(exactly(Operator::LeftParen))?;
                 let cond = self.parse_expression()?;
@@ -507,7 +508,7 @@ where
 
                 let body = self.parse_statement()?;
 
-                Ok(While(box cond, box body))
+                Ok(While(cond, box body))
             } else if self.omnomnoptional(exactly(Keyword::Return))?.is_some() {
                 let expr = if !self.tastes_like(exactly(Operator::Semicolon))? {
                     Some(self.parse_expression()?)
@@ -517,7 +518,7 @@ where
 
                 self.omnomnom(exactly(Operator::Semicolon))?;
 
-                Ok(Return(expr.map(Box::new)))
+                Ok(Return(expr))
             } else if allow_local_var_decl
                 && (self.tastes_like(exactly(Keyword::Int))?
                     || self.tastes_like(exactly(Keyword::Boolean))?
@@ -540,28 +541,29 @@ where
 
                 self.omnomnom(exactly(Operator::Semicolon))?;
 
-                Ok(LocalVariableDeclaration(ty, name.data, init.map(Box::new)))
+                Ok(LocalVariableDeclaration(ty, name.data, init))
             } else {
                 let expr = self.parse_expression()?;
                 self.omnomnom(exactly(Operator::Semicolon))?;
 
-                Ok(Expression(box expr))
+                Ok(Expression(expr))
             }
         })
     }
 
-    fn parse_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
+    fn parse_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
         spanned!(self, {
             let lvalue = self.parse_binary_expression()?;
 
             // Assignment expression
             let mut rvalues = Vec::new();
             while self.omnomnoptional(exactly(Operator::Equal))?.is_some() {
-                rvalues.push(self.parse_binary_expression()?);
+                rvalues.push(*self.parse_binary_expression()?);
             }
 
-            Ok(ast::Expr::Assignment(box lvalue, rvalues))
+            Ok(ast::Expr::Assignment(lvalue, rvalues))
         })
+        .map(Box::new)
     }
 
     /// This uses an adapted version of Djikstras original "Shunting Yard"
@@ -573,19 +575,22 @@ where
     /// [1]: https://en.wikipedia.org/wiki/Shunting-yard_algorithm
     /// [2]: https://en.wikipedia.org/wiki/Reverse_Polish_notation#Postfix_evaluation_algorithm
     /// [3]: https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
-    fn parse_binary_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
+    fn parse_binary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
         let mut operator_stack = Vec::new();
         let mut operand_stack = Vec::new();
-        fn rpn_eval<'f>(operand_stack: &mut Vec<Spanned<'f, ast::Expr<'f>>>, op: ast::BinaryOp) {
+        fn rpn_eval<'f>(
+            operand_stack: &mut Vec<Box<Spanned<'f, ast::Expr<'f>>>>,
+            op: ast::BinaryOp,
+        ) {
             assert!(operand_stack.len() >= 2); // Invariant: we only construct valid RPN
             let rhs = operand_stack.pop().unwrap();
             let lhs = operand_stack.pop().unwrap();
-            let res = Spanned {
+            let res = box Spanned {
                 span: Span {
                     start: lhs.span.start,
                     end: rhs.span.end,
                 },
-                data: ast::Expr::Binary(op, box lhs, box rhs),
+                data: ast::Expr::Binary(op, lhs, rhs),
             };
             operand_stack.push(res);
         }
@@ -622,7 +627,7 @@ where
         Ok(operand_stack.remove(0))
     }
 
-    fn parse_unary_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
+    fn parse_unary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
         spanned!(self, {
             let mut ops = Vec::new();
             while let Some(op) = self.omnomnoptional(UnaryOp)? {
@@ -635,11 +640,12 @@ where
                 return Ok(expr);
             }
 
-            Ok(ast::Expr::Unary(ops, box expr))
+            Ok(ast::Expr::Unary(ops, expr))
         })
+        .map(Box::new)
     }
 
-    fn parse_postfix_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
+    fn parse_postfix_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
         spanned!(self, {
             let base_expr = self.parse_primary_expression()?;
 
@@ -668,7 +674,7 @@ where
                         let index_expr = self.parse_expression()?;
                         self.omnomnom(exactly(Operator::RightBracket))?;
 
-                        Ok(ArrayAccess(box index_expr))
+                        Ok(ArrayAccess(index_expr))
                     } else {
                         break;
                     }
@@ -681,11 +687,12 @@ where
                 return Ok(base_expr);
             }
 
-            Ok(ast::Expr::Postfix(box base_expr, postfix_ops))
+            Ok(ast::Expr::Postfix(base_expr, postfix_ops))
         })
+        .map(Box::new)
     }
 
-    fn parse_primary_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
+    fn parse_primary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
         spanned!(self, {
             use self::ast::Expr::*;
 
@@ -730,7 +737,7 @@ where
                         array_depth += 1;
                     }
 
-                    Ok(NewArray(new_type, box first_index_expr, array_depth))
+                    Ok(NewArray(new_type, first_index_expr, array_depth))
                 }
             } else if self.omnomnoptional(exactly(Keyword::Null))?.is_some() {
                 Ok(Null)
@@ -752,10 +759,11 @@ where
                 }))
             }
         })
+        .map(Box::new)
     }
 
     fn parse_parameter_values(&mut self) -> ParserResult<'f, ast::ArgumentList<'f>> {
-        self.parse_parnethesized_list(|parser| parser.parse_expression().map(Box::new))
+        self.parse_parnethesized_list(|parser| Ok(*parser.parse_expression()?))
     }
 
     fn parse_parnethesized_list<F, T>(&mut self, parse_element: F) -> ParserResult<'f, Vec<T>>
