@@ -603,6 +603,10 @@ where
 
             let expr = self.parse_postfix_expression()?;
 
+            if ops.is_empty() {
+                return Ok(expr);
+            }
+
             Ok(ast::Expr::Unary(ops, box expr))
         })
     }
@@ -643,6 +647,10 @@ where
                 })?;
 
                 postfix_ops.push(postfix_op)
+            }
+
+            if postfix_ops.is_empty() {
+                return Ok(base_expr);
             }
 
             Ok(ast::Expr::Postfix(box base_expr, postfix_ops))
