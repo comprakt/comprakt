@@ -44,7 +44,7 @@ fn gen_integration_tests(phase: proc_macro2::TokenStream, subfolder: &str) -> To
             }
 
             match path.extension().and_then(OsStr::to_str) {
-                Some("mj") | Some("java") | Some(".invalid.mj") | Some(".invalid.java") => true,
+                Some("mj") | Some("java") => true,
                 None | Some(_) => false,
             }
         });
