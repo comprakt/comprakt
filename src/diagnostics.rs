@@ -166,57 +166,6 @@ impl MessageLevel {
     }
 }
 
-pub struct Message {
-    pub level: MessageLevel,
-    pub kind: Box<dyn AsFail>,
-}
-
-///
-/// Calls to functions should pass the raw writer, each function should
-/// create its own ColorOutput object that is dropped on return. This
-/// gurantees correct coloring in nested calls.
-struct ColorOutput<'a> {
-    writer: &'a mut dyn WriteColor,
-    spec: ColorSpec,
-}
-
-impl<'a> ColorOutput<'a> {
-    fn new(writer: &'a mut dyn WriteColor) -> Self {
-        writer.reset().ok();
-
-        Self {
-            writer,
-            spec: ColorSpec::new(),
-        }
-    }
-
-    fn set_color(&mut self, color: Option<Color>) {
-        // ignore coloring failures using ok()
-        self.spec.set_fg(color);
-        self.writer.set_color(&self.spec).ok();
-    }
-
-    fn set_bold(&mut self, yes: bool) {
-        // ignore coloring failures using ok()
-        self.spec.set_bold(yes);
-        self.writer.set_color(&self.spec).ok();
-    }
-
-    fn writer(&mut self) -> &mut dyn WriteColor {
-        self.writer
-    }
-}
-
-/// reset to no color by default. Otherwise code that
-/// is not color aware will print everything in the
-/// color last used.
-impl<'a> Drop for ColorOutput<'a> {
-    fn drop(&mut self) {
-        // ignore coloring failures using ok()
-        self.writer.reset().ok();
-    }
-}
-
 const MAX_CONTEXT_LENGTH: usize = 80;
 const MAX_CONTEXT_LENGTH_MULTILINE: usize = 160;
 const TAB_WIDTH: usize = 4;
