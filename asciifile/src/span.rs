@@ -130,6 +130,11 @@ impl<'f> Span<'f> {
         self.start.row() != self.end.row()
     }
 
+    /// An iterator over the lines of a span.
+    pub fn lines<'span>(&'span self) -> LineIterator<'span, 'f> {
+        LineIterator::new(self)
+    }
+
     /// extends the span to include the given position
     pub fn extend_to_position(self, position: &Position<'f>) -> Span<'f> {
         Span::combine(&position.to_single_char_span(), &self)
@@ -163,6 +168,72 @@ impl fmt::Display for Span<'_> {
             write!(f, "{}", self.start)
         } else {
             write!(f, "{}-{}", self.start, self.end)
+        }
+    }
+}
+
+/// An Iterator over the lines of a `Span`.
+///
+/// This will always emit the whole lines. So for example,
+/// if your span contains the sequence "d\ne" in the file
+/// "abcd\nefgh\nijkl" the iterator will return the following
+/// two lines: ["abcd\n", "efgh\n"]
+///
+/// Analog to `Position::get_line` this function will append
+/// newlines to the end of each line. This means that `is_mutiline(.)`
+/// will be true, since "\n" is positioned at the next line.
+///
+/// ```
+/// use asciifile::{AsciiFile, Position, Span};
+///
+/// let file = AsciiFile::new(b"abcd\nefgh\nijkl").unwrap();
+/// let start = file.iter().nth(2).unwrap();
+/// assert_eq!(start.chr(), 'c');
+/// let end = file.iter().nth(9).unwrap();
+/// assert_eq!(end.chr(), '\n');
+/// let span = Span::new(start, end);
+/// assert_eq!(span.as_str(), "cd\nefgh\n");
+///
+/// let lines = span
+///     .lines()
+///     .map(|span| span.as_str().to_string())
+///     .collect::<Vec<_>>();
+///
+/// assert_eq!(lines, vec!["abcd\n".to_string(), "efgh\n".to_string(),]);
+/// ```
+pub struct LineIterator<'span, 'file> {
+    span: &'span Span<'file>,
+    line_to_emit: Option<Span<'file>>,
+}
+
+impl<'span, 'file> LineIterator<'span, 'file> {
+    pub fn new(span: &'span Span<'file>) -> Self {
+        Self {
+            span,
+            line_to_emit: Some(span.start_position().get_line()),
+        }
+    }
+}
+
+impl<'span, 'file> Iterator for LineIterator<'span, 'file> {
+    type Item = Span<'file>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.line_to_emit {
+            None => None,
+            Some(ref line) => {
+                let line_to_emit = line.clone();
+
+                self.line_to_emit = if self.span.end_position() > line.end_position() {
+                    line.end_position()
+                        .next()
+                        .map(|first_char| first_char.get_line())
+                } else {
+                    None
+                };
+
+                Some(line_to_emit)
+            }
         }
     }
 }

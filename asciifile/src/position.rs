@@ -92,14 +92,20 @@ impl<'t> Position<'t> {
         self.file.mapping[self.byte_offset]
     }
 
-    /// Return the row of the characters position within the file.
+    /// Return the row of the character's position within the file.
     ///
     /// The row is zero based, meaning characters on the first line
     /// of the file are in row `0`. To get the line number, add `1` to
     /// the return value.
-    // TODO: why not use the natural representation of 1-based by default.
     pub fn row(&self) -> usize {
         self.row
+    }
+
+    /// Return the line of the character's position within the file.
+    ///
+    /// Identical to `row() + 1`
+    pub fn line(&self) -> usize {
+        self.row + 1
     }
 
     /// Return the column of the characters position within the file.
@@ -470,7 +476,7 @@ mod tests {
             while let Some(next) = pos {
                 println!("{:?}: '{}'", next, next.chr());
                 vec.push(next);
-                pos = next.next().ok();
+                pos = next.next();
             }
 
             vec
@@ -484,7 +490,7 @@ mod tests {
             while let Some(prev) = pos {
                 println!("{:?}: '{}'", prev, prev.chr());
                 vec.push(prev);
-                pos = prev.prev().ok();
+                pos = prev.prev();
             }
 
             vec.reverse();
