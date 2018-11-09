@@ -195,11 +195,15 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
             // TODO: context.error should do this match automatically through
             // generic arguments
             match parser_error {
-                MaybeSpanned::WithSpan(spanned) => context.error(Spanned {
-                    span: spanned.span,
-                    data: box spanned.data,
-                }),
-                MaybeSpanned::WithoutSpan(error) => context.diagnostics.error(box error),
+                MaybeSpanned::WithSpan(spanned) => {
+                    context.diagnostics.error(MaybeSpanned::WithSpan(Spanned {
+                        span: spanned.span,
+                        data: box spanned.data,
+                    }))
+                }
+                MaybeSpanned::WithoutSpan(error) => context
+                    .diagnostics
+                    .error(MaybeSpanned::WithoutSpan(box error)),
             }
 
             context.diagnostics.write_statistics();

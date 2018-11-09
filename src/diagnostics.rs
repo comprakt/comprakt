@@ -27,12 +27,19 @@ pub enum LineTruncation {
     NotTruncated,
 }
 
-// TODO: merge `warning_with_source_snippet` and `warning` into a single
-// function that takes a AsMaybeSpanned or IntoMaybe spanned.
 #[derive(Debug)]
 pub enum MaybeSpanned<'a, T> {
     WithoutSpan(T),
     WithSpan(Spanned<'a, T>),
+}
+
+//impl From<Spanned> for MaybeSpanned {
+//into() -> Span<'a, T> {
+//}
+
+pub struct Message {
+    pub level: MessageLevel,
+    pub kind: Box<dyn AsFail>,
 }
 
 impl Diagnostics {
@@ -93,48 +100,41 @@ impl Diagnostics {
     /// Generate an error or a warning that is printed to the
     /// writer given in the `new` constructor. Most of the time
     /// this will be stderr.
-    pub fn emit(&self, level: MessageLevel, kind: Box<dyn AsFail>) {
-        let msg = Message { level, kind };
-
-        let mut writer = self.writer.borrow_mut();
-        msg.write_colored(&mut **writer);
+    pub fn emit(&self, level: MessageLevel, kind: MaybeSpanned<'_, Box<dyn AsFail>>) {
         self.increment_level_count(level);
+        let mut writer = self.writer.borrow_mut();
+
+        // TODO: move whole rendering logic into Message
+        match kind {
+            MaybeSpanned::WithoutSpan(kind) => {
+                let msg = Message { level, kind };
+                msg.write_description(&mut **writer);
+            }
+            MaybeSpanned::WithSpan(spanned) => {
+                let msg = Message {
+                    level,
+                    kind: spanned.data,
+                };
+
+                msg.write_description(&mut **writer);
+                msg.write_code(&mut **writer, &spanned.span);
+            }
+        }
+
+        writeln!(writer);
     }
 
     #[allow(dead_code)]
-    pub fn warning(&self, kind: Box<dyn AsFail>) {
+    pub fn warning(&self, kind: MaybeSpanned<'_, Box<dyn AsFail>>) {
         self.emit(MessageLevel::Warning, kind)
     }
 
     #[allow(dead_code)]
-    pub fn error(&self, kind: Box<dyn AsFail>) {
+    pub fn error(&self, kind: MaybeSpanned<'_, Box<dyn AsFail>>) {
         self.emit(MessageLevel::Error, kind)
     }
 
-    pub fn emit_with_source_snippet(
-        &self,
-        level: MessageLevel,
-        spanned: Spanned<'_, Box<dyn AsFail>>,
-    ) {
-        let msg = Message {
-            level,
-            kind: spanned.data,
-        };
-
-        let mut writer = self.writer.borrow_mut();
-        msg.write_colored_with_code(&mut **writer, &spanned.span);
-        self.increment_level_count(level);
-    }
-
-    pub fn warning_with_source_snippet(&self, spanned: Spanned<'_, Box<dyn AsFail>>) {
-        self.emit_with_source_snippet(MessageLevel::Warning, spanned)
-    }
-
-    pub fn error_with_source_snippet(&self, spanned: Spanned<'_, Box<dyn AsFail>>) {
-        self.emit_with_source_snippet(MessageLevel::Error, spanned)
-    }
-
-    pub fn increment_level_count(&self, level: MessageLevel) {
+    fn increment_level_count(&self, level: MessageLevel) {
         let mut message_count = self.message_count.borrow_mut();
         let counter = message_count.entry(level).or_insert(0);
         *counter += 1;
@@ -149,7 +149,9 @@ pub enum MessageLevel {
 
 impl MessageLevel {
     fn color(self) -> Option<Color> {
-        // Don't be confused by the return type. `None` means default color!
+        // Don't be confused by the return type.
+        // `None` means default color in the colorterm
+        // crate!
         match self {
             MessageLevel::Error => Some(Color::Red),
             MessageLevel::Warning => Some(Color::Yellow),
@@ -221,12 +223,7 @@ const TAB_WIDTH: usize = 4;
 const HIGHLIGHT: Option<Color> = Some(Color::Cyan);
 
 impl Message {
-    fn write_colored(&self, writer: &mut dyn WriteColor) {
-        self.write_colored_header(writer);
-        writeln!(writer);
-    }
-
-    fn write_colored_header(&self, writer: &mut dyn WriteColor) {
+    fn write_description(&self, writer: &mut dyn WriteColor) {
         let mut output = ColorOutput::new(writer);
         output.set_color(self.level.color());
         output.set_bold(true);
@@ -236,9 +233,7 @@ impl Message {
         writeln!(output.writer(), "{}", self.kind.as_fail());
     }
 
-    fn write_colored_with_code(&self, writer: &mut dyn WriteColor, _span: &Span<'_>) {
-        self.write_colored_header(writer);
-
+    fn write_code(&self, writer: &mut dyn WriteColor, _span: &Span<'_>) {
         let mut output = ColorOutput::new(writer);
 
         //let line_number_width = (span.end.row + 1).to_string().len();
