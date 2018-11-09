@@ -18,17 +18,19 @@ const INTEGRATION_TEST_DIR: &str = "../integration-tests";
 
 // TODO: expose gen_integration_tests instead and parse phase and subfolder as
 // path
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
 pub fn gen_lexer_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(quote! { CompilerPhase::Lexer }, "lexer")
+    gen_integration_tests(&quote! { CompilerPhase::Lexer }, "lexer")
 }
 
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
 pub fn gen_parser_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(quote! { CompilerPhase::Parser }, "parser")
+    gen_integration_tests(&quote! { CompilerPhase::Parser }, "parser")
 }
 
-fn gen_integration_tests(phase: proc_macro2::TokenStream, subfolder: &str) -> TokenStream {
+fn gen_integration_tests(phase: &proc_macro2::TokenStream, subfolder: &str) -> TokenStream {
     let mut out = String::new();
 
     let test_dir: PathBuf = [ROOT_DIR, INTEGRATION_TEST_DIR, subfolder].iter().collect();
@@ -36,7 +38,7 @@ fn gen_integration_tests(phase: proc_macro2::TokenStream, subfolder: &str) -> To
     let ascii_test_dir = subfolder.replace(|c: char| !c.is_ascii_alphanumeric(), "_");
 
     let cases = fs::read_dir(&test_dir)
-        .expect(&format!("test directory {:?} does not exist.", test_dir))
+        .unwrap_or_else(|_| panic!("test directory {:?} does not exist.", test_dir))
         .map(|entry| fs::canonicalize(entry.unwrap().path()).unwrap())
         .filter(|path| {
             if !path.is_file() {
@@ -52,7 +54,7 @@ fn gen_integration_tests(phase: proc_macro2::TokenStream, subfolder: &str) -> To
     for (id, case) in cases.enumerate() {
         let ascii_casename = case
             .file_name()
-            .unwrap_or(OsStr::new(""))
+            .unwrap_or_else(|| OsStr::new(""))
             .to_string_lossy()
             .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
 
