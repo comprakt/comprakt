@@ -1,0 +1,5 @@
+class BasicTypeAsConstructor {
+    public int constructInt() {
+        return new int();
+    }
+}

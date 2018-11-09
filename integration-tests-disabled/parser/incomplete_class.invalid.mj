@@ -1,0 +1,7 @@
+class IncompleteClass {
+    public static void main(String[] args) {
+        int foo = System.in.read();
+        System.out.println(foo + 25 / 30);
+    }
+    public void Test;
+/* missing } */

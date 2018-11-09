@@ -1,0 +1,3 @@
+class A {
+    public int[] method(int parameter, int parameter, int parameter, int parameter, int parameter, int parameter,) {}
+}

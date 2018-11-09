@@ -1,0 +1,6 @@
+error: expected primary expression, found public
+   | 
+ 3 |         public String bar() {
+   |         ^^^^^^
+
+Compilation aborted due to an error

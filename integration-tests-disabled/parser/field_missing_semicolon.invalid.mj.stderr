@@ -1,0 +1,6 @@
+error: expected ;, found }
+   | 
+ 3 | }
+   | ^
+
+Compilation aborted due to an error

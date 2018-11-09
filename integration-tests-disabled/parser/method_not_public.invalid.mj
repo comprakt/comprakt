@@ -1,0 +1,8 @@
+class TopSecret {
+    public int solution;
+
+    int actualSolution()  {
+        return 42;
+    }
+
+}

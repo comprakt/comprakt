@@ -1,0 +1,6 @@
+error: invalid main method. It must be declared as `public static void main(String[] args)`
+   | 
+ 3 |     public static void main(int[] args) {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Compilation aborted due to an error

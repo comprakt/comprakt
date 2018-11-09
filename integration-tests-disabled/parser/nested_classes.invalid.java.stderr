@@ -1,0 +1,6 @@
+error: expected public, found class
+   | 
+ 2 |     class Inner {
+   |     ^^^^^
+
+Compilation aborted due to an error

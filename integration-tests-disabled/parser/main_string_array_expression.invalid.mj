@@ -1,0 +1,3 @@
+class box {
+public static void method(String[5]a){}
+}

@@ -1,0 +1,2 @@
+error: cannot decode input file "{ROOT}/integration-tests/lexer/valid_utf8.invalid.mj"
+caused by: input contains non-ascii character at byte offset 19: public static void <?>

@@ -1,0 +1,5 @@
+class PrimaryExprAsFieldAccess {
+    public void nullIsAField() {
+        1234.null;
+    }
+}

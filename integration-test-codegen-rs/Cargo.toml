@@ -1,0 +1,12 @@
+[package]
+name = "integration_test_codegen"
+version = "0.0.1"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+quote = "0.6"
+proc-macro2 = "0.4"
+syn = { version = "0.15", features = [ "full" ] }
+
+[lib]
+proc-macro = true

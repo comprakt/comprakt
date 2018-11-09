@@ -1,0 +1,6 @@
+error: expected primary expression, found --
+   | 
+ 3 |         --onlyOneToken;
+   |         ^^
+
+Compilation aborted due to an error

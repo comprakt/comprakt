@@ -1,0 +1,3 @@
+class ident {
+    public boolean ident = false;
+}

@@ -1,0 +1,6 @@
+error: expected ;, found =
+   | 
+ 2 |     public boolean ident = false;
+   |                          ^
+
+Compilation aborted due to an error
