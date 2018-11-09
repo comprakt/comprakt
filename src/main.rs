@@ -85,7 +85,7 @@ enum CliCommand {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
-    #[structopt(name = "--printast")]
+    #[structopt(name = "--print-ast")]
     PrintAst {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
