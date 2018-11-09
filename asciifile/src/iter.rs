@@ -54,7 +54,7 @@ impl<'t> PositionIterator<'t> {
                 // unwrap is save, since we are in a branch asserting
                 // that the iterator is not finished => has at least character
                 // `span_start` remaining
-                let span_end = self.clone().take(n).last().unwrap();
+                let span_end = self.take(n).last().unwrap();
                 Some(Span::new(span_start, span_end))
             }
         }
