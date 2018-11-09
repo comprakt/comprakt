@@ -26,10 +26,11 @@ pub struct ClassMember<'t> {
 pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 
 /// A class member is either one of
-/// * `Field`: a decleration of a field of a class
-/// * `Method`: a method of a class
-/// * `MainMethod`: a main method, which is a special method that is only
-/// allowed once in a MiniJava Program
+/// * `Field(type)`: a decleration of a field of a class
+/// * `Method(type, params, body)`: a method of a class
+/// * `MainMethod(param, body)`: a main method, which is a special method that
+/// is only allowed once in a MiniJava Program. The `param` is the name of a
+/// symbol that must not be used in the body.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ClassMemberKind<'t> {
     Field(Spanned<'t, Type>),
