@@ -552,46 +552,74 @@ where
 
     fn parse_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
         spanned!(self, {
-            let lvalue = self.parse_binary_expression(0)?;
+            let lvalue = self.parse_binary_expression()?;
 
             // Assignment expression
             let mut rvalues = Vec::new();
             while self.omnomnoptional(exactly(Operator::Equal))?.is_some() {
-                rvalues.push(self.parse_binary_expression(0)?);
+                rvalues.push(self.parse_binary_expression()?);
             }
 
             Ok(ast::Expr::Assignment(box lvalue, rvalues))
         })
     }
 
-    /// Uses precedence climbing
-    fn parse_binary_expression(
-        &mut self,
-        min_precedence: usize,
-    ) -> ParserResult<'f, ast::Expr<'f>> {
-        let mut lhs = self.parse_unary_expression()?;
-
-        // tries to read some binary operators
-        while let Some((op, mut prec, assoc)) = self
-            .omnomnoptional_if(BinaryOp, |(_, prec, _)| *prec >= min_precedence)?
-            .map(|spanned| spanned.data)
-        {
-            if assoc == Assoc::Left {
-                prec += 1;
-            }
-
-            let rhs = self.parse_binary_expression(prec)?;
-
-            lhs = Spanned {
+    /// This uses an adapted version of Djikstras original "Shunting Yard"
+    /// algorithm [1]. While this traditionally only converts to RPN, it is
+    /// combined with an RPN evaluator [2] to build the AST of the
+    /// expression on the fly instead. This can also be seen
+    /// as a non-recursive variant of precedence climbing [3].
+    ///
+    /// [1]: https://en.wikipedia.org/wiki/Shunting-yard_algorithm
+    /// [2]: https://en.wikipedia.org/wiki/Reverse_Polish_notation#Postfix_evaluation_algorithm
+    /// [3]: https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
+    fn parse_binary_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
+        let mut operator_stack = Vec::new();
+        let mut operand_stack = Vec::new();
+        fn rpn_eval<'f>(operand_stack: &mut Vec<Spanned<'f, ast::Expr<'f>>>, op: ast::BinaryOp) {
+            assert!(operand_stack.len() >= 2); // Invariant: we only construct valid RPN
+            let rhs = operand_stack.pop().unwrap();
+            let lhs = operand_stack.pop().unwrap();
+            let res = Spanned {
                 span: Span {
                     start: lhs.span.start,
                     end: rhs.span.end,
                 },
                 data: ast::Expr::Binary(op, box lhs, box rhs),
             };
+            operand_stack.push(res);
         }
 
-        Ok(lhs)
+        operand_stack.push(self.parse_unary_expression()?);
+
+        // Convert to RPN, but "evaluate" RPN on-the-fly (where "evaluate" means
+        // constructing an AST)
+        while let Some((op, prec, assoc)) =
+            self.omnomnoptional(BinaryOp)?.map(|spanned| spanned.data)
+        {
+            // This is the part that replaces the recursion from precedence climbing.
+            // Instead, we use an explicit `operator_stack` of operands that we need to
+            // defer because we have one with higher precedence in our hands
+            while operator_stack
+                .last()
+                .map_or(false, |(_, top_prec, top_assoc)| {
+                    *top_prec < prec || *top_assoc == Assoc::Left && *top_prec == prec
+                }) {
+                let (top_op, _, _) = operator_stack.pop().unwrap();
+                rpn_eval(&mut operand_stack, top_op);
+            }
+
+            operator_stack.push((op, prec, assoc));
+            operand_stack.push(self.parse_unary_expression()?);
+        }
+
+        // Consume remaining operators
+        while let Some((op, _, _)) = operator_stack.pop() {
+            rpn_eval(&mut operand_stack, op)
+        }
+
+        assert_eq!(operand_stack.len(), 1);
+        Ok(operand_stack.remove(0))
     }
 
     fn parse_unary_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
@@ -880,6 +908,60 @@ mod tests {
         p.parse_statement()
             .map_err(|e| println!("{:?}", e))
             .unwrap();
+    }
+
+    mod expr {
+        use super::*;
+        use crate::ast::{BinaryOp::*, *};
+
+        #[test]
+        fn foo() {
+            // (3 + (4 * 7)) + ((9 / 7) * 42)
+            lex_input!(lx = r#"3 + 4 * 7 + 9 / 7 * 42"#);
+            let expr = Parser::new(lx).parse_binary_expression().unwrap().data;
+
+            match expr {
+                Expr::Binary(op, lhs, rhs) => {
+                    assert_eq!(op, Add);
+                    // lhs = 3 + (4 * 7)
+                    match lhs.data {
+                        Expr::Binary(op, lhs, rhs) => {
+                            assert_eq!(op, Add);
+                            assert_eq!(lhs.data, Expr::Int(Symbol::from("3")));
+                            // rhs = 4 * 7
+                            match rhs.data {
+                                Expr::Binary(op, lhs, rhs) => {
+                                    assert_eq!(op, Mul);
+                                    assert_eq!(lhs.data, Expr::Int(Symbol::from("4")));
+                                    assert_eq!(rhs.data, Expr::Int(Symbol::from("7")));
+                                }
+                                expr => panic!("not a binary expr: {:#?}", expr),
+                            }
+                        }
+                        expr => panic!("not a binary expr: {:#?}", expr),
+                    };
+                    // rhs = (9 / 7) * 42
+                    match rhs.data {
+                        Expr::Binary(op, lhs, rhs) => {
+                            assert_eq!(op, Mul);
+                            // lhs = 9 / 7
+                            match lhs.data {
+                                Expr::Binary(op, lhs, rhs) => {
+                                    assert_eq!(op, Div);
+                                    assert_eq!(lhs.data, Expr::Int(Symbol::from("9")));
+                                    assert_eq!(rhs.data, Expr::Int(Symbol::from("7")));
+                                }
+                                expr => panic!("not a binary expr: {:#?}", expr),
+                            }
+                            assert_eq!(rhs.data, Expr::Int(Symbol::from("42")));
+                        }
+                        expr => panic!("not a binary expr: {:#?}", expr),
+                    }
+                }
+
+                expr => panic!("not a binary expr: {:#?}", expr),
+            }
+        }
     }
 
     use mjtest::SyntaxTestCase;
