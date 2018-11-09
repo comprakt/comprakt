@@ -1,4 +1,5 @@
 use crate::{lexer::Spanned, strtab::Symbol};
+use strum_macros::EnumDiscriminants;
 
 /// This is the top-level AST node. It stores all class declerations of the
 /// MiniJava program.
@@ -30,7 +31,8 @@ pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 /// * `Method`: a method of a class
 /// * `MainMethod`: a main method, which is a special method that is only
 /// allowed once in a MiniJava Program
-#[derive(Debug, PartialEq, Eq)]
+#[strum_discriminants(derive(Display))]
+#[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
 pub enum ClassMemberKind<'t> {
     Field(Spanned<'t, Type>),
     Method(
@@ -88,7 +90,8 @@ pub struct Block<'t> {
 /// * `Return`: a return which can optionally return an expression
 /// * `LocalVariableDeclaration`: a decleration and optional initialization of
 /// a local variable
-#[derive(Debug, PartialEq, Eq)]
+#[strum_discriminants(derive(Display))]
+#[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
 pub enum Stmt<'t> {
     Block(Spanned<'t, Block<'t>>),
     Empty,
@@ -125,7 +128,8 @@ pub enum Stmt<'t> {
 /// * `Parenthesized`: a parenthesized expression
 /// * `NewObject`: generating a new object, e.g. `new Foo()`
 /// * `NewArray`: generating a new array, e.g. `new int[]`
-#[derive(Debug, PartialEq, Eq)]
+#[strum_discriminants(derive(Display))]
+#[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
 pub enum Expr<'t> {
     Assignment(Box<Spanned<'t, Expr<'t>>>, Vec<Spanned<'t, Expr<'t>>>),
     Binary(
@@ -135,7 +139,6 @@ pub enum Expr<'t> {
     ),
     Unary(Vec<UnaryOp>, Box<Spanned<'t, Expr<'t>>>),
     Postfix(Box<Spanned<'t, Expr<'t>>>, Vec<Spanned<'t, PostfixOp<'t>>>),
-
     // The old primary expressions
     Null,
     Boolean(bool),
@@ -184,7 +187,8 @@ pub type ArgumentList<'t> = Vec<Spanned<'t, Expr<'t>>>;
 /// `foo.bar`
 /// * `ArrayAccess`: an array access on a primary expression:
 /// `foo[42]`
-#[derive(Debug, PartialEq, Eq)]
+#[strum_discriminants(derive(Display))]
+#[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
 pub enum PostfixOp<'t> {
     MethodInvocation(Symbol, Spanned<'t, ArgumentList<'t>>),
     FieldAccess(Symbol),
