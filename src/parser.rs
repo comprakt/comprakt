@@ -43,8 +43,6 @@ const BINARY_OPERATORS: &[(Operator, Precedence, Assoc)] = &[
 #[rustfmt::skip]
 #[derive(Debug, Clone, Fail)]
 pub enum SyntaxError {
-    #[fail(display = "missing end of file (EOF) token")]
-    MissingEOF,
     #[fail(display = "expected {}, found {}", expected, actual)]
     UnexpectedToken {
         actual: String,
@@ -56,6 +54,8 @@ pub enum SyntaxError {
     InvalidMainMethod,
     #[fail(display = "invalid new object expression")]
     InvalidNewObjectExpression,
+    #[fail(display = "unexpected end of file")]
+    UnexpectedEOF,
 }
 
 pub trait ExpectedToken: fmt::Debug + fmt::Display {
@@ -83,9 +83,6 @@ struct Identifier;
 #[derive(Debug, Clone, Display)]
 #[display(fmt = "an integer literal")]
 struct IntegerLiteral;
-#[derive(Debug, Clone, Display)]
-#[display(fmt = "EOF")]
-struct EOF;
 
 impl From<Operator> for Exactly {
     fn from(op: Operator) -> Self {
@@ -159,16 +156,6 @@ impl ExpectedToken for IntegerLiteral {
     }
 }
 
-impl ExpectedToken for EOF {
-    type Yields = ();
-    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
-        match token {
-            TokenKind::EOF => Some(()),
-            _ => None,
-        }
-    }
-}
-
 type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
 // TODO Ok-value should be AST
 type ParserResult<'f> = Result<(), MaybeSpanned<'f, SyntaxError>>;
@@ -178,7 +165,6 @@ where
     I: Iterator<Item = Token<'f>>,
 {
     lexer: MultiPeekable<I>,
-    eof_token: Option<Token<'f>>,
 }
 
 impl<'f, I> Parser<'f, I>
@@ -188,7 +174,6 @@ where
     pub fn new(lexer: I) -> Self {
         Parser {
             lexer: MultiPeekable::new(lexer),
-            eof_token: None,
         }
     }
 
@@ -196,19 +181,14 @@ where
         self.parse_program()
     }
 
-    /// Hide `lexer.next() == None` as `next() == EOF`
     fn next(&mut self) -> SyntaxResult<'f, Token<'f>> {
         self.peek()?;
         match self.lexer.next() {
             Some(token) => Ok(token),
-            None => self
-                .eof_token
-                .clone()
-                .ok_or(WithoutSpan(SyntaxError::MissingEOF)),
+            None => Err(WithoutSpan(SyntaxError::UnexpectedEOF)),
         }
     }
 
-    /// Hide `lexer.peek() == None` as `peek() == EOF`
     fn peek(&mut self) -> SyntaxResult<'f, &Token<'f>> {
         self.peek_nth(0)
     }
@@ -216,21 +196,9 @@ where
     fn peek_nth(&mut self, n: usize) -> SyntaxResult<'f, &Token<'f>> {
         let v = self.lexer.peek_multiple(n + 1);
 
-        for token in v.iter() {
-            self.eof_token = if token.data == TokenKind::EOF {
-                // Clone is cheap because token data is EOF
-                Some((*token).clone())
-            } else {
-                None
-            };
-        }
-
         match v.get(n) {
             Some(token) => Ok(token),
-            None => self
-                .eof_token
-                .as_ref()
-                .ok_or(WithoutSpan(SyntaxError::MissingEOF)),
+            None => Err(WithoutSpan(SyntaxError::UnexpectedEOF)),
         }
     }
 
@@ -301,8 +269,13 @@ where
         self.peek_nth(n).map(|got| want.matches(&got.data))
     }
 
+    fn is_eof(&mut self) -> bool {
+        self.peek().is_err()
+    }
+
     fn parse_program(&mut self) -> ParserResult<'f> {
-        while self.omnomnoptional(EOF)?.is_none() {
+        // as long as we have input remaining
+        while !self.is_eof() {
             self.parse_class_declaration()?;
         }
 

@@ -231,6 +231,8 @@ fn cmd_lextest(path: &PathBuf) -> Result<(), Error> {
         }
     }
 
+    write_eof_token(&mut stdout)?;
+
     Ok(())
 }
 
@@ -242,6 +244,11 @@ fn write_token<O: io::Write>(out: &mut O, token: &TokenKind) -> Result<(), Error
             Ok(())
         }
     }
+}
+
+fn write_eof_token<O: io::Write>(out: &mut O) -> Result<(), Error> {
+    writeln!(out, "EOF")?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -283,12 +290,11 @@ mod lexertest_tests {
             TokenKind::IntegerLiteral(st.intern("foo")),
             TokenKind::Comment("comment".to_string()),
             TokenKind::Keyword(Keyword::If),
-            TokenKind::EOF,
         ];
         let o = lexer_test_with_tokens(tokens);
-        assert_eq!(o.lines().count(), 4);
+        assert_eq!(o.lines().count(), 3);
         assert!(!o.contains("comment"));
-        assert_eq!(&o, "&\ninteger literal foo\nif\nEOF\n")
+        assert_eq!(&o, "&\ninteger literal foo\nif\n")
     }
 
     #[test]
@@ -317,11 +323,4 @@ mod lexertest_tests {
         let o = lexer_test_with_tokens(vec![TokenKind::IntegerLiteral(st.intern("2342"))]);
         assert_eq!(&o, "integer literal 2342\n");
     }
-
-    #[test]
-    fn eof() {
-        let o = lexer_test_with_tokens(vec![TokenKind::EOF]);
-        assert_eq!(&o, "EOF\n");
-    }
-
 }

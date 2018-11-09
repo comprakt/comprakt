@@ -36,7 +36,6 @@ pub enum TokenKind {
     IntegerLiteral(Symbol),
     Comment(String),
     Whitespace,
-    EOF,
 }
 
 impl fmt::Display for TokenKind {
@@ -50,7 +49,6 @@ impl fmt::Display for TokenKind {
             IntegerLiteral(symbol) => write!(f, "integer literal {}", symbol),
             Comment(body) => write!(f, "/*{}*/", body),
             Whitespace => write!(f, " "),
-            EOF => write!(f, "EOF"),
         }
     }
 }
@@ -400,7 +398,6 @@ pub struct Lexer<'f, 's> {
     input: PositionIterator<'f>,
     strtab: &'s StringTable,
     context: &'f Context<'f>,
-    eof: bool,
 }
 
 fn is_minijava_whitespace(c: char) -> bool {
@@ -418,7 +415,6 @@ impl<'f, 's> Lexer<'f, 's> {
             context,
             strtab,
             input,
-            eof: false,
         }
     }
 
@@ -439,9 +435,6 @@ impl<'f, 's> Lexer<'f, 's> {
                 }),
             }),
 
-            // TODO: eof does not have a valid span? This was the reason of our previous
-            // crashes. We have to either rebuilt everything with `MaybeSpanned` or generate
-            // the EOF token somewhere else. There is no valid Span for an EOF in an empty file.
             None => None,
         }
     }
