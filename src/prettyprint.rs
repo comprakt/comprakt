@@ -44,51 +44,42 @@ pub fn prettyprint<'f, 'c>(
     Ok(())
 }
 
-fn do_prettyprint(n: &NodeKind<'_, '_>, pri: &mut IndentPrinter<'_>) {
+fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
     use crate::visitor::NodeKind::*;
     match n {
-        Program(p) => {
+        Program(program) => {
             let mut classes: Vec<&ast::ClassDeclaration<'_>> =
-                p.classes.iter().map(|c| c.get_data()).collect();
+                program.classes.iter().map(|c| c.get_data()).collect();
             classes.sort_by_key(|c| &c.name);
             classes
                 .into_iter()
-                .for_each(|x| do_prettyprint(&NodeKind::from(x), pri));
-            writeln!(pri, "");
+                .for_each(|class| do_prettyprint(&NodeKind::from(class), printer));
+            writeln!(printer);
         }
-        ClassDeclaration(d) => {
-            write!(pri, "class {} {{", d.name);
-            pri.indent(1);
+        ClassDeclaration(decl) => {
+            writeln!(printer, "class {} {{", decl.name);
+            printer.indent(1);
             let mut members: Vec<&ast::ClassMember<'_>> =
-                d.members.iter().map(|c| c.get_data()).collect();
+                decl.members.iter().map(|c| c.get_data()).collect();
             members.sort_by(|a, b| {
                 use crate::ast::ClassMemberKindDiscriminants::*;
                 let akind = ast::ClassMemberKindDiscriminants::from(&a.kind);
                 let bkind = ast::ClassMemberKindDiscriminants::from(&b.kind);
-                if akind == bkind
-                    || (akind == Method && bkind == MainMethod)
-                    || (akind == MainMethod && bkind == Method)
-                {
-                    return match a.name < b.name {
-                        // TODO better way to compare strings
-                        true => std::cmp::Ordering::Less,
-                        false => match a.name > b.name {
-                            true => std::cmp::Ordering::Greater,
-                            false => std::cmp::Ordering::Equal,
-                        },
-                    };
-                }
                 match (akind, bkind) {
-                    (x, y) if x == y => std::cmp::Ordering::Equal,
+                    (Field, Field)
+                    | (Method, Method)
+                    | (MainMethod, MainMethod)
+                    | (Method, MainMethod)
+                    | (MainMethod, Method) => a.name.cmp(&b.name),
                     (Method, Field) | (MainMethod, Field) => std::cmp::Ordering::Less,
-                    _ => std::cmp::Ordering::Greater, // TODO correct?
+                    (Field, Method) | (Field, MainMethod) => std::cmp::Ordering::Greater,
                 }
             });
             members
                 .into_iter()
-                .for_each(|x| do_prettyprint(&NodeKind::from(x), pri));
-            pri.indent(-1);
-            write!(pri, "}}");
+                .for_each(|member| do_prettyprint(&NodeKind::from(member), printer));
+            printer.indent(-1);
+            writeln!(printer, "}}");
         }
         x => {
             x.for_each_child(&mut |child| {
