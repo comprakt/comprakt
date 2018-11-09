@@ -20,11 +20,13 @@ use termcolor::{ColorChoice, StandardStream};
 #[macro_use]
 mod utils;
 mod ast;
+mod color;
 mod context;
 mod diagnostics;
 mod lexer;
 mod parser;
 mod strtab;
+
 use self::{
     context::Context,
     lexer::{Lexer, TokenKind},

@@ -101,10 +101,9 @@ impl<'t> Position<'t> {
         self.row
     }
 
-    /// Return the line of the character's position within the file.
-    ///
+    /// Return the characters line number.  
     /// Identical to `row() + 1`
-    pub fn line(&self) -> usize {
+    pub fn line_number(&self) -> usize {
         self.row + 1
     }
 

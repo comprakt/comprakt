@@ -45,12 +45,9 @@ impl<'t> PositionIterator<'t> {
     /// at least one character.
     pub fn peek_at_most(&self, n: usize) -> Option<Span<'t>> {
         debug_assert!(n >= 1);
-        // spans use inclusive ranges, so we have to built one
-        // from the next char and `n` characters ahead
         match self.position_to_emit {
             None => None,
             Some(span_start) => {
-                // TODO: remove this unwrap()
                 // unwrap is save, since we are in a branch asserting
                 // that the iterator is not finished => has at least character
                 // `span_start` remaining

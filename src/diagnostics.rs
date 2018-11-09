@@ -4,29 +4,33 @@
 //!
 //! This implementation is NOT thread-safe.
 use asciifile::{Span, Spanned};
-use failure::AsFail;
+use crate::color::ColorOutput;
+use failure::{AsFail, Error};
 use std::{ascii::escape_default, cell::RefCell, collections::HashMap};
-use termcolor::{Color, ColorSpec, WriteColor};
+use termcolor::{Color, WriteColor};
 
-/// Instead of writing errors, warnings and lints generated in the different
-/// compiler stages directly to stdout, they are collected in this object.
-///
-/// This has several advantages:
-/// - the output level can be adapted by users.
-/// - we have a single source responsible for formatting compiler messages.
-pub struct Diagnostics {
-    message_count: RefCell<HashMap<MessageLevel, usize>>,
-    writer: RefCell<Box<dyn WriteColor>>,
+pub fn u8_to_printable_representation(byte: u8) -> String {
+    let bytes = escape_default(byte).collect::<Vec<u8>>();
+    let rep = unsafe { std::str::from_utf8_unchecked(&bytes) };
+    rep.to_owned()
 }
 
-const ENCODING_ERROR_MAX_CONTEXT_LENGTH: usize = 80;
+/// Width of tabs in error and warning messages
+const TAB_WIDTH: usize = 4;
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum LineTruncation {
-    Truncated,
-    NotTruncated,
-}
+/// Color used for rendering line numbers, escape sequences
+/// and others...
+const HIGHLIGHT_COLOR: Option<Color> = Some(Color::Cyan);
 
+// TODO reimplement line truncation
+//const MAX_CONTEXT_LENGTH: usize = 80;
+//#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+//pub enum LineTruncation {
+//Truncated,
+//NotTruncated,
+//}
+
+// TODO: move to ascii file?
 #[derive(Debug)]
 pub enum MaybeSpanned<'a, T> {
     WithoutSpan(T),
@@ -37,9 +41,15 @@ pub enum MaybeSpanned<'a, T> {
 //into() -> Span<'a, T> {
 //}
 
-pub struct Message {
-    pub level: MessageLevel,
-    pub kind: Box<dyn AsFail>,
+/// Instead of writing errors, warnings and lints generated in the different
+/// compiler stages directly to stdout, they are collected in this object.
+///
+/// This has several advantages:
+/// - the output level can be adapted by users.
+/// - we have a single source responsible for formatting compiler messages.
+pub struct Diagnostics {
+    message_count: RefCell<HashMap<MessageLevel, usize>>,
+    writer: RefCell<Box<dyn WriteColor>>,
 }
 
 impl Diagnostics {
@@ -108,7 +118,8 @@ impl Diagnostics {
         match kind {
             MaybeSpanned::WithoutSpan(kind) => {
                 let msg = Message { level, kind };
-                msg.write_description(&mut **writer);
+                // TODO: we are surpressing the io error here
+                msg.write_description(&mut **writer).ok();
             }
             MaybeSpanned::WithSpan(spanned) => {
                 let msg = Message {
@@ -116,12 +127,14 @@ impl Diagnostics {
                     kind: spanned.data,
                 };
 
-                msg.write_description(&mut **writer);
-                msg.write_code(&mut **writer, &spanned.span);
+                // TODO: we are surpressing the io error here
+                msg.write_description(&mut **writer).ok();
+                msg.write_code(&mut **writer, &spanned.span).ok();
             }
         }
 
-        writeln!(writer);
+        // TODO: we are surpressing the io error here
+        writeln!(writer).ok();
     }
 
     #[allow(dead_code)]
@@ -166,211 +179,110 @@ impl MessageLevel {
     }
 }
 
-const MAX_CONTEXT_LENGTH: usize = 80;
-const MAX_CONTEXT_LENGTH_MULTILINE: usize = 160;
-const TAB_WIDTH: usize = 4;
-const HIGHLIGHT: Option<Color> = Some(Color::Cyan);
+pub struct Message {
+    pub level: MessageLevel,
+    pub kind: Box<dyn AsFail>,
+}
 
 impl Message {
-    fn write_description(&self, writer: &mut dyn WriteColor) {
+    fn write_description(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
         output.set_color(self.level.color());
         output.set_bold(true);
-        write!(output.writer(), "{}: ", self.level.name());
+        write!(output.writer(), "{}: ", self.level.name())?;
 
         output.set_color(None);
-        writeln!(output.writer(), "{}", self.kind.as_fail());
+        writeln!(output.writer(), "{}", self.kind.as_fail())?;
+
+        Ok(())
     }
 
-    fn write_code(&self, writer: &mut dyn WriteColor, _span: &Span<'_>) {
+    fn write_code(&self, writer: &mut dyn WriteColor, error: &Span<'_>) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
+        let num_fmt = LineNumberFormatter::new(error);
 
-        //let line_number_width = (span.end.row + 1).to_string().len();
+        num_fmt.spaces(output.writer())?;
+        writeln!(output.writer())?;
 
-        //// NOTE: this has to be the same width as the line_marker with
-        //// line numbers, otherwise the indicators for single line warnings/errors
-        //// are misaligned.
-        //let empty_line_marker = format!(" {} | ", " ".repeat(line_number_width));
-        //let truncation_str = "...";
+        for (line_number, line) in error.lines().numbered() {
+            let line_fmt = LineFormatter::new(&line);
 
-        //// add padding line above
-        //output.set_color(HIGHLIGHT);
-        //output.set_bold(true);
+            num_fmt.number(output.writer(), line_number)?;
+            line_fmt.render(output.writer())?;
+            // currently, the span will always exist since we take the line from the error
+            // but future versions may print a line below and above for context that
+            // is not part of the error
+            if let Some(faulty_part_of_line) = Span::intersect(error, &line) {
+                // TODO: implement this without the following 3 assumptions:
+                // - start_pos - end_pos >= 0, guranteed by data structure invariant of Span
+                // - start_term_pos - end_term_pos >= 0, guranteed by monotony of columns
+                //   (a Position.char() can only be rendered to 0 or more terminal characters)
+                // - unwrap(.): both positions are guranteed to exist in the line since we just
+                //   got them from the faulty line, which is a subset of the whole error line
+                let (start_term_pos, end_term_pos) =
+                    line_fmt.get_actual_columns(&faulty_part_of_line).unwrap();
 
-        //writeln!(output.writer(), "{}", empty_line_marker);
+                let term_width = end_term_pos - start_term_pos;
 
-        //// Add marker below the line if the error is on a single line. Add the
-        //// marker at the start of the line for multiline errors.
-        //if !span.is_multiline() {
-        //// add line number
-        //write!(
-        //output.writer(),
-        //" {padded_linenumber} | ",
-        //padded_linenumber = pad_left(&(span.start.row + 1).to_string(),
-        // line_number_width)
-        //);
+                num_fmt.spaces(output.writer())?;
 
-        //// add source code line
-        //let (truncation_before, src_line, truncation_after) =
-        //span.start.get_line(MAX_CONTEXT_LENGTH, MAX_CONTEXT_LENGTH);
+                {
+                    let mut output = ColorOutput::new(output.writer());
+                    output.set_color(self.level.color());
+                    output.set_bold(true);
+                    writeln!(
+                        output.writer(),
+                        "{spaces}{underline}",
+                        spaces = " ".repeat(start_term_pos),
+                        underline = "^".repeat(term_width)
+                    )?;
+                }
 
-        //if truncation_before == LineTruncation::Truncated {
-        //output.set_color(HIGHLIGHT);
-        //output.set_bold(true);
-        //write!(output.writer(), "{}", truncation_str);
-        //}
-
-        //output.set_color(None);
-        //output.set_bold(false);
-
-        //let formatter = LineFormatter::new(&src_line);
-        //formatter.render(output.writer());
-
-        //if truncation_after == LineTruncation::Truncated {
-        //output.set_color(HIGHLIGHT);
-        //output.set_bold(true);
-        //write!(output.writer(), "{}", truncation_str);
-        //}
-
-        //writeln!(output.writer());
-
-        //// add positional indicators.
-        //output.set_color(HIGHLIGHT);
-        //output.set_bold(true);
-        //write!(output.writer(), "{}", empty_line_marker);
-
-        //let indicator = format!(
-        //"{spaces}{markers}",
-        //spaces = " ".repeat(if truncation_before == LineTruncation::Truncated {
-        //formatter.get_actual_column(MAX_CONTEXT_LENGTH) + truncation_str.len()
-        //} else {
-        //formatter.get_actual_column(span.start.col)
-        //}),
-        //markers = "^".repeat(
-        //formatter.get_actual_column(span.end.col + 1)
-        //- formatter.get_actual_column(span.start.col)
-        //);
-
-        //output.set_bold(true);
-        //output.set_color(self.level.color());
-        //writeln!(output.writer(), "{}", indicator);
-        //} else {
-        //// move position to first element in line as we always want to
-        //// render the first N characters if a line is way to long for
-        //// an error message.
-        //// TODO: would be nicer to always show the column of a multiline
-        //// error. But I am not sure how the line columns should be aligned
-        //// if lines are truncated differently.
-        //let mut line_first_char = span.start.to_line_start();
-
-        //for _line_num in span.start.row..=span.end.row {
-        //// add line number
-        //output.set_color(HIGHLIGHT);
-        //output.set_bold(true);
-        //write!(
-        //output.writer(),
-        //" {padded_linenumber} |",
-        //padded_linenumber =
-        //pad_left(&(line_first_char.row + 1).to_string(), line_number_width)
-        //);
-
-        //// Add marker at the beginning of the line, if it spans
-        //// multiple lines
-        //output.set_color(self.level.color());
-        //write!(output.writer(), "> ");
-
-        //// add source code line
-        //output.set_color(None);
-        //output.set_bold(false);
-
-        //let (truncation_before, src_line, truncation_after) =
-        //line_first_char.get_line(1, MAX_CONTEXT_LENGTH_MULTILINE);
-        //debug_assert!(truncation_before == LineTruncation::NotTruncated);
-
-        //let formatter = LineFormatter::new(&src_line);
-        //formatter.render(output.writer());
-
-        //if truncation_after == LineTruncation::Truncated {
-        //output.set_color(HIGHLIGHT);
-        //output.set_bold(true);
-        //write!(output.writer(), "{}", truncation_str);
-        //}
-
-        //writeln!(output.writer());
-
-        //line_first_char = match line_first_char.next_line() {
-        //Ok(pos) => pos,
-        //Err(_) => {
-        //[> EOF <]
-        //break;
-        //}
-
-        //// add padding line below
-        //output.set_color(HIGHLIGHT);
-        //output.set_bold(true);
-        //writeln!(output.writer(), "{}", empty_line_marker);
-        //}
-
-        writeln!(output.writer());
+                // debug
+                //let slice = line.as_str();
+                //writeln!(
+                //output.writer(),
+                //"FAULTY PART: {}, range: [{}, {}], term-range: [{},{})",
+                //faulty_part_of_line.as_str(),
+                //faulty_part_of_line.start_position().column(),
+                //faulty_part_of_line.end_position().column(),
+                //start_term_pos,
+                //end_term_pos
+                //);
+            }
+        }
+        Ok(())
     }
 }
 
-pub fn u8_to_printable_representation(byte: u8) -> String {
-    let bytes = escape_default(byte).collect::<Vec<u8>>();
-    let rep = unsafe { std::str::from_utf8_unchecked(&bytes) };
-    rep.to_owned()
+/// Helper that prints a range of numbers with the correct
+/// amount of padding
+struct LineNumberFormatter {
+    width: usize,
 }
 
-struct LineFormatter<'a> {
-    line: &'a str,
-}
-
-impl<'a> LineFormatter<'a> {
-    fn new(line: &'a str) -> Self {
-        Self { line }
-    }
-
-    fn render(&self, writer: &mut dyn WriteColor) {
-        let mut output = ColorOutput::new(writer);
-
-        for chr in self.line.chars() {
-            let (text, color) = self.render_char(chr);
-            output.set_color(color);
-            write!(output.writer(), "{}", text);
+impl LineNumberFormatter {
+    pub fn new(span: &Span<'_>) -> Self {
+        Self {
+            width: span.end_position().line_number().to_string().len(),
         }
     }
 
-    /// Each printed character does not actually take up monospace grid cell,
-    /// for example a TAB character may be represented by 4 spaces. This
-    /// function will return the actuall number of monospace grid cells
-    /// rendered before the given position.
-    fn get_actual_column(&self, col: usize) -> usize {
-        debug_assert!(
-            col <= self.line.len(),
-            format!(
-                "col = {} is not smaller than max line length {}",
-                col,
-                self.line.len()
-            )
-        );
-        self.line[0..col]
-            .chars()
-            .map(|chr| self.render_char(chr).0.len())
-            .sum()
+    pub fn spaces(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
+        let mut output = ColorOutput::new(writer);
+        output.set_color(HIGHLIGHT_COLOR);
+        output.set_bold(true);
+        write!(output.writer(), " {} | ", " ".repeat(self.width))?;
+        Ok(())
     }
 
-    fn render_char(&self, chr: char) -> (String, Option<Color>) {
-        debug_assert!(chr != '\n');
-
-        match chr {
-            '\t' => (" ".repeat(TAB_WIDTH), None),
-            '\r' => ("".to_string(), None),
-            chr if chr.is_control() => (
-                format!("{{{}}}", u8_to_printable_representation(chr as u8)),
-                HIGHLIGHT,
-            ),
-            _ => (chr.to_string(), None),
-        }
+    pub fn number(&self, writer: &mut dyn WriteColor, line_number: usize) -> Result<(), Error> {
+        let mut output = ColorOutput::new(writer);
+        output.set_color(HIGHLIGHT_COLOR);
+        output.set_bold(true);
+        let padded_number = pad_left(&line_number.to_string(), self.width);
+        write!(output.writer(), " {} | ", padded_number)?;
+        Ok(())
     }
 }
 
@@ -386,6 +298,107 @@ pub fn pad_left_with_char(s: &str, pad: usize, chr: char) -> String {
             .repeat(pad.checked_sub(s.len()).unwrap_or(0)),
         string = s
     )
+}
+
+/// Writes a user-supplied input line in a safe manner by replacing
+/// control-characters with escape sequences.
+struct LineFormatter<'span, 'file> {
+    line: &'span Span<'file>,
+}
+
+impl<'span, 'file> LineFormatter<'span, 'file> {
+    fn new(line: &'span Span<'file>) -> Self {
+        Self { line }
+    }
+
+    fn render(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
+        let mut output = ColorOutput::new(writer);
+
+        // TODO: implement an iterator
+        let chars = self.line.start_position().iter();
+
+        for position in chars {
+            let (text, color) = self.render_char(position.chr());
+            output.set_color(color);
+            write!(output.writer(), "{}", text)?;
+
+            if position == self.line.end_position() {
+                break;
+            }
+        }
+
+        writeln!(output.writer())?;
+
+        Ok(())
+    }
+
+    /// Map terminal columns to `Position` columns. Returns a inclusive
+    /// lower bound, and an exclusive upper bound.
+    ///
+    /// Each printed character does not actually take up monospace grid cell.
+    /// For example a TAB character may be represented by 4 spaces. This
+    /// function will return the actual number of 'monospace grid cells'
+    /// rendered before the given
+    /// position.
+    ///
+    /// Returns `None` if the column is out of bounds.
+    fn get_actual_columns(&self, span: &Span<'_>) -> Option<(usize, usize)> {
+        let lower = self.len_printed_before(span.start_position().column());
+        let upper = self.len_printed_before(span.end_position().column());
+
+        match (lower, upper) {
+            (Some(lower), Some(upper)) => {
+                let last_char_width = self.render_char(span.end_position().chr()).0.len();
+                Some((lower, upper + last_char_width))
+            }
+            _ => None,
+        }
+    }
+
+    fn len_printed_before(&self, col: usize) -> Option<usize> {
+        // TODO: get rid of this nonsense
+        // NOTE: it would actually be nice to condition the Position on the Line
+        // instead of AsciiFile. Thinking of this, we could actually just do
+        // `AsciiFile::new((span.as_str().as_bytes()))`. Meaning AsciiFile is
+        // not a file, but a View
+        // that restricts the
+        // linked lists in Positions and Spans to a subset of the file.
+        // TODO: implement an iterator on span, or
+        // span.to_view().iter()/.to_ascii_file().iter() this method is
+        // inherintly unsafe
+        // because we do not have
+        // a way to restrict
+        // positions in a type safe manner.
+        if self.line.len() < col {
+            return None;
+        }
+
+        let chars = self.line.start_position().iter();
+
+        let mut actual_column = 0;
+
+        for position in chars {
+            if position.column() == col {
+                break;
+            }
+
+            actual_column += self.render_char(position.chr()).0.len();
+        }
+
+        Some(actual_column)
+    }
+
+    fn render_char(&self, chr: char) -> (String, Option<Color>) {
+        match chr {
+            '\t' => (" ".repeat(TAB_WIDTH), None),
+            '\r' | '\n' => ("".to_string(), None),
+            chr if chr.is_control() => (
+                format!("{{{}}}", u8_to_printable_representation(chr as u8)),
+                HIGHLIGHT_COLOR,
+            ),
+            _ => (chr.to_string(), None),
+        }
+    }
 }
 
 #[cfg(test)]

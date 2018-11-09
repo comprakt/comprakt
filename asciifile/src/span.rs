@@ -140,11 +140,34 @@ impl<'f> Span<'f> {
         Span::combine(&position.to_single_char_span(), &self)
     }
 
+    /// test if a span contains another span
+    pub fn has_subset(self, span: &Span<'f>) -> bool {
+        Span::combine(span, &self) == self
+    }
+
     pub fn combine(a: &Span<'f>, b: &Span<'f>) -> Span<'f> {
         Span {
             start: min(a.start, b.start),
             end: max(a.end, b.end),
         }
+    }
+
+    /// Get the overlapping part of two spans.
+    /// Returns `None` if the spans are disjunct (do not overlap).
+    pub fn intersect(a: &Span<'f>, b: &Span<'f>) -> Option<Span<'f>> {
+        if b.start > a.end || a.start > b.end {
+            None
+        } else {
+            Some(Span {
+                start: max(a.start, b.start),
+                end: min(a.end, b.end),
+            })
+        }
+    }
+
+    /// Get the number of characters in a span
+    pub fn len(&self) -> usize {
+        self.as_str().len()
     }
 
     pub fn from_positions(positions: &[Position<'f>]) -> Option<Self> {
@@ -213,6 +236,10 @@ impl<'span, 'file> LineIterator<'span, 'file> {
             line_to_emit: Some(span.start_position().get_line()),
         }
     }
+
+    pub fn numbered(self) -> LineNumberIterator<'span, 'file> {
+        LineNumberIterator::new(self)
+    }
 }
 
 impl<'span, 'file> Iterator for LineIterator<'span, 'file> {
@@ -235,5 +262,25 @@ impl<'span, 'file> Iterator for LineIterator<'span, 'file> {
                 Some(line_to_emit)
             }
         }
+    }
+}
+
+pub struct LineNumberIterator<'span, 'file> {
+    lines: LineIterator<'span, 'file>,
+}
+
+impl<'span, 'file> LineNumberIterator<'span, 'file> {
+    pub fn new(lines: LineIterator<'span, 'file>) -> Self {
+        Self { lines }
+    }
+}
+
+impl<'span, 'file> Iterator for LineNumberIterator<'span, 'file> {
+    type Item = (usize, Span<'file>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.lines
+            .next()
+            .map(|span| (span.start_position().line_number(), span))
     }
 }
