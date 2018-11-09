@@ -1,5 +1,8 @@
 use crate::ast::{self, *};
+use strum_macros::EnumDiscriminants;
 
+#[strum_discriminants(derive(Display))]
+#[derive(EnumDiscriminants)]
 pub enum NodeKind<'a, 't> {
     AST(&'a AST<'t>),
     Program(&'a Program<'t>),
