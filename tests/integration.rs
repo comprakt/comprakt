@@ -49,7 +49,15 @@ fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
         ext
     });
 
-    if !filepath_stderr.is_file() {
+    let mut filepath_stdout = filepath.clone();
+
+    filepath_stdout.set_extension({
+        let mut ext = extension.clone();
+        ext.push(OsStr::new(".stdout"));
+        ext
+    });
+
+    if !filepath_stderr.is_file() || !filepath_stdout.is_file() {
         let mut filepath_stderr_tentative = filepath.clone();
         filepath_stderr_tentative.set_extension({
             let mut ext = extension.clone();
@@ -60,11 +68,10 @@ fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
         let mut filepath_stdout_tentative = filepath.clone();
         filepath_stdout_tentative.set_extension({
             let mut ext = extension.clone();
-            ext.push(OsStr::new(".stdout.tentative"));
+            ext.push(OsStr::new(".stdout"));
             ext
         });
 
-        // TODO: normalize stderr
         match compiler_call(phase, &filepath)
             .stdout(File::create(&filepath_stdout_tentative).expect("write stdout file failed"))
             .stderr(File::create(&filepath_stderr_tentative).expect("write stderr file failed"))
@@ -72,10 +79,10 @@ fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
         {
             Ok(_) => {
                 panic!(
-                    "Cannot find required reference output file {:?}. \
-                     The current output was written to {:?}. \
+                    "Cannot find required reference output files. \
+                     The current output was written to {:?} and {:?}. \
                      Verify it and remove the `.tentative` suffix.",
-                    filepath_stderr, filepath_stderr_tentative
+                    filepath_stderr_tentative, filepath_stdout_tentative
                 );
             }
             Err(_msg) => panic!(
@@ -88,7 +95,7 @@ fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
     let assertion = compiler_call(phase, &filepath).assert();
 
     let stderr_expected = read_file(&filepath_stderr);
-    let changeset = Changeset::new(
+    let stderr_changeset = Changeset::new(
         &stderr_expected,
         &normalize_stderr(&String::from_utf8_lossy(&assertion.get_output().stderr)),
         "\n",
@@ -97,9 +104,20 @@ fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
         normalize_stderr(&String::from_utf8_lossy(actual)) == stderr_expected
     });
 
+    let stdout_expected = read_file(&filepath_stdout);
+    let stdout_changeset = Changeset::new(
+        &stdout_expected,
+        &String::from_utf8_lossy(&assertion.get_output().stdout),
+        "\n",
+    );
+    let stdout_predicate =
+        predicate::function(|actual: &[u8]| actual == stdout_expected.as_bytes());
+
     assertion
-        .append_context("changeset stderr", format!("\n{}", changeset))
+        .append_context("changeset stderr", format!("\n{}", stderr_changeset))
+        .append_context("changeset stdout", format!("\n{}", stdout_changeset))
         .stderr(stderr_predicate)
+        .stdout(stdout_predicate)
         .failure();
 }
 
