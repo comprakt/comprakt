@@ -5,8 +5,8 @@ ClassDeclaration                    class IDENT { ClassMember* }
 ClassMember                         Field
                                     | Method
 Field                               public Type IDENT ;
-// TODO: MainMethod missing
-Method                              public static? Type IDENT \( Parameters? \) (throws IDENT)? Block
+Method                              public Type IDENT \( Parameters? \) (throws IDENT)? Block
+MainMethod                          public static Type IDENT \( String[] IDENT \) (throws IDENT)? Block
 
 Parameters                          Parameter (, Parameter)*
 Parameter                           Type IDENT
@@ -68,6 +68,6 @@ Arguments                           (Expression (, Expression)*)?
 
 
 // TODO: e.g. new int() should not be allowed
-NewObjectExpression                 new BasicType \( \)
+NewObjectExpression                 new IDENT \( \)
 NewArrayExpression                  new BasicType [ Expression ] ([ ])*
 ```

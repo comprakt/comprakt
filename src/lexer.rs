@@ -5,7 +5,7 @@ use crate::{
     strtab::*,
 };
 use failure::Fail;
-use std::{convert::TryFrom, fmt, result::Result};
+use std::{convert::TryFrom, fmt, ops::Deref, result::Result};
 
 macro_rules! match_op {
     ($input:expr, $( ($token_string:expr, $token:expr) ),+: $len:expr, $default:expr) => {{
@@ -38,6 +38,27 @@ pub struct Spanned<'f, T> {
     pub data: T,
 }
 
+impl<'f, T> Eq for Spanned<'f, T> where T: Eq {}
+impl<'f, T> PartialEq for Spanned<'f, T>
+where
+    T: PartialEq,
+{
+    /// This only compares the `data`! I.e. two `Spanned`s are equal even if
+    /// they point to two different spans in the source file, as long as the
+    /// content is the same.
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+
+impl<'f, T> Deref for Spanned<'f, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
 impl<T> fmt::Display for Spanned<'_, T>
 where
     T: fmt::Display,
@@ -60,7 +81,7 @@ impl<'f, T> Spanned<'f, T> {
         F: FnOnce(&T) -> U,
     {
         Spanned {
-            span: self.span.clone(),
+            span: self.span,
             data: f(&self.data),
         }
     }
@@ -140,7 +161,7 @@ pub enum Warning {
     CommentSeparatorInsideComment,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span<'f> {
     pub start: Position<'f>,
     pub end: Position<'f>,

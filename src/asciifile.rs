@@ -1,6 +1,6 @@
 use failure::Fail;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct AsciiFile<'m> {
     mapping: &'m [u8],
 }
@@ -151,7 +151,7 @@ impl<'m> AsciiFile<'m> {
 
 use std::ops::Deref;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq)]
 pub struct Position<'t> {
     pub row: usize,
     pub col: usize,
@@ -159,7 +159,6 @@ pub struct Position<'t> {
     file: &'t AsciiFile<'t>,
 }
 
-#[cfg(test)]
 impl<'t> Position<'t> {
     pub fn dummy() -> Self {
         Position {
