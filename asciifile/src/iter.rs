@@ -30,10 +30,10 @@ impl<'t> PositionIterator<'t> {
     /// Look at the next `n` characters without advancing the iterator.
     /// If there are less than `n` characters, return `None`.
     pub fn peek_exactly(&self, n: usize) -> Option<Span<'t>> {
-        match self.peek_at_most(n) {
-            None => None,
-            Some(ref span) if span.as_str().len() < n => None,
-            span => span,
+        debug_assert!(n >= 1);
+        match (self.position_to_emit, self.clone().nth(n - 1)) {
+            (Some(span_start), Some(span_end)) => Some(Span::new(span_start, span_end)),
+            _ => None,
         }
     }
 
