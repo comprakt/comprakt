@@ -561,7 +561,12 @@ where
                 rvalues.push(*self.parse_binary_expression()?);
             }
 
-            Ok(ast::Expr::Assignment(lvalue, rvalues))
+            if rvalues.len() == 0 {
+                return Ok(lvalue);
+            }
+            else {
+                Ok(ast::Expr::Assignment(lvalue, rvalues))
+            }
         })
         .map(Box::new)
     }
