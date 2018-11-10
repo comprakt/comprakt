@@ -50,70 +50,84 @@ impl<'a, 't> NodeKind<'a, 't> {
     pub fn for_each_child(&self, cb: &mut dyn FnMut(NodeKind<'a, 't>)) {
         use self::NodeKind::*;
         macro_rules! ccb {
-            ($astvar:expr) => { cb(NodeKind::from($astvar.get_data())) }
+            ($astvar:expr) => {
+                cb(NodeKind::from($astvar.get_data()))
+            };
         }
         match self {
-            Program(p)          => p.classes.iter().for_each(|x| ccb!(x)),
+            Program(p) => p.classes.iter().for_each(|x| ccb!(x)),
             ClassDeclaration(d) => d.members.iter().for_each(|x| ccb!(x)),
-            ClassMember(cm)      => { use crate::ast::ClassMemberKind::*; match &cm.kind {
-                Field(t) => ccb!(t),
-                Method(ty, pl, block) => {
-                    ccb!(ty);
-                    cb(NodeKind::ParameterList(pl.get_data()));
-                    ccb!(block);
-                },
-                MainMethod(_, block) => {
-                    ccb!(block);
+            ClassMember(cm) => {
+                use crate::ast::ClassMemberKind::*;
+                match &cm.kind {
+                    Field(t) => ccb!(t),
+                    Method(ty, pl, block) => {
+                        ccb!(ty);
+                        cb(NodeKind::ParameterList(pl.get_data()));
+                        ccb!(block);
+                    }
+                    MainMethod(_, block) => {
+                        ccb!(block);
+                    }
                 }
-            }},
+            }
             Parameter(p) => {
-                  ccb!(&p.ty);
-            },
+                ccb!(&p.ty);
+            }
             ParameterList(l) => l.iter().for_each(|x| ccb!(x)),
             Type(t) => cb(NodeKind::from(&t.basic)),
             BasicType(_) => (),
             Block(b) => b.statements.iter().for_each(|x| ccb!(x)),
-            Stmt(s) => { use crate::ast::Stmt::*; match s {
-                Empty => (),
-                Block(b) => ccb!(b),
-                Expression(e) => ccb!(e.as_ref()),
-                If(expr, then_stmt, else_stmt) => {
-                    ccb!(expr.as_ref());
-                    ccb!(then_stmt.as_ref());
-                    else_stmt.iter().for_each(|x| ccb!(x.as_ref()));
-                },
-                LocalVariableDeclaration(t, _, expr) => {
-                    ccb!(t);
-                    expr.iter().for_each(|x| ccb!(x.as_ref()));
-                },
-                Return(expr) => expr.iter().for_each(|x| ccb!(x.as_ref())),
-                While(cond, stmt) => {
-                    ccb!(cond.as_ref());
-                    ccb!(stmt.as_ref());
-                },
-            }},
-            Expr(e) => { use crate::ast::Expr::*; match e {
-                Assignment(lhs, rhs) => {
-                    ccb!(lhs.as_ref());
-                    rhs.iter().for_each(|x| ccb!(x));
-                },
-                Binary(_, lhs, rhs) => {
-                    ccb!(lhs.as_ref());
-                    ccb!(rhs.as_ref());
-                },
-                Unary(_, expr) => ccb!(expr.as_ref()),
-                Postfix(expr, _) => ccb!(expr.as_ref()),
-                Null | Boolean(_) | Int(_) | Var(_) | This => (),
-                MethodInvocation(_, al) => al.iter().for_each(|a| ccb!(a)),
-                NewObject(_) => (),
-                NewArray(_, expr, _) => ccb!(expr.as_ref()),
-            }},
+            Stmt(s) => {
+                use crate::ast::Stmt::*;
+                match s {
+                    Empty => (),
+                    Block(b) => ccb!(b),
+                    Expression(e) => ccb!(e.as_ref()),
+                    If(expr, then_stmt, else_stmt) => {
+                        ccb!(expr.as_ref());
+                        ccb!(then_stmt.as_ref());
+                        else_stmt.iter().for_each(|x| ccb!(x.as_ref()));
+                    }
+                    LocalVariableDeclaration(t, _, expr) => {
+                        ccb!(t);
+                        expr.iter().for_each(|x| ccb!(x.as_ref()));
+                    }
+                    Return(expr) => expr.iter().for_each(|x| ccb!(x.as_ref())),
+                    While(cond, stmt) => {
+                        ccb!(cond.as_ref());
+                        ccb!(stmt.as_ref());
+                    }
+                }
+            }
+            Expr(e) => {
+                use crate::ast::Expr::*;
+                match e {
+                    Assignment(lhs, rhs) => {
+                        ccb!(lhs.as_ref());
+                        rhs.iter().for_each(|x| ccb!(x));
+                    }
+                    Binary(_, lhs, rhs) => {
+                        ccb!(lhs.as_ref());
+                        ccb!(rhs.as_ref());
+                    }
+                    Unary(_, expr) => ccb!(expr.as_ref()),
+                    Postfix(expr, _) => ccb!(expr.as_ref()),
+                    Null | Boolean(_) | Int(_) | Var(_) | This => (),
+                    MethodInvocation(_, al) => al.iter().for_each(|a| ccb!(a)),
+                    NewObject(_) => (),
+                    NewArray(_, expr, _) => ccb!(expr.as_ref()),
+                }
+            }
             BinaryOp(_) | UnaryOp(_) => (),
-            PostfixOp(oc) => { use crate::ast::PostfixOp::*; match oc {
-                MethodInvocation(_, al) =>  al.iter().for_each(|x| ccb!(x)),
-                FieldAccess(_) => (),
-                ArrayAccess(expr) => ccb!(expr.as_ref()),
-            }},
+            PostfixOp(oc) => {
+                use crate::ast::PostfixOp::*;
+                match oc {
+                    MethodInvocation(_, al) => al.iter().for_each(|x| ccb!(x)),
+                    FieldAccess(_) => (),
+                    ArrayAccess(expr) => ccb!(expr.as_ref()),
+                }
+            }
         }
     }
 }
