@@ -269,13 +269,13 @@ where
         self.peek_nth(n).map(|got| want.matches(&got.data))
     }
 
-    fn is_eof(&mut self) -> bool {
+    fn eof(&mut self) -> bool {
         self.peek().is_err()
     }
 
     fn parse_program(&mut self) -> ParserResult<'f> {
         // as long as we have input remaining
-        while !self.is_eof() {
+        while !self.eof() {
             self.parse_class_declaration()?;
         }
 

@@ -37,6 +37,8 @@ impl Ord for Position<'_> {
     }
 }
 
+// TODO: given that we implement Copy, differencing between *_mut and
+// non-mutable versions of functions does not really make sense.
 impl<'t> Position<'t> {
     #[cfg(test)]
     pub fn dummy() -> Self {
@@ -51,7 +53,7 @@ impl<'t> Position<'t> {
     /// Create a new Position object pointing at the first character
     /// of a file. Returns `None` for empty files.
     pub fn at_file_start(file: &'t AsciiFile<'t>) -> Option<Self> {
-        if file.mapping.len() == 0 {
+        if file.mapping.is_empty() {
             return None;
         }
 
@@ -101,7 +103,7 @@ impl<'t> Position<'t> {
         self.row
     }
 
-    /// Return the characters line number.  
+    /// Return the character's line number.
     /// Identical to `row() + 1`
     pub fn line_number(&self) -> usize {
         self.row + 1
@@ -118,8 +120,7 @@ impl<'t> Position<'t> {
     /// Get the position immediatly following this position or `None` if
     /// this is the last position in the file.
     pub fn next(&self) -> Option<Position<'t>> {
-        let pos = self.clone();
-        pos.next_mut().ok()
+        self.next_mut().ok()
     }
 
     /// The same as `next()` but in-place.
@@ -146,8 +147,7 @@ impl<'t> Position<'t> {
     /// Get the position immediatly following this position or `None` if
     /// this is the last position in the file.
     pub fn prev(&self) -> Option<Position<'t>> {
-        let pos = self.clone();
-        pos.prev_mut().ok()
+        self.prev_mut().ok()
     }
 
     /// The same as `prev()` but in-place.
@@ -248,41 +248,21 @@ impl<'t> Position<'t> {
         let end = self
             .iter()
             .find(|position| position.chr() == '\n')
-            .unwrap_or(self.iter().last().unwrap());
+            .unwrap_or_else(|| self.iter().last().unwrap());
 
         Span::new(start, end)
     }
 
     pub fn iter(&self) -> PositionIterator<'t> {
-        self.clone().into_iter()
+        PositionIterator::new(Some(*self))
     }
 
     pub fn reverse_iter(&self) -> ReversePositionIterator<'t> {
-        self.clone().into_reverse_iter()
-    }
-
-    pub fn into_iter(self) -> PositionIterator<'t> {
-        PositionIterator::new(Some(self))
-    }
-
-    pub fn into_reverse_iter(self) -> ReversePositionIterator<'t> {
-        ReversePositionIterator::new(Some(self))
-    }
-
-    fn consume_byte(&self, byte: u8) -> Self {
-        let mut pos = self.clone();
-        pos.consume_byte_mut(byte);
-        pos
+        ReversePositionIterator::new(Some(*self))
     }
 
     fn consume_byte_mut(&mut self, byte: u8) {
         self.consume_char_mut(byte as char);
-    }
-
-    fn consume_char(&self, byte: char) -> Self {
-        let mut pos = self.clone();
-        pos.consume_char_mut(byte);
-        pos
     }
 
     fn consume_char_mut(&mut self, chr: char) {
@@ -297,22 +277,6 @@ impl<'t> Position<'t> {
                 self.byte_offset += 1;
             }
         };
-    }
-
-    fn consume_mut(&mut self, upcoming: &str) {
-        for chr in upcoming.chars() {
-            self.consume_char_mut(chr);
-        }
-    }
-
-    /// Advance the position by examining a row of input characters. Will
-    /// update the row count for each new line encountered, will update the
-    /// column count for all other characters.
-    // TODO: should be private! allows to build invalid chars
-    pub fn consume(&mut self, upcoming: &str) -> Self {
-        let mut pos = self.clone();
-        pos.consume_mut(upcoming);
-        pos
     }
 }
 

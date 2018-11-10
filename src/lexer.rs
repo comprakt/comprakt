@@ -490,7 +490,7 @@ impl<'f, 's> Lexer<'f, 's> {
 
         if self.input.eof_reached() {
             let span = comment_body.extend_to_position(&comment_start);
-            return Err(LexicalError::new(span, ErrorKind::UnclosedComment));
+            Err(LexicalError::new(span, ErrorKind::UnclosedComment))
         } else {
             debug_assert_eq!(self.input.peek_exactly(2).unwrap().as_str(), "*/");
             self.input.next().unwrap();
@@ -498,10 +498,10 @@ impl<'f, 's> Lexer<'f, 's> {
 
             let span = Span::new(comment_start, comment_end);
 
-            return Ok(Token::new(
+            Ok(Token::new(
                 span,
                 TokenKind::Comment(comment_body.as_str().to_string()),
-            ));
+            ))
         }
     }
 
