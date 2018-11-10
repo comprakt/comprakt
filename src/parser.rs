@@ -3,8 +3,8 @@ use crate::{
     ast,
     diagnostics::MaybeSpanned::{self, *},
     lexer::{Keyword, Operator, Token, TokenKind},
+    spantracker::*,
     strtab::Symbol,
-    utils::MultiPeekable,
 };
 
 use failure::Fail;
@@ -47,8 +47,14 @@ pub enum SyntaxError {
         actual: String,
         expected: String, // TODO This is temporary, shouldn't be string
     },
-    #[fail(display = "unexpected end of file")]
+    #[fail(display = "reached end of file while parsing")]
     UnexpectedEOF,
+}
+
+impl<'f> From<EOF> for MaybeSpanned<'f, SyntaxError> {
+    fn from(_: EOF) -> Self {
+        MaybeSpanned::WithoutSpan(SyntaxError::UnexpectedEOF)
+    }
 }
 
 pub trait ExpectedToken: fmt::Debug + fmt::Display {
@@ -154,7 +160,8 @@ impl ExpectedToken for IntegerLiteral {
     }
 }
 
-type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
+// TODO private
+pub type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
 type ParserResult<'f, T> = SyntaxResult<'f, Spanned<'f, T>>;
 type BoxedResult<'f, T> = SyntaxResult<'f, Box<Spanned<'f, T>>>;
 
@@ -162,22 +169,31 @@ pub struct Parser<'f, I>
 where
     I: Iterator<Item = Token<'f>>,
 {
-    lexer: MultiPeekable<I>,
+    lexer: SpanTracker<'f, I>,
 }
 
 macro_rules! spanned {
     ($self:expr, $code:expr) => {{
-        let start = $self.peek_span()?;
-        let data = $code?;
-        let end = $self.peek_span()?;
+        let start = $self.lexer.peek_span();
+        let data: SyntaxResult<'f, _> = $code;
+        let data = data?;
+        let end = $self
+            .lexer
+            .prev_span()
+            .expect(
+                "Bug! We can't represent an empty range. The `$code` should have consumed at least one token",
+            )
+            .end_position();
 
-        Ok(Spanned {
-            span: Span {
-                start: start.start,
-                end: end.end,
-            },
+        // We check the error of `start` only now, because we trust the `$code` to handle the error better than we could.
+        let start = start?.start_position();
+
+        let res: SyntaxResult<'f, _> = Ok(Spanned {
+            span: Span::new(start, end),
             data: data,
-        })
+        });
+
+        res
     }};
 }
 
@@ -187,38 +203,12 @@ where
 {
     pub fn new(lexer: I) -> Self {
         Parser {
-            lexer: MultiPeekable::new(lexer),
+            lexer: SpanTracker::new(lexer),
         }
     }
 
     pub fn parse(&mut self) -> ParserResult<'f, ast::Program<'f>> {
         self.parse_program()
-    }
-
-    fn next(&mut self) -> SyntaxResult<'f, Token<'f>> {
-        self.peek()?;
-        match self.lexer.next() {
-            Some(token) => Ok(token),
-            None => Err(WithoutSpan(SyntaxError::UnexpectedEOF)),
-        }
-    }
-
-    fn peek(&mut self) -> SyntaxResult<'f, &Token<'f>> {
-        self.peek_nth(0)
-    }
-
-    fn peek_nth(&mut self, n: usize) -> SyntaxResult<'f, &Token<'f>> {
-        let v = self.lexer.peek_multiple(n + 1);
-
-        match v.get(n) {
-            Some(token) => Ok(token),
-            None => Err(WithoutSpan(SyntaxError::UnexpectedEOF)),
-        }
-    }
-
-    /// Span of next token that would be returned
-    fn peek_span(&mut self) -> SyntaxResult<'f, Span<'f>> {
-        self.peek().map(|token| token.span)
     }
 
     /// In average compilers this is sometimes called `expect`
@@ -227,7 +217,7 @@ where
     where
         E: ExpectedToken,
     {
-        let actual = self.next()?;
+        let actual = self.lexer.next()?;
 
         want.matching(&actual.data)
             .map(|yielded| actual.map(|_| yielded))
@@ -264,10 +254,14 @@ where
         E: ExpectedToken,
         P: Fn(&E::Yields) -> bool,
     {
-        let got = self.peek()?;
+        if self.lexer.eof() {
+            return Ok(None);
+        }
+
+        let got = self.lexer.peek()?;
 
         Ok(want.matching(&got.data).filter(&pred).map(|yielded| {
-            let got = self.next().unwrap();
+            let got = self.lexer.next().unwrap();
             got.map(|_| yielded)
         }))
     }
@@ -285,17 +279,17 @@ where
     where
         E: ExpectedToken,
     {
-        self.peek_nth(n).map(|got| want.matches(&got.data))
-    }
+        if self.lexer.eof() {
+            return Ok(false);
+        }
 
-    fn eof(&mut self) -> bool {
-        self.peek().is_err()
+        Ok(self.lexer.peek_nth(n).map(|got| want.matches(&got.data))?)
     }
 
     fn parse_program(&mut self) -> ParserResult<'f, ast::Program<'f>> {
         spanned!(self, {
             let mut classes = Vec::new();
-            while !self.eof() {
+            while !self.lexer.eof() {
                 classes.push(self.parse_class_declaration()?);
             }
 
@@ -412,7 +406,7 @@ where
         } else if let Some(sym) = self.omnomnoptional(Identifier)? {
             Ok(ast::BasicType::Custom(sym.data))
         } else {
-            let actual = self.next()?;
+            let actual = self.lexer.next()?;
             Err(WithSpan(Spanned {
                 span: actual.span,
                 data: SyntaxError::UnexpectedToken {
@@ -559,10 +553,7 @@ where
             let rhs = operand_stack.pop().unwrap();
             let lhs = operand_stack.pop().unwrap();
             let res = box Spanned {
-                span: Span {
-                    start: lhs.span.start,
-                    end: rhs.span.end,
-                },
+                span: Span::new(lhs.span.start_position(), rhs.span.end_position()),
                 data: ast::Expr::Binary(op, lhs, rhs),
             };
             operand_stack.push(res);
@@ -724,9 +715,9 @@ where
                 Ok(Int(lit.data))
             } else {
                 Err(WithSpan(Spanned {
-                    span: self.peek_span()?,
+                    span: self.lexer.peek_span()?,
                     data: SyntaxError::UnexpectedToken {
-                        actual: self.next()?.data.to_string(),
+                        actual: self.lexer.next()?.data.to_string(),
                         expected: "primary expression".to_string(),
                     },
                 }))

@@ -26,6 +26,7 @@ mod diagnostics;
 mod lexer;
 mod parser;
 mod prettyprint;
+mod spantracker;
 mod strtab;
 
 use self::{
