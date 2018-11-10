@@ -6,31 +6,49 @@ use crate::visitor::NodeKind;
 struct IndentPrinter<'w> {
     writer: &'w mut dyn std::io::Write,
     indent: usize,
+    indent_on_next_write: bool,
 }
 
 impl<'w> IndentPrinter<'w> {
     fn new(writer: &'w mut dyn std::io::Write) -> IndentPrinter<'w> {
-        IndentPrinter { writer, indent: 0 }
+        IndentPrinter { writer, indent: 0, indent_on_next_write: false }
     }
 
-    fn indent(&mut self, x: isize) {
+    fn print(&mut self, args: std::fmt::Arguments) {
+        self.indent_if_required();
+        write!(self.writer, "{}", args);
+    }
+
+    fn newline(&mut self) {
+        writeln!(self.writer);
+        self.indent_on_next_write = true;
+    }
+
+    fn println(&mut self, args: std::fmt::Arguments) {
+        self.print(args);
+        self.newline();
+    }
+
+    fn indent_if_required(&mut self) {
+        if self.indent_on_next_write {
+            for i in 0..self.indent {
+                write!(self.writer, "\t");
+            }
+            self.indent_on_next_write = false;
+        }
+    }
+
+    fn indent(&mut self) { self.indent_var(1); }
+
+    fn outdent(&mut self) { self.indent_var(-1); }
+
+    fn indent_var(&mut self, x: isize) {
         let mut indent = self.indent as isize;
         indent += x;
         if indent < 0 {
             panic!("setting indent below 0");
         }
         self.indent = indent as usize;
-    }
-}
-
-use std::io::Write;
-
-impl Write for IndentPrinter<'_> {
-    fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
-        self.writer.write(b)
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.writer.flush()
     }
 }
 
@@ -44,8 +62,12 @@ pub fn prettyprint<'f, 'c>(
     Ok(())
 }
 
-#[allow(clippy::cyclomatic_complexity)]
 fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
+    do_prettyprint_ex(n, printer, false)
+}
+
+#[allow(clippy::cyclomatic_complexity)]
+fn do_prettyprint_ex(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>, parenthesize_expr: bool) {
     use crate::visitor::NodeKind::*;
     match n {
         Program(program) => {
@@ -55,11 +77,11 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             classes
                 .into_iter()
                 .for_each(|class| do_prettyprint(&NodeKind::from(class), printer));
-            writeln!(printer);
+            printer.newline();
         }
         ClassDeclaration(decl) => {
-            writeln!(printer, "class {} {{", decl.name);
-            printer.indent(1);
+            printer.println(format_args!("class {} {{", decl.name));
+            printer.indent();
             let mut members: Vec<&ast::ClassMember<'_>> =
                 decl.members.iter().map(|c| c.get_data()).collect();
             members.sort_by(|a, b| {
@@ -79,69 +101,69 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             members
                 .into_iter()
                 .for_each(|member| do_prettyprint(&NodeKind::from(member), printer));
-            printer.indent(-1);
-            writeln!(printer, "}}");
+            printer.outdent();
+            printer.println(format_args!("}}"));
         }
         ClassMember(member) => {
             use crate::ast::ClassMemberKind::*;
             match &member.kind {
                 Field(ty) => {
-                    write!(printer, "public ");
+                    printer.print(format_args!("public "));
                     do_prettyprint(&NodeKind::from(&ty.data), printer);
-                    write!(printer, " {};", member.name);
+                    printer.print(format_args!(" {};", member.name));
                 }
                 Method(ty, params, block) => {
-                    write!(printer, "public ");
+                    printer.print(format_args!("public "));
                     do_prettyprint(&NodeKind::from(&ty.data), printer);
-                    write!(printer, " {}(", member.name);
+                    printer.print(format_args!(" {}(", member.name));
                     do_prettyprint(&NodeKind::from(&params.data), printer);
-                    write!(printer, ") ");
+                    printer.print(format_args!(") "));
                     do_prettyprint(&NodeKind::from(&block.data), printer);
                 }
                 MainMethod(param_name, block) => {
-                    write!(printer, "public static void main(String[] {}) ", param_name);
+                    printer.print(format_args!("public static void main(String[] {})) ", param_name));
                     do_prettyprint(&NodeKind::from(&block.data), printer);
                 }
             }
-            writeln!(printer);
+            printer.newline();
         }
         Parameter(param) => {
             do_prettyprint(&NodeKind::from(&param.ty.data), printer);
-            write!(printer, " {}", param.name);
+            printer.print(format_args!(" {}", param.name));
         }
         ParameterList(params) => {
             for (i, param) in params.iter().enumerate() {
                 do_prettyprint(&NodeKind::from(&param.data), printer);
                 if i != params.len() - 1 {
-                    write!(printer, ", ");
+                    printer.print(format_args!(", "));
                 }
             }
         }
         Type(ty) => {
             do_prettyprint(&NodeKind::from(&ty.basic), printer);
-            write!(printer, "{}", "[]".repeat(ty.array_depth as usize));
+            printer.print(format_args!("{}", "[]".repeat(ty.array_depth as usize)));
         }
         BasicType(basic_ty) => {
             use crate::ast::BasicType::*;
             let _ = match basic_ty {
-                Int => write!(printer, "int"),
-                Boolean => write!(printer, "boolean"),
-                Void => write!(printer, "void"),
-                Custom(name) => write!(printer, "{}", name),
+                Int => printer.print(format_args!("int")),
+                Boolean => printer.print(format_args!("boolean")),
+                Void => printer.print(format_args!("void")),
+                Custom(name) => printer.print(format_args!("{}", name)),
             };
         }
         Block(block) => {
             if block.statements.is_empty() {
-                write!(printer, "{{ }}");
+                printer.print(format_args!("{{ }}"));
             } else {
-                writeln!(printer, "{{");
-                printer.indent(1);
+                printer.println(format_args!("{{"));
+                printer.indent();
                 for stmt in &block.statements {
                     do_prettyprint(&NodeKind::from(&stmt.data), printer);
-                    writeln!(printer);
+                    printer.newline();
                 }
-                printer.indent(-1);
-                write!(printer, "}}");
+                printer.outdent();
+                printer.print(format_args!("}}"));
             }
         }
         Stmt(stmt) => {
@@ -149,74 +171,75 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             match stmt {
                 Block(block) => do_prettyprint(&NodeKind::from(&block.data), printer),
                 Empty => {
-                    write!(printer, ";");
+                    printer.print(format_args!(";"));
                 }
                 If(cond, stmt, opt_else) => {
-                    write!(printer, "if (");
+                    printer.print(format_args!("if ("));
                     do_prettyprint(&NodeKind::from(&cond.data), printer);
                     if let ast::Stmt::Block(_) = stmt.data {
-                        write!(printer, ") ");
+                        printer.print(format_args!(") "));
                         do_prettyprint(&NodeKind::from(&stmt.data), printer);
                         if opt_else.is_some() {
-                            write!(printer, " ");
+                            printer.print(format_args!(" "));
                         }
                     } else {
-                        writeln!(printer, ")");
-                        printer.indent(1);
+                        printer.println(format_args!(")"));
+                        printer.indent();
                         do_prettyprint(&NodeKind::from(&stmt.data), printer);
-                        printer.indent(-1);
+                        printer.outdent();
                         if opt_else.is_some() {
-                            writeln!(printer);
+                            printer.newline();
                         }
                     }
                     if let Some(els) = opt_else {
                         match els.data {
                             If(..) | Block(..) => {
-                                write!(printer, "else ");
+                                printer.print(format_args!("else "));
                                 do_prettyprint(&NodeKind::from(&els.data), printer)
                             }
                             _ => {
-                                writeln!(printer);
-                                printer.indent(1);
+                                printer.newline();
+                                printer.indent();
                                 do_prettyprint(&NodeKind::from(&els.data), printer);
-                                printer.indent(-1);
+                                printer.outdent();
                             }
                         }
                     }
                 }
                 While(cond, stmt) => {
-                    write!(printer, "while (");
+                    printer.print(format_args!("while ("));
                     do_prettyprint(&NodeKind::from(&cond.data), printer);
+                    printer.print(format_args!(")"));
                     if let ast::Stmt::Block(_) = stmt.data {
-                        write!(printer, ") ");
+                        printer.print(format_args!(" "));
                         do_prettyprint(&NodeKind::from(&stmt.data), printer);
                     } else {
-                        writeln!(printer, ")");
-                        printer.indent(1);
+                        printer.newline();
+                        printer.indent();
                         do_prettyprint(&NodeKind::from(&stmt.data), printer);
-                        printer.indent(-1);
+                        printer.outdent();
                     }
                 }
                 Expression(expr) => {
                     do_prettyprint(&NodeKind::from(&expr.data), printer);
-                    write!(printer, ";");
+                    printer.print(format_args!(";"));
                 }
                 Return(expr_opt) => {
-                    write!(printer, "return");
+                    printer.print(format_args!("return"));
                     if let Some(expr) = expr_opt {
-                        write!(printer, " ");
+                        printer.print(format_args!(" "));
                         do_prettyprint(&NodeKind::from(&expr.data), printer);
                     }
-                    write!(printer, ";");
+                    printer.print(format_args!(";"));
                 }
                 LocalVariableDeclaration(ty, name, opt_assign) => {
                     do_prettyprint(&NodeKind::from(&ty.data), printer);
-                    write!(printer, " {}", name);
+                    printer.print(format_args!(" {}", name));
                     if let Some(assign) = opt_assign {
-                        write!(printer, " = ");
+                        printer.print(format_args!(" = "));
                         do_prettyprint(&NodeKind::from(&assign.data), printer);
                     }
-                    write!(printer, ";");
+                    printer.print(format_args!(";"));
                 }
             };
         }
@@ -226,24 +249,24 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 Assignment(assignee, assignements) => {
                     do_prettyprint(&NodeKind::from(&assignee.data), printer);
                     for assigned in assignements {
-                        write!(printer, " = ");
+                        printer.print(format_args!(" = "));
                         do_prettyprint(&NodeKind::from(&assigned.data), printer);
                     }
                 }
                 Binary(op, lhs, rhs) => {
-                    write!(printer, "(");
+                    printer.print(format_args!("("));
                     do_prettyprint(&NodeKind::from(&lhs.data), printer);
                     do_prettyprint(&NodeKind::from(op), printer);
                     do_prettyprint(&NodeKind::from(&rhs.data), printer);
-                    write!(printer, ")");
+                    printer.print(format_args!(")"));
                 }
                 Unary(ops, expr) => {
-                    write!(printer, "(");
+                    printer.print(format_args!("("));
                     for op in ops {
                         do_prettyprint(&NodeKind::from(op), printer);
                     }
                     do_prettyprint(&NodeKind::from(&expr.data), printer);
-                    write!(printer, ")");
+                    printer.print(format_args!(")"));
                 }
                 Postfix(prime, post_ops) => {
                     do_prettyprint(&NodeKind::from(&prime.data), printer);
@@ -252,89 +275,89 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                     }
                 }
                 Null => {
-                    write!(printer, "null");
+                    printer.print(format_args!("null"));
                 }
                 Boolean(val) => {
-                    write!(printer, "{}", val);
+                    printer.print(format_args!("{}", val));
                 }
                 Int(val) => {
-                    write!(printer, "{}", val);
+                    printer.print(format_args!("{}", val));
                 }
                 Var(name) => {
-                    write!(printer, "{}", name);
+                    printer.print(format_args!("{}", name));
                 }
                 MethodInvocation(name, args) => {
-                    write!(printer, "{}(", name);
+                    printer.print(format_args!("{}(", name));
                     for (i, arg) in args.data.iter().enumerate() {
                         do_prettyprint(&NodeKind::from(&arg.data), printer);
 
                         if i != args.len() - 1 {
-                            write!(printer, ", ");
+                            printer.print(format_args!(", "));
                         }
                     }
-                    write!(printer, ")");
+                    printer.print(format_args!(")"));
                 }
                 This => {
-                    write!(printer, "this");
+                    printer.print(format_args!("this"));
                 }
                 NewObject(name) => {
-                    write!(printer, "new {}()", name);
+                    printer.print(format_args!("new {}())", name));
                 }
                 NewArray(basic_ty, size, brackets) => {
-                    write!(printer, "new ");
+                    printer.print(format_args!("new "));
                     do_prettyprint(&NodeKind::from(basic_ty), printer);
-                    write!(printer, "[");
+                    printer.print(format_args!("["));
                     do_prettyprint(&NodeKind::from(&size.data), printer);
-                    write!(printer, "]{}", "[]".repeat(*brackets as usize));
+                    printer.print(format_args!("]{}", "[]".repeat(*brackets as usize)));
                 }
             }
         }
         BinaryOp(bin_op) => {
             use crate::ast::BinaryOp::*;
             let _ = match bin_op {
-                Equals => write!(printer, " == "),
-                NotEquals => write!(printer, " != "),
-                LessThan => write!(printer, " < "),
-                GreaterThan => write!(printer, " > "),
-                LessEquals => write!(printer, " <= "),
-                GreaterEquals => write!(printer, " >= "),
-                LogicalOr => write!(printer, " || "),
-                LogicalAnd => write!(printer, " && "),
-                Add => write!(printer, " + "),
-                Sub => write!(printer, " - "),
-                Mul => write!(printer, " * "),
-                Div => write!(printer, " / "),
-                Mod => write!(printer, " % "),
+                Equals => printer.print(format_args!(" == ")),
+                NotEquals => printer.print(format_args!(" != ")),
+                LessThan => printer.print(format_args!(" < ")),
+                GreaterThan => printer.print(format_args!(" > ")),
+                LessEquals => printer.print(format_args!(" <= ")),
+                GreaterEquals => printer.print(format_args!(" >= ")),
+                LogicalOr => printer.print(format_args!(" || ")),
+                LogicalAnd => printer.print(format_args!(" && ")),
+                Add => printer.print(format_args!(" + ")),
+                Sub => printer.print(format_args!(" - ")),
+                Mul => printer.print(format_args!(" * ")),
+                Div => printer.print(format_args!(" / ")),
+                Mod => printer.print(format_args!(" % ")),
             };
         }
         UnaryOp(unary_op) => {
             use crate::ast::UnaryOp::*;
             let _ = match unary_op {
-                Not => write!(printer, "!"),
-                Neg => write!(printer, "-"),
+                Not => printer.print(format_args!("!")),
+                Neg => printer.print(format_args!("-")),
             };
         }
         PostfixOp(postfix_op) => {
             use crate::ast::PostfixOp::*;
             match postfix_op {
                 MethodInvocation(name, args) => {
-                    write!(printer, ".{}(", name);
+                    printer.print(format_args!(".{}(", name));
                     for (i, arg) in args.data.iter().enumerate() {
                         do_prettyprint(&NodeKind::from(&arg.data), printer);
 
                         if i != args.len() - 1 {
-                            write!(printer, ", ");
+                            printer.print(format_args!(", "));
                         }
                     }
-                    write!(printer, ")");
+                    printer.print(format_args!(")"));
                 }
                 FieldAccess(name) => {
-                    write!(printer, ".{}", name);
+                    printer.print(format_args!(".{}", name));
                 }
                 ArrayAccess(expr) => {
-                    write!(printer, "[");
+                    printer.print(format_args!("["));
                     do_prettyprint(&NodeKind::from(&expr.data), printer);
-                    write!(printer, "]");
+                    printer.print(format_args!("]"));
                 }
             }
         }
