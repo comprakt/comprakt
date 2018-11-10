@@ -47,7 +47,6 @@ impl Debug for NodeKind<'_, '_> {
 }
 
 impl<'a, 't> NodeKind<'a, 't> {
-    #[rustfmt::skip]
     pub fn for_each_child(&self, cb: &mut dyn FnMut(NodeKind<'a, 't>)) {
         use self::NodeKind::*;
         macro_rules! ccb {
@@ -57,7 +56,7 @@ impl<'a, 't> NodeKind<'a, 't> {
             Program(p)          => p.classes.iter().for_each(|x| ccb!(x)),
             ClassDeclaration(d) => d.members.iter().for_each(|x| ccb!(x)),
             ClassMember(cm)      => { use crate::ast::ClassMemberKind::*; match &cm.kind {
-                Field(_) => (), // TODO review
+                Field(t) => ccb!(t),
                 Method(ty, pl, block) => {
                     ccb!(ty);
                     cb(NodeKind::ParameterList(pl.get_data()));
@@ -72,7 +71,7 @@ impl<'a, 't> NodeKind<'a, 't> {
             },
             ParameterList(l) => l.iter().for_each(|x| ccb!(x)),
             Type(t) => cb(NodeKind::from(&t.basic)),
-            BasicType(_) => (), // TODO review
+            BasicType(_) => (),
             Block(b) => b.statements.iter().for_each(|x| ccb!(x)),
             Stmt(s) => { use crate::ast::Stmt::*; match s {
                 Empty => (),
@@ -83,8 +82,9 @@ impl<'a, 't> NodeKind<'a, 't> {
                     ccb!(then_stmt.as_ref());
                     else_stmt.iter().for_each(|x| ccb!(x.as_ref()));
                 },
-                LocalVariableDeclaration(_, _, expr) => { // TODO review
-                    expr.iter().for_each(|x| ccb!(x.as_ref()))
+                LocalVariableDeclaration(t, _, expr) => {
+                    ccb!(t);
+                    expr.iter().for_each(|x| ccb!(x.as_ref()));
                 },
                 Return(expr) => expr.iter().for_each(|x| ccb!(x.as_ref())),
                 While(cond, stmt) => {
@@ -97,16 +97,16 @@ impl<'a, 't> NodeKind<'a, 't> {
                     ccb!(lhs.as_ref());
                     rhs.iter().for_each(|x| ccb!(x));
                 },
-                Binary(_, lhs, rhs) => { // TODO review
+                Binary(_, lhs, rhs) => {
                     ccb!(lhs.as_ref());
                     ccb!(rhs.as_ref());
                 },
                 Unary(_, expr) => ccb!(expr.as_ref()),
                 Postfix(expr, _) => ccb!(expr.as_ref()),
-                Null | Boolean(_) | Int(_) | Var(_) | This => (), // TODO review
+                Null | Boolean(_) | Int(_) | Var(_) | This => (),
                 MethodInvocation(_, al) => al.iter().for_each(|a| ccb!(a)),
-                NewObject(_) => (), // TODO review
-                NewArray(_, expr, _) => ccb!(expr.as_ref()), // TODO review
+                NewObject(_) => (),
+                NewArray(_, expr, _) => ccb!(expr.as_ref()),
             }},
             BinaryOp(_) | UnaryOp(_) => (),
             PostfixOp(oc) => { use crate::ast::PostfixOp::*; match oc {
