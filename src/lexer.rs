@@ -428,9 +428,10 @@ impl<'f, 's> Lexer<'f, 's> {
                 '/' if self.input.matches("/*") => self.lex_comment(),
 
                 _ => self.lex_operator().unwrap_or_else(|| {
+                    let byte = position.byte();
                     Err(LexicalError::new(
                         position.to_single_char_span(),
-                        ErrorKind::UnexpectedCharacter(position.byte()),
+                        ErrorKind::UnexpectedCharacter(byte),
                     ))
                 }),
             }),

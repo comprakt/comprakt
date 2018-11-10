@@ -42,8 +42,8 @@ impl<'f> Span<'f> {
         //debug_assert!(a.file == b.file);
 
         Self {
-            start: min(a, b),
-            end: max(a, b),
+            start: min(&a, &b).clone(),
+            end: max(&a, &b).clone(),
         }
     }
 
@@ -59,7 +59,7 @@ impl<'f> Span<'f> {
     /// ```
     pub fn from_single_position(position: Position<'f>) -> Self {
         Span {
-            start: position,
+            start: position.clone(),
             end: position,
         }
     }
@@ -93,11 +93,11 @@ impl<'f> Span<'f> {
     }
 
     pub fn start_position(&self) -> Position<'f> {
-        self.start
+        self.start.clone()
     }
 
     pub fn end_position(&self) -> Position<'f> {
-        self.end
+        self.end.clone()
     }
 
     /// Check if a span extends over multiple lines
@@ -137,7 +137,8 @@ impl<'f> Span<'f> {
 
     /// extends the span to include the given position
     pub fn extend_to_position(self, position: &Position<'f>) -> Span<'f> {
-        Span::combine(&position.to_single_char_span(), &self)
+        // TODO: clone externally
+        Span::combine(&position.clone().to_single_char_span(), &self)
     }
 
     /// test if a span contains another span
@@ -147,8 +148,8 @@ impl<'f> Span<'f> {
 
     pub fn combine(a: &Span<'f>, b: &Span<'f>) -> Span<'f> {
         Span {
-            start: min(a.start, b.start),
-            end: max(a.end, b.end),
+            start: min(a.start.clone(), b.start.clone()),
+            end: max(a.end.clone(), b.end.clone()),
         }
     }
 
@@ -159,8 +160,8 @@ impl<'f> Span<'f> {
             None
         } else {
             Some(Span {
-                start: max(a.start, b.start),
-                end: min(a.end, b.end),
+                start: max(a.start.clone(), b.start.clone()),
+                end: min(a.end.clone(), b.end.clone()),
             })
         }
     }
@@ -173,9 +174,9 @@ impl<'f> Span<'f> {
     pub fn from_positions(positions: &[Position<'f>]) -> Option<Self> {
         match positions {
             [] => None,
-            [single] => Some(Span::from_single_position(*single)),
+            [single] => Some(Span::from_single_position(single.clone())),
             [head, tail..] => {
-                let mut span = Span::from_single_position(*head);
+                let mut span = Span::from_single_position(head.clone());
                 for position in tail {
                     span = span.extend_to_position(position)
                 }
