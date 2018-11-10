@@ -1,6 +1,6 @@
 use crate::{Position, Span};
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct PositionIterator<'t> {
     /// current iterator position. Always points to the next character/position
     /// to emit
@@ -12,10 +12,9 @@ impl<'t> Iterator for PositionIterator<'t> {
     fn next(&mut self) -> Option<Position<'t>> {
         match self.position_to_emit {
             None => None,
-            Some(ref position) => {
-                let position_to_emit = position.clone();
+            Some(position) => {
                 self.position_to_emit = position.next();
-                Some(position_to_emit)
+                Some(position)
             }
         }
     }
@@ -48,12 +47,12 @@ impl<'t> PositionIterator<'t> {
         debug_assert!(n >= 1);
         match self.position_to_emit {
             None => None,
-            Some(ref span_start) => {
+            Some(span_start) => {
                 // unwrap is save, since we are in a branch asserting
                 // that the iterator is not finished => has at least character
                 // `span_start` remaining
-                let span_end = self.clone().take(n).last().unwrap();
-                Some(Span::new(span_start.clone(), span_end))
+                let span_end = self.take(n).last().unwrap();
+                Some(Span::new(span_start, span_end))
             }
         }
     }
@@ -66,15 +65,15 @@ impl<'t> PositionIterator<'t> {
     }
 
     pub fn peek(&self) -> Option<Position<'t>> {
-        self.position_to_emit.clone()
+        self.position_to_emit
     }
 
     pub fn eof_reached(&self) -> bool {
-        self.position_to_emit.is_none()
+        self.peek().is_none()
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct ReversePositionIterator<'t> {
     /// current iterator position. Always points to the next character/position
     /// to emit
@@ -90,10 +89,9 @@ impl<'t> Iterator for ReversePositionIterator<'t> {
     fn next(&mut self) -> Option<Position<'t>> {
         match self.position_to_emit {
             None => None,
-            Some(ref position) => {
-                let position_to_emit = position.clone();
+            Some(position) => {
                 self.position_to_emit = position.prev();
-                Some(position_to_emit)
+                Some(position)
             }
         }
     }

@@ -14,7 +14,7 @@
 use crate::{AsciiFile, PositionIterator, ReversePositionIterator, Span};
 use std::cmp::Ordering;
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Position<'t> {
     // TODO: should all be private
     row: usize,
@@ -238,7 +238,7 @@ impl<'t> Position<'t> {
         let start = self
             .reverse_iter()
             .find(|position| match position.prev() {
-                Some(ref next) if next.chr() == '\n' => true,
+                Some(next) if next.chr() == '\n' => true,
                 None => true,
                 _ => false,
             })
