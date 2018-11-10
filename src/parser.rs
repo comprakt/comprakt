@@ -1,6 +1,6 @@
 use asciifile::{Span, Spanned};
 use crate::{
-    ast::*,
+    ast,
     diagnostics::MaybeSpanned::{self, *},
     lexer::{Keyword, Operator, Token, TokenKind},
     strtab::Symbol,
@@ -19,25 +19,24 @@ enum Assoc {
     Right,
 }
 #[rustfmt::skip]
-const BINARY_OPERATORS: &[(Operator, Precedence, Assoc)] = &[
-    (Operator::Star,              1, Assoc::Left),
-    (Operator::Slash,             1, Assoc::Left),
-    (Operator::Percent,           1, Assoc::Left),
+const BINARY_OPERATORS: &[(Operator, ast::BinaryOp, Precedence, Assoc)] = &[
+    (Operator::Star,              ast::BinaryOp::Mul,           1, Assoc::Left),
+    (Operator::Slash,             ast::BinaryOp::Div,           1, Assoc::Left),
+    (Operator::Percent,           ast::BinaryOp::Mod,           1, Assoc::Left),
 
-    (Operator::Plus,              2, Assoc::Left),
-    (Operator::Minus,             2, Assoc::Left),
+    (Operator::Plus,              ast::BinaryOp::Add,           2, Assoc::Left),
+    (Operator::Minus,             ast::BinaryOp::Sub,           2, Assoc::Left),
 
-    (Operator::LeftChevron,       3, Assoc::Left),
-    (Operator::LeftChevronEqual,  3, Assoc::Left),
-    (Operator::RightChevron,      3, Assoc::Left),
-    (Operator::RightChevronEqual, 3, Assoc::Left),
+    (Operator::LeftChevron,       ast::BinaryOp::LessThan,      3, Assoc::Left),
+    (Operator::LeftChevronEqual,  ast::BinaryOp::LessEquals,    3, Assoc::Left),
+    (Operator::RightChevron,      ast::BinaryOp::GreaterThan,   3, Assoc::Left),
+    (Operator::RightChevronEqual, ast::BinaryOp::GreaterEquals, 3, Assoc::Left),
 
-    (Operator::DoubleEqual,       4, Assoc::Left),
-    (Operator::ExclaimEqual,      4, Assoc::Left),
+    (Operator::DoubleEqual,       ast::BinaryOp::Equals,        4, Assoc::Left),
+    (Operator::ExclaimEqual,      ast::BinaryOp::NotEquals,     4, Assoc::Left),
 
-    (Operator::DoubleAmpersand,   5, Assoc::Left),
-
-    (Operator::DoublePipe,        6, Assoc::Left),
+    (Operator::DoubleAmpersand,   ast::BinaryOp::LogicalAnd,    5, Assoc::Left),
+    (Operator::DoublePipe,        ast::BinaryOp::LogicalOr,     6, Assoc::Left),
 ];
 
 #[rustfmt::skip]
@@ -48,12 +47,6 @@ pub enum SyntaxError {
         actual: String,
         expected: String, // TODO This is temporary, shouldn't be string
     },
-    #[fail(
-        display = "invalid main method. It must be declared as `public static void main(String[] args)`"
-    )]
-    InvalidMainMethod,
-    #[fail(display = "invalid new object expression")]
-    InvalidNewObjectExpression,
     #[fail(display = "unexpected end of file")]
     UnexpectedEOF,
 }
@@ -96,6 +89,12 @@ impl From<Keyword> for Exactly {
     }
 }
 
+impl From<Symbol> for Exactly {
+    fn from(sym: Symbol) -> Self {
+        Exactly(TokenKind::Identifier(sym))
+    }
+}
+
 fn exactly(thing: impl Into<Exactly>) -> Exactly {
     thing.into()
 }
@@ -112,25 +111,24 @@ impl ExpectedToken for Exactly {
 }
 
 impl ExpectedToken for BinaryOp {
-    type Yields = (Operator, Precedence, Assoc);
+    type Yields = (ast::BinaryOp, Precedence, Assoc);
     fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
         match token {
             TokenKind::Operator(op) => BINARY_OPERATORS
                 .iter()
-                .find(|(this_op, _, _)| this_op == op)
-                .cloned(),
+                .find(|(this_op, _, _, _)| this_op == op)
+                .map(|(_, op, prec, assoc)| (*op, *prec, *assoc)),
             _ => None,
         }
     }
 }
 
 impl ExpectedToken for UnaryOp {
-    type Yields = ();
+    type Yields = ast::UnaryOp;
     fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
         match token {
-            TokenKind::Operator(Operator::Exclaim) | TokenKind::Operator(Operator::Minus) => {
-                Some(())
-            }
+            TokenKind::Operator(Operator::Exclaim) => Some(ast::UnaryOp::Not),
+            TokenKind::Operator(Operator::Minus) => Some(ast::UnaryOp::Neg),
             _ => None,
         }
     }
@@ -157,14 +155,30 @@ impl ExpectedToken for IntegerLiteral {
 }
 
 type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
-// TODO Ok-value should be AST
-type ParserResult<'f> = Result<(), MaybeSpanned<'f, SyntaxError>>;
+type ParserResult<'f, T> = SyntaxResult<'f, Spanned<'f, T>>;
+type BoxedResult<'f, T> = SyntaxResult<'f, Box<Spanned<'f, T>>>;
 
 pub struct Parser<'f, I>
 where
     I: Iterator<Item = Token<'f>>,
 {
     lexer: MultiPeekable<I>,
+}
+
+macro_rules! spanned {
+    ($self:expr, $code:expr) => {{
+        let start = $self.peek_span()?;
+        let data = $code?;
+        let end = $self.peek_span()?;
+
+        Ok(Spanned {
+            span: Span {
+                start: start.start,
+                end: end.end,
+            },
+            data: data,
+        })
+    }};
 }
 
 impl<'f, I> Parser<'f, I>
@@ -177,7 +191,7 @@ where
         }
     }
 
-    pub fn parse(&mut self) -> ParserResult<'f> {
+    pub fn parse(&mut self) -> ParserResult<'f, ast::Program<'f>> {
         self.parse_program()
     }
 
@@ -200,6 +214,11 @@ where
             Some(token) => Ok(token),
             None => Err(WithoutSpan(SyntaxError::UnexpectedEOF)),
         }
+    }
+
+    /// Span of next token that would be returned
+    fn peek_span(&mut self) -> SyntaxResult<'f, Span<'f>> {
+        self.peek().map(|token| token.span)
     }
 
     /// In average compilers this is sometimes called `expect`
@@ -273,124 +292,125 @@ where
         self.peek().is_err()
     }
 
-    fn parse_program(&mut self) -> ParserResult<'f> {
-        // as long as we have input remaining
-        while !self.eof() {
-            self.parse_class_declaration()?;
-        }
-
-        Ok(())
-    }
-
-    fn parse_class_declaration(&mut self) -> ParserResult<'f> {
-        self.omnomnom(exactly(Keyword::Class))?;
-        self.omnomnom(Identifier)?;
-
-        self.omnomnom(exactly(Operator::LeftBrace))?;
-        while self
-            .omnomnoptional(exactly(Operator::RightBrace))?
-            .is_none()
-        {
-            self.parse_class_member()?;
-        }
-
-        Ok(())
-    }
-
-    fn parse_class_member(&mut self) -> ParserResult<'f> {
-        let start_position = self
-            .omnomnom(exactly(Keyword::Public))?
-            .span
-            .start_position();
-
-        let is_static = self.omnomnoptional(exactly(Keyword::Static))?.is_some();
-        let return_type = self.parse_type()?;
-        self.omnomnom(Identifier)?;
-
-        if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
-            // method or main method
-
-            let params = if !self.tastes_like(exactly(Operator::RightParen))? {
-                self.parse_parameters()?
-            } else {
-                ParameterList::new()
-            };
-
-            let end_position = self
-                .omnomnom(exactly(Operator::RightParen))?
-                .span
-                .start_position();
-
-            if self.omnomnoptional(exactly(Keyword::Throws))?.is_some() {
-                self.omnomnom(Identifier)?;
+    fn parse_program(&mut self) -> ParserResult<'f, ast::Program<'f>> {
+        spanned!(self, {
+            let mut classes = Vec::new();
+            while !self.eof() {
+                classes.push(self.parse_class_declaration()?);
             }
 
-            // Check that "static" => Type=void && ParameterList==(String[] IDENT)
-            // TODO Should be handled during semantical analysis
-            if is_static
-                && (return_type != Type::Basic(BasicType::Void)
-                    || params.len() != 1
-                    || params[0].ty
-                        != Type::ArrayOf(box Type::Basic(BasicType::Ident(Symbol::from("String")))))
-            {
-                return Err(WithSpan(Spanned {
-                    span: Span::new(start_position, end_position),
-                    data: SyntaxError::InvalidMainMethod,
-                }));
-            }
-
-            self.parse_block()?;
-        } else {
-            self.omnomnom(exactly(Operator::Semicolon))?;
-        }
-
-        Ok(())
-    }
-
-    fn parse_parameters(&mut self) -> SyntaxResult<'f, ParameterList> {
-        let mut param_list = ParameterList::new();
-
-        param_list.push(self.parse_parameter()?);
-        while self.omnomnoptional(exactly(Operator::Comma))?.is_some() {
-            param_list.push(self.parse_parameter()?);
-        }
-
-        Ok(param_list)
-    }
-
-    fn parse_parameter(&mut self) -> SyntaxResult<'f, VariableDecl> {
-        let ty = self.parse_type()?;
-        let name = self.omnomnom(Identifier)?;
-
-        Ok(VariableDecl {
-            ty,
-            name: name.data,
+            Ok(ast::Program { classes })
         })
     }
 
-    fn parse_type(&mut self) -> SyntaxResult<'f, Type> {
-        let mut ty = Type::Basic(self.parse_basic_type()?);
+    fn parse_class_declaration(&mut self) -> ParserResult<'f, ast::ClassDeclaration<'f>> {
+        spanned!(self, {
+            self.omnomnom(exactly(Keyword::Class))?;
+            let name = self.omnomnom(Identifier)?.data;
 
-        while self
-            .omnomnoptional(exactly(Operator::LeftBracket))?
-            .is_some()
-        {
-            self.omnomnom(exactly(Operator::RightBracket))?;
-            ty = Type::ArrayOf(box ty);
-        }
+            let mut members = Vec::new();
+            self.omnomnom(exactly(Operator::LeftBrace))?;
+            while self
+                .omnomnoptional(exactly(Operator::RightBrace))?
+                .is_none()
+            {
+                members.push(self.parse_class_member()?);
+            }
 
-        Ok(ty)
+            Ok(ast::ClassDeclaration { name, members })
+        })
     }
 
-    fn parse_basic_type(&mut self) -> SyntaxResult<'f, BasicType> {
+    fn parse_class_member(&mut self) -> ParserResult<'f, ast::ClassMember<'f>> {
+        spanned!(self, {
+            self.omnomnom(exactly(Keyword::Public))?;
+            let is_static = self.omnomnoptional(exactly(Keyword::Static))?.is_some();
+
+            Ok(if is_static {
+                // Main Method
+                // Consume exactly `void IDENT(String[] IDENT)`
+                self.omnomnom(exactly(Keyword::Void))?;
+                let name = self.omnomnom(Identifier)?.data;
+                self.omnomnom(exactly(Operator::LeftParen))?;
+                self.omnomnom(exactly(Symbol::from("String")))?;
+                self.omnomnom(exactly(Operator::LeftBracket))?;
+                self.omnomnom(exactly(Operator::RightBracket))?;
+                let param = self.omnomnom(Identifier)?.data;
+                self.omnomnom(exactly(Operator::RightParen))?;
+
+                self.skip_method_rest()?;
+                let body = self.parse_block()?;
+
+                let kind = ast::ClassMemberKind::MainMethod(param, body);
+                ast::ClassMember { kind, name }
+            } else {
+                let ty = self.parse_type()?;
+                let name = self.omnomnom(Identifier)?.data;
+
+                let kind = if self.tastes_like(exactly(Operator::LeftParen))? {
+                    // Method
+                    let params = self.parse_parameter_declarations()?;
+                    self.skip_method_rest()?;
+                    let body = self.parse_block()?;
+
+                    ast::ClassMemberKind::Method(ty, params, body)
+                } else {
+                    // Field
+                    self.omnomnom(exactly(Operator::Semicolon))?;
+                    ast::ClassMemberKind::Field(ty)
+                };
+
+                ast::ClassMember { kind, name }
+            })
+        })
+    }
+
+    fn skip_method_rest(&mut self) -> SyntaxResult<'f, ()> {
+        if self.omnomnoptional(exactly(Keyword::Throws))?.is_some() {
+            self.omnomnom(Identifier)?;
+        }
+
+        Ok(())
+    }
+
+    fn parse_parameter_declarations(&mut self) -> ParserResult<'f, ast::ParameterList<'f>> {
+        self.parse_parnethesized_list(|parser| parser.parse_parameter())
+    }
+
+    fn parse_parameter(&mut self) -> ParserResult<'f, ast::Parameter<'f>> {
+        spanned!(self, {
+            let ty = self.parse_type()?;
+            let name = self.omnomnom(Identifier)?.data;
+            Ok(ast::Parameter { ty, name })
+        })
+    }
+
+    fn parse_type(&mut self) -> ParserResult<'f, ast::Type> {
+        spanned!(self, {
+            let basic = self.parse_basic_type()?;
+
+            let mut array_depth = 0;
+            while self
+                .omnomnoptional(exactly(Operator::LeftBracket))?
+                .is_some()
+            {
+                self.omnomnom(exactly(Operator::RightBracket))?;
+                array_depth += 1;
+            }
+
+            Ok(ast::Type { basic, array_depth })
+        })
+    }
+
+    fn parse_basic_type(&mut self) -> SyntaxResult<'f, ast::BasicType> {
         if self.omnomnoptional(exactly(Keyword::Int))?.is_some() {
-            Ok(BasicType::Int)
+            Ok(ast::BasicType::Int)
         } else if self.omnomnoptional(exactly(Keyword::Boolean))?.is_some() {
-            Ok(BasicType::Bool)
+            Ok(ast::BasicType::Boolean)
         } else if self.omnomnoptional(exactly(Keyword::Void))?.is_some() {
-            Ok(BasicType::Void)
+            Ok(ast::BasicType::Void)
         } else if let Some(sym) = self.omnomnoptional(Identifier)? {
-            Ok(BasicType::Ident(sym.data))
+            Ok(ast::BasicType::Custom(sym.data))
         } else {
             let actual = self.next()?;
             Err(WithSpan(Spanned {
@@ -403,242 +423,341 @@ where
         }
     }
 
-    fn parse_block(&mut self) -> ParserResult<'f> {
-        self.omnomnom(exactly(Operator::LeftBrace))?;
+    fn parse_block(&mut self) -> ParserResult<'f, ast::Block<'f>> {
+        spanned!(self, {
+            self.omnomnom(exactly(Operator::LeftBrace))?;
 
-        while self
-            .omnomnoptional(exactly(Operator::RightBrace))?
-            .is_none()
-        {
-            self.parse_block_statement()?;
-        }
+            let mut statements = Vec::new();
+            while self
+                .omnomnoptional(exactly(Operator::RightBrace))?
+                .is_none()
+            {
+                statements.push(self.parse_block_statement()?);
+            }
 
-        Ok(())
+            Ok(ast::Block { statements })
+        })
     }
 
-    fn parse_statement(&mut self) -> ParserResult<'f> {
+    fn parse_statement(&mut self) -> ParserResult<'f, ast::Stmt<'f>> {
         self.parse_statement_or_local_var(false)
     }
 
-    fn parse_block_statement(&mut self) -> ParserResult<'f> {
+    fn parse_block_statement(&mut self) -> ParserResult<'f, ast::Stmt<'f>> {
         self.parse_statement_or_local_var(true)
     }
 
     // Using a bool-flag for *LocalVarDeclStatement* allows us to delay the
     // descision on weather the statement at point is a *LocalVarDeclStatement*
-    fn parse_statement_or_local_var(&mut self, allow_local_var_decl: bool) -> ParserResult<'f> {
-        if self.tastes_like(exactly(Operator::LeftBrace))? {
-            self.parse_block()
-        } else if self.omnomnoptional(exactly(Operator::Semicolon))?.is_some() {
-            // empty statement
-            Ok(())
-        } else if self.omnomnoptional(exactly(Keyword::If))?.is_some() {
-            self.omnomnom(exactly(Operator::LeftParen))?;
-            self.parse_expression()?;
-            self.omnomnom(exactly(Operator::RightParen))?;
+    fn parse_statement_or_local_var(
+        &mut self,
+        allow_local_var_decl: bool,
+    ) -> ParserResult<'f, ast::Stmt<'f>> {
+        spanned!(self, {
+            use self::ast::Stmt::*;
 
-            self.parse_statement()?;
-            if let Ok(Some(_)) = self.omnomnoptional(exactly(Keyword::Else)) {
-                self.parse_statement()?;
-            }
+            if self.tastes_like(exactly(Operator::LeftBrace))? {
+                Ok(Block(self.parse_block()?))
+            } else if self.omnomnoptional(exactly(Operator::Semicolon))?.is_some() {
+                // empty statement
+                Ok(Empty)
+            } else if self.omnomnoptional(exactly(Keyword::If))?.is_some() {
+                self.omnomnom(exactly(Operator::LeftParen))?;
+                let cond = self.parse_expression()?;
+                self.omnomnom(exactly(Operator::RightParen))?;
 
-            Ok(())
-        } else if self.omnomnoptional(exactly(Keyword::While))?.is_some() {
-            self.omnomnom(exactly(Operator::LeftParen))?;
-            self.parse_expression()?;
-            self.omnomnom(exactly(Operator::RightParen))?;
+                let if_arm = self.parse_statement()?;
+                let else_arm = if self.omnomnoptional(exactly(Keyword::Else))?.is_some() {
+                    Some(self.parse_statement()?)
+                } else {
+                    None
+                };
 
-            self.parse_statement()
-        } else if self.omnomnoptional(exactly(Keyword::Return))?.is_some() {
-            if !self.tastes_like(exactly(Operator::Semicolon))? {
-                self.parse_expression()?;
-            }
+                Ok(If(cond, box if_arm, else_arm.map(Box::new)))
+            } else if self.omnomnoptional(exactly(Keyword::While))?.is_some() {
+                self.omnomnom(exactly(Operator::LeftParen))?;
+                let cond = self.parse_expression()?;
+                self.omnomnom(exactly(Operator::RightParen))?;
 
-            self.omnomnom(exactly(Operator::Semicolon))?;
+                let body = self.parse_statement()?;
 
-            Ok(())
-        } else if allow_local_var_decl {
-            // next (0th) tastes like *BasicType*
-            // and next after that (1st) like *Identifier* or 1st+2nd like '[]'
-            if (self.tastes_like(exactly(Keyword::Int))?
-                || self.tastes_like(exactly(Keyword::Boolean))?
-                || self.tastes_like(exactly(Keyword::Void))?
-                || self.tastes_like(Identifier)?)
+                Ok(While(cond, box body))
+            } else if self.omnomnoptional(exactly(Keyword::Return))?.is_some() {
+                let expr = if !self.tastes_like(exactly(Operator::Semicolon))? {
+                    Some(self.parse_expression()?)
+                } else {
+                    None
+                };
+
+                self.omnomnom(exactly(Operator::Semicolon))?;
+
+                Ok(Return(expr))
+            } else if allow_local_var_decl
+                && (self.tastes_like(exactly(Keyword::Int))?
+                    || self.tastes_like(exactly(Keyword::Boolean))?
+                    || self.tastes_like(exactly(Keyword::Void))?
+                    || self.tastes_like(Identifier)?)
                 && (self.nth_tastes_like(1, Identifier)?
                     || (self.nth_tastes_like(1, exactly(Operator::LeftBracket))?
                         && self.nth_tastes_like(2, exactly(Operator::RightBracket))?))
             {
+                // next (0th) tastes like *BasicType*
+                // and next after that (1st) like *Identifier* or 1st+2nd like '[]'
                 // Local var decl
-                self.parse_type()?;
-                self.omnomnom(Identifier)?;
-                if self.omnomnoptional(exactly(Operator::Equal))?.is_some() {
-                    self.parse_expression()?;
-                }
+                let ty = self.parse_type()?;
+                let name = self.omnomnom(Identifier)?;
+                let init = if self.omnomnoptional(exactly(Operator::Equal))?.is_some() {
+                    Some(self.parse_expression()?)
+                } else {
+                    None
+                };
 
                 self.omnomnom(exactly(Operator::Semicolon))?;
+
+                Ok(LocalVariableDeclaration(ty, name.data, init))
             } else {
-                self.parse_expression_statement()?;
+                let expr = self.parse_expression()?;
+                self.omnomnom(exactly(Operator::Semicolon))?;
+
+                Ok(Expression(expr))
+            }
+        })
+    }
+
+    fn parse_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
+        spanned!(self, {
+            let lvalue = self.parse_binary_expression()?;
+
+            // Assignment expression
+            let mut rvalues = Vec::new();
+            while self.omnomnoptional(exactly(Operator::Equal))?.is_some() {
+                rvalues.push(*self.parse_binary_expression()?);
             }
 
-            Ok(())
-        } else {
-            self.parse_expression_statement()
+            Ok(ast::Expr::Assignment(lvalue, rvalues))
+        })
+        .map(Box::new)
+    }
+
+    /// This uses an adapted version of Djikstras original "Shunting Yard"
+    /// algorithm [1]. While this traditionally only converts to RPN, it is
+    /// combined with an RPN evaluator [2] to build the AST of the
+    /// expression on the fly instead. This can also be seen
+    /// as a non-recursive variant of precedence climbing [3].
+    ///
+    /// [1]: https://en.wikipedia.org/wiki/Shunting-yard_algorithm
+    /// [2]: https://en.wikipedia.org/wiki/Reverse_Polish_notation#Postfix_evaluation_algorithm
+    /// [3]: https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
+    fn parse_binary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
+        let mut operator_stack = Vec::new();
+        let mut operand_stack = Vec::new();
+        fn rpn_eval<'f>(
+            operand_stack: &mut Vec<Box<Spanned<'f, ast::Expr<'f>>>>,
+            op: ast::BinaryOp,
+        ) {
+            assert!(operand_stack.len() >= 2); // Invariant: we only construct valid RPN
+            let rhs = operand_stack.pop().unwrap();
+            let lhs = operand_stack.pop().unwrap();
+            let res = box Spanned {
+                span: Span {
+                    start: lhs.span.start,
+                    end: rhs.span.end,
+                },
+                data: ast::Expr::Binary(op, lhs, rhs),
+            };
+            operand_stack.push(res);
         }
-    }
 
-    fn parse_expression_statement(&mut self) -> ParserResult<'f> {
-        self.parse_expression()?;
-        self.omnomnom(exactly(Operator::Semicolon))?;
+        operand_stack.push(self.parse_unary_expression()?);
 
-        Ok(())
-    }
-
-    fn parse_expression(&mut self) -> ParserResult<'f> {
-        self.parse_binary_expression(0)?;
-
-        // Assignment expression
-        while self.omnomnoptional(exactly(Operator::Equal))?.is_some() {
-            self.parse_binary_expression(0)?;
-        }
-
-        Ok(())
-    }
-
-    /// Uses precedence climbing
-    fn parse_binary_expression(&mut self, min_precedence: usize) -> ParserResult<'f> {
-        self.parse_unary_expression()?;
-
-        // tries to read some binary operators
-        while let Some((_, mut prec, assoc)) = self
-            .omnomnoptional_if(BinaryOp, |(_, prec, _)| *prec >= min_precedence)?
-            .map(|spanned| spanned.data)
+        // Convert to RPN, but "evaluate" RPN on-the-fly (where "evaluate" means
+        // constructing an AST)
+        while let Some((op, prec, assoc)) =
+            self.omnomnoptional(BinaryOp)?.map(|spanned| spanned.data)
         {
-            if assoc == Assoc::Left {
-                prec += 1;
+            // This is the part that replaces the recursion from precedence climbing.
+            // Instead, we use an explicit `operator_stack` of operands that we need to
+            // defer because we have one with higher precedence in our hands
+            while operator_stack
+                .last()
+                .map_or(false, |(_, top_prec, top_assoc)| {
+                    *top_prec < prec || *top_assoc == Assoc::Left && *top_prec == prec
+                }) {
+                let (top_op, _, _) = operator_stack.pop().unwrap();
+                rpn_eval(&mut operand_stack, top_op);
             }
 
-            self.parse_binary_expression(prec)?;
+            operator_stack.push((op, prec, assoc));
+            operand_stack.push(self.parse_unary_expression()?);
         }
 
-        Ok(())
-    }
-
-    fn parse_unary_expression(&mut self) -> ParserResult<'f> {
-        if self.omnomnoptional(UnaryOp)?.is_some() {
-            // This is tail-recursive!
-            self.parse_unary_expression()
-        } else {
-            self.parse_postfix_expression()
+        // Consume remaining operators
+        while let Some((op, _, _)) = operator_stack.pop() {
+            rpn_eval(&mut operand_stack, op)
         }
+
+        assert_eq!(operand_stack.len(), 1);
+        Ok(operand_stack.remove(0))
     }
 
-    fn parse_postfix_expression(&mut self) -> ParserResult<'f> {
-        self.parse_primary_expression()?;
+    fn parse_unary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
+        spanned!(self, {
+            let mut ops = Vec::new();
+            while let Some(op) = self.omnomnoptional(UnaryOp)? {
+                ops.push(op.data);
+            }
 
-        loop {
-            if self.omnomnoptional(exactly(Operator::Dot))?.is_some() {
-                self.omnomnom(Identifier)?;
+            let expr = self.parse_postfix_expression()?;
 
+            if ops.is_empty() {
+                return Ok(expr);
+            }
+
+            Ok(ast::Expr::Unary(ops, expr))
+        })
+        .map(Box::new)
+    }
+
+    fn parse_postfix_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
+        spanned!(self, {
+            let base_expr = self.parse_primary_expression()?;
+
+            let mut postfix_ops = Vec::new();
+            loop {
+                let postfix_op = spanned!(self, {
+                    use self::ast::PostfixOp::*;
+
+                    if self.omnomnoptional(exactly(Operator::Dot))?.is_some() {
+                        let adressee = self.omnomnom(Identifier)?;
+
+                        if self.tastes_like(exactly(Operator::LeftParen))? {
+                            // method call: EXPR.ident(arg1, arg2, ...)
+                            let args = self.parse_parameter_values()?;
+
+                            Ok(MethodInvocation(adressee.data, args))
+                        } else {
+                            // member reference: EXPR.ident
+                            Ok(FieldAccess(adressee.data))
+                        }
+                    } else if self
+                        .omnomnoptional(exactly(Operator::LeftBracket))?
+                        .is_some()
+                    {
+                        // array access: EXPR[EXPR]
+                        let index_expr = self.parse_expression()?;
+                        self.omnomnom(exactly(Operator::RightBracket))?;
+
+                        Ok(ArrayAccess(index_expr))
+                    } else {
+                        break;
+                    }
+                })?;
+
+                postfix_ops.push(postfix_op)
+            }
+
+            if postfix_ops.is_empty() {
+                return Ok(base_expr);
+            }
+
+            Ok(ast::Expr::Postfix(base_expr, postfix_ops))
+        })
+        .map(Box::new)
+    }
+
+    fn parse_primary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
+        spanned!(self, {
+            use self::ast::Expr::*;
+
+            if let Some(adressee) = self.omnomnoptional(Identifier)? {
                 if self.tastes_like(exactly(Operator::LeftParen))? {
-                    // method call: EXPR.ident(arg1, arg2, ...)
-                    self.parse_parenthesized_argument_list()?;
+                    // function call
+                    let params = self.parse_parameter_values()?;
+                    Ok(MethodInvocation(adressee.data, params))
                 } else {
-                    // member reference: EXPR.ident
+                    // var ref
+                    Ok(Var(adressee.data))
                 }
-            } else if self
-                .omnomnoptional(exactly(Operator::LeftBracket))?
-                .is_some()
-            {
-                // array access: EXPR[EXPR]
-                self.parse_expression()?;
-                self.omnomnom(exactly(Operator::RightBracket))?;
-            } else {
-                break;
-            }
-        }
+            } else if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
+                // parenthesized expression
+                let expr = self.parse_expression()?;
+                self.omnomnom(exactly(Operator::RightParen))?;
 
-        Ok(())
+                // TODO Early return is dirty.. But we need it because we don't want a
+                // `ExprKind:Parenthesized` (for abstraction)
+                return Ok(expr);
+            } else if self.omnomnoptional(exactly(Keyword::New))?.is_some() {
+                if self.nth_tastes_like(1, exactly(Operator::LeftParen))? {
+                    // new object expression
+                    let new_type = self.omnomnom(Identifier)?;
+
+                    self.omnomnom(exactly(Operator::LeftParen))?;
+                    self.omnomnom(exactly(Operator::RightParen))?;
+                    Ok(NewObject(new_type.data))
+                } else {
+                    // new array expression
+                    let new_type = self.parse_basic_type()?;
+                    self.omnomnom(exactly(Operator::LeftBracket))?;
+                    let first_index_expr = self.parse_expression()?;
+                    self.omnomnom(exactly(Operator::RightBracket))?;
+
+                    let mut array_depth = 0;
+                    while self.tastes_like(exactly(Operator::LeftBracket))?
+                        && self.nth_tastes_like(1, exactly(Operator::RightBracket))?
+                    {
+                        self.omnomnom(exactly(Operator::LeftBracket))?;
+                        self.omnomnom(exactly(Operator::RightBracket))?;
+                        array_depth += 1;
+                    }
+
+                    Ok(NewArray(new_type, first_index_expr, array_depth))
+                }
+            } else if self.omnomnoptional(exactly(Keyword::Null))?.is_some() {
+                Ok(Null)
+            } else if self.omnomnoptional(exactly(Keyword::False))?.is_some() {
+                Ok(Boolean(false))
+            } else if self.omnomnoptional(exactly(Keyword::True))?.is_some() {
+                Ok(Boolean(true))
+            } else if self.omnomnoptional(exactly(Keyword::This))?.is_some() {
+                Ok(This)
+            } else if let Some(lit) = self.omnomnoptional(IntegerLiteral)? {
+                Ok(Int(lit.data))
+            } else {
+                Err(WithSpan(Spanned {
+                    span: self.peek_span()?,
+                    data: SyntaxError::UnexpectedToken {
+                        actual: self.next()?.data.to_string(),
+                        expected: "primary expression".to_string(),
+                    },
+                }))
+            }
+        })
+        .map(Box::new)
     }
 
-    fn parse_primary_expression(&mut self) -> ParserResult<'f> {
-        if self.omnomnoptional(Identifier)?.is_some() {
-            if self.tastes_like(exactly(Operator::LeftParen))? {
-                // function call
-                self.parse_parenthesized_argument_list()
-            } else {
-                // var ref
-                Ok(())
+    fn parse_parameter_values(&mut self) -> ParserResult<'f, ast::ArgumentList<'f>> {
+        self.parse_parnethesized_list(|parser| Ok(*parser.parse_expression()?))
+    }
+
+    fn parse_parnethesized_list<F, T>(&mut self, parse_element: F) -> ParserResult<'f, Vec<T>>
+    where
+        F: Fn(&mut Self) -> SyntaxResult<'f, T>,
+    {
+        spanned!(self, {
+            let mut list = Vec::new();
+            self.omnomnom(exactly(Operator::LeftParen))?;
+
+            if !self.tastes_like(exactly(Operator::RightParen))? {
+                list.push(parse_element(self)?);
+                while self.omnomnoptional(exactly(Operator::Comma))?.is_some() {
+                    list.push(parse_element(self)?);
+                }
             }
-        } else if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
-            // parenthesized expression
-            self.parse_expression()?;
+
             self.omnomnom(exactly(Operator::RightParen))?;
 
-            Ok(())
-        } else if let Some(new_keyword) = self.omnomnoptional(exactly(Keyword::New))? {
-            let start_position = new_keyword.span.start_position();
-            let new_type = self.parse_basic_type()?;
-
-            if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
-                // new object expression
-                let end_position = self
-                    .omnomnom(exactly(Operator::RightParen))?
-                    .span
-                    .end_position();
-
-                // TODO should be handled during semantical analysis
-                if matches!(new_type, BasicType::Void | BasicType::Int | BasicType::Bool) {
-                    return Err(WithSpan(Spanned {
-                        span: Span::new(start_position, end_position),
-                        data: SyntaxError::InvalidNewObjectExpression,
-                    }));
-                }
-            } else {
-                // new array expression
-                self.omnomnom(exactly(Operator::LeftBracket))?;
-                self.parse_expression()?;
-                self.omnomnom(exactly(Operator::RightBracket))?;
-
-                while self.tastes_like(exactly(Operator::LeftBracket))?
-                    && self.nth_tastes_like(1, exactly(Operator::RightBracket))?
-                {
-                    self.omnomnom(exactly(Operator::LeftBracket))?;
-                    self.omnomnom(exactly(Operator::RightBracket))?;
-                }
-            }
-
-            Ok(())
-        } else if self.omnomnoptional(exactly(Keyword::Null))?.is_some()
-            || self.omnomnoptional(exactly(Keyword::False))?.is_some()
-            || self.omnomnoptional(exactly(Keyword::True))?.is_some()
-            || self.omnomnoptional(exactly(Keyword::This))?.is_some()
-            || self.omnomnoptional(IntegerLiteral)?.is_some()
-        {
-            Ok(())
-        } else {
-            Err(WithSpan(Spanned {
-                span: self.peek()?.span.clone(),
-                data: SyntaxError::UnexpectedToken {
-                    actual: self.next()?.data.to_string(),
-                    expected: "primary expression".to_string(),
-                },
-            }))
-        }
-    }
-
-    fn parse_parenthesized_argument_list(&mut self) -> ParserResult<'f> {
-        self.omnomnom(exactly(Operator::LeftParen))?;
-
-        if !self.tastes_like(exactly(Operator::RightParen))? {
-            self.parse_expression()?;
-            while self.omnomnoptional(exactly(Operator::Comma))?.is_some() {
-                self.parse_expression()?;
-            }
-        }
-
-        self.omnomnom(exactly(Operator::RightParen))?;
-
-        Ok(())
+            Ok(list)
+        })
     }
 }
 
@@ -773,6 +892,60 @@ mod tests {
             .unwrap();
     }
 
+    mod expr {
+        use super::*;
+        use crate::ast::{BinaryOp::*, *};
+
+        #[test]
+        fn foo() {
+            // (3 + (4 * 7)) + ((9 / 7) * 42)
+            lex_input!(lx = r#"3 + 4 * 7 + 9 / 7 * 42"#);
+            let expr = Parser::new(lx).parse_binary_expression().unwrap().data;
+
+            match expr {
+                Expr::Binary(op, lhs, rhs) => {
+                    assert_eq!(op, Add);
+                    // lhs = 3 + (4 * 7)
+                    match lhs.data {
+                        Expr::Binary(op, lhs, rhs) => {
+                            assert_eq!(op, Add);
+                            assert_eq!(lhs.data, Expr::Int(Symbol::from("3")));
+                            // rhs = 4 * 7
+                            match rhs.data {
+                                Expr::Binary(op, lhs, rhs) => {
+                                    assert_eq!(op, Mul);
+                                    assert_eq!(lhs.data, Expr::Int(Symbol::from("4")));
+                                    assert_eq!(rhs.data, Expr::Int(Symbol::from("7")));
+                                }
+                                expr => panic!("not a binary expr: {:#?}", expr),
+                            }
+                        }
+                        expr => panic!("not a binary expr: {:#?}", expr),
+                    };
+                    // rhs = (9 / 7) * 42
+                    match rhs.data {
+                        Expr::Binary(op, lhs, rhs) => {
+                            assert_eq!(op, Mul);
+                            // lhs = 9 / 7
+                            match lhs.data {
+                                Expr::Binary(op, lhs, rhs) => {
+                                    assert_eq!(op, Div);
+                                    assert_eq!(lhs.data, Expr::Int(Symbol::from("9")));
+                                    assert_eq!(rhs.data, Expr::Int(Symbol::from("7")));
+                                }
+                                expr => panic!("not a binary expr: {:#?}", expr),
+                            }
+                            assert_eq!(rhs.data, Expr::Int(Symbol::from("42")));
+                        }
+                        expr => panic!("not a binary expr: {:#?}", expr),
+                    }
+                }
+
+                expr => panic!("not a binary expr: {:#?}", expr),
+            }
+        }
+    }
+
     use mjtest::SyntaxTestCase;
     use mjtest_macros::gen_syntax_tests;
 
@@ -821,13 +994,7 @@ mod tests {
                 }
             "#
             );
-            assert_matches!(
-                Parser::new(lx).parse(),
-                Err(WithSpan(Spanned {
-                    data: SyntaxError::InvalidMainMethod,
-                    ..
-                }))
-            )
+            assert_matches!(Parser::new(lx).parse(), Err(_))
         }
 
         #[test]
@@ -841,13 +1008,7 @@ mod tests {
                 }
             "#
             );
-            assert_matches!(
-                Parser::new(lx).parse(),
-                Err(WithSpan(Spanned {
-                    data: SyntaxError::InvalidNewObjectExpression,
-                    ..
-                }))
-            )
+            assert_matches!(Parser::new(lx).parse(), Err(_))
         }
     }
 }

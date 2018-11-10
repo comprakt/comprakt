@@ -20,8 +20,6 @@ matrix:
       env: TEST_KIND="comprakt-debug"
     - os: linux
       env: TEST_KIND="comprakt-release"
-    - os: osx
-      env: TEST_KIND="comprakt-release"
 
     - os: linux
       env: TEST_KIND="mjtest-lexer"
@@ -65,7 +63,9 @@ script:
     case "$TEST_KIND" in
       comprakt-*)
         case "$TEST_KIND" in
-          comprakt-release) FLAGS="--release"
+          comprakt-release)
+            FLAGS="--release"
+            export RUST_MIN_STACK=$((8 * 1024 * 1024)) # 8 MiB
         esac
         cargo fmt --all -- --check && \
         cargo clippy $FLAGS --all-targets --all-features -- -D warnings && \

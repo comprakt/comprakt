@@ -25,6 +25,7 @@ mod context;
 mod diagnostics;
 mod lexer;
 mod parser;
+mod prettyprint;
 mod strtab;
 
 use self::{
@@ -81,6 +82,11 @@ enum CliCommand {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
+    #[structopt(name = "--printast")]
+    PrintAst {
+        #[structopt(name = "FILE", parse(from_os_str))]
+        path: PathBuf,
+    },
 }
 
 fn main() {
@@ -98,6 +104,7 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::Echo { path } => cmd_echo(path),
         CliCommand::LexerTest { path } => cmd_lextest(path),
         CliCommand::ParserTest { path } => cmd_parsetest(path),
+        CliCommand::PrintAst { path } => cmd_printast(path),
     }
 }
 
@@ -158,6 +165,54 @@ macro_rules! setup_io {
         let stderr = StandardStream::stderr(ColorChoice::Auto);
         let $context = Context::new(&ascii_file, box stderr);
     };
+}
+
+fn cmd_printast(path: &PathBuf) -> Result<(), Error> {
+    setup_io!(let context = path);
+    let strtab = StringTable::new();
+    let lexer = Lexer::new(&strtab, &context);
+
+    // adapt lexer to fail on first error
+    // filter whitespace and comments
+    let unforgiving_lexer = lexer.filter_map(|result| match result {
+        Ok(token) => match token.data {
+            TokenKind::Whitespace | TokenKind::Comment(_) => None,
+            _ => Some(token),
+        },
+        Err(lexical_error) => {
+            context.error(Spanned {
+                span: lexical_error.span,
+                data: box lexical_error.data,
+            });
+
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    });
+
+    let mut parser = Parser::new(unforgiving_lexer);
+
+    let program = match parser.parse() {
+        Ok(p) => p,
+        Err(parser_error) => {
+            // TODO: context.error should do this match automatically through
+            // generic arguments
+            match parser_error {
+                MaybeSpanned::WithSpan(spanned) => context.error(Spanned {
+                    span: spanned.span,
+                    data: box spanned.data,
+                }),
+                MaybeSpanned::WithoutSpan(error) => context
+                    .diagnostics
+                    .error(MaybeSpanned::WithoutSpan(box error)),
+            }
+
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    };
+
+    prettyprint::prettyprint(&program, &context)
 }
 
 fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
