@@ -180,12 +180,14 @@ macro_rules! spanned {
         let end = $self
             .lexer
             .prev_span()
-            .expect(
-                "Bug! We can't represent an empty range. The `$code` should have consumed at least one token",
-            )
+            .expect(concat!(
+                "Bug! We can't represent an empty range. ",
+                "The `$code` should have consumed at least one token"
+            ))
             .end_position();
 
-        // We check the error of `start` only now, because we trust the `$code` to handle the error better than we could.
+        // We check the error of `start` only now, because we trust the `$code`
+        // to handle the error better than we could.
         let start = start?.start_position();
 
         let res: SyntaxResult<'f, _> = Ok(Spanned {
