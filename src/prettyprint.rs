@@ -59,6 +59,7 @@ pub fn prettyprint<'f, 'c>(
     program: &ast::Program<'f>,
     _context: &context::Context<'c>,
 ) -> Result<(), Error> {
+
     let mut stdout = std::io::stdout();
     let mut printer = IndentPrinter::new(&mut stdout);
     do_prettyprint(&NodeKind::from(program), &mut printer);
@@ -83,20 +84,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             printer.indent();
             let mut members: Vec<&ast::ClassMember<'_>> =
                 decl.members.iter().map(|c| c.get_data()).collect();
-            members.sort_by(|a, b| {
-                use crate::ast::ClassMemberKindDiscriminants::*;
-                let akind = ast::ClassMemberKindDiscriminants::from(&a.kind);
-                let bkind = ast::ClassMemberKindDiscriminants::from(&b.kind);
-                match (akind, bkind) {
-                    (Field, Field)
-                    | (Method, Method)
-                    | (MainMethod, MainMethod)
-                    | (Method, MainMethod)
-                    | (MainMethod, Method) => a.name.cmp(&b.name),
-                    (Method, Field) | (MainMethod, Field) => std::cmp::Ordering::Less,
-                    (Field, Method) | (Field, MainMethod) => std::cmp::Ordering::Greater,
-                }
-            });
+            members.sort_by(compare_class_member);
             members
                 .into_iter()
                 .for_each(|member| do_prettyprint(&NodeKind::from(member), printer));
@@ -301,6 +289,21 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 }
             }
         }
+    }
+}
+
+fn compare_class_member(a: &'_ &ast::ClassMember<'_>, b: &'_ &ast::ClassMember) -> std::cmp::Ordering {
+    use crate::ast::ClassMemberKindDiscriminants::*;
+    let akind = ast::ClassMemberKindDiscriminants::from(&a.kind);
+    let bkind = ast::ClassMemberKindDiscriminants::from(&b.kind);
+    match (akind, bkind) {
+        (Field, Field)
+        | (Method, Method)
+        | (MainMethod, MainMethod)
+        | (Method, MainMethod)
+        | (MainMethod, Method) => a.name.cmp(&b.name),
+        (Method, Field) | (MainMethod, Field) => std::cmp::Ordering::Less,
+        (Field, Method) | (Field, MainMethod) => std::cmp::Ordering::Greater,
     }
 }
 
