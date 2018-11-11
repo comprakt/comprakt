@@ -56,7 +56,7 @@ PrimaryExpression                   null                                        
                                     | true                                                                 $ Self.out = Boolean(true)
                                     | INTEGER_LITERAL                                                      $ Self.out = Int(INTEGER_LITERAL.lexval)
                                     | IDENT                                                                $ Self.out = Var(IDENT.lexval)
-                                    | IDENT \( ArgumentList \)                                             $ Self.out = MethodInvocation(IDENT.lexval, )
+                                    | IDENT \( ArgumentList \)                                             $ Self.out = MethodInvocation(IDENT.lexval, ArgumentList.out)
                                     | this                                                                 $ Self.out = This
                                     | \( Expression \)                                                     $ Self.out = Expression.out
                                     | NewObjectExpression                                                  $ Self.out = NewObjectExpression.out
