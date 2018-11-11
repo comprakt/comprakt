@@ -36,7 +36,13 @@ macro_rules! impl_astnode_struct {
 impl_astnode_struct!(discr     => 't, ast::AST<'t>, ast::ASTDiscriminants::from);
 impl_astnode_struct!(lt_struct => 't, ast::Program<'t>);
 impl_astnode_struct!(lt_struct => 't, ast::ClassDeclaration<'t>);
-impl_astnode_struct!(lt_struct => 't, ast::ClassMember<'t>);
+impl AstNode for ast::ClassMember<'_> {
+    fn as_ast_node(&self, printer: &mut Printer<'_>) -> std::io::Result<()> {
+        let type_name = unsafe { (std::intrinsics::type_name::<Self>()) };
+        let kind_discr = ast::ClassMemberKindDiscriminants::from(&self.kind);
+        printer.print(format_args!("{} (kind = {})", type_name, kind_discr))
+    }
+}
 #[rustfmt::skip]
 impl_astnode_struct!(discr     => 't, ast::ClassMemberKind<'t>, ast::ClassMemberKindDiscriminants::from);
 impl_astnode_struct!(lt_struct => 't, ast::Parameter<'t>);
