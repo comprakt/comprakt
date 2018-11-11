@@ -1,9 +1,10 @@
+use asciifile::{Span, Spanned};
 use crate::{
     ast,
     diagnostics::MaybeSpanned::{self, *},
-    lexer::{Keyword, Operator, Span, Spanned, Token, TokenKind},
+    lexer::{Keyword, Operator, Token, TokenKind},
+    spantracker::*,
     strtab::Symbol,
-    utils::MultiPeekable,
 };
 
 use failure::Fail;
@@ -41,13 +42,19 @@ const BINARY_OPERATORS: &[(Operator, ast::BinaryOp, Precedence, Assoc)] = &[
 #[rustfmt::skip]
 #[derive(Debug, Clone, Fail)]
 pub enum SyntaxError {
-    #[fail(display = "missing end of file (EOF) token")]
-    MissingEOF,
     #[fail(display = "expected {}, found {}", expected, actual)]
     UnexpectedToken {
         actual: String,
         expected: String, // TODO This is temporary, shouldn't be string
     },
+    #[fail(display = "unexpected end of file")]
+    UnexpectedEOF,
+}
+
+impl<'f> From<EOF> for MaybeSpanned<'f, SyntaxError> {
+    fn from(_: EOF) -> Self {
+        MaybeSpanned::WithoutSpan(SyntaxError::UnexpectedEOF)
+    }
 }
 
 pub trait ExpectedToken: fmt::Debug + fmt::Display {
@@ -75,9 +82,6 @@ struct Identifier;
 #[derive(Debug, Clone, Display)]
 #[display(fmt = "an integer literal")]
 struct IntegerLiteral;
-#[derive(Debug, Clone, Display)]
-#[display(fmt = "EOF")]
-struct EOF;
 
 impl From<Operator> for Exactly {
     fn from(op: Operator) -> Self {
@@ -156,17 +160,8 @@ impl ExpectedToken for IntegerLiteral {
     }
 }
 
-impl ExpectedToken for EOF {
-    type Yields = ();
-    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
-        match token {
-            TokenKind::EOF => Some(()),
-            _ => None,
-        }
-    }
-}
-
-type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
+// TODO private
+pub type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
 type ParserResult<'f, T> = SyntaxResult<'f, Spanned<'f, T>>;
 type BoxedResult<'f, T> = SyntaxResult<'f, Box<Spanned<'f, T>>>;
 
@@ -174,23 +169,33 @@ pub struct Parser<'f, I>
 where
     I: Iterator<Item = Token<'f>>,
 {
-    lexer: MultiPeekable<I>,
-    eof_token: Option<Token<'f>>,
+    lexer: SpanTracker<'f, I>,
 }
 
 macro_rules! spanned {
     ($self:expr, $code:expr) => {{
-        let start = $self.peek_span()?;
-        let data = $code?;
-        let end = $self.peek_span()?;
+        let start = $self.lexer.peek_span();
+        let data: SyntaxResult<'f, _> = $code;
+        let data = data?;
+        let end = $self
+            .lexer
+            .prev_span()
+            .expect(concat!(
+                "Bug! We can't represent an empty range. ",
+                "The `$code` should have consumed at least one token"
+            ))
+            .end_position();
 
-        Ok(Spanned {
-            span: Span {
-                start: start.start,
-                end: end.end,
-            },
+        // We check the error of `start` only now, because we trust the `$code`
+        // to handle the error better than we could.
+        let start = start?.start_position();
+
+        let res: SyntaxResult<'f, _> = Ok(Spanned {
+            span: Span::new(start, end),
             data: data,
-        })
+        });
+
+        res
     }};
 }
 
@@ -200,65 +205,16 @@ where
 {
     pub fn new(lexer: I) -> Self {
         Parser {
-            lexer: MultiPeekable::new(lexer),
-            eof_token: None,
+            lexer: SpanTracker::new(lexer),
         }
     }
 
-    pub fn parse(&mut self) -> ParserResult<'f, ast::Program<'f>> {
-        self.parse_program()
-    }
-
-    /// Hide `lexer.next() == None` as `next() == EOF`
-    fn next(&mut self) -> SyntaxResult<'f, Token<'f>> {
-        self.peek()?;
-        match self.lexer.next() {
-            Some(token) => Ok(token),
-            None => self
-                .eof_token
-                .clone()
-                .ok_or(WithoutSpan(SyntaxError::MissingEOF)),
-        }
-    }
-
-    /// Hide `lexer.peek() == None` as `peek() == EOF`
-    fn peek(&mut self) -> SyntaxResult<'f, &Token<'f>> {
-        self.peek_nth(0)
-    }
-
-    fn peek_nth(&mut self, n: usize) -> SyntaxResult<'f, &Token<'f>> {
-        let v = self.lexer.peek_multiple(n + 1);
-
-        for token in v.iter() {
-            self.eof_token = if token.data == TokenKind::EOF {
-                // Clone is cheap because token data is EOF
-                Some((*token).clone())
-            } else {
-                None
-            };
-        }
-
-        match v.get(n) {
-            Some(token) => Ok(token),
-            None => self
-                .eof_token
-                .as_ref()
-                .ok_or(WithoutSpan(SyntaxError::MissingEOF)),
-        }
-    }
-
-    /// Span of next token that would be returned
-    fn peek_span(&mut self) -> SyntaxResult<'f, Span<'f>> {
-        self.peek().map(|token| token.span)
-    }
-
-    /// In average compilers this is sometimes called `expect`
     #[allow(clippy::needless_pass_by_value)]
     fn omnomnom<E>(&mut self, want: E) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
     where
         E: ExpectedToken,
     {
-        let actual = self.next()?;
+        let actual = self.lexer.next()?;
 
         want.matching(&actual.data)
             .map(|yielded| actual.map(|_| yielded))
@@ -274,8 +230,6 @@ where
             })
     }
 
-    /// An average programmer might call this `try_read`, or a similarily
-    /// whack-ass name
     #[allow(clippy::needless_pass_by_value)]
     fn omnomnoptional<E>(&mut self, want: E) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
     where
@@ -295,10 +249,14 @@ where
         E: ExpectedToken,
         P: Fn(&E::Yields) -> bool,
     {
-        let got = self.peek()?;
+        if self.lexer.eof() {
+            return Ok(None);
+        }
+
+        let got = self.lexer.peek()?;
 
         Ok(want.matching(&got.data).filter(&pred).map(|yielded| {
-            let got = self.next().unwrap();
+            let got = self.lexer.next().unwrap();
             got.map(|_| yielded)
         }))
     }
@@ -316,13 +274,25 @@ where
     where
         E: ExpectedToken,
     {
-        self.peek_nth(n).map(|got| want.matches(&got.data))
+        if self.lexer.eof() {
+            return Ok(false);
+        }
+
+        Ok(self.lexer.peek_nth(n).map(|got| want.matches(&got.data))?)
+    }
+
+    pub fn parse(&mut self) -> Result<ast::AST<'f>, MaybeSpanned<'f, SyntaxError>> {
+        if self.lexer.eof() {
+            Ok(ast::AST::Empty)
+        } else {
+            Ok(ast::AST::Program(self.parse_program()?))
+        }
     }
 
     fn parse_program(&mut self) -> ParserResult<'f, ast::Program<'f>> {
         spanned!(self, {
             let mut classes = Vec::new();
-            while self.omnomnoptional(EOF)?.is_none() {
+            while !self.lexer.eof() {
                 classes.push(self.parse_class_declaration()?);
             }
 
@@ -439,7 +409,7 @@ where
         } else if let Some(sym) = self.omnomnoptional(Identifier)? {
             Ok(ast::BasicType::Custom(sym.data))
         } else {
-            let actual = self.next()?;
+            let actual = self.lexer.next()?;
             Err(WithSpan(Spanned {
                 span: actual.span,
                 data: SyntaxError::UnexpectedToken {
@@ -586,10 +556,7 @@ where
             let rhs = operand_stack.pop().unwrap();
             let lhs = operand_stack.pop().unwrap();
             let res = box Spanned {
-                span: Span {
-                    start: lhs.span.start,
-                    end: rhs.span.end,
-                },
+                span: Span::new(lhs.span.start_position(), rhs.span.end_position()),
                 data: ast::Expr::Binary(op, lhs, rhs),
             };
             operand_stack.push(res);
@@ -751,9 +718,9 @@ where
                 Ok(Int(lit.data))
             } else {
                 Err(WithSpan(Spanned {
-                    span: self.peek_span()?,
+                    span: self.lexer.peek_span()?,
                     data: SyntaxError::UnexpectedToken {
-                        actual: self.next()?.data.to_string(),
+                        actual: self.lexer.next()?.data.to_string(),
                         expected: "primary expression".to_string(),
                     },
                 }))
@@ -792,7 +759,8 @@ where
 #[allow(clippy::string_lit_as_bytes)]
 mod tests {
     use super::*;
-    use crate::{asciifile::AsciiFile, context::Context, lexer::Lexer, strtab::StringTable};
+    use asciifile::AsciiFile;
+    use crate::{context::Context, lexer::Lexer, strtab::StringTable};
 
     macro_rules! lex_input {
         ($itervar:ident = $input:expr) => {
@@ -800,6 +768,19 @@ mod tests {
             let input = AsciiFile::new($input.as_bytes()).unwrap();
             let ctx = Context::dummy(&input);
             let $itervar = Lexer::new(&strtab, &ctx)
+                .map(|r| r.unwrap())
+                .filter(|t| match t.data {
+                    TokenKind::Whitespace | TokenKind::Comment(_) => false,
+                    _ => true,
+                });
+        };
+        ($itervar:ident = $input:expr; $context_name:ident = context) => {
+            use termcolor::{ColorChoice, StandardStream};
+            let strtab = StringTable::new();
+            let input = AsciiFile::new($input.as_bytes()).unwrap();
+            let stderr = StandardStream::stderr(ColorChoice::Auto);
+            let $context_name = Context::new(&input, box stderr);
+            let $itervar = Lexer::new(&strtab, &$context_name)
                 .map(|r| r.unwrap())
                 .filter(|t| match t.data {
                     TokenKind::Whitespace | TokenKind::Comment(_) => false,
@@ -907,6 +888,66 @@ mod tests {
         "#
         );
         assert_matches!(Parser::new(lx).parse(), Ok(_))
+    }
+
+    #[test]
+    fn spanning_whole_program() {
+        lex_input!(
+            lx = r#"
+            class Foo {
+                public static void main(String[] args) {
+                    return x || y = z  ;
+                }
+            }
+        "#; ctx = context
+        );
+
+        let ast = Parser::new(lx).parse();
+        println!("{:?}", ast);
+
+        let prog = match ast {
+            Ok(ast::AST::Program(prog)) => prog,
+            _ => panic!("ast parsing failed!"),
+        };
+
+        let start = prog.span.start_position();
+        let end = prog.span.end_position();
+
+        // Not part of the assertion, but gives a really easy to understand
+        // error message in case the assertion fails. Expected output is:
+        //
+        //
+        // info: span for AST node 'whole program with trimmed whitespace'
+        //    |
+        //  1 |             class Foo {
+        //    |             ^^^^^^^^^^^
+        //  2 |                 public static void main(String[] args) {
+        //    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //  3 |                     return x || y = z  ;
+        //    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //  4 |                 }
+        //    | ^^^^^^^^^^^^^^^^^
+        //  5 |             }
+        //    | ^^^^^^^^^^^^^
+        #[derive(Debug, Fail)]
+        #[fail(display = "span for AST node '{}'", name)]
+        struct SpanInfo {
+            name: String,
+        }
+
+        ctx.diagnostics.info(WithSpan(Spanned {
+            span: prog.span,
+            data: box SpanInfo {
+                name: "whole program with trimmed whitespace".to_string(),
+            },
+        }));
+
+        assert_eq!(start.row(), 0);
+        assert_eq!(start.column(), 13);
+        assert_eq!(start.byte_offset(), 13);
+        assert_eq!(end.row(), 4);
+        assert_eq!(end.column(), 13);
+        assert_eq!(end.byte_offset(), 153);
     }
 
     #[test]

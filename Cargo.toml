@@ -12,7 +12,7 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [workspace]
-members = [ ".", "./mjtest-rs", "./mjtest-rs/mjtest_macros" ]
+members = [ ".", "mjtest-rs", "mjtest-rs/mjtest_macros", "asciifile" ]
 
 [dependencies]
 structopt = "0.2"
@@ -21,6 +21,7 @@ memmap = "0.7.0"
 libc = "*"
 termcolor = "1.0.4"
 derive_more = "0.13"
+asciifile = { path = "./asciifile" }
 
 [dev-dependencies]
 mjtest = { path = "./mjtest-rs" }

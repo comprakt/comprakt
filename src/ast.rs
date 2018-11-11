@@ -1,4 +1,11 @@
-use crate::{lexer::Spanned, strtab::Symbol};
+use asciifile::Spanned;
+use crate::strtab::Symbol;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum AST<'t> {
+    Empty,
+    Program(Spanned<'t, Program<'t>>),
+}
 
 /// This is the top-level AST node. It stores all class declerations of the
 /// MiniJava program.

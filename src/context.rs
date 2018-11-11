@@ -1,5 +1,6 @@
 //! All state shared by the lexer, parser and semantic analysis phases.
-use crate::{asciifile::AsciiFile, diagnostics::Diagnostics, lexer::Spanned};
+use asciifile::{AsciiFile, Spanned};
+use crate::diagnostics::{Diagnostics, MaybeSpanned::WithSpan};
 use failure::AsFail;
 use termcolor::WriteColor;
 
@@ -22,11 +23,12 @@ impl<'m> Context<'m> {
     }
 
     pub fn warning(&self, spanned: Spanned<'m, Box<dyn AsFail>>) {
-        self.diagnostics.warning_with_source_snippet(spanned);
+        // TODO: add some kind of autoconversion and make this method obsolete
+        self.diagnostics.warning(WithSpan(spanned));
     }
 
     pub fn error(&self, spanned: Spanned<'m, Box<dyn AsFail>>) {
-        self.diagnostics.error_with_source_snippet(spanned);
+        self.diagnostics.error(WithSpan(spanned));
     }
 }
 

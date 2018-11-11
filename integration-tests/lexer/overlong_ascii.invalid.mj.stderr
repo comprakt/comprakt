@@ -1,0 +1,2 @@
+error: cannot decode input file "{ROOT}/integration-tests/lexer/overlong_ascii.invalid.mj"
+caused by: input contains non-ascii character at byte offset 158.

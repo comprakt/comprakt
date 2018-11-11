@@ -1,5 +1,0 @@
-error: expected {, found EOF
-   | 
- 1 | class A
-   | thread 'main' panicked at 'col = 8 is not smaller than max line lengt 7', src/diagnostics.rs:403:9
-note: Run with `RUST_BACKTRACE=1` for a backtrace.

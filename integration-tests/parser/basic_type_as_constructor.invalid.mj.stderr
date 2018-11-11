@@ -1,6 +1,6 @@
-error: invalid new object expression
+error: expected an identifier, found int
    | 
  3 |         return new int();
-   |                ^^^^^^^^^
+   |                    ^^^
 
 Compilation aborted due to an error
