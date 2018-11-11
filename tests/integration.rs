@@ -2,7 +2,7 @@
 
 use assert_cmd::prelude::*;
 use difference::Changeset;
-use integration_test_codegen::{gen_lexer_integration_tests, gen_parser_integration_tests};
+use integration_test_codegen::*;
 use predicates::prelude::*;
 use std::{ffi::OsStr, fs::File, io::Read, path::PathBuf, process::Command};
 
@@ -11,6 +11,8 @@ use std::{ffi::OsStr, fs::File, io::Read, path::PathBuf, process::Command};
 enum CompilerPhase {
     Lexer,
     Parser,
+    AstPrettyPrint,
+    AstStructurePrint,
 }
 
 const ROOT_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -19,6 +21,8 @@ fn compiler_flag(phase: CompilerPhase) -> &'static str {
     match phase {
         CompilerPhase::Lexer => "--lextest",
         CompilerPhase::Parser => "--parsetest",
+        CompilerPhase::AstStructurePrint => "--print-ast",
+        CompilerPhase::AstPrettyPrint => "--debug-dumpast",
     }
 }
 
@@ -131,3 +135,5 @@ fn read_file(filename: &PathBuf) -> String {
 
 gen_lexer_integration_tests!();
 gen_parser_integration_tests!();
+gen_ast_pretty_print_integration_tests!();
+gen_ast_structure_print_integration_tests!();
