@@ -135,6 +135,7 @@ fn assert_compiler_phase(phase: CompilerPhase, file: &TestFiles) {
 
     // exitcode
     let exit_code_expected_str = read_file(&file.exitcode);
+    let exit_code_expected_str = exit_code_expected_str.trim();
 
     if let Ok(exit_code_expected) = exit_code_expected_str.parse::<i32>() {
         // all reference files available, check if the outputs of the current
