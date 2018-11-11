@@ -531,7 +531,11 @@ where
                 rvalues.push(*self.parse_binary_expression()?);
             }
 
-            Ok(ast::Expr::Assignment(lvalue, rvalues))
+            if rvalues.is_empty() {
+                return Ok(lvalue);
+            } else {
+                Ok(ast::Expr::Assignment(lvalue, rvalues))
+            }
         })
         .map(Box::new)
     }

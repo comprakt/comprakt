@@ -1,0 +1,16 @@
+class Blocks {
+    public static void main(String[] args) {
+        {
+
+        }
+        {
+            ;
+            ;
+            ;
+        }
+        if (true) return;
+        else {
+
+        }
+    }
+}

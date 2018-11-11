@@ -75,7 +75,8 @@ pub struct Type {
 /// * `Boolean`: a boolean
 /// * `Void`: a void type
 /// * `Custom`: a custom defined type
-#[derive(Debug, PartialEq, Eq)]
+#[strum_discriminants(derive(Display))]
+#[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
 pub enum BasicType {
     Int,
     Boolean,

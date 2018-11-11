@@ -29,10 +29,9 @@ mod lexer;
 mod parser;
 #[macro_use]
 mod visitor;
-mod prettyprint;
+mod print;
 mod spantracker;
 mod strtab;
-mod structureprint;
 use self::{
     context::Context,
     lexer::{Lexer, TokenKind},
@@ -87,7 +86,7 @@ enum CliCommand {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
-    #[structopt(name = "--printast")]
+    #[structopt(name = "--print-ast")]
     PrintAst {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
@@ -114,8 +113,8 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::Echo { path } => cmd_echo(path),
         CliCommand::LexerTest { path } => cmd_lextest(path),
         CliCommand::ParserTest { path } => cmd_parsetest(path),
-        CliCommand::PrintAst { path } => cmd_printast(path, &prettyprint::prettyprint),
-        CliCommand::DebugDumpAst { path } => cmd_printast(path, &structureprint::structureprint),
+        CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
+        CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
     }
 }
 
@@ -180,7 +179,7 @@ macro_rules! setup_io {
 
 fn cmd_printast<P>(path: &PathBuf, printer: &P) -> Result<(), Error>
 where
-    P: Fn(&ast::AST<'_>, &context::Context<'_>) -> Result<(), Error>,
+    P: Fn(&ast::AST<'_>, &mut dyn std::io::Write) -> Result<(), Error>,
 {
     setup_io!(let context = path);
     let strtab = StringTable::new();
@@ -226,7 +225,7 @@ where
         }
     };
 
-    printer(&program, &context)
+    printer(&program, &mut std::io::stdout())
 }
 
 fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {

@@ -21,16 +21,59 @@ const INTEGRATION_TEST_DIR: &str = "../integration-tests";
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
 pub fn gen_lexer_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(&quote! { CompilerPhase::Lexer }, "lexer")
+    gen_integration_tests(
+        &quote! { CompilerPhase::Lexer },
+        "lexer",
+        |v| quote! { #v },
+        "",
+    )
 }
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
 pub fn gen_parser_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(&quote! { CompilerPhase::Parser }, "parser")
+    gen_integration_tests(
+        &quote! { CompilerPhase::Parser },
+        "parser",
+        |v| quote! { #v },
+        "",
+    )
 }
 
-fn gen_integration_tests(phase: &proc_macro2::TokenStream, subfolder: &str) -> TokenStream {
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
+pub fn gen_ast_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests(&quote! { CompilerPhase::Ast }, "ast", |v| quote! { #v }, "")
+}
+
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
+pub fn gen_ast_reference_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests(&quote! { CompilerPhase::Ast }, "ast", |v| quote! { #v }, "")
+}
+
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
+pub fn gen_ast_idempotence_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests(
+        &quote! { CompilerPhase::Ast },
+        "ast",
+        |v| {
+            quote! { with_extension(&#v, ".stdout") }
+        },
+        "_idempotence",
+    )
+}
+
+fn gen_integration_tests<F>(
+    phase: &proc_macro2::TokenStream,
+    subfolder: &str,
+    input_adaptor: F,
+    test_name_suffix: &str,
+) -> TokenStream
+where
+    F: Fn(proc_macro2::TokenStream) -> proc_macro2::TokenStream,
+{
     let mut out = String::new();
 
     let test_dir: PathBuf = [ROOT_DIR, INTEGRATION_TEST_DIR, subfolder].iter().collect();
@@ -59,16 +102,28 @@ fn gen_integration_tests(phase: &proc_macro2::TokenStream, subfolder: &str) -> T
             .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
 
         let function_name = Ident::new(
-            &format!("cli_{}_{}_{}", ascii_test_dir, id, ascii_casename),
+            &format!(
+                "cli_{}_{}_{}{}",
+                ascii_test_dir, id, ascii_casename, test_name_suffix
+            ),
             Span::call_site(),
         );
 
-        let path = case.to_str();
+        let path_str = case.to_str().unwrap();
+        let path_input_tokenstream = input_adaptor(quote! { PathBuf::from(#path_str) });
 
         let tokens = quote! {
             #[test]
             fn #function_name() {
-                assert_compiler_phase_failure(#phase, #path);
+                let path = PathBuf::from(#path_str);
+                let input = #path_input_tokenstream;
+
+                assert_compiler_phase(#phase, &TestFiles {
+                    input,
+                    stderr: with_extension(&path, ".stderr"),
+                    stdout: with_extension(&path, ".stdout"),
+                    exitcode: with_extension(&path, ".exitcode"),
+                });
             }
         };
 

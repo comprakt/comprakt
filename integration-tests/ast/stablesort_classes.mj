@@ -1,0 +1,11 @@
+/* Classes should be sorted by name, hence B should be after class A. */
+/* Bonus: assert we use a stable sort, empty A should always be before A with members */
+class B {
+
+}
+
+class A { }
+
+class A {
+    public int a;
+}
