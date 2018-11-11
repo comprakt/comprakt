@@ -2,7 +2,7 @@ class HelloWorld {
 	public int bar(int a, int b) {
 		return c = (a + b);
 	}
-	public static void main(String[] args)) {
+	public static void main(String[] args) {
 		(System.out).println(43110 + 0);
 		boolean b = true && (!false);
 		if ((23 + 19) == ((42 + 0) * 1))
@@ -11,7 +11,7 @@ class HelloWorld {
 			int x = 0;
 			x = (x + 1);
 		} else {
-			(new HelloWorld())).bar(42 + (0 * 1), -1);
+			(new HelloWorld()).bar(42 + (0 * 1), -1);
 		}
 	}
 	public boolean[] array;

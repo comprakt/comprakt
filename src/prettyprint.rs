@@ -121,7 +121,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 }
                 MainMethod(param_name, block) => {
                     printer.print(format_args!(
-                        "public static void {}(String[] {})) ",
+                        "public static void {}(String[] {}) ",
                         member.name, param_name
                     ));
                     do_prettyprint(&NodeKind::from(&block.data), printer);
@@ -160,7 +160,8 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
         }
 
         Block(block) => {
-            if block.statements.is_empty() {
+            // all() returns true on empty iterators
+            if block.statements.iter().all(|stmt| stmt.data == crate::ast::Stmt::Empty) {
                 printer.print_str(&"{ }");
             } else {
                 printer.print_str(&"{");
@@ -184,9 +185,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             use crate::ast::Stmt::*;
             match stmt {
                 Block(block) => do_prettyprint(&NodeKind::from(&block.data), printer),
-                Empty => {
-                    printer.print_str(&";");
-                }
+                Empty => {}
                 If(cond, stmt, opt_else) => {
                     printer.print_str(&"if (");
                     // no parenthesizes for expressions in if conditions
@@ -217,12 +216,13 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                         match els.data {
                             Empty => (),
                             _ => {
-                                printer.print_str(&"else ");
                                 match els.data {
                                     If(..) | Block(..) => {
+                                        printer.print_str(&"else ");
                                         do_prettyprint(&NodeKind::from(&els.data), printer)
                                     }
                                     _ => {
+                                        printer.print_str(&"else");
                                         printer.newline();
                                         printer.indent();
                                         do_prettyprint(&NodeKind::from(&els.data), printer);
@@ -333,17 +333,15 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
 }
 
 fn compare_class_member(a: &ast::ClassMember<'_>, b: &ast::ClassMember<'_>) -> std::cmp::Ordering {
-    use crate::ast::ClassMemberKindDiscriminants::*;
-    let akind = ast::ClassMemberKindDiscriminants::from(&a.kind);
-    let bkind = ast::ClassMemberKindDiscriminants::from(&b.kind);
-    match (akind, bkind) {
-        (Field, Field)
-        | (Method, Method)
-        | (MainMethod, MainMethod)
-        | (Method, MainMethod)
-        | (MainMethod, Method) => a.name.cmp(&b.name),
-        (Method, Field) | (MainMethod, Field) => std::cmp::Ordering::Less,
-        (Field, Method) | (Field, MainMethod) => std::cmp::Ordering::Greater,
+    use crate::ast::ClassMemberKind::*;
+    match (&a.kind, &b.kind) {
+        (Field(..), Field(..))
+        | (Method(..), Method(..))
+        | (MainMethod(..), MainMethod(..))
+        | (Method(..), MainMethod(..))
+        | (MainMethod(..), Method(..)) => a.name.cmp(&b.name),
+        (Method(..), Field(..)) | (MainMethod(..), Field(..)) => std::cmp::Ordering::Less,
+        (Field(..), Method(..)) | (Field(..), MainMethod(..)) => std::cmp::Ordering::Greater,
     }
 }
 
@@ -437,7 +435,7 @@ fn do_prettyprint_expr<'a, 't>(expr: &'a crate::ast::Expr<'t>, printer: &mut Ind
         }
         This => printer.print_str(&"this"),
         NewObject(name) => {
-            printer.print(format_args!("new {}())", name));
+            printer.print(format_args!("new {}()", name));
         }
         NewArray(basic_ty, size, brackets) => {
             printer.print_str(&"new ");
