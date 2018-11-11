@@ -161,7 +161,11 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
 
         Block(block) => {
             // all() returns true on empty iterators
-            if block.statements.iter().all(|stmt| stmt.data == crate::ast::Stmt::Empty) {
+            if block
+                .statements
+                .iter()
+                .all(|stmt| stmt.data == crate::ast::Stmt::Empty)
+            {
                 printer.print_str(&"{ }");
             } else {
                 printer.print_str(&"{");
@@ -215,21 +219,19 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                     if let Some(els) = opt_else {
                         match els.data {
                             Empty => (),
-                            _ => {
-                                match els.data {
-                                    If(..) | Block(..) => {
-                                        printer.print_str(&"else ");
-                                        do_prettyprint(&NodeKind::from(&els.data), printer)
-                                    }
-                                    _ => {
-                                        printer.print_str(&"else");
-                                        printer.newline();
-                                        printer.indent();
-                                        do_prettyprint(&NodeKind::from(&els.data), printer);
-                                        printer.outdent();
-                                    }
+                            _ => match els.data {
+                                If(..) | Block(..) => {
+                                    printer.print_str(&"else ");
+                                    do_prettyprint(&NodeKind::from(&els.data), printer)
                                 }
-                            }
+                                _ => {
+                                    printer.print_str(&"else");
+                                    printer.newline();
+                                    printer.indent();
+                                    do_prettyprint(&NodeKind::from(&els.data), printer);
+                                    printer.outdent();
+                                }
+                            },
                         }
                     }
                 }
