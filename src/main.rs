@@ -6,7 +6,9 @@
 #![feature(box_syntax)]
 #![feature(repeat_generic_slice)]
 #![feature(never_type)]
-
+#![feature(nll)]
+#![feature(core_intrinsics)]
+#![feature(custom_attribute)]
 #[macro_use]
 extern crate derive_more;
 
@@ -25,10 +27,12 @@ mod context;
 mod diagnostics;
 mod lexer;
 mod parser;
+#[macro_use]
+mod visitor;
 mod prettyprint;
 mod spantracker;
 mod strtab;
-
+mod structureprint;
 use self::{
     context::Context,
     lexer::{Lexer, TokenKind},
@@ -88,6 +92,11 @@ enum CliCommand {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
+    #[structopt(name = "--debug-dumpast")] // nonstandard
+    DebugDumpAst {
+        #[structopt(name = "FILE", parse(from_os_str))]
+        path: PathBuf,
+    },
 }
 
 fn main() {
@@ -105,7 +114,8 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::Echo { path } => cmd_echo(path),
         CliCommand::LexerTest { path } => cmd_lextest(path),
         CliCommand::ParserTest { path } => cmd_parsetest(path),
-        CliCommand::PrintAst { path } => cmd_printast(path),
+        CliCommand::PrintAst { path } => cmd_printast(path, &prettyprint::prettyprint),
+        CliCommand::DebugDumpAst { path } => cmd_printast(path, &structureprint::structureprint),
     }
 }
 
@@ -168,7 +178,10 @@ macro_rules! setup_io {
     };
 }
 
-fn cmd_printast(path: &PathBuf) -> Result<(), Error> {
+fn cmd_printast<P>(path: &PathBuf, printer: &P) -> Result<(), Error>
+where
+    P: Fn(&ast::AST<'_>, &context::Context<'_>) -> Result<(), Error>,
+{
     setup_io!(let context = path);
     let strtab = StringTable::new();
     let lexer = Lexer::new(&strtab, &context);
@@ -213,7 +226,7 @@ fn cmd_printast(path: &PathBuf) -> Result<(), Error> {
         }
     };
 
-    prettyprint::prettyprint(&program, &context)
+    printer(&program, &context)
 }
 
 fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
