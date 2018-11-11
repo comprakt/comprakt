@@ -919,15 +919,15 @@ mod tests {
         //
         // info: span for AST node 'whole program with trimmed whitespace'
         //    |
-        //  1 |             class Foo {
+        //  2 |             class Foo {
         //    |             ^^^^^^^^^^^
-        //  2 |                 public static void main(String[] args) {
+        //  3 |                 public static void main(String[] args) {
         //    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        //  3 |                     return x || y = z  ;
+        //  4 |                     return x || y = z  ;
         //    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        //  4 |                 }
+        //  5 |                 }
         //    | ^^^^^^^^^^^^^^^^^
-        //  5 |             }
+        //  6 |             }
         //    | ^^^^^^^^^^^^^
         #[derive(Debug, Fail)]
         #[fail(display = "span for AST node '{}'", name)]
@@ -942,10 +942,10 @@ mod tests {
             },
         }));
 
-        assert_eq!(start.row(), 0);
+        assert_eq!(start.line_number(), 2);
         assert_eq!(start.column(), 13);
         assert_eq!(start.byte_offset(), 13);
-        assert_eq!(end.row(), 4);
+        assert_eq!(end.line_number(), 6);
         assert_eq!(end.column(), 13);
         assert_eq!(end.byte_offset(), 153);
     }
