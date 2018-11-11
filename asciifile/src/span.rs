@@ -85,7 +85,7 @@ impl<'f> Span<'f> {
     /// ```
     pub fn as_str(&'f self) -> &'f str {
         // the range is inclusive on both sides!
-        unsafe { std::str::from_utf8_unchecked(&self.as_bytes()) }
+        unsafe { std::str::from_utf8_unchecked(self.as_bytes()) }
     }
 
     pub fn as_bytes(&'f self) -> &'f [u8] {
