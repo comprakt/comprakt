@@ -42,7 +42,13 @@ impl_astnode_struct!(discr     => 't, ast::ClassMemberKind<'t>, ast::ClassMember
 impl_astnode_struct!(lt_struct => 't, ast::Parameter<'t>);
 impl_astnode_struct!(lt_struct => 't, ast::ParameterList<'t>);
 impl_astnode_struct!(simple    => ast::Type);
-impl_astnode_struct!(simple    => ast::BasicType);
+impl AstNode for ast::BasicType {
+    fn as_ast_node(&self, printer: &mut Printer<'_>) -> std::io::Result<()> {
+        let type_name = unsafe { (std::intrinsics::type_name::<Self>()) };
+        let discr = ast::BasicTypeDiscriminants::from(self);
+        printer.print(format_args!("{} ({})", type_name, discr))
+    }
+}
 impl_astnode_struct!(lt_struct => 't, ast::Block<'t>);
 impl_astnode_struct!(discr     => 't, ast::Stmt<'t>, ast::StmtDiscriminants::from);
 impl_astnode_struct!(discr     => 't, ast::Expr<'t>, ast::ExprDiscriminants::from);
