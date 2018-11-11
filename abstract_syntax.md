@@ -1,8 +1,8 @@
 # Abstarkte Algebra
 
 ```
-Program :: ClassDecleration *
-ClassDecleration :: _Symbol_ (ClassMember *)
+Program :: ClassDeclaration *
+ClassDeclaration :: _Symbol_ (ClassMember *)
 ClassMember :: _Symbol_ ClassMemberKind
 ClassMemberKind = Field | Method | MainMethod
 Field :: Type
@@ -13,11 +13,11 @@ BasicType = _Int_ | _Bool_ | _Void_ | Custom
 Custom :: _Symbol_
 Parameter :: Type _Symbol_
 Block :: Stmt *
-Stmt = Block | _Empty_ | If | Expr | While | Return | LocalVariableDecleration
+Stmt = Block | _Empty_ | If | Expr | While | Return | LocalVariableDeclaration
 If :: Expr Stmt (Stmt ?)
 While :: Expr Stmt
 Return :: Expr ?
-LocalVariableDecleration :: Type _Symbol_ (Expr ?)
+LocalVariableDeclaration :: Type _Symbol_ (Expr ?)
 Expr = Assignment | Binary | Unary | Postfix | _Null_ | Boolean | Int | Var | MethodPrimary | _This_ | NewObject | NewArray
 Assignment :: Expr (Expr *)
 Binary :: BinaryOp Expr Expr
@@ -39,11 +39,11 @@ ArrayAccess :: Expr
 
 ##### Program
 
-This is the top-level AST node. It stores all class declerations of the MiniJava program.
+This is the top-level AST node. It stores all class declarations of the MiniJava program.
 
-##### ClassDecleration
+##### ClassDeclaration
 
-This AST node stores the Class decleration, which consists of a name and the members of the class.
+This AST node stores the Class declaration, which consists of a name and the members of the class.
 
 ##### ClassMember
 
@@ -52,7 +52,7 @@ This AST node describes a class member. Variants of class members are defined in
 ##### ClassMemberKind
 
 A class member is either one of
-* `Field`: a decleration of a field of a class
+* `Field`: a declaration of a field of a class
 * `Method`: a method of a class
 * `MainMethod`: a main method, which is a special method that is only
 allowed once in a MiniJava Program
@@ -105,7 +105,7 @@ optionally an else statement
 * `While`: a while loop consisting of the condition and its body
 * `Expression`: an expression defined in `Expr`
 * `Return`: a return which can optionally return an expression
-* `LocalVariableDeclaration`: a decleration and optional initialization of
+* `LocalVariableDeclaration`: a declaration and optional initialization of
 a local variable
 
 ##### If
@@ -120,7 +120,7 @@ Holds an `Expr` (condition) and a `Stmt` (body)
 
 Holds an optional `Expr`
 
-##### LocalVariableDecleration
+##### LocalVariableDeclaration
 
 Holds a `Type`, a `Symbol` and an optional `Expr`
 
