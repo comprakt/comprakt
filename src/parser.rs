@@ -911,15 +911,14 @@ mod tests {
         };
 
         let start = prog.span.start_position();
-        let end   = prog.span.end_position();
+        let end = prog.span.end_position();
 
         // Not part of the assertion, but gives a really easy to understand
         // error message in case the assertion fails. Expected output is:
         //
         //
-        // ```
         // info: span for AST node 'whole program with trimmed whitespace'
-        //    | 
+        //    |
         //  1 |             class Foo {
         //    |             ^^^^^^^^^^^
         //  2 |                 public static void main(String[] args) {
@@ -928,9 +927,8 @@ mod tests {
         //    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         //  4 |                 }
         //    | ^^^^^^^^^^^^^^^^^
-        //  5 |             }    
+        //  5 |             }
         //    | ^^^^^^^^^^^^^
-        // ```
         #[derive(Debug, Fail)]
         #[fail(display = "span for AST node '{}'", name)]
         struct SpanInfo {
