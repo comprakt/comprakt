@@ -121,7 +121,7 @@ pub enum Stmt<'t> {
 /// * `Boolean`: a boolean literal
 /// * `Int`: an integer literal
 /// * `Var`: use of a variable
-/// * `MethodInvocation`: an method invocation
+/// * `MethodInvocation`: a method invocation
 /// * `This`: the `this` keyword
 /// * `NewObject`: generating a new object, e.g. `new Foo()`
 /// * `NewArray`: generating a new array, e.g. `new int[]`
