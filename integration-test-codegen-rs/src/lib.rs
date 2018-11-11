@@ -32,12 +32,8 @@ pub fn gen_parser_integration_tests(_args: TokenStream) -> TokenStream {
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
-pub fn gen_ast_pretty_print_integration_tests(_args: TokenStream) -> TokenStream {
-    // TODO: this requires duplicated test input. See *_structure_print_*
-    gen_integration_tests(
-        &quote! { CompilerPhase::AstPrettyPrint },
-        "ast-pretty-print",
-    )
+pub fn gen_ast_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests(&quote! { CompilerPhase::Ast }, "ast")
 }
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
@@ -87,7 +83,7 @@ fn gen_integration_tests(phase: &proc_macro2::TokenStream, subfolder: &str) -> T
         let tokens = quote! {
             #[test]
             fn #function_name() {
-                assert_compiler_phase_failure(#phase, #path);
+                assert_compiler_phase(#phase, #path);
             }
         };
 
