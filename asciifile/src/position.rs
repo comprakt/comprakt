@@ -452,6 +452,38 @@ mod tests {
     }
 
     #[test]
+    fn file_starting_with_two_newlines() {
+        let input = b"\n\none\ntwo three\nfour\n\n";
+        let file = AsciiFile::new(input).unwrap();
+        let start = Position::at_file_start(&file).unwrap();
+        let end = file.iter().last().unwrap();
+        let span = Span::new(start, end);
+
+        let actual = span
+            .lines()
+            .enumerate()
+            .map(|(real_row, line)| {
+                (
+                    real_row + 1,
+                    line.start_position().line_number(),
+                    line.as_str().to_string(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let expected: Vec<(usize, usize, String)> = vec![
+            (1, 2, "\n".to_string()),
+            (2, 3, "\n".to_string()),
+            (3, 3, "one\n".to_string()),
+            (4, 4, "two three\n".to_string()),
+            (5, 5, "four\n".to_string()),
+            (6, 7, "\n".to_string()),
+        ];
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
     fn all_indexing_works() {
         file_index_roundtrip(b"one\ntwo three\nfour\n\n");
         file_index_roundtrip(b"a");
