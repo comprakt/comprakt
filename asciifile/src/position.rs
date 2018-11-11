@@ -53,16 +53,28 @@ impl<'t> Position<'t> {
     /// Create a new Position object pointing at the first character
     /// of a file. Returns `None` for empty files.
     pub fn at_file_start(file: &'t AsciiFile<'t>) -> Option<Self> {
-        if file.mapping.is_empty() {
-            return None;
+        match file.mapping.get(0).map(|byte| *byte as char) {
+            None => {
+                // empty file
+                None
+            }
+            Some('\n') => {
+                // this is a side effect of the 'newline action'
+                // being applied before the line break character
+                Some(Self {
+                    row: 1,
+                    col: 0,
+                    byte_offset: 0,
+                    file,
+                })
+            }
+            Some(_) => Some(Self {
+                row: 0,
+                col: 0,
+                byte_offset: 0,
+                file,
+            }),
         }
-
-        Some(Self {
-            row: 0,
-            col: 0,
-            byte_offset: 0,
-            file,
-        })
     }
 
     pub fn to_single_char_span(self) -> Span<'t> {
@@ -405,6 +417,27 @@ mod tests {
             (Position { byte_offset: 18, row: 2, col: 4 , file: &file }, '\n'),
             (Position { byte_offset: 19, row: 3, col: 0 , file: &file }, '\n'),
         ];
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn file_starting_with_newline() {
+        let input = b"\none\ntwo three\nfour\n\n";
+        let file = AsciiFile::new(input).unwrap();
+
+        let actual = file
+            .lines()
+            .map(|line| (line.start_position().line(), line.as_str().to_string()))
+            .collect::<Vec<_>>();
+
+        let expected: Vec<(char, String)> = vec![
+            (1, "\n".to_string()),
+            (2, "one\n".to_string()),
+            (3, "two three\n".to_string()),
+            (4, "four\n".to_string()),
+            (5, "\n".to_string()),
+        ];
+
         assert_eq!(expected, actual);
     }
 
