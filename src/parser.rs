@@ -774,6 +774,19 @@ mod tests {
                     _ => true,
                 });
         };
+        ($itervar:ident = $input:expr; $context_name:ident = context) => {
+            use termcolor::{ColorChoice, StandardStream};
+            let strtab = StringTable::new();
+            let input = AsciiFile::new($input.as_bytes()).unwrap();
+            let stderr = StandardStream::stderr(ColorChoice::Auto);
+            let $context_name = Context::new(&input, box stderr);
+            let $itervar = Lexer::new(&strtab, &$context_name)
+                .map(|r| r.unwrap())
+                .filter(|t| match t.data {
+                    TokenKind::Whitespace | TokenKind::Comment(_) => false,
+                    _ => true,
+                });
+        };
     }
 
     #[test]
@@ -875,6 +888,68 @@ mod tests {
         "#
         );
         assert_matches!(Parser::new(lx).parse(), Ok(_))
+    }
+
+    #[test]
+    fn spanning_whole_program() {
+        lex_input!(
+            lx = r#"
+            class Foo {
+                public static void main(String[] args) {
+                    return x || y = z  ;
+                }
+            }
+        "#; ctx = context
+        );
+
+        let ast = Parser::new(lx).parse();
+        println!("{:?}", ast);
+
+        let prog = match ast {
+            Ok(ast::AST::Program(prog)) => prog,
+            _ => panic!("ast parsing failed!"),
+        };
+
+        let start = prog.span.start_position();
+        let end   = prog.span.end_position();
+
+        // Not part of the assertion, but gives a really easy to understand
+        // error message in case the assertion fails. Expected output is:
+        //
+        //
+        // ```
+        // info: span for AST node 'whole program with trimmed whitespace'
+        //    | 
+        //  1 |             class Foo {
+        //    |             ^^^^^^^^^^^
+        //  2 |                 public static void main(String[] args) {
+        //    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //  3 |                     return x || y = z  ;
+        //    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //  4 |                 }
+        //    | ^^^^^^^^^^^^^^^^^
+        //  5 |             }    
+        //    | ^^^^^^^^^^^^^
+        // ```
+        #[derive(Debug, Fail)]
+        #[fail(display = "span for AST node '{}'", name)]
+        struct SpanInfo {
+            name: String,
+        }
+
+        ctx.diagnostics.info(WithSpan(Spanned {
+            span: prog.span,
+            data: box SpanInfo {
+                name: "whole program with trimmed whitespace".to_string(),
+            },
+        }));
+
+        assert_eq!(start.row(), 0);
+        assert_eq!(start.column(), 13);
+        assert_eq!(start.byte_offset(), 13);
+        assert_eq!(end.row(), 4);
+        assert_eq!(end.column(), 13);
+        assert_eq!(end.byte_offset(), 153);
     }
 
     #[test]

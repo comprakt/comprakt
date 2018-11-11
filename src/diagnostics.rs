@@ -137,6 +137,11 @@ impl Diagnostics {
         self.emit(MessageLevel::Error, kind)
     }
 
+    #[allow(dead_code)]
+    pub fn info(&self, kind: MaybeSpanned<'_, Box<dyn AsFail>>) {
+        self.emit(MessageLevel::Info, kind)
+    }
+
     fn increment_level_count(&self, level: MessageLevel) {
         let mut message_count = self.message_count.borrow_mut();
         let counter = message_count.entry(level).or_insert(0);
@@ -148,6 +153,7 @@ impl Diagnostics {
 pub enum MessageLevel {
     Error,
     Warning,
+    Info,
 }
 
 impl MessageLevel {
@@ -158,6 +164,7 @@ impl MessageLevel {
         match self {
             MessageLevel::Error => Some(Color::Red),
             MessageLevel::Warning => Some(Color::Yellow),
+            MessageLevel::Info => Some(Color::Cyan),
         }
     }
 
@@ -165,6 +172,7 @@ impl MessageLevel {
         match self {
             MessageLevel::Error => "error",
             MessageLevel::Warning => "warning",
+            MessageLevel::Info => "info",
         }
     }
 }
