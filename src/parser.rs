@@ -561,7 +561,7 @@ where
                 rvalues.push(*self.parse_binary_expression()?);
             }
 
-            if rvalues.len() == 0 {
+            if rvalues.is_empty() {
                 return Ok(lvalue);
             } else {
                 Ok(ast::Expr::Assignment(lvalue, rvalues))

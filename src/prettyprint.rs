@@ -91,7 +91,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             printer.indent();
             let mut members: Vec<&ast::ClassMember<'_>> =
                 decl.members.iter().map(|c| c.get_data()).collect();
-            members.sort_by(compare_class_member);
+            members.sort_by(|x, y| compare_class_member(x, y));
             members
                 .into_iter()
                 .for_each(|member| do_prettyprint(&NodeKind::from(member), printer));
@@ -142,12 +142,12 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
         }
         BasicType(basic_ty) => {
             use crate::ast::BasicType::*;
-            let _ = match basic_ty {
+            match basic_ty {
                 Int => printer.print_str(&"int"),
                 Boolean => printer.print_str(&"boolean"),
                 Void => printer.print_str(&"void"),
                 Custom(name) => printer.print(format_args!("{}", name)),
-            };
+            }
         }
         Block(block) => {
             if block.statements.is_empty() {
@@ -256,7 +256,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
         BinaryOp(bin_op) => {
             printer.print_str(&" ");
             use crate::ast::BinaryOp::*;
-            let _ = match bin_op {
+            match bin_op {
                 Equals => printer.print_str(&"=="),
                 NotEquals => printer.print_str(&"!="),
                 LessThan => printer.print_str(&"<"),
@@ -270,15 +270,15 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 Mul => printer.print_str(&"*"),
                 Div => printer.print_str(&"/"),
                 Mod => printer.print_str(&"%"),
-            };
+            }
             printer.print_str(&" ");
         }
         UnaryOp(unary_op) => {
             use crate::ast::UnaryOp::*;
-            let _ = match unary_op {
+            match unary_op {
                 Not => printer.print_str(&"!"),
                 Neg => printer.print_str(&"-"),
-            };
+            }
         }
         PostfixOp(postfix_op) => {
             use crate::ast::PostfixOp::*;
@@ -302,10 +302,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
     }
 }
 
-fn compare_class_member(
-    a: &'_ &ast::ClassMember<'_>,
-    b: &'_ &ast::ClassMember<'_>,
-) -> std::cmp::Ordering {
+fn compare_class_member(a: &ast::ClassMember<'_>, b: &ast::ClassMember<'_>) -> std::cmp::Ordering {
     use crate::ast::ClassMemberKindDiscriminants::*;
     let akind = ast::ClassMemberKindDiscriminants::from(&a.kind);
     let bkind = ast::ClassMemberKindDiscriminants::from(&b.kind);
@@ -320,6 +317,9 @@ fn compare_class_member(
     }
 }
 
+// clippy::ptr-arg wants args to be a slice of Expr,
+// but that doesn't improve expressiveness here
+#[allow(clippy::ptr_arg)]
 fn print_argument_list(args: &crate::ast::ArgumentList<'_>, printer: &mut IndentPrinter<'_>) {
     for (i, arg) in args.iter().enumerate() {
         // no parenthesizes for arguments in function calls
