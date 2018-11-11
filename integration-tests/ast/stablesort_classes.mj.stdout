@@ -1,0 +1,5 @@
+class A { }
+class A {
+	public int a;
+}
+class B { }
