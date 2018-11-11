@@ -179,7 +179,7 @@ macro_rules! setup_io {
 
 fn cmd_printast<P>(path: &PathBuf, printer: &P) -> Result<(), Error>
 where
-    P: Fn(&ast::AST<'_>, &context::Context<'_>) -> Result<(), Error>,
+    P: Fn(&ast::AST<'_>, &mut dyn std::io::Write) -> Result<(), Error>,
 {
     setup_io!(let context = path);
     let strtab = StringTable::new();
@@ -225,7 +225,7 @@ where
         }
     };
 
-    printer(&program, &context)
+    printer(&program, &mut std::io::stdout())
 }
 
 fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {

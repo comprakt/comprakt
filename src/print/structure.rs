@@ -1,4 +1,4 @@
-use crate::{ast, context};
+use crate::ast;
 use failure::{format_err, Error};
 
 trait AstNode {
@@ -97,11 +97,10 @@ impl<'w> Write for Printer<'w> {
 
 use crate::visitor::*;
 
-pub fn print<'f, 'c>(ast: &ast::AST<'f>, _context: &context::Context<'c>) -> Result<(), Error> {
-    let mut stdout = std::io::stdout();
+pub fn print<'f>(ast: &ast::AST<'f>, out: &mut dyn std::io::Write) -> Result<(), Error> {
     let mut printer = Printer {
         indent: 0,
-        writer: &mut stdout,
+        writer: out,
     };
     let n = NodeKind::from(ast);
     do_structureprint(&n, &mut printer)

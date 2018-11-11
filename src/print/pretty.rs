@@ -1,4 +1,4 @@
-use crate::{ast, context, visitor::NodeKind};
+use crate::{ast, visitor::NodeKind};
 use failure::Error;
 
 struct IndentPrinter<'w> {
@@ -61,9 +61,8 @@ impl<'w> IndentPrinter<'w> {
     }
 }
 
-pub fn print(ast: &ast::AST<'_>, _context: &context::Context<'_>) -> Result<(), Error> {
-    let mut stdout = std::io::stdout();
-    let mut printer = IndentPrinter::new(&mut stdout);
+pub fn print(ast: &ast::AST<'_>, out: &mut dyn std::io::Write) -> Result<(), Error> {
+    let mut printer = IndentPrinter::new(out);
     do_prettyprint(&NodeKind::from(ast), &mut printer);
     Ok(())
 }
