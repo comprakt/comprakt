@@ -12,7 +12,7 @@
 //! The range defined by the start and end position of a `Span` is inclusive on
 //! the both sides (lower and upper bound). As a result, `as_str()` will contain
 //! the character pointed at by the start position and the character pointed to
-//! by the end position. Beware that this is not equivalent to rusts behaviour
+//! by the end position. Beware that this is not equivalent to rust's behaviour
 //! on slices, which will not contain the upper bound if `low..high` is used.
 //! By including the upper bound in the `Span`, we do not have to generate a
 //! fake `EOF`-Position/character beyond the real end of input to create a
@@ -38,9 +38,13 @@ pub struct Span<'f> {
 }
 
 impl<'f> Span<'f> {
+    /// Create a new span from two positions.
+    ///
+    /// This is guranteed to return a valid range. If the order of the
+    /// arguments is incorrect, they will be swapped. If the same position
+    /// is given twice, the span will cover a single character, the character
+    /// given by the position,
     pub fn new(a: Position<'f>, b: Position<'f>) -> Self {
-        //debug_assert!(a.file == b.file);
-
         Self {
             start: min(a, b),
             end: max(a, b),
@@ -81,7 +85,12 @@ impl<'f> Span<'f> {
     /// ```
     pub fn as_str(&'f self) -> &'f str {
         // the range is inclusive on both sides!
-        &self.start.file()[self.start.byte_offset()..=self.end.byte_offset()]
+        unsafe { std::str::from_utf8_unchecked(&self.as_bytes()) }
+    }
+
+    pub fn as_bytes(&'f self) -> &'f [u8] {
+        // the range is inclusive on both sides!
+        &self.start.file().mapping[self.start.byte_offset()..=self.end.byte_offset()]
     }
 
     pub fn is_empty(&self) -> bool {

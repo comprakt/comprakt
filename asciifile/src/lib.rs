@@ -4,13 +4,11 @@
 ///! wrapper around a ASCII character, respectively a range of characters
 ///! (a slice) with positional information.
 pub mod file;
-// TODO: rename Position to Char
 pub mod iter;
 pub mod position;
 pub mod span;
 pub mod spanned;
 
-// TODO: remove LinenTruncation. Will reduce performance but keep my sanity
 pub use self::{
     file::AsciiFile,
     iter::{PositionIterator, ReversePositionIterator},

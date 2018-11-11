@@ -73,6 +73,10 @@ impl<'t> PositionIterator<'t> {
     }
 }
 
+/// Iterator that traverses a file from front to back.
+///
+/// In contrast to `.iter().reverse()`, this efficiently walks from any given
+/// Position using the `prev()` chain of the doubly linked list.
 #[derive(Copy, Clone, Debug)]
 pub struct ReversePositionIterator<'t> {
     /// current iterator position. Always points to the next character/position
@@ -80,10 +84,6 @@ pub struct ReversePositionIterator<'t> {
     position_to_emit: Option<Position<'t>>,
 }
 
-/// Traverse a file from front to back. In contrast to `.iter().reverse()`,
-/// this efficiently walks from any given Position using the `prev()` chain
-/// of the doubly linked list.
-// TODO: is this stupid? How is this implemented on Vec<>?
 impl<'t> Iterator for ReversePositionIterator<'t> {
     type Item = Position<'t>;
     fn next(&mut self) -> Option<Position<'t>> {

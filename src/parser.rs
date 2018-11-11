@@ -209,7 +209,6 @@ where
         }
     }
 
-    /// In average compilers this is sometimes called `expect`
     #[allow(clippy::needless_pass_by_value)]
     fn omnomnom<E>(&mut self, want: E) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
     where
@@ -231,8 +230,6 @@ where
             })
     }
 
-    /// An average programmer might call this `try_read`, or a similarily
-    /// whack-ass name
     #[allow(clippy::needless_pass_by_value)]
     fn omnomnoptional<E>(&mut self, want: E) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
     where

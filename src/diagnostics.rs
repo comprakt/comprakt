@@ -23,12 +23,6 @@ const TAB_WIDTH: usize = 4;
 const HIGHLIGHT_COLOR: Option<Color> = Some(Color::Cyan);
 
 // TODO reimplement line truncation
-//const MAX_CONTEXT_LENGTH: usize = 80;
-//#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-//pub enum LineTruncation {
-//Truncated,
-//NotTruncated,
-//}
 
 // TODO: move to ascii file?
 #[derive(Debug)]
@@ -36,10 +30,6 @@ pub enum MaybeSpanned<'a, T> {
     WithoutSpan(T),
     WithSpan(Spanned<'a, T>),
 }
-
-//impl From<Spanned> for MaybeSpanned {
-//into() -> Span<'a, T> {
-//}
 
 /// Instead of writing errors, warnings and lints generated in the different
 /// compiler stages directly to stdout, they are collected in this object.
@@ -237,18 +227,6 @@ impl Message {
                         underline = "^".repeat(term_width)
                     )?;
                 }
-
-                // debug
-                //let slice = line.as_str();
-                //writeln!(
-                //output.writer(),
-                //"FAULTY PART: {}, range: [{}, {}], term-range: [{},{})",
-                //faulty_part_of_line.as_str(),
-                //faulty_part_of_line.start_position().column(),
-                //faulty_part_of_line.end_position().column(),
-                //start_term_pos,
-                //end_term_pos
-                //);
             }
         }
         Ok(())
