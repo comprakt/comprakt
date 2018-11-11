@@ -47,7 +47,7 @@ pub enum SyntaxError {
         actual: String,
         expected: String, // TODO This is temporary, shouldn't be string
     },
-    #[fail(display = "reached end of file while parsing")]
+    #[fail(display = "unexpected end of file")]
     UnexpectedEOF,
 }
 

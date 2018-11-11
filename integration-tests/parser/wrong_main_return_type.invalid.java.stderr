@@ -1,6 +1,6 @@
-error: invalid main method. It must be declared as `public static void main(String[] args)`
+error: expected void, found int
    | 
  2 |     public static int main(String[] args) {}
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |                   ^^^
 
 Compilation aborted due to an error
