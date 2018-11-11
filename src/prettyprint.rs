@@ -79,6 +79,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 Program(p) => do_prettyprint(&NodeKind::Program(&p.data), printer),
             }
         }
+
         Program(program) => {
             let mut classes: Vec<&ast::ClassDeclaration<'_>> =
                 program.classes.iter().map(|c| &c.data).collect();
@@ -88,6 +89,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 .for_each(|class| do_prettyprint(&NodeKind::from(class), printer));
             printer.newline();
         }
+
         ClassDeclaration(decl) => {
             printer.println(format_args!("class {} {{", decl.name));
             printer.indent();
@@ -100,6 +102,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             printer.outdent();
             printer.println(format_args!("}}"));
         }
+
         ClassMember(member) => {
             use crate::ast::ClassMemberKind::*;
             match &member.kind {
@@ -126,10 +129,12 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             }
             printer.newline();
         }
+
         Parameter(param) => {
             do_prettyprint(&NodeKind::from(&param.ty.data), printer);
             printer.print(format_args!(" {}", param.name));
         }
+
         ParameterList(params) => {
             for (i, param) in params.iter().enumerate() {
                 do_prettyprint(&NodeKind::from(&param.data), printer);
@@ -138,10 +143,12 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 }
             }
         }
+
         Type(ty) => {
             do_prettyprint(&NodeKind::from(&ty.basic), printer);
             printer.print(format_args!("{}", "[]".repeat(ty.array_depth as usize)));
         }
+
         BasicType(basic_ty) => {
             use crate::ast::BasicType::*;
             match basic_ty {
@@ -151,6 +158,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 Custom(name) => printer.print(format_args!("{}", name)),
             }
         }
+
         Block(block) => {
             if block.statements.is_empty() {
                 printer.print_str(&"{ }");
@@ -171,6 +179,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 printer.print_str(&"}");
             }
         }
+
         Stmt(stmt) => {
             use crate::ast::Stmt::*;
             match stmt {
@@ -186,7 +195,10 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                     if let ast::Stmt::Block(_) = stmt.data {
                         printer.print_str(&" ");
                         do_prettyprint(&NodeKind::from(&stmt.data), printer);
-                        if opt_else.is_some() {
+                        if opt_else
+                            .as_ref()
+                            .map_or(false, |els| !matches!(els.data, Empty))
+                        {
                             printer.print_str(&" ");
                         }
                     } else {
@@ -194,25 +206,34 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                         printer.indent();
                         do_prettyprint(&NodeKind::from(&stmt.data), printer);
                         printer.outdent();
-                        if opt_else.is_some() {
+                        if opt_else
+                            .as_ref()
+                            .map_or(false, |els| !matches!(els.data, Empty))
+                        {
                             printer.newline();
                         }
                     }
                     if let Some(els) = opt_else {
                         match els.data {
-                            If(..) | Block(..) => {
-                                printer.print_str(&"else ");
-                                do_prettyprint(&NodeKind::from(&els.data), printer)
-                            }
+                            Empty => (),
                             _ => {
-                                printer.newline();
-                                printer.indent();
-                                do_prettyprint(&NodeKind::from(&els.data), printer);
-                                printer.outdent();
+                                printer.print_str(&"else ");
+                                match els.data {
+                                    If(..) | Block(..) => {
+                                        do_prettyprint(&NodeKind::from(&els.data), printer)
+                                    }
+                                    _ => {
+                                        printer.newline();
+                                        printer.indent();
+                                        do_prettyprint(&NodeKind::from(&els.data), printer);
+                                        printer.outdent();
+                                    }
+                                }
                             }
                         }
                     }
                 }
+
                 While(cond, stmt) => {
                     printer.print_str(&"while (");
                     // no parenthesizes for expressions in while conditions
@@ -228,11 +249,13 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                         printer.outdent();
                     }
                 }
+
                 Expression(expr) => {
                     // no parenthesizes for expressions in expression statements
                     do_prettyprint(&NodeKind::from(&expr.data), printer);
                     printer.print_str(&";");
                 }
+
                 Return(expr_opt) => {
                     printer.print_str(&"return");
                     if let Some(expr) = expr_opt {
@@ -242,6 +265,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                     }
                     printer.print_str(&";");
                 }
+
                 LocalVariableDeclaration(ty, name, opt_assign) => {
                     do_prettyprint(&NodeKind::from(&ty.data), printer);
                     printer.print(format_args!(" {}", name));
@@ -254,7 +278,9 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 }
             };
         }
+
         Expr(expr) => do_prettyprint_expr(expr, printer),
+
         BinaryOp(bin_op) => {
             printer.print_str(&" ");
             use crate::ast::BinaryOp::*;
@@ -275,6 +301,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             }
             printer.print_str(&" ");
         }
+
         UnaryOp(unary_op) => {
             use crate::ast::UnaryOp::*;
             match unary_op {
@@ -282,6 +309,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 Neg => printer.print_str(&"-"),
             }
         }
+
         PostfixOp(postfix_op) => {
             use crate::ast::PostfixOp::*;
             match postfix_op {
