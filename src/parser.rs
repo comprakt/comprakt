@@ -209,10 +209,6 @@ where
         }
     }
 
-    pub fn parse(&mut self) -> ParserResult<'f, ast::Program<'f>> {
-        self.parse_program()
-    }
-
     /// In average compilers this is sometimes called `expect`
     #[allow(clippy::needless_pass_by_value)]
     fn omnomnom<E>(&mut self, want: E) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
@@ -286,6 +282,14 @@ where
         }
 
         Ok(self.lexer.peek_nth(n).map(|got| want.matches(&got.data))?)
+    }
+
+    pub fn parse(&mut self) -> Result<ast::AST<'f>, MaybeSpanned<'f, SyntaxError>> {
+        if self.lexer.eof() {
+            Ok(ast::AST::Empty)
+        } else {
+            Ok(ast::AST::Program(self.parse_program()?))
+        }
     }
 
     fn parse_program(&mut self) -> ParserResult<'f, ast::Program<'f>> {
