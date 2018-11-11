@@ -90,15 +90,20 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
         }
 
         ClassDeclaration(decl) => {
-            printer.println(format_args!("class {} {{", decl.name));
-            printer.indent();
+            printer.print(format_args!("class {} {{", decl.name));
             let mut members: Vec<&ast::ClassMember<'_>> =
                 decl.members.iter().map(|c| &c.data).collect();
             members.sort_by(|x, y| compare_class_member(x, y));
-            members
-                .into_iter()
-                .for_each(|member| do_prettyprint(&NodeKind::from(member), printer));
-            printer.outdent();
+            if !members.is_empty() {
+                printer.println(format_args!(""));
+                printer.indent();
+                members
+                    .into_iter()
+                    .for_each(|member| do_prettyprint(&NodeKind::from(member), printer));
+                printer.outdent();
+            } else {
+                printer.print(format_args!(" "));
+            }
             printer.println(format_args!("}}"));
         }
 
