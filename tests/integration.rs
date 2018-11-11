@@ -32,7 +32,7 @@ fn compiler_flag(phase: CompilerPhase) -> &'static str {
 
 fn compiler_call(phase: CompilerPhase, filepath: &PathBuf) -> Command {
     let mut cmd = Command::main_binary().unwrap();
-    cmd.env("TERM", "dumb");
+    cmd.env("TERM", "dumb"); // disable color output
     cmd.args(&[OsStr::new(compiler_flag(phase)), filepath.as_os_str()]);
     cmd
 }
@@ -58,31 +58,36 @@ fn with_extension(path: &PathBuf, extension: &str) -> PathBuf {
     filepath
 }
 
+struct TestFiles {
+    input: PathBuf,
+    stderr: PathBuf,
+    stdout: PathBuf,
+    exitcode: PathBuf,
+}
+//let filepath = PathBuf::from(filename);
+//let file.stderr = with_extension(&filepath, ".stderr");
+//let file.stdout = with_extension(&filepath, ".stdout");
+//let file.exitcode = with_extension(&filepath, ".exitcode");
+
 #[allow(dead_code)]
-fn assert_compiler_phase(phase: CompilerPhase, filename: &str) {
-    let filepath = PathBuf::from(filename);
-
-    let filepath_stderr = with_extension(&filepath, ".stderr");
-    let filepath_stdout = with_extension(&filepath, ".stdout");
-    let filepath_exitcode = with_extension(&filepath, ".exitcode");
-
-    if !filepath_stderr.is_file() || !filepath_stdout.is_file() || !filepath_exitcode.is_file() {
+fn assert_compiler_phase(phase: CompilerPhase, file: &TestFiles) {
+    if !file.stderr.is_file() || !file.stdout.is_file() || !file.exitcode.is_file() {
         // if any of the files is missing. Fail the test. Regenerate all files
         // with an additional ".tenative" extension. The programmer can then
         // verify the generated tentative new reference results and remove
         // the ".tentative" suffix.
-        let filepath_stderr_tentative = with_extension(&filepath, ".stderr.tentative");
-        let filepath_stdout_tentative = with_extension(&filepath, ".stdout.tentative");
-        let filepath_exitcode_tentative = with_extension(&filepath, ".exitcode.tentative");
+        let file_stderr_tentative = with_extension(&file.stderr, ".tentative");
+        let file_stdout_tentative = with_extension(&file.stdout, ".tentative");
+        let file_exitcode_tentative = with_extension(&file.exitcode, ".tentative");
 
-        match compiler_call(phase, &filepath)
-            .stdout(File::create(&filepath_stdout_tentative).expect("write stdout file failed"))
-            .stderr(File::create(&filepath_stderr_tentative).expect("write stderr file failed"))
+        match compiler_call(phase, &file.input)
+            .stdout(File::create(&file_stdout_tentative).expect("write stdout file failed"))
+            .stderr(File::create(&file_stderr_tentative).expect("write stderr file failed"))
             .status()
         {
             Ok(status) => {
                 // output exitcode to file
-                File::create(&filepath_exitcode_tentative)
+                File::create(&file_exitcode_tentative)
                     .and_then(|mut file| {
                         if let Some(exit_code) = status.code() {
                             file.write_all(exit_code.to_string().as_bytes())
@@ -95,19 +100,20 @@ fn assert_compiler_phase(phase: CompilerPhase, filename: &str) {
                 // fail the incomplete test
                 panic!(
                     "Cannot find required reference output files. \
-                     The current output was written to {:?} and {:?}. \
-                     Verify it and remove the `.tentative` suffix.",
-                    filepath_stderr_tentative, filepath_stdout_tentative
+                     The current output was written to {:?}, {:?}
+                     and {:?}. \
+                     Verify them and remove the `.tentative` suffix.",
+                    file_stderr_tentative, file_stdout_tentative, file_exitcode_tentative
                 );
             }
             Err(_msg) => panic!("Cannot find required reference output files.",),
         }
     }
 
-    let assertion = compiler_call(phase, &filepath).assert();
+    let assertion = compiler_call(phase, &file.input).assert();
 
     // stderr
-    let stderr_expected = read_file(&filepath_stderr);
+    let stderr_expected = read_file(&file.stderr);
     let stderr_changeset = Changeset::new(
         &stderr_expected,
         &normalize_stderr(&String::from_utf8_lossy(&assertion.get_output().stderr)),
@@ -118,7 +124,7 @@ fn assert_compiler_phase(phase: CompilerPhase, filename: &str) {
     });
 
     // stdout
-    let stdout_expected = read_file(&filepath_stdout);
+    let stdout_expected = read_file(&file.stdout);
     let stdout_changeset = Changeset::new(
         &stdout_expected,
         &String::from_utf8_lossy(&assertion.get_output().stdout),
@@ -128,7 +134,7 @@ fn assert_compiler_phase(phase: CompilerPhase, filename: &str) {
         predicate::function(|actual: &[u8]| actual == stdout_expected.as_bytes());
 
     // exitcode
-    let exit_code_expected_str = read_file(&filepath_exitcode);
+    let exit_code_expected_str = read_file(&file.exitcode);
 
     if let Ok(exit_code_expected) = exit_code_expected_str.parse::<i32>() {
         // all reference files available, check if the outputs of the current
@@ -154,4 +160,5 @@ fn read_file(filename: &PathBuf) -> String {
 
 gen_lexer_integration_tests!();
 gen_parser_integration_tests!();
-gen_ast_integration_tests!();
+gen_ast_reference_integration_tests!();
+gen_ast_idempotence_integration_tests!();
