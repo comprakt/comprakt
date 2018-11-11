@@ -1,0 +1,6 @@
+error: expected an identifier, found {
+   | 
+ 1 | class {}
+   |       ^
+
+Compilation aborted due to an error

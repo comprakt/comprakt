@@ -1,0 +1,8 @@
+/* Extracted from Markus Kuhn <http://www.cl.cam.ac.uk/~mgk25/> - 2015-08-28 - CC BY 4.0 */
+
+/* Overlong ASCII characters */
+/* U+002F = c0 af             */ À¯
+/* U+002F = e0 80 af          */ à€¯
+/* U+002F = f0 80 80 af       */ ð€€¯
+/* U+002F = f8 80 80 80 af    */ ø€€€¯
+/* U+002F = fc 80 80 80 80 af */ ü€€€€¯

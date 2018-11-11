@@ -1,0 +1,9 @@
+class ThrowingWithKeywordsInAnIdentHouse {
+    public static void main(String[] _what_) throws int {
+
+    }
+    /* Writing in languages where NullPointerExceptions are a thing, pfff */
+    public void again(Questionmark questionmark) throws null {
+
+    }
+}

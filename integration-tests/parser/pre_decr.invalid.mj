@@ -1,0 +1,5 @@
+class PreDecrement {
+    public void isInvalid() {
+        --onlyOneToken;
+    }
+}

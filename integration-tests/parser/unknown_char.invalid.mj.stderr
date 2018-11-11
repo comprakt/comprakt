@@ -1,0 +1,6 @@
+error: expected class, found void
+   | 
+ 1 | void #method() {}
+   | ^^^^
+
+Compilation aborted due to an error

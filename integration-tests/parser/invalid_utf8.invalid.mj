@@ -1,0 +1,11 @@
+/* Extracted from Markus Kuhn <http://www.cl.cam.ac.uk/~mgk25/> - 2015-08-28 - CC BY 4.0 */
+
+/* First continuation byte 0x80 */ €
+/* Last continuation byte 0xbf */ ¿
+
+/* 2 continuation bytes */ €¿
+/* 3 continuation bytes */ €¿€
+/* 4 continuation bytes */ €¿€¿
+/* 5 continuation bytes */ €¿€¿€
+/* 6 continuation bytes */ €¿€¿€¿
+/* 7 continuation bytes */ €¿€¿€¿€

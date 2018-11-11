@@ -1,0 +1,14 @@
+class Prog1 {
+    public static void main(String[] args) {
+    }
+
+    public boolean test() {
+        int a = 10;
+        if(a > 0)
+            if(a > 5)
+                return true;
+            else return false;
+        else return true;
+        else return false;
+    }
+}

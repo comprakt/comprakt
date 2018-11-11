@@ -1,0 +1,3 @@
+class Arrays {
+    public package[] foo;
+}

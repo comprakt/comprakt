@@ -1,0 +1,6 @@
+error: expected public, found int
+   | 
+ 4 |     int actualSolution()  {
+   |     ^^^
+
+Compilation aborted due to an error

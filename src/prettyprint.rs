@@ -1,7 +1,5 @@
-use crate::{ast, context};
+use crate::{ast, context, visitor::NodeKind};
 use failure::Error;
-
-use crate::visitor::NodeKind;
 
 struct IndentPrinter<'w> {
     writer: &'w mut dyn std::io::Write,
@@ -63,13 +61,10 @@ impl<'w> IndentPrinter<'w> {
     }
 }
 
-pub fn prettyprint<'f, 'c>(
-    program: &ast::Program<'f>,
-    _context: &context::Context<'c>,
-) -> Result<(), Error> {
+pub fn prettyprint(ast: &ast::AST<'_>, _context: &context::Context<'_>) -> Result<(), Error> {
     let mut stdout = std::io::stdout();
     let mut printer = IndentPrinter::new(&mut stdout);
-    do_prettyprint(&NodeKind::from(program), &mut printer);
+    do_prettyprint(&NodeKind::from(ast), &mut printer);
     Ok(())
 }
 
@@ -77,9 +72,16 @@ pub fn prettyprint<'f, 'c>(
 fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
     use crate::visitor::NodeKind::*;
     match n {
+        AST(ast) => {
+            use crate::ast::AST::*;
+            match ast {
+                Empty => (), // TODO newline?
+                Program(p) => do_prettyprint(&NodeKind::Program(&p.data), printer),
+            }
+        }
         Program(program) => {
             let mut classes: Vec<&ast::ClassDeclaration<'_>> =
-                program.classes.iter().map(|c| c.get_data()).collect();
+                program.classes.iter().map(|c| &c.data).collect();
             classes.sort_by_key(|c| &c.name);
             classes
                 .into_iter()
@@ -90,7 +92,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             printer.println(format_args!("class {} {{", decl.name));
             printer.indent();
             let mut members: Vec<&ast::ClassMember<'_>> =
-                decl.members.iter().map(|c| c.get_data()).collect();
+                decl.members.iter().map(|c| &c.data).collect();
             members.sort_by(|x, y| compare_class_member(x, y));
             members
                 .into_iter()

@@ -33,6 +33,7 @@ macro_rules! impl_astnode_struct {
     };
 }
 
+impl_astnode_struct!(discr     => 't, ast::AST<'t>, ast::ASTDiscriminants::from);
 impl_astnode_struct!(lt_struct => 't, ast::Program<'t>);
 impl_astnode_struct!(lt_struct => 't, ast::ClassDeclaration<'t>);
 impl_astnode_struct!(lt_struct => 't, ast::ClassMember<'t>);
@@ -85,7 +86,7 @@ impl<'w> Write for Printer<'w> {
 use crate::visitor::*;
 
 pub fn structureprint<'f, 'c>(
-    program: &ast::Program<'f>,
+    ast: &ast::AST<'f>,
     _context: &context::Context<'c>,
 ) -> Result<(), Error> {
     let mut stdout = std::io::stdout();
@@ -93,7 +94,7 @@ pub fn structureprint<'f, 'c>(
         indent: 0,
         writer: &mut stdout,
     };
-    let n = NodeKind::from(program);
+    let n = NodeKind::from(ast);
     do_structureprint(&n, &mut printer)
 }
 

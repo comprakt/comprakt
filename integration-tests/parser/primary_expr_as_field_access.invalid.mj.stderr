@@ -1,0 +1,6 @@
+error: expected an identifier, found null
+   | 
+ 3 |         1234.null;
+   |              ^^^^
+
+Compilation aborted due to an error

@@ -4,6 +4,7 @@ use strum_macros::EnumDiscriminants;
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants)]
 pub enum NodeKind<'a, 't> {
+    AST(&'a AST<'t>),
     Program(&'a Program<'t>),
     ClassDeclaration(&'a ClassDeclaration<'t>),
     ClassMember(&'a ClassMember<'t>),
@@ -22,6 +23,7 @@ pub enum NodeKind<'a, 't> {
 macro_rules! gen_nodekind_match {
     ($nodekindvar:expr, $varname:ident => $rhs:expr) => {
         match $nodekindvar {
+            NodeKind::AST($varname) => $rhs,
             NodeKind::ClassDeclaration($varname) => $rhs,
             NodeKind::Program($varname) => $rhs,
             NodeKind::ClassMember($varname) => $rhs,
@@ -51,10 +53,17 @@ impl<'a, 't> NodeKind<'a, 't> {
         use self::NodeKind::*;
         macro_rules! ccb {
             ($astvar:expr) => {
-                cb(NodeKind::from($astvar.get_data()))
+                cb(NodeKind::from(&$astvar.data))
             };
         }
         match self {
+            AST(ast) => {
+                use crate::ast::AST::*;
+                match ast {
+                    Empty => (),
+                    Program(p) => ccb!(p),
+                }
+            }
             Program(p) => p.classes.iter().for_each(|x| ccb!(x)),
             ClassDeclaration(d) => d.members.iter().for_each(|x| ccb!(x)),
             ClassMember(cm) => {
@@ -63,7 +72,7 @@ impl<'a, 't> NodeKind<'a, 't> {
                     Field(t) => ccb!(t),
                     Method(ty, pl, block) => {
                         ccb!(ty);
-                        cb(NodeKind::ParameterList(pl.get_data()));
+                        cb(NodeKind::ParameterList(&pl.data));
                         ccb!(block);
                     }
                     MainMethod(_, block) => {
@@ -145,6 +154,7 @@ macro_rules! gen_from_ast {
     };
 }
 
+gen_from_ast!(NodeKind::AST<'a, 'f>, ast::AST<'f>);
 gen_from_ast!(NodeKind::Program<'a, 'f>, ast::Program<'f>);
 gen_from_ast!(
     NodeKind::ClassDeclaration<'a, 'f>,

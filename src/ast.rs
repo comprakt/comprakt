@@ -1,5 +1,13 @@
-use crate::{lexer::Spanned, strtab::Symbol};
+use asciifile::Spanned;
+use crate::strtab::Symbol;
 use strum_macros::EnumDiscriminants;
+
+#[strum_discriminants(derive(Display))]
+#[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
+pub enum AST<'t> {
+    Empty,
+    Program(Spanned<'t, Program<'t>>),
+}
 
 /// This is the top-level AST node. It stores all class declerations of the
 /// MiniJava program.
@@ -17,7 +25,7 @@ pub struct ClassDeclaration<'t> {
 }
 
 /// This AST node describes a class member. Variants of class members are
-/// defined in `ClassMemberKind`. Every class member has a type and a name.
+/// defined in `ClassMemberKind`. Every class member has a name.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ClassMember<'t> {
     pub kind: ClassMemberKind<'t>,
@@ -27,10 +35,11 @@ pub struct ClassMember<'t> {
 pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 
 /// A class member is either one of
-/// * `Field`: a decleration of a field of a class
-/// * `Method`: a method of a class
-/// * `MainMethod`: a main method, which is a special method that is only
-/// allowed once in a MiniJava Program
+/// * `Field(type)`: a decleration of a field of a class
+/// * `Method(type, params, body)`: a method of a class
+/// * `MainMethod(param, body)`: a main method, which is a special method that
+/// is only allowed once in a MiniJava Program. The `param` is the name of a
+/// symbol that must not be used in the body.
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
 pub enum ClassMemberKind<'t> {
@@ -81,7 +90,7 @@ pub struct Block<'t> {
 }
 
 /// A statement can have one of the kinds:
-/// * `Block`: A bloch defined in `Block`
+/// * `Block`: A block defined in `Block`
 /// * `Empty`: An empty statement: `;`
 /// * `If`: a if expression consisting of the condition, its body and
 /// optionally an else statement
@@ -100,8 +109,8 @@ pub enum Stmt<'t> {
         Box<Spanned<'t, Stmt<'t>>>,
         Option<Box<Spanned<'t, Stmt<'t>>>>,
     ),
-    Expression(Box<Spanned<'t, Expr<'t>>>),
     While(Box<Spanned<'t, Expr<'t>>>, Box<Spanned<'t, Stmt<'t>>>),
+    Expression(Box<Spanned<'t, Expr<'t>>>),
     Return(Option<Box<Spanned<'t, Expr<'t>>>>),
     LocalVariableDeclaration(
         Spanned<'t, Type>,
@@ -116,16 +125,15 @@ pub enum Stmt<'t> {
 /// * `Unary`: one of the unary operations defined in `UnaryOp`
 /// * `Postfix`: a primary expression with arbitrary many postfix operations
 /// defined in `PostfixOp`
-/// The primary expression from the original grammer are also part of this,
+/// The primary expression from the original grammar are also part of this,
 /// since the distinction is only required for correct postfix-op parsing. These
 /// are:
 /// * `Null`: the `null` keyword
 /// * `Boolean`: a boolean literal
 /// * `Int`: an integer literal
 /// * `Var`: use of a variable
-/// * `Method`: an method invocation
+/// * `MethodInvocation`: an method invocation
 /// * `This`: the `this` keyword
-/// * `Parenthesized`: a parenthesized expression
 /// * `NewObject`: generating a new object, e.g. `new Foo()`
 /// * `NewArray`: generating a new array, e.g. `new int[]`
 #[strum_discriminants(derive(Display))]

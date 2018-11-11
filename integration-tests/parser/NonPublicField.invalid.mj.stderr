@@ -1,0 +1,6 @@
+error: expected public, found int
+   | 
+ 3 |     int field;
+   |     ^^^
+
+Compilation aborted due to an error
