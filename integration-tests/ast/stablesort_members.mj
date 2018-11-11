@@ -1,0 +1,7 @@
+/* The spec is unclear about whether we need to sort members by their type name if their member name is the same.
+   Thus, lets require a stable sort */
+class A {
+    public int a;
+    public void a;
+
+}
