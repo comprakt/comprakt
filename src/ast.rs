@@ -9,14 +9,14 @@ pub enum AST<'t> {
     Program(Spanned<'t, Program<'t>>),
 }
 
-/// This is the top-level AST node. It stores all class declerations of the
+/// This is the top-level AST node. It stores all class declarations of the
 /// MiniJava program.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Program<'t> {
     pub classes: Vec<Spanned<'t, ClassDeclaration<'t>>>,
 }
 
-/// This AST node stores the Class decleration, which consists of a name and
+/// This AST node stores the Class declaration, which consists of a name and
 /// the members of the class.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ClassDeclaration<'t> {
@@ -35,7 +35,7 @@ pub struct ClassMember<'t> {
 pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 
 /// A class member is either one of
-/// * `Field(type)`: a decleration of a field of a class
+/// * `Field(type)`: a declaration of a field of a class
 /// * `Method(type, params, body)`: a method of a class
 /// * `MainMethod(param, body)`: a main method, which is a special method that
 /// is only allowed once in a MiniJava Program. The `param` is the name of a
@@ -97,7 +97,7 @@ pub struct Block<'t> {
 /// * `Expression`: an expression defined in `Expr`
 /// * `While`: a while loop consisting of the condition and its body
 /// * `Return`: a return which can optionally return an expression
-/// * `LocalVariableDeclaration`: a decleration and optional initialization of
+/// * `LocalVariableDeclaration`: a declaration and optional initialization of
 /// a local variable
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
@@ -132,7 +132,7 @@ pub enum Stmt<'t> {
 /// * `Boolean`: a boolean literal
 /// * `Int`: an integer literal
 /// * `Var`: use of a variable
-/// * `MethodInvocation`: an method invocation
+/// * `MethodInvocation`: a method invocation
 /// * `This`: the `this` keyword
 /// * `NewObject`: generating a new object, e.g. `new Foo()`
 /// * `NewArray`: generating a new array, e.g. `new int[]`
