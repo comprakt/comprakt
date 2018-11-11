@@ -292,7 +292,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
     }
 }
 
-fn compare_class_member(a: &'_ &ast::ClassMember<'_>, b: &'_ &ast::ClassMember) -> std::cmp::Ordering {
+fn compare_class_member(a: &'_ &ast::ClassMember<'_>, b: &'_ &ast::ClassMember<'_>) -> std::cmp::Ordering {
     use crate::ast::ClassMemberKindDiscriminants::*;
     let akind = ast::ClassMemberKindDiscriminants::from(&a.kind);
     let bkind = ast::ClassMemberKindDiscriminants::from(&b.kind);
