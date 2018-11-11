@@ -1,0 +1,6 @@
+/* The spec is unclear about whether we need to sort methods by their return / arg types if their name is the same.
+   Thus, lets require a stable sort */
+class A {
+    public int main() {}
+    public static void main(String[] args) {}
+}
