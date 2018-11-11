@@ -11,7 +11,11 @@ struct IndentPrinter<'w> {
 
 impl<'w> IndentPrinter<'w> {
     fn new(writer: &'w mut dyn std::io::Write) -> IndentPrinter<'w> {
-        IndentPrinter { writer, indent: 0, indent_on_next_write: false }
+        IndentPrinter {
+            writer,
+            indent: 0,
+            indent_on_next_write: false,
+        }
     }
 
     fn print(&mut self, args: std::fmt::Arguments<'_>) {
@@ -41,9 +45,13 @@ impl<'w> IndentPrinter<'w> {
         }
     }
 
-    fn indent(&mut self) { self.indent_var(1); }
+    fn indent(&mut self) {
+        self.indent_var(1);
+    }
 
-    fn outdent(&mut self) { self.indent_var(-1); }
+    fn outdent(&mut self) {
+        self.indent_var(-1);
+    }
 
     fn indent_var(&mut self, x: isize) {
         let mut indent = self.indent as isize;
@@ -59,7 +67,6 @@ pub fn prettyprint<'f, 'c>(
     program: &ast::Program<'f>,
     _context: &context::Context<'c>,
 ) -> Result<(), Error> {
-
     let mut stdout = std::io::stdout();
     let mut printer = IndentPrinter::new(&mut stdout);
     do_prettyprint(&NodeKind::from(program), &mut printer);
@@ -108,7 +115,10 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                     do_prettyprint(&NodeKind::from(&block.data), printer);
                 }
                 MainMethod(param_name, block) => {
-                    printer.print(format_args!("public static void main(String[] {})) ", param_name));
+                    printer.print(format_args!(
+                        "public static void main(String[] {})) ",
+                        param_name
+                    ));
                     do_prettyprint(&NodeKind::from(&block.data), printer);
                 }
             }
@@ -148,7 +158,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 printer.indent();
                 for stmt in &block.statements {
                     match stmt.data {
-                        crate::ast::Stmt::Empty => {},
+                        crate::ast::Stmt::Empty => {}
                         _ => {
                             do_prettyprint(&NodeKind::from(&stmt.data), printer);
                             printer.newline();
@@ -292,7 +302,10 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
     }
 }
 
-fn compare_class_member(a: &'_ &ast::ClassMember<'_>, b: &'_ &ast::ClassMember<'_>) -> std::cmp::Ordering {
+fn compare_class_member(
+    a: &'_ &ast::ClassMember<'_>,
+    b: &'_ &ast::ClassMember<'_>,
+) -> std::cmp::Ordering {
     use crate::ast::ClassMemberKindDiscriminants::*;
     let akind = ast::ClassMemberKindDiscriminants::from(&a.kind);
     let bkind = ast::ClassMemberKindDiscriminants::from(&b.kind);
@@ -318,15 +331,22 @@ fn print_argument_list(args: &crate::ast::ArgumentList<'_>, printer: &mut Indent
     }
 }
 
-fn do_prettyprint_expr_parenthesized<'a, 't>(expr: &'a crate::ast::Expr<'t>, printer: &mut IndentPrinter<'_>) {
+fn do_prettyprint_expr_parenthesized<'a, 't>(
+    expr: &'a crate::ast::Expr<'t>,
+    printer: &mut IndentPrinter<'_>,
+) {
     use crate::ast::Expr::*;
     let parenthesize = match expr {
         Int(_) | Boolean(_) | Null | This | Var(_) => false,
         _ => true,
     };
-    if parenthesize { printer.print_str(&"("); }
+    if parenthesize {
+        printer.print_str(&"(");
+    }
     do_prettyprint_expr(expr, printer);
-    if parenthesize { printer.print_str(&")"); }
+    if parenthesize {
+        printer.print_str(&")");
+    }
 }
 
 fn do_prettyprint_expr<'a, 't>(expr: &'a crate::ast::Expr<'t>, printer: &mut IndentPrinter<'_>) {
@@ -386,7 +406,9 @@ fn do_prettyprint_expr<'a, 't>(expr: &'a crate::ast::Expr<'t>, printer: &mut Ind
             printer.print_str(&")");
         }
         This => printer.print_str(&"this"),
-        NewObject(name) => { printer.print(format_args!("new {}())", name)); }
+        NewObject(name) => {
+            printer.print(format_args!("new {}())", name));
+        }
         NewArray(basic_ty, size, brackets) => {
             printer.print_str(&"new ");
             do_prettyprint(&NodeKind::from(basic_ty), printer);

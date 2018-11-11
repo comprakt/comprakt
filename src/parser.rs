@@ -563,8 +563,7 @@ where
 
             if rvalues.len() == 0 {
                 return Ok(lvalue);
-            }
-            else {
+            } else {
                 Ok(ast::Expr::Assignment(lvalue, rvalues))
             }
         })
