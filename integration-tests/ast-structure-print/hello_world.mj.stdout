@@ -1,0 +1,93 @@
+ast::AST (Program)
+  ast::Program
+    ast::ClassDeclaration
+      ast::ClassMember
+        ast::Type
+          ast::BasicType
+      ast::ClassMember
+        ast::Type
+          ast::BasicType
+      ast::ClassMember
+        ast::Block
+          ast::Stmt (Expression)
+            ast::Expr (Postfix)
+              ast::Expr (Var)
+              ast::PostfixOp (FieldAccess)
+              ast::PostfixOp (MethodInvocation)
+                ast::Expr (Binary)
+                  ast::Expr (Int)
+                  ast::Expr (Int)
+          ast::Stmt (LocalVariableDeclaration)
+            ast::Type
+              ast::BasicType
+            ast::Expr (Binary)
+              ast::Expr (Boolean)
+              ast::Expr (Unary)
+                ast::Expr (Boolean)
+          ast::Stmt (If)
+            ast::Expr (Binary)
+              ast::Expr (Binary)
+                ast::Expr (Int)
+                ast::Expr (Int)
+              ast::Expr (Binary)
+                ast::Expr (Binary)
+                  ast::Expr (Int)
+                  ast::Expr (Int)
+                ast::Expr (Int)
+            ast::Stmt (Expression)
+              ast::Expr (Assignment)
+                ast::Expr (Var)
+                ast::Expr (Binary)
+                  ast::Expr (Int)
+                  ast::Expr (Int)
+            ast::Stmt (If)
+              ast::Expr (Unary)
+                ast::Expr (Postfix)
+                  ast::Expr (Var)
+                  ast::PostfixOp (ArrayAccess)
+                    ast::Expr (Binary)
+                      ast::Expr (Int)
+                      ast::Expr (Int)
+              ast::Stmt (Block)
+                ast::Block
+                  ast::Stmt (LocalVariableDeclaration)
+                    ast::Type
+                      ast::BasicType
+                    ast::Expr (Int)
+                  ast::Stmt (Empty)
+                  ast::Stmt (Expression)
+                    ast::Expr (Assignment)
+                      ast::Expr (Var)
+                      ast::Expr (Binary)
+                        ast::Expr (Var)
+                        ast::Expr (Int)
+              ast::Stmt (Block)
+                ast::Block
+                  ast::Stmt (Expression)
+                    ast::Expr (Postfix)
+                      ast::Expr (NewObject)
+                      ast::PostfixOp (MethodInvocation)
+                        ast::Expr (Binary)
+                          ast::Expr (Int)
+                          ast::Expr (Binary)
+                            ast::Expr (Int)
+                            ast::Expr (Int)
+                        ast::Expr (Unary)
+                          ast::Expr (Int)
+      ast::ClassMember
+        ast::Type
+          ast::BasicType
+        std::vec::Vec<asciifile::spanned::Spanned<ast::Parameter>>
+          ast::Parameter
+            ast::Type
+              ast::BasicType
+          ast::Parameter
+            ast::Type
+              ast::BasicType
+        ast::Block
+          ast::Stmt (Return)
+            ast::Expr (Assignment)
+              ast::Expr (Var)
+              ast::Expr (Binary)
+                ast::Expr (Var)
+                ast::Expr (Var)

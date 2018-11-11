@@ -4,7 +4,13 @@ use assert_cmd::prelude::*;
 use difference::Changeset;
 use integration_test_codegen::*;
 use predicates::prelude::*;
-use std::{ffi::OsStr, fs::File, io::Read, path::PathBuf, process::Command};
+use std::{
+    ffi::OsStr,
+    fs::File,
+    io::{Read, Write},
+    path::PathBuf,
+    process::Command,
+};
 
 #[derive(Debug, Copy, Clone)]
 #[allow(dead_code)]
@@ -21,8 +27,8 @@ fn compiler_flag(phase: CompilerPhase) -> &'static str {
     match phase {
         CompilerPhase::Lexer => "--lextest",
         CompilerPhase::Parser => "--parsetest",
-        CompilerPhase::AstStructurePrint => "--print-ast",
-        CompilerPhase::AstPrettyPrint => "--debug-dumpast",
+        CompilerPhase::AstStructurePrint => "--debug-dumpast",
+        CompilerPhase::AstPrettyPrint => "--print-ast",
     }
 }
 
@@ -61,7 +67,15 @@ fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
         ext
     });
 
-    if !filepath_stderr.is_file() || !filepath_stdout.is_file() {
+    let mut filepath_exitcode = filepath.clone();
+
+    filepath_exitcode.set_extension({
+        let mut ext = extension.clone();
+        ext.push(OsStr::new(".exitcode"));
+        ext
+    });
+
+    if !filepath_stderr.is_file() || !filepath_stdout.is_file() || !filepath_exitcode.is_file() {
         let mut filepath_stderr_tentative = filepath.clone();
         filepath_stderr_tentative.set_extension({
             let mut ext = extension.clone();
@@ -72,16 +86,33 @@ fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
         let mut filepath_stdout_tentative = filepath.clone();
         filepath_stdout_tentative.set_extension({
             let mut ext = extension.clone();
-            ext.push(OsStr::new(".stdout"));
+            ext.push(OsStr::new(".stdout.tentative"));
+            ext
+        });
+
+        let mut filepath_exitcode_tentative = filepath.clone();
+        filepath_exitcode_tentative.set_extension({
+            let mut ext = extension.clone();
+            ext.push(OsStr::new(".exitcode.tentative"));
             ext
         });
 
         match compiler_call(phase, &filepath)
             .stdout(File::create(&filepath_stdout_tentative).expect("write stdout file failed"))
             .stderr(File::create(&filepath_stderr_tentative).expect("write stderr file failed"))
-            .spawn()
+            .status()
         {
-            Ok(_) => {
+            Ok(status) => {
+                File::create(&filepath_exitcode_tentative)
+                    .and_then(|mut file| {
+                        if let Some(exit_code) = status.code() {
+                            file.write_all(exit_code.to_string().as_bytes())
+                        } else {
+                            Ok(())
+                        }
+                    })
+                    .ok();
+
                 panic!(
                     "Cannot find required reference output files. \
                      The current output was written to {:?} and {:?}. \
@@ -117,12 +148,18 @@ fn assert_compiler_phase_failure(phase: CompilerPhase, filename: &str) {
     let stdout_predicate =
         predicate::function(|actual: &[u8]| actual == stdout_expected.as_bytes());
 
-    assertion
-        .append_context("changeset stderr", format!("\n{}", stderr_changeset))
-        .append_context("changeset stdout", format!("\n{}", stdout_changeset))
-        .stderr(stderr_predicate)
-        .stdout(stdout_predicate)
-        .failure();
+    let exit_code_expected_str = read_file(&filepath_exitcode);
+
+    if let Ok(exit_code_expected) = exit_code_expected_str.parse::<i32>() {
+        assertion
+            .append_context("changeset stderr", format!("\n{}", stderr_changeset))
+            .append_context("changeset stdout", format!("\n{}", stdout_changeset))
+            .stderr(stderr_predicate)
+            .stdout(stdout_predicate)
+            .code(exit_code_expected);
+    } else {
+        panic!("failed to parse reference exit code. Failing test.");
+    }
 }
 
 fn read_file(filename: &PathBuf) -> String {
