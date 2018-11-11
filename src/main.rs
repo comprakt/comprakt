@@ -29,10 +29,9 @@ mod lexer;
 mod parser;
 #[macro_use]
 mod visitor;
-mod prettyprint;
+mod print;
 mod spantracker;
 mod strtab;
-mod structureprint;
 use self::{
     context::Context,
     lexer::{Lexer, TokenKind},
@@ -114,8 +113,8 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::Echo { path } => cmd_echo(path),
         CliCommand::LexerTest { path } => cmd_lextest(path),
         CliCommand::ParserTest { path } => cmd_parsetest(path),
-        CliCommand::PrintAst { path } => cmd_printast(path, &prettyprint::prettyprint),
-        CliCommand::DebugDumpAst { path } => cmd_printast(path, &structureprint::structureprint),
+        CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
+        CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
     }
 }
 

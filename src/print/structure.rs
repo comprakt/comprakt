@@ -97,10 +97,7 @@ impl<'w> Write for Printer<'w> {
 
 use crate::visitor::*;
 
-pub fn structureprint<'f, 'c>(
-    ast: &ast::AST<'f>,
-    _context: &context::Context<'c>,
-) -> Result<(), Error> {
+pub fn print<'f, 'c>(ast: &ast::AST<'f>, _context: &context::Context<'c>) -> Result<(), Error> {
     let mut stdout = std::io::stdout();
     let mut printer = Printer {
         indent: 0,

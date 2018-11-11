@@ -61,7 +61,7 @@ impl<'w> IndentPrinter<'w> {
     }
 }
 
-pub fn prettyprint(ast: &ast::AST<'_>, _context: &context::Context<'_>) -> Result<(), Error> {
+pub fn print(ast: &ast::AST<'_>, _context: &context::Context<'_>) -> Result<(), Error> {
     let mut stdout = std::io::stdout();
     let mut printer = IndentPrinter::new(&mut stdout);
     do_prettyprint(&NodeKind::from(ast), &mut printer);
