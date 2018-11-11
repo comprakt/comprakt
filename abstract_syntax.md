@@ -1,4 +1,4 @@
-# Abstarkte Algebra
+# Abstract Syntax
 
 ```
 Program :: ClassDeclaration *
