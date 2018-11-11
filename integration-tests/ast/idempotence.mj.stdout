@@ -17,4 +17,3 @@ class HelloWorld {
 	public boolean[] array;
 	public int c;
 }
-

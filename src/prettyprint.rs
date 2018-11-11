@@ -87,7 +87,6 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             classes
                 .into_iter()
                 .for_each(|class| do_prettyprint(&NodeKind::from(class), printer));
-            printer.newline();
         }
 
         ClassDeclaration(decl) => {
