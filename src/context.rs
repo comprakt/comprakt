@@ -1,6 +1,6 @@
 //! All state shared by the lexer, parser and semantic analysis phases.
-use asciifile::{AsciiFile, Spanned};
-use crate::diagnostics::{Diagnostics, MaybeSpanned::WithSpan};
+use asciifile::{AsciiFile, MaybeSpanned::WithSpan, Spanned};
+use crate::diagnostics::Diagnostics;
 use std::fmt::Display;
 use termcolor::WriteColor;
 
@@ -24,17 +24,17 @@ impl<'m> Context<'m> {
 
     #[allow(dead_code)]
     pub fn warning(&self, spanned: Spanned<'m, &dyn Display>) {
-        self.diagnostics.warning(WithSpan(spanned));
+        self.diagnostics.warning(&WithSpan(spanned));
     }
 
     #[allow(dead_code)]
     pub fn error(&self, spanned: Spanned<'m, &dyn Display>) {
-        self.diagnostics.error(WithSpan(spanned));
+        self.diagnostics.error(&WithSpan(spanned));
     }
 
     #[allow(dead_code)]
     pub fn info(&self, spanned: Spanned<'m, &dyn Display>) {
-        self.diagnostics.info(WithSpan(spanned));
+        self.diagnostics.info(&WithSpan(spanned));
     }
 }
 

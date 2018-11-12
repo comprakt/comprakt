@@ -1,7 +1,9 @@
-use asciifile::{Span, Spanned};
+use asciifile::{
+    MaybeSpanned::{self, *},
+    Span, Spanned,
+};
 use crate::{
     ast,
-    diagnostics::MaybeSpanned::{self, *},
     lexer::{Keyword, Operator, Token, TokenKind},
     spantracker::*,
     strtab::Symbol,
@@ -915,18 +917,11 @@ mod tests {
         //    | ^^^^^^^^^^^^^^^^^
         //  6 |             }
         //    | ^^^^^^^^^^^^^
-        #[derive(Debug, Fail)]
-        #[fail(display = "span for AST node '{}'", name)]
-        struct SpanInfo {
-            name: String,
-        }
 
-        ctx.diagnostics.info(WithSpan(Spanned {
+        ctx.diagnostics.info(&Spanned {
             span: prog.span,
-            data: &SpanInfo {
-                name: "whole program with trimmed whitespace".to_string(),
-            },
-        }));
+            data: "span for AST node 'whole program with trimmed whitespace'",
+        });
 
         assert_eq!(start.line_number(), 2);
         assert_eq!(start.column(), 13);

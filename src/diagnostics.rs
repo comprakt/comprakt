@@ -3,16 +3,51 @@
 //! It also tracks the number of warnings and errors generated for flow control.
 //!
 //! This implementation is NOT thread-safe.
-use asciifile::{Span, Spanned};
+use asciifile::{MaybeSpanned, Span, Spanned};
 use crate::color::ColorOutput;
 use failure::Error;
-use std::{ascii::escape_default, cell::RefCell, collections::HashMap, fmt::Display, ops::Deref};
+use std::{ascii::escape_default, cell::RefCell, collections::HashMap, fmt::Display};
 use termcolor::{Color, WriteColor};
 
 pub fn u8_to_printable_representation(byte: u8) -> String {
     let bytes = escape_default(byte).collect::<Vec<u8>>();
     let rep = unsafe { std::str::from_utf8_unchecked(&bytes) };
     rep.to_owned()
+}
+
+/// This abstraction allows us to call the diagnostics API with pretty
+/// much everything.
+pub trait Printable<'a, 'b> {
+    fn as_maybe_spanned(&'b self) -> MaybeSpanned<'a, &'b dyn Display>;
+}
+
+// TODO: implementing on `str` (which is what you would like to do, to
+// support calls with warning("aa") instead of warning(&"aa").
+impl<'a, 'b> Printable<'a, 'b> for &'b str {
+    fn as_maybe_spanned(&'b self) -> MaybeSpanned<'a, &'b dyn Display> {
+        MaybeSpanned::WithoutSpan(self)
+    }
+}
+
+impl<'a, 'b, T: Display + 'b> Printable<'a, 'b> for Spanned<'a, T> {
+    fn as_maybe_spanned(&'b self) -> MaybeSpanned<'a, &'b dyn Display> {
+        MaybeSpanned::WithSpan(Spanned {
+            span: self.span.clone(),
+            data: &self.data,
+        })
+    }
+}
+
+impl<'a, 'b, T: Display + 'b> Printable<'a, 'b> for MaybeSpanned<'a, T> {
+    fn as_maybe_spanned(&'b self) -> MaybeSpanned<'a, &'b dyn Display> {
+        match self {
+            MaybeSpanned::WithSpan(ref spanned) => MaybeSpanned::WithSpan(Spanned {
+                span: spanned.span.clone(),
+                data: &spanned.data,
+            }),
+            MaybeSpanned::WithoutSpan(ref data) => MaybeSpanned::WithoutSpan(data),
+        }
+    }
 }
 
 /// Width of tabs in error and warning messages
@@ -23,24 +58,6 @@ const TAB_WIDTH: usize = 4;
 const HIGHLIGHT_COLOR: Option<Color> = Some(Color::Cyan);
 
 // TODO reimplement line truncation
-
-// TODO: move to ascii file?
-#[derive(Debug)]
-pub enum MaybeSpanned<'a, T> {
-    WithoutSpan(T),
-    WithSpan(Spanned<'a, T>),
-}
-
-impl<'a, T> Deref for MaybeSpanned<'a, T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        match self {
-            MaybeSpanned::WithoutSpan(data) => data,
-            MaybeSpanned::WithSpan(spanned) => &spanned.data,
-        }
-    }
-}
 
 /// Instead of writing errors, warnings and lints generated in the different
 /// compiler stages directly to stdout, they are collected in this object.
@@ -120,18 +137,18 @@ impl Diagnostics {
     }
 
     #[allow(dead_code)]
-    pub fn warning(&self, kind: MaybeSpanned<'_, &dyn Display>) {
-        self.emit(MessageLevel::Warning, kind)
+    pub fn warning<'a, 'b, T: Printable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
+        self.emit(MessageLevel::Warning, kind.as_maybe_spanned())
     }
 
     #[allow(dead_code)]
-    pub fn error(&self, kind: MaybeSpanned<'_, &dyn Display>) {
-        self.emit(MessageLevel::Error, kind)
+    pub fn error<'a, 'b, T: Printable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
+        self.emit(MessageLevel::Error, kind.as_maybe_spanned())
     }
 
     #[allow(dead_code)]
-    pub fn info(&self, kind: MaybeSpanned<'_, &dyn Display>) {
-        self.emit(MessageLevel::Info, kind)
+    pub fn info<'a, 'b, T: Printable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
+        self.emit(MessageLevel::Info, kind.as_maybe_spanned())
     }
 
     fn increment_level_count(&self, level: MessageLevel) {

@@ -8,6 +8,7 @@ pub mod iter;
 pub mod position;
 pub mod span;
 pub mod spanned;
+pub mod maybe_spanned;
 
 pub use self::{
     file::AsciiFile,
@@ -15,4 +16,5 @@ pub use self::{
     position::Position,
     span::Span,
     spanned::Spanned,
+    maybe_spanned::MaybeSpanned,
 };
