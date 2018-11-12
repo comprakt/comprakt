@@ -38,15 +38,14 @@ IfStatement                         if \( Expression \) Statement (else Statemen
 ExpressionStatement                 Expression ;                                                           $ Self.out = ast::Stmt::Expression(Expression.out)
 ReturnStatement                     return Expression? ;                                                   $ Self.out = ast::Stmt::Return(Some(Expression.out) | None)
 
-Expression                          LogicalOrExpression (= LogicalOrExpression)*                           $ Self.out = ast::Expr::Assignment(LogicalOrExpression_1, LogicalOrExpression_2.all_outs)
-
 // BEGIN precedence climbing
-LogicalOrExpression                 LogicalAndExpression (\|\| LogicalAndExpression)*                      $ Self.out = ast::Expr::Binary(<binop>, Lhs, Rhs)
-LogicalAndExpression                EqualityExpression (&& EqualityExpression)*                            $ <analog>
-EqualityExpression                  RelationalExpression ( (== | !=) RelationalExpression)*                $ <analog>
-RelationalExpression                AddititveExpression ( (< | <= | > | >=) AdditiveExpression )*          $ <analog>
-AdditiveExpression                  MultiplicativeExpression ( (+|-) MultiplicativeExpression )*           $ <analog>
-MultiplicativeExpression            UnaryExpression ( (\*|/|%) UnaryExpression)*                           $ <analog>
+Expression                          LogicalOrExpression (= Expression)?                                    $ Self.out = ast::Expr::Binary(<binop>, Lhs, Rhs)
+LogicalOrExpression                 (LogicalAndExpression \|\|)? LogicalAndExpression                      $ <analog>
+LogicalAndExpression                (EqualityExpression &&)? EqualityExpression                            $ <analog>
+EqualityExpression                  (RelationalExpression (== | !=))? RelationalExpression                 $ <analog>
+RelationalExpression                (AddititveExpression (< | <= | > | >=))? AdditiveExpression            $ <analog>
+AdditiveExpression                  (MultiplicativeExpression (+|-))? MultiplicativeExpression             $ <analog>
+MultiplicativeExpression            (UnaryExpression (\*|/|%))? UnaryExpression                            $ <analog>
 // END precedence climbing
 
 UnaryExpression                     (! | -)* PostfixExpression                                             $ Self.out = ast::Expr::Unary(UnaryOp::from("!|"-"), PostfixExpression.out)

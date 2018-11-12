@@ -124,8 +124,12 @@ pub enum Stmt<'t> {
 /// * `Assignment`: an assignment expression
 /// * `Binary`: one of the binary operations defined in `BinaryOp`
 /// * `Unary`: one of the unary operations defined in `UnaryOp`
-/// * `Postfix`: a primary expression with arbitrary many postfix operations
-/// defined in `PostfixOp`
+/// * `MethodInvocation`: a method invocation on a primary expression:
+/// `foo.method()`
+/// * `FieldAccess`: a field access on a primary expression:
+/// `foo.bar`
+/// * `ArrayAccess`: an array access on a primary expression:
+/// `foo[42]`
 /// The primary expression from the original grammar are also part of this,
 /// since the distinction is only required for correct postfix-op parsing. These
 /// are:
@@ -140,20 +144,28 @@ pub enum Stmt<'t> {
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
 pub enum Expr<'t> {
-    Assignment(Box<Spanned<'t, Expr<'t>>>, Vec<Spanned<'t, Expr<'t>>>),
     Binary(
         BinaryOp,
         Box<Spanned<'t, Expr<'t>>>,
         Box<Spanned<'t, Expr<'t>>>,
     ),
-    Unary(Vec<UnaryOp>, Box<Spanned<'t, Expr<'t>>>),
-    Postfix(Box<Spanned<'t, Expr<'t>>>, Vec<Spanned<'t, PostfixOp<'t>>>),
+    Unary(UnaryOp, Box<Spanned<'t, Expr<'t>>>),
+
+    // Postfix ops
+    MethodInvocation(
+        Box<Spanned<'t, Expr<'t>>>,
+        Symbol,
+        Spanned<'t, ArgumentList<'t>>,
+    ),
+    FieldAccess(Box<Spanned<'t, Expr<'t>>>, Symbol),
+    ArrayAccess(Box<Spanned<'t, Expr<'t>>>, Box<Spanned<'t, Expr<'t>>>),
+
     // The old primary expressions
     Null,
     Boolean(bool),
     Int(Symbol), // TODO Should be String?
     Var(Symbol),
-    MethodInvocation(Symbol, Spanned<'t, ArgumentList<'t>>),
+    ThisMethodInvocation(Symbol, Spanned<'t, ArgumentList<'t>>),
     This,
     NewObject(Symbol),
     NewArray(BasicType, Box<Spanned<'t, Expr<'t>>>, u64),
@@ -163,6 +175,8 @@ pub enum Expr<'t> {
 /// operations (`||`, `&&`) or algebraic operation (`+`, `-`, `*`, `/`, `%`).
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BinaryOp {
+    Assign,
+
     Equals,
     NotEquals,
     LessThan,
@@ -188,18 +202,3 @@ pub enum UnaryOp {
 }
 
 pub type ArgumentList<'t> = Vec<Spanned<'t, Expr<'t>>>;
-
-/// A postfix operation is either one of
-/// * `MethodInvocation`: a method invocation on a primary expression:
-/// `foo.method()`
-/// * `FieldAccess`: a field access on a primary expression:
-/// `foo.bar`
-/// * `ArrayAccess`: an array access on a primary expression:
-/// `foo[42]`
-#[strum_discriminants(derive(Display))]
-#[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
-pub enum PostfixOp<'t> {
-    MethodInvocation(Symbol, Spanned<'t, ArgumentList<'t>>),
-    FieldAccess(Symbol),
-    ArrayAccess(Box<Spanned<'t, Expr<'t>>>),
-}
