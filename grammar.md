@@ -41,12 +41,12 @@ ReturnStatement                     return Expression? ;                        
 Expression                          LogicalOrExpression (= LogicalOrExpression)*                           $ Self.out = ast::Expr::Assignment(LogicalOrExpression_1, LogicalOrExpression_2.all_outs)
 
 // BEGIN precedence climbing
-LogicalOrExpression                 LogicalAndExpression (\|\| LogicalAndExpression)*                      $ Self.out = ast::Expr::Binary(<binop>, Lhs, Rhs)
-LogicalAndExpression                EqualityExpression (&& EqualityExpression)*                            $ <analog>
-EqualityExpression                  RelationalExpression ( (== | !=) RelationalExpression)*                $ <analog>
-RelationalExpression                AddititveExpression ( (< | <= | > | >=) AdditiveExpression )*          $ <analog>
-AdditiveExpression                  MultiplicativeExpression ( (+|-) MultiplicativeExpression )*           $ <analog>
-MultiplicativeExpression            UnaryExpression ( (\*|/|%) UnaryExpression)*                           $ <analog>
+LogicalOrExpression                 (LogicalAndExpression \|\|)? LogicalAndExpression                      $ <analog>
+LogicalAndExpression                (EqualityExpression &&)? EqualityExpression                            $ <analog>
+EqualityExpression                  (RelationalExpression (== | !=))? RelationalExpression                 $ <analog>
+RelationalExpression                (AddititveExpression (< | <= | > | >=))? AdditiveExpression            $ <analog>
+AdditiveExpression                  (MultiplicativeExpression (+|-))? MultiplicativeExpression             $ <analog>
+MultiplicativeExpression            (UnaryExpression (\*|/|%))? UnaryExpression                            $ <analog>
 // END precedence climbing
 
 UnaryExpression                     (! | -)* PostfixExpression                                             $ Self.out = ast::Expr::Unary(UnaryOp::from("!|"-"), PostfixExpression.out)
