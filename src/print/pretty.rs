@@ -405,29 +405,13 @@ fn do_prettyprint_expr<'a, 't>(expr: &'a crate::ast::Expr<'t>, printer: &mut Ind
             do_prettyprint(&NodeKind::from(op), printer);
             do_prettyprint_expr_parenthesized(&rhs.data, printer);
         }
-        Unary(ops, expr) => {
-            for (i, op) in ops.iter().enumerate() {
-                do_prettyprint(&NodeKind::from(op), printer);
-                if i != ops.len() - 1 {
-                    printer.print_str(&"(");
-                }
-            }
+        Unary(op, expr) => {
+            do_prettyprint(&NodeKind::from(op), printer);
             do_prettyprint_expr_parenthesized(&expr.data, printer);
-            for _ in ops.iter().skip(1) {
-                printer.print_str(&")");
-            }
         }
-        Postfix(prime, post_ops) => {
-            for _ in post_ops.iter().skip(1) {
-                printer.print_str(&"(");
-            }
+        Postfix(prime, post) => {
             do_prettyprint_expr_parenthesized(&prime.data, printer);
-            for (i, post) in post_ops.iter().enumerate() {
-                if i > 0 {
-                    printer.print_str(&")");
-                }
-                do_prettyprint(&NodeKind::from(&post.data), printer);
-            }
+            do_prettyprint(&NodeKind::from(&post.data), printer);
         }
         Null => printer.print_str(&"null"),
         Boolean(val) => printer.print(format_args!("{}", val)),

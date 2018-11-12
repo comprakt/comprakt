@@ -146,8 +146,8 @@ pub enum Expr<'t> {
         Box<Spanned<'t, Expr<'t>>>,
         Box<Spanned<'t, Expr<'t>>>,
     ),
-    Unary(Vec<UnaryOp>, Box<Spanned<'t, Expr<'t>>>),
-    Postfix(Box<Spanned<'t, Expr<'t>>>, Vec<Spanned<'t, PostfixOp<'t>>>),
+    Unary(UnaryOp, Box<Spanned<'t, Expr<'t>>>),
+    Postfix(Box<Spanned<'t, Expr<'t>>>, Spanned<'t, PostfixOp<'t>>),
     // The old primary expressions
     Null,
     Boolean(bool),

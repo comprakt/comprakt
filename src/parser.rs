@@ -599,68 +599,68 @@ where
     }
 
     fn parse_unary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
-        spanned!(self, {
-            let mut ops = Vec::new();
-            while let Some(op) = self.omnomnoptional(UnaryOp)? {
-                ops.push(op.data);
-            }
+        let mut ops = Vec::new();
+        while let Some(op) = self.omnomnoptional(UnaryOp)? {
+            ops.push(op);
+        }
 
-            let expr = self.parse_postfix_expression()?;
+        let mut expr = self.parse_postfix_expression()?;
 
-            if ops.is_empty() {
-                return Ok(expr);
-            }
+        for op in ops {
+            expr = box Spanned {
+                span: Span::combine(&op.span, &expr.span),
+                data: ast::Expr::Unary(op.data, expr),
+            };
+        }
 
-            Ok(ast::Expr::Unary(ops, expr))
-        })
-        .map(Box::new)
+        Ok(expr)
     }
 
     fn parse_postfix_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
-        spanned!(self, {
-            let base_expr = self.parse_primary_expression()?;
+        let mut expr = self.parse_primary_expression()?;
 
-            let mut postfix_ops = Vec::new();
-            loop {
-                let postfix_op = spanned!(self, {
-                    use self::ast::PostfixOp::*;
+        let mut postfix_ops = Vec::new();
+        loop {
+            let postfix_op = spanned!(self, {
+                use self::ast::PostfixOp::*;
 
-                    if self.omnomnoptional(exactly(Operator::Dot))?.is_some() {
-                        let adressee = self.omnomnom(Identifier)?;
+                if self.omnomnoptional(exactly(Operator::Dot))?.is_some() {
+                    let adressee = self.omnomnom(Identifier)?;
 
-                        if self.tastes_like(exactly(Operator::LeftParen))? {
-                            // method call: EXPR.ident(arg1, arg2, ...)
-                            let args = self.parse_parameter_values()?;
+                    if self.tastes_like(exactly(Operator::LeftParen))? {
+                        // method call: EXPR.ident(arg1, arg2, ...)
+                        let args = self.parse_parameter_values()?;
 
-                            Ok(MethodInvocation(adressee.data, args))
-                        } else {
-                            // member reference: EXPR.ident
-                            Ok(FieldAccess(adressee.data))
-                        }
-                    } else if self
-                        .omnomnoptional(exactly(Operator::LeftBracket))?
-                        .is_some()
-                    {
-                        // array access: EXPR[EXPR]
-                        let index_expr = self.parse_expression()?;
-                        self.omnomnom(exactly(Operator::RightBracket))?;
-
-                        Ok(ArrayAccess(index_expr))
+                        Ok(MethodInvocation(adressee.data, args))
                     } else {
-                        break;
+                        // member reference: EXPR.ident
+                        Ok(FieldAccess(adressee.data))
                     }
-                })?;
+                } else if self
+                    .omnomnoptional(exactly(Operator::LeftBracket))?
+                    .is_some()
+                {
+                    // array access: EXPR[EXPR]
+                    let index_expr = self.parse_expression()?;
+                    self.omnomnom(exactly(Operator::RightBracket))?;
 
-                postfix_ops.push(postfix_op)
-            }
+                    Ok(ArrayAccess(index_expr))
+                } else {
+                    break;
+                }
+            })?;
 
-            if postfix_ops.is_empty() {
-                return Ok(base_expr);
-            }
+            postfix_ops.push(postfix_op)
+        }
 
-            Ok(ast::Expr::Postfix(base_expr, postfix_ops))
-        })
-        .map(Box::new)
+        for op in postfix_ops {
+            expr = box Spanned {
+                span: Span::combine(&expr.span, &op.span),
+                data: ast::Expr::Postfix(expr, op),
+            };
+        }
+
+        Ok(expr)
     }
 
     fn parse_primary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {

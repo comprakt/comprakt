@@ -121,9 +121,9 @@ impl<'a, 't> NodeKind<'a, 't> {
                         ccb!(rhs.as_ref());
                     }
                     Unary(_, expr) => ccb!(expr.as_ref()),
-                    Postfix(expr, posts) => {
+                    Postfix(expr, post) => {
                         ccb!(expr.as_ref());
-                        posts.iter().for_each(|p| ccb!(p));
+                        ccb!(post);
                     }
                     Null | Boolean(_) | Int(_) | Var(_) | This => (),
                     MethodInvocation(_, al) => al.iter().for_each(|a| ccb!(a)),
