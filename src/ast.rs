@@ -11,14 +11,14 @@ pub enum AST<'t> {
 
 /// This is the top-level AST node. It stores all class declarations of the
 /// MiniJava program.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Program<'t> {
     pub classes: Vec<Spanned<'t, ClassDeclaration<'t>>>,
 }
 
 /// This AST node stores the Class declaration, which consists of a name and
 /// the members of the class.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ClassDeclaration<'t> {
     pub name: Symbol,
     pub members: Vec<Spanned<'t, ClassMember<'t>>>,
@@ -26,7 +26,7 @@ pub struct ClassDeclaration<'t> {
 
 /// This AST node describes a class member. Variants of class members are
 /// defined in `ClassMemberKind`. Every class member has a name.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ClassMember<'t> {
     pub kind: ClassMemberKind<'t>,
     pub name: Symbol,
@@ -41,7 +41,7 @@ pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 /// is only allowed once in a MiniJava Program. The `param` is the name of a
 /// symbol that must not be used in the body.
 #[strum_discriminants(derive(Display))]
-#[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
+#[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
 pub enum ClassMemberKind<'t> {
     Field(Spanned<'t, Type>),
     Method(
@@ -54,7 +54,7 @@ pub enum ClassMemberKind<'t> {
 
 /// This AST node represents a method parameter. A parameter consists of a
 /// `Type` and a name.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Parameter<'t> {
     pub ty: Spanned<'t, Type>,
     pub name: Symbol,
@@ -62,7 +62,7 @@ pub struct Parameter<'t> {
 
 /// A `Type` is basically a `BasicType`. Optional it can be an (n-dimensional)
 /// array type.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Type {
     pub basic: BasicType,
     /// Depth of the array type (number of `[]`) i.e. this means means `self.ty
@@ -76,7 +76,7 @@ pub struct Type {
 /// * `Void`: a void type
 /// * `Custom`: a custom defined type
 #[strum_discriminants(derive(Display))]
-#[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
+#[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
 pub enum BasicType {
     Int,
     Boolean,
@@ -85,7 +85,7 @@ pub enum BasicType {
 }
 
 /// A `Block` in the AST is basically just a vector of statements.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Block<'t> {
     pub statements: Vec<Spanned<'t, Stmt<'t>>>,
 }
@@ -101,7 +101,7 @@ pub struct Block<'t> {
 /// * `LocalVariableDeclaration`: a declaration and optional initialization of
 /// a local variable
 #[strum_discriminants(derive(Display))]
-#[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
+#[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
 pub enum Stmt<'t> {
     Block(Spanned<'t, Block<'t>>),
     Empty,
@@ -142,7 +142,7 @@ pub enum Stmt<'t> {
 /// * `NewObject`: generating a new object, e.g. `new Foo()`
 /// * `NewArray`: generating a new array, e.g. `new int[]`
 #[strum_discriminants(derive(Display))]
-#[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
+#[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
 pub enum Expr<'t> {
     Binary(
         BinaryOp,
