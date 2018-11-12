@@ -192,7 +192,9 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             use crate::ast::Stmt::*;
             match stmt {
                 Block(block) => do_prettyprint(&NodeKind::from(&block.data), printer),
-                Empty => {}
+                Empty => {
+                    printer.print_str(&";");
+                }
                 If(cond, stmt, opt_else) => {
                     printer.print_str(&"if (");
                     // no parenthesizes for expressions in if conditions
