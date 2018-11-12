@@ -1,6 +1,6 @@
+use asciifile::Spanned;
 use crate::ast::{self, *};
 use strum_macros::EnumDiscriminants;
-use asciifile::Spanned;
 
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants)]
@@ -152,9 +152,15 @@ gen_from_ast!(
     NodeKind::ClassDeclaration<'a, 'f>,
     Spanned<'f, ast::ClassDeclaration<'f>>
 );
-gen_from_ast!(NodeKind::ClassMember<'a, 'f>, Spanned<'f, ast::ClassMember<'f>>);
+gen_from_ast!(
+    NodeKind::ClassMember<'a, 'f>,
+    Spanned<'f, ast::ClassMember<'f>>
+);
 gen_from_ast!(NodeKind::Parameter<'a, 'f>, Spanned<'f, ast::Parameter<'f>>);
-gen_from_ast!(NodeKind::ParameterList<'a, 'f>, Spanned<'f, ast::ParameterList<'f>>);
+gen_from_ast!(
+    NodeKind::ParameterList<'a, 'f>,
+    Spanned<'f, ast::ParameterList<'f>>
+);
 gen_from_ast!(NodeKind::Type<'a, 'f>, Spanned<'f, ast::Type>);
 gen_from_ast!(NodeKind::BasicType<'a, 'f>, ast::BasicType);
 gen_from_ast!(NodeKind::Block<'a, 'f>, Spanned<'f, ast::Block<'f>>);
