@@ -178,7 +178,6 @@ impl<'t> Position<'t> {
                 // to the previous newline character
                 let consumed = &self.file[..self.byte_offset];
                 let previous_newline_index: usize = consumed.rfind('\n').unwrap_or(0);
-                println!("newline_idx: {}", previous_newline_index);
                 // minus one transposes 1-indexed columns to 0-indexed columns
                 self.col = self.byte_offset - previous_newline_index - 1;
 
