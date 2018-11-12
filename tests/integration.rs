@@ -63,6 +63,7 @@ struct TestFiles {
     stderr: PathBuf,
     stdout: PathBuf,
     exitcode: PathBuf,
+    generate_tentatives: bool,
 }
 //let filepath = PathBuf::from(filename);
 //let file.stderr = with_extension(&filepath, ".stderr");
@@ -76,6 +77,10 @@ fn assert_compiler_phase(phase: CompilerPhase, file: &TestFiles) {
         // with an additional ".tenative" extension. The programmer can then
         // verify the generated tentative new reference results and remove
         // the ".tentative" suffix.
+        if !file.generate_tentatives {
+            panic!("Cannot find required reference output files.");
+        }
+
         let file_stderr_tentative = with_extension(&file.stderr, ".tentative");
         let file_stdout_tentative = with_extension(&file.stdout, ".tentative");
         let file_exitcode_tentative = with_extension(&file.exitcode, ".tentative");

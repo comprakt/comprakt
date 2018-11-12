@@ -26,6 +26,7 @@ pub fn gen_lexer_integration_tests(_args: TokenStream) -> TokenStream {
         "lexer",
         |v| quote! { #v },
         "",
+        true,
     )
 }
 
@@ -37,19 +38,20 @@ pub fn gen_parser_integration_tests(_args: TokenStream) -> TokenStream {
         "parser",
         |v| quote! { #v },
         "",
+        true,
     )
 }
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
-pub fn gen_ast_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(&quote! { CompilerPhase::Ast }, "ast", |v| quote! { #v }, "")
-}
-
-#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
-#[proc_macro]
 pub fn gen_ast_reference_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(&quote! { CompilerPhase::Ast }, "ast", |v| quote! { #v }, "")
+    gen_integration_tests(
+        &quote! { CompilerPhase::Ast },
+        "ast",
+        |v| quote! { #v },
+        "",
+        true,
+    )
 }
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
@@ -62,6 +64,7 @@ pub fn gen_ast_idempotence_integration_tests(_args: TokenStream) -> TokenStream 
             quote! { with_extension(&#v, ".stdout") }
         },
         "_idempotence",
+        false,
     )
 }
 
@@ -70,6 +73,7 @@ fn gen_integration_tests<F>(
     subfolder: &str,
     input_adaptor: F,
     test_name_suffix: &str,
+    should_generate: bool,
 ) -> TokenStream
 where
     F: Fn(proc_macro2::TokenStream) -> proc_macro2::TokenStream,
@@ -111,7 +115,6 @@ where
 
         let path_str = case.to_str().unwrap();
         let path_input_tokenstream = input_adaptor(quote! { PathBuf::from(#path_str) });
-
         let tokens = quote! {
             #[test]
             fn #function_name() {
@@ -123,6 +126,7 @@ where
                     stderr: with_extension(&path, ".stderr"),
                     stdout: with_extension(&path, ".stdout"),
                     exitcode: with_extension(&path, ".exitcode"),
+                    generate_tentatives: #should_generate
                 });
             }
         };
