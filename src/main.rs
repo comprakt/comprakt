@@ -30,6 +30,7 @@ mod parser;
 #[macro_use]
 mod visitor;
 mod print;
+mod sem;
 mod spantracker;
 mod strtab;
 use self::{
@@ -96,6 +97,11 @@ enum CliCommand {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
+    #[structopt(name = "--check")]
+    Check {
+        #[structopt(name = "FILE", parse(from_os_str))]
+        path: PathBuf,
+    },
 }
 
 fn main() {
@@ -115,6 +121,7 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::ParserTest { path } => cmd_parsetest(path),
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
+        CliCommand::Check { path } => cmd_check(path, &sem::check),
     }
 }
 
@@ -175,6 +182,57 @@ macro_rules! setup_io {
         let stderr = StandardStream::stderr(ColorChoice::Auto);
         let $context = Context::new(&ascii_file, box stderr);
     };
+}
+
+fn cmd_check<C>(path: &PathBuf, checker: &C) -> Result<(), Error>
+where
+    C: Fn(&ast::AST<'_>, &context::Context<'_>) -> Result<(), Error>,
+{
+    setup_io!(let context = path);
+    let strtab = StringTable::new();
+    let lexer = Lexer::new(&strtab, &context);
+
+    // adapt lexer to fail on first error
+    // filter whitespace and comments
+    let unforgiving_lexer = lexer.filter_map(|result| match result {
+        Ok(token) => match token.data {
+            TokenKind::Whitespace | TokenKind::Comment(_) => None,
+            _ => Some(token),
+        },
+        Err(lexical_error) => {
+            context.error(Spanned {
+                span: lexical_error.span,
+                data: box lexical_error.data,
+            });
+
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    });
+
+    let mut parser = Parser::new(unforgiving_lexer);
+
+    let program = match parser.parse() {
+        Ok(p) => p,
+        Err(parser_error) => {
+            // TODO: context.error should do this match automatically through
+            // generic arguments
+            match parser_error {
+                MaybeSpanned::WithSpan(spanned) => context.error(Spanned {
+                    span: spanned.span,
+                    data: box spanned.data,
+                }),
+                MaybeSpanned::WithoutSpan(error) => context
+                    .diagnostics
+                    .error(MaybeSpanned::WithoutSpan(box error)),
+            }
+
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    };
+
+    checker(&program, &context)
 }
 
 fn cmd_printast<P>(path: &PathBuf, printer: &P) -> Result<(), Error>
