@@ -203,7 +203,7 @@ where
         Err(lexical_error) => {
             context.error(Spanned {
                 span: lexical_error.span,
-                data: box lexical_error.data,
+                data: &lexical_error.data,
             });
 
             context.diagnostics.write_statistics();
@@ -221,11 +221,11 @@ where
             match parser_error {
                 MaybeSpanned::WithSpan(spanned) => context.error(Spanned {
                     span: spanned.span,
-                    data: box spanned.data,
+                    data: &spanned.data,
                 }),
-                MaybeSpanned::WithoutSpan(error) => context
-                    .diagnostics
-                    .error(MaybeSpanned::WithoutSpan(box error)),
+                MaybeSpanned::WithoutSpan(error) => {
+                    context.diagnostics.error(MaybeSpanned::WithoutSpan(&error))
+                }
             }
 
             context.diagnostics.write_statistics();
@@ -254,7 +254,7 @@ where
         Err(lexical_error) => {
             context.error(Spanned {
                 span: lexical_error.span,
-                data: box lexical_error.data,
+                data: &lexical_error.data,
             });
 
             context.diagnostics.write_statistics();
@@ -327,12 +327,12 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
                 MaybeSpanned::WithSpan(spanned) => {
                     context.diagnostics.error(MaybeSpanned::WithSpan(Spanned {
                         span: spanned.span,
-                        data: box spanned.data,
+                        data: &spanned.data,
                     }))
                 }
-                MaybeSpanned::WithoutSpan(error) => context
-                    .diagnostics
-                    .error(MaybeSpanned::WithoutSpan(box error)),
+                MaybeSpanned::WithoutSpan(error) => {
+                    context.diagnostics.error(MaybeSpanned::WithoutSpan(&error))
+                }
             }
 
             context.diagnostics.write_statistics();
@@ -352,7 +352,7 @@ fn cmd_lextest(path: &PathBuf) -> Result<(), Error> {
         match token {
             Err(lexical_error) => context.error(Spanned {
                 span: lexical_error.span,
-                data: box lexical_error.data,
+                data: &lexical_error.data,
             }),
             Ok(token) => write_token(&mut stdout, &token.data)?,
         }

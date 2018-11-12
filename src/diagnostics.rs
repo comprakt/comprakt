@@ -5,8 +5,8 @@
 //! This implementation is NOT thread-safe.
 use asciifile::{Span, Spanned};
 use crate::color::ColorOutput;
-use failure::{AsFail, Error};
-use std::{ascii::escape_default, cell::RefCell, collections::HashMap};
+use failure::Error;
+use std::{ascii::escape_default, cell::RefCell, collections::HashMap, fmt::Display, ops::Deref};
 use termcolor::{Color, WriteColor};
 
 pub fn u8_to_printable_representation(byte: u8) -> String {
@@ -29,6 +29,17 @@ const HIGHLIGHT_COLOR: Option<Color> = Some(Color::Cyan);
 pub enum MaybeSpanned<'a, T> {
     WithoutSpan(T),
     WithSpan(Spanned<'a, T>),
+}
+
+impl<'a, T> Deref for MaybeSpanned<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        match self {
+            MaybeSpanned::WithoutSpan(data) => data,
+            MaybeSpanned::WithSpan(spanned) => &spanned.data,
+        }
+    }
 }
 
 /// Instead of writing errors, warnings and lints generated in the different
@@ -100,45 +111,26 @@ impl Diagnostics {
     /// Generate an error or a warning that is printed to the
     /// writer given in the `new` constructor. Most of the time
     /// this will be stderr.
-    pub fn emit(&self, level: MessageLevel, kind: MaybeSpanned<'_, Box<dyn AsFail>>) {
+    pub fn emit(&self, level: MessageLevel, kind: MaybeSpanned<'_, &dyn Display>) {
         self.increment_level_count(level);
         let mut writer = self.writer.borrow_mut();
+        let msg = Message { level, kind };
 
-        // TODO: move whole rendering logic into Message
-        match kind {
-            MaybeSpanned::WithoutSpan(kind) => {
-                let msg = Message { level, kind };
-                // TODO: we are surpressing the io error here
-                msg.write_description(&mut **writer).ok();
-            }
-            MaybeSpanned::WithSpan(spanned) => {
-                let msg = Message {
-                    level,
-                    kind: spanned.data,
-                };
-
-                // TODO: we are surpressing the io error here
-                msg.write_description(&mut **writer).ok();
-                msg.write_code(&mut **writer, &spanned.span).ok();
-            }
-        }
-
-        // TODO: we are surpressing the io error here
-        writeln!(writer).ok();
+        msg.write(&mut **writer);
     }
 
     #[allow(dead_code)]
-    pub fn warning(&self, kind: MaybeSpanned<'_, Box<dyn AsFail>>) {
+    pub fn warning(&self, kind: MaybeSpanned<'_, &dyn Display>) {
         self.emit(MessageLevel::Warning, kind)
     }
 
     #[allow(dead_code)]
-    pub fn error(&self, kind: MaybeSpanned<'_, Box<dyn AsFail>>) {
+    pub fn error(&self, kind: MaybeSpanned<'_, &dyn Display>) {
         self.emit(MessageLevel::Error, kind)
     }
 
     #[allow(dead_code)]
-    pub fn info(&self, kind: MaybeSpanned<'_, Box<dyn AsFail>>) {
+    pub fn info(&self, kind: MaybeSpanned<'_, &dyn Display>) {
         self.emit(MessageLevel::Info, kind)
     }
 
@@ -177,12 +169,30 @@ impl MessageLevel {
     }
 }
 
-pub struct Message {
+pub struct Message<'file, 'msg> {
     pub level: MessageLevel,
-    pub kind: Box<dyn AsFail>,
+    pub kind: MaybeSpanned<'file, &'msg dyn Display>,
 }
 
-impl Message {
+impl<'file, 'msg> Message<'file, 'msg> {
+    pub fn write(&self, writer: &mut dyn WriteColor) {
+        match &self.kind {
+            MaybeSpanned::WithoutSpan(_) => {
+                // TODO: we are surpressing the io error here
+                self.write_description(writer).ok();
+            }
+
+            MaybeSpanned::WithSpan(spanned) => {
+                // TODO: we are surpressing the io error here
+                self.write_description(writer).ok();
+                self.write_code(writer, &spanned.span).ok();
+            }
+        }
+
+        // TODO: we are surpressing the io error here
+        writeln!(writer).ok();
+    }
+
     fn write_description(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
         output.set_color(self.level.color());
@@ -190,7 +200,7 @@ impl Message {
         write!(output.writer(), "{}: ", self.level.name())?;
 
         output.set_color(None);
-        writeln!(output.writer(), "{}", self.kind.as_fail())?;
+        writeln!(output.writer(), "{}", *self.kind)?;
 
         Ok(())
     }

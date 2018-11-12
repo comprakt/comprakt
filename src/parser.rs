@@ -923,7 +923,7 @@ mod tests {
 
         ctx.diagnostics.info(WithSpan(Spanned {
             span: prog.span,
-            data: box SpanInfo {
+            data: &SpanInfo {
                 name: "whole program with trimmed whitespace".to_string(),
             },
         }));

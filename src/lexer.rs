@@ -482,7 +482,7 @@ impl<'f, 's> Lexer<'f, 's> {
             if span.as_str() == "/*" {
                 context.warning(Spanned {
                     span: span.clone(),
-                    data: box Warning::CommentSeparatorInsideComment,
+                    data: &Warning::CommentSeparatorInsideComment,
                 });
             }
             span.as_str() != "*/"
