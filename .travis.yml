@@ -47,7 +47,7 @@ install:
       comprakt-*)
         rustup component add clippy-preview && \
         rustup component add rustfmt-preview;
-        break ;;
+        ;;
       mjtest-*)
         curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py --user && \
         pip install typing --user && \
@@ -58,7 +58,6 @@ install:
         cd -;
         ;;
       submission-system)
-        # we only need vanilla rust
         ;;
       *)
         echo "INVALID TEST_KIND=$TEST_KIND";
