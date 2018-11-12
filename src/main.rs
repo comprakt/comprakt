@@ -18,7 +18,6 @@ use self::{
     parser::Parser,
     print::lextest,
 };
-use asciifile::{MaybeSpanned, Spanned};
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{fs::File, io, path::PathBuf, process::exit};

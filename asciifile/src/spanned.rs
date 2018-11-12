@@ -53,12 +53,14 @@ impl<'f, T> Spanned<'f, T> {
     }
 }
 
-impl<'a, 'b, T :'b> From<&'b Spanned<'a, T>> for MaybeSpanned<'a, &'b dyn fmt::Display>
-where T: fmt::Display {
+impl<'a, 'b, T: 'b> From<&'b Spanned<'a, T>> for MaybeSpanned<'a, &'b dyn fmt::Display>
+where
+    T: fmt::Display,
+{
     fn from(spanned: &'b Spanned<'a, T>) -> Self {
         MaybeSpanned::WithSpan(Spanned {
             span: spanned.span.clone(),
-            data: &spanned.data
+            data: &spanned.data,
         })
     }
 }
