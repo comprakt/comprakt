@@ -36,7 +36,6 @@ macro_rules! gen_nodekind_match {
             NodeKind::Expr($varname) => $rhs,
             NodeKind::BinaryOp($varname) => $rhs,
             NodeKind::UnaryOp($varname) => $rhs,
-            NodeKind::PostfixOp($varname) => $rhs,
         }
     };
 }
