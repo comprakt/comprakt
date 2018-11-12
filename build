@@ -57,7 +57,7 @@ run_if() {
     fi
 }
 
-run_if "$DO_CLEAN"   cargo clean --all
+run_if "$DO_CLEAN"   cargo clean
 run_if "$DO_RUSTFMT" cargo fmt --all -- --check
 # let build fail on Clippy warnings
 run_if "$DO_CLIPPY"  cargo clippy --all $BUILD_FLAGS --all-targets --all-features -- -D warnings
