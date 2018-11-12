@@ -315,26 +315,6 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 Neg => printer.print_str(&"-"),
             }
         }
-
-        PostfixOp(postfix_op) => {
-            use crate::ast::PostfixOp::*;
-            match postfix_op {
-                MethodInvocation(name, args) => {
-                    printer.print(format_args!(".{}(", name));
-                    print_argument_list(&args.data, printer);
-                    printer.print_str(&")");
-                }
-                FieldAccess(name) => {
-                    printer.print(format_args!(".{}", name));
-                }
-                ArrayAccess(expr) => {
-                    // no parenthesizes for array index expressions
-                    printer.print_str(&"[");
-                    do_prettyprint_expr(&expr.data, printer);
-                    printer.print_str(&"]");
-                }
-            }
-        }
     }
 }
 
@@ -395,15 +375,28 @@ fn do_prettyprint_expr<'a, 't>(expr: &'a crate::ast::Expr<'t>, printer: &mut Ind
             do_prettyprint(&NodeKind::from(op), printer);
             do_prettyprint_expr_parenthesized(&expr.data, printer);
         }
-        Postfix(prime, post) => {
-            do_prettyprint_expr_parenthesized(&prime.data, printer);
-            do_prettyprint(&NodeKind::from(&post.data), printer);
+        MethodInvocation(target_expr, name, args) => {
+            do_prettyprint_expr_parenthesized(target_expr, printer);
+            printer.print(format_args!(".{}(", name));
+            print_argument_list(&args.data, printer);
+            printer.print_str(&")");
+        }
+        FieldAccess(target_expr, name) => {
+            do_prettyprint_expr_parenthesized(target_expr, printer);
+            printer.print(format_args!(".{}", name));
+        }
+        ArrayAccess(target_expr, idx_expr) => {
+            do_prettyprint_expr_parenthesized(target_expr, printer);
+            // no parenthesizes for array index expressions
+            printer.print_str(&"[");
+            do_prettyprint_expr(&idx_expr.data, printer);
+            printer.print_str(&"]");
         }
         Null => printer.print_str(&"null"),
         Boolean(val) => printer.print(format_args!("{}", val)),
         Int(val) => printer.print(format_args!("{}", val)),
         Var(name) => printer.print(format_args!("{}", name)),
-        MethodInvocation(name, args) => {
+        ThisMethodInvocation(name, args) => {
             printer.print(format_args!("{}(", name));
             print_argument_list(&args.data, printer);
             printer.print_str(&")");

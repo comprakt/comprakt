@@ -17,7 +17,6 @@ pub enum NodeKind<'a, 't> {
     Expr(&'a Expr<'t>),
     BinaryOp(&'a BinaryOp),
     UnaryOp(&'a UnaryOp),
-    PostfixOp(&'a PostfixOp<'t>),
 }
 
 macro_rules! gen_nodekind_match {
@@ -36,7 +35,6 @@ macro_rules! gen_nodekind_match {
             NodeKind::Expr($varname) => $rhs,
             NodeKind::BinaryOp($varname) => $rhs,
             NodeKind::UnaryOp($varname) => $rhs,
-            NodeKind::PostfixOp($varname) => $rhs,
         }
     };
 }
@@ -117,25 +115,22 @@ impl<'a, 't> NodeKind<'a, 't> {
                         ccb!(rhs.as_ref());
                     }
                     Unary(_, expr) => ccb!(expr.as_ref()),
-                    Postfix(expr, post) => {
-                        ccb!(expr.as_ref());
-                        ccb!(post);
+                    MethodInvocation(target_expr, _, al) => {
+                        ccb!(target_expr.as_ref());
+                        al.iter().for_each(|x| ccb!(x));
+                    }
+                    FieldAccess(target_expr, _) => ccb!(target_expr.as_ref()),
+                    ArrayAccess(target_expr, idx_expr) => {
+                        ccb!(target_expr.as_ref());
+                        ccb!(idx_expr.as_ref());
                     }
                     Null | Boolean(_) | Int(_) | Var(_) | This => (),
-                    MethodInvocation(_, al) => al.iter().for_each(|a| ccb!(a)),
+                    ThisMethodInvocation(_, al) => al.iter().for_each(|a| ccb!(a)),
                     NewObject(_) => (),
                     NewArray(_, expr, _) => ccb!(expr.as_ref()),
                 }
             }
             BinaryOp(_) | UnaryOp(_) => (),
-            PostfixOp(oc) => {
-                use crate::ast::PostfixOp::*;
-                match oc {
-                    MethodInvocation(_, al) => al.iter().for_each(|x| ccb!(x)),
-                    FieldAccess(_) => (),
-                    ArrayAccess(expr) => ccb!(expr.as_ref()),
-                }
-            }
         }
     }
 }
@@ -166,4 +161,3 @@ gen_from_ast!(NodeKind::Stmt<'a, 'f>, ast::Stmt<'f>);
 gen_from_ast!(NodeKind::Expr<'a, 'f>, ast::Expr<'f>);
 gen_from_ast!(NodeKind::BinaryOp<'a, 'f>, ast::BinaryOp);
 gen_from_ast!(NodeKind::UnaryOp<'a, 'f>, ast::UnaryOp);
-gen_from_ast!(NodeKind::PostfixOp<'a, 'f>, ast::PostfixOp<'f>);

@@ -606,44 +606,39 @@ where
     fn parse_postfix_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
         let mut expr = self.parse_primary_expression()?;
 
-        let mut postfix_ops = Vec::new();
         loop {
-            let postfix_op = spanned!(self, {
-                use self::ast::PostfixOp::*;
+            expr = box if self.omnomnoptional(exactly(Operator::Dot))?.is_some() {
+                let adressee = self.omnomnom(Identifier)?;
 
-                if self.omnomnoptional(exactly(Operator::Dot))?.is_some() {
-                    let adressee = self.omnomnom(Identifier)?;
+                if self.tastes_like(exactly(Operator::LeftParen))? {
+                    // method call: EXPR.ident(arg1, arg2, ...)
+                    let args = self.parse_parameter_values()?;
 
-                    if self.tastes_like(exactly(Operator::LeftParen))? {
-                        // method call: EXPR.ident(arg1, arg2, ...)
-                        let args = self.parse_parameter_values()?;
-
-                        Ok(MethodInvocation(adressee.data, args))
-                    } else {
-                        // member reference: EXPR.ident
-                        Ok(FieldAccess(adressee.data))
+                    Spanned {
+                        span: Span::combine(&expr.span, &args.span),
+                        data: ast::Expr::MethodInvocation(expr, adressee.data, args),
                     }
-                } else if self
-                    .omnomnoptional(exactly(Operator::LeftBracket))?
-                    .is_some()
-                {
-                    // array access: EXPR[EXPR]
-                    let index_expr = self.parse_expression()?;
-                    self.omnomnom(exactly(Operator::RightBracket))?;
-
-                    Ok(ArrayAccess(index_expr))
                 } else {
-                    break;
+                    // member reference: EXPR.ident
+                    Spanned {
+                        span: Span::combine(&expr.span, &adressee.span),
+                        data: ast::Expr::FieldAccess(expr, adressee.data),
+                    }
                 }
-            })?;
+            } else if self
+                .omnomnoptional(exactly(Operator::LeftBracket))?
+                .is_some()
+            {
+                // array access: EXPR[EXPR]
+                let index_expr = self.parse_expression()?;
+                self.omnomnom(exactly(Operator::RightBracket))?;
 
-            postfix_ops.push(postfix_op)
-        }
-
-        for op in postfix_ops {
-            expr = box Spanned {
-                span: Span::combine(&expr.span, &op.span),
-                data: ast::Expr::Postfix(expr, op),
+                Spanned {
+                    span: Span::combine(&expr.span, &index_expr.span),
+                    data: ast::Expr::ArrayAccess(expr, index_expr),
+                }
+            } else {
+                break;
             };
         }
 
@@ -658,7 +653,7 @@ where
                 if self.tastes_like(exactly(Operator::LeftParen))? {
                     // function call
                     let params = self.parse_parameter_values()?;
-                    Ok(MethodInvocation(adressee.data, params))
+                    Ok(ThisMethodInvocation(adressee.data, params))
                 } else {
                     // var ref
                     Ok(Var(adressee.data))

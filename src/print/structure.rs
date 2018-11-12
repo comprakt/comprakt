@@ -60,8 +60,6 @@ impl_astnode_struct!(discr     => 't, ast::Stmt<'t>, ast::StmtDiscriminants::fro
 impl_astnode_struct!(discr     => 't, ast::Expr<'t>, ast::ExprDiscriminants::from);
 impl_astnode_struct!(simple    => ast::BinaryOp);
 impl_astnode_struct!(simple    => ast::UnaryOp);
-#[rustfmt::skip]
-impl_astnode_struct!(discr     => 't, ast::PostfixOp<'t>, ast::PostfixOpDiscriminants::from);
 
 struct Printer<'w> {
     writer: &'w mut dyn std::io::Write,
