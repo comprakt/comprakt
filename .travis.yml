@@ -25,6 +25,12 @@ matrix:
       env: TEST_KIND="mjtest-lexer"
     - os: linux
       env: TEST_KIND="mjtest-syntax"
+    - os: linux
+      # only run integration tests, but redirect them
+      # through the `build` and `run` scripts. We cannot
+      # do this in the other CI builds, since they build
+      # `debug` and `release` versions explicitly.
+      env: TEST_KIND="submission-system"
     # Disable until implemented
     # - os: linux
     #   env: TEST_KIND="mjtest-ast"
@@ -41,7 +47,7 @@ install:
       comprakt-*)
         rustup component add clippy-preview && \
         rustup component add rustfmt-preview;
-        break ;;
+        ;;
       mjtest-*)
         curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py --user && \
         pip install typing --user && \
@@ -50,6 +56,8 @@ install:
         git submodule update --init && \
         git submodule update --remote && \
         cd -;
+        ;;
+      submission-system)
         ;;
       *)
         echo "INVALID TEST_KIND=$TEST_KIND";
@@ -75,6 +83,10 @@ script:
         MJTEST_KIND=${TEST_KIND#mjtest-}
         cargo build --release && \
         MJ_TIMEOUT=60 MJ_RUN=target/release/comprakt python3 ./mjtest/mjt.py $MJTEST_KIND ;
+        ;;
+      submission-system)
+        ./build && \
+        COMPILER_BINARY="./run" cargo test --test integration ;
         ;;
       *)
         echo "INVALID TEST_KIND=$TEST_KIND"

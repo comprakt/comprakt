@@ -1,4 +1,18 @@
 //! Checks for regresssions in the CLI interface code
+//!
+//! To skip unit tests, and only run integration tests, execute:
+//!
+//! ```sh
+//! cargo test --test integration
+//! ```
+//!
+//! By default, the main binary is used. But you can specify another
+//! binary by setting the `COMPILER_BINARY` environment flag. For
+//! example:
+//!
+//! ```sh
+//! COMPILER_BINARY="./run" cargo test --test integration
+//! ```
 
 use assert_cmd::prelude::*;
 use difference::Changeset;
@@ -31,7 +45,15 @@ fn compiler_flag(phase: CompilerPhase) -> &'static str {
 }
 
 fn compiler_call(phase: CompilerPhase, filepath: &PathBuf) -> Command {
-    let mut cmd = Command::main_binary().unwrap();
+    let mut cmd = std::env::var("COMPILER_BINARY")
+        .map(|path| {
+            println!("Test run using alternate compiler binary at {}", path);
+            Command::new(path)
+        })
+        .unwrap_or_else(|_| {
+            println!("Test run using the default compiler binary");
+            Command::main_binary().unwrap()
+        });
     cmd.env("TERM", "dumb"); // disable color output
     cmd.args(&[OsStr::new(compiler_flag(phase)), filepath.as_os_str()]);
     cmd
@@ -65,10 +87,6 @@ struct TestFiles {
     exitcode: PathBuf,
     generate_tentatives: bool,
 }
-//let filepath = PathBuf::from(filename);
-//let file.stderr = with_extension(&filepath, ".stderr");
-//let file.stdout = with_extension(&filepath, ".stdout");
-//let file.exitcode = with_extension(&filepath, ".exitcode");
 
 #[allow(dead_code)]
 fn assert_compiler_phase(phase: CompilerPhase, file: &TestFiles) {
