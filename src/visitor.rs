@@ -112,10 +112,6 @@ impl<'a, 't> NodeKind<'a, 't> {
             Expr(e) => {
                 use crate::ast::Expr::*;
                 match e {
-                    Assignment(lhs, rhs) => {
-                        ccb!(lhs.as_ref());
-                        rhs.iter().for_each(|x| ccb!(x));
-                    }
                     Binary(_, lhs, rhs) => {
                         ccb!(lhs.as_ref());
                         ccb!(rhs.as_ref());

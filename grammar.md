@@ -38,9 +38,8 @@ IfStatement                         if \( Expression \) Statement (else Statemen
 ExpressionStatement                 Expression ;                                                           $ Self.out = ast::Stmt::Expression(Expression.out)
 ReturnStatement                     return Expression? ;                                                   $ Self.out = ast::Stmt::Return(Some(Expression.out) | None)
 
-Expression                          LogicalOrExpression (= LogicalOrExpression)*                           $ Self.out = ast::Expr::Assignment(LogicalOrExpression_1, LogicalOrExpression_2.all_outs)
-
 // BEGIN precedence climbing
+Expression                          LogicalOrExpression (= Expression)?                                    $ Self.out = ast::Expr::Binary(<binop>, Lhs, Rhs)
 LogicalOrExpression                 (LogicalAndExpression \|\|)? LogicalAndExpression                      $ <analog>
 LogicalAndExpression                (EqualityExpression &&)? EqualityExpression                            $ <analog>
 EqualityExpression                  (RelationalExpression (== | !=))? RelationalExpression                 $ <analog>

@@ -290,6 +290,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             printer.print_str(&" ");
             use crate::ast::BinaryOp::*;
             match bin_op {
+                Assign => printer.print_str(&"="),
                 Equals => printer.print_str(&"=="),
                 NotEquals => printer.print_str(&"!="),
                 LessThan => printer.print_str(&"<"),
@@ -385,21 +386,6 @@ fn do_prettyprint_expr_parenthesized<'a, 't>(
 fn do_prettyprint_expr<'a, 't>(expr: &'a crate::ast::Expr<'t>, printer: &mut IndentPrinter<'_>) {
     use crate::ast::Expr::*;
     match expr {
-        Assignment(assignee, assignments) => {
-            // assignee: a, assignments: [b, c, d]
-            // => "a = (b = (c = d))"
-            do_prettyprint_expr_parenthesized(&assignee.data, printer);
-            for (i, assigned) in assignments.iter().enumerate() {
-                printer.print_str(&" = ");
-                if i != assignments.len() - 1 {
-                    printer.print_str(&"(");
-                }
-                do_prettyprint_expr_parenthesized(&assigned.data, printer);
-            }
-            for _ in assignments.iter().skip(1) {
-                printer.print_str(&")");
-            }
-        }
         Binary(op, lhs, rhs) => {
             do_prettyprint_expr_parenthesized(&lhs.data, printer);
             do_prettyprint(&NodeKind::from(op), printer);

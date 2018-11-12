@@ -15,7 +15,6 @@ type Precedence = usize;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Assoc {
     Left,
-    #[allow(dead_code)]
     Right,
 }
 #[rustfmt::skip]
@@ -37,6 +36,9 @@ const BINARY_OPERATORS: &[(Operator, ast::BinaryOp, Precedence, Assoc)] = &[
 
     (Operator::DoubleAmpersand,   ast::BinaryOp::LogicalAnd,    5, Assoc::Left),
     (Operator::DoublePipe,        ast::BinaryOp::LogicalOr,     6, Assoc::Left),
+
+    (Operator::Equal,             ast::BinaryOp::Assign,       10, Assoc::Right),
+
 ];
 
 #[rustfmt::skip]
@@ -522,22 +524,7 @@ where
     }
 
     fn parse_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
-        spanned!(self, {
-            let lvalue = self.parse_binary_expression()?;
-
-            // Assignment expression
-            let mut rvalues = Vec::new();
-            while self.omnomnoptional(exactly(Operator::Equal))?.is_some() {
-                rvalues.push(*self.parse_binary_expression()?);
-            }
-
-            if rvalues.is_empty() {
-                return Ok(lvalue);
-            } else {
-                Ok(ast::Expr::Assignment(lvalue, rvalues))
-            }
-        })
-        .map(Box::new)
+        self.parse_binary_expression()
     }
 
     /// This uses an adapted version of Djikstras original "Shunting Yard"

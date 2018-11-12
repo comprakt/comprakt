@@ -140,7 +140,6 @@ pub enum Stmt<'t> {
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq)]
 pub enum Expr<'t> {
-    Assignment(Box<Spanned<'t, Expr<'t>>>, Vec<Spanned<'t, Expr<'t>>>),
     Binary(
         BinaryOp,
         Box<Spanned<'t, Expr<'t>>>,
@@ -163,6 +162,8 @@ pub enum Expr<'t> {
 /// operations (`||`, `&&`) or algebraic operation (`+`, `-`, `*`, `/`, `%`).
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BinaryOp {
+    Assign,
+
     Equals,
     NotEquals,
     LessThan,
