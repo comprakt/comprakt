@@ -15,4 +15,4 @@ popd  > /dev/null
 
 TARGET="${TARGET:-release}"
 
-exec "$SCRIPT_PATH/target/$TARGET/comprakt" "$@"
+exec "$SCRIPT_PATH/target/$TARGET/compiler-cli" "$@"
