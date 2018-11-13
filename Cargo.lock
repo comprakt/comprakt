@@ -176,6 +176,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "inspect-ast"
+version = "0.1.0"
+
+[[package]]
 name = "integration_test_codegen"
 version = "0.0.1"
 dependencies = [
