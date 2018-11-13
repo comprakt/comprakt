@@ -1191,15 +1191,15 @@ mod tests {
                 "#
             );
 
-            let parse_result = Parser::new(lx).parse();
+            let parse_result = Parser::new(lx).parse_block_statement();
 
             if let Err(WithSpan(Spanned {
                 data: SyntaxError::UnexpectedToken { expected, actual },
                 ..
             })) = parse_result
             {
-                assert_eq!(expected, "class".to_string());
-                assert_eq!(actual, "void".to_string());
+                assert_eq!(expected, "primary expression".to_string());
+                assert_eq!(actual, "do".to_string());
             } else {
                 panic!("{:?}", parse_result)
             }
