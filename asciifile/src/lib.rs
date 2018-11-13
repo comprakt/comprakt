@@ -5,6 +5,7 @@
 ///! (a slice) with positional information.
 pub mod file;
 pub mod iter;
+pub mod maybe_spanned;
 pub mod position;
 pub mod span;
 pub mod spanned;
@@ -12,6 +13,7 @@ pub mod spanned;
 pub use self::{
     file::AsciiFile,
     iter::{PositionIterator, ReversePositionIterator},
+    maybe_spanned::MaybeSpanned,
     position::Position,
     span::Span,
     spanned::Spanned,

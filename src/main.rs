@@ -14,12 +14,10 @@ extern crate derive_more;
 
 use self::{
     context::Context,
-    diagnostics::MaybeSpanned,
     lexer::{Lexer, TokenKind},
     parser::Parser,
     print::lextest,
 };
-use asciifile::Spanned;
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{fs::File, io, path::PathBuf, process::exit};
@@ -201,11 +199,7 @@ where
             _ => Some(token),
         },
         Err(lexical_error) => {
-            context.error(Spanned {
-                span: lexical_error.span,
-                data: box lexical_error.data,
-            });
-
+            context.diagnostics.error(&lexical_error);
             context.diagnostics.write_statistics();
             exit(1);
         }
@@ -216,18 +210,7 @@ where
     let program = match parser.parse() {
         Ok(p) => p,
         Err(parser_error) => {
-            // TODO: context.error should do this match automatically through
-            // generic arguments
-            match parser_error {
-                MaybeSpanned::WithSpan(spanned) => context.error(Spanned {
-                    span: spanned.span,
-                    data: box spanned.data,
-                }),
-                MaybeSpanned::WithoutSpan(error) => context
-                    .diagnostics
-                    .error(MaybeSpanned::WithoutSpan(box error)),
-            }
-
+            context.diagnostics.error(&parser_error);
             context.diagnostics.write_statistics();
             exit(1);
         }
@@ -252,11 +235,7 @@ where
             _ => Some(token),
         },
         Err(lexical_error) => {
-            context.error(Spanned {
-                span: lexical_error.span,
-                data: box lexical_error.data,
-            });
-
+            context.diagnostics.error(&lexical_error);
             context.diagnostics.write_statistics();
             exit(1);
         }
@@ -267,18 +246,7 @@ where
     let program = match parser.parse() {
         Ok(p) => p,
         Err(parser_error) => {
-            // TODO: context.error should do this match automatically through
-            // generic arguments
-            match parser_error {
-                MaybeSpanned::WithSpan(spanned) => context.error(Spanned {
-                    span: spanned.span,
-                    data: box spanned.data,
-                }),
-                MaybeSpanned::WithoutSpan(error) => context
-                    .diagnostics
-                    .error(MaybeSpanned::WithoutSpan(box error)),
-            }
-
+            context.diagnostics.error(&parser_error);
             context.diagnostics.write_statistics();
             exit(1);
         }
@@ -300,11 +268,7 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
             _ => Some(token),
         },
         Err(lexical_error) => {
-            context.error(Spanned {
-                span: lexical_error.span,
-                data: box lexical_error.data,
-            });
-
+            context.diagnostics.error(&lexical_error);
             context.diagnostics.write_statistics();
             exit(1);
         }
@@ -312,29 +276,10 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
 
     let mut parser = Parser::new(unforgiving_lexer);
 
-    // TODO: implement diagnostics on parser
-    //if context.diagnostics.errored() {
-    //context.diagnostics.write_statistics();
-    //exit(1);
-    //}
-
     match parser.parse() {
         Ok(_) => Ok(()),
         Err(parser_error) => {
-            // TODO: context.error should do this match automatically through
-            // generic arguments
-            match parser_error {
-                MaybeSpanned::WithSpan(spanned) => {
-                    context.diagnostics.error(MaybeSpanned::WithSpan(Spanned {
-                        span: spanned.span,
-                        data: box spanned.data,
-                    }))
-                }
-                MaybeSpanned::WithoutSpan(error) => context
-                    .diagnostics
-                    .error(MaybeSpanned::WithoutSpan(box error)),
-            }
-
+            context.diagnostics.error(&parser_error);
             context.diagnostics.write_statistics();
             exit(1);
         }
@@ -350,10 +295,7 @@ fn cmd_lextest(path: &PathBuf) -> Result<(), Error> {
 
     for token in lexer {
         match token {
-            Err(lexical_error) => context.error(Spanned {
-                span: lexical_error.span,
-                data: box lexical_error.data,
-            }),
+            Err(lexical_error) => context.diagnostics.error(&lexical_error),
             Ok(token) => write_token(&mut stdout, &token.data)?,
         }
 
