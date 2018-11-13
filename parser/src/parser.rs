@@ -1182,5 +1182,27 @@ mod tests {
             );
             assert_matches!(Parser::new(lx).parse(), Err(_))
         }
+
+        #[test]
+        fn invalid_double_keyword_local_var() {
+            lex_input!(
+                lx = r#"
+                void do = 42;
+                "#
+            );
+
+            let parse_result = Parser::new(lx).parse();
+
+            if let Err(WithSpan(Spanned {
+                data: SyntaxError::UnexpectedToken { expected, actual },
+                ..
+            })) = parse_result
+            {
+                assert_eq!(expected, "class".to_string());
+                assert_eq!(actual, "void".to_string());
+            } else {
+                panic!("{:?}", parse_result)
+            }
+        }
     }
 }
