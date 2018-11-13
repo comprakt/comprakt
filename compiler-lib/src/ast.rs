@@ -36,9 +36,9 @@ pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 /// A class member is either one of
 /// * `Field(type)`: a declaration of a field of a class
 /// * `Method(type, params, body)`: a method of a class
-/// * `MainMethod(param, body)`: a main method, which is a special method that
-/// is only allowed once in a MiniJava Program. The `param` is the name of a
-/// symbol that must not be used in the body.
+/// * `MainMethod(params, body)`: a main method, which is a special method that
+/// is only allowed once in a MiniJava Program. `params` is guaranteed to
+/// only contain the `String[] IDENT` parameter.
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
 pub enum ClassMemberKind<'t> {
@@ -48,7 +48,7 @@ pub enum ClassMemberKind<'t> {
         Spanned<'t, ParameterList<'t>>,
         Spanned<'t, Block<'t>>,
     ),
-    MainMethod(Symbol<'t>, Spanned<'t, Block<'t>>),
+    MainMethod(Spanned<'t, ParameterList<'t>>, Spanned<'t, Block<'t>>),
 }
 
 /// This AST node represents a method parameter. A parameter consists of a

@@ -120,10 +120,10 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                     printer.print_str(&") ");
                     do_prettyprint(&NodeKind::from(block), printer);
                 }
-                MainMethod(param_name, block) => {
+                MainMethod(params, block) => {
                     printer.print(format_args!(
                         "public static void {}(String[] {}) ",
-                        member.name, param_name
+                        member.name, params.data[0].name,
                     ));
                     do_prettyprint(&NodeKind::from(block), printer);
                 }

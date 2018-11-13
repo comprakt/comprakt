@@ -342,14 +342,33 @@ where
                 self.omnomnom(exactly(Operator::LeftParen))?;
                 self.omnomnom(ExactlyIdentifier("String"))?;
                 self.omnomnom(exactly(Operator::LeftBracket))?;
-                self.omnomnom(exactly(Operator::RightBracket))?;
+                let java_string_array_close = self.omnomnom(exactly(Operator::RightBracket))?;
+                use crate::asciifile::{Span, Spanned};
+                let string_array_type = Spanned {
+                    data: ast::Type {
+                        // treat String[] as an opaque type
+                        basic: ast::BasicType::Custom(Symbol::from(java_string.span.as_str())),
+                        array_depth: 0,
+                    },
+                    span: Span::combine(&java_string.span, &java_string_array_close.span),
+                };
                 let param = self.omnomnom(Identifier)?.data;
-                self.omnomnom(exactly(Operator::RightParen))?;
+                let pl_end = self.omnomnom(exactly(Operator::RightParen))?;
+                let pl = Spanned {
+                    data: vec![Spanned {
+                        data: ast::Parameter {
+                            ty: string_array_type,
+                            name: param.data,
+                        },
+                        span: Span::combine(&java_string.span, &param.span),
+                    }],
+                    span: Span::combine(&pl_begin.span, &pl_end.span),
+                };
 
                 self.skip_method_rest()?;
                 let body = self.parse_block()?;
 
-                let kind = ast::ClassMemberKind::MainMethod(param, body);
+                let kind = ast::ClassMemberKind::MainMethod(pl, body);
                 ast::ClassMember { kind, name }
             } else {
                 let ty = self.parse_type()?;
