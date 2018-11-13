@@ -49,24 +49,63 @@ impl Debug for NodeKind<'_, '_> {
     }
 }
 
+pub trait VisitResult {
+    fn stop_visit(&self) -> bool;
+}
+
+impl VisitResult for () {
+    fn stop_visit(&self) -> bool {
+        false
+    }
+}
+
+impl<X, E> VisitResult for Result<X, E> {
+    fn stop_visit(&self) -> bool {
+        self.is_err()
+    }
+}
+
 impl<'a, 't> NodeKind<'a, 't> {
-    pub fn for_each_child(&self, cb: &mut dyn FnMut(NodeKind<'a, 't>)) {
+    /// Visit the children of `self`, invoking `cb` on each.
+    /// If `self` has no children, this method returns `None, otherwise
+    /// `Some(res)` where `res` is the return value of `cb`.
+    #[allow(clippy::cyclomatic_complexity)]
+    pub fn for_each_child<R>(&self, cb: &mut dyn FnMut(NodeKind<'a, 't>) -> R) -> Option<R>
+    where
+        R: VisitResult,
+    {
         use self::NodeKind::*;
         macro_rules! ccb {
-            ($astvar:expr) => {
-                cb(NodeKind::from($astvar))
-            };
+            ($astvar:expr) => {{
+                let res = cb(NodeKind::from($astvar));
+                if res.stop_visit() {
+                    return Some(res);
+                }
+                Some(res)
+            }};
+            (for_each $vec:expr) => {{
+                let iterable = $vec;
+                let mut ret = None;
+                for n in iterable {
+                    let res = cb(NodeKind::from(n));
+                    if res.stop_visit() {
+                        return Some(res);
+                    }
+                    ret = Some(res);
+                }
+                ret
+            }};
         }
         match self {
             AST(ast) => {
                 use crate::ast::AST::*;
                 match ast {
-                    Empty => (),
+                    Empty => None,
                     Program(p) => ccb!(p),
                 }
             }
-            Program(p) => p.classes.iter().for_each(|x| ccb!(x)),
-            ClassDeclaration(d) => d.members.iter().for_each(|x| ccb!(x)),
+            Program(p) => ccb!(for_each p.classes.iter()),
+            ClassDeclaration(d) => ccb!(for_each d.members.iter()),
             ClassMember(cm) => {
                 use crate::ast::ClassMemberKind::*;
                 match &cm.kind {
@@ -74,39 +113,35 @@ impl<'a, 't> NodeKind<'a, 't> {
                     Method(ty, pl, block) => {
                         ccb!(ty);
                         cb(NodeKind::ParameterList(&pl));
-                        ccb!(block);
+                        ccb!(block)
                     }
-                    MainMethod(_, block) => {
-                        ccb!(block);
-                    }
+                    MainMethod(_, block) => ccb!(block),
                 }
             }
-            Parameter(p) => {
-                ccb!(&p.ty);
-            }
-            ParameterList(l) => l.iter().for_each(|x| ccb!(x)),
-            Type(t) => cb(NodeKind::from(&t.basic)),
-            BasicType(_) => (),
-            Block(b) => b.statements.iter().for_each(|x| ccb!(x)),
+            Parameter(p) => ccb!(&p.ty),
+            ParameterList(l) => ccb!(for_each l.iter()),
+            Type(t) => Some(cb(NodeKind::from(&t.basic))),
+            BasicType(_) => None,
+            Block(b) => ccb!(for_each b.statements.iter()),
             Stmt(s) => {
                 use crate::ast::Stmt::*;
                 match &s.data {
-                    Empty => (),
+                    Empty => None,
                     Block(b) => ccb!(b),
                     Expression(e) => ccb!(e.as_ref()),
                     If(expr, then_stmt, else_stmt) => {
                         ccb!(expr.as_ref());
                         ccb!(then_stmt.as_ref());
-                        else_stmt.iter().for_each(|x| ccb!(x.as_ref()));
+                        ccb!(for_each else_stmt.iter().map(|x| x.as_ref()))
                     }
                     LocalVariableDeclaration(t, _, expr) => {
                         ccb!(t);
-                        expr.iter().for_each(|x| ccb!(x.as_ref()));
+                        ccb!(for_each expr.iter().map(|x| x.as_ref()))
                     }
-                    Return(expr) => expr.iter().for_each(|x| ccb!(x.as_ref())),
+                    Return(expr) => ccb!(for_each expr.iter().map(|x| x.as_ref())),
                     While(cond, stmt) => {
                         ccb!(cond.as_ref());
-                        ccb!(stmt.as_ref());
+                        ccb!(stmt.as_ref())
                     }
                 }
             }
@@ -115,25 +150,25 @@ impl<'a, 't> NodeKind<'a, 't> {
                 match &e.data {
                     Binary(_, lhs, rhs) => {
                         ccb!(lhs.as_ref());
-                        ccb!(rhs.as_ref());
+                        ccb!(rhs.as_ref())
                     }
                     Unary(_, expr) => ccb!(expr.as_ref()),
                     MethodInvocation(target_expr, _, al) => {
                         ccb!(target_expr.as_ref());
-                        al.iter().for_each(|x| ccb!(x));
+                        ccb!(for_each al.data.iter())
                     }
                     FieldAccess(target_expr, _) => ccb!(target_expr.as_ref()),
                     ArrayAccess(target_expr, idx_expr) => {
                         ccb!(target_expr.as_ref());
-                        ccb!(idx_expr.as_ref());
+                        ccb!(idx_expr.as_ref())
                     }
-                    Null | Boolean(_) | Int(_) | Var(_) | This => (),
-                    ThisMethodInvocation(_, al) => al.iter().for_each(|a| ccb!(a)),
-                    NewObject(_) => (),
+                    Null | Boolean(_) | Int(_) | Var(_) | This => None,
+                    ThisMethodInvocation(_, al) => ccb!(for_each al.iter()),
+                    NewObject(_) => None,
                     NewArray(_, expr, _) => ccb!(expr.as_ref()),
                 }
             }
-            BinaryOp(_) | UnaryOp(_) => (),
+            BinaryOp(_) | UnaryOp(_) => None,
         }
     }
 }
