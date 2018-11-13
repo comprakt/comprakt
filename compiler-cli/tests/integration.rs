@@ -34,6 +34,8 @@ enum CompilerPhase {
     Ast,
 }
 
+#[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
 enum CompilerCall {
     RawCompiler(CompilerPhase),
     AstInspector,
