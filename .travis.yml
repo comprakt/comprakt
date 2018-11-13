@@ -86,7 +86,7 @@ script:
         ;;
       submission-system)
         ./build && \
-        COMPILER_BINARY="./run" cargo test --test integration ;
+        COMPILER_BINARY="$(pwd)/run" cargo test --test integration ;
         ;;
       *)
         echo "INVALID TEST_KIND=$TEST_KIND"
