@@ -93,6 +93,7 @@ dependencies = [
  "compiler-lib 0.0.1",
  "difference 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "inspect-ast 0.1.0",
  "integration_test_codegen 0.0.1",
  "libc 0.2.43 (registry+https://github.com/rust-lang/crates.io-index)",
  "memmap 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",

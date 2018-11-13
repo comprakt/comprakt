@@ -1,0 +1,100 @@
+info: Matched kind 'program'
+   | 
+ 1 | class Foo {
+   | ^^^^^^^^^^^
+ 2 |     /* Array definition vs access */
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 3 |     public void bar() {
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+ 4 |         abc[1];
+   | ^^^^^^^^^^^^^^^
+ 5 |         abc[] def;
+   | ^^^^^^^^^^^^^^^^^^
+ 6 |     }
+   | ^^^^^
+ 7 | 
+   | 
+ 8 | }
+   | ^
+
+info: Matched kind 'class declaration'
+   | 
+ 1 | class Foo {
+   | ^^^^^^^^^^^
+ 2 |     /* Array definition vs access */
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 3 |     public void bar() {
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+ 4 |         abc[1];
+   | ^^^^^^^^^^^^^^^
+ 5 |         abc[] def;
+   | ^^^^^^^^^^^^^^^^^^
+ 6 |     }
+   | ^^^^^
+ 7 | 
+   | 
+ 8 | }
+   | ^
+
+info: Matched kind 'class member'
+   | 
+ 3 |     public void bar() {
+   |     ^^^^^^^^^^^^^^^^^^^
+ 4 |         abc[1];
+   | ^^^^^^^^^^^^^^^
+ 5 |         abc[] def;
+   | ^^^^^^^^^^^^^^^^^^
+ 6 |     }
+   | ^^^^^
+
+info: Matched kind 'type'
+   | 
+ 3 |     public void bar() {
+   |            ^^^^
+
+info: Matched kind 'parameter list'
+   | 
+ 3 |     public void bar() {
+   |                    ^^
+
+info: Matched kind 'block'
+   | 
+ 3 |     public void bar() {
+   |                       ^
+ 4 |         abc[1];
+   | ^^^^^^^^^^^^^^^
+ 5 |         abc[] def;
+   | ^^^^^^^^^^^^^^^^^^
+ 6 |     }
+   | ^^^^^
+
+info: Matched kind 'statement'
+   | 
+ 4 |         abc[1];
+   |         ^^^^^^^
+
+info: Matched kind 'expression'
+   | 
+ 4 |         abc[1];
+   |         ^^^^^^
+
+info: Matched kind 'expression'
+   | 
+ 4 |         abc[1];
+   |         ^^^
+
+info: Matched kind 'expression'
+   | 
+ 4 |         abc[1];
+   |             ^
+
+info: Matched kind 'statement'
+   | 
+ 5 |         abc[] def;
+   |         ^^^^^^^^^^
+
+info: Matched kind 'type'
+   | 
+ 5 |         abc[] def;
+   |         ^^^^^
+

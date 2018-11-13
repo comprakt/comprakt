@@ -23,6 +23,7 @@ memmap = "0.7.0"
 libc = "*"
 termcolor = "1.0.4"
 compiler-lib = { path = "../compiler-lib" }
+inspect-ast = { path = "../inspect-ast" }
 
 [dev-dependencies]
 integration_test_codegen = { path = "integration-test-codegen" }

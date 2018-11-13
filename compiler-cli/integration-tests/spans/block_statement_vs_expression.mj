@@ -1,0 +1,8 @@
+class Foo {
+    /* Array definition vs access */
+    public void bar() {
+        abc[1];
+        abc[] def;
+    }
+
+}
