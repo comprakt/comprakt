@@ -1,4 +1,4 @@
-use crate::{MaybeSpanned, Span};
+use crate::Span;
 use std::{fmt, ops::Deref};
 
 #[derive(Debug, Clone)]
@@ -50,17 +50,5 @@ impl<'f, T> Spanned<'f, T> {
             span: self.span.clone(),
             data: f(&self.data),
         }
-    }
-}
-
-impl<'a, 'b, T: 'b> From<&'b Spanned<'a, T>> for MaybeSpanned<'a, &'b dyn fmt::Display>
-where
-    T: fmt::Display,
-{
-    fn from(spanned: &'b Spanned<'a, T>) -> Self {
-        MaybeSpanned::WithSpan(Spanned {
-            span: spanned.span.clone(),
-            data: &spanned.data,
-        })
     }
 }
