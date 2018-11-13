@@ -159,7 +159,8 @@ impl Diagnostics {
         let mut writer = self.writer.borrow_mut();
         let msg = Message { level, kind };
 
-        msg.write(&mut **writer);
+        // `ok()` surpresses io error
+        msg.write(&mut **writer).ok();
     }
 
     #[allow(dead_code)]
@@ -218,22 +219,20 @@ pub struct Message<'file, 'msg> {
 }
 
 impl<'file, 'msg> Message<'file, 'msg> {
-    pub fn write(&self, writer: &mut dyn WriteColor) {
+    pub fn write(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
         match &self.kind {
             MaybeSpanned::WithoutSpan(_) => {
-                // TODO: we are surpressing the io error here
-                self.write_description(writer).ok();
+                self.write_description(writer)?;
             }
 
             MaybeSpanned::WithSpan(spanned) => {
-                // TODO: we are surpressing the io error here
-                self.write_description(writer).ok();
-                self.write_code(writer, &spanned.span).ok();
+                self.write_description(writer)?;
+                self.write_code(writer, &spanned.span)?;
             }
         }
 
-        // TODO: we are surpressing the io error here
-        writeln!(writer).ok();
+        writeln!(writer)?;
+        Ok(())
     }
 
     fn write_description(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
