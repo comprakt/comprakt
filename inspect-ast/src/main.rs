@@ -71,8 +71,8 @@ fn do_main(cmd: CliCommand) -> Result<(), Error> {
         path: cmd.input.clone(),
     })?;
 
-    let stderr = StandardStream::stderr(ColorChoice::Auto);
-    let context = Context::new(&ascii_file, Box::new(stderr));
+    let stdout = StandardStream::stdout(ColorChoice::Auto);
+    let context = Context::new(&ascii_file, Box::new(stdout));
 
     let strtab = StringTable::new();
     let lexer = Lexer::new(&strtab, &context);
