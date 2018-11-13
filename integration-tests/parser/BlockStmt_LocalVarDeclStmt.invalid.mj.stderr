@@ -1,4 +1,4 @@
-error: expected ;, found identifier ident
+error: expected operator ';', found identifier 'ident'
    | 
  3 |         ident[3] ident;
    |                  ^^^^^

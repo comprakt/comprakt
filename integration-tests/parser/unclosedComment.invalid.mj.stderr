@@ -1,4 +1,4 @@
-error: expected class, found int
+error: expected keyword 'class', found keyword 'int'
    | 
  1 | int a = 666;
    | ^^^

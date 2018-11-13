@@ -1,4 +1,4 @@
-error: expected public, found ;
+error: expected keyword 'public', found operator ';'
    | 
  2 |     public int b() {};
    |                      ^

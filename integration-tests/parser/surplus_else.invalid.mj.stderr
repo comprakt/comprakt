@@ -1,4 +1,4 @@
-error: expected primary expression, found else
+error: expected primary expression, found keyword 'else'
     | 
  12 |         else return false;
     |         ^^^^

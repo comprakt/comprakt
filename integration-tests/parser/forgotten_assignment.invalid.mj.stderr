@@ -1,4 +1,4 @@
-error: expected primary expression, found ;
+error: expected primary expression, found operator ';'
    | 
  3 |         return to=klass=the=next=;
    |                                  ^

@@ -1,4 +1,4 @@
-error: expected an identifier, found {
+error: expected an identifier, found operator '{'
    | 
  1 | class {}
    |       ^
