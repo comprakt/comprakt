@@ -1,4 +1,4 @@
-error: expected class, found identifier A
+error: expected keyword 'class', found identifier 'A'
    | 
  1 | A {
    | ^

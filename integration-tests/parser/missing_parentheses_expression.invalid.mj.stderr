@@ -1,4 +1,4 @@
-error: expected ), found ;
+error: expected operator ')', found operator ';'
    | 
  7 |         d = ((((a + b) * c) - a) / (c % d + ((b - 1) * c));
    |                                                           ^

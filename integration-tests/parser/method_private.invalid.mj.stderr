@@ -1,4 +1,4 @@
-error: expected public, found private
+error: expected keyword 'public', found keyword 'private'
    | 
  2 | private void method(){}
    | ^^^^^^^

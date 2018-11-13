@@ -1,4 +1,4 @@
-error: expected ;, found else
+error: expected operator ';', found keyword 'else'
    | 
  5 |         else false
    |         ^^^^

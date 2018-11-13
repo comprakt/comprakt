@@ -1,4 +1,4 @@
-error: expected class, found void
+error: expected keyword 'class', found keyword 'void'
    | 
  1 | void #method() {}
    | ^^^^

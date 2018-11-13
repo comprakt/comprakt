@@ -43,12 +43,12 @@ impl fmt::Display for TokenKind {
         use self::TokenKind::*;
 
         match self {
-            Keyword(keyword) => write!(f, "{}", keyword),
-            Operator(operator) => write!(f, "{}", operator),
-            Identifier(symbol) => write!(f, "identifier {}", symbol),
-            IntegerLiteral(symbol) => write!(f, "integer literal {}", symbol),
-            Comment(body) => write!(f, "/*{}*/", body),
-            Whitespace => write!(f, " "),
+            Keyword(keyword) => write!(f, "keyword '{}'", keyword),
+            Operator(operator) => write!(f, "operator '{}'", operator),
+            Identifier(symbol) => write!(f, "identifier '{}'", symbol),
+            IntegerLiteral(symbol) => write!(f, "integer literal '{}'", symbol),
+            Comment(_body) => write!(f, "comment"),
+            Whitespace => write!(f, "whitespace"),
         }
     }
 }

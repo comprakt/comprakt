@@ -1,4 +1,4 @@
-error: expected public, found identifier here
+error: expected keyword 'public', found identifier 'here'
    | 
  2 |     here.I.am();
    |     ^^^^

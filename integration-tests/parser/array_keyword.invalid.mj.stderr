@@ -1,4 +1,4 @@
-error: expected keyword `int`, `boolean`, `void` or an identifier, found package
+error: expected keyword `int`, `boolean`, `void` or an identifier, found keyword 'package'
    | 
  2 |     public package[] foo;
    |            ^^^^^^^

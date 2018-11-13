@@ -1,4 +1,4 @@
-error: expected ;, found =
+error: expected operator ';', found operator '='
    | 
  2 |     public boolean ident = false;
    |                          ^

@@ -1,4 +1,4 @@
-error: expected public, found class
+error: expected keyword 'public', found keyword 'class'
    | 
  2 |     class Inner {
    |     ^^^^^
