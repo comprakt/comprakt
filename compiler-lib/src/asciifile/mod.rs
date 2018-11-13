@@ -1,4 +1,3 @@
-#![feature(slice_patterns)]
 ///! Represents an input file that my only contain ASCII characters. The
 ///! abstractions `Position` and `Span` represent a type-safe index-less
 ///! wrapper around a ASCII character, respectively a range of characters

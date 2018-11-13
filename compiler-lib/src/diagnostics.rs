@@ -4,8 +4,10 @@
 //!
 //! This implementation is NOT thread-safe. Messages from different threads may
 //! be interleaved.
-use asciifile::{MaybeSpanned, Span, Spanned};
-use crate::color::ColorOutput;
+use crate::{
+    asciifile::{MaybeSpanned, Span, Spanned},
+    color::ColorOutput,
+};
 use failure::Error;
 use std::{ascii::escape_default, cell::RefCell, collections::HashMap, fmt::Display};
 use termcolor::{Color, WriteColor};
@@ -22,7 +24,7 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 /// The following examples are all equivalent and will print a warning
 /// without a source code snippet below the message:
 ///
-/// ```
+/// ```rust,ignore
 /// context.diagnostics.warning(&"Something went wrong");
 /// context
 ///     .diagnostics
@@ -34,7 +36,7 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 /// a `Spanned<_, Fail>` and can therefore be directly passed to
 /// the diagnostics API.
 ///
-/// ```
+/// ```rust,ignore
 /// // `lexer_error` is the `Err` returned by `Lexer::next`
 /// context.diagnostics.error(&lexer_error);
 /// // `span` is some `asciifile::Span`

@@ -1,5 +1,4 @@
-use asciifile::Spanned;
-use crate::strtab::Symbol;
+use crate::{asciifile::Spanned, strtab::Symbol};
 use strum_macros::EnumDiscriminants;
 
 #[strum_discriminants(derive(Display))]

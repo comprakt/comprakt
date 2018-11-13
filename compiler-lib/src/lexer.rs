@@ -1,5 +1,9 @@
-use asciifile::{Position, PositionIterator, Span, Spanned};
-use crate::{context::Context, diagnostics::u8_to_printable_representation, strtab::*};
+use crate::{
+    asciifile::{Position, PositionIterator, Span, Spanned},
+    context::Context,
+    diagnostics::u8_to_printable_representation,
+    strtab::*,
+};
 use failure::Fail;
 use std::{convert::TryFrom, fmt, result::Result};
 
@@ -400,6 +404,8 @@ pub struct Lexer<'f, 's> {
     context: &'f Context<'f>,
 }
 
+/// Test if the given characters are whitespace characters according
+/// to the MiniJava specification
 fn is_minijava_whitespace(c: char) -> bool {
     match c {
         ' ' | '\n' | '\r' | '\t' => true,
@@ -646,12 +652,97 @@ impl<'f, 's> Iterator for Lexer<'f, 's> {
 
 #[cfg(test)]
 mod tests {
+
+    use super::is_minijava_whitespace;
+    use crate::{
+        lexer::{Keyword, Operator, TokenKind},
+        print::lextest,
+        strtab::StringTable,
+    };
+    use failure::Error;
+    use std::io;
+
+    // TODO: duplicated across compilercli and compilerlib
+    fn write_token<O: io::Write>(out: &mut O, token: &TokenKind) -> Result<(), Error> {
+        match token {
+            TokenKind::Whitespace | TokenKind::Comment(_) => Ok(()),
+            _ => {
+                writeln!(out, "{}", lextest::Output::new(&token))?;
+                Ok(())
+            }
+        }
+    }
+
+    fn lexer_test_with_tokens(tokens: Vec<TokenKind>) -> String {
+        let mut o = Vec::new();
+        for token in tokens.into_iter() {
+            let res = write_token(&mut o, &token);
+            assert!(res.is_ok());
+        }
+
+        String::from_utf8(o).expect("output must be utf8")
+    }
+
     #[test]
-    fn minijava_whitespace_invalid_chars_rejected() {
+    fn minijava_whitespace() {
         let chars = "\x07\x08\x0c\x0b"; // \a \b \f \v
         for c in chars.chars() {
             println!("{:?}", c);
-            assert_eq!(super::is_minijava_whitespace(c), false)
+            assert_eq!(is_minijava_whitespace(c), false)
         }
+    }
+
+    #[test]
+    fn newline_per_token() {
+        let tokens = vec![
+            TokenKind::Operator(Operator::Ampersand),
+            TokenKind::Keyword(Keyword::Int),
+        ];
+        let tokens_len = tokens.len();
+        let o = lexer_test_with_tokens(tokens);
+        assert_eq!(o.lines().count(), tokens_len);
+    }
+
+    #[test]
+    fn no_whitespace_and_comments() {
+        let st = StringTable::new();
+        let tokens = vec![
+            TokenKind::Operator(Operator::Ampersand),
+            TokenKind::Whitespace,
+            TokenKind::IntegerLiteral(st.intern("foo")),
+            TokenKind::Comment("comment".to_string()),
+            TokenKind::Keyword(Keyword::If),
+        ];
+        let o = lexer_test_with_tokens(tokens);
+        assert_eq!(o.lines().count(), 3);
+        assert!(!o.contains("comment"));
+        assert_eq!(&o, "&\ninteger literal foo\nif\n")
+    }
+
+    #[test]
+    fn keywords_as_is() {
+        let tokens = vec![TokenKind::Keyword(Keyword::Float)];
+        let o = lexer_test_with_tokens(tokens);
+        assert_eq!(&o, "float\n");
+    }
+
+    #[test]
+    fn operators_as_is() {
+        let o = lexer_test_with_tokens(vec![TokenKind::Operator(Operator::Caret)]);
+        assert_eq!(&o, "^\n");
+    }
+
+    #[test]
+    fn ident_prefix() {
+        let st = StringTable::new();
+        let o = lexer_test_with_tokens(vec![TokenKind::Identifier(st.intern("an_identifier"))]);
+        assert_eq!(&o, "identifier an_identifier\n");
+    }
+
+    #[test]
+    fn integer_literal_prefix() {
+        let st = StringTable::new();
+        let o = lexer_test_with_tokens(vec![TokenKind::IntegerLiteral(st.intern("2342"))]);
+        assert_eq!(&o, "integer literal 2342\n");
     }
 }

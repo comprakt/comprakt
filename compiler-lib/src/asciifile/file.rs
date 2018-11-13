@@ -1,4 +1,4 @@
-use crate::{Position, PositionIterator};
+use super::{Position, PositionIterator};
 use failure::Fail;
 use std::ops::Deref;
 

@@ -7,11 +7,9 @@
 //!
 //! # End of File (EOF) Position
 //!
-//! A EOF character is automatically inserted at the end of the file (which
-//! is not emitted by the rust APIs by default.) The EOF character is positioned
-//! on the same line as the last real character advanced by a single byte.
-//! This token exists because rust
-use crate::{AsciiFile, PositionIterator, ReversePositionIterator, Span};
+//! There is no end of file character. The end of file is modeled using
+//! the `None` case of `Option`.
+use super::{AsciiFile, PositionIterator, ReversePositionIterator, Span};
 use std::cmp::Ordering;
 
 #[derive(Copy, Clone)]
@@ -85,7 +83,7 @@ impl<'t> Position<'t> {
         self.byte_offset
     }
 
-    pub fn file(&self) -> &AsciiFile {
+    pub fn file(&self) -> &AsciiFile<'_> {
         self.file
     }
 
@@ -199,7 +197,7 @@ impl<'t> Position<'t> {
     /// of the line.
     ///
     /// ```
-    /// use asciifile::{AsciiFile, Position, Span};
+    /// use compiler_lib::asciifile::{AsciiFile, Position, Span};
     ///
     /// let file = AsciiFile::new(b"banana\napple\n\nkiwi").unwrap();
     ///

@@ -1,5 +1,7 @@
-use asciifile::Spanned;
-use crate::ast::{self, *};
+use crate::{
+    asciifile::Spanned,
+    ast::{self, *},
+};
 use strum_macros::EnumDiscriminants;
 
 #[strum_discriminants(derive(Display))]
