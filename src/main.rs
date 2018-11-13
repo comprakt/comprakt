@@ -235,7 +235,7 @@ where
             _ => Some(token),
         },
         Err(lexical_error) => {
-            context.error(&lexical_error);
+            context.diagnostics.error(&lexical_error);
             context.diagnostics.write_statistics();
             exit(1);
         }
