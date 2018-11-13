@@ -39,7 +39,7 @@ pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 /// * `MainMethod(params, body)`: a main method, which is a special method that
 /// is only allowed once in a MiniJava Program. `params` is guaranteed to
 /// only contain the `String[] IDENT` parameter.
-#[strum_discriminants(derive(Display))]
+#[strum_discriminants(derive(Display, Hash))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
 pub enum ClassMemberKind<'t> {
     Field(Spanned<'t, Type<'t>>),
@@ -201,3 +201,30 @@ pub enum UnaryOp {
 }
 
 pub type ArgumentList<'t> = Vec<Spanned<'t, Expr<'t>>>;
+
+impl<'f> ClassMemberKind<'f> {
+    pub fn is_method(&self) -> bool {
+        use self::ClassMemberKind::*;
+        match self {
+            Method(_, _, _) => true,
+            MainMethod(_, _) => true,
+            Field(_) => false,
+        }
+    }
+    pub fn method_params(&self) -> Option<&Spanned<'_, ParameterList<'_>>> {
+        use self::ClassMemberKind::*;
+        match &self {
+            Method(_t, pl, _block) => Some(pl),
+            MainMethod(pl, _block) => Some(pl),
+            Field(_) => None,
+        }
+    }
+    pub fn method_body(&self) -> Option<&Spanned<'_, Block<'_>>> {
+        use self::ClassMemberKind::*;
+        match &self {
+            Method(_t, _pl, block) => Some(block),
+            MainMethod(_pl, block) => Some(block),
+            Field(_) => None,
+        }
+    }
+}
