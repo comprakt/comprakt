@@ -1,7 +1,13 @@
 [package]
 name = "inspect-ast"
 version = "0.1.0"
-authors = ["Reiner Dolp <reiner-dolp@users.noreply.github.com>"]
+
 edition = "2018"
 
 [dependencies]
+structopt = "0.2"
+failure = "0.1"
+regex = "1.0"
+termcolor = "1.0"
+
+compiler-lib = { path = "../compiler-lib" }
