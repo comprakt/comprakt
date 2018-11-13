@@ -2,8 +2,6 @@
 members = [
     "compiler-lib",
     "compiler-cli",
-    "mjtest-rs",
-    "mjtest-rs/mjtest_macros"
 ]
 
 # given that we only have one binary crate in the workspace,
