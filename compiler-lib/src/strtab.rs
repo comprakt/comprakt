@@ -10,16 +10,14 @@ use std::{cell::UnsafeCell, collections::HashSet, rc::Rc};
 
 pub type Symbol = Rc<str>;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct StringTable {
     entries: UnsafeCell<HashSet<Rc<str>>>,
 }
 
 impl StringTable {
     pub fn new() -> Self {
-        StringTable {
-            entries: UnsafeCell::new(HashSet::new()),
-        }
+        StringTable::default()
     }
 
     pub fn intern(&self, value: &str) -> Symbol {
