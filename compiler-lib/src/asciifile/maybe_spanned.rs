@@ -1,4 +1,4 @@
-use crate::Spanned;
+use super::Spanned;
 use std::ops::Deref;
 
 #[derive(Debug)]

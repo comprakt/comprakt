@@ -22,7 +22,7 @@
 //! Analog to [`Position`](struct.Position.html), rows and columns are zero
 //! indexed. This means that the first character of a file is positioned at
 //! column 0 in row 0.
-use crate::Position;
+use super::Position;
 use std::{
     cmp::{max, min},
     fmt,
@@ -54,7 +54,7 @@ impl<'f> Span<'f> {
     /// Creates a span containing only the given position
     ///
     /// ```
-    /// use asciifile::{AsciiFile, Position, Span};
+    /// use compiler_lib::asciifile::{AsciiFile, Position, Span};
     ///
     /// let file = AsciiFile::new(b"ABCD").unwrap();
     /// let position = file.iter().nth(2).unwrap();
@@ -71,7 +71,7 @@ impl<'f> Span<'f> {
     /// Creates a span containing only the given position
     ///
     /// ```
-    /// use asciifile::{AsciiFile, Position, Span};
+    /// use compiler_lib::asciifile::{AsciiFile, Position, Span};
     ///
     /// let file = AsciiFile::new(b"abcdfeghAAA").unwrap();
     ///
@@ -115,7 +115,7 @@ impl<'f> Span<'f> {
     /// whitespace as multiline.
     ///
     /// ```
-    /// use asciifile::{AsciiFile, Span};
+    /// use compiler_lib::asciifile::{AsciiFile, Span};
     ///
     /// let file = AsciiFile::new("a\n".as_bytes()).unwrap();
     /// let first = file.iter().next().unwrap();
@@ -128,7 +128,7 @@ impl<'f> Span<'f> {
     /// multiline.
     ///
     /// ```
-    /// use asciifile::{AsciiFile, Span};
+    /// use compiler_lib::asciifile::{AsciiFile, Span};
     ///
     /// let file = AsciiFile::new("\n".as_bytes()).unwrap();
     /// let newline = file.iter().next().unwrap();
@@ -216,7 +216,7 @@ impl fmt::Display for Span<'_> {
 /// will be true, since "\n" is positioned at the next line.
 ///
 /// ```
-/// use asciifile::{AsciiFile, Position, Span};
+/// use compiler_lib::asciifile::{AsciiFile, Position, Span};
 ///
 /// let file = AsciiFile::new(b"abcd\nefgh\nijkl").unwrap();
 /// let start = file.iter().nth(2).unwrap();

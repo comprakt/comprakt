@@ -1,4 +1,4 @@
-use crate::{Position, Span};
+use super::{Position, Span};
 
 #[derive(Copy, Clone, Debug)]
 pub struct PositionIterator<'t> {

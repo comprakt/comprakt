@@ -1,8 +1,8 @@
-use asciifile::{
-    MaybeSpanned::{self, *},
-    Span, Spanned,
-};
 use crate::{
+    asciifile::{
+        MaybeSpanned::{self, *},
+        Span, Spanned,
+    },
     ast,
     lexer::{Keyword, Operator, Token, TokenKind},
     spantracker::*,
@@ -747,8 +747,7 @@ where
 #[allow(clippy::string_lit_as_bytes)]
 mod tests {
     use super::*;
-    use asciifile::AsciiFile;
-    use crate::{context::Context, lexer::Lexer, strtab::StringTable};
+    use crate::{asciifile::AsciiFile, context::Context, lexer::Lexer, strtab::StringTable};
 
     macro_rules! lex_input {
         ($itervar:ident = $input:expr) => {
