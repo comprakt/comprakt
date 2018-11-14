@@ -14,9 +14,6 @@ use std::cmp::Ordering;
 
 #[derive(Copy, Clone)]
 pub struct Position<'t> {
-    // TODO: should all be private
-    row: usize,
-    col: usize,
     byte_offset: usize,
     file: &'t AsciiFile<'t>,
 }
@@ -41,8 +38,7 @@ impl<'t> Position<'t> {
     #[cfg(test)]
     pub fn dummy() -> Self {
         Position {
-            row: 0,
-            col: 0,
+            // TODO: this position is not valid?!
             byte_offset: 0,
             file: Box::leak(Box::new(AsciiFile::new(&[]).unwrap())),
         }
@@ -56,19 +52,7 @@ impl<'t> Position<'t> {
                 // empty file
                 None
             }
-            Some('\n') => {
-                // this is a side effect of the 'newline action'
-                // being applied before the line break character
-                Some(Self {
-                    row: 1,
-                    col: 0,
-                    byte_offset: 0,
-                    file,
-                })
-            }
             Some(_) => Some(Self {
-                row: 0,
-                col: 0,
                 byte_offset: 0,
                 file,
             }),
@@ -110,13 +94,13 @@ impl<'t> Position<'t> {
     /// of the file are in row `0`. To get the line number, add `1` to
     /// the return value.
     pub fn row(&self) -> usize {
-        self.row
+        self.file.lookup_position().row(self.byte_offset)
     }
 
     /// Return the character's line number.
     /// Identical to `row() + 1`
     pub fn line_number(&self) -> usize {
-        self.row + 1
+        self.file.lookup_position().line_number(self.byte_offset)
     }
 
     /// Return the column of the characters position within the file.
@@ -124,7 +108,15 @@ impl<'t> Position<'t> {
     /// The column is zero based, meaning the first characters of
     /// a line/row is positioned at column `0`.
     pub fn column(&self) -> usize {
-        self.col
+        self.file.lookup_position().column(self.byte_offset)
+    }
+
+    /// Return the column of the characters position within the file.
+    ///
+    /// The column is zero based, meaning the first characters of
+    /// a line/row is positioned at column `0`.
+    pub fn row_and_column(&self) -> (usize, usize) {
+        self.file.lookup_position().row_and_column(self.byte_offset)
     }
 
     /// Get the position immediatly following this position or `None` if
@@ -141,8 +133,8 @@ impl<'t> Position<'t> {
         let next_byte = self.file.mapping.get(self.byte_offset + 1);
         match next_byte {
             None => Err(self),
-            Some(&byte) => {
-                self.consume_byte_mut(byte);
+            Some(_) => {
+                self.byte_offset += 1;
                 Ok(self)
             }
         }
@@ -169,26 +161,8 @@ impl<'t> Position<'t> {
             return Err(self);
         }
 
-        match self.chr() {
-            '\n' => {
-                // we have to reconstruct the column of the
-                // last character by finding its distance
-                // to the previous newline character
-                let consumed = &self.file[..self.byte_offset];
-                let previous_newline_index: usize = consumed.rfind('\n').unwrap_or(0);
-                // minus one transposes 1-indexed columns to 0-indexed columns
-                self.col = self.byte_offset - previous_newline_index - 1;
-
-                self.byte_offset -= 1;
-                self.row -= 1;
-                Ok(self)
-            }
-            _ => {
-                self.col -= 1;
-                self.byte_offset -= 1;
-                Ok(self)
-            }
-        }
+        self.byte_offset -= 1;
+        Ok(self)
     }
 
     /// Get source code line containing the position.
@@ -269,31 +243,13 @@ impl<'t> Position<'t> {
     pub fn reverse_iter(&self) -> ReversePositionIterator<'t> {
         ReversePositionIterator::new(Some(*self))
     }
-
-    fn consume_byte_mut(&mut self, byte: u8) {
-        self.consume_char_mut(byte as char);
-    }
-
-    fn consume_char_mut(&mut self, chr: char) {
-        match chr {
-            '\n' => {
-                self.col = 0;
-                self.row += 1;
-                self.byte_offset += 1;
-            }
-            _ => {
-                self.col += 1;
-                self.byte_offset += 1;
-            }
-        };
-    }
 }
 
 use std::fmt::{self, Debug, Display};
 
 impl Display for Position<'_> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "{}:{}", self.row + 1, self.col + 1)
+        write!(fmt, "{}:{}", self.line_number(), self.column())
     }
 }
 
@@ -302,7 +258,10 @@ impl Debug for Position<'_> {
         write!(
             fmt,
             "Position{{row: {:?}, col: {:?}, byte_offset: {:?}, file: {:?}}}",
-            self.row, self.col, self.byte_offset, self.file as *const _
+            self.row(),
+            self.column(),
+            self.byte_offset,
+            self.file as *const _
         )
     }
 }
@@ -319,10 +278,17 @@ impl Eq for Position<'_> {}
 mod tests {
     use super::*;
 
-    fn pair_with_char<'f>(positions: Vec<Position<'f>>) -> Vec<(Position<'f>, char)> {
+    fn positions_to_tuples<'f>(
+        positions: Vec<Position<'f>>,
+    ) -> Vec<((usize, char), (usize, usize))> {
         positions
             .into_iter()
-            .map(|position| (position, position.chr()))
+            .map(|position| {
+                (
+                    (position.byte_offset(), position.chr()),
+                    position.row_and_column(),
+                )
+            })
             .collect()
     }
 
@@ -389,31 +355,33 @@ mod tests {
     fn iterator_works() {
         let input = b"one\ntwo three\nfour\n\n";
         let file = AsciiFile::new(input).unwrap();
-        let actual = pair_with_char(file.iter().collect());
+        let actual = positions_to_tuples(file.iter().collect());
 
         #[rustfmt::skip]
         let expected = vec![
-            (Position { byte_offset:  0, row: 0, col: 0, file:  &file }, 'o'),
-            (Position { byte_offset:  1, row: 0, col: 1 , file: &file }, 'n'),
-            (Position { byte_offset:  2, row: 0, col: 2 , file: &file }, 'e'),
-            (Position { byte_offset:  3, row: 0, col: 3 , file: &file }, '\n'),
-            (Position { byte_offset:  4, row: 1, col: 0 , file: &file }, 't'),
-            (Position { byte_offset:  5, row: 1, col: 1 , file: &file }, 'w'),
-            (Position { byte_offset:  6, row: 1, col: 2 , file: &file }, 'o'),
-            (Position { byte_offset:  7, row: 1, col: 3 , file: &file }, ' '),
-            (Position { byte_offset:  8, row: 1, col: 4 , file: &file }, 't'),
-            (Position { byte_offset:  9, row: 1, col: 5 , file: &file }, 'h'),
-            (Position { byte_offset: 10, row: 1, col: 6 , file: &file }, 'r'),
-            (Position { byte_offset: 11, row: 1, col: 7 , file: &file }, 'e'),
-            (Position { byte_offset: 12, row: 1, col: 8 , file: &file }, 'e'),
-            (Position { byte_offset: 13, row: 1, col: 9 , file: &file }, '\n'),
-            (Position { byte_offset: 14, row: 2, col: 0 , file: &file }, 'f'),
-            (Position { byte_offset: 15, row: 2, col: 1 , file: &file }, 'o'),
-            (Position { byte_offset: 16, row: 2, col: 2 , file: &file }, 'u'),
-            (Position { byte_offset: 17, row: 2, col: 3 , file: &file }, 'r'),
-            (Position { byte_offset: 18, row: 2, col: 4 , file: &file }, '\n'),
-            (Position { byte_offset: 19, row: 3, col: 0 , file: &file }, '\n'),
+            // (byte_offset, file) (row, col) char
+            (( 0, 'o'), (0, 0), ),
+            (( 1, 'n'), (0, 1), ),
+            (( 2, 'e'), (0, 2), ),
+            (( 3, '\n'), (0, 3),),
+            (( 4, 't'), (1, 0), ),
+            (( 5, 'w'), (1, 1), ),
+            (( 6, 'o'), (1, 2), ),
+            (( 7, ' '), (1, 3), ),
+            (( 8, 't'), (1, 4), ),
+            (( 9, 'h'), (1, 5), ),
+            ((10, 'r'), (1, 6), ),
+            ((11, 'e'), (1, 7), ),
+            ((12, 'e'), (1, 8), ),
+            ((13, '\n'), (1, 9),),
+            ((14, 'f'), (2, 0), ),
+            ((15, 'o'), (2, 1), ),
+            ((16, 'u'), (2, 2), ),
+            ((17, 'r'), (2, 3), ),
+            ((18, '\n'), (2, 4),),
+            ((19, '\n'), (3, 0),),
         ];
+
         assert_eq!(expected, actual);
     }
 
@@ -438,11 +406,11 @@ mod tests {
             .collect::<Vec<_>>();
 
         let expected: Vec<(usize, usize, String)> = vec![
-            (1, 2, "\n".to_string()),
+            (1, 1, "\n".to_string()),
             (2, 2, "one\n".to_string()),
             (3, 3, "two three\n".to_string()),
             (4, 4, "four\n".to_string()),
-            (5, 6, "\n".to_string()),
+            (5, 5, "\n".to_string()),
         ];
 
         assert_eq!(expected, actual);
@@ -469,12 +437,12 @@ mod tests {
             .collect::<Vec<_>>();
 
         let expected: Vec<(usize, usize, String)> = vec![
-            (1, 2, "\n".to_string()),
-            (2, 3, "\n".to_string()),
+            (1, 1, "\n".to_string()),
+            (2, 2, "\n".to_string()),
             (3, 3, "one\n".to_string()),
             (4, 4, "two three\n".to_string()),
             (5, 5, "four\n".to_string()),
-            (6, 7, "\n".to_string()),
+            (6, 6, "\n".to_string()),
         ];
 
         assert_eq!(expected, actual);
@@ -533,6 +501,9 @@ mod tests {
         };
 
         assert_eq!(back_to_front.len(), input.len());
-        assert_eq!(pair_with_char(back_to_front), pair_with_char(front_to_back));
+        assert_eq!(
+            positions_to_tuples(back_to_front),
+            positions_to_tuples(front_to_back)
+        );
     }
 }

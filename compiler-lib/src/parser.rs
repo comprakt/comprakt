@@ -923,10 +923,10 @@ mod tests {
         });
 
         assert_eq!(start.line_number(), 2);
-        assert_eq!(start.column(), 13);
+        assert_eq!(start.column(), 12);
         assert_eq!(start.byte_offset(), 13);
         assert_eq!(end.line_number(), 6);
-        assert_eq!(end.column(), 13);
+        assert_eq!(end.column(), 12);
         assert_eq!(end.byte_offset(), 153);
     }
 
