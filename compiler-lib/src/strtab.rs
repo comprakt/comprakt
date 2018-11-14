@@ -63,6 +63,14 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
+    macro_rules! assert_eq_sym {
+        ($a:expr, $b:expr) => {
+            assert_eq!($a, $b);
+            // don't trust that eq impl is based on pointer comparison
+            assert_eq!($a.as_raw(), $b.as_raw());
+        };
+    }
+
     #[test]
     fn no_duplication() {
         let mut strtab = StringTable::new();
@@ -71,31 +79,15 @@ mod tests {
         let b = strtab.intern("foo");
         let c = strtab.intern("foo");
         assert_eq!(1, strtab.entries.len());
-        assert_eq!(a, b);
-        assert_eq!(a, c);
-        assert_eq!(
-            a.as_raw() as *const u8 as usize,
-            b.as_raw() as *const u8 as usize
-        );
-        assert_eq!(
-            a.as_raw() as *const u8 as usize,
-            c.as_raw() as *const u8 as usize
-        );
+        assert_eq_sym!(a, b);
+        assert_eq_sym!(a, c);
 
         let d = strtab.intern("bar");
         let e = strtab.intern("bar");
         let f = strtab.intern("foo");
         assert_eq!(2, strtab.entries.len());
-        assert_eq!(d, e);
-        assert_eq!(a, f);
-        assert_eq!(
-            d.as_raw() as *const u8 as usize,
-            e.as_raw() as *const u8 as usize
-        );
-        assert_eq!(
-            a.as_raw() as *const u8 as usize,
-            f.as_raw() as *const u8 as usize
-        );
+        assert_eq_sym!(d, e);
+        assert_eq_sym!(a, f);
     }
 
     #[test]
