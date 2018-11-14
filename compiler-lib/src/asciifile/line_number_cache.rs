@@ -7,7 +7,7 @@
 //! use compiler_lib::asciifile::LineNumberCache;
 //!
 //! let input = "asd\nqwer\nZU\nfgfh";
-//! let positions: Vec<_> = input
+//! let positions = input
 //!     .chars()
 //!     .enumerate()
 //!     .filter_map(
@@ -20,7 +20,7 @@
 //!         },
 //!     )
 //!     .collect();
-//! let cache = LineNumberCache::new(&positions);
+//! let cache = LineNumberCache::new(positions);
 //!
 //! let actual: Vec<_> = input
 //!     .chars()
@@ -49,15 +49,16 @@
 //!
 //! assert_eq!(actual, expected);
 //! ```
-pub struct LineNumberCache<'slice> {
+#[derive(Debug)]
+pub struct LineNumberCache {
     /// byte index of linebreaks (\n) in the file. The
     /// index of the newline within the sorted list is
     /// the row, the line number is the row plus 1.
-    linebreaks: &'slice [usize],
+    linebreaks: Vec<usize>,
 }
 
-impl<'slice> LineNumberCache<'slice> {
-    pub fn new(linebreaks: &'slice [usize]) -> Self {
+impl LineNumberCache {
+    pub fn new(linebreaks: Vec<usize>) -> Self {
         Self { linebreaks }
     }
 
