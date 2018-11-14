@@ -315,6 +315,7 @@ fn do_prettyprint_expr<'a, 't>(expr: &'a ast::Expr<'t>, printer: &mut IndentPrin
     }
 }
 
+#[allow(clippy::block_in_if_condition_stmt)]
 fn do_prettyprint_stmt(
     stmt: &ast::Stmt<'_>,
     printer: &mut IndentPrinter<'_>,
