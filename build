@@ -62,6 +62,6 @@ run_if "$DO_RUSTFMT" cargo fmt --all -- --check
 # let build fail on Clippy warnings
 run_if "$DO_CLIPPY"  cargo clippy --all $BUILD_FLAGS --all-targets --all-features -- -D warnings
 run_if "$DO_BUILD"   cargo build  --all $BUILD_FLAGS
-run_if "$DO_TEST"    cargo test   --all $BUILD_FLAGS
+run_if "$DO_TEST"    bash -c "export RUST_MIN_STACK=$((8 * 1024 * 1024)); exec cargo test --all"
 # and also check tests and none-default crate features
 run_if "$DO_CHECK"   cargo check  --all $BUILD_FLAGS
