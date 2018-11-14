@@ -1,3 +1,36 @@
+//! The visitor module for the AST.
+//!
+//! The visitor is based on an Enum over every AST node.
+//!
+//! Example usages:
+//! ```rust
+//! struct MyVisitor<'a, 'f> {
+//!     some_data: Vec<u32>,
+//! }
+//!
+//! impl<'a, 'f> MyVisitor<'a, 'f> {
+//!     fn new() -> Self {
+//!         Self {
+//!             some_data: Vec::new(),
+//!         }
+//!     }
+//!
+//!     fn do_visit(&mut self, node: &NodeKind<'a, 'f>) {
+//!         use self::NodeKind::*;
+//!         node.for_each_child(&mut |child| {
+//!             match child {
+//!                 AST(_) => (),
+//!                 Program(_) => {
+//!                     // some code
+//!                 }
+//!                 _ => ()
+//!             }
+//!
+//!             self.do_visit(&child)
+//!         })
+//!     }
+//! }
+//! ```
 use crate::{
     asciifile::Spanned,
     ast::{self, *},
