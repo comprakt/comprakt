@@ -34,6 +34,13 @@ enum CompilerPhase {
     Ast,
 }
 
+#[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
+enum CompilerCall {
+    RawCompiler(CompilerPhase),
+    AstInspector,
+}
+
 const ROOT_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 fn compiler_flag(phase: CompilerPhase) -> &'static str {
@@ -44,19 +51,41 @@ fn compiler_flag(phase: CompilerPhase) -> &'static str {
     }
 }
 
-fn compiler_call(phase: CompilerPhase, filepath: &PathBuf) -> Command {
-    let mut cmd = std::env::var("COMPILER_BINARY")
-        .map(|path| {
-            println!("Test run using alternate compiler binary at {}", path);
-            Command::new(path)
-        })
-        .unwrap_or_else(|_| {
-            println!("Test run using the default compiler binary");
-            Command::main_binary().unwrap()
-        });
-    cmd.env("TERM", "dumb"); // disable color output
-    cmd.args(&[OsStr::new(compiler_flag(phase)), filepath.as_os_str()]);
-    cmd
+fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
+    match compiler_call {
+        CompilerCall::RawCompiler(phase) => {
+            let mut cmd = std::env::var("COMPILER_BINARY")
+                .map(|path| {
+                    println!("Test run using alternate compiler binary at {}", path);
+                    Command::new(path)
+                })
+                .unwrap_or_else(|_| {
+                    println!("Test run using the default compiler binary");
+                    Command::main_binary().unwrap()
+                });
+            cmd.env("TERM", "dumb"); // disable color output
+            cmd.args(&[OsStr::new(compiler_flag(phase)), filepath.as_os_str()]);
+            cmd
+        }
+        CompilerCall::AstInspector => {
+            // TODO: do not invoke through cargo to speed up tests
+            let mut cmd = Command::new("cargo");
+            cmd.env("TERM", "dumb"); // disable color output
+            cmd.args(&[OsStr::new("-q"), OsStr::new("run")]);
+
+            if !cfg!(debug_assertions) {
+                cmd.arg(OsStr::new("--release"));
+            }
+
+            cmd.args(&[
+                OsStr::new("-p"),
+                OsStr::new("inspect-ast"),
+                OsStr::new("--"),
+                OsStr::new(filepath.as_os_str()),
+            ]);
+            cmd
+        }
+    }
 }
 
 fn normalize_stderr(stderr: &str) -> String {
@@ -89,7 +118,7 @@ struct TestFiles {
 }
 
 #[allow(dead_code)]
-fn assert_compiler_phase(phase: CompilerPhase, file: &TestFiles) {
+fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
     if !file.stderr.is_file() || !file.stdout.is_file() || !file.exitcode.is_file() {
         // if any of the files is missing. Fail the test. Regenerate all files
         // with an additional ".tenative" extension. The programmer can then
@@ -186,3 +215,4 @@ gen_lexer_integration_tests!();
 gen_parser_integration_tests!();
 gen_ast_reference_integration_tests!();
 gen_ast_idempotence_integration_tests!();
+gen_ast_inspector_tests!();

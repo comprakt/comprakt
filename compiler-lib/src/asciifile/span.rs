@@ -274,6 +274,36 @@ impl<'span, 'file> Iterator for LineIterator<'span, 'file> {
     }
 }
 
+/// Iterator adapter that adds line numbers to a `LineIterator`
+///
+/// ```
+/// use compiler_lib::asciifile::{AsciiFile, Position, Span};
+///
+/// let file = AsciiFile::new(b"abcd\n\n\nefgh\nijkl").unwrap();
+/// let start = file.iter().nth(2).unwrap();
+/// assert_eq!(start.chr(), 'c');
+/// let end = file.iter().nth(12).unwrap();
+/// assert_eq!(end.chr(), 'i');
+/// let span = Span::new(start, end);
+/// assert_eq!(span.as_str(), "cd\n\n\nefgh\ni");
+///
+/// let lines = span
+///     .lines()
+///     .numbered()
+///     .map(|(num, span)| (num, span.as_str().to_string()))
+///     .collect::<Vec<_>>();
+///
+/// assert_eq!(
+///     lines,
+///     vec![
+///         (1, "abcd\n".to_string()),
+///         (2, "\n".to_string()),
+///         (3, "\n".to_string()),
+///         (4, "efgh\n".to_string()),
+///         (5, "ijkl".to_string()),
+///     ]
+/// );
+/// ```
 pub struct LineNumberIterator<'span, 'file> {
     lines: LineIterator<'span, 'file>,
 }
@@ -288,8 +318,14 @@ impl<'span, 'file> Iterator for LineNumberIterator<'span, 'file> {
     type Item = (usize, Span<'file>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.lines
-            .next()
-            .map(|span| (span.start_position().line_number(), span))
+        self.lines.next().map(|span| {
+            let first_char = span.start_position();
+            let line_number = if first_char.chr() == '\n' {
+                first_char.row()
+            } else {
+                first_char.row() + 1
+            };
+            (line_number, span)
+        })
     }
 }

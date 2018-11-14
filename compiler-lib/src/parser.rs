@@ -633,10 +633,10 @@ where
             {
                 // array access: EXPR[EXPR]
                 let index_expr = self.parse_expression()?;
-                self.omnomnom(exactly(Operator::RightBracket))?;
+                let spanned = self.omnomnom(exactly(Operator::RightBracket))?;
 
                 Spanned {
-                    span: Span::combine(&expr.span, &index_expr.span),
+                    span: Span::combine(&expr.span, &spanned.span),
                     data: ast::Expr::ArrayAccess(expr, index_expr),
                 }
             } else {

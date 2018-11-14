@@ -22,7 +22,7 @@ const INTEGRATION_TEST_DIR: &str = "../integration-tests";
 #[proc_macro]
 pub fn gen_lexer_integration_tests(_args: TokenStream) -> TokenStream {
     gen_integration_tests(
-        &quote! { CompilerPhase::Lexer },
+        &quote! { CompilerCall::RawCompiler(CompilerPhase::Lexer) },
         "lexer",
         |v| quote! { #v },
         "",
@@ -34,7 +34,7 @@ pub fn gen_lexer_integration_tests(_args: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn gen_parser_integration_tests(_args: TokenStream) -> TokenStream {
     gen_integration_tests(
-        &quote! { CompilerPhase::Parser },
+        &quote! { CompilerCall::RawCompiler(CompilerPhase::Parser) },
         "parser",
         |v| quote! { #v },
         "",
@@ -46,7 +46,7 @@ pub fn gen_parser_integration_tests(_args: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn gen_ast_reference_integration_tests(_args: TokenStream) -> TokenStream {
     gen_integration_tests(
-        &quote! { CompilerPhase::Ast },
+        &quote! { CompilerCall::RawCompiler(CompilerPhase::Ast) },
         "ast",
         |v| quote! { #v },
         "",
@@ -58,13 +58,25 @@ pub fn gen_ast_reference_integration_tests(_args: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn gen_ast_idempotence_integration_tests(_args: TokenStream) -> TokenStream {
     gen_integration_tests(
-        &quote! { CompilerPhase::Ast },
+        &quote! { CompilerCall::RawCompiler(CompilerPhase::Ast) },
         "ast",
         |v| {
             quote! { with_extension(&#v, ".stdout") }
         },
         "_idempotence",
         false,
+    )
+}
+
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
+pub fn gen_ast_inspector_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests(
+        &quote! { CompilerCall::AstInspector },
+        "spans",
+        |v| quote! { #v },
+        "",
+        true,
     )
 }
 

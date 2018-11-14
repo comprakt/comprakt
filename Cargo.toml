@@ -2,16 +2,5 @@
 members = [
     "compiler-lib",
     "compiler-cli",
+    "inspect-ast"
 ]
-
-# given that we only have one binary crate in the workspace,
-# cargo will automatically select the correct binary to run
-# when `cargo run` is executed. In case this ever changes
-# use:
-#
-# default-run = "compiler-cli"
-#
-# which might still be feature gated. In this case put
-# the following at the top of the file:
-#
-# cargo-features = ["default-run"]
