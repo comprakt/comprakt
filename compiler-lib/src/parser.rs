@@ -4,7 +4,7 @@ use crate::{
         Span, Spanned,
     },
     ast,
-    lexer::{Keyword, Operator, Token, TokenKind},
+    lexer::{IntLit, Keyword, Operator, Token, TokenKind},
     spantracker::*,
     strtab::Symbol,
 };
@@ -155,10 +155,10 @@ impl<'f> ExpectedToken<'f> for Identifier {
 }
 
 impl<'f> ExpectedToken<'f> for IntegerLiteral {
-    type Yields = Symbol;
+    type Yields = IntLit<'f>;
     fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields> {
         match token {
-            TokenKind::IntegerLiteral(lit) => Some(lit.clone()),
+            TokenKind::IntegerLiteral(lit) => Some(lit),
             _ => None,
         }
     }
@@ -956,13 +956,13 @@ mod tests {
                     match lhs.data {
                         Expr::Binary(op, lhs, rhs) => {
                             assert_eq!(op, Add);
-                            assert_eq!(lhs.data, Expr::Int(Symbol::from("3")));
+                            assert_eq!(lhs.data, Expr::Int("3"));
                             // rhs = 4 * 7
                             match rhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Mul);
-                                    assert_eq!(lhs.data, Expr::Int(Symbol::from("4")));
-                                    assert_eq!(rhs.data, Expr::Int(Symbol::from("7")));
+                                    assert_eq!(lhs.data, Expr::Int("4"));
+                                    assert_eq!(rhs.data, Expr::Int("7"));
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
@@ -977,12 +977,12 @@ mod tests {
                             match lhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Div);
-                                    assert_eq!(lhs.data, Expr::Int(Symbol::from("9")));
-                                    assert_eq!(rhs.data, Expr::Int(Symbol::from("7")));
+                                    assert_eq!(lhs.data, Expr::Int("9"));
+                                    assert_eq!(rhs.data, Expr::Int("7"));
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
-                            assert_eq!(rhs.data, Expr::Int(Symbol::from("42")));
+                            assert_eq!(rhs.data, Expr::Int("42"));
                         }
                         expr => panic!("not a binary expr: {:#?}", expr),
                     }

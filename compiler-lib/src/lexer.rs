@@ -32,12 +32,14 @@ pub type TokenResult<'f> = Result<Token<'f>, LexicalError<'f>>;
 pub type Token<'f> = Spanned<'f, TokenKind<'f>>;
 pub type LexicalError<'f> = Spanned<'f, ErrorKind>;
 
+pub type IntLit<'f> = &'f str;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenKind<'f> {
     Keyword(Keyword),
     Operator(Operator),
     Identifier(Symbol),
-    IntegerLiteral(Symbol),
+    IntegerLiteral(IntLit<'f>),
     Comment(&'f str),
     Whitespace,
 }
@@ -449,7 +451,7 @@ impl<'f, 's> Lexer<'f, 's> {
         let position = self.input.next().unwrap();
         Ok(Token::new(
             position.to_single_char_span(),
-            TokenKind::IntegerLiteral(self.strtab.intern("0")),
+            TokenKind::IntegerLiteral("0"),
         ))
     }
 
@@ -473,7 +475,7 @@ impl<'f, 's> Lexer<'f, 's> {
 
         let span = self.lex_while(|position, _| matches!(position.chr(), '0'..='9'));
 
-        let kind = TokenKind::IntegerLiteral(self.strtab.intern(&span.as_str()));
+        let kind = TokenKind::IntegerLiteral(span.as_str());
 
         Ok(Token::new(span, kind))
     }
@@ -706,7 +708,7 @@ mod tests {
         let tokens = vec![
             TokenKind::Operator(Operator::Ampersand),
             TokenKind::Whitespace,
-            TokenKind::IntegerLiteral(st.intern("foo")),
+            TokenKind::IntegerLiteral("foo"),
             TokenKind::Comment("comment"),
             TokenKind::Keyword(Keyword::If),
         ];
@@ -739,7 +741,7 @@ mod tests {
     #[test]
     fn integer_literal_prefix() {
         let st = StringTable::new();
-        let o = lexer_test_with_tokens(vec![TokenKind::IntegerLiteral(st.intern("2342"))]);
+        let o = lexer_test_with_tokens(vec![TokenKind::IntegerLiteral("2342")]);
         assert_eq!(&o, "integer literal 2342\n");
     }
 }

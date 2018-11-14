@@ -1,4 +1,4 @@
-use crate::{asciifile::Spanned, strtab::Symbol};
+use crate::{asciifile::Spanned, lexer::IntLit, strtab::Symbol};
 use strum_macros::EnumDiscriminants;
 
 #[strum_discriminants(derive(Display))]
@@ -162,7 +162,7 @@ pub enum Expr<'t> {
     // The old primary expressions
     Null,
     Boolean(bool),
-    Int(Symbol), // TODO Should be String?
+    Int(IntLit<'t>),
     Var(Symbol),
     ThisMethodInvocation(Symbol, Spanned<'t, ArgumentList<'t>>),
     This,
