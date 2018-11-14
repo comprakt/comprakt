@@ -8,11 +8,12 @@ type ClassesAndMembers<'a, 'f> = HashMap<
 >;
 
 pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &context::Context<'_>) -> Result<(), Error> {
-    let classes_and_members = ClassesAndMembersVisitor::visit(ast, context)?;
+    let mut first_pass_visitor = ClassesAndMembersVisitor::new();
+    first_pass_visitor.do_visit(&NodeKind::from(ast))?;
 
     // Let's draw some pretty annotations that show we classified classes + their
     // members and method correctly
-    for ((classsym, membersym, memberytypediscr), decl) in &classes_and_members {
+    for ((classsym, membersym, memberytypediscr), decl) in &first_pass_visitor.classes_and_members {
         // FIXME: Need ClassMember.name be Spanned instead of Symbol
         let highlightspan = &decl.span;
         context.diagnostics.info(&Spanned {
@@ -24,33 +25,31 @@ pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &context::Context<'_>) -> R
     // Now the second pass, this one will do (in one traversal)
     //  - name analysis of the AST
     //  - type checking of expressions
-    SecondPass::visit(ast, context, &classes_and_members)
+    SecondPass::visit(ast, context, &first_pass_visitor.classes_and_members)
 }
 
-struct ClassesAndMembersVisitor;
+struct ClassesAndMembersVisitor<'a, 'f> {
+    classes_and_members: ClassesAndMembers<'a, 'f>,
+}
 
-impl ClassesAndMembersVisitor {
-    pub fn visit<'a, 'f>(
-        ast: &'a ast::AST<'f>,
-        context: &context::Context<'_>,
-    ) -> Result<ClassesAndMembers<'a, 'f>, Error> {
-        let mut res = HashMap::new();
-        Self::do_visit(&NodeKind::from(ast), context, &mut res)?;
-        Ok(res)
+impl<'a, 'f> ClassesAndMembersVisitor<'a, 'f> {
+    pub fn new() -> Self {
+        Self {
+            classes_and_members: HashMap::new(),
+        }
     }
 
-    fn do_visit<'a, 'f>(
-        n: &NodeKind<'a, 'f>,
-        _context: &context::Context<'_>,
-        res: &mut ClassesAndMembers<'a, 'f>,
+    fn do_visit(
+        &mut self,
+        node: &NodeKind<'a, 'f>,
     ) -> Result<(), Error> {
         use self::{ast, NodeKind::*};
-        match n {
+        match node {
             AST(ast::AST::Program(p)) => {
                 for class in &p.data.classes {
                     for member in &class.members {
                         let discr = ast::ClassMemberKindDiscriminants::from(&member.kind);
-                        res.insert(
+                        self.classes_and_members.insert(
                             (Rc::clone(&class.name), Rc::clone(&member.name), discr),
                             &member,
                         );
