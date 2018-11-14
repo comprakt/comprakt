@@ -1,0 +1,8 @@
+class A {
+	public void f() {
+		if (a)
+			if (b) { }
+			else ;
+		else i = 42;
+	}
+}
