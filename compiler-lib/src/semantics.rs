@@ -21,6 +21,13 @@ enum SemanticError {
         amount
     )]
     MultipleStaticMethods { amount: u64 },
+    #[fail(
+        display = "non-static method '{}' cannot be referenced from a static context",
+        name
+    )]
+    ThisMethodInvocationInStaticMethod { name: String },
+    #[fail(display = "non-static variable 'this' cannot be referenced from a static context")]
+    ThisInStaticMethod,
 }
 
 type ClassesAndMembers<'a, 'f> = HashMap<
@@ -128,8 +135,8 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                         }
                     }
                 }
-                Expr(expr) => {
-                    if let ast::Expr::Var(name) = &expr.data {
+                Expr(expr) => match &expr.data {
+                    ast::Expr::Var(name) => {
                         if arg_name == name {
                             self.context.diagnostics.error(&Spanned {
                                 span: expr.span.clone(),
@@ -139,7 +146,27 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                             });
                         }
                     }
-                }
+                    ast::Expr::This => {
+                        self.context.diagnostics.error(&Spanned {
+                            span: expr.span.clone(),
+                            data: SemanticError::ThisInStaticMethod,
+                        });
+                    }
+                    ast::Expr::ThisMethodInvocation(name, _) => {
+                        // This is for sure an error since there is only one static method and this
+                        // is the main function. We cannot call the main function from within the
+                        // main function, since we don't have a `String` type to create an argument
+                        // for the main function. We also cannot use the argument of the main
+                        // function to call the main function.
+                        self.context.diagnostics.error(&Spanned {
+                            span: expr.span.clone(),
+                            data: SemanticError::ThisMethodInvocationInStaticMethod {
+                                name: name.to_string(),
+                            },
+                        });
+                    }
+                    _ => (),
+                },
                 _ => (),
             }
 
