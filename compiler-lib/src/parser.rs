@@ -339,11 +339,10 @@ where
                 // Consume exactly `void IDENT(String[] IDENT)`
                 self.omnomnom(exactly(Keyword::Void))?;
                 let name = self.omnomnom(Identifier)?.data;
-                self.omnomnom(exactly(Operator::LeftParen))?;
+                let params_begin = self.omnomnom(exactly(Operator::LeftParen))?;
                 self.omnomnom(ExactlyIdentifier("String"))?;
                 self.omnomnom(exactly(Operator::LeftBracket))?;
                 let java_string_array_close = self.omnomnom(exactly(Operator::RightBracket))?;
-                use crate::asciifile::{Span, Spanned};
                 let string_array_type = Spanned {
                     data: ast::Type {
                         // treat String[] as an opaque type
@@ -352,23 +351,23 @@ where
                     },
                     span: Span::combine(&java_string.span, &java_string_array_close.span),
                 };
-                let param = self.omnomnom(Identifier)?.data;
-                let pl_end = self.omnomnom(exactly(Operator::RightParen))?;
-                let pl = Spanned {
+                let param_name = self.omnomnom(Identifier)?.data;
+                let params_end = self.omnomnom(exactly(Operator::RightParen))?;
+                let params = Spanned {
                     data: vec![Spanned {
                         data: ast::Parameter {
                             ty: string_array_type,
-                            name: param.data,
+                            name: param_name.data,
                         },
-                        span: Span::combine(&java_string.span, &param.span),
+                        span: Span::combine(&java_string.span, &param_name.span),
                     }],
-                    span: Span::combine(&pl_begin.span, &pl_end.span),
+                    span: Span::combine(&params_begin.span, &params_end.span),
                 };
 
                 self.skip_method_rest()?;
                 let body = self.parse_block()?;
 
-                let kind = ast::ClassMemberKind::MainMethod(pl, body);
+                let kind = ast::ClassMemberKind::MainMethod(params, body);
                 ast::ClassMember { kind, name }
             } else {
                 let ty = self.parse_type()?;
