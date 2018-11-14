@@ -71,9 +71,13 @@ fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
             // TODO: do not invoke through cargo to speed up tests
             let mut cmd = Command::new("cargo");
             cmd.env("TERM", "dumb"); // disable color output
+            cmd.args(&[OsStr::new("-q"), OsStr::new("run")]);
+
+            if !cfg!(debug_assertions) {
+                cmd.arg(OsStr::new("--release"));
+            }
+
             cmd.args(&[
-                OsStr::new("-q"),
-                OsStr::new("run"),
                 OsStr::new("-p"),
                 OsStr::new("inspect-ast"),
                 OsStr::new("--"),
