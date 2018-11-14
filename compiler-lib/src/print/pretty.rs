@@ -162,11 +162,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
 
         Block(block) => {
             // all() returns true on empty iterators
-            if block
-                .statements
-                .iter()
-                .all(|stmt| stmt.data == crate::ast::Stmt::Empty)
-            {
+            if is_empty_block(block) {
                 printer.print_str(&"{ }");
             } else {
                 printer.print_str(&"{");
@@ -186,103 +182,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
             }
         }
 
-        Stmt(stmt) => {
-            use crate::ast::Stmt::*;
-            match &stmt.data {
-                Block(block) => do_prettyprint(&NodeKind::from(block), printer),
-                Empty => {
-                    printer.print_str(&";");
-                }
-                If(cond, stmt, opt_else) => {
-                    printer.print_str(&"if (");
-                    // no parenthesizes for expressions in if conditions
-                    do_prettyprint(&NodeKind::from(&**cond), printer);
-                    printer.print_str(&")");
-                    if let ast::Stmt::Block(_) = stmt.data {
-                        printer.print_str(&" ");
-                        do_prettyprint(&NodeKind::from(&**stmt), printer);
-                        if opt_else
-                            .as_ref()
-                            .map_or(false, |els| !matches!(els.data, Empty))
-                        {
-                            printer.print_str(&" ");
-                        }
-                    } else {
-                        printer.newline();
-                        printer.indent();
-                        do_prettyprint(&NodeKind::from(&**stmt), printer);
-                        printer.outdent();
-                        if opt_else
-                            .as_ref()
-                            .map_or(false, |els| !matches!(els.data, Empty))
-                        {
-                            printer.newline();
-                        }
-                    }
-                    if let Some(els) = opt_else {
-                        match els.data {
-                            Empty => (),
-                            _ => match els.data {
-                                If(..) | Block(..) => {
-                                    printer.print_str(&"else ");
-                                    do_prettyprint(&NodeKind::from(&**els), printer)
-                                }
-                                _ => {
-                                    printer.print_str(&"else");
-                                    printer.newline();
-                                    printer.indent();
-                                    do_prettyprint(&NodeKind::from(&**els), printer);
-                                    printer.outdent();
-                                }
-                            },
-                        }
-                    }
-                }
-
-                While(cond, stmt) => {
-                    printer.print_str(&"while (");
-                    // no parenthesizes for expressions in while conditions
-                    do_prettyprint(&NodeKind::from(&**cond), printer);
-                    printer.print_str(&")");
-                    if let ast::Stmt::Block(_) = stmt.data {
-                        printer.print_str(&" ");
-                        do_prettyprint(&NodeKind::from(&**stmt), printer);
-                    } else {
-                        printer.newline();
-                        printer.indent();
-                        do_prettyprint(&NodeKind::from(&**stmt), printer);
-                        printer.outdent();
-                    }
-                }
-
-                Expression(expr) => {
-                    // no parenthesizes for expressions in expression statements
-                    do_prettyprint(&NodeKind::from(&**expr), printer);
-                    printer.print_str(&";");
-                }
-
-                Return(expr_opt) => {
-                    printer.print_str(&"return");
-                    if let Some(expr) = expr_opt {
-                        printer.print_str(&" ");
-                        // no parenthesizes for expressions in return statements
-                        do_prettyprint(&NodeKind::from(&**expr), printer);
-                    }
-                    printer.print_str(&";");
-                }
-
-                LocalVariableDeclaration(ty, name, opt_assign) => {
-                    do_prettyprint(&NodeKind::from(ty), printer);
-                    printer.print(format_args!(" {}", name));
-                    if let Some(assign) = opt_assign {
-                        printer.print_str(&" = ");
-                        // no parenthesizes for expressions in declaration initializations
-                        do_prettyprint(&NodeKind::from(&**assign), printer);
-                    }
-                    printer.print_str(&";");
-                }
-            };
-        }
+        Stmt(stmt) => do_prettyprint_stmt(stmt, printer, true),
 
         Expr(expr) => do_prettyprint_expr(expr, printer),
 
@@ -363,7 +263,7 @@ fn do_prettyprint_expr_parenthesized<'a, 't>(
     }
 }
 
-fn do_prettyprint_expr<'a, 't>(expr: &'a crate::ast::Expr<'t>, printer: &mut IndentPrinter<'_>) {
+fn do_prettyprint_expr<'a, 't>(expr: &'a ast::Expr<'t>, printer: &mut IndentPrinter<'_>) {
     use crate::ast::Expr::*;
     match expr {
         Binary(op, lhs, rhs) => {
@@ -413,4 +313,130 @@ fn do_prettyprint_expr<'a, 't>(expr: &'a crate::ast::Expr<'t>, printer: &mut Ind
             printer.print(format_args!("]{}", "[]".repeat(*brackets as usize)));
         }
     }
+}
+
+#[allow(clippy::block_in_if_condition_stmt)]
+fn do_prettyprint_stmt(
+    stmt: &ast::Stmt<'_>,
+    printer: &mut IndentPrinter<'_>,
+    ignore_empty_else: bool,
+) {
+    use crate::ast::Stmt::*;
+    match stmt {
+        Block(block) => do_prettyprint(&NodeKind::from(block), printer),
+        Empty => {
+            printer.print_str(&";");
+        }
+        If(cond, stmt, opt_else) => {
+            printer.print_str(&"if (");
+            // no parenthesizes for expressions in if conditions
+            do_prettyprint(&NodeKind::from(&**cond), printer);
+            printer.print_str(&")");
+
+            if let ast::Stmt::Block(block) = &stmt.data {
+                printer.print_str(&" ");
+                do_prettyprint(&NodeKind::from(&**stmt), printer);
+                if opt_else.as_ref().map_or(false, |els| {
+                    !(ignore_empty_else && matches!(els.data, Empty))
+                }) {
+                    if is_empty_block(block) {
+                        printer.newline();
+                    } else {
+                        printer.print_str(&" ");
+                    }
+                }
+            } else {
+                printer.newline();
+                printer.indent();
+                match stmt.data {
+                    ast::Stmt::If(..) => {
+                        if let Some(els) = opt_else {
+                            if matches!(els.data, ast::Stmt::Empty) && ignore_empty_else {
+                                do_prettyprint_stmt(&stmt.data, printer, true);
+                            } else {
+                                do_prettyprint_stmt(&stmt.data, printer, false);
+                            }
+                        } else {
+                            do_prettyprint_stmt(&stmt.data, printer, ignore_empty_else);
+                        }
+                    }
+                    _ => do_prettyprint(&NodeKind::from(&**stmt), printer),
+                };
+                printer.outdent();
+                if opt_else.as_ref().map_or(false, |els| {
+                    !(ignore_empty_else && matches!(els.data, Empty))
+                }) {
+                    printer.newline();
+                }
+            }
+            if let Some(els) = opt_else {
+                match els.data {
+                    Empty if ignore_empty_else => (),
+                    _ => match els.data {
+                        If(..) | Block(..) => {
+                            printer.print_str(&"else ");
+                            do_prettyprint(&NodeKind::from(&**els), printer)
+                        }
+                        _ => {
+                            printer.print_str(&"else");
+                            printer.newline();
+                            printer.indent();
+                            do_prettyprint(&NodeKind::from(&**els), printer);
+                            printer.outdent();
+                        }
+                    },
+                }
+            }
+        }
+
+        While(cond, stmt) => {
+            printer.print_str(&"while (");
+            // no parenthesizes for expressions in while conditions
+            do_prettyprint(&NodeKind::from(&**cond), printer);
+            printer.print_str(&")");
+            if let ast::Stmt::Block(_) = stmt.data {
+                printer.print_str(&" ");
+                do_prettyprint(&NodeKind::from(&**stmt), printer);
+            } else {
+                printer.newline();
+                printer.indent();
+                do_prettyprint(&NodeKind::from(&**stmt), printer);
+                printer.outdent();
+            }
+        }
+
+        Expression(expr) => {
+            // no parenthesizes for expressions in expression statements
+            do_prettyprint(&NodeKind::from(&**expr), printer);
+            printer.print_str(&";");
+        }
+
+        Return(expr_opt) => {
+            printer.print_str(&"return");
+            if let Some(expr) = expr_opt {
+                printer.print_str(&" ");
+                // no parenthesizes for expressions in return statements
+                do_prettyprint(&NodeKind::from(&**expr), printer);
+            }
+            printer.print_str(&";");
+        }
+
+        LocalVariableDeclaration(ty, name, opt_assign) => {
+            do_prettyprint(&NodeKind::from(ty), printer);
+            printer.print(format_args!(" {}", name));
+            if let Some(assign) = opt_assign {
+                printer.print_str(&" = ");
+                // no parenthesizes for expressions in declaration initializations
+                do_prettyprint(&NodeKind::from(&**assign), printer);
+            }
+            printer.print_str(&";");
+        }
+    };
+}
+
+fn is_empty_block(block: &ast::Block<'_>) -> bool {
+    block
+        .statements
+        .iter()
+        .all(|stmt| stmt.data == ast::Stmt::Empty)
 }

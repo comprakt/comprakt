@@ -1,0 +1,26 @@
+class A {
+    public void f() {
+        if (a)
+            if (b) {}
+            else ;
+        else i = 42;
+
+        if (true)
+            if (false) {}
+            else ;
+        else ;
+
+        if (true)
+            if (true)
+                if (true)
+                    if (true)
+                        if (true) { int x = 42; }
+                        else ;
+                    else ;
+                else ;
+            else
+                x = 43;
+        else
+            f();
+    }
+}
