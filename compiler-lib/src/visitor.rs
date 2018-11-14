@@ -3,7 +3,7 @@
 //! The visitor is based on an Enum over every AST node.
 //!
 //! Example usages:
-//! ```rust
+//! ```rust,ignore
 //! struct MyVisitor<'a, 'f> {
 //!     some_data: Vec<u32>,
 //! }
@@ -23,7 +23,7 @@
 //!                 Program(_) => {
 //!                     // some code
 //!                 }
-//!                 _ => ()
+//!                 _ => (),
 //!             }
 //!
 //!             self.do_visit(&child)

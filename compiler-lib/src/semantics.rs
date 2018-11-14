@@ -28,9 +28,11 @@ type ClassesAndMembers<'a, 'f> = HashMap<
     &'a Spanned<'f, ast::ClassMember<'f>>,
 >;
 
-pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &context::Context<'_>) -> Result<(), Error> {
-    let mut first_pass_visitor = ClassesAndMembersVisitor::new();
-    first_pass_visitor.do_visit(&NodeKind::from(ast))?;
+pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &Context<'_>) -> Result<(), Error> {
+    let mut first_pass_visitor = ClassesAndMembersVisitor::new(context);
+    first_pass_visitor.do_visit(&NodeKind::from(ast));
+
+    context.diagnostics.abort_if_errored();
 
     // Let's draw some pretty annotations that show we classified classes + their
     // members and method correctly
@@ -49,42 +51,106 @@ pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &context::Context<'_>) -> R
     SecondPass::visit(ast, context, &first_pass_visitor.classes_and_members)
 }
 
-struct ClassesAndMembersVisitor<'a, 'f> {
+struct ClassesAndMembersVisitor<'a, 'f, 'cx> {
+    context: &'cx Context<'cx>,
     classes_and_members: ClassesAndMembers<'a, 'f>,
+    static_method_found: u64,
 }
 
-impl<'a, 'f> ClassesAndMembersVisitor<'a, 'f> {
-    pub fn new() -> Self {
+impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
+    pub fn new(context: &'cx Context<'_>) -> Self {
         Self {
+            context,
             classes_and_members: HashMap::new(),
+            static_method_found: 0,
         }
     }
 
-    fn do_visit(
-        &mut self,
-        node: &NodeKind<'a, 'f>,
-    ) -> Result<(), Error> {
+    fn do_visit(&mut self, node: &NodeKind<'a, 'f>) {
         use self::{ast, NodeKind::*};
-        match node {
-            AST(ast::AST::Program(p)) => {
-                for class in &p.data.classes {
-                    for member in &class.members {
-                        let discr = ast::ClassMemberKindDiscriminants::from(&member.kind);
-                        self.classes_and_members.insert(
-                            (Rc::clone(&class.name), Rc::clone(&member.name), discr),
-                            &member,
-                        );
+        node.for_each_child(&mut |child| {
+            match child {
+                AST(_) | ClassDeclaration(_) => (),
+                Program(prog) => {
+                    for class in &prog.classes {
+                        for member in &class.members {
+                            let discr = ast::ClassMemberKindDiscriminants::from(&member.kind);
+                            self.classes_and_members.insert(
+                                (Rc::clone(&class.name), Rc::clone(&member.name), discr),
+                                &member,
+                            );
+                        }
+                    }
+                },
+                ClassMember(member) => {
+                    if let ast::ClassMemberKind::MainMethod(params, block) = &member.kind {
+                        debug_assert!(params.len() == 1);
+                        self.static_method_found += 1;
+                        if member.name.to_string() != "main".to_string() {
+                            self.context.diagnostics.error(&Spanned {
+                                span: member.span.clone(),
+                                data: SemanticError::StaticMethodNotMain,
+                            });
+                        }
+                        if self.static_method_found > 1 {
+                            self.context.diagnostics.error(&Spanned {
+                                span: member.span.clone(),
+                                data: SemanticError::MultipleStaticMethods {
+                                    amount: self.static_method_found,
+                                },
+                            })
+                        }
+                        self.visit_static_block(&NodeKind::from(block), &params[0].name);
                     }
                 }
-                Ok(())
+
+                _ => (),
+            };
+
+            self.do_visit(&child)
+        });
+    }
+
+    fn visit_static_block(
+        &mut self,
+        node: &NodeKind<'a, 'f>,
+        arg_name: &Symbol,
+    ) -> Result<(), Error> {
+        use self::NodeKind::*;
+        node.for_each_child(&mut |child| {
+            match child {
+                Stmt(stmt) => {
+                    if let ast::Stmt::LocalVariableDeclaration(_, name, _) = &stmt.data {
+                        if arg_name == name {
+                            self.context.diagnostics.error(&Spanned {
+                                span: stmt.span.clone(),
+                                data: SemanticError::RedefinitionError {
+                                    kind: "parameter".to_string(),
+                                    name: arg_name.to_string(),
+                                },
+                            })
+                        }
+                    }
+                }
+                Expr(expr) => match &expr.data {
+                    ast::Expr::Var(name) => {
+                        if arg_name == name {
+                            self.context.diagnostics.error(&Spanned {
+                                span: expr.span.clone(),
+                                data: SemanticError::MainMethodParamUsed {
+                                    name: arg_name.to_string(),
+                                },
+                            });
+                        }
+                    }
+                    _ => (),
+                },
+                _ => (),
             }
-            x => {
-                return Err(format_err!(
-                    "unexpected ast node passed to first pass: {:?}",
-                    x
-                ))
-            }
-        }
+
+            self.visit_static_block(&child, arg_name)
+        });
+        Ok(())
     }
 }
 
@@ -132,7 +198,7 @@ struct MethDef; // TODO
 impl SecondPass {
     pub fn visit<'a, 'f>(
         ast: &'a ast::AST<'f>,
-        context: &context::Context<'_>,
+        context: &Context<'_>,
         _classes_and_members: &ClassesAndMembers<'a, 'f>,
     ) -> Result<(), Error> {
         // TODO java.lang.System.out scope
@@ -145,7 +211,7 @@ impl SecondPass {
 
     fn do_visit<'a, 'f>(
         n: &NodeKind<'a, 'f>,
-        context: &context::Context<'_>,
+        context: &Context<'_>,
         vardefs: Rc<Scope<VarDef<'a, 'f>>>,
         tydefs: Rc<Scope<TyDef>>,
         methdefs: Rc<Scope<MethDef>>,
