@@ -1,6 +1,27 @@
-use crate::{asciifile::Spanned, ast, context, strtab::Symbol, visitor::NodeKind};
-use failure::{format_err, Error, ResultExt};
+use crate::{asciifile::Spanned, ast, context::Context, strtab::Symbol, visitor::NodeKind};
+use failure::{format_err, Error, Fail};
 use std::{collections::HashMap, rc::Rc};
+
+#[derive(Debug, Fail)]
+enum SemanticError {
+    #[fail(display = "redefinition of {} '{}'", kind, name)]
+    RedefinitionError {
+        kind: String, // "class", "parameter", ...
+        name: String, // name of the parameter class...
+    },
+    #[fail(
+        display = "Usage of the parameter '{}' of the main function",
+        name
+    )]
+    MainMethodParamUsed { name: String },
+    #[fail(display = "Static methods have to be called 'main'")]
+    StaticMethodNotMain,
+    #[fail(
+        display = "{}. definition of a static method. Only one is allowed",
+        amount
+    )]
+    MultipleStaticMethods { amount: u64 },
+}
 
 type ClassesAndMembers<'a, 'f> = HashMap<
     (Symbol, Symbol, ast::ClassMemberKindDiscriminants),
