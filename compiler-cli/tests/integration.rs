@@ -32,6 +32,7 @@ enum CompilerPhase {
     Lexer,
     Parser,
     Ast,
+    Semantic,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -48,6 +49,7 @@ fn compiler_flag(phase: CompilerPhase) -> &'static str {
         CompilerPhase::Lexer => "--lextest",
         CompilerPhase::Parser => "--parsetest",
         CompilerPhase::Ast => "--print-ast",
+        CompilerPhase::Semantic => "--check",
     }
 }
 
@@ -215,4 +217,5 @@ gen_lexer_integration_tests!();
 gen_parser_integration_tests!();
 gen_ast_reference_integration_tests!();
 gen_ast_idempotence_integration_tests!();
+gen_semantic_integration_tests!();
 gen_ast_inspector_tests!();

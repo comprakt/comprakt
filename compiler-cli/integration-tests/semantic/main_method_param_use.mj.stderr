@@ -1,0 +1,10 @@
+error: Usage of the parameter 'args' of the main function
+   | 
+ 3 |         int x = args[2];
+   |                 ^^^^
+
+error: Usage of the parameter 'args' of the main function
+   | 
+ 4 |         args.length();
+   |         ^^^^
+

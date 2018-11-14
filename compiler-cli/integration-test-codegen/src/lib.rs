@@ -70,6 +70,18 @@ pub fn gen_ast_idempotence_integration_tests(_args: TokenStream) -> TokenStream 
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
+pub fn gen_semantic_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests(
+        &quote! { CompilerPhase::Semantic },
+        "semantic",
+        |v| quote! { #v },
+        "",
+        true,
+    )
+}
+
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
 pub fn gen_ast_inspector_tests(_args: TokenStream) -> TokenStream {
     gen_integration_tests(
         &quote! { CompilerCall::AstInspector },

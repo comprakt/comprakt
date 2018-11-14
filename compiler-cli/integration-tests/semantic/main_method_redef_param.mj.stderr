@@ -1,0 +1,5 @@
+error: redefinition of parameter 'args'
+   | 
+ 3 |         int args = 42;
+   |         ^^^^^^^^^^^^^^
+
