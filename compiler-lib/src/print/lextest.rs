@@ -5,11 +5,11 @@ use std::fmt;
 ///! messages.
 
 pub struct Output<'token> {
-    token: &'token TokenKind,
+    token: &'token TokenKind<'token>,
 }
 
 impl<'token> Output<'token> {
-    pub fn new(token: &'token TokenKind) -> Self {
+    pub fn new(token: &'token TokenKind<'token>) -> Self {
         Self { token }
     }
 }

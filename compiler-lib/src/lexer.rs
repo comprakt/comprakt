@@ -29,20 +29,20 @@ macro_rules! match_op {
 
 pub type TokenResult<'f> = Result<Token<'f>, LexicalError<'f>>;
 
-pub type Token<'f> = Spanned<'f, TokenKind>;
+pub type Token<'f> = Spanned<'f, TokenKind<'f>>;
 pub type LexicalError<'f> = Spanned<'f, ErrorKind>;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum TokenKind {
+pub enum TokenKind<'f> {
     Keyword(Keyword),
     Operator(Operator),
     Identifier(Symbol),
     IntegerLiteral(Symbol),
-    Comment(String),
+    Comment(&'f str),
     Whitespace,
 }
 
-impl fmt::Display for TokenKind {
+impl fmt::Display for TokenKind<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::TokenKind::*;
 
@@ -504,10 +504,7 @@ impl<'f, 's> Lexer<'f, 's> {
 
             let span = Span::new(comment_start, comment_end);
 
-            Ok(Token::new(
-                span,
-                TokenKind::Comment(comment_body.as_str().to_string()),
-            ))
+            Ok(Token::new(span, TokenKind::Comment(comment_body.as_str())))
         }
     }
 
@@ -663,7 +660,7 @@ mod tests {
     use std::io;
 
     // TODO: duplicated across compilercli and compilerlib
-    fn write_token<O: io::Write>(out: &mut O, token: &TokenKind) -> Result<(), Error> {
+    fn write_token<O: io::Write>(out: &mut O, token: &TokenKind<'_>) -> Result<(), Error> {
         match token {
             TokenKind::Whitespace | TokenKind::Comment(_) => Ok(()),
             _ => {
@@ -673,7 +670,7 @@ mod tests {
         }
     }
 
-    fn lexer_test_with_tokens(tokens: Vec<TokenKind>) -> String {
+    fn lexer_test_with_tokens(tokens: Vec<TokenKind<'_>>) -> String {
         let mut o = Vec::new();
         for token in tokens.into_iter() {
             let res = write_token(&mut o, &token);
@@ -710,7 +707,7 @@ mod tests {
             TokenKind::Operator(Operator::Ampersand),
             TokenKind::Whitespace,
             TokenKind::IntegerLiteral(st.intern("foo")),
-            TokenKind::Comment("comment".to_string()),
+            TokenKind::Comment("comment"),
             TokenKind::Keyword(Keyword::If),
         ];
         let o = lexer_test_with_tokens(tokens);
