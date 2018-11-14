@@ -48,7 +48,7 @@ impl ClassesAndMembersVisitor {
         match n {
             AST(ast::AST::Program(p)) => {
                 for class in &p.data.classes {
-                    for member in class.members.iter() {
+                    for member in &class.members {
                         let discr = ast::ClassMemberKindDiscriminants::from(&member.kind);
                         res.insert(
                             (Rc::clone(&class.name), Rc::clone(&member.name), discr),
