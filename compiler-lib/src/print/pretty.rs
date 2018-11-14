@@ -315,7 +315,11 @@ fn do_prettyprint_expr<'a, 't>(expr: &'a ast::Expr<'t>, printer: &mut IndentPrin
     }
 }
 
-fn do_prettyprint_stmt(stmt: &ast::Stmt<'_>, printer: &mut IndentPrinter<'_>, ignore_empty_else: bool) {
+fn do_prettyprint_stmt(
+    stmt: &ast::Stmt<'_>,
+    printer: &mut IndentPrinter<'_>,
+    ignore_empty_else: bool,
+) {
     use crate::ast::Stmt::*;
     match stmt {
         Block(block) => do_prettyprint(&NodeKind::from(block), printer),
@@ -331,10 +335,9 @@ fn do_prettyprint_stmt(stmt: &ast::Stmt<'_>, printer: &mut IndentPrinter<'_>, ig
             if let ast::Stmt::Block(block) = &stmt.data {
                 printer.print_str(&" ");
                 do_prettyprint(&NodeKind::from(&**stmt), printer);
-                if opt_else
-                    .as_ref()
-                    .map_or(false, |els| !(ignore_empty_else && matches!(els.data, Empty)))
-                {
+                if opt_else.as_ref().map_or(false, |els| {
+                    !(ignore_empty_else && matches!(els.data, Empty))
+                }) {
                     if is_empty_block(block) {
                         printer.newline();
                     } else {
@@ -359,12 +362,11 @@ fn do_prettyprint_stmt(stmt: &ast::Stmt<'_>, printer: &mut IndentPrinter<'_>, ig
                     _ => do_prettyprint(&NodeKind::from(&**stmt), printer),
                 };
                 printer.outdent();
-                if opt_else
-                    .as_ref()
-                        .map_or(false, |els| !(ignore_empty_else && matches!(els.data, Empty)))
-                        {
-                            printer.newline();
-                        }
+                if opt_else.as_ref().map_or(false, |els| {
+                    !(ignore_empty_else && matches!(els.data, Empty))
+                }) {
+                    printer.newline();
+                }
             }
             if let Some(els) = opt_else {
                 match els.data {
@@ -432,5 +434,8 @@ fn do_prettyprint_stmt(stmt: &ast::Stmt<'_>, printer: &mut IndentPrinter<'_>, ig
 }
 
 fn is_empty_block(block: &ast::Block<'_>) -> bool {
-    block.statements.iter().all(|stmt| stmt.data == ast::Stmt::Empty)
+    block
+        .statements
+        .iter()
+        .all(|stmt| stmt.data == ast::Stmt::Empty)
 }
