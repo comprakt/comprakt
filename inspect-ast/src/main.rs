@@ -74,8 +74,8 @@ fn do_main(cmd: CliCommand) -> Result<(), Error> {
     let stdout = StandardStream::stdout(ColorChoice::Auto);
     let context = Context::new(&ascii_file, Box::new(stdout));
 
-    let strtab = StringTable::new();
-    let lexer = Lexer::new(&strtab, &context);
+    let mut strtab = StringTable::new();
+    let lexer = Lexer::new(&mut strtab, &context);
 
     // adapt lexer to fail on first error
     // filter whitespace and comments

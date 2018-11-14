@@ -402,7 +402,7 @@ impl fmt::Display for Operator {
 
 pub struct Lexer<'f, 's> {
     input: PositionIterator<'f>,
-    strtab: &'s StringTable<'f>,
+    strtab: &'s mut StringTable<'f>,
     context: &'f Context<'f>,
 }
 
@@ -416,7 +416,7 @@ fn is_minijava_whitespace(c: char) -> bool {
 }
 
 impl<'f, 's> Lexer<'f, 's> {
-    pub fn new(strtab: &'s StringTable<'f>, context: &'f Context<'f>) -> Self {
+    pub fn new(strtab: &'s mut StringTable<'f>, context: &'f Context<'f>) -> Self {
         let input = context.file.iter();
 
         Self {
@@ -704,7 +704,6 @@ mod tests {
 
     #[test]
     fn no_whitespace_and_comments() {
-        let st = StringTable::new();
         let tokens = vec![
             TokenKind::Operator(Operator::Ampersand),
             TokenKind::Whitespace,
@@ -733,14 +732,13 @@ mod tests {
 
     #[test]
     fn ident_prefix() {
-        let st = StringTable::new();
+        let mut st = StringTable::new();
         let o = lexer_test_with_tokens(vec![TokenKind::Identifier(st.intern("an_identifier"))]);
         assert_eq!(&o, "identifier an_identifier\n");
     }
 
     #[test]
     fn integer_literal_prefix() {
-        let st = StringTable::new();
         let o = lexer_test_with_tokens(vec![TokenKind::IntegerLiteral("2342")]);
         assert_eq!(&o, "integer literal 2342\n");
     }

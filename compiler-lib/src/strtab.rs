@@ -1,12 +1,10 @@
-//! String table with interior mutability and O(n) insert on miss
-//!
-//! Interior mutability achived using UnsafeCell.
+//! String table with zero-copy and amortised O(1) insert
 //!
 //! [1]: https://users.rust-lang.org/t/get-ref-to-just-inserted-hashset-element/13021
 
-use std::{cell::UnsafeCell, collections::HashSet, fmt};
+use std::{collections::HashSet, fmt};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialOrd, Ord, Hash)]
 pub struct Symbol<'f>(&'f str);
 
 impl Symbol<'_> {
@@ -35,7 +33,7 @@ impl fmt::Display for Symbol<'_> {
 
 #[derive(Debug, Default)]
 pub struct StringTable<'f> {
-    entries: UnsafeCell<HashSet<&'f str>>,
+    entries: HashSet<&'f str>,
 }
 
 impl<'f> StringTable<'f> {
@@ -43,21 +41,18 @@ impl<'f> StringTable<'f> {
         StringTable::default()
     }
 
-    pub fn intern(&self, value: &'f str) -> Symbol<'f> {
-        // Entries is private, and this is the only place where it is mutated
-        let entries = unsafe { &mut *self.entries.get() };
-        if !entries.contains(value) {
-            entries.insert(value);
+    pub fn intern(&mut self, value: &'f str) -> Symbol<'f> {
+        if !self.entries.contains(value) {
+            self.entries.insert(value);
         }
 
         // Unwrap is safe, we just inserted it
-        Symbol(entries.get(value).unwrap())
+        Symbol(self.entries.get(value).unwrap())
     }
 
     #[cfg(test)]
-    fn get(&self, value: &str) -> Option<Symbol<'f>> {
-        let entries = unsafe { &*self.entries.get() };
-        entries.get(value).map(|s| Symbol(*s))
+    fn get(&mut self, value: &str) -> Option<Symbol<'f>> {
+        self.entries.get(value).map(|s| Symbol(*s))
     }
 }
 
@@ -68,20 +63,14 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    macro_rules! get {
-        ($tab: expr) => {
-            unsafe { &mut *$tab.entries.get() }
-        };
-    }
-
     #[test]
     fn no_duplication() {
-        let strtab = StringTable::new();
+        let mut strtab = StringTable::new();
 
         let a = strtab.intern("foo");
         let b = strtab.intern("foo");
         let c = strtab.intern("foo");
-        assert_eq!(1, get!(strtab).len());
+        assert_eq!(1, strtab.entries.len());
         assert_eq!(a, b);
         assert_eq!(a, c);
         assert_eq!(
@@ -96,7 +85,7 @@ mod tests {
         let d = strtab.intern("bar");
         let e = strtab.intern("bar");
         let f = strtab.intern("foo");
-        assert_eq!(2, get!(strtab).len());
+        assert_eq!(2, strtab.entries.len());
         assert_eq!(d, e);
         assert_eq!(a, f);
         assert_eq!(
@@ -111,8 +100,8 @@ mod tests {
 
     #[test]
     fn can_resize_set() {
-        let strtab = StringTable::new();
-        get!(strtab).shrink_to_fit();
+        let mut strtab = StringTable::new();
+        strtab.entries.shrink_to_fit();
 
         let n = 100_000;
         let mut adresses = HashMap::new();
@@ -124,7 +113,7 @@ mod tests {
             adresses.insert(s, sym);
         }
 
-        assert_eq!(n, get!(strtab).len());
+        assert_eq!(n, strtab.entries.len());
         // At this point, the table probably got resized and reallocated, so let's now
         // check if all the symbols are still in the same place
 
@@ -139,11 +128,11 @@ mod tests {
 
     #[test]
     fn can_intern_empty_string() {
-        let strtab = StringTable::new();
+        let mut strtab = StringTable::new();
 
         strtab.intern("");
         strtab.intern("");
         strtab.intern("");
-        assert_eq!(1, get!(strtab).len());
+        assert_eq!(1, strtab.entries.len());
     }
 }
