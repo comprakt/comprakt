@@ -83,7 +83,7 @@ impl<'t> Position<'t> {
         self.byte_offset
     }
 
-    pub fn file(&self) -> &AsciiFile<'_> {
+    pub fn file(&self) -> &AsciiFile<'t> {
         self.file
     }
 

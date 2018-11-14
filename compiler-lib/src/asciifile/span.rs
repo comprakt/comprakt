@@ -83,12 +83,12 @@ impl<'f> Span<'f> {
     /// let span = Span::from_positions(&positions).unwrap();
     /// assert_eq!("abcdfegh", span.as_str());
     /// ```
-    pub fn as_str(&'f self) -> &'f str {
+    pub fn as_str(&self) -> &'f str {
         // the range is inclusive on both sides!
         unsafe { std::str::from_utf8_unchecked(self.as_bytes()) }
     }
 
-    pub fn as_bytes(&'f self) -> &'f [u8] {
+    pub fn as_bytes(&self) -> &'f [u8] {
         // the range is inclusive on both sides!
         &self.start.file().mapping[self.start.byte_offset()..=self.end.byte_offset()]
     }

@@ -172,8 +172,8 @@ where
     C: Fn(&ast::AST<'_>, &context::Context<'_>) -> Result<(), Error>,
 {
     setup_io!(let context = path);
-    let strtab = StringTable::new();
-    let lexer = Lexer::new(&strtab, &context);
+    let mut strtab = StringTable::new();
+    let lexer = Lexer::new(&mut strtab, &context);
 
     // adapt lexer to fail on first error
     // filter whitespace and comments
@@ -208,8 +208,8 @@ where
     P: Fn(&ast::AST<'_>, &mut dyn std::io::Write) -> Result<(), Error>,
 {
     setup_io!(let context = path);
-    let strtab = StringTable::new();
-    let lexer = Lexer::new(&strtab, &context);
+    let mut strtab = StringTable::new();
+    let lexer = Lexer::new(&mut strtab, &context);
 
     // adapt lexer to fail on first error
     // filter whitespace and comments
@@ -241,8 +241,8 @@ where
 
 fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
     setup_io!(let context = path);
-    let strtab = StringTable::new();
-    let lexer = Lexer::new(&strtab, &context);
+    let mut strtab = StringTable::new();
+    let lexer = Lexer::new(&mut strtab, &context);
 
     // adapt lexer to fail on first error
     // filter whitespace and comments
@@ -272,8 +272,8 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
 
 fn cmd_lextest(path: &PathBuf) -> Result<(), Error> {
     setup_io!(let context = path);
-    let strtab = StringTable::new();
-    let lexer = Lexer::new(&strtab, &context);
+    let mut strtab = StringTable::new();
+    let lexer = Lexer::new(&mut strtab, &context);
 
     let mut stdout = io::stdout();
 
@@ -295,7 +295,7 @@ fn cmd_lextest(path: &PathBuf) -> Result<(), Error> {
     Ok(())
 }
 
-fn write_token<O: io::Write>(out: &mut O, token: &TokenKind) -> Result<(), Error> {
+fn write_token<O: io::Write>(out: &mut O, token: &TokenKind<'_>) -> Result<(), Error> {
     match token {
         TokenKind::Whitespace | TokenKind::Comment(_) => Ok(()),
         _ => {

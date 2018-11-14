@@ -1,4 +1,4 @@
-use crate::{asciifile::Spanned, strtab::Symbol};
+use crate::{asciifile::Spanned, lexer::IntLit, strtab::Symbol};
 use strum_macros::EnumDiscriminants;
 
 #[strum_discriminants(derive(Display))]
@@ -19,7 +19,7 @@ pub struct Program<'t> {
 /// the members of the class.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ClassDeclaration<'t> {
-    pub name: Symbol,
+    pub name: Symbol<'t>,
     pub members: Vec<Spanned<'t, ClassMember<'t>>>,
 }
 
@@ -28,7 +28,7 @@ pub struct ClassDeclaration<'t> {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ClassMember<'t> {
     pub kind: ClassMemberKind<'t>,
-    pub name: Symbol,
+    pub name: Symbol<'t>,
 }
 
 pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
@@ -42,45 +42,45 @@ pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
 pub enum ClassMemberKind<'t> {
-    Field(Spanned<'t, Type>),
+    Field(Spanned<'t, Type<'t>>),
     Method(
-        Spanned<'t, Type>,
+        Spanned<'t, Type<'t>>,
         Spanned<'t, ParameterList<'t>>,
         Spanned<'t, Block<'t>>,
     ),
-    MainMethod(Symbol, Spanned<'t, Block<'t>>),
+    MainMethod(Symbol<'t>, Spanned<'t, Block<'t>>),
 }
 
 /// This AST node represents a method parameter. A parameter consists of a
-/// `Type` and a name.
+/// `Type<'t>` and a name.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Parameter<'t> {
-    pub ty: Spanned<'t, Type>,
-    pub name: Symbol,
+    pub ty: Spanned<'t, Type<'t>>,
+    pub name: Symbol<'t>,
 }
 
-/// A `Type` is basically a `BasicType`. Optional it can be an (n-dimensional)
-/// array type.
+/// A `Type<'t>` is basically a `BasicType<'t>`. Optional it can be an
+/// (n-dimensional) array type.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Type {
-    pub basic: BasicType,
+pub struct Type<'t> {
+    pub basic: BasicType<'t>,
     /// Depth of the array type (number of `[]`) i.e. this means means `self.ty
     /// []^(self.array)`
     pub array_depth: u64,
 }
 
-/// A `BasicType` is either one of
+/// A `BasicType<'t>` is either one of
 /// * `Int`: a 32-bit integer
 /// * `Boolean`: a boolean
 /// * `Void`: a void type
 /// * `Custom`: a custom defined type
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
-pub enum BasicType {
+pub enum BasicType<'t> {
     Int,
     Boolean,
     Void,
-    Custom(Symbol),
+    Custom(Symbol<'t>),
 }
 
 /// A `Block` in the AST is basically just a vector of statements.
@@ -113,8 +113,8 @@ pub enum Stmt<'t> {
     Expression(Box<Spanned<'t, Expr<'t>>>),
     Return(Option<Box<Spanned<'t, Expr<'t>>>>),
     LocalVariableDeclaration(
-        Spanned<'t, Type>,
-        Symbol,
+        Spanned<'t, Type<'t>>,
+        Symbol<'t>,
         Option<Box<Spanned<'t, Expr<'t>>>>,
     ),
 }
@@ -153,21 +153,21 @@ pub enum Expr<'t> {
     // Postfix ops
     MethodInvocation(
         Box<Spanned<'t, Expr<'t>>>,
-        Symbol,
+        Symbol<'t>,
         Spanned<'t, ArgumentList<'t>>,
     ),
-    FieldAccess(Box<Spanned<'t, Expr<'t>>>, Symbol),
+    FieldAccess(Box<Spanned<'t, Expr<'t>>>, Symbol<'t>),
     ArrayAccess(Box<Spanned<'t, Expr<'t>>>, Box<Spanned<'t, Expr<'t>>>),
 
     // The old primary expressions
     Null,
     Boolean(bool),
-    Int(Symbol), // TODO Should be String?
-    Var(Symbol),
-    ThisMethodInvocation(Symbol, Spanned<'t, ArgumentList<'t>>),
+    Int(IntLit<'t>),
+    Var(Symbol<'t>),
+    ThisMethodInvocation(Symbol<'t>, Spanned<'t, ArgumentList<'t>>),
     This,
-    NewObject(Symbol),
-    NewArray(BasicType, Box<Spanned<'t, Expr<'t>>>, u64),
+    NewObject(Symbol<'t>),
+    NewArray(BasicType<'t>, Box<Spanned<'t, Expr<'t>>>, u64),
 }
 
 /// Binary operations like comparisons (`==`, `!=`, `<=`, ...), logical

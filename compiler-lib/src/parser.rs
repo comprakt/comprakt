@@ -4,7 +4,7 @@ use crate::{
         Span, Spanned,
     },
     ast,
-    lexer::{Keyword, Operator, Token, TokenKind},
+    lexer::{IntLit, Keyword, Operator, Token, TokenKind},
     spantracker::*,
     strtab::Symbol,
 };
@@ -61,11 +61,11 @@ impl<'f> From<EOF> for MaybeSpanned<'f, SyntaxError> {
     }
 }
 
-pub trait ExpectedToken: fmt::Debug + fmt::Display {
+pub trait ExpectedToken<'f>: fmt::Debug + fmt::Display {
     type Yields;
-    fn matching(&self, token: &TokenKind) -> Option<Self::Yields>;
+    fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields>;
 
-    fn matches(&self, token: &TokenKind) -> bool {
+    fn matches(&self, token: &TokenKind<'f>) -> bool {
         self.matching(token).is_some()
     }
 }
@@ -73,7 +73,7 @@ pub trait ExpectedToken: fmt::Debug + fmt::Display {
 #[derive(Debug, Clone, Display)]
 #[display(fmt = "{}", _0)]
 // TODO Should be Copy, but TokenKind contains Rc
-struct Exactly(TokenKind);
+struct Exactly<'f>(TokenKind<'f>);
 #[derive(Debug, Clone, Display)]
 #[display(fmt = "a binary operator")]
 struct BinaryOp;
@@ -84,34 +84,31 @@ struct UnaryOp;
 #[display(fmt = "an identifier")]
 struct Identifier;
 #[derive(Debug, Clone, Display)]
+#[display(fmt = "identifier '{}'", _0)]
+struct ExactlyIdentifier<'s>(&'s str);
+#[derive(Debug, Clone, Display)]
 #[display(fmt = "an integer literal")]
 struct IntegerLiteral;
 
-impl From<Operator> for Exactly {
+impl<'f> From<Operator> for Exactly<'f> {
     fn from(op: Operator) -> Self {
         Exactly(TokenKind::Operator(op))
     }
 }
 
-impl From<Keyword> for Exactly {
+impl<'f> From<Keyword> for Exactly<'f> {
     fn from(kw: Keyword) -> Self {
         Exactly(TokenKind::Keyword(kw))
     }
 }
 
-impl From<Symbol> for Exactly {
-    fn from(sym: Symbol) -> Self {
-        Exactly(TokenKind::Identifier(sym))
-    }
-}
-
-fn exactly(thing: impl Into<Exactly>) -> Exactly {
+fn exactly<'f>(thing: impl Into<Exactly<'f>>) -> Exactly<'f> {
     thing.into()
 }
 
-impl ExpectedToken for Exactly {
+impl<'f> ExpectedToken<'f> for Exactly<'f> {
     type Yields = ();
-    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
+    fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields> {
         if &self.0 == token {
             Some(())
         } else {
@@ -120,9 +117,9 @@ impl ExpectedToken for Exactly {
     }
 }
 
-impl ExpectedToken for BinaryOp {
+impl<'f> ExpectedToken<'f> for BinaryOp {
     type Yields = (ast::BinaryOp, Precedence, Assoc);
-    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
+    fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields> {
         match token {
             TokenKind::Operator(op) => BINARY_OPERATORS
                 .iter()
@@ -133,9 +130,9 @@ impl ExpectedToken for BinaryOp {
     }
 }
 
-impl ExpectedToken for UnaryOp {
+impl<'f> ExpectedToken<'f> for UnaryOp {
     type Yields = ast::UnaryOp;
-    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
+    fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields> {
         match token {
             TokenKind::Operator(Operator::Exclaim) => Some(ast::UnaryOp::Not),
             TokenKind::Operator(Operator::Minus) => Some(ast::UnaryOp::Neg),
@@ -144,21 +141,31 @@ impl ExpectedToken for UnaryOp {
     }
 }
 
-impl ExpectedToken for Identifier {
-    type Yields = Symbol;
-    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
+impl<'f> ExpectedToken<'f> for Identifier {
+    type Yields = Symbol<'f>;
+    fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields> {
         match token {
-            TokenKind::Identifier(ident) => Some(ident.clone()),
+            TokenKind::Identifier(ident) => Some(*ident),
             _ => None,
         }
     }
 }
 
-impl ExpectedToken for IntegerLiteral {
-    type Yields = Symbol;
-    fn matching(&self, token: &TokenKind) -> Option<Self::Yields> {
+impl<'s> ExpectedToken<'s> for ExactlyIdentifier<'s> {
+    type Yields = ();
+    fn matching(&self, token: &TokenKind<'_>) -> Option<Self::Yields> {
         match token {
-            TokenKind::IntegerLiteral(lit) => Some(lit.clone()),
+            TokenKind::Identifier(ident) if ident == self.0 => Some(()),
+            _ => None,
+        }
+    }
+}
+
+impl<'f> ExpectedToken<'f> for IntegerLiteral {
+    type Yields = IntLit<'f>;
+    fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields> {
+        match token {
+            TokenKind::IntegerLiteral(lit) => Some(lit),
             _ => None,
         }
     }
@@ -216,7 +223,7 @@ where
     #[allow(clippy::needless_pass_by_value)]
     fn omnomnom<E>(&mut self, want: E) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
     where
-        E: ExpectedToken,
+        E: ExpectedToken<'f>,
     {
         let actual = self.lexer.next()?;
 
@@ -237,7 +244,7 @@ where
     #[allow(clippy::needless_pass_by_value)]
     fn omnomnoptional<E>(&mut self, want: E) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
     where
-        E: ExpectedToken,
+        E: ExpectedToken<'f>,
     {
         self.omnomnoptional_if(want, |_| true)
     }
@@ -250,7 +257,7 @@ where
         pred: P,
     ) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
     where
-        E: ExpectedToken,
+        E: ExpectedToken<'f>,
         P: Fn(&E::Yields) -> bool,
     {
         if self.lexer.eof() {
@@ -268,7 +275,7 @@ where
     #[allow(clippy::needless_pass_by_value)]
     fn tastes_like<E>(&mut self, want: E) -> SyntaxResult<'f, bool>
     where
-        E: ExpectedToken,
+        E: ExpectedToken<'f>,
     {
         self.nth_tastes_like(0, want)
     }
@@ -276,7 +283,7 @@ where
     #[allow(clippy::needless_pass_by_value)]
     fn nth_tastes_like<E>(&mut self, n: usize, want: E) -> SyntaxResult<'f, bool>
     where
-        E: ExpectedToken,
+        E: ExpectedToken<'f>,
     {
         if self.lexer.eof() {
             return Ok(false);
@@ -333,7 +340,7 @@ where
                 self.omnomnom(exactly(Keyword::Void))?;
                 let name = self.omnomnom(Identifier)?.data;
                 self.omnomnom(exactly(Operator::LeftParen))?;
-                self.omnomnom(exactly(Symbol::from("String")))?;
+                self.omnomnom(ExactlyIdentifier("String"))?;
                 self.omnomnom(exactly(Operator::LeftBracket))?;
                 self.omnomnom(exactly(Operator::RightBracket))?;
                 let param = self.omnomnom(Identifier)?.data;
@@ -386,7 +393,7 @@ where
         })
     }
 
-    fn parse_type(&mut self) -> ParserResult<'f, ast::Type> {
+    fn parse_type(&mut self) -> ParserResult<'f, ast::Type<'f>> {
         spanned!(self, {
             let basic = self.parse_basic_type()?;
 
@@ -403,7 +410,7 @@ where
         })
     }
 
-    fn parse_basic_type(&mut self) -> SyntaxResult<'f, ast::BasicType> {
+    fn parse_basic_type(&mut self) -> SyntaxResult<'f, ast::BasicType<'f>> {
         if self.omnomnoptional(exactly(Keyword::Int))?.is_some() {
             Ok(ast::BasicType::Int)
         } else if self.omnomnoptional(exactly(Keyword::Boolean))?.is_some() {
@@ -751,10 +758,10 @@ mod tests {
 
     macro_rules! lex_input {
         ($itervar:ident = $input:expr) => {
-            let strtab = StringTable::new();
+            let mut strtab = StringTable::new();
             let input = AsciiFile::new($input.as_bytes()).unwrap();
             let ctx = Context::dummy(&input);
-            let $itervar = Lexer::new(&strtab, &ctx)
+            let $itervar = Lexer::new(&mut strtab, &ctx)
                 .map(|r| r.unwrap())
                 .filter(|t| match t.data {
                     TokenKind::Whitespace | TokenKind::Comment(_) => false,
@@ -763,11 +770,11 @@ mod tests {
         };
         ($itervar:ident = $input:expr; $context_name:ident = context) => {
             use termcolor::{ColorChoice, StandardStream};
-            let strtab = StringTable::new();
+            let mut strtab = StringTable::new();
             let input = AsciiFile::new($input.as_bytes()).unwrap();
             let stderr = StandardStream::stderr(ColorChoice::Auto);
             let $context_name = Context::new(&input, box stderr);
-            let $itervar = Lexer::new(&strtab, &$context_name)
+            let $itervar = Lexer::new(&mut strtab, &$context_name)
                 .map(|r| r.unwrap())
                 .filter(|t| match t.data {
                     TokenKind::Whitespace | TokenKind::Comment(_) => false,
@@ -956,13 +963,13 @@ mod tests {
                     match lhs.data {
                         Expr::Binary(op, lhs, rhs) => {
                             assert_eq!(op, Add);
-                            assert_eq!(lhs.data, Expr::Int(Symbol::from("3")));
+                            assert_eq!(lhs.data, Expr::Int("3"));
                             // rhs = 4 * 7
                             match rhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Mul);
-                                    assert_eq!(lhs.data, Expr::Int(Symbol::from("4")));
-                                    assert_eq!(rhs.data, Expr::Int(Symbol::from("7")));
+                                    assert_eq!(lhs.data, Expr::Int("4"));
+                                    assert_eq!(rhs.data, Expr::Int("7"));
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
@@ -977,12 +984,12 @@ mod tests {
                             match lhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Div);
-                                    assert_eq!(lhs.data, Expr::Int(Symbol::from("9")));
-                                    assert_eq!(rhs.data, Expr::Int(Symbol::from("7")));
+                                    assert_eq!(lhs.data, Expr::Int("9"));
+                                    assert_eq!(rhs.data, Expr::Int("7"));
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
-                            assert_eq!(rhs.data, Expr::Int(Symbol::from("42")));
+                            assert_eq!(rhs.data, Expr::Int("42"));
                         }
                         expr => panic!("not a binary expr: {:#?}", expr),
                     }

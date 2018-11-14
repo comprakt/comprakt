@@ -1,32 +1,58 @@
-//! String table with interior mutability and O(n) insert on miss
-//!
-//! Interior mutability achived using UnsafeCell.
-//!
-//! Using `Rc` and not `Arc`, this is not thread-safe.
+//! String table with zero-copy and amortised O(1) insert
 //!
 //! [1]: https://users.rust-lang.org/t/get-ref-to-just-inserted-hashset-element/13021
 
-use std::{cell::UnsafeCell, collections::HashSet, rc::Rc};
+use std::{collections::HashSet, fmt};
 
-pub type Symbol = Rc<str>;
+#[derive(Debug, Clone, Copy, Eq, PartialOrd, Ord, Hash)]
+pub struct Symbol<'f>(&'f str);
 
-#[derive(Debug, Default)]
-pub struct StringTable {
-    entries: UnsafeCell<HashSet<Rc<str>>>,
+impl Symbol<'_> {
+    fn as_raw(&self) -> *const str {
+        self.0 as *const str
+    }
 }
 
-impl StringTable {
+impl PartialEq for Symbol<'_> {
+    fn eq(&self, other: &Symbol<'_>) -> bool {
+        self.as_raw() as *const u8 as usize == other.as_raw() as *const u8 as usize
+    }
+}
+
+impl PartialEq<str> for Symbol<'_> {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl fmt::Display for Symbol<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct StringTable<'f> {
+    entries: HashSet<&'f str>,
+}
+
+impl<'f> StringTable<'f> {
     pub fn new() -> Self {
         StringTable::default()
     }
 
-    pub fn intern(&self, value: &str) -> Symbol {
-        // Entries is private, and this is the only place where it is mutated
-        let entries = unsafe { &mut *self.entries.get() };
-        if !entries.contains(value) {
-            entries.insert(value.into());
+    pub fn intern(&mut self, value: &'f str) -> Symbol<'f> {
+        if !self.entries.contains(value) {
+            self.entries.insert(value);
         }
-        Rc::clone(entries.get(value).unwrap())
+
+        // Unwrap is safe, we just inserted it
+        Symbol(self.entries.get(value).unwrap())
+    }
+
+    #[cfg(test)]
+    fn get(&mut self, value: &str) -> Option<Symbol<'f>> {
+        self.entries.get(value).map(|s| Symbol(*s))
     }
 }
 
@@ -37,42 +63,49 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    macro_rules! get {
-        ($tab: expr) => {
-            unsafe { &mut *$tab.entries.get() }
+    macro_rules! assert_eq_sym {
+        ($a:expr, $b:expr) => {
+            assert_eq!($a, $b);
+            // don't trust that eq impl is based on pointer comparison
+            assert_eq!($a.as_raw(), $b.as_raw());
         };
     }
 
     #[test]
     fn no_duplication() {
-        let strtab = StringTable::new();
+        let mut strtab = StringTable::new();
 
-        strtab.intern("foo");
-        strtab.intern("foo");
-        strtab.intern("foo");
-        assert_eq!(1, get!(strtab).len());
+        let a = strtab.intern("foo");
+        let b = strtab.intern("foo");
+        let c = strtab.intern("foo");
+        assert_eq!(1, strtab.entries.len());
+        assert_eq_sym!(a, b);
+        assert_eq_sym!(a, c);
 
-        strtab.intern("bar");
-        strtab.intern("bar");
-        strtab.intern("foo");
-        assert_eq!(2, get!(strtab).len());
+        let d = strtab.intern("bar");
+        let e = strtab.intern("bar");
+        let f = strtab.intern("foo");
+        assert_eq!(2, strtab.entries.len());
+        assert_eq_sym!(d, e);
+        assert_eq_sym!(a, f);
     }
 
     #[test]
     fn can_resize_set() {
-        let strtab = StringTable::new();
-        get!(strtab).shrink_to_fit();
+        let mut strtab = StringTable::new();
+        strtab.entries.shrink_to_fit();
 
         let n = 100_000;
         let mut adresses = HashMap::new();
 
-        for i in 0..n {
-            let s = format!("s{}", i);
-            let sym = Rc::into_raw(strtab.intern(&s));
+        let src: Vec<_> = (0..n).map(|i| format!("s{}", i)).collect();
+
+        for s in src.iter() {
+            let sym = strtab.intern(s).as_raw();
             adresses.insert(s, sym);
         }
 
-        assert_eq!(n, get!(strtab).len());
+        assert_eq!(n, strtab.entries.len());
         // At this point, the table probably got resized and reallocated, so let's now
         // check if all the symbols are still in the same place
 
@@ -80,18 +113,18 @@ mod tests {
             let s = format!("s{}", i);
             assert_eq!(
                 adresses.remove(&s).unwrap() as *const u8 as usize,
-                Rc::into_raw(strtab.intern(&s)) as *const u8 as usize
+                strtab.get(&s).unwrap().as_raw() as *const u8 as usize
             );
         }
     }
 
     #[test]
     fn can_intern_empty_string() {
-        let strtab = StringTable::new();
+        let mut strtab = StringTable::new();
 
         strtab.intern("");
         strtab.intern("");
         strtab.intern("");
-        assert_eq!(1, get!(strtab).len());
+        assert_eq!(1, strtab.entries.len());
     }
 }
