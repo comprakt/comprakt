@@ -47,8 +47,8 @@ impl AstNode for ast::ClassMember<'_> {
 impl_astnode_struct!(discr     => 't, ast::ClassMemberKind<'t>, ast::ClassMemberKindDiscriminants::from);
 impl_astnode_struct!(lt_struct => 't, ast::Parameter<'t>);
 impl_astnode_struct!(lt_struct => 't, ast::ParameterList<'t>);
-impl_astnode_struct!(simple    => ast::Type);
-impl AstNode for ast::BasicType {
+impl_astnode_struct!(lt_struct => 't, ast::Type<'t>);
+impl AstNode for ast::BasicType<'_> {
     fn as_ast_node(&self, printer: &mut Printer<'_>) -> std::io::Result<()> {
         let type_name = unsafe { (std::intrinsics::type_name::<Self>()) };
         let discr = ast::BasicTypeDiscriminants::from(self);

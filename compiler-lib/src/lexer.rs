@@ -38,7 +38,7 @@ pub type IntLit<'f> = &'f str;
 pub enum TokenKind<'f> {
     Keyword(Keyword),
     Operator(Operator),
-    Identifier(Symbol),
+    Identifier(Symbol<'f>),
     IntegerLiteral(IntLit<'f>),
     Comment(&'f str),
     Whitespace,
@@ -402,7 +402,7 @@ impl fmt::Display for Operator {
 
 pub struct Lexer<'f, 's> {
     input: PositionIterator<'f>,
-    strtab: &'s StringTable,
+    strtab: &'s StringTable<'f>,
     context: &'f Context<'f>,
 }
 
@@ -416,7 +416,7 @@ fn is_minijava_whitespace(c: char) -> bool {
 }
 
 impl<'f, 's> Lexer<'f, 's> {
-    pub fn new(strtab: &'s StringTable, context: &'f Context<'f>) -> Self {
+    pub fn new(strtab: &'s StringTable<'f>, context: &'f Context<'f>) -> Self {
         let input = context.file.iter();
 
         Self {

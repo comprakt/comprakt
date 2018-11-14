@@ -6,27 +6,55 @@
 //!
 //! [1]: https://users.rust-lang.org/t/get-ref-to-just-inserted-hashset-element/13021
 
-use std::{cell::UnsafeCell, collections::HashSet, rc::Rc};
+use std::{cell::UnsafeCell, collections::HashSet, fmt};
 
-pub type Symbol = Rc<str>;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Symbol<'f>(&'f str);
 
-#[derive(Debug, Default)]
-pub struct StringTable {
-    entries: UnsafeCell<HashSet<Rc<str>>>,
+impl Symbol<'_> {
+    fn into_raw(&self) -> *const str {
+        self.0 as *const str
+    }
 }
 
-impl StringTable {
+impl fmt::Display for Symbol<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<'f> From<&'f str> for Symbol<'f> {
+    fn from(s: &'f str) -> Self {
+        Symbol(s)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct StringTable<'f> {
+    entries: UnsafeCell<HashSet<&'f str>>,
+}
+
+impl<'f> StringTable<'f> {
     pub fn new() -> Self {
         StringTable::default()
     }
 
-    pub fn intern(&self, value: &str) -> Symbol {
+    pub fn intern(&self, value: &'f str) -> Symbol<'f> {
         // Entries is private, and this is the only place where it is mutated
         let entries = unsafe { &mut *self.entries.get() };
         if !entries.contains(value) {
-            entries.insert(value.into());
+            entries.insert(value);
         }
-        Rc::clone(entries.get(value).unwrap())
+
+        // Unwrap is safe, we just inserted it
+        Symbol(entries.get(value).unwrap())
+    }
+
+    #[cfg(test)]
+    fn get(&self, value: &str) -> Option<Symbol<'f>> {
+        let entries = unsafe { &*self.entries.get() };
+        // Unwrap is safe, we just inserted it
+        entries.get(value).map(|s| Symbol(*s))
     }
 }
 
@@ -66,9 +94,10 @@ mod tests {
         let n = 100_000;
         let mut adresses = HashMap::new();
 
-        for i in 0..n {
-            let s = format!("s{}", i);
-            let sym = Rc::into_raw(strtab.intern(&s));
+        let src: Vec<_> = (0..n).map(|i| format!("s{}", i)).collect();
+
+        for s in src.iter() {
+            let sym = strtab.intern(s).as_raw();
             adresses.insert(s, sym);
         }
 
@@ -80,7 +109,7 @@ mod tests {
             let s = format!("s{}", i);
             assert_eq!(
                 adresses.remove(&s).unwrap() as *const u8 as usize,
-                Rc::into_raw(strtab.intern(&s)) as *const u8 as usize
+                strtab.get(&s).unwrap().into_raw() as *const u8 as usize
             );
         }
     }

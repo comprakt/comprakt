@@ -99,8 +99,8 @@ impl<'f> From<Keyword> for Exactly<'f> {
     }
 }
 
-impl<'f> From<Symbol> for Exactly<'f> {
-    fn from(sym: Symbol) -> Self {
+impl<'f> From<Symbol<'f>> for Exactly<'f> {
+    fn from(sym: Symbol<'f>) -> Self {
         Exactly(TokenKind::Identifier(sym))
     }
 }
@@ -145,10 +145,10 @@ impl<'f> ExpectedToken<'f> for UnaryOp {
 }
 
 impl<'f> ExpectedToken<'f> for Identifier {
-    type Yields = Symbol;
+    type Yields = Symbol<'f>;
     fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields> {
         match token {
-            TokenKind::Identifier(ident) => Some(ident.clone()),
+            TokenKind::Identifier(ident) => Some(*ident),
             _ => None,
         }
     }
@@ -386,7 +386,7 @@ where
         })
     }
 
-    fn parse_type(&mut self) -> ParserResult<'f, ast::Type> {
+    fn parse_type(&mut self) -> ParserResult<'f, ast::Type<'f>> {
         spanned!(self, {
             let basic = self.parse_basic_type()?;
 
@@ -403,7 +403,7 @@ where
         })
     }
 
-    fn parse_basic_type(&mut self) -> SyntaxResult<'f, ast::BasicType> {
+    fn parse_basic_type(&mut self) -> SyntaxResult<'f, ast::BasicType<'f>> {
         if self.omnomnoptional(exactly(Keyword::Int))?.is_some() {
             Ok(ast::BasicType::Int)
         } else if self.omnomnoptional(exactly(Keyword::Boolean))?.is_some() {
