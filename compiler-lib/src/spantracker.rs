@@ -1,4 +1,4 @@
-use crate::{asciifile::Span, lexer::Token, utils::MultiPeekable};
+use crate::{asciifile::Span, lexer::Token, multipeekable::MultiPeekable};
 
 pub struct SpanTracker<'f, I>
 where

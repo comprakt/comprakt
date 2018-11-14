@@ -24,6 +24,7 @@ pub mod lexer;
 pub mod parser;
 #[macro_use]
 pub mod visitor;
+mod multipeekable;
 pub mod print;
 pub mod sem;
 mod spantracker;
