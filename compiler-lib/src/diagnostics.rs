@@ -9,7 +9,9 @@ use crate::{
     color::ColorOutput,
 };
 use failure::Error;
-use std::{ascii::escape_default, cell::RefCell, collections::HashMap, fmt::Display};
+use std::{
+    ascii::escape_default, cell::RefCell, collections::HashMap, fmt::Display, process::exit,
+};
 use termcolor::{Color, WriteColor};
 
 pub fn u8_to_printable_representation(byte: u8) -> String {
@@ -178,6 +180,12 @@ impl Diagnostics {
     #[allow(dead_code)]
     pub fn info<'a, 'b, T: Printable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
         self.emit(MessageLevel::Info, kind.as_maybe_spanned())
+    }
+
+    pub fn abort_if_errored(&self) {
+        if self.errored() {
+            exit(1);
+        }
     }
 
     fn increment_level_count(&self, level: MessageLevel) {
