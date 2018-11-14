@@ -1,0 +1,7 @@
+class Foo {
+    public int x;
+
+    public static void main(String[] args) {
+        this.x = 42;
+    }
+}
