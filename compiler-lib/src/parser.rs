@@ -84,6 +84,9 @@ struct UnaryOp;
 #[display(fmt = "an identifier")]
 struct Identifier;
 #[derive(Debug, Clone, Display)]
+#[display(fmt = "identifier '{}'", _0)]
+struct ExactlyIdentifier<'s>(&'s str);
+#[derive(Debug, Clone, Display)]
 #[display(fmt = "an integer literal")]
 struct IntegerLiteral;
 
@@ -96,12 +99,6 @@ impl<'f> From<Operator> for Exactly<'f> {
 impl<'f> From<Keyword> for Exactly<'f> {
     fn from(kw: Keyword) -> Self {
         Exactly(TokenKind::Keyword(kw))
-    }
-}
-
-impl<'f> From<Symbol<'f>> for Exactly<'f> {
-    fn from(sym: Symbol<'f>) -> Self {
-        Exactly(TokenKind::Identifier(sym))
     }
 }
 
@@ -149,6 +146,16 @@ impl<'f> ExpectedToken<'f> for Identifier {
     fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields> {
         match token {
             TokenKind::Identifier(ident) => Some(*ident),
+            _ => None,
+        }
+    }
+}
+
+impl<'s> ExpectedToken<'s> for ExactlyIdentifier<'s> {
+    type Yields = ();
+    fn matching(&self, token: &TokenKind<'_>) -> Option<Self::Yields> {
+        match token {
+            TokenKind::Identifier(ident) if ident == self.0 => Some(()),
             _ => None,
         }
     }
@@ -333,7 +340,7 @@ where
                 self.omnomnom(exactly(Keyword::Void))?;
                 let name = self.omnomnom(Identifier)?.data;
                 self.omnomnom(exactly(Operator::LeftParen))?;
-                self.omnomnom(exactly(Symbol::from("String")))?;
+                self.omnomnom(ExactlyIdentifier("String"))?;
                 self.omnomnom(exactly(Operator::LeftBracket))?;
                 self.omnomnom(exactly(Operator::RightBracket))?;
                 let param = self.omnomnom(Identifier)?.data;
@@ -751,10 +758,10 @@ mod tests {
 
     macro_rules! lex_input {
         ($itervar:ident = $input:expr) => {
-            let strtab = StringTable::new();
+            let mut strtab = StringTable::new();
             let input = AsciiFile::new($input.as_bytes()).unwrap();
             let ctx = Context::dummy(&input);
-            let $itervar = Lexer::new(&strtab, &ctx)
+            let $itervar = Lexer::new(&mut strtab, &ctx)
                 .map(|r| r.unwrap())
                 .filter(|t| match t.data {
                     TokenKind::Whitespace | TokenKind::Comment(_) => false,
@@ -763,11 +770,11 @@ mod tests {
         };
         ($itervar:ident = $input:expr; $context_name:ident = context) => {
             use termcolor::{ColorChoice, StandardStream};
-            let strtab = StringTable::new();
+            let mut strtab = StringTable::new();
             let input = AsciiFile::new($input.as_bytes()).unwrap();
             let stderr = StandardStream::stderr(ColorChoice::Auto);
             let $context_name = Context::new(&input, box stderr);
-            let $itervar = Lexer::new(&strtab, &$context_name)
+            let $itervar = Lexer::new(&mut strtab, &$context_name)
                 .map(|r| r.unwrap())
                 .filter(|t| match t.data {
                     TokenKind::Whitespace | TokenKind::Comment(_) => false,

@@ -2,8 +2,6 @@
 //!
 //! Interior mutability achived using UnsafeCell.
 //!
-//! Using `Rc` and not `Arc`, this is not thread-safe.
-//!
 //! [1]: https://users.rust-lang.org/t/get-ref-to-just-inserted-hashset-element/13021
 
 use std::{cell::UnsafeCell, collections::HashSet, fmt};
@@ -12,20 +10,26 @@ use std::{cell::UnsafeCell, collections::HashSet, fmt};
 pub struct Symbol<'f>(&'f str);
 
 impl Symbol<'_> {
-    fn into_raw(&self) -> *const str {
+    fn as_raw(&self) -> *const str {
         self.0 as *const str
+    }
+}
+
+impl PartialEq for Symbol<'_> {
+    fn eq(&self, other: &Symbol<'_>) -> bool {
+        self.as_raw() as *const u8 as usize == other.as_raw() as *const u8 as usize
+    }
+}
+
+impl PartialEq<str> for Symbol<'_> {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
     }
 }
 
 impl fmt::Display for Symbol<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
-    }
-}
-
-impl<'f> From<&'f str> for Symbol<'f> {
-    fn from(s: &'f str) -> Self {
-        Symbol(s)
     }
 }
 
@@ -53,7 +57,6 @@ impl<'f> StringTable<'f> {
     #[cfg(test)]
     fn get(&self, value: &str) -> Option<Symbol<'f>> {
         let entries = unsafe { &*self.entries.get() };
-        // Unwrap is safe, we just inserted it
         entries.get(value).map(|s| Symbol(*s))
     }
 }
@@ -75,15 +78,35 @@ mod tests {
     fn no_duplication() {
         let strtab = StringTable::new();
 
-        strtab.intern("foo");
-        strtab.intern("foo");
-        strtab.intern("foo");
+        let a = strtab.intern("foo");
+        let b = strtab.intern("foo");
+        let c = strtab.intern("foo");
         assert_eq!(1, get!(strtab).len());
+        assert_eq!(a, b);
+        assert_eq!(a, c);
+        assert_eq!(
+            a.as_raw() as *const u8 as usize,
+            b.as_raw() as *const u8 as usize
+        );
+        assert_eq!(
+            a.as_raw() as *const u8 as usize,
+            c.as_raw() as *const u8 as usize
+        );
 
-        strtab.intern("bar");
-        strtab.intern("bar");
-        strtab.intern("foo");
+        let d = strtab.intern("bar");
+        let e = strtab.intern("bar");
+        let f = strtab.intern("foo");
         assert_eq!(2, get!(strtab).len());
+        assert_eq!(d, e);
+        assert_eq!(a, f);
+        assert_eq!(
+            d.as_raw() as *const u8 as usize,
+            e.as_raw() as *const u8 as usize
+        );
+        assert_eq!(
+            a.as_raw() as *const u8 as usize,
+            f.as_raw() as *const u8 as usize
+        );
     }
 
     #[test]
@@ -109,7 +132,7 @@ mod tests {
             let s = format!("s{}", i);
             assert_eq!(
                 adresses.remove(&s).unwrap() as *const u8 as usize,
-                strtab.get(&s).unwrap().into_raw() as *const u8 as usize
+                strtab.get(&s).unwrap().as_raw() as *const u8 as usize
             );
         }
     }
