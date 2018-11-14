@@ -2,7 +2,7 @@ error: Static methods have to be called 'main'
    | 
  2 |     public static void s1(String[] args) {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- 4 | 
+ 3 | 
    | 
  4 |     }
    | ^^^^^

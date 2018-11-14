@@ -81,12 +81,12 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                             );
                         }
                     }
-                },
+                }
                 ClassMember(member) => {
                     if let ast::ClassMemberKind::MainMethod(params, block) = &member.kind {
                         debug_assert!(params.len() == 1);
                         self.static_method_found += 1;
-                        if member.name.to_string() != "main".to_string() {
+                        if member.name.to_string() != "main" {
                             self.context.diagnostics.error(&Spanned {
                                 span: member.span.clone(),
                                 data: SemanticError::StaticMethodNotMain,
@@ -111,11 +111,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
         });
     }
 
-    fn visit_static_block(
-        &mut self,
-        node: &NodeKind<'a, 'f>,
-        arg_name: &Symbol,
-    ) -> Result<(), Error> {
+    fn visit_static_block(&mut self, node: &NodeKind<'a, 'f>, arg_name: &Symbol) {
         use self::NodeKind::*;
         node.for_each_child(&mut |child| {
             match child {
@@ -132,8 +128,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                         }
                     }
                 }
-                Expr(expr) => match &expr.data {
-                    ast::Expr::Var(name) => {
+                Expr(expr) => if let ast::Expr::Var(name) = &expr.data {
                         if arg_name == name {
                             self.context.diagnostics.error(&Spanned {
                                 span: expr.span.clone(),
@@ -142,15 +137,12 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                                 },
                             });
                         }
-                    }
-                    _ => (),
-                },
+                    },
                 _ => (),
             }
 
             self.visit_static_block(&child, arg_name)
         });
-        Ok(())
     }
 }
 
