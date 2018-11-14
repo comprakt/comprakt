@@ -128,7 +128,8 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                         }
                     }
                 }
-                Expr(expr) => if let ast::Expr::Var(name) = &expr.data {
+                Expr(expr) => {
+                    if let ast::Expr::Var(name) = &expr.data {
                         if arg_name == name {
                             self.context.diagnostics.error(&Spanned {
                                 span: expr.span.clone(),
@@ -137,7 +138,8 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                                 },
                             });
                         }
-                    },
+                    }
+                }
                 _ => (),
             }
 
