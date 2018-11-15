@@ -136,3 +136,17 @@ impl LineNumberCache {
         (row, col)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn empty_linebreaks() {
+        let linebreaks = vec![];
+        let c = LineNumberCache::new(linebreaks);
+        assert_eq!((0, 23), c.row_and_column(23));
+        assert_eq!(0, c.row(23));
+        assert_eq!(23, c.column(23));
+        assert_eq!(1, c.line_number(23));
+    }
+}
