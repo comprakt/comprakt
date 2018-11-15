@@ -38,7 +38,7 @@ impl<'m> AsciiFile<'m> {
             if !byte.is_ascii() {
                 return Err(EncodingError::NotAscii { offset });
             }
-            if *byte == ('\n' as u8) {
+            if *byte == b'\n' {
                 linebreaks.push(offset);
             }
         }
