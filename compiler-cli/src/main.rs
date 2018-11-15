@@ -16,7 +16,7 @@ use compiler_lib::{
     lexer::{Lexer, TokenKind},
     parser::Parser,
     print::{self, lextest},
-    semantics,
+    semantics2,
     strtab::StringTable,
 };
 use failure::{Error, Fail, ResultExt};
@@ -197,7 +197,7 @@ fn cmd_check(path: &PathBuf) -> Result<(), Error> {
         }
     };
 
-    crate::semantics::check(&ast, &context)
+    crate::semantics2::check(&ast, &context)
 }
 
 fn cmd_printast<P>(path: &PathBuf, printer: &P) -> Result<(), Error>
