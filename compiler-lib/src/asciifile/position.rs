@@ -20,14 +20,21 @@ pub struct Position<'t> {
 
 impl PartialOrd for Position<'_> {
     fn partial_cmp(&self, other: &Position<'_>) -> Option<Ordering> {
-        // TODO: the typesystem does not gurantee that both positions come from the
-        // same file
+        if !std::ptr::eq(self.file, other.file) {
+            return None;
+        }
         Some(self.byte_offset.cmp(&other.byte_offset))
     }
 }
 
 impl Ord for Position<'_> {
     fn cmp(&self, other: &Position<'_>) -> Ordering {
+        if !std::ptr::eq(self.file, other.file) {
+            panic!(
+                "comparing positions of different files: {:?} {:?}",
+                self.file as *const _, other.file as *const _
+            )
+        }
         self.byte_offset.cmp(&other.byte_offset)
     }
 }
@@ -497,4 +504,28 @@ mod tests {
             positions_to_tuples(front_to_back)
         );
     }
+
+    macro_rules! same_position_different_files {
+        ($input:expr, $f1pos:ident, $f2pos:ident) => {
+            let input1 = $input.as_ref().clone();
+            let file1 = AsciiFile::new(input1).unwrap();
+            let input2 = $input.as_ref().clone();
+            let file2 = AsciiFile::new(input2).unwrap();
+            let $f1pos: Position<'_> = file1.iter().next().unwrap();
+            let $f2pos: Position<'_> = file2.iter().next().unwrap();
+        };
+    }
+    #[test]
+    fn position_partial_cmp_from_different_files_no_ordering() {
+        same_position_different_files!(b"samestring", p1, p2);
+        let res = p1.partial_cmp(&p2);
+        assert_eq!(res, None);
+    }
+    #[test]
+    #[should_panic]
+    fn position_cmp_of_different_files_panics() {
+        same_position_different_files!(b"samestring", p1, p2);
+        p1.cmp(&p2);
+    }
+
 }
