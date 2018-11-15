@@ -346,7 +346,7 @@ where
                 let string_array_type = Spanned {
                     data: ast::Type {
                         // treat String[] as an opaque type
-                        basic: ast::BasicType::Custom(Symbol::from(java_string.data)),
+                        basic: ast::BasicType::Custom(java_string.data),
                         array_depth: 1,
                     },
                     span: Span::combine(&java_string.span, &java_string_array_close.span),

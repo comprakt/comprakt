@@ -82,10 +82,8 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                     for class in &prog.classes {
                         for member in &class.members {
                             let discr = ast::ClassMemberKindDiscriminants::from(&member.kind);
-                            self.classes_and_members.insert(
-                                (class.name, member.name, discr),
-                                &member,
-                            );
+                            self.classes_and_members
+                                .insert((class.name, member.name, discr), &member);
                         }
                     }
                 }
