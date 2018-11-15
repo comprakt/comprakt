@@ -34,7 +34,7 @@ pub type LexicalError<'f> = Spanned<'f, ErrorKind>;
 
 pub type IntLit<'f> = &'f str;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenKind<'f> {
     Keyword(Keyword),
     Operator(Operator),

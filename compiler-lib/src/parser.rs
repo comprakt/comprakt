@@ -61,7 +61,7 @@ impl<'f> From<EOF> for MaybeSpanned<'f, SyntaxError> {
     }
 }
 
-pub trait ExpectedToken<'f>: fmt::Debug + fmt::Display {
+pub trait ExpectedToken<'f>: fmt::Debug + fmt::Display + Copy {
     type Yields;
     fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields>;
 
@@ -70,23 +70,23 @@ pub trait ExpectedToken<'f>: fmt::Debug + fmt::Display {
     }
 }
 
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, Display)]
 #[display(fmt = "{}", _0)]
 // TODO Should be Copy, but TokenKind contains Rc
 struct Exactly<'f>(TokenKind<'f>);
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, Display)]
 #[display(fmt = "a binary operator")]
 struct BinaryOp;
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, Display)]
 #[display(fmt = "a unary operator")]
 struct UnaryOp;
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, Display)]
 #[display(fmt = "an identifier")]
 struct Identifier;
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, Display)]
 #[display(fmt = "identifier '{}'", _0)]
 struct ExactlyIdentifier<'s>(&'s str);
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, Display)]
 #[display(fmt = "an integer literal")]
 struct IntegerLiteral;
 
@@ -220,7 +220,6 @@ where
         }
     }
 
-    #[allow(clippy::needless_pass_by_value)]
     fn omnomnom<E>(&mut self, want: E) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
     where
         E: ExpectedToken<'f>,
@@ -241,7 +240,6 @@ where
             })
     }
 
-    #[allow(clippy::needless_pass_by_value)]
     fn omnomnoptional<E>(&mut self, want: E) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
     where
         E: ExpectedToken<'f>,
@@ -250,7 +248,6 @@ where
     }
 
     /// Only consume token if pred(E::Yields) holds
-    #[allow(clippy::needless_pass_by_value)]
     fn omnomnoptional_if<E, P>(
         &mut self,
         want: E,
@@ -272,7 +269,6 @@ where
         }))
     }
 
-    #[allow(clippy::needless_pass_by_value)]
     fn tastes_like<E>(&mut self, want: E) -> SyntaxResult<'f, bool>
     where
         E: ExpectedToken<'f>,
@@ -280,7 +276,6 @@ where
         self.nth_tastes_like(0, want)
     }
 
-    #[allow(clippy::needless_pass_by_value)]
     fn nth_tastes_like<E>(&mut self, n: usize, want: E) -> SyntaxResult<'f, bool>
     where
         E: ExpectedToken<'f>,
