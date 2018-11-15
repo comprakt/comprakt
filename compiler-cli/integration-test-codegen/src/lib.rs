@@ -72,7 +72,7 @@ pub fn gen_ast_idempotence_integration_tests(_args: TokenStream) -> TokenStream 
 #[proc_macro]
 pub fn gen_semantic_integration_tests(_args: TokenStream) -> TokenStream {
     gen_integration_tests(
-        &quote! { CompilerPhase::Semantic },
+        &quote! { CompilerCall::RawCompiler(CompilerPhase::Semantic) },
         "semantic",
         |v| quote! { #v },
         "",
