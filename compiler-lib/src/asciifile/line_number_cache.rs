@@ -52,11 +52,14 @@
 pub struct LineNumberCache {
     /// byte index of linebreaks (\n) in the file. The
     /// index of the newline within the sorted list is
-    /// the row, the line number is the row plus 1.
+    /// the row, which starts at 0.
+    /// The line number is the row plus 1.
     linebreaks: Vec<usize>,
 }
 
 impl LineNumberCache {
+    /// Return a `LineNumberCache` with UNIX-style line breaks (single `\n`
+    /// byte) at byte offsets given in `linebreaks`.
     pub fn new(linebreaks: Vec<usize>) -> Self {
         Self { linebreaks }
     }
