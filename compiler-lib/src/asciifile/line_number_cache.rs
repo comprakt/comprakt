@@ -1,7 +1,6 @@
-//! Caches information about linebreaks that allows us to
-//! reconstruct the line number and character column in
-//! O(log N). This makes sense as we only request line
-//! numbers in a few cases (e.g. on error).
+//! Caches information about linebreaks that allows us to reconstruct the line
+//! number and character column in O(log N). This makes sense as we only
+//! request line numbers in a few cases (e.g. on error).
 //!
 //! ```
 //! use compiler_lib::asciifile::LineNumberCache;
@@ -62,23 +61,39 @@ impl LineNumberCache {
         Self { linebreaks }
     }
 
+    /// Return the line number at `byte_offset`.
+    /// Identical to `row() + 1`.
+    ///
+    /// This does not detect errors caused by `byte_offset`s that
+    /// are out of range. Prefer the safe API of the `Position` struct
+    /// instead.
     pub fn line_number(&self, byte_offset: usize) -> usize {
         self.row(byte_offset) + 1
     }
 
+    /// Return the column of the characters position within the file.
+    ///
+    /// The column is zero based, meaning the first characters of
+    /// a line/row is positioned at column `0`.
+    ///
+    /// This does not detect errors caused by `byte_offset`s that
+    /// are out of range. Prefer the safe API of the `Position` struct
+    /// instead.
     pub fn column(&self, byte_offset: usize) -> usize {
         self.row_and_column(byte_offset).1
     }
 
-    /// does not detect/error on byte_offsets out of range
+    /// Return the row of the character's position within the file.
+    ///
+    /// This does not detect errors caused by `byte_offset`s that
+    /// are out of range. Prefer the safe API of the `Position` struct
+    /// instead.
     pub fn row(&self, byte_offset: usize) -> usize {
-        // returns `Err` if the number as not found.
-        // => given character was not a linebreak. error contains the insertion
-        // position, which is the line number returns `Ok` if the number is
-        // found. => given charater is a line break. `Ok` contains the row
-        // number. column is 0
-        // binary_search always gives index of the smaller number
-        // binary_search returns len if the number is bigger than everything seen
+        // - binary_search always gives the index of the smaller number
+        //   if the fiven offset lies between two newlines.
+        // - binary_search returns len() if the number is bigger than
+        //   everything seen
+        // => the returned index is always the row-number.
         match self.linebreaks.binary_search(&byte_offset) {
             Err(row) => row,
             Ok(row) => {
@@ -90,20 +105,30 @@ impl LineNumberCache {
         }
     }
 
-    /// Get row and column at once.
+    /// Get row and column at once. Equivalent to calling
+    /// `row(&self, byte_offset: usize)` and `column(&self, byte_offset:
+    /// usize)`.
     ///
     /// This method exists because most of the time you want both.
-    /// And its more efficient to look up both at once.
+    /// And it's more efficient to look up both at once.
+    ///
+    /// This does not detect errors caused by `byte_offset`s that
+    /// are out of range. Prefer the safe API of the `Position` struct
+    /// instead.
     pub fn row_and_column(&self, byte_offset: usize) -> (usize, usize) {
         let row = self.row(byte_offset);
         let col = if row == 0 {
-            // no linebreak yet
+            // no linebreak yet => first line
             byte_offset
         } else {
             // line that is last line or line in-between
 
-            // we have to add one since we want to look one
-            // character after the newline!
+            // we have to `-1` since we want to look up the
+            // position of the line break before our current line.
+            //
+            // we have to `+1` since we want to look up
+            // the position of the first character of the
+            // line, which is one character after the newline.
             let line_start_offset = self.linebreaks[row - 1] + 1;
             byte_offset - line_start_offset
         };
