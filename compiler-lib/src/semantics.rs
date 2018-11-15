@@ -31,7 +31,7 @@ enum SemanticError {
 }
 
 type ClassesAndMembers<'a, 'f> = HashMap<
-    (Symbol, Symbol, ast::ClassMemberKindDiscriminants),
+    (Symbol<'a>, Symbol<'a>, ast::ClassMemberKindDiscriminants),
     &'a Spanned<'f, ast::ClassMember<'f>>,
 >;
 
@@ -83,7 +83,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                         for member in &class.members {
                             let discr = ast::ClassMemberKindDiscriminants::from(&member.kind);
                             self.classes_and_members.insert(
-                                (Rc::clone(&class.name), Rc::clone(&member.name), discr),
+                                (class.name, member.name, discr),
                                 &member,
                             );
                         }
@@ -118,7 +118,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
         });
     }
 
-    fn visit_static_block(&mut self, node: &NodeKind<'a, 'f>, arg_name: &Symbol) {
+    fn visit_static_block(&mut self, node: &NodeKind<'a, 'f>, arg_name: &Symbol<'_>) {
         use self::NodeKind::*;
         node.for_each_child(&mut |child| {
             match child {
@@ -175,14 +175,14 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
     }
 }
 
-type ScopeDefs<T> = HashMap<Symbol, T>;
+type ScopeDefs<'a, T> = HashMap<Symbol<'a>, T>;
 
-struct Scope<T> {
-    parent: Option<Rc<Scope<T>>>,
-    definitions: ScopeDefs<T>,
+struct Scope<'a, T> {
+    parent: Option<Rc<Scope<'a, T>>>,
+    definitions: ScopeDefs<'a, T>,
 }
 
-impl<T> Scope<T> {
+impl<'a, T> Scope<'a, T> {
     pub fn root() -> Rc<Self> {
         Rc::new(Scope {
             parent: None,
@@ -198,10 +198,9 @@ impl<T> Scope<T> {
     pub fn leave(self) -> Option<Rc<Self>> {
         self.parent
     }
-    pub fn define(&mut self, sym: &Symbol, val: T) -> Result<(), ()> {
+    pub fn define(&mut self, sym: &Symbol<'a>, val: T) -> Result<(), ()> {
         use std::collections::hash_map::Entry;
-        let key = Rc::clone(sym);
-        match self.definitions.entry(key) {
+        match self.definitions.entry(*sym) {
             Entry::Occupied(o) => return Err(()),
             Entry::Vacant(e) => e.insert(val),
         };
@@ -212,7 +211,7 @@ impl<T> Scope<T> {
 struct SecondPass;
 
 // TODO proper enum, but Type is definitely necessary
-type VarDef<'a, 'f> = &'a Spanned<'f, ast::Type>;
+type VarDef<'a, 'f> = &'a Spanned<'f, ast::Type<'a>>;
 struct TyDef; // TODO
 struct MethDef; // TODO
 
@@ -224,18 +223,18 @@ impl SecondPass {
     ) -> Result<(), Error> {
         // TODO java.lang.System.out scope
         // TODO ontop of that, scope of this package
-        let mut vardefs: Rc<Scope<VarDef<'a, 'f>>> = Scope::root();
-        let mut tydefs: Rc<Scope<TyDef>> = Scope::root();
-        let mut methdefs: Rc<Scope<MethDef>> = Scope::root();
+        let mut vardefs: Rc<Scope<'a, VarDef<'a, 'f>>> = Scope::root();
+        let mut tydefs: Rc<Scope<'a, TyDef>> = Scope::root();
+        let mut methdefs: Rc<Scope<'a, MethDef>> = Scope::root();
         Self::do_visit(&NodeKind::from(ast), context, vardefs, tydefs, methdefs)
     }
 
     fn do_visit<'a, 'f>(
         n: &NodeKind<'a, 'f>,
         context: &Context<'_>,
-        vardefs: Rc<Scope<VarDef<'a, 'f>>>,
-        tydefs: Rc<Scope<TyDef>>,
-        methdefs: Rc<Scope<MethDef>>,
+        vardefs: Rc<Scope<'a, VarDef<'a, 'f>>>,
+        tydefs: Rc<Scope<'a, TyDef>>,
+        methdefs: Rc<Scope<'a, MethDef>>,
     ) -> Result<(), Error> {
         use self::NodeKind::*;
         match n {

@@ -152,10 +152,10 @@ impl<'f> ExpectedToken<'f> for Identifier {
 }
 
 impl<'s> ExpectedToken<'s> for ExactlyIdentifier<'s> {
-    type Yields = ();
-    fn matching(&self, token: &TokenKind<'_>) -> Option<Self::Yields> {
+    type Yields = Symbol<'s>;
+    fn matching(&self, token: &TokenKind<'s>) -> Option<Self::Yields> {
         match token {
-            TokenKind::Identifier(ident) if ident == self.0 => Some(()),
+            TokenKind::Identifier(ident) if ident == self.0 => Some(*ident),
             _ => None,
         }
     }
@@ -340,18 +340,18 @@ where
                 self.omnomnom(exactly(Keyword::Void))?;
                 let name = self.omnomnom(Identifier)?.data;
                 let params_begin = self.omnomnom(exactly(Operator::LeftParen))?;
-                self.omnomnom(ExactlyIdentifier("String"))?;
+                let java_string = self.omnomnom(ExactlyIdentifier("String"))?;
                 self.omnomnom(exactly(Operator::LeftBracket))?;
                 let java_string_array_close = self.omnomnom(exactly(Operator::RightBracket))?;
                 let string_array_type = Spanned {
                     data: ast::Type {
                         // treat String[] as an opaque type
-                        basic: ast::BasicType::Custom(Symbol::from(java_string.span.as_str())),
-                        array_depth: 0,
+                        basic: ast::BasicType::Custom(Symbol::from(java_string.data)),
+                        array_depth: 1,
                     },
                     span: Span::combine(&java_string.span, &java_string_array_close.span),
                 };
-                let param_name = self.omnomnom(Identifier)?.data;
+                let param_name = self.omnomnom(Identifier)?;
                 let params_end = self.omnomnom(exactly(Operator::RightParen))?;
                 let params = Spanned {
                     data: vec![Spanned {
