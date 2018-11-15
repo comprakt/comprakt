@@ -1,0 +1,5 @@
+class Foo {
+    public int x;
+
+    public void f() {}
+}
