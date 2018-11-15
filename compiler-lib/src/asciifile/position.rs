@@ -92,13 +92,13 @@ impl<'t> Position<'t> {
     /// of the file are in row `0`. To get the line number, add `1` to
     /// the return value.
     pub fn row(&self) -> usize {
-        self.file.lookup_position().row(self.byte_offset)
+        self.file.lookup_cache().row(self.byte_offset)
     }
 
     /// Return the character's line number.
     /// Identical to `row() + 1`
     pub fn line_number(&self) -> usize {
-        self.file.lookup_position().line_number(self.byte_offset)
+        self.file.lookup_cache().line_number(self.byte_offset)
     }
 
     /// Return the column of the characters position within the file.
@@ -106,7 +106,7 @@ impl<'t> Position<'t> {
     /// The column is zero based, meaning the first characters of
     /// a line/row is positioned at column `0`.
     pub fn column(&self) -> usize {
-        self.file.lookup_position().column(self.byte_offset)
+        self.file.lookup_cache().column(self.byte_offset)
     }
 
     /// Return the column of the characters position within the file.
@@ -114,7 +114,7 @@ impl<'t> Position<'t> {
     /// The column is zero based, meaning the first characters of
     /// a line/row is positioned at column `0`.
     pub fn row_and_column(&self) -> (usize, usize) {
-        self.file.lookup_position().row_and_column(self.byte_offset)
+        self.file.lookup_cache().row_and_column(self.byte_offset)
     }
 
     /// Get the position immediatly following this position or `None` if

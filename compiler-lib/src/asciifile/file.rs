@@ -19,7 +19,7 @@ pub enum EncodingError {
 }
 
 impl<'m> AsciiFile<'m> {
-    pub fn lookup_position(&self) -> &LineNumberCache {
+    pub fn lookup_cache(&self) -> &LineNumberCache {
         &self.line_cache
     }
 
