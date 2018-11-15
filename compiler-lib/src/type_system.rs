@@ -1,44 +1,43 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap};
 use crate::{strtab::Symbol};
 use std::collections::hash_map::Entry;
 
 #[derive(Debug)]
-pub struct TypeSystem {
-    defined_classes: HashMap<Symbol, ClassDef>,
+pub struct TypeSystem<'t> {
+    defined_classes: HashMap<Symbol<'t>, ClassDef<'t>>,
 }
 
-impl TypeSystem {
-    pub fn new() -> TypeSystem {
+impl<'t> TypeSystem<'t> {
+    pub fn new() -> TypeSystem<'t> {
         TypeSystem { defined_classes: HashMap::new() }
     }
 
-    pub fn is_type_defined(&self, name: Symbol) -> bool {
+    pub fn is_type_defined(&self, name: Symbol<'t>) -> bool {
         self.defined_classes.contains_key(&name)
     }
 
-    pub fn add_class_def(&mut self, class_def: ClassDef) -> Result<(), ()> {
-        let key = Rc::clone(&class_def.name);
-        match self.defined_classes.entry(key) {
+    pub fn add_class_def(&mut self, class_def: ClassDef<'t>) -> Result<(), ()> {
+        match self.defined_classes.entry(class_def.name) {
             Entry::Occupied(e) => return Err(()),
             Entry::Vacant(e) => e.insert(class_def),
         };
         Ok(())
     }
 
-    pub fn resolve_type_reference(&self, reference: &CheckedTypeRef) -> Option<&ClassDef> {
+    pub fn resolve_type_reference(&self, reference: &CheckedTypeRef<'t>) -> Option<&ClassDef<'t>> {
         self.defined_classes.get(&reference.ty_name)
     }
 }
 
 #[derive(Debug)]
-pub struct ClassDef {
-    pub name: Symbol,
-    fields: HashMap<Symbol, ClassFieldDef>,
-    methods: HashMap<Symbol, ClassMethodDef>,
+pub struct ClassDef<'t> {
+    pub name: Symbol<'t>,
+    fields: HashMap<Symbol<'t>, ClassFieldDef<'t>>,
+    methods: HashMap<Symbol<'t>, ClassMethodDef<'t>>,
 }
 
-impl ClassDef {
-    pub fn new(name: Symbol) -> ClassDef {
+impl<'t> ClassDef<'t> {
+    pub fn new(name: Symbol<'t>) -> ClassDef<'t> {
         ClassDef {
             name: name,
             fields: HashMap::new(),
@@ -46,83 +45,68 @@ impl ClassDef {
         }
     }
 
-    pub fn add_field(&mut self, field: ClassFieldDef) -> Result<(), ()> {
-        let key = Rc::clone(&field.name);
-        match self.fields.entry(key) {
-            Entry::Occupied(e) => return Err(()),
+    pub fn add_field(&mut self, field: ClassFieldDef<'t>) -> Result<(), ()> {
+        match self.fields.entry(field.name) {
+            Entry::Occupied(_) => return Err(()),
             Entry::Vacant(e) => e.insert(field),
         };
         Ok(())
     }
 
-    pub fn get_field(&self, name: &Symbol) -> Result<&ClassFieldDef, ()> {
+    pub fn get_field(&self, name: &Symbol<'t>) -> Option<&ClassFieldDef<'t>> {
         self.fields.get(name)
     }
 
-    pub fn add_method(&mut self, method: ClassMethodDef) -> Result<(), ()> {
-        let key = Rc::clone(&method.name);
-        match self.methods.entry(key) {
-            Entry::Occupied(e) => return Err(()),
+    pub fn add_method(&mut self, method: ClassMethodDef<'t>) -> Result<(), ()> {
+        match self.methods.entry(method.name) {
+            Entry::Occupied(_) => return Err(()),
             Entry::Vacant(e) => e.insert(method),
         };
         Ok(())
     }
 
-    pub fn get_method(&self, name: &Symbol) -> Result<&ClassMethodDef, ()> {
+    pub fn get_method(&self, name: &Symbol<'t>) -> Option<&ClassMethodDef<'t>> {
         self.methods.get(name)
     }
 
 }
 
 #[derive(Debug)]
-pub struct ClassMethodDef {
-    pub name: Symbol,
-    pub params: Vec<MethodParamDef>,
-    pub return_ty: CheckedType,
+pub struct ClassMethodDef<'t> {
+    pub name: Symbol<'t>,
+    pub params: Vec<MethodParamDef<'t>>,
+    pub return_ty: CheckedType<'t>,
     pub is_static: bool,
 }
 
 #[derive(Debug)]
-pub struct MethodParamDef {
-    pub name: Symbol,
-    pub ty: CheckedType,
+pub struct MethodParamDef<'t> {
+    pub name: Symbol<'t>,
+    pub ty: CheckedType<'t>,
 }
 
 #[derive(Debug)]
-pub struct ClassFieldDef {
-    pub name: Symbol,
-    pub ty: CheckedType,
+pub struct ClassFieldDef<'t> {
+    pub name: Symbol<'t>,
+    pub ty: CheckedType<'t>,
 }
 
 #[derive(Debug)]
-pub enum CheckedType {
+pub enum CheckedType<'t> {
     Int,
     Boolean,
     Void,
-    TypeRef(CheckedTypeRef),
-    Array(CheckedArrayType),
+    TypeRef(CheckedTypeRef<'t>),
+    Array(Box<CheckedType<'t>>),
 }
 
 #[derive(Debug)]
-pub struct CheckedArrayType {
-    // is Int, Boolean or TypeRef
-    base_item_type: Box<CheckedType>,
-    depth: u64, // at least 1
+pub struct CheckedTypeRef<'t> {
+    pub ty_name: Symbol<'t>,
 }
 
-impl CheckedArrayType {
-    pub fn get_item_type(&self) -> &CheckedType {
-        self.base_item_type
-    }
-}
-
-#[derive(Debug)]
-pub struct CheckedTypeRef {
-    pub ty_name: Symbol,
-}
-
-impl CheckedTypeRef {
-    pub fn new(name: Symbol) -> CheckedTypeRef {
+impl<'t> CheckedTypeRef<'t> {
+    pub fn new(name: Symbol<'t>) -> CheckedTypeRef<'t> {
         CheckedTypeRef { ty_name: name, }
     }
 }

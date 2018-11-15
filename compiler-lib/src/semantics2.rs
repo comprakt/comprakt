@@ -2,7 +2,7 @@
 use crate::{asciifile::Spanned, ast, context::Context, strtab::Symbol, visitor::NodeKind, type_system};
 use failure::{format_err, Error, Fail};
 use std::{collections::HashMap, rc::Rc};
-use crate::type_system::{TypeSystem, CheckedType};
+use crate::type_system::*;
 
 #[derive(Debug, Fail)]
 enum SemanticError {
@@ -38,66 +38,41 @@ pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &Context<'_>) -> Result<(),
 
         }
         ast::AST::Program(prog) => {
-            self.build_type_system(prog);
+            let type_system = build_type_system(context, prog);
 
-            self.context.diagnostics.info(&Spanned {
+            context.diagnostics.info(&Spanned {
                 span: prog.span.clone(),
                 data: format!("test"),
             });  
         }
     }
-    let type_system = build_type_system(context, ast);
-
-    //let checker = TypeChecker::new(context);
-    //checker.check(ast);
     Ok(())
 }
 
-fn build_type_system<'ast>(context: &'_ Context<'_>, program: &'_ ast::Program<'ast>) -> TypeSystem {
-    let type_system: TypeSystem::new();
-    for class_decl in program.classes {
-        let class_def = type_system::ClassDef::new(Rc::clone(&class_decl.name));
+fn build_type_system<'t>(context: &'_ Context<'_>, program: &'_ ast::Program<'t>) -> TypeSystem<'t> {
+    let mut type_system = TypeSystem::new();
+    for class_decl in &program.classes {
+        let mut class_def = ClassDef::new(class_decl.name);
         
         for member in &class_decl.members {
             use crate::ast::ClassMemberKind::*;
-            match member.kind {
+            match &member.kind {
                 Field(ty) => {
                     class_def.add_field(
-                        type_system::ClassFieldDef {
-                            name: Rc::clone(member.name),
-                            ty: ast_type_to_type(ty)
+                        ClassFieldDef {
+                            name: member.name,
+                            ty: type_to_checked_type(&ty)
                         }
                     );
                 }
-                Method(ty, params, block) => {
-                    class_def.add_method(
-                        type_system::ClassMethodDef {
-                            is_static: false,
-                            name: Rc::clone(member.name),
-                            ty: CheckedType::Void,
-                            params: params.into_iter()
-                                .map(|p| type_system::MethodParamDef {
-                                    name: p.name,
-                                    ty: ast_type_to_type(p.ty),
-                                })
-                                .collect()
-                        }
-                    );
+                Method(ty, params, _) => {
+                    let return_ty = type_to_checked_type(&ty);
+                    class_def.add_method(new_class_method_def(
+                        member.name, &params, return_ty, true));
                 }
-                MainMethod(params, block) => {
-                    class_def.add_method(
-                        type_system::ClassMethodDef {
-                            is_static: true,
-                            name: Rc::clone(member.name),
-                            ty: CheckedType::Void,
-                            params: params.into_iter()
-                                .map(|p| type_system::MethodParamDef {
-                                    name: p.name,
-                                    ty: ast_type_to_type(p.ty),
-                                })
-                                .collect()
-                        }
-                    );
+                MainMethod(params, _) => {
+                    class_def.add_method(new_class_method_def(
+                        member.name, &params, CheckedType::Void, true));
                 }
             }
         }
@@ -108,12 +83,44 @@ fn build_type_system<'ast>(context: &'_ Context<'_>, program: &'_ ast::Program<'
     type_system
 }
 
-fn new_class_field_def(result: ast::Type) -> type_system::ClassFieldDef {
+fn new_class_method_def<'t>(
+    name: Symbol<'t>, params: &ast::ParameterList<'t>,
+    return_ty: CheckedType<'t>, is_static: bool
+) -> ClassMethodDef<'t> {
 
+    ClassMethodDef {
+        is_static: is_static,
+        name: name,
+        return_ty: return_ty,
+        params: params.iter()
+            .map(|p| type_system::MethodParamDef {
+                name: p.name,
+                ty: type_to_checked_type(&p.ty),
+            })
+            .collect()
+    }
 }
 
-fn ast_type_to_type(ty: &ast::Type) -> CheckedType {
+fn type_to_checked_type<'t>(ty: &ast::Type<'t>) -> CheckedType<'t> {
+    let mut checked_ty = basic_type_to_checked_type(&ty.basic);
 
+    for _ in 0..ty.array_depth {
+        checked_ty = CheckedType::Array(Box::new(checked_ty));
+    }
+    
+    checked_ty
+}
+
+fn basic_type_to_checked_type<'t>(basic_ty: &ast::BasicType<'t>) -> CheckedType<'t> {
+    use self::ast::BasicType::*;
+    match basic_ty {
+        Int => CheckedType::Int,
+        Boolean => CheckedType::Boolean,
+        Void => CheckedType::Void,
+        Custom(symbol) => {
+            CheckedType::TypeRef(CheckedTypeRef::new(*symbol))
+        }
+    }
 }
 
 /*
@@ -247,7 +254,7 @@ impl<'t> TypeChecker<'t> {
             }
             ArrayAccess(target_expr, idx_expr) => {
                 let idx_type = self.get_type_expr(idx_expr);
-                // todo idx_type is numeric
+                // todo check that idx_type is numeric
                 let array_type = self.get_type_expr(idx_expr);
 
                 match array_type {
@@ -330,17 +337,6 @@ enum LookupResult {
     Class(),
 }
 
-fn basic_type_to_type(basic_ty: ast::BasicType) -> CheckedType {
-    use CheckedType;
-    match basic_ty {
-        Int => Type::Int,
-        Boolean => Type::Boolean,
-        Void => Type::Void,
-        Custom(symbol) => {
-            let symbol = Rc::clone(symbol);
-            Type:TypeReference(TypeReference::new(symbol))
-        }
-    }
-}
+
 
 */
