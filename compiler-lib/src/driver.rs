@@ -1,27 +1,53 @@
+//! The driver provides an easy interface to the compiler and
+//! let's you customize its behaviour.
+//!
+//! For example, to generate a binary for a file:
+//! ```
+//! use compiler_lib::Driver;
+//!
+//! let empty_main = "class A{public static void main(String args[]){}}";
+//! assert!(Driver::default().compile_code(empty_main).is_ok());
+//! ```
+//! A compiler that just counts the number of tokens in a file
+//!
+//! ```
+//! use compiler_lib::Driver;
+//!
+//! let path = "../compiler-cli/integration-tests/parser/array_access.invalid.mj";
+//! let mut count = 0;
+//!
+//! let Driver::default()
+//!         .stop_after(CompilerPhase::Lexer)
+//!         .lexer_probe(|_driver, token| {
+//!             count += 1;
+//!         })
+//!         .compile(path)
+//!         .is_ok()
+//!
+//! assert_eq!(count, 20);
+//! ```
 use crate::{
     asciifile::file::AsciiFile,
     context::Context,
-    lexer::{Token, TokenKind, TokenResult},
+    lexer::{Lexer, Token, TokenKind, TokenResult},
+    parser::Parser,
+    strtab::StringTable,
 };
 use failure::Error;
-use memmap::Mmap;
-use std::{
-    fs::File,
-    io,
-    path::{Path, PathBuf},
-    process::exit,
-};
+use std::{io, path::Path, process::exit};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompilerPhase {
     Lexer,
     Parser,
     Semantics,
 }
 
+pub type CompilerResult = dyn Fn(Result<i32, (i32, Error)>) -> ();
+
 ///
-pub struct Driver<'t> {
+pub struct Driver<'d, 'ctx, 'refs> {
     // data
     /// error output. Defaults to stderr.
     writer_err: Box<dyn WriteColor>,
@@ -35,20 +61,20 @@ pub struct Driver<'t> {
     /// - filter whitespace and comment tokens
     /// - halt the compiler on the first incorrect token
     ///   and invoke `on_compilation_done`
-    lexer_adaptor: LexerAdaptor<'t>,
+    lexer_adaptor: LexerAdaptor<'d, 'ctx, 'refs>,
     /// can examine the lexer output after the `lexer_adaptor`
     /// was applied. It cannot modify the token stream.
-    lexer_probe: LexerProbe<'t>,
+    lexer_probe: LexerProbe<'d, 'ctx, 'refs>,
     ///// if true, the driver will take over the process.
     ///// This means on_compilation_done will terminate
     ///// the process with the correct exit code.
     ////take_over_process: bool,
     /// This is called at the end of compilation, indepent of
     /// success or failure.
-    on_compilation_done: CompilationDoneHandler<'t>,
+    on_compilation_done: CompilationDoneHandler<'ctx>,
 }
 
-impl<'t> Default for Driver<'t> {
+impl<'d, 'ctx, 'refs> Default for Driver<'d, 'ctx, 'refs> {
     fn default() -> Self {
         Self {
             writer_err: box StandardStream::stderr(ColorChoice::Auto),
@@ -61,11 +87,21 @@ impl<'t> Default for Driver<'t> {
     }
 }
 
-pub type LexerAdaptor<'t> = Box<dyn Fn(Driver<'t>, TokenResult<'t>) -> Option<TokenResult<'t>>>;
-pub type LexerProbe<'t> = Box<dyn Fn(Driver<'t>, Token<'t>) -> ()>;
-pub type CompilationDoneHandler<'t> = Box<dyn Fn(&Context<'t>) -> ()>;
+pub const EXIT_CODE_INTERNAL_ERROR: i32 = 2;
+pub const EXIT_CODE_INPUT_ERROR: i32 = 1;
+pub const EXIT_CODE_SUCCESS: i32 = 0;
 
-impl<'t> Driver<'t> {
+pub type LexerAdaptor<'d, 'ctx, 'refs> = Box<
+    dyn Fn(&'refs mut CompilerTask<'d, 'ctx, 'refs>, &'refs Context<'ctx>, TokenResult<'ctx>)
+        -> Option<Token<'ctx>>,
+>;
+pub type LexerProbe<'d, 'ctx, 'refs> =
+    Box<dyn Fn(&'refs mut CompilerTask<'d, 'ctx, 'refs>, &'refs Context<'ctx>, Token<'ctx>) -> ()>;
+pub type CompilationDoneHandler<'refs> = Box<dyn Fn(&Context<'refs>) -> ()>;
+
+// driver is just used as a builder for compiler instance. This is necessary
+// to extend the lifetime of the file and therefore all compiler output.
+impl<'d, 'ctx, 'refs> Driver<'d, 'ctx, 'refs> {
     pub fn set_writer_err(mut self, writer: Box<dyn WriteColor>) -> Self {
         self.writer_err = writer;
         self
@@ -89,66 +125,142 @@ impl<'t> Driver<'t> {
         self
     }
 
-    pub fn lexer_adaptor(mut self, adaptor: LexerAdaptor<'t>) -> Self {
+    pub fn lexer_adaptor(mut self, adaptor: LexerAdaptor<'d, 'ctx, 'refs>) -> Self {
         self.lexer_adaptor = adaptor;
         self
     }
 
-    pub fn lexer_probe(mut self, probe: LexerProbe<'t>) -> Self {
+    pub fn lexer_probe(mut self, probe: LexerProbe<'d, 'ctx, 'refs>) -> Self {
         self.lexer_probe = probe;
         self
     }
 
-    pub fn compile_code<C: AsRef<[u8]>>(&mut self, code: C) -> Result<(), Error> {
-        let file = AsciiFile::new(code.as_ref())?;
-        Ok(())
-    }
+    //pub fn file<P: AsRef<Path>>(self, path: P) -> Result<CompilerTask<'d, 'ctx,
+    // 'refs>, Error> { let mmap = AsciiFile::mmap(path)?;
+    //let file = AsciiFile::new((*mmap).as_ref())?;
 
-    pub fn compile<P: AsRef<Path>>(&mut self, path: P) -> Result<(), Error> {
-        let mmap = AsciiFile::mmap(path)?;
-        let file = AsciiFile::new((*mmap).as_ref())?;
-        Ok(())
+    //Ok(CompilerTask {
+    //writer_err: self.writer_err,
+    //writer_out: self.writer_out,
+    //stop_after: self.stop_after,
+    //lexer_adaptor: self.lexer_adaptor,
+    //lexer_probe: self.lexer_probe,
+    //on_compilation_done: self.on_compilation_done,
+    //file,
+    //})
+    //}
+
+    pub fn code<C: AsRef<[u8]> + 'ctx>(
+        self,
+        code: C,
+    ) -> Result<CompilerTask<'d, 'ctx, 'refs>, Error> {
+        let file = AsciiFile::new(code.as_ref())?;
+
+        Ok(CompilerTask {
+            writer_err: self.writer_err,
+            writer_out: self.writer_out,
+            stop_after: self.stop_after,
+            lexer_adaptor: self.lexer_adaptor,
+            lexer_probe: self.lexer_probe,
+            on_compilation_done: self.on_compilation_done,
+            file,
+        })
     }
 }
 
-//trait CompilerInput<'f, A: AsRef<[u8]>> {
-//fn load(&self) -> Result<A, Error>;
-//}
+pub struct CompilerTask<'d, 'ctx, 'refs> {
+    writer_err: Box<dyn WriteColor>,
+    writer_out: Box<dyn WriteColor>,
+    stop_after: CompilerPhase,
+    lexer_adaptor: LexerAdaptor<'d, 'ctx, 'refs>,
+    lexer_probe: LexerProbe<'d, 'ctx, 'refs>,
+    on_compilation_done: CompilationDoneHandler<'ctx>,
+    file: AsciiFile<'ctx>,
+}
 
-///// Allows us to pass inline source code to `Driver::compile`
-//impl<'f> CompilerInput<'f> for &'f str {
-//fn load(self) -> Result<AsciiFile<'f>, Error> {
-//let file = AsciiFile::new(self.as_bytes())?;
-//Ok(file)
-//}
+impl<'d, 'ctx, 'refs> CompilerTask<'d, 'ctx, 'refs> {
+    ///
+    /// Returns the exit code and maybe an internal error object.
+    fn run(&mut self) -> Result<i32, i32> {
+        let context = Context::new(&self.file, self.writer_out);
+        let strtab = StringTable::new();
+        let raw_lexer = Lexer::new(&strtab, &context);
+        let mut lexer_error = None;
+        let lexer = raw_lexer
+            .filter_map(|token| {
+                let maybe_repaired = (self.lexer_adaptor)(&mut self, &context, token);
+                if let Some(msg) = maybe_repaired {
+                    lexer_error = Some(msg);
+                    None
+                } else {
+                    maybe_repaired
+                }
+            })
+            .map(|token| {
+                (self.lexer_probe)(&mut self, &context, token);
+                token
+            });
 
-// Allows us to pass a Path or PathBuf to `Driver::compile`
-//impl<'f, P> CompilerInput<'f, Box<dyn AsRef<[u8]>>> for P
-//where
-//P: AsRef<Path>,
-//{
-//fn load(&self) -> Result<Box<dyn AsRef<[u8]>>, Error> {
-//AsciiFile::mmap(self.as_ref()).map(|a| a.as_ref())
-//}
+        if self.stop_after == CompilerPhase::Lexer {
+            // pull the lexer, since the parser won't
+            for _token in lexer {
+                if let Some(msg) = lexer_error {
+                    context.diagnostics.error(&msg);
+                    (self.on_compilation_done)(&context);
+                    return Err(EXIT_CODE_INPUT_ERROR);
+                }
+                //if let Err(lexical_error) = token {
+                //(self.on_compilation_done)(&context);
+                //(callback)(Err((EXIT_CODE_INPUT_ERROR, lexical_error)));
+                //return;
+                //}
+            }
 
-// this would lead to ascii checks being performed twice
-//impl<'f> CompilerInput<'f, ()> for AsciiFile<'f> {
-//fn load(&self) -> Result<((), AsciiFile<'f>), Error> {
-//Ok(((), self.clone()))
-//}
+            (self.on_compilation_done)(&context);
+            return Ok(EXIT_CODE_SUCCESS);
+        }
+
+        let mut parser: Parser<'_, _> = Parser::new(lexer);
+
+        let program = match parser.parse() {
+            Ok(p) => p,
+            Err(parser_error) => {
+                // note since the parser pulls the lexer
+                // this might also be a forwarded lexer_error
+                context.diagnostics.error(&parser_error);
+                (self.on_compilation_done)(&context);
+                return Err(EXIT_CODE_INPUT_ERROR);
+            }
+        };
+
+        if self.stop_after == CompilerPhase::Parser {
+            (self.on_compilation_done)(&context);
+            return Ok(EXIT_CODE_SUCCESS);
+        }
+
+        (self.on_compilation_done)(&context);
+        Ok(EXIT_CODE_SUCCESS)
+    }
+}
 
 /// The default lexer adaptor filters whitespace and comments.
 /// Aborts compilation on the first error encountered.
-pub fn default_lexer_adaptor<'t>(
-    _driver: Driver<'t>,
-    result: TokenResult<'t>,
-) -> Option<TokenResult<'t>> {
+pub fn default_lexer_adaptor<'d, 'ctx, 'refs>(
+    driver: &mut CompilerTask<'d, 'ctx, 'refs>,
+    context: &Context<'ctx>,
+    result: TokenResult<'ctx>,
+) -> Option<Token<'ctx>> {
     match result {
         Ok(token) => match token.data {
             TokenKind::Whitespace | TokenKind::Comment(_) => None,
-            _ => Some(Ok(token)),
+            _ => Some(token),
         },
-        Err(lexical_error) => Some(Err(lexical_error)),
+        Err(lexical_error) => {
+            //Some(Err(lexical_error)),
+            context.diagnostics.error(&lexical_error);
+            (driver.on_compilation_done)(&context);
+            exit(EXIT_CODE_INPUT_ERROR);
+        }
     }
 }
 
@@ -164,7 +276,12 @@ pub fn default_on_compilation_done_handler(context: &Context<'_>) /* -> i32 */
     //}
 }
 
-pub fn default_lexer_probe<'t>(_driver: Driver<'t>, _token: Token<'t>) {}
+pub fn default_lexer_probe<'d, 'ctx, 'refs>(
+    _driver: &'refs mut CompilerTask<'d, 'ctx, 'refs>,
+    _context: &'refs Context<'ctx>,
+    _token: Token<'ctx>,
+) {
+}
 
 /// Print an error in a format intended for end users and terminate
 /// the program.

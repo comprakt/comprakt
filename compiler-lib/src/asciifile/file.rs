@@ -41,7 +41,7 @@ impl<'m> AsciiFile<'m> {
         Ok(AsciiFile { mapping })
     }
 
-    pub fn mmap<P: AsRef<Path>>(path_ref: P) -> Result<Box<AsRef<[u8]>>, Error> {
+    pub fn mmap<P: AsRef<Path>>(path_ref: P) -> Result<Box<dyn AsRef<[u8]>>, Error> {
         let path = path_ref.as_ref().to_path_buf();
         let file = File::open(&path).context(AsciiFileError::OpenInput { path: path.clone() })?;
 
@@ -109,7 +109,7 @@ mod tests {
         assert!(file.is_err());
         let e = file.err().unwrap();
         println!("{:?}", e);
-        let EncodingError::NotAscii { position } = e;
+        let AsciiFileError::NotAscii { position } = e.downcast::<AsciiFileError>().unwrap();
         assert_eq!(position, 3);
     }
 
@@ -127,7 +127,8 @@ mod tests {
         let file = AsciiFile::new(&input);
         assert!(file.is_err());
 
-        let EncodingError::NotAscii { position } = file.err().unwrap();
+        let AsciiFileError::NotAscii { position } =
+            file.err().unwrap().downcast::<AsciiFileError>().unwrap();
         assert_eq!(position, 0);
     }
 }
