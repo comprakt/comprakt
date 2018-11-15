@@ -35,15 +35,6 @@ impl Ord for Position<'_> {
 // TODO: given that we implement Copy, differencing between *_mut and
 // non-mutable versions of functions does not really make sense.
 impl<'t> Position<'t> {
-    #[cfg(test)]
-    pub fn dummy() -> Self {
-        Position {
-            // TODO: this position is not valid?!
-            byte_offset: 0,
-            file: Box::leak(Box::new(AsciiFile::new(&[]).unwrap())),
-        }
-    }
-
     /// Create a new Position object pointing at the first character
     /// of a file. Returns `None` for empty files.
     pub fn at_file_start(file: &'t AsciiFile<'t>) -> Option<Self> {
