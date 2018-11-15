@@ -43,6 +43,8 @@ impl<'m> AsciiFile<'m> {
             }
         }
 
+        linebreaks.shrink_to_fit();
+
         Ok(AsciiFile {
             mapping,
             line_cache: LineNumberCache::new(linebreaks),
