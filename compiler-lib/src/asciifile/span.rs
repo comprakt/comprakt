@@ -111,7 +111,7 @@ impl<'f> Span<'f> {
 
     /// Check if a span extends over multiple lines
     ///
-    /// This will consider spans that contain a single trailing
+    /// This will not consider spans that contain a single trailing
     /// whitespace as multiline.
     ///
     /// ```
@@ -121,10 +121,10 @@ impl<'f> Span<'f> {
     /// let first = file.iter().next().unwrap();
     /// let last = file.iter().last().unwrap();
     /// let span = Span::new(first, last);
-    /// assert!(span.is_multiline());
+    /// assert!(!span.is_multiline());
     /// ```
     ///
-    /// A span only containing a newline will not be considered
+    /// Also, A span only containing a newline will not be considered
     /// multiline.
     ///
     /// ```
@@ -134,6 +134,19 @@ impl<'f> Span<'f> {
     /// let newline = file.iter().next().unwrap();
     /// let span = Span::new(newline, newline);
     /// assert!(!span.is_multiline());
+    /// ```
+    ///
+    /// A span with one or more newlines as a prefix will be considered
+    /// multiline.
+    ///
+    /// ```
+    /// use compiler_lib::asciifile::{AsciiFile, Span};
+    ///
+    /// let file = AsciiFile::new("\na".as_bytes()).unwrap();
+    /// let first = file.iter().next().unwrap();
+    /// let last = file.iter().last().unwrap();
+    /// let span = Span::new(first, last);
+    /// assert!(span.is_multiline());
     /// ```
     pub fn is_multiline(&self) -> bool {
         self.start.row() != self.end.row()
@@ -319,13 +332,10 @@ impl<'span, 'file> Iterator for LineNumberIterator<'span, 'file> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.lines.next().map(|span| {
-            let first_char = span.start_position();
-            let line_number = if first_char.chr() == '\n' {
-                first_char.row()
-            } else {
-                first_char.row() + 1
-            };
-            (line_number, span)
+            // TODO: this can be implemented more efficiently
+            // in O(1) by traversing the sorted set of newlines directly
+            // instead of using line_number(.) which needs O(log N)
+            (span.start_position().line_number(), span)
         })
     }
 }
