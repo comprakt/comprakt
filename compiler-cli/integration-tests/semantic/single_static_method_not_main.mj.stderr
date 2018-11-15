@@ -1,4 +1,4 @@
-error: Static methods have to be called 'main'
+error: Only the 'main' method can be static
    | 
  2 |     public static void s1(String[] args) {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

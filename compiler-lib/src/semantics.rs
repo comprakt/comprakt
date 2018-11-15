@@ -1,4 +1,10 @@
-use crate::{asciifile::Spanned, ast, context::Context, strtab::Symbol, visitor::NodeKind};
+use crate::{
+    asciifile::{MaybeSpanned, Spanned},
+    ast,
+    context::Context,
+    strtab::Symbol,
+    visitor::NodeKind,
+};
 use failure::{format_err, Error, Fail};
 use std::{collections::HashMap, rc::Rc};
 
@@ -14,8 +20,10 @@ enum SemanticError {
         name
     )]
     MainMethodParamUsed { name: String },
-    #[fail(display = "Static methods have to be called 'main'")]
+    #[fail(display = "Only the 'main' method can be static")]
     StaticMethodNotMain,
+    #[fail(display = "No 'main' method found")]
+    NoMainMethod,
     #[fail(
         display = "{}. definition of a static method. Only one is allowed",
         amount
@@ -38,6 +46,15 @@ type ClassesAndMembers<'a, 'f> = HashMap<
 pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &Context<'_>) -> Result<(), Error> {
     let mut first_pass_visitor = ClassesAndMembersVisitor::new(context);
     first_pass_visitor.do_visit(&NodeKind::from(ast));
+
+    // Check if a static method was found. If multiple static methods were found or
+    // the static method is not called `main` the error is already emitted in
+    // the visitor
+    if first_pass_visitor.static_method_found == 0 {
+        context
+            .diagnostics
+            .error(&MaybeSpanned::WithoutSpan(SemanticError::NoMainMethod));
+    }
 
     context.diagnostics.abort_if_errored();
 

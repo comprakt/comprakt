@@ -1,4 +1,4 @@
-error: Static methods have to be called 'main'
+error: Only the 'main' method can be static
    | 
  6 |     public static void s1(String[] args) {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -16,7 +16,7 @@ error: 2. definition of a static method. Only one is allowed
  8 |     }
    | ^^^^^
 
-error: Static methods have to be called 'main'
+error: Only the 'main' method can be static
     | 
  10 |     public static void s2(String[] args) {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -34,7 +34,7 @@ error: 3. definition of a static method. Only one is allowed
  12 |     }
     | ^^^^^
 
-error: Static methods have to be called 'main'
+error: Only the 'main' method can be static
     | 
  14 |     public static void s3(String[] args) {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -52,7 +52,7 @@ error: 4. definition of a static method. Only one is allowed
  16 |     }
     | ^^^^^
 
-error: Static methods have to be called 'main'
+error: Only the 'main' method can be static
     | 
  20 |     public static void main2(String[] args) {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
