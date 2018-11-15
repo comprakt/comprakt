@@ -13,6 +13,7 @@
 use compiler_lib::{
     asciifile, ast,
     context::{self, Context},
+    driver::{CompilerPhase, Driver},
     lexer::{Lexer, TokenKind},
     parser::Parser,
     print::{self, lextest},
@@ -106,23 +107,6 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path, &sem::check),
     }
-}
-
-/// Print an error in a format intended for end users and terminate
-/// the program.
-fn exit_with_error(err: &Error) -> ! {
-    let mut stderr = io::stderr();
-    print_error(&mut stderr, err).expect("unable to print error");
-    exit(1);
-}
-
-/// Print error objects in a format intended for end users
-fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error> {
-    writeln!(writer, "error: {}", err.as_fail())?;
-    for cause in err.iter_causes() {
-        writeln!(writer, "caused by: {}", cause)?;
-    }
-    Ok(())
 }
 
 fn cmd_echo(path: &PathBuf) -> Result<(), Error> {
@@ -271,41 +255,31 @@ fn cmd_parsetest(path: &PathBuf) -> Result<(), Error> {
 }
 
 fn cmd_lextest(path: &PathBuf) -> Result<(), Error> {
-    setup_io!(let context = path);
-    let strtab = StringTable::new();
-    let lexer = Lexer::new(&strtab, &context);
+    let mut compiler = Driver::default()
+        .stop_after(CompilerPhase::Lexer)
+        .lexer_probe(box |mut compiler, token| {
+            // TODO: we surpress an io error here
+            writeln!(compiler.writer_out(), "{}", lextest::Output::new(&token)).ok();
+        });
 
-    let mut stdout = io::stdout();
-
-    for token in lexer {
-        match token {
-            Err(lexical_error) => context.diagnostics.error(&lexical_error),
-            Ok(token) => write_token(&mut stdout, &token.data)?,
-        }
-
-        // stop compilation on first error during lexing phase
-        if context.diagnostics.errored() {
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    }
-
-    write_eof_token(&mut stdout)?;
-
+    compiler.compile(path)?;
+    writeln!(compiler.writer_out(), "EOF")?;
     Ok(())
 }
 
-fn write_token<O: io::Write>(out: &mut O, token: &TokenKind) -> Result<(), Error> {
-    match token {
-        TokenKind::Whitespace | TokenKind::Comment(_) => Ok(()),
-        _ => {
-            writeln!(out, "{}", lextest::Output::new(&token))?;
-            Ok(())
-        }
-    }
+/// Print an error in a format intended for end users and terminate
+/// the program.
+fn exit_with_error(err: &Error) -> ! {
+    let mut stderr = io::stderr();
+    print_error(&mut stderr, err).expect("unable to print error");
+    exit(1);
 }
 
-fn write_eof_token<O: io::Write>(out: &mut O) -> Result<(), Error> {
-    writeln!(out, "EOF")?;
+/// Print error objects in a format intended for end users
+fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error> {
+    writeln!(writer, "error: {}", err.as_fail())?;
+    for cause in err.iter_causes() {
+        writeln!(writer, "caused by: {}", cause)?;
+    }
     Ok(())
 }

@@ -1,15 +1,27 @@
 use super::{Position, PositionIterator};
-use failure::Fail;
-use std::ops::Deref;
+use failure::{Error, Fail, ResultExt};
+use memmap::Mmap;
+use std::{
+    fs::File,
+    io,
+    ops::Deref,
+    path::{Path, PathBuf},
+};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AsciiFile<'m> {
     // TODO: mapping should be private
     pub mapping: &'m [u8],
 }
 
+const EMPTY_FILE: [u8; 0] = [0; 0];
+
 #[derive(Debug, Fail)]
-pub enum EncodingError {
+enum AsciiFileError {
+    #[fail(display = "cannot open input file {:?}", path)]
+    OpenInput { path: PathBuf },
+    #[fail(display = "cannot mmap input file {:?}", path)]
+    Mmap { path: PathBuf },
     #[fail(
         display = "input contains non-ascii character at byte offset {}.",
         position
@@ -19,14 +31,45 @@ pub enum EncodingError {
 
 impl<'m> AsciiFile<'m> {
     // cost: O(fileLen) since we need to check if all chars are ASCII
-    pub fn new(mapping: &'m [u8]) -> Result<AsciiFile<'m>, EncodingError> {
+    pub fn new(mapping: &'m [u8]) -> Result<AsciiFile<'m>, Error> {
         // TODO: move validation out of constructor
         // TODO: add nice error back
         if let Some(position) = mapping.iter().position(|c| !c.is_ascii()) {
-            return Err(EncodingError::NotAscii { position });
+            return Err(AsciiFileError::NotAscii { position }.into());
         }
 
         Ok(AsciiFile { mapping })
+    }
+
+    pub fn mmap<P: AsRef<Path>>(path_ref: P) -> Result<Box<AsRef<[u8]>>, Error> {
+        let path = path_ref.as_ref().to_path_buf();
+        let file = File::open(&path).context(AsciiFileError::OpenInput { path: path.clone() })?;
+
+        let mmres = unsafe { Mmap::map(&file) };
+
+        match mmres {
+            Ok(mmap) => return Ok(box mmap),
+            Err(e) if e.kind() == io::ErrorKind::InvalidInput => {
+                // Linux returns EINVAL on file size 0, but let's be sure
+                let file_size = file
+                    .metadata()
+                    .map(|m| m.len())
+                    .context("could not get file metadata while interpreting mmap error")?;
+
+                if file_size == 0 {
+                    return Ok(box EMPTY_FILE);
+                } else {
+                    return Err(e
+                        .context(AsciiFileError::Mmap { path: path.clone() })
+                        .into());
+                }
+            }
+            Err(e) => {
+                return Err(e
+                    .context(AsciiFileError::Mmap { path: path.clone() })
+                    .into())
+            }
+        };
     }
 
     pub fn iter(&self) -> PositionIterator<'_> {
