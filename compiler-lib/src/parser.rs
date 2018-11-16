@@ -136,7 +136,7 @@ impl<'f> fmt::Display for Alternatives<'f> {
             write!(f, "{}", alternatives[0])
         } else {
             let last = alternatives.pop().unwrap();
-            let alts = alternatives.drain(..alternatives.len() - 1).format(", ");
+            let alts = alternatives.drain(..).format(", ");
             write!(f, "{} or {}", alts, last)
         }
     }
