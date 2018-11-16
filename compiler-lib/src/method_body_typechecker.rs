@@ -69,15 +69,12 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             Block(block) => self.check_type_block(block),
             Empty => {},
             If(cond, stmt, opt_else) => {
-                let cond_type = self.get_type_expr(cond);
-                match cond_type {
-                    Ok(CheckedType::Boolean) => {},
-                    Ok(_) => {
+                if let Ok(ty) = self.get_type_expr(cond) {
+                    if !CheckedType::Boolean.is_assignable_from(&ty) {
                         self.context.report_error(&cond.span,
                             SemanticError::ConditionMustBeBoolean
                         )
                     }
-                    Err(_) => {}
                 }
 
                 self.check_type_stmt(&stmt);
@@ -86,22 +83,19 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 }
             }
             While(cond, stmt) => {
-                let cond_type = self.get_type_expr(cond);
-
-                match cond_type {
-                    Ok(CheckedType::Boolean) => {},
-                    Ok(_) => {
+                if let Ok(ty) = self.get_type_expr(cond) {
+                    if !CheckedType::Boolean.is_assignable_from(&ty) {
                         self.context.report_error(&cond.span,
                             SemanticError::ConditionMustBeBoolean
                         )
                     }
-                    Err(_) => {}
                 }
 
                 self.check_type_stmt(&stmt);
             }
             Expression(expr) => {
                 let _ = self.get_type_expr(expr);
+                // todo validate that stmt expr is valid
             }
             Return(expr_opt) => {
                 let return_ty = &self.current_method.return_ty;
@@ -129,11 +123,12 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                                 );
                             }
                             _ => {
-                                if let Ok(expr_ty_r) = expr_ty {
-                                    if !return_ty.is_assignable_from(&expr_ty_r) {
+                                // FIXME reduce nesting
+                                if let Ok(expr_ty) = expr_ty {
+                                    if !return_ty.is_assignable_from(&expr_ty) {
                                         self.context.report_error(&stmt.span,
                                             SemanticError::InvalidReturnType {
-                                                ty_expr: format!("{:?}", expr_ty_r),
+                                                ty_expr: format!("{:?}", expr_ty),
                                                 ty_return: format!("{:?}", return_ty)
                                             }
                                         );
@@ -143,17 +138,15 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                         }
                     }
                 };
-
-
-                // todo
             }
             LocalVariableDeclaration(ty, name, opt_assign) => {
-                self.local_scope
+                let def_ty = CheckedType::from(&ty.data);
+                let var_def = self.local_scope
                     .define(
                         name,
                         VarDef::Local {
                             name: name.data,
-                            ty: CheckedType::from(&ty.data),
+                            ty: def_ty.clone(),
                         },
                     )
                     .unwrap_or_else(|_| {
@@ -166,8 +159,16 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                     });
 
                 if let Some(assign) = opt_assign {
-                    self.get_type_expr(assign);
-                    // todo
+                    if let Ok(expr_ty) = self.get_type_expr(assign) {
+                        if !def_ty.is_assignable_from(&expr_ty) {
+                            self.context.report_error(&assign.span,
+                                SemanticError::InvalidType {
+                                    ty_expected: format!("{:?}", def_ty),
+                                    ty_expr: format!("{:?}", expr_ty),
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }

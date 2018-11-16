@@ -51,6 +51,10 @@ pub enum SemanticError {
     #[fail(display = "Invalid return type: Expected expression of type '{}', but was of type '{}'",
         ty_return, ty_expr)]
     InvalidReturnType { ty_expr: String, ty_return: String },
+
+    #[fail(display = "Invalid type: Expected expression of type '{}', but was of type '{}'",
+        ty_expected, ty_expr)]
+    InvalidType { ty_expected: String, ty_expr: String },
 }
 
 pub fn check<'a, 'src>(
