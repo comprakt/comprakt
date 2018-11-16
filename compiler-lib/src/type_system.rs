@@ -114,11 +114,17 @@ pub struct ClassFieldDef<'src> {
 }
 
 // TODO Clone or not? => Store types in hashmap
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CheckedType<'src> {
     Int,
     Boolean,
     Void,
     TypeRef(Symbol<'src>),
     Array(Box<CheckedType<'src>>),
+}
+
+impl<'src> CheckedType<'src> {
+    pub fn is_assignable_from(&self, other: &CheckedType<'src>) -> bool {
+        self == other
+    }
 }

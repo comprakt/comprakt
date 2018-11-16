@@ -63,9 +63,9 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         self.local_scope.leave_scope().unwrap();
     }
 
-    fn check_type_stmt(&mut self, stmt: &ast::Stmt<'src>) {
+    fn check_type_stmt(&mut self, stmt: &Spanned<'src, ast::Stmt<'src>>) {
         use self::ast::Stmt::*;
-        match &stmt {
+        match &stmt.data {
             Block(block) => self.check_type_block(block),
             Empty => {},
             If(cond, stmt, opt_else) => {
@@ -104,10 +104,46 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 let _ = self.get_type_expr(expr);
             }
             Return(expr_opt) => {
-                let ty = match expr_opt {
-                    None => Ok(CheckedType::Void),
-                    Some(expr) => self.get_type_expr(expr),
+                let return_ty = &self.current_method.return_ty;
+                match expr_opt {
+                    None => {
+                        // case "return;"
+                        match return_ty {
+                            CheckedType::Void => {}
+                            _ => {
+                                self.context.report_error(&stmt.span,
+                                    SemanticError::MethodMustReturnSomething {
+                                        ty: format!("{:?}", return_ty)
+                                    }
+                                );
+                            }
+                        }
+                    },
+                    Some(expr) => {
+                        // case "return expr;"
+                        let expr_ty = self.get_type_expr(expr);
+                        match return_ty {
+                            CheckedType::Void => {
+                                self.context.report_error(&stmt.span,
+                                    SemanticError::VoidMethodCannotReturnValue
+                                );
+                            }
+                            _ => {
+                                if let Ok(expr_ty_r) = expr_ty {
+                                    if !return_ty.is_assignable_from(&expr_ty_r) {
+                                        self.context.report_error(&stmt.span,
+                                            SemanticError::InvalidReturnType {
+                                                ty_expr: format!("{:?}", expr_ty_r),
+                                                ty_return: format!("{:?}", return_ty)
+                                            }
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
                 };
+
 
                 // todo
             }

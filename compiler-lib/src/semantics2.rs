@@ -41,6 +41,16 @@ pub enum SemanticError {
 
     #[fail(display = "cannot access non static field '{}' in static method", field_name)]
     CannotAccessNonStaticFieldInStaticMethod { field_name: String },
+
+    #[fail(display = "method cannot return a value")]
+    VoidMethodCannotReturnValue,
+
+    #[fail(display = "method must return a value of type '{}'", ty)]
+    MethodMustReturnSomething { ty: String },
+
+    #[fail(display = "Invalid return type: Expected expression of type '{}', but was of type '{}'",
+        ty_return, ty_expr)]
+    InvalidReturnType { ty_expr: String, ty_return: String },
 }
 
 pub fn check<'a, 'src>(
