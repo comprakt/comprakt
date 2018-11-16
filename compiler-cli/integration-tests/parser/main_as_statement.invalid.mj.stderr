@@ -1,4 +1,4 @@
-error: expected operator '{', found operator ';'
+error: expected 'throws' or `{`, found `;`
    | 
  2 |     public static void IDENT(String[]ident);
    |                                            ^

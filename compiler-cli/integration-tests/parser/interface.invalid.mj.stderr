@@ -1,4 +1,4 @@
-error: expected keyword 'class', found keyword 'interface'
+error: expected 'class', found 'interface'
    | 
  1 | interface Foo {}
    | ^^^^^^^^^

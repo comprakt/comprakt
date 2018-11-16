@@ -1,4 +1,4 @@
-error: expected an identifier, found keyword 'class'
+error: expected `[` or an identifier, found 'class'
    | 
  2 |     public void class;
    |                 ^^^^^
