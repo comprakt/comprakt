@@ -314,7 +314,7 @@ where
     fn parse_class_declaration(&mut self) -> ParserResult<'f, ast::ClassDeclaration<'f>> {
         spanned!(self, {
             self.omnomnom(exactly(Keyword::Class))?;
-            let name = self.omnomnom(Identifier)?.data;
+            let name = self.omnomnom(Identifier)?;
 
             let mut members = Vec::new();
             self.omnomnom(exactly(Operator::LeftBrace))?;
@@ -346,7 +346,10 @@ where
                 let string_array_type = Spanned {
                     data: ast::Type {
                         // treat String[] as an opaque type
-                        basic: ast::BasicType::Custom(java_string.data),
+                        basic: Spanned::new(
+                            java_string.span,
+                            ast::BasicType::Custom(java_string.data),
+                        ),
                         array_depth: 1,
                     },
                     span: Span::combine(&java_string.span, &java_string_array_close.span),
@@ -428,15 +431,15 @@ where
         })
     }
 
-    fn parse_basic_type(&mut self) -> SyntaxResult<'f, ast::BasicType<'f>> {
-        if self.omnomnoptional(exactly(Keyword::Int))?.is_some() {
-            Ok(ast::BasicType::Int)
-        } else if self.omnomnoptional(exactly(Keyword::Boolean))?.is_some() {
-            Ok(ast::BasicType::Boolean)
-        } else if self.omnomnoptional(exactly(Keyword::Void))?.is_some() {
-            Ok(ast::BasicType::Void)
+    fn parse_basic_type(&mut self) -> SyntaxResult<'f, Spanned<'f, ast::BasicType<'f>>> {
+        if let Some(basic) = self.omnomnoptional(exactly(Keyword::Int))? {
+            Ok(Spanned::new(basic.span, ast::BasicType::Int))
+        } else if let Some(basic) = self.omnomnoptional(exactly(Keyword::Boolean))? {
+            Ok(Spanned::new(basic.span, ast::BasicType::Boolean))
+        } else if let Some(basic) = self.omnomnoptional(exactly(Keyword::Void))? {
+            Ok(Spanned::new(basic.span, ast::BasicType::Void))
         } else if let Some(sym) = self.omnomnoptional(Identifier)? {
-            Ok(ast::BasicType::Custom(sym.data))
+            Ok(Spanned::new(sym.span, ast::BasicType::Custom(sym.data)))
         } else {
             let actual = self.lexer.next()?;
             Err(WithSpan(Spanned {
@@ -540,7 +543,7 @@ where
 
                 self.omnomnom(exactly(Operator::Semicolon))?;
 
-                Ok(LocalVariableDeclaration(ty, name.data, init))
+                Ok(LocalVariableDeclaration(ty, name, init))
             } else {
                 let expr = self.parse_expression()?;
                 self.omnomnom(exactly(Operator::Semicolon))?;
@@ -643,13 +646,13 @@ where
 
                     Spanned {
                         span: Span::combine(&expr.span, &args.span),
-                        data: ast::Expr::MethodInvocation(expr, adressee.data, args),
+                        data: ast::Expr::MethodInvocation(expr, adressee, args),
                     }
                 } else {
                     // member reference: EXPR.ident
                     Spanned {
                         span: Span::combine(&expr.span, &adressee.span),
-                        data: ast::Expr::FieldAccess(expr, adressee.data),
+                        data: ast::Expr::FieldAccess(expr, adressee),
                     }
                 }
             } else if self
@@ -680,10 +683,10 @@ where
                 if self.tastes_like(exactly(Operator::LeftParen))? {
                     // function call
                     let params = self.parse_parameter_values()?;
-                    Ok(ThisMethodInvocation(adressee.data, params))
+                    Ok(ThisMethodInvocation(adressee, params))
                 } else {
                     // var ref
-                    Ok(Var(adressee.data))
+                    Ok(Var(adressee))
                 }
             } else if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
                 // parenthesized expression
@@ -700,7 +703,7 @@ where
 
                     self.omnomnom(exactly(Operator::LeftParen))?;
                     self.omnomnom(exactly(Operator::RightParen))?;
-                    Ok(NewObject(new_type.data))
+                    Ok(NewObject(new_type))
                 } else {
                     // new array expression
                     let new_type = self.parse_basic_type()?;
@@ -728,7 +731,7 @@ where
             } else if self.omnomnoptional(exactly(Keyword::This))?.is_some() {
                 Ok(This)
             } else if let Some(lit) = self.omnomnoptional(IntegerLiteral)? {
-                Ok(Int(lit.data))
+                Ok(Int(lit))
             } else {
                 Err(WithSpan(Spanned {
                     span: self.lexer.peek_span()?,

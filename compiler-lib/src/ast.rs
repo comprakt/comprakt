@@ -19,7 +19,7 @@ pub struct Program<'t> {
 /// the members of the class.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ClassDeclaration<'t> {
-    pub name: Symbol<'t>,
+    pub name: Spanned<'t, Symbol<'t>>,
     pub members: Vec<Spanned<'t, ClassMember<'t>>>,
 }
 
@@ -63,7 +63,7 @@ pub struct Parameter<'t> {
 /// (n-dimensional) array type.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Type<'t> {
-    pub basic: BasicType<'t>,
+    pub basic: Spanned<'t, BasicType<'t>>,
     /// Depth of the array type (number of `[]`) i.e. this means means `self.ty
     /// []^(self.array)`
     pub array_depth: u64,
@@ -101,6 +101,8 @@ pub struct Block<'t> {
 /// a local variable
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
+// TODO: should all be named, especially variants with 3 arguments.
+// `LocalVariableDeclaration`
 pub enum Stmt<'t> {
     Block(Spanned<'t, Block<'t>>),
     Empty,
@@ -114,7 +116,7 @@ pub enum Stmt<'t> {
     Return(Option<Box<Spanned<'t, Expr<'t>>>>),
     LocalVariableDeclaration(
         Spanned<'t, Type<'t>>,
-        Symbol<'t>,
+        Spanned<'t, Symbol<'t>>,
         Option<Box<Spanned<'t, Expr<'t>>>>,
     ),
 }
@@ -153,21 +155,21 @@ pub enum Expr<'t> {
     // Postfix ops
     MethodInvocation(
         Box<Spanned<'t, Expr<'t>>>,
-        Symbol<'t>,
+        Spanned<'t, Symbol<'t>>,
         Spanned<'t, ArgumentList<'t>>,
     ),
-    FieldAccess(Box<Spanned<'t, Expr<'t>>>, Symbol<'t>),
+    FieldAccess(Box<Spanned<'t, Expr<'t>>>, Spanned<'t, Symbol<'t>>),
     ArrayAccess(Box<Spanned<'t, Expr<'t>>>, Box<Spanned<'t, Expr<'t>>>),
 
     // The old primary expressions
     Null,
     Boolean(bool),
-    Int(IntLit<'t>),
-    Var(Symbol<'t>),
-    ThisMethodInvocation(Symbol<'t>, Spanned<'t, ArgumentList<'t>>),
+    Int(Spanned<'t, IntLit<'t>>),
+    Var(Spanned<'t, Symbol<'t>>),
+    ThisMethodInvocation(Spanned<'t, Symbol<'t>>, Spanned<'t, ArgumentList<'t>>),
     This,
-    NewObject(Symbol<'t>),
-    NewArray(BasicType<'t>, Box<Spanned<'t, Expr<'t>>>, u64),
+    NewObject(Spanned<'t, Symbol<'t>>),
+    NewArray(Spanned<'t, BasicType<'t>>, Box<Spanned<'t, Expr<'t>>>, u64),
 }
 
 /// Binary operations like comparisons (`==`, `!=`, `<=`, ...), logical

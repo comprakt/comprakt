@@ -81,7 +81,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
 
         Program(program) => {
             let mut classes = program.classes.clone();
-            classes.sort_by_key(|c| c.clone().data.name);
+            classes.sort_by_key(|c| c.clone().data.name.data);
             classes
                 .into_iter()
                 .for_each(|class| do_prettyprint(&NodeKind::from(&class), printer));
@@ -152,7 +152,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
 
         BasicType(basic_ty) => {
             use crate::ast::BasicType::*;
-            match basic_ty {
+            match basic_ty.data {
                 Int => printer.print_str(&"int"),
                 Boolean => printer.print_str(&"boolean"),
                 Void => printer.print_str(&"void"),

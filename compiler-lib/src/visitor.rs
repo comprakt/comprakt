@@ -47,7 +47,7 @@ pub enum NodeKind<'a, 't> {
     Parameter(&'a Spanned<'t, Parameter<'t>>),
     ParameterList(&'a Spanned<'t, ParameterList<'t>>),
     Type(&'a Spanned<'t, Type<'t>>),
-    BasicType(&'a BasicType<'t>),
+    BasicType(&'a Spanned<'t, BasicType<'t>>),
     Block(&'a Spanned<'t, Block<'t>>),
     Stmt(&'a Spanned<'t, Stmt<'t>>),
     Expr(&'a Spanned<'t, Expr<'t>>),
@@ -232,7 +232,7 @@ gen_from_ast!(
     Spanned<'f, ast::ParameterList<'f>>
 );
 gen_from_ast!(NodeKind::Type<'a, 'f>, Spanned<'f, ast::Type<'f>>);
-gen_from_ast!(NodeKind::BasicType<'a, 'f>, ast::BasicType<'f>);
+gen_from_ast!(NodeKind::BasicType<'a, 'f>, Spanned<'f, ast::BasicType<'f>>);
 gen_from_ast!(NodeKind::Block<'a, 'f>, Spanned<'f, ast::Block<'f>>);
 gen_from_ast!(NodeKind::Stmt<'a, 'f>, Spanned<'f, ast::Stmt<'f>>);
 gen_from_ast!(NodeKind::Expr<'a, 'f>, Spanned<'f, ast::Expr<'f>>);
