@@ -38,6 +38,10 @@ enum SemanticError {
     ThisInStaticMethod,
     #[fail(display = "method '{}' might not return", method_name)]
     MightNotReturn { method_name: String },
+    #[fail(display = "not a statement")]
+    NotAStatement,
+    #[fail(display = "assignment to a non-l-value")]
+    AssignmentToNonLValue,
 }
 
 type ClassesAndMembers<'a, 'f> = HashMap<
@@ -161,6 +165,34 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                             self.check_method_always_returns(&member.name, highlight_span, block)
                         }
                         _ => (),
+                    }
+                }
+
+                Stmt(stmt) => {
+                    use crate::ast::Expr::*;
+                    if let ast::Stmt::Expression(expr) = &stmt.data {
+                        match &expr.data {
+                            Binary(ast::BinaryOp::Assign, lhs, _) => {
+                                //Check lhs
+                                match lhs.data {
+                                    FieldAccess(..) | ArrayAccess(..) | Var(..) => (),
+                                    _ => {
+                                        self.context.diagnostics.error(&Spanned {
+                                            span: lhs.span.clone(),
+                                            data: SemanticError::AssignmentToNonLValue,
+                                        });
+                                    }
+                                }
+                            }
+                            MethodInvocation(..) | ThisMethodInvocation(..) => (),
+                            _ => {
+                                //Err
+                                self.context.diagnostics.error(&Spanned {
+                                    span: stmt.span.clone(),
+                                    data: SemanticError::NotAStatement,
+                                });
+                            }
+                        }
                     }
                 }
 
