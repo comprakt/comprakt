@@ -18,14 +18,14 @@ impl<'t> TypeSystem<'t> {
 
     pub fn add_class_def(&mut self, class_def: ClassDef<'t>) -> Result<(), ()> {
         match self.defined_classes.entry(class_def.name) {
-            Entry::Occupied(e) => return Err(()),
+            Entry::Occupied(_) => return Err(()),
             Entry::Vacant(e) => e.insert(class_def),
         };
         Ok(())
     }
 
-    pub fn resolve_type_reference(&self, reference: &CheckedTypeRef<'t>) -> Option<&ClassDef<'t>> {
-        self.defined_classes.get(&reference.ty_name)
+    pub fn resolve_type_ref(&self, type_ref: Symbol<'t>) -> Option<&ClassDef<'t>> {
+        self.defined_classes.get(&type_ref)
     }
 }
 
@@ -53,8 +53,8 @@ impl<'t> ClassDef<'t> {
         Ok(())
     }
 
-    pub fn get_field(&self, name: &Symbol<'t>) -> Option<&ClassFieldDef<'t>> {
-        self.fields.get(name)
+    pub fn get_field(&self, name: Symbol<'t>) -> Option<&ClassFieldDef<'t>> {
+        self.fields.get(&name)
     }
 
     pub fn add_method(&mut self, method: ClassMethodDef<'t>) -> Result<(), ()> {
@@ -65,8 +65,8 @@ impl<'t> ClassDef<'t> {
         Ok(())
     }
 
-    pub fn get_method(&self, name: &Symbol<'t>) -> Option<&ClassMethodDef<'t>> {
-        self.methods.get(name)
+    pub fn get_method(&self, name: Symbol<'t>) -> Option<&ClassMethodDef<'t>> {
+        self.methods.get(&name)
     }
 
 }
@@ -91,22 +91,12 @@ pub struct ClassFieldDef<'t> {
     pub ty: CheckedType<'t>,
 }
 
-#[derive(Debug)]
+// TODO Clone or not? => Store types in hashmap
+#[derive(Debug, Clone)]
 pub enum CheckedType<'t> {
     Int,
     Boolean,
     Void,
-    TypeRef(CheckedTypeRef<'t>),
+    TypeRef(Symbol<'t>),
     Array(Box<CheckedType<'t>>),
-}
-
-#[derive(Debug)]
-pub struct CheckedTypeRef<'t> {
-    pub ty_name: Symbol<'t>,
-}
-
-impl<'t> CheckedTypeRef<'t> {
-    pub fn new(name: Symbol<'t>) -> CheckedTypeRef<'t> {
-        CheckedTypeRef { ty_name: name, }
-    }
 }
