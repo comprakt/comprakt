@@ -30,6 +30,12 @@ pub enum SemanticError {
     )]
     ThisMethodInvocationInStaticMethod { method_name: String },
 
+    #[fail(
+        display = "cannot call static method '{}'",
+        method_name
+    )]
+    CannotCallStaticMethod { method_name: String },
+
     #[fail(display = "non-static variable 'this' cannot be referenced from a static context")]
     ThisInStaticMethod,
 

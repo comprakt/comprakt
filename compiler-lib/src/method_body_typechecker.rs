@@ -1,12 +1,14 @@
 use crate::{asciifile::Spanned, strtab::Symbol,
     symtab::*, type_system::*, semantics2::*, ast};
 
+/*
 enum IdentLookupResult<'src, 'sem> {
     VarDef(VarDef<'src, 'sem>),
     Param(&'sem MethodParamDef<'src>),
     ThisField(&'sem ClassFieldDef<'src>),
     Class(&'sem ClassDef<'src>),
 }
+*/
 
 enum VarDef<'src, 'sem> {
     Local { name: Symbol<'src>, ty: CheckedType<'src> },
@@ -96,7 +98,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
             Expression(expr) => {
                 let _ = self.get_type_expr(expr);
-                // todo validate that stmt expr is valid
+                // TODO validate that stmt expr is valid. Is this done in the "first pass"?
             }
             Return(expr_opt) => {
                 let return_ty = &self.current_method.return_ty;
@@ -160,16 +162,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                     });
 
                 if let Some(assign) = opt_assign {
-                    if let Ok(expr_ty) = self.get_type_expr(assign) {
-                        if !def_ty.is_assignable_from(&expr_ty) {
-                            self.context.report_error(&assign.span,
-                                SemanticError::InvalidType {
-                                    ty_expected: def_ty.to_string(),
-                                    ty_expr: expr_ty.to_string(),
-                                }
-                            )
-                        }
-                    }
+                    self.check_type(assign, &def_ty);
                 }
             }
         }
@@ -185,6 +178,19 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         }
     }
 
+    fn check_type(&mut self, expr: &Spanned<'src, ast::Expr<'src>>, expected_ty: &CheckedType<'src>) {
+        if let Ok(ty) = self.get_type_expr(expr) {
+            if !expected_ty.is_assignable_from(&ty) {
+                self.context.report_error(&expr.span,
+                    SemanticError::InvalidType {
+                        ty_expected: expected_ty.to_string(),
+                        ty_expr: ty.to_string(),
+                    }
+                );
+            }
+        }
+    }
+
     fn get_type_expr(&mut self, expr: &Spanned<'src, ast::Expr<'src>>) -> Result<CheckedType<'src>, ()> {
         use crate::{ast::Expr::*, type_system::*};
         match &expr.data {
@@ -195,9 +201,14 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 Ok(lhs_type)
             }
             Unary(op, expr) => {
-                let expr_type = self.get_type_expr(expr)?;
-                // todo
-                Ok(expr_type)
+                let ty = match op {
+                    ast::UnaryOp::Not => CheckedType::Int,
+                    ast::UnaryOp::Neg => CheckedType::Boolean,
+                };
+
+                self.check_type(expr, &ty);
+
+                Ok(ty)
             }
             FieldAccess(target_expr, name) => {
                 let target_type = self.get_type_expr(&target_expr)?;
@@ -225,16 +236,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 self.check_method_invocation(name, &self.current_class, args)
             }
             ArrayAccess(target_expr, idx_expr) => {
-                if let Ok(idx_ty) = self.get_type_expr(idx_expr) {
-                    if !CheckedType::Int.is_assignable_from(&idx_ty) {
-                        self.context.report_error(&idx_expr.span,
-                            SemanticError::InvalidType {
-                                ty_expected: CheckedType::Int.to_string(),
-                                ty_expr: idx_ty.to_string(),
-                            }
-                        );
-                    }
-                }
+                self.check_type(idx_expr, &CheckedType::Int);
 
                 match self.get_type_expr(target_expr) {
                     Ok(CheckedType::Array(item_type)) => Ok(*item_type),
@@ -282,16 +284,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 }
             }
             NewArray(_basic_ty, size_expr, _dimension) => {
-                if let Ok(size_ty) = self.get_type_expr(size_expr) {
-                    if !CheckedType::Int.is_assignable_from(&size_ty) {
-                        self.context.report_error(&size_expr.span,
-                            SemanticError::InvalidType {
-                                ty_expected: CheckedType::Int.to_string(),
-                                ty_expr: size_ty.to_string(),
-                            }
-                        );
-                    }
-                }
+                self.check_type(size_expr, &CheckedType::Int);
 
                 /*let ty = basic_type_to_checked_type(basic_ty);
                 self.get_type_expr(size);*/
@@ -323,6 +316,14 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             },
         };
 
+        if method.is_static {
+            self.context.report_error(&method_name.span,
+                SemanticError::CannotCallStaticMethod {
+                    method_name: method_name.data.to_string(),
+                }
+            );
+        }
+
         if method.params.len() != args.len() {
             self.context.report_error(&method_name.span,
                 SemanticError::MethodArgCountDoesNotMatch {
@@ -333,18 +334,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         }
 
         for (arg, param) in args.iter().zip(method.params.iter()) {
-            let arg_ty = match self.get_type_expr(arg) {
-                Ok(ty) => ty,
-                Err(_) => continue,
-            };
-            if !param.ty.is_assignable_from(&arg_ty) {
-                self.context.report_error(&arg.span,
-                    SemanticError::InvalidType {
-                        ty_expected: param.ty.to_string(),
-                        ty_expr: arg_ty.to_string(),
-                    }
-                );
-            }
+            self.check_type(arg, &param.ty);
         }
 
         Ok(method.return_ty.clone())
