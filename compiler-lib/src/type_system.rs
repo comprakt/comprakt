@@ -1,6 +1,5 @@
-use std::{collections::HashMap};
-use crate::{strtab::Symbol};
-use std::collections::hash_map::Entry;
+use crate::strtab::Symbol;
+use std::collections::{hash_map::Entry, HashMap};
 
 #[derive(Debug)]
 pub struct TypeSystem<'t> {
@@ -9,7 +8,9 @@ pub struct TypeSystem<'t> {
 
 impl<'t> TypeSystem<'t> {
     pub fn new() -> TypeSystem<'t> {
-        TypeSystem { defined_classes: HashMap::new() }
+        TypeSystem {
+            defined_classes: HashMap::new(),
+        }
     }
 
     pub fn is_type_defined(&self, name: Symbol<'t>) -> bool {
@@ -68,7 +69,6 @@ impl<'t> ClassDef<'t> {
     pub fn get_method(&self, name: Symbol<'t>) -> Option<&ClassMethodDef<'t>> {
         self.methods.get(&name)
     }
-
 }
 
 #[derive(Debug)]

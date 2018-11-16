@@ -1,8 +1,8 @@
-
 use crate::{asciifile::Spanned, ast, context::Context, strtab::Symbol};
 use failure::{Error, Fail};
 use std::{collections::HashMap, rc::Rc};
 use crate::type_system::*;
+use crate::symtab::*;
 
 #[derive(Debug, Fail)]
 enum SemanticError {
@@ -32,7 +32,7 @@ enum SemanticError {
     ThisInStaticMethod,
 }
 
-pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &Context<'_>) -> Result<(), Error> {
+pub fn check<'a, 'src>(ast: &'a ast::AST<'src>, context: &Context<'src>) -> Result<(), Error> {
     match ast {
         ast::AST::Empty => {
 
@@ -51,7 +51,7 @@ pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &Context<'_>) -> Result<(),
     Ok(())
 }
 
-fn build_type_system<'t>(context: &'_ Context<'_>, program: &'_ ast::Program<'t>) -> TypeSystem<'t> {
+fn build_type_system<'src>(context: &Context<'src>, program: &ast::Program<'src>) -> TypeSystem<'src> {
     let mut type_system = TypeSystem::new();
     for class_decl in &program.classes {
         let mut class_def = ClassDef::new(class_decl.name);
@@ -85,10 +85,10 @@ fn build_type_system<'t>(context: &'_ Context<'_>, program: &'_ ast::Program<'t>
     type_system
 }
 
-fn new_class_method_def<'t>(
-    name: Symbol<'t>, params: &ast::ParameterList<'t>,
-    return_ty: CheckedType<'t>, is_static: bool
-) -> ClassMethodDef<'t> {
+fn new_class_method_def<'src>(
+    name: Symbol<'src>, params: &ast::ParameterList<'src>,
+    return_ty: CheckedType<'src>, is_static: bool
+) -> ClassMethodDef<'src> {
 
     ClassMethodDef {
         is_static: is_static,
@@ -123,56 +123,15 @@ fn basic_type_to_checked_type<'t>(basic_ty: &ast::BasicType<'t>) -> CheckedType<
     }
 }
 
-
-type ScopeDefs<'a, T> = HashMap<Symbol<'a>, T>;
-
-struct Scope<'a, T> {
-    parent: Option<Rc<Scope<'a, T>>>,
-    definitions: ScopeDefs<'a, T>,
-}
-
-impl<'a, T> Scope<'a, T> {
-    pub fn root() -> Rc<Self> {
-        Rc::new(Scope {
-            parent: None,
-            definitions: ScopeDefs::new(),
-        })
-    }
-    
-    pub fn enter_scope(parent: Rc<Self>) -> Self {
-        Scope {
-            parent: Some(parent),
-            definitions: ScopeDefs::new(),
-        }
-    }
-    
-    pub fn leave(self) -> Option<Rc<Self>> {
-        self.parent
-    }
-    
-    pub fn define(&mut self, sym: &Symbol<'a>, val: T) -> Result<(), ()> {
-        use std::collections::hash_map::Entry;
-        match self.definitions.entry(*sym) {
-            Entry::Occupied(o) => return Err(()),
-            Entry::Vacant(e) => e.insert(val),
-        };
-        Ok(())
-    }
-
-    pub fn lookup(&self, sym: Symbol<'a>) -> Option<&T> {
-        self.definitions.get(&sym)
-    }
-}
-
 enum IdentLookupResult<'t> {
     LocalVar(LocalVarDef<'t>),
     ThisField(ClassFieldDef<'t>),
     Class(ClassDef<'t>),
 }
 
-struct LocalVarDef<'t> {
-    name: Symbol<'t>,
-    ty: CheckedType<'t>,
+struct LocalVarDef<'src> {
+    name: Symbol<'src>,
+    ty: CheckedType<'src>,
 }
 
 
@@ -191,7 +150,7 @@ fn check_types<'t>(class_decl: &ast::ClassDeclaration<'t>, type_system: &'t Type
                     type_system,
                     current_class,
                     current_method,
-                    local_var_scope: Scope::root(),
+                    local_var_scope: Scoped::new(),
                 };
 
                 checker.check_type_block(block);
@@ -200,28 +159,28 @@ fn check_types<'t>(class_decl: &ast::ClassDeclaration<'t>, type_system: &'t Type
     }
 }
 
-struct MethodBodyTypeChecker<'t> {
-    context: &'t Context<'t>,
-    type_system: &'t TypeSystem<'t>,
-    current_class: &'t ClassDef<'t>,
-    current_method: &'t ClassMethodDef<'t>,
-    local_var_scope: Rc<Scope<'t, LocalVarDef<'t>>>,
+struct MethodBodyTypeChecker<'src, 'sem> {
+    context: &'sem Context<'src>,
+    type_system: &'sem TypeSystem<'src>,
+    current_class: &'sem ClassDef<'src>,
+    current_method: &'sem ClassMethodDef<'src>,
+    local_var_scope: Scoped<'src, LocalVarDef<'src>>,
 }
 
-impl<'t> MethodBodyTypeChecker<'t> {
-    fn check_type_block(&mut self, block: &ast::Block<'t>) -> Result<(), ()> {
-        self.local_var_scope = Rc::new(Scope::enter_scope(Rc::clone(&self.local_var_scope)));
+impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
+    fn check_type_block(&mut self, block: &ast::Block<'src>) -> Result<(), ()> {
+        self.local_var_scope.enter_scope();
 
-        for stmt in &block.statements {
-            self.check_type_stmt(&stmt)?;
-        }
+        // TODO Something with drop guards for scopes would be nicer
+        let res = block.statements.iter().map(|stmt| self.check_type_stmt(stmt))
+            .fold(Ok(()), |acc, res| acc.and(res));
 
-        self.local_var_scope = self.local_var_scope.leave().unwrap();
+        self.local_var_scope.leave_scope().unwrap();
 
-        Ok(())
+        res
     }
 
-    fn check_type_stmt(&mut self, stmt: &ast::Stmt<'t>) -> Result<(), ()> {
+    fn check_type_stmt(&mut self, stmt: &ast::Stmt<'src>) -> Result<(), ()> {
         use self::ast::Stmt::*;
         match &stmt {
             Block(block) => self.check_type_block(block),
@@ -233,7 +192,7 @@ impl<'t> MethodBodyTypeChecker<'t> {
                 if let Some(els) = opt_else {
                     self.check_type_stmt(&els)?;
                 }
-                
+
                 Ok(())
             }
             While(cond, stmt) => {
@@ -265,10 +224,10 @@ impl<'t> MethodBodyTypeChecker<'t> {
                         name: *name,
                         ty: checked_ty
                     }
-                )?;
+                ).map_err(|_| ())?; // TODO Real error
 
                 if let Some(assign) = opt_assign {
-                    
+
                 }
 
                 Ok(())
@@ -276,7 +235,7 @@ impl<'t> MethodBodyTypeChecker<'t> {
         }
     }
 
-    fn resolve_class(&mut self, ty: &CheckedType<'t>) -> Result<&'t ClassDef<'t>, ()> {
+    fn resolve_class(&mut self, ty: &CheckedType<'src>) -> Result<&'sem ClassDef<'src>, ()> {
         match ty {
             CheckedType::TypeRef(name) => {
                 match self.type_system.resolve_type_ref(*name) {
@@ -288,7 +247,7 @@ impl<'t> MethodBodyTypeChecker<'t> {
         }
     }
 
-    fn get_type_expr(&mut self, expr: &ast::Expr<'t>) -> Result<CheckedType<'t>, ()> {
+    fn get_type_expr(&mut self, expr: &ast::Expr<'src>) -> Result<CheckedType<'src>, ()> {
         use crate::ast::Expr::*;
         use crate::type_system::*;
         match expr {
@@ -330,7 +289,7 @@ impl<'t> MethodBodyTypeChecker<'t> {
             },
             Boolean(_) => Ok(CheckedType::Boolean),
             Int(_) => Ok(CheckedType::Int),
-            Var(name) => self.lookup_var(*name),
+            Var(name) => self.visible_definition_var(*name),
             MethodInvocation(target_expr, name, args) => {
                 let target_type = self.get_type_expr(&target_expr)?;
                 let target_class = self.resolve_class(&target_type)?;
@@ -360,7 +319,7 @@ impl<'t> MethodBodyTypeChecker<'t> {
             }
             NewArray(_basic_ty, _size, _dimension) => {
                 /*let ty = basic_type_to_checked_type(basic_ty);
-                
+
                 self.get_type_expr(size);*/
 
                 // new int[10][][];
@@ -372,20 +331,20 @@ impl<'t> MethodBodyTypeChecker<'t> {
 
     fn check_method_invocation(
         &mut self,
-        method_name: Symbol<'t>,
-        target_class_def: &ClassDef<'t>,
-        args: &ast::ArgumentList<'t>
-    ) -> Result<CheckedType<'t>, ()> {
+        method_name: Symbol<'src>,
+        target_class_def: &ClassDef<'src>,
+        args: &ast::ArgumentList<'src>
+    ) -> Result<CheckedType<'src>, ()> {
         let method = target_class_def.get_method(method_name).ok_or(())?;
-        
+
         // todo validate args
 
         Ok(method.return_ty.clone())
     }
 
-    fn lookup_var(&mut self, var_name: Symbol<'t>) -> Result<CheckedType<'t>, ()> {
+    fn visible_definition_var(&mut self, var_name: Symbol<'src>) -> Result<CheckedType<'src>, ()> {
         // params
-        if let Some(local_var_def) = self.local_var_scope.lookup(var_name) {
+        if let Some(local_var_def) = self.local_var_scope.visible_definition(var_name) {
             Ok(local_var_def.ty.clone())
         }
         // this fields (?)
