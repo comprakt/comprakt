@@ -61,6 +61,9 @@ pub enum SemanticError {
 
     #[fail(display = "class '{}' does not exist", class_name)]
     ClassDoesNotExist { class_name: String },
+
+    #[fail(display = "cannot index non-array type '{}'", ty)]
+    CannotIndexNonArrayType { ty: String },
 }
 
 pub fn check<'a, 'src>(

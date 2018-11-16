@@ -1,6 +1,5 @@
-use crate::{asciifile::Spanned, asciifile::Span, ast, context::Context, strtab::Symbol,
-    symtab::*, type_system::*, semantics2::*};
-use failure::Fail;
+use crate::{asciifile::Spanned, strtab::Symbol,
+    symtab::*, type_system::*, semantics2::*, ast};
 
 enum IdentLookupResult<'src, 'sem> {
     VarDef(VarDef<'src, 'sem>),
@@ -109,7 +108,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                             _ => {
                                 self.context.report_error(&stmt.span,
                                     SemanticError::MethodMustReturnSomething {
-                                        ty: format!("{:?}", return_ty)
+                                        ty: return_ty.to_string()
                                     }
                                 );
                             }
@@ -130,8 +129,8 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                                     if !return_ty.is_assignable_from(&expr_ty) {
                                         self.context.report_error(&stmt.span,
                                             SemanticError::InvalidReturnType {
-                                                ty_expr: format!("{:?}", expr_ty),
-                                                ty_return: format!("{:?}", return_ty)
+                                                ty_expr: expr_ty.to_string(),
+                                                ty_return: return_ty.to_string(),
                                             }
                                         );
                                     }
@@ -165,8 +164,8 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                         if !def_ty.is_assignable_from(&expr_ty) {
                             self.context.report_error(&assign.span,
                                 SemanticError::InvalidType {
-                                    ty_expected: format!("{:?}", def_ty),
-                                    ty_expr: format!("{:?}", expr_ty),
+                                    ty_expected: def_ty.to_string(),
+                                    ty_expr: expr_ty.to_string(),
                                 }
                             )
                         }
@@ -186,9 +185,9 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         }
     }
 
-    fn get_type_expr(&mut self, expr: &ast::Expr<'src>) -> Result<CheckedType<'src>, ()> {
+    fn get_type_expr(&mut self, expr: &Spanned<'src, ast::Expr<'src>>) -> Result<CheckedType<'src>, ()> {
         use crate::{ast::Expr::*, type_system::*};
-        match expr {
+        match &expr.data {
             Binary(op, lhs, rhs) => {
                 let lhs_type = self.get_type_expr(lhs)?;
                 let rhs_type = self.get_type_expr(rhs)?;
@@ -207,28 +206,43 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
 
                 Ok(field.ty.clone())
             }
-            ArrayAccess(target_expr, idx_expr) => {
-                let idx_type = self.get_type_expr(idx_expr)?;
-                // todo check that idx_type is numeric
-                let array_type = self.get_type_expr(target_expr)?;
-
-                match array_type {
-                    CheckedType::Array(item_type) => Ok(*item_type),
-                    _ => Err(()),
-                }
-            }
-            Null => {
-                // todo
-                Err(())
-            }
-            Boolean(_) => Ok(CheckedType::Boolean),
-            Int(_) => Ok(CheckedType::Int),
-            Var(name) => self.lookup_var(name),
             MethodInvocation(target_expr, name, args) => {
                 let target_type = self.get_type_expr(&target_expr)?;
                 let target_class = self.resolve_class(&target_type)?;
                 self.check_method_invocation(name.data, target_class, args)
             }
+            ArrayAccess(target_expr, idx_expr) => {
+                if let Ok(idx_ty) = self.get_type_expr(idx_expr) {
+                    if !CheckedType::Int.is_assignable_from(&idx_ty) {
+                        self.context.report_error(&idx_expr.span,
+                            SemanticError::InvalidType {
+                                ty_expected: CheckedType::Int.to_string(),
+                                ty_expr: idx_ty.to_string(),
+                            }
+                        );
+                    }
+                }
+
+                match self.get_type_expr(target_expr) {
+                    Ok(CheckedType::Array(item_type)) => Ok(*item_type),
+                    Ok(ty) => {
+                        self.context.report_error(&target_expr.span,
+                            SemanticError::CannotIndexNonArrayType {
+                                ty: ty.to_string(),
+                            }
+                        );
+                        Err(())
+                    }
+                    Err(_) => Err(()),
+                }
+            }
+            Null => {
+                // TODO
+                Err(())
+            }
+            Boolean(_) => Ok(CheckedType::Boolean),
+            Int(_) => Ok(CheckedType::Int),
+            Var(name) => self.lookup_var(&name),
             ThisMethodInvocation(name, args) => {
                 if self.current_method.is_static {
                     self.context.report_error(&name.span,
@@ -242,7 +256,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
             This => {
                 if self.current_method.is_static {
-                    self.context.report_error(&name.span,
+                    self.context.report_error(&expr.span,
                         SemanticError::ThisInStaticMethod
                     );
 
@@ -254,8 +268,8 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             NewObject(name) => {
                 let t = CheckedType::TypeRef(name.data);
                 match self.resolve_class(&t) {
-                    Some(class_def) => Ok(t),
-                    None => {
+                    Ok(_) => Ok(t),
+                    Err(_) => {
                         self.context.report_error(&name.span,
                             SemanticError::ClassDoesNotExist {
                                 class_name: name.data.to_string(),
@@ -269,8 +283,8 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 /*let ty = basic_type_to_checked_type(basic_ty);
                 self.get_type_expr(size);*/
 
-                // new int[10][][];
-                // todo
+                // e.g new int[10][][];
+                // TODO
                 Err(())
             }
         }
@@ -316,7 +330,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         .or_else(|_| {
             // static classes access (is not allowed).
             // Is important to check if user defines a "System" class
-            match self.type_system.resolve_type_ref(&var_name.data) {
+            match self.type_system.resolve_type_ref(var_name.data) {
                 Some(class_def) => {
                     self.context.report_error(&var_name.span,
                         SemanticError::InvalidReferenceToClass {

@@ -1,5 +1,6 @@
 use crate::{ast, context::Context, strtab::Symbol};
 use std::collections::{hash_map::Entry, HashMap};
+use std::fmt;
 
 #[derive(Debug)]
 pub struct TypeSystem<'src> {
@@ -126,5 +127,18 @@ pub enum CheckedType<'src> {
 impl<'src> CheckedType<'src> {
     pub fn is_assignable_from(&self, other: &CheckedType<'src>) -> bool {
         self == other
+    }
+}
+
+impl<'src> fmt::Display for CheckedType<'src> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::CheckedType::*;
+        match self {
+            Int => write!(f, "int"),
+            Boolean => write!(f, "boolean"),
+            Void => write!(f, "void"),
+            TypeRef(name) => write!(f, "{}", name),
+            Array(item) => write!(f, "{}[]", item),
+        }
     }
 }
