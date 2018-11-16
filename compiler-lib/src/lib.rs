@@ -28,5 +28,5 @@ pub mod print;
 pub mod semantics2;
 mod spantracker;
 pub mod strtab;
-mod symtab;
+pub mod symtab;
 mod type_system;

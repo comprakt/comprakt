@@ -109,7 +109,7 @@ struct MethodBodyTypeChecker<'src, 'sem> {
     type_system: &'sem TypeSystem<'src>,
     current_class: &'sem ClassDef<'src>,
     current_method: &'sem ClassMethodDef<'src>,
-    local_var_scope: Scoped<'src, LocalVarDef<'src>>,
+    local_var_scope: Scoped<Symbol<'src>, LocalVarDef<'src>>,
 }
 
 impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
@@ -167,7 +167,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 // todo catch already defined
                 self.local_var_scope
                     .define(
-                        name,
+                        *name,
                         LocalVarDef {
                             name: *name,
                             ty: CheckedType::from(&ty.data),
