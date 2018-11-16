@@ -38,6 +38,9 @@ pub enum SemanticError {
 
     #[fail(display = "cannot lookup var or field '{}'", name)]
     CannotLookupVarOrField { name: String },
+
+    #[fail(display = "cannot access non static field '{}' in static method", field_name)]
+    CannotAccessNonStaticFieldInStaticMethod { field_name: String },
 }
 
 pub fn check<'a, 'src>(

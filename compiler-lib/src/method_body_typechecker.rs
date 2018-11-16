@@ -2,16 +2,16 @@ use crate::{asciifile::Spanned, asciifile::Span, ast, context::Context, strtab::
     symtab::*, type_system::*, semantics2::*};
 use failure::Fail;
 
-enum IdentLookupResult<'src> {
-    VarDef(VarDef<'src>),
-    Param(MethodParamDef<'src>),
-    ThisField(ClassFieldDef<'src>),
-    Class(ClassDef<'src>),
+enum IdentLookupResult<'src, 'sem> {
+    VarDef(VarDef<'src, 'sem>),
+    Param(&'sem MethodParamDef<'src>),
+    ThisField(&'sem ClassFieldDef<'src>),
+    Class(&'sem ClassDef<'src>),
 }
 
-enum VarDef<'src> {
+enum VarDef<'src, 'sem> {
     Local { name: Symbol<'src>, ty: CheckedType<'src> },
-    Param(MethodParamDef<'src>)
+    Param(&'sem MethodParamDef<'src>)
 }
 
 pub struct MethodBodyTypeChecker<'src, 'sem> {
@@ -19,7 +19,7 @@ pub struct MethodBodyTypeChecker<'src, 'sem> {
     type_system: &'sem TypeSystem<'src>,
     current_class: &'sem ClassDef<'src>,
     current_method: &'sem ClassMethodDef<'src>,
-    local_scope: Scoped<'src, VarDef<'src>>,
+    local_scope: Scoped<'src, VarDef<'src, 'sem>>,
 }
 
 impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
@@ -44,6 +44,10 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                         current_method,
                         local_scope: Scoped::new(),
                     };
+
+                    for param in &current_method.params {
+                        checker.local_scope.define(&param.name, VarDef::Param(&param));
+                    }
 
                     checker.check_type_block(block);
                 }
@@ -85,7 +89,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 let cond_type = self.get_type_expr(cond);
 
                 match cond_type {
-                    Ok(Boolean) => {},
+                    Ok(CheckedType::Boolean) => {},
                     Ok(_) => {
                         self.context.report_error(&cond.span,
                             SemanticError::ConditionMustBeBoolean
@@ -97,7 +101,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 self.check_type_stmt(&stmt);
             }
             Expression(expr) => {
-                self.get_type_expr(expr);
+                let _ = self.get_type_expr(expr);
             }
             Return(expr_opt) => {
                 let ty = match expr_opt {
@@ -180,16 +184,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
             Boolean(_) => Ok(CheckedType::Boolean),
             Int(_) => Ok(CheckedType::Int),
-            Var(name) => {
-                self.lookup_var(name.data)
-                    .map_err(|_| {
-                        self.context.report_error(&name.span,
-                            SemanticError::CannotLookupVarOrField {
-                                name: name.data.to_string(),
-                            }
-                        );
-                    })
-            },
+            Var(name) => self.lookup_var(name),
             MethodInvocation(target_expr, name, args) => {
                 let target_type = self.get_type_expr(&target_expr)?;
                 let target_class = self.resolve_class(&target_type)?;
@@ -239,16 +234,38 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         Ok(method.return_ty.clone())
     }
 
-    fn lookup_var(&mut self, var_name: Symbol<'src>) -> Result<CheckedType<'src>, ()> {
-        match self.local_scope.lookup(var_name) {
+    fn lookup_var(&mut self, var_name: &Spanned<'src, Symbol<'src>>) -> Result<CheckedType<'src>, ()> {
+        match self.local_scope.lookup(var_name.data) {
             Some(VarDef::Local { name, ty }) => Ok(ty.clone()),
             Some(VarDef::Param(param_def)) => Ok(param_def.ty.clone()),
-            None => {
-                // this fields (?)
-                // classes (forbidden)
-                // globals
-                Err(())
-            }
+            None => Err(()),
         }
+        .or_else(|_| {
+            match self.current_class.get_field(var_name.data) {
+                Some(field) => {
+                    if self.current_method.is_static {
+                        self.context.report_error(&var_name.span,
+                            SemanticError::CannotAccessNonStaticFieldInStaticMethod {
+                                field_name: var_name.data.to_string(),
+                            }
+                        );
+                    }
+
+                    Ok(field.ty.clone())
+                },
+                None => Err(())
+            }
+        })
+        .or_else(|_| {
+            // classes (forbidden)
+            // globals
+            self.context.report_error(&var_name.span,
+                SemanticError::CannotLookupVarOrField {
+                    name: var_name.data.to_string(),
+                }
+            );
+            Err(())
+        })
+
     }
 }
