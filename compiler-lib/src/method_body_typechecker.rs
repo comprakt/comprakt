@@ -195,10 +195,49 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         use crate::{ast::Expr::*, type_system::*};
         match &expr.data {
             Binary(op, lhs, rhs) => {
-                let lhs_type = self.get_type_expr(lhs)?;
-                let rhs_type = self.get_type_expr(rhs)?;
-                // todo
-                Ok(lhs_type)
+                use crate::ast::BinaryOp::*;
+                match op {
+                    Assign => {
+                        // TODO ensure that lhs is L-Value
+                        match self.get_type_expr(lhs) {
+                            Ok(lhs_type) => {
+                                self.check_type(rhs, &lhs_type);
+                                Ok(lhs_type)
+                            }
+                            Err(_) => Err(())
+                        }
+                    }
+                    Equals | NotEquals => {
+                        let lhs_type = self.get_type_expr(&lhs)?;
+                        let rhs_type = self.get_type_expr(&rhs)?;
+
+                        if !lhs_type.is_assignable_from(&rhs_type)
+                            && !rhs_type.is_assignable_from(&lhs_type) {
+                            self.context.report_error(&expr.span,
+                                SemanticError::CannotCompareValuesOfType1WithType2 {
+                                    ty1: lhs_type.to_string(),
+                                    ty2: rhs_type.to_string(),
+                                }
+                            );
+                        }
+                        Ok(CheckedType::Boolean)
+                    }
+                    LogicalOr | LogicalAnd => {
+                        self.check_type(lhs, &CheckedType::Boolean);
+                        self.check_type(rhs, &CheckedType::Boolean);
+                        Ok(CheckedType::Boolean)
+                    }
+                    LessThan | GreaterThan | LessEquals | GreaterEquals  => {
+                        self.check_type(lhs, &CheckedType::Int);
+                        self.check_type(rhs, &CheckedType::Int);
+                        Ok(CheckedType::Boolean)
+                    }
+                    Add | Sub | Mul | Div | Mod => {
+                        self.check_type(lhs, &CheckedType::Int);
+                        self.check_type(rhs, &CheckedType::Int);
+                        Ok(CheckedType::Int)
+                    }
+                }
             }
             Unary(op, expr) => {
                 let ty = match op {
@@ -251,10 +290,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                     Err(_) => Err(()),
                 }
             }
-            Null => {
-                // TODO
-                Err(())
-            }
+            Null => Ok(CheckedType::Null),
             Boolean(_) => Ok(CheckedType::Boolean),
             Int(_) => Ok(CheckedType::Int),
             Var(name) => self.check_var(&name),

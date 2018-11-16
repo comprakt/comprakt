@@ -78,6 +78,9 @@ pub enum SemanticError {
     #[fail(display = "method argument count does not match: Expected {} arguments, but found {}",
         expected_args, actual_args)]
     MethodArgCountDoesNotMatch { expected_args: usize, actual_args: usize },
+
+    #[fail(display = "cannot compare values of type '{}' with values of type '{}'", ty1, ty2)]
+    CannotCompareValuesOfType1WithType2 { ty1: String, ty2: String },
 }
 
 pub fn check<'a, 'src>(

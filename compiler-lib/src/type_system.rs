@@ -122,13 +122,26 @@ pub enum CheckedType<'src> {
     Int,
     Boolean,
     Void,
+    Null,
     TypeRef(Symbol<'src>),
     Array(Box<CheckedType<'src>>),
 }
 
 impl<'src> CheckedType<'src> {
+    pub fn is_nullable(&self) -> bool {
+        match self {
+            CheckedType::TypeRef(_) => true,
+            CheckedType::Array(_) => true,
+            CheckedType::Null => true,
+            _ => false,
+        }
+    }
     pub fn is_assignable_from(&self, other: &CheckedType<'src>) -> bool {
-        self == other
+        // TODO there must be a better way
+        (match other {
+            CheckedType::Null => self.is_nullable(),
+            _ => false
+        }) || self == other
     }
 }
 
@@ -139,6 +152,7 @@ impl<'src> fmt::Display for CheckedType<'src> {
             Int => write!(f, "int"),
             Boolean => write!(f, "boolean"),
             Void => write!(f, "void"),
+            Null => write!(f, "null"),
             TypeRef(name) => write!(f, "{}", name),
             Array(item) => write!(f, "{}[]", item),
         }
