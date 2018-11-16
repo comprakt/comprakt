@@ -1,11 +1,10 @@
-use crate::{asciifile::Spanned, ast, context::Context, strtab::Symbol};
-use failure::{Error, Fail};
-use std::{collections::HashMap, rc::Rc};
-use crate::type_system::*;
-use crate::symtab::*;
+use crate::{asciifile::Spanned, ast, context::Context, strtab::Symbol, symtab::*, type_system::*};
+use failure::Fail;
+
+type SemanticError<'a> = Spanned<'a, SemanticErrorKind>;
 
 #[derive(Debug, Fail)]
-enum SemanticError {
+pub enum SemanticErrorKind {
     #[fail(display = "redefinition of {} '{}'", kind, name)]
     RedefinitionError {
         kind: String, // "class", "parameter", ...
@@ -32,94 +31,37 @@ enum SemanticError {
     ThisInStaticMethod,
 }
 
-pub fn check<'a, 'src>(ast: &'a ast::AST<'src>, context: &Context<'src>) -> Result<(), Error> {
+pub fn check<'a, 'src>(
+    ast: &'a ast::AST<'src>,
+    context: &Context<'src>,
+) -> Result<TypeSystem<'src>, SemanticError<'src>> {
     match ast {
-        ast::AST::Empty => {
-
-        }
-        ast::AST::Program(prog) => {
-            let type_system = build_type_system(context, prog);
-
-            //println!("{:#?}", type_system);
-
-            context.diagnostics.info(&Spanned {
-                span: prog.span.clone(),
-                data: format!("test"),
-            });
-        }
+        ast::AST::Empty => Ok(TypeSystem::new()),
+        ast::AST::Program(prog) => Ok(TypeSystem::build(context, prog)),
     }
-    Ok(())
 }
 
-fn build_type_system<'src>(context: &Context<'src>, program: &ast::Program<'src>) -> TypeSystem<'src> {
-    let mut type_system = TypeSystem::new();
-    for class_decl in &program.classes {
-        let mut class_def = ClassDef::new(class_decl.name);
-        
-        for member in &class_decl.members {
-            use crate::ast::ClassMemberKind::*;
-            match &member.kind {
-                Field(ty) => {
-                    class_def.add_field(
-                        ClassFieldDef {
-                            name: member.name,
-                            ty: type_to_checked_type(&ty)
-                        }
-                    );
-                }
-                Method(ty, params, _) => {
-                    let return_ty = type_to_checked_type(&ty);
-                    class_def.add_method(new_class_method_def(
-                        member.name, &params, return_ty, true));
-                }
-                MainMethod(params, _) => {
-                    class_def.add_method(new_class_method_def(
-                        member.name, &params, CheckedType::Void, true));
-                }
-            }
+impl<'t> From<&ast::Type<'t>> for CheckedType<'t> {
+    fn from(ty: &ast::Type<'t>) -> Self {
+        let mut checked_ty = (&ty.basic).into();
+
+        for _ in 0..ty.array_depth {
+            checked_ty = CheckedType::Array(Box::new(checked_ty));
         }
 
-        type_system.add_class_def(class_def);
-    }
-
-    type_system
-}
-
-fn new_class_method_def<'src>(
-    name: Symbol<'src>, params: &ast::ParameterList<'src>,
-    return_ty: CheckedType<'src>, is_static: bool
-) -> ClassMethodDef<'src> {
-
-    ClassMethodDef {
-        is_static: is_static,
-        name: name,
-        return_ty: return_ty,
-        params: params.iter()
-            .map(|p| MethodParamDef {
-                name: p.name,
-                ty: type_to_checked_type(&p.ty),
-            })
-            .collect()
+        checked_ty
     }
 }
 
-fn type_to_checked_type<'t>(ty: &ast::Type<'t>) -> CheckedType<'t> {
-    let mut checked_ty = basic_type_to_checked_type(&ty.basic);
-
-    for _ in 0..ty.array_depth {
-        checked_ty = CheckedType::Array(Box::new(checked_ty));
-    }
-    
-    checked_ty
-}
-
-fn basic_type_to_checked_type<'t>(basic_ty: &ast::BasicType<'t>) -> CheckedType<'t> {
-    use self::ast::BasicType::*;
-    match basic_ty {
-        Int => CheckedType::Int,
-        Boolean => CheckedType::Boolean,
-        Void => CheckedType::Void,
-        Custom(symbol) => CheckedType::TypeRef(*symbol),
+impl<'t> From<&ast::BasicType<'t>> for CheckedType<'t> {
+    fn from(basic_ty: &ast::BasicType<'t>) -> Self {
+        use self::ast::BasicType::*;
+        match basic_ty {
+            Int => CheckedType::Int,
+            Boolean => CheckedType::Boolean,
+            Void => CheckedType::Void,
+            Custom(symbol) => CheckedType::TypeRef(*symbol),
+        }
     }
 }
 
@@ -134,8 +76,11 @@ struct LocalVarDef<'src> {
     ty: CheckedType<'src>,
 }
 
-
-fn check_types<'t>(class_decl: &ast::ClassDeclaration<'t>, type_system: &'t TypeSystem<'t>, context: &'t Context<'t>) {
+fn check_types<'t>(
+    class_decl: &ast::ClassDeclaration<'t>,
+    type_system: &'t TypeSystem<'t>,
+    context: &'t Context<'t>,
+) {
     let current_class = type_system.resolve_type_ref(class_decl.name).unwrap();
 
     for member in &class_decl.members {
@@ -172,7 +117,10 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         self.local_var_scope.enter_scope();
 
         // TODO Something with drop guards for scopes would be nicer
-        let res = block.statements.iter().map(|stmt| self.check_type_stmt(stmt))
+        let res = block
+            .statements
+            .iter()
+            .map(|stmt| self.check_type_stmt(stmt))
             .fold(Ok(()), |acc, res| acc.and(res));
 
         self.local_var_scope.leave_scope().unwrap();
@@ -208,27 +156,26 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             Return(expr_opt) => {
                 let ty = match expr_opt {
                     None => CheckedType::Void,
-                    Some(expr) => self.get_type_expr(expr)?
+                    Some(expr) => self.get_type_expr(expr)?,
                 };
                 // todo
 
                 Ok(())
             }
             LocalVariableDeclaration(ty, name, opt_assign) => {
-
-                let checked_ty = type_to_checked_type(&ty);
                 // todo check parameters
                 // todo catch already defined
-                self.local_var_scope.define(name,
-                    LocalVarDef {
-                        name: *name,
-                        ty: checked_ty
-                    }
-                ).map_err(|_| ())?; // TODO Real error
+                self.local_var_scope
+                    .define(
+                        name,
+                        LocalVarDef {
+                            name: *name,
+                            ty: CheckedType::from(&ty.data),
+                        },
+                    )
+                    .map_err(|_| ())?; // TODO Real error
 
-                if let Some(assign) = opt_assign {
-
-                }
+                if let Some(assign) = opt_assign {}
 
                 Ok(())
             }
@@ -237,19 +184,16 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
 
     fn resolve_class(&mut self, ty: &CheckedType<'src>) -> Result<&'sem ClassDef<'src>, ()> {
         match ty {
-            CheckedType::TypeRef(name) => {
-                match self.type_system.resolve_type_ref(*name) {
-                    None => Err(()),
-                    Some(class_def) => Ok(class_def)
-                }
-            }
-            _ => Err(())
+            CheckedType::TypeRef(name) => match self.type_system.resolve_type_ref(*name) {
+                None => Err(()),
+                Some(class_def) => Ok(class_def),
+            },
+            _ => Err(()),
         }
     }
 
     fn get_type_expr(&mut self, expr: &ast::Expr<'src>) -> Result<CheckedType<'src>, ()> {
-        use crate::ast::Expr::*;
-        use crate::type_system::*;
+        use crate::{ast::Expr::*, type_system::*};
         match expr {
             Binary(op, lhs, rhs) => {
                 let lhs_type = self.get_type_expr(lhs)?;
@@ -275,18 +219,14 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 let array_type = self.get_type_expr(target_expr)?;
 
                 match array_type {
-                    CheckedType::Array(item_type) => {
-                        Ok(*item_type)
-                    },
-                    _ => {
-                        Err(())
-                    }
+                    CheckedType::Array(item_type) => Ok(*item_type),
+                    _ => Err(()),
                 }
             }
             Null => {
                 // todo
                 Err(())
-            },
+            }
             Boolean(_) => Ok(CheckedType::Boolean),
             Int(_) => Ok(CheckedType::Int),
             Var(name) => self.visible_definition_var(*name),
@@ -298,19 +238,17 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             ThisMethodInvocation(name, args) => {
                 if self.current_method.is_static {
                     Err(())
-                }
-                else {
+                } else {
                     self.check_method_invocation(*name, &self.current_class, args)
                 }
             }
             This => {
                 if self.current_method.is_static {
                     Err(())
-                }
-                else {
+                } else {
                     Ok(CheckedType::TypeRef(self.current_class.name))
                 }
-            },
+            }
             NewObject(name) => {
                 let t = CheckedType::TypeRef(*name);
                 self.resolve_class(&t);
@@ -319,7 +257,6 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
             NewArray(_basic_ty, _size, _dimension) => {
                 /*let ty = basic_type_to_checked_type(basic_ty);
-
                 self.get_type_expr(size);*/
 
                 // new int[10][][];
@@ -333,7 +270,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         &mut self,
         method_name: Symbol<'src>,
         target_class_def: &ClassDef<'src>,
-        args: &ast::ArgumentList<'src>
+        args: &ast::ArgumentList<'src>,
     ) -> Result<CheckedType<'src>, ()> {
         let method = target_class_def.get_method(method_name).ok_or(())?;
 

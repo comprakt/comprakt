@@ -1,5 +1,5 @@
 use crate::strtab::Symbol;
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 pub type SymbolTable<'a, T> = HashMap<Symbol<'a>, T>;
 
@@ -50,7 +50,7 @@ impl<'a, T> Scoped<'a, T> {
             }
         }
 
-        return None;
+        None
     }
 
     fn current_scope(&mut self) -> &mut SymbolTable<'a, T> {

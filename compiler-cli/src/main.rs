@@ -197,7 +197,16 @@ fn cmd_check(path: &PathBuf) -> Result<(), Error> {
         }
     };
 
-    crate::semantics2::check(&ast, &context)
+    match crate::semantics2::check(&ast, &context) {
+        Ok(_type_system) => (),
+        Err(error) => {
+            context.diagnostics.error(&error);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    };
+
+    Ok(())
 }
 
 fn cmd_printast<P>(path: &PathBuf, printer: &P) -> Result<(), Error>
