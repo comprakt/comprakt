@@ -34,7 +34,7 @@ pub type LexicalError<'f> = Spanned<'f, ErrorKind>;
 
 pub type IntLit<'f> = &'f str;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Display)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord, Display)]
 /// Keywords are single-ticked, operators back-ticked
 pub enum TokenKind<'f> {
     #[display(fmt = "'{}'", _0)]
@@ -96,7 +96,7 @@ pub enum Warning {
     CommentSeparatorInsideComment,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord, Copy)]
 pub enum Keyword {
     Abstract,
     Assert,
@@ -284,7 +284,7 @@ impl TryFrom<&str> for Keyword {
 }
 
 // Use non-semantic names, since e.g. '<' might mean more than 'less-than'
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord, Copy)]
 pub enum Operator {
     ExclaimEqual,
     Exclaim,

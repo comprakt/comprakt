@@ -10,8 +10,13 @@ use crate::{
 };
 
 use failure::Fail;
+use itertools::Itertools;
 
-use std::fmt;
+use std::{
+    collections::{HashSet, VecDeque},
+    fmt,
+    ops::{Deref, DerefMut},
+};
 
 type Precedence = usize;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,7 +54,7 @@ pub enum SyntaxError {
     #[fail(display = "expected {}, found {}", expected, actual)]
     UnexpectedToken {
         actual: String,
-        expected: String, // TODO This is temporary, shouldn't be string
+        expected: String, // Has to be string, because Alternatives has a lifetime
     },
     #[fail(display = "unexpected end of file")]
     UnexpectedEOF,
@@ -61,7 +66,7 @@ impl<'f> From<EOF> for MaybeSpanned<'f, SyntaxError> {
     }
 }
 
-pub trait ExpectedToken<'f>: fmt::Debug + fmt::Display + Copy {
+trait ExpectedToken<'f>: fmt::Debug + fmt::Display + Copy + Into<TaggedExpectedToken<'f>> {
     type Yields;
     fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields>;
 
@@ -70,23 +75,89 @@ pub trait ExpectedToken<'f>: fmt::Debug + fmt::Display + Copy {
     }
 }
 
-#[derive(Debug, Clone, Copy, Display)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Display, PartialOrd, Ord)]
+enum TaggedExpectedToken<'f> {
+    Exactly(Exactly<'f>),
+    BinaryOp(BinaryOp),
+    UnaryOp(UnaryOp),
+    Identifier(Identifier),
+    ExactlyIdentifier(ExactlyIdentifier<'f>),
+    IntegerLiteral(IntegerLiteral),
+}
+
+macro_rules! gen_from_expected_token {
+    ($name: ident) => {
+        gen_from_expected_token!($name, $name);
+    };
+    ($variant: ident, $name: ty) => {
+        impl<'f> From<$name> for TaggedExpectedToken<'f> {
+            fn from(src: $name) -> TaggedExpectedToken<'f> {
+                TaggedExpectedToken::$variant(src)
+            }
+        }
+    };
+}
+
+gen_from_expected_token!(Exactly, Exactly<'f>);
+gen_from_expected_token!(BinaryOp);
+gen_from_expected_token!(UnaryOp);
+gen_from_expected_token!(Identifier);
+gen_from_expected_token!(ExactlyIdentifier, ExactlyIdentifier<'f>);
+gen_from_expected_token!(IntegerLiteral);
+
+struct Alternatives<'f>(HashSet<TaggedExpectedToken<'f>>);
+
+impl<'f> Alternatives<'f> {
+    fn new() -> Self {
+        Alternatives(HashSet::new())
+    }
+}
+
+impl<'f> Deref for Alternatives<'f> {
+    type Target = HashSet<TaggedExpectedToken<'f>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'f> DerefMut for Alternatives<'f> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'f> fmt::Display for Alternatives<'f> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut alternatives: Vec<_> = self.0.iter().collect();
+        alternatives.sort();
+        if alternatives.is_empty() {
+            panic!("musn't be called with empty set")
+        } else if alternatives.len() == 1 {
+            write!(f, "{}", alternatives[0])
+        } else {
+            let last = alternatives.pop().unwrap();
+            let alts = alternatives.drain(..alternatives.len() - 1).format(", ");
+            write!(f, "{} or {}", alts, last)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "{}", _0)]
-// TODO Should be Copy, but TokenKind contains Rc
 struct Exactly<'f>(TokenKind<'f>);
-#[derive(Debug, Clone, Copy, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "a binary operator")]
 struct BinaryOp;
-#[derive(Debug, Clone, Copy, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "a unary operator")]
 struct UnaryOp;
-#[derive(Debug, Clone, Copy, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "an identifier")]
 struct Identifier;
-#[derive(Debug, Clone, Copy, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "identifier '{}'", _0)]
 struct ExactlyIdentifier<'s>(&'s str);
-#[derive(Debug, Clone, Copy, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "an integer literal")]
 struct IntegerLiteral;
 
@@ -171,8 +242,7 @@ impl<'f> ExpectedToken<'f> for IntegerLiteral {
     }
 }
 
-// TODO private
-pub type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
+type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
 type ParserResult<'f, T> = SyntaxResult<'f, Spanned<'f, T>>;
 type BoxedResult<'f, T> = SyntaxResult<'f, Box<Spanned<'f, T>>>;
 
@@ -181,6 +251,7 @@ where
     I: Iterator<Item = Token<'f>>,
 {
     lexer: SpanTracker<'f, I>,
+    alternatives: VecDeque<Alternatives<'f>>,
 }
 
 macro_rules! spanned {
@@ -217,6 +288,7 @@ where
     pub fn new(lexer: I) -> Self {
         Parser {
             lexer: SpanTracker::new(lexer),
+            alternatives: VecDeque::new(),
         }
     }
 
@@ -225,16 +297,20 @@ where
         E: ExpectedToken<'f>,
     {
         let actual = self.lexer.next()?;
+        let mut current_alternatives = self
+            .alternatives
+            .pop_front()
+            .unwrap_or_else(Alternatives::new);
 
         want.matching(&actual.data)
             .map(|yielded| actual.map(|_| yielded))
             .ok_or_else(|| {
+                current_alternatives.insert(want.into());
                 WithSpan(Spanned {
                     span: actual.span,
                     data: SyntaxError::UnexpectedToken {
                         actual: actual.data.to_string(),
-                        // TODO: display all expected
-                        expected: want.to_string(),
+                        expected: current_alternatives.to_string(),
                     },
                 })
             })
@@ -244,29 +320,26 @@ where
     where
         E: ExpectedToken<'f>,
     {
-        self.omnomnoptional_if(want, |_| true)
-    }
-
-    /// Only consume token if pred(E::Yields) holds
-    fn omnomnoptional_if<E, P>(
-        &mut self,
-        want: E,
-        pred: P,
-    ) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
-    where
-        E: ExpectedToken<'f>,
-        P: Fn(&E::Yields) -> bool,
-    {
         if self.lexer.eof() {
             return Ok(None);
         }
 
         let got = self.lexer.peek()?;
 
-        Ok(want.matching(&got.data).filter(&pred).map(|yielded| {
-            let got = self.lexer.next().unwrap();
-            got.map(|_| yielded)
-        }))
+        Ok(match want.matching(&got.data) {
+            Some(yielded) => {
+                let got = self.lexer.next().unwrap();
+                self.alternatives.pop_front();
+                Some(got.map(|_| yielded))
+            }
+            None => {
+                if self.alternatives.get(0).is_none() {
+                    self.alternatives.push_back(Alternatives::new())
+                }
+                self.alternatives[0].insert(want.into());
+                None
+            }
+        })
     }
 
     fn tastes_like<E>(&mut self, want: E) -> SyntaxResult<'f, bool>
@@ -280,11 +353,20 @@ where
     where
         E: ExpectedToken<'f>,
     {
-        if self.lexer.eof() {
-            return Ok(false);
+        let tastes_good = self
+            .lexer
+            .peek_nth(n)
+            .map(|got| want.matches(&got.data))
+            .unwrap_or(false);
+
+        if !tastes_good {
+            while self.alternatives.len() <= n {
+                self.alternatives.push_back(Alternatives::new());
+            }
+            self.alternatives[n].insert(want.into());
         }
 
-        Ok(self.lexer.peek_nth(n).map(|got| want.matches(&got.data))?)
+        Ok(tastes_good)
     }
 
     pub fn parse(&mut self) -> Result<ast::AST<'f>, MaybeSpanned<'f, SyntaxError>> {
@@ -412,17 +494,9 @@ where
             Ok(ast::BasicType::Boolean)
         } else if self.omnomnoptional(exactly(Keyword::Void))?.is_some() {
             Ok(ast::BasicType::Void)
-        } else if let Some(sym) = self.omnomnoptional(Identifier)? {
-            Ok(ast::BasicType::Custom(sym.data))
         } else {
-            let actual = self.lexer.next()?;
-            Err(WithSpan(Spanned {
-                span: actual.span,
-                data: SyntaxError::UnexpectedToken {
-                    actual: actual.data.to_string(),
-                    expected: "keyword `int`, `boolean`, `void` or an identifier".to_string(),
-                },
-            }))
+            let sym = self.omnomnom(Identifier)?;
+            Ok(ast::BasicType::Custom(sym.data))
         }
     }
 
@@ -704,16 +778,9 @@ where
                 Ok(Boolean(true))
             } else if self.omnomnoptional(exactly(Keyword::This))?.is_some() {
                 Ok(This)
-            } else if let Some(lit) = self.omnomnoptional(IntegerLiteral)? {
-                Ok(Int(lit.data))
             } else {
-                Err(WithSpan(Spanned {
-                    span: self.lexer.peek_span()?,
-                    data: SyntaxError::UnexpectedToken {
-                        actual: self.lexer.next()?.data.to_string(),
-                        expected: "primary expression".to_string(),
-                    },
-                }))
+                let lit = self.omnomnom(IntegerLiteral)?;
+                Ok(Int(lit.data))
             }
         })
         .map(Box::new)
