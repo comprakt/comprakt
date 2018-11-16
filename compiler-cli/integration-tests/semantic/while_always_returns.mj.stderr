@@ -1,0 +1,7 @@
+error: method might not return
+   | 
+ 3 |       public int foo() {
+   |                        ^
+ 4 |       }
+   | ^^^^^^^
+

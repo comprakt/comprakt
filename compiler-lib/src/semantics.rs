@@ -36,6 +36,8 @@ enum SemanticError {
     ThisMethodInvocationInStaticMethod { name: String },
     #[fail(display = "non-static variable 'this' cannot be referenced from a static context")]
     ThisInStaticMethod,
+    #[fail(display = "method might not return")]
+    MightNotReturn,
 }
 
 type ClassesAndMembers<'a, 'f> = HashMap<
@@ -104,6 +106,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                         }
                     }
                 }
+
                 ClassMember(member) => {
                     if let ast::ClassMemberKind::MainMethod(params, block) = &member.kind {
                         debug_assert!(params.len() == 1);
@@ -123,6 +126,47 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                             })
                         }
                         self.visit_static_block(&NodeKind::from(block), &params[0].name);
+                    }
+
+                    match &member.kind {
+                        ast::ClassMemberKind::Method(ty, _, block)
+                            if ty.basic != ast::BasicType::Void =>
+                        {
+                            fn always_returns<'t>(stmt: &Spanned<'t, ast::Stmt<'t>>) -> bool {
+                                match &stmt.data {
+                                    // An if-else stmt always return iff both arms always return
+                                    ast::Stmt::If(_, then_arm, else_arm) => {
+                                        let then_arm_always_returns = always_returns(&*then_arm);
+                                        let else_arm_always_returns = else_arm
+                                            .as_ref()
+                                            .map_or(true, |else_arm| always_returns(&*else_arm));
+
+                                        then_arm_always_returns && else_arm_always_returns
+                                    }
+
+                                    // A block always returns iff any of the statements always
+                                    // returns
+                                    ast::Stmt::Block(block) => {
+                                        block.statements.iter().any(always_returns)
+                                    }
+
+                                    // A return stmt always returns
+                                    ast::Stmt::Return(_) => true,
+
+                                    // All other stmts do not always return
+                                    _ => false,
+                                }
+                            }
+
+                            if !block.statements.iter().any(always_returns) {
+                                self.context.diagnostics.error(&Spanned {
+                                    span: block.span.clone(),
+                                    data: SemanticError::MightNotReturn,
+                                });
+                            }
+                        }
+
+                        _ => (),
                     }
                 }
 

@@ -1,0 +1,13 @@
+error: method might not return
+    | 
+ 11 |       public int bar() {
+    |                        ^
+ 12 |          while (true) {
+    | ^^^^^^^^^^^^^^^^^^^^^^^
+ 13 |            return 5;
+    | ^^^^^^^^^^^^^^^^^^^^
+ 14 |          }
+    | ^^^^^^^^^^
+ 15 |       }
+    | ^^^^^^^
+
