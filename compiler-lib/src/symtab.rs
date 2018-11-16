@@ -3,6 +3,12 @@ use std::collections::HashMap;
 /// SymbolTable associates a Symbol `S` with a stored value `T`.
 pub type SymbolTable<S, T> = HashMap<S, T>;
 
+#[derive(Clone, Copy)]
+enum ScopeIdx {
+    Root,
+    Dynamic(usize),
+}
+
 /// Scoped implements scoping for SymbolTable.
 /// The generic type `S` is the Symbol and `T` is the value stored for that
 /// symbol.
@@ -12,6 +18,7 @@ where
 {
     root: SymbolTable<S, T>,
     scopes: Vec<SymbolTable<S, T>>,
+    visible_defs: HashMap<S, ScopeIdx>,
 }
 
 #[derive(Debug)]
@@ -27,6 +34,7 @@ where
         Scoped {
             root: SymbolTable::new(),
             scopes: Vec::new(),
+            visible_defs: HashMap::new(),
         }
     }
 
@@ -35,41 +43,60 @@ where
     }
 
     pub fn leave_scope(&mut self) -> Result<(), CannotLeaveRootScopeError> {
-        self.scopes
-            .pop()
-            .map(|_| ())
-            .ok_or(CannotLeaveRootScopeError)
+        let popped = self.scopes.pop().ok_or(CannotLeaveRootScopeError)?;
+        popped.iter().for_each(|(sym, _)| {
+            self.visible_defs
+                .remove(sym)
+                .expect("scopes inconsistent with visible_defs");
+        });
+        Ok(())
     }
 
     pub fn define(&mut self, sym: S, val: T) -> Result<(), RedefinitionError> {
-        if let Some(_existing_definition) = self.visible_definition(sym) {
+        // amortized O(1) lookup in visible_defs
+        if self.visible_defs.contains_key(&sym) {
             return Err(RedefinitionError);
         }
-        let insert_res = self.current_scope().insert(sym, val);
+        // insert into both current_scope and visible_defs
+        let (current_scope, scope_idx) = self.current_scope();
+        let insert_res = current_scope.insert(sym, val);
         debug_assert!(
             insert_res.is_none(),
-            "visible_defintions broken, current_scope contained a value"
+            "current_scope must be consistent with visible_defs"
         );
+        let insert_res = self.visible_defs.insert(sym, scope_idx);
+        debug_assert!(insert_res.is_none(), "we checked that above (contains_key)");
+        // invariant: visible_defs and current_scope consistent
         Ok(())
     }
 
     pub fn visible_definition(&self, sym: S) -> Option<&T> {
-        // TODO O(1) access to visible definition, see {{root}}/benches/symtab.rs
-        for scope in self.scope_upwards_iter() {
-            if let Some(def) = scope.get(&sym) {
-                return Some(def);
-            }
+        // amortized O(1) lookup to get sym's scope
+        let scope = match self.visible_defs.get(&sym) {
+            Some(&idx) => self.get_scope(idx),
+            None => return None,
+        };
+        // amortized O(1) lookup of symbol in that scope
+        let res = scope
+            .get(&sym)
+            .expect("visible_defs is inconsistent with state of symbol tables");
+        Some(res)
+    }
+
+    fn current_scope(&mut self) -> (&mut SymbolTable<S, T>, ScopeIdx) {
+        if self.scopes.len() > 0 {
+            let idx = self.scopes.len() - 1;
+            (&mut self.scopes[idx], ScopeIdx::Dynamic(idx))
+        } else {
+            (&mut self.root, ScopeIdx::Root)
         }
-
-        None
     }
 
-    fn current_scope(&mut self) -> &mut SymbolTable<S, T> {
-        self.scopes.last_mut().unwrap_or(&mut self.root)
-    }
-
-    fn scope_upwards_iter(&self) -> impl Iterator<Item = &SymbolTable<S, T>> {
-        self.scopes.iter().rev().chain(vec![&self.root])
+    fn get_scope(&self, scope_idx: ScopeIdx) -> &SymbolTable<S, T> {
+        match scope_idx {
+            ScopeIdx::Root => &self.root,
+            ScopeIdx::Dynamic(idx) => &self.scopes[idx],
+        }
     }
 }
 
