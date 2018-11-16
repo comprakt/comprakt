@@ -1,0 +1,50 @@
+error: not a statement
+    | 
+ 17 |         foo.bad;
+    |         ^^^^^^^^
+
+error: not a statement
+    | 
+ 18 |         this;
+    |         ^^^^^
+
+error: not a statement
+    | 
+ 19 |         null;
+    |         ^^^^^
+
+error: not a statement
+    | 
+ 20 |         false;
+    |         ^^^^^^
+
+error: not a statement
+    | 
+ 21 |         42;
+    |         ^^^
+
+error: not a statement
+    | 
+ 22 |         ok;
+    |         ^^^
+
+error: not a statement
+    | 
+ 23 |         new Foo();
+    |         ^^^^^^^^^^
+
+error: not a statement
+    | 
+ 24 |         new int[5];
+    |         ^^^^^^^^^^^
+
+error: not a statement
+    | 
+ 25 |         ok + ok;
+    |         ^^^^^^^^
+
+error: not a statement
+    | 
+ 26 |         !badBool;
+    |         ^^^^^^^^^
+

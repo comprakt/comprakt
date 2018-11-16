@@ -1,0 +1,50 @@
+error: assignment to a non-l-value
+    | 
+ 14 |         f() = 5;
+    |         ^^^
+
+error: assignment to a non-l-value
+    | 
+ 15 |         ohNo + ohNo = 5;
+    |         ^^^^^^^^^^^
+
+error: assignment to a non-l-value
+    | 
+ 16 |         !boolBad = false;
+    |         ^^^^^^^^
+
+error: assignment to a non-l-value
+    | 
+ 17 |         foo.f() = 5;
+    |         ^^^^^^^
+
+error: assignment to a non-l-value
+    | 
+ 18 |         foo.bad1.bad2.f() = 5;
+    |         ^^^^^^^^^^^^^^^^^
+
+error: assignment to a non-l-value
+    | 
+ 20 |         null = 5;
+    |         ^^^^
+
+error: assignment to a non-l-value
+    | 
+ 21 |         42 = 5;
+    |         ^^
+
+error: assignment to a non-l-value
+    | 
+ 22 |         false = true;
+    |         ^^^^^
+
+error: assignment to a non-l-value
+    | 
+ 23 |         new Foo() = new Foo();
+    |         ^^^^^^^^^
+
+error: assignment to a non-l-value
+    | 
+ 24 |         new int[5] = 5;
+    |         ^^^^^^^^^^
+
