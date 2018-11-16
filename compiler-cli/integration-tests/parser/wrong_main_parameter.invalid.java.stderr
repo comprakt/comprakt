@@ -1,4 +1,4 @@
-error: expected identifier 'String', found keyword 'int'
+error: expected identifier 'String', found 'int'
    | 
  3 |     public static void main(int[] args) {
    |                             ^^^

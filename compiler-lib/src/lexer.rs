@@ -34,29 +34,21 @@ pub type LexicalError<'f> = Spanned<'f, ErrorKind>;
 
 pub type IntLit<'f> = &'f str;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord, Display)]
+/// Keywords are single-ticked, operators back-ticked
 pub enum TokenKind<'f> {
+    #[display(fmt = "'{}'", _0)]
     Keyword(Keyword),
+    #[display(fmt = "`{}`", _0)]
     Operator(Operator),
+    #[display(fmt = "identifier `{}`", _0)]
     Identifier(Symbol<'f>),
+    #[display(fmt = "integer literal `{}`", _0)]
     IntegerLiteral(IntLit<'f>),
+    #[display(fmt = "a comment")]
     Comment(&'f str),
+    #[display(fmt = "whitespace")]
     Whitespace,
-}
-
-impl fmt::Display for TokenKind<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use self::TokenKind::*;
-
-        match self {
-            Keyword(keyword) => write!(f, "keyword '{}'", keyword),
-            Operator(operator) => write!(f, "operator '{}'", operator),
-            Identifier(symbol) => write!(f, "identifier '{}'", symbol),
-            IntegerLiteral(symbol) => write!(f, "integer literal '{}'", symbol),
-            Comment(_body) => write!(f, "comment"),
-            Whitespace => write!(f, "whitespace"),
-        }
-    }
 }
 
 #[derive(Debug, Fail)]
@@ -104,7 +96,7 @@ pub enum Warning {
     CommentSeparatorInsideComment,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord, Copy)]
 pub enum Keyword {
     Abstract,
     Assert,
@@ -242,7 +234,7 @@ derive_keyword_display_and_tryfrom!{
 }
 
 // Use non-semantic names, since e.g. '<' might mean more than 'less-than'
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord, Copy)]
 pub enum Operator {
     ExclaimEqual,
     Exclaim,
