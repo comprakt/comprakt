@@ -30,3 +30,4 @@ mod spantracker;
 pub mod strtab;
 mod symtab;
 mod type_system;
+mod method_body_typechecker;

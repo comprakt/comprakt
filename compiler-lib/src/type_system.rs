@@ -28,47 +28,6 @@ impl<'src> TypeSystem<'src> {
     pub fn resolve_type_ref(&self, type_ref: Symbol<'src>) -> Option<&ClassDef<'src>> {
         self.defined_classes.get(&type_ref)
     }
-
-    pub fn build(context: &Context<'src>, program: &ast::Program<'src>) -> TypeSystem<'src> {
-        let mut type_system = TypeSystem::new();
-
-        for class_decl in &program.classes {
-            let mut class_def = ClassDef::new(class_decl.name);
-
-            for member in &class_decl.members {
-                use crate::ast::ClassMemberKind::*;
-                match &member.kind {
-                    Field(ty) => {
-                        class_def.add_field(ClassFieldDef {
-                            name: member.name,
-                            ty: CheckedType::from(&ty.data),
-                        });
-                    }
-                    Method(ty, params, _) => {
-                        let return_ty = CheckedType::from(&ty.data);
-                        class_def.add_method(ClassMethodDef::new(
-                            member.name,
-                            &params,
-                            return_ty,
-                            true,
-                        ));
-                    }
-                    MainMethod(params, _) => {
-                        class_def.add_method(ClassMethodDef::new(
-                            member.name,
-                            &params,
-                            CheckedType::Void,
-                            true,
-                        ));
-                    }
-                }
-            }
-
-            type_system.add_class_def(class_def);
-        }
-
-        type_system
-    }
 }
 
 #[derive(Debug)]
@@ -121,7 +80,7 @@ pub struct ClassMethodDef<'src> {
 }
 
 impl<'src> ClassMethodDef<'src> {
-    fn new(
+    pub fn new(
         name: Symbol<'src>,
         params: &ast::ParameterList<'src>,
         return_ty: CheckedType<'src>,
