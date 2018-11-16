@@ -42,7 +42,7 @@ impl<'a, T> Scoped<'a, T> {
         Ok(())
     }
 
-    pub fn visible_definition(&self, sym: Symbol<'a>) -> Option<&T> {
+    pub fn lookup(&self, sym: Symbol<'a>) -> Option<&T> {
         // TODO O(1) access to visible definition
         for scope in self.scope_upwards_iter() {
             if let Some(def) = scope.get(&sym) {

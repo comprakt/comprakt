@@ -2,15 +2,16 @@ use crate::{asciifile::Spanned, asciifile::Span, ast, context::Context, strtab::
     symtab::*, type_system::*, semantics2::*};
 use failure::Fail;
 
-enum IdentLookupResult<'t> {
-    LocalVar(LocalVarDef<'t>),
-    ThisField(ClassFieldDef<'t>),
-    Class(ClassDef<'t>),
+enum IdentLookupResult<'src> {
+    VarDef(VarDef<'src>),
+    Param(MethodParamDef<'src>),
+    ThisField(ClassFieldDef<'src>),
+    Class(ClassDef<'src>),
 }
 
-struct LocalVarDef<'src> {
-    name: Symbol<'src>,
-    ty: CheckedType<'src>,
+enum VarDef<'src> {
+    Local { name: Symbol<'src>, ty: CheckedType<'src> },
+    Param(MethodParamDef<'src>)
 }
 
 pub struct MethodBodyTypeChecker<'src, 'sem> {
@@ -18,7 +19,7 @@ pub struct MethodBodyTypeChecker<'src, 'sem> {
     type_system: &'sem TypeSystem<'src>,
     current_class: &'sem ClassDef<'src>,
     current_method: &'sem ClassMethodDef<'src>,
-    local_var_scope: Scoped<'src, LocalVarDef<'src>>,
+    local_scope: Scoped<'src, VarDef<'src>>,
 }
 
 impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
@@ -27,7 +28,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         type_system: &'sem TypeSystem<'src>,
         context: &'sem SemanticContext<'src>,
     ) {
-        let current_class = type_system.resolve_type_ref(class_decl.name).unwrap();
+        let current_class = type_system.resolve_type_ref(class_decl.name.data).unwrap();
 
         for member in &class_decl.members {
             use self::ast::ClassMemberKind::*;
@@ -41,7 +42,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                         type_system,
                         current_class,
                         current_method,
-                        local_var_scope: Scoped::new(),
+                        local_scope: Scoped::new(),
                     };
 
                     checker.check_type_block(block);
@@ -51,11 +52,11 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
     }
 
     fn check_type_block(&mut self, block: &ast::Block<'src>) {
-        self.local_var_scope.enter_scope();
+        self.local_scope.enter_scope();
         for stmt in &block.statements {
-            self.check_type_stmt(stmt)?;
+            self.check_type_stmt(stmt);
         }
-        self.local_var_scope.leave_scope().unwrap();
+        self.local_scope.leave_scope().unwrap();
     }
 
     fn check_type_stmt(&mut self, stmt: &ast::Stmt<'src>) {
@@ -65,14 +66,14 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             Empty => {},
             If(cond, stmt, opt_else) => {
                 let cond_type = self.get_type_expr(cond);
-
                 match cond_type {
-                    Ok(Boolean) => {},
+                    Ok(CheckedType::Boolean) => {},
                     Ok(_) => {
                         self.context.report_error(&cond.span,
                             SemanticError::ConditionMustBeBoolean
                         )
                     }
+                    Err(_) => {}
                 }
 
                 self.check_type_stmt(&stmt);
@@ -90,6 +91,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                             SemanticError::ConditionMustBeBoolean
                         )
                     }
+                    Err(_) => {}
                 }
 
                 self.check_type_stmt(&stmt);
@@ -106,12 +108,11 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 // todo
             }
             LocalVariableDeclaration(ty, name, opt_assign) => {
-                // todo check parameters
-                self.local_var_scope
+                self.local_scope
                     .define(
                         name,
-                        LocalVarDef {
-                            name: *name,
+                        VarDef::Local {
+                            name: name.data,
                             ty: CheckedType::from(&ty.data),
                         },
                     )
@@ -159,7 +160,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             FieldAccess(target_expr, name) => {
                 let target_type = self.get_type_expr(&target_expr)?;
                 let target_class = self.resolve_class(&target_type)?;
-                let field = target_class.get_field(*name).ok_or(())?;
+                let field = target_class.get_field(name.data).ok_or(())?;
 
                 Ok(field.ty.clone())
             }
@@ -179,17 +180,26 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
             Boolean(_) => Ok(CheckedType::Boolean),
             Int(_) => Ok(CheckedType::Int),
-            Var(name) => self.visible_definition_var(*name),
+            Var(name) => {
+                self.lookup_var(name.data)
+                    .map_err(|_| {
+                        self.context.report_error(&name.span,
+                            SemanticError::CannotLookupVarOrField {
+                                name: name.data.to_string(),
+                            }
+                        );
+                    })
+            },
             MethodInvocation(target_expr, name, args) => {
                 let target_type = self.get_type_expr(&target_expr)?;
                 let target_class = self.resolve_class(&target_type)?;
-                self.check_method_invocation(*name, target_class, args)
+                self.check_method_invocation(name.data, target_class, args)
             }
             ThisMethodInvocation(name, args) => {
                 if self.current_method.is_static {
                     Err(())
                 } else {
-                    self.check_method_invocation(*name, &self.current_class, args)
+                    self.check_method_invocation(name.data, &self.current_class, args)
                 }
             }
             This => {
@@ -200,7 +210,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 }
             }
             NewObject(name) => {
-                let t = CheckedType::TypeRef(*name);
+                let t = CheckedType::TypeRef(name.data);
                 self.resolve_class(&t);
 
                 Ok(t)
@@ -229,16 +239,16 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         Ok(method.return_ty.clone())
     }
 
-    fn visible_definition_var(&mut self, var_name: Symbol<'src>) -> Result<CheckedType<'src>, ()> {
-        // params
-        if let Some(local_var_def) = self.local_var_scope.visible_definition(var_name) {
-            Ok(local_var_def.ty.clone())
-        }
-        // this fields (?)
-        // classes (forbidden)
-        // globals
-        else {
-            Err(())
+    fn lookup_var(&mut self, var_name: Symbol<'src>) -> Result<CheckedType<'src>, ()> {
+        match self.local_scope.lookup(var_name) {
+            Some(VarDef::Local { name, ty }) => Ok(ty.clone()),
+            Some(VarDef::Param(param_def)) => Ok(param_def.ty.clone()),
+            None => {
+                // this fields (?)
+                // classes (forbidden)
+                // globals
+                Err(())
+            }
         }
     }
 }

@@ -35,6 +35,9 @@ pub enum SemanticError {
 
     #[fail(display = "condition must be boolean")]
     ConditionMustBeBoolean,
+
+    #[fail(display = "cannot lookup var or field '{}'", name)]
+    CannotLookupVarOrField { name: String },
 }
 
 pub fn check<'a, 'src>(
@@ -59,7 +62,7 @@ pub fn check<'a, 'src>(
 }
 
 pub struct SemanticContext<'src> {
-    context: &'src Context<'src>,
+    pub context: &'src Context<'src>,
 }
 
 impl<'src> SemanticContext<'src> {
@@ -78,7 +81,7 @@ fn build_type_system<'src>(context: &SemanticContext<'src>, program: &ast::Progr
     let mut type_system = TypeSystem::new();
 
     for class_decl in &program.classes {
-        let mut class_def = ClassDef::new(class_decl.name);
+        let mut class_def = ClassDef::new(class_decl.name.data);
 
         for member in &class_decl.members {
             use crate::ast::ClassMemberKind::*;
@@ -140,7 +143,7 @@ fn build_type_system<'src>(context: &SemanticContext<'src>, program: &ast::Progr
 
 impl<'t> From<&ast::Type<'t>> for CheckedType<'t> {
     fn from(ty: &ast::Type<'t>) -> Self {
-        let mut checked_ty = (&ty.basic).into();
+        let mut checked_ty = (&ty.basic.data).into();
 
         for _ in 0..ty.array_depth {
             checked_ty = CheckedType::Array(Box::new(checked_ty));
