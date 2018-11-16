@@ -46,7 +46,9 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                     };
 
                     for param in &current_method.params {
-                        checker.local_scope.define(&param.name, VarDef::Param(&param));
+                        checker.local_scope
+                            .define(&param.name, VarDef::Param(&param))
+                            .unwrap();
                     }
 
                     checker.check_type_block(block);
@@ -150,10 +152,10 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                         },
                     )
                     .unwrap_or_else(|_| {
-                        self.context.report_error(&ty.span,
+                        self.context.report_error(&name.span,
                             SemanticError::RedefinitionError {
                                 kind: "local var".to_string(),
-                                name: name.to_string(),
+                                name: name.data.to_string(),
                             }
                         )
                     });
@@ -229,13 +231,21 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
             ThisMethodInvocation(name, args) => {
                 if self.current_method.is_static {
-                    Err(())
-                } else {
-                    self.check_method_invocation(name.data, &self.current_class, args)
+                    self.context.report_error(&name.span,
+                        SemanticError::ThisMethodInvocationInStaticMethod {
+                            method_name: name.data.to_string()
+                        }
+                    );
                 }
+                // assume the user wanted to call the method on an object
+                self.check_method_invocation(name.data, &self.current_class, args)
             }
             This => {
                 if self.current_method.is_static {
+                    self.context.report_error(&name.span,
+                        SemanticError::ThisInStaticMethod
+                    );
+
                     Err(())
                 } else {
                     Ok(CheckedType::TypeRef(self.current_class.name))
@@ -243,9 +253,17 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
             NewObject(name) => {
                 let t = CheckedType::TypeRef(name.data);
-                self.resolve_class(&t);
-
-                Ok(t)
+                match self.resolve_class(&t) {
+                    Some(class_def) => Ok(t),
+                    None => {
+                        self.context.report_error(&name.span,
+                            SemanticError::ClassDoesNotExist {
+                                class_name: name.data.to_string(),
+                            }
+                        );
+                        Err(())
+                    }
+                }
             }
             NewArray(_basic_ty, _size, _dimension) => {
                 /*let ty = basic_type_to_checked_type(basic_ty);
@@ -273,11 +291,13 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
 
     fn lookup_var(&mut self, var_name: &Spanned<'src, Symbol<'src>>) -> Result<CheckedType<'src>, ()> {
         match self.local_scope.lookup(var_name.data) {
+            // local variable or param
             Some(VarDef::Local { name, ty }) => Ok(ty.clone()),
             Some(VarDef::Param(param_def)) => Ok(param_def.ty.clone()),
             None => Err(()),
         }
         .or_else(|_| {
+            // field
             match self.current_class.get_field(var_name.data) {
                 Some(field) => {
                     if self.current_method.is_static {
@@ -294,8 +314,25 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
         })
         .or_else(|_| {
-            // classes (forbidden)
-            // globals
+            // static classes access (is not allowed).
+            // Is important to check if user defines a "System" class
+            match self.type_system.resolve_type_ref(&var_name.data) {
+                Some(class_def) => {
+                    self.context.report_error(&var_name.span,
+                        SemanticError::InvalidReferenceToClass {
+                            class_name: class_def.name.to_string(),
+                        }
+                    );
+                    Err(())
+                },
+                None => Err(())
+            }
+        })
+        .or_else(|_| {
+            // TODO System class access
+            Err(())
+        })
+        .or_else(|_| {
             self.context.report_error(&var_name.span,
                 SemanticError::CannotLookupVarOrField {
                     name: var_name.data.to_string(),
@@ -303,6 +340,5 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             );
             Err(())
         })
-
     }
 }

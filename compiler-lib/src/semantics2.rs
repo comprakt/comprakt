@@ -26,9 +26,9 @@ pub enum SemanticError {
 
     #[fail(
         display = "non-static method '{}' cannot be referenced from a static context",
-        name
+        method_name
     )]
-    ThisMethodInvocationInStaticMethod { name: String },
+    ThisMethodInvocationInStaticMethod { method_name: String },
 
     #[fail(display = "non-static variable 'this' cannot be referenced from a static context")]
     ThisInStaticMethod,
@@ -55,6 +55,12 @@ pub enum SemanticError {
     #[fail(display = "Invalid type: Expected expression of type '{}', but was of type '{}'",
         ty_expected, ty_expr)]
     InvalidType { ty_expected: String, ty_expr: String },
+
+    #[fail(display = "cannot reference class '{}' here", class_name)]
+    InvalidReferenceToClass { class_name: String },
+
+    #[fail(display = "class '{}' does not exist", class_name)]
+    ClassDoesNotExist { class_name: String },
 }
 
 pub fn check<'a, 'src>(
