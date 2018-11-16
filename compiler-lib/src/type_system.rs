@@ -1,4 +1,4 @@
-use crate::{ast, context::Context, strtab::Symbol};
+use crate::{ast, strtab::Symbol};
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt;
 
@@ -78,6 +78,7 @@ pub struct ClassMethodDef<'src> {
     pub params: Vec<MethodParamDef<'src>>,
     pub return_ty: CheckedType<'src>,
     pub is_static: bool,
+    pub is_main: bool,
 }
 
 impl<'src> ClassMethodDef<'src> {
@@ -98,6 +99,7 @@ impl<'src> ClassMethodDef<'src> {
                     ty: CheckedType::from(&p.ty.data),
                 })
                 .collect(),
+            is_main: is_static
         }
     }
 }
@@ -131,7 +133,7 @@ impl<'src> CheckedType<'src> {
 }
 
 impl<'src> fmt::Display for CheckedType<'src> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &'_ mut fmt::Formatter<'_>) -> fmt::Result {
         use self::CheckedType::*;
         match self {
             Int => write!(f, "int"),

@@ -1,4 +1,4 @@
-use crate::{asciifile::Spanned, asciifile::Span, ast, context::Context, strtab::Symbol, symtab::*, type_system::*, method_body_typechecker::*};
+use crate::{asciifile::Spanned, asciifile::Span, ast, context::Context, type_system::*, method_body_typechecker::*};
 use failure::Fail;
 
 #[derive(Debug, Fail)]
@@ -64,6 +64,14 @@ pub enum SemanticError {
 
     #[fail(display = "cannot index non-array type '{}'", ty)]
     CannotIndexNonArrayType { ty: String },
+
+    #[fail(display = "method '{}' does not exist on type '{}'",
+        method_name, ty)]
+    MethodDoesNotExistOnType { method_name: String, ty: String },
+
+    #[fail(display = "method argument count does not match: Expected {} arguments, but found {}",
+        expected_args, actual_args)]
+    MethodArgCountDoesNotMatch { expected_args: usize, actual_args: usize },
 }
 
 pub fn check<'a, 'src>(

@@ -199,7 +199,7 @@ fn cmd_check(path: &PathBuf) -> Result<(), Error> {
 
     match crate::semantics2::check(&ast, &context) {
         Ok(_type_system) => (),
-        Err(error) => {
+        Err(_) => {
             //context.diagnostics.error(&error);
             context.diagnostics.write_statistics();
             exit(1);

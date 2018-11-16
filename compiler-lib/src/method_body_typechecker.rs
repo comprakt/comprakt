@@ -142,7 +142,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
             LocalVariableDeclaration(ty, name, opt_assign) => {
                 let def_ty = CheckedType::from(&ty.data);
-                let var_def = self.local_scope
+                self.local_scope
                     .define(
                         name,
                         VarDef::Local {
@@ -207,9 +207,22 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 Ok(field.ty.clone())
             }
             MethodInvocation(target_expr, name, args) => {
+                // e.g. "target_expr.name(arg1, arg2)"
                 let target_type = self.get_type_expr(&target_expr)?;
                 let target_class = self.resolve_class(&target_type)?;
-                self.check_method_invocation(name.data, target_class, args)
+                self.check_method_invocation(name, target_class, args)
+            }
+            ThisMethodInvocation(name, args) => {
+                // e.g. "name(arg1, arg2);"
+                if self.current_method.is_static {
+                    self.context.report_error(&name.span,
+                        SemanticError::ThisMethodInvocationInStaticMethod {
+                            method_name: name.data.to_string()
+                        }
+                    );
+                }
+                // assume the user wanted to call the method on an object
+                self.check_method_invocation(name, &self.current_class, args)
             }
             ArrayAccess(target_expr, idx_expr) => {
                 if let Ok(idx_ty) = self.get_type_expr(idx_expr) {
@@ -242,18 +255,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
             Boolean(_) => Ok(CheckedType::Boolean),
             Int(_) => Ok(CheckedType::Int),
-            Var(name) => self.lookup_var(&name),
-            ThisMethodInvocation(name, args) => {
-                if self.current_method.is_static {
-                    self.context.report_error(&name.span,
-                        SemanticError::ThisMethodInvocationInStaticMethod {
-                            method_name: name.data.to_string()
-                        }
-                    );
-                }
-                // assume the user wanted to call the method on an object
-                self.check_method_invocation(name.data, &self.current_class, args)
-            }
+            Var(name) => self.check_var(&name),
             This => {
                 if self.current_method.is_static {
                     self.context.report_error(&expr.span,
@@ -279,7 +281,18 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                     }
                 }
             }
-            NewArray(_basic_ty, _size, _dimension) => {
+            NewArray(_basic_ty, size_expr, _dimension) => {
+                if let Ok(size_ty) = self.get_type_expr(size_expr) {
+                    if !CheckedType::Int.is_assignable_from(&size_ty) {
+                        self.context.report_error(&size_expr.span,
+                            SemanticError::InvalidType {
+                                ty_expected: CheckedType::Int.to_string(),
+                                ty_expr: size_ty.to_string(),
+                            }
+                        );
+                    }
+                }
+
                 /*let ty = basic_type_to_checked_type(basic_ty);
                 self.get_type_expr(size);*/
 
@@ -292,22 +305,69 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
 
     fn check_method_invocation(
         &mut self,
-        method_name: Symbol<'src>,
+        method_name: &Spanned<'src, Symbol<'src>>,
         target_class_def: &ClassDef<'src>,
         args: &ast::ArgumentList<'src>,
     ) -> Result<CheckedType<'src>, ()> {
-        let method = target_class_def.get_method(method_name).ok_or(())?;
+        let method = match target_class_def.get_method(method_name.data) {
+            Some(method) => method,
+            None => {
+                self.context.report_error(&method_name.span,
+                    SemanticError::MethodDoesNotExistOnType {
+                        method_name: method_name.data.to_string(),
+                        ty: target_class_def.name.to_string(),
+                    }
+                );
 
-        // todo validate args
+                return Err(())
+            },
+        };
+
+        if method.params.len() != args.len() {
+            self.context.report_error(&method_name.span,
+                SemanticError::MethodArgCountDoesNotMatch {
+                    expected_args: method.params.len(),
+                    actual_args: args.len(),
+                }
+            );
+        }
+
+        for (arg, param) in args.iter().zip(method.params.iter()) {
+            let arg_ty = match self.get_type_expr(arg) {
+                Ok(ty) => ty,
+                Err(_) => continue,
+            };
+            if !param.ty.is_assignable_from(&arg_ty) {
+                self.context.report_error(&arg.span,
+                    SemanticError::InvalidType {
+                        ty_expected: param.ty.to_string(),
+                        ty_expr: arg_ty.to_string(),
+                    }
+                );
+            }
+        }
 
         Ok(method.return_ty.clone())
     }
 
-    fn lookup_var(&mut self, var_name: &Spanned<'src, Symbol<'src>>) -> Result<CheckedType<'src>, ()> {
+    fn check_var(&mut self, var_name: &Spanned<'src, Symbol<'src>>) -> Result<CheckedType<'src>, ()> {
         match self.local_scope.lookup(var_name.data) {
             // local variable or param
-            Some(VarDef::Local { name, ty }) => Ok(ty.clone()),
-            Some(VarDef::Param(param_def)) => Ok(param_def.ty.clone()),
+            Some(VarDef::Local { name: _, ty }) => Ok(ty.clone()),
+            Some(VarDef::Param(param_def)) => {
+                if self.current_method.is_main {
+                    self.context.report_error(&var_name.span,
+                        SemanticError::MainMethodParamUsed {
+                            name: var_name.data.to_string(),
+                        }
+                    );
+
+                    Err(())
+                }
+                else {
+                    Ok(param_def.ty.clone())
+                }
+            },
             None => Err(()),
         }
         .or_else(|_| {
