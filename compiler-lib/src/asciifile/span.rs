@@ -97,8 +97,22 @@ impl<'f> Span<'f> {
         self.end.byte_offset() == self.start.byte_offset()
     }
 
+    ///
+    ///
+    /// ```
+    /// use compiler_lib::asciifile::{AsciiFile, Position};
+    ///
+    /// let input = "abc";
+    /// let file = AsciiFile::new(input.as_bytes()).unwrap();
+    /// let span = Position::at_file_start(&file)
+    ///     .unwrap()
+    ///     .to_single_char_span();
+    ///
+    /// assert_eq!(span.as_str(), "a");
+    /// assert!(span.is_single_char());
+    /// ```
     pub fn is_single_char(&self) -> bool {
-        self.end.byte_offset() - self.start.byte_offset() == 1
+        self.end == self.start
     }
 
     pub fn start_position(&self) -> Position<'f> {

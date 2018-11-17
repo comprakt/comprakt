@@ -67,11 +67,11 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 ///     diagnostics::{Diagnostics, Printable},
 /// };
 /// use std::cell::UnsafeCell;
-/// use termcolor::NoColor;
+/// use termcolor::Ansi;
 ///
 /// // TODO: remove use of unsafe cell for a mut and immutable borrow concurrently
 /// let mut output: UnsafeCell<Vec<u8>> = UnsafeCell::new(Vec::new());
-/// let stderr = NoColor::new(unsafe { &mut *output.get() });
+/// let stderr = Ansi::new(unsafe { &mut *output.get() });
 /// let diagnostics = Diagnostics::new(Box::new(stderr));
 /// let input = "banana\nanother banana";
 /// let file = AsciiFile::new(input.as_bytes()).unwrap();
@@ -222,6 +222,13 @@ impl<'a, 'b, T: Display + 'b> AsPrintable<'a, 'b> for MaybeSpanned<'a, T> {
 
 /// Width of tabs in error and warning messages
 const TAB_WIDTH: usize = 4;
+
+// All RENDERING_* characters MUST have a output width of
+// of 1 when rendered on the console.
+const RENDERING_SINGLE_CHAR_SPAN: char = '^';
+const RENDERING_SPAN_START: char = '\\';
+const RENDERING_SPAN_MIDDLE: char = '_';
+const RENDERING_SPAN_END: char = '/';
 
 /// Color used for rendering line numbers, escape sequences
 /// and others...
@@ -448,27 +455,62 @@ impl<'file, 'msg> Message<'file, 'msg> {
 
                     let term_width = end_term_pos - start_term_pos;
 
-                    let ends_on_this_line =
-                        annotation.span.end_position().line_number() == line_number;
-
                     num_fmt.spaces(output.writer())?;
 
                     {
                         let mut output = ColorOutput::new(output.writer());
                         output.set_color(self.level.color());
                         output.set_bold(true);
-                        // TODO dont print msg on multiline spans
-                        writeln!(
-                            output.writer(),
-                            "{spaces}{underline}{msg}",
-                            spaces = " ".repeat(start_term_pos),
-                            underline = "^".repeat(term_width),
-                            msg = (if !ends_on_this_line || annotation.data == "" {
-                                "".to_string()
-                            } else {
-                                format!(" {}", annotation.data)
-                            })
-                        )?;
+
+                        if annotation.span.is_single_char() {
+                            writeln!(
+                                output.writer(),
+                                "{spaces}{marker}{msg}",
+                                spaces = " ".repeat(start_term_pos),
+                                marker = RENDERING_SINGLE_CHAR_SPAN,
+                                msg = (if annotation.data == "" {
+                                    "".to_string()
+                                } else {
+                                    format!(" {}", annotation.data)
+                                })
+                            )?;
+                        } else {
+                            // NOTE: at this point we know that the span is not a single_char,
+                            // meaning it has at least length 2. This means substraction by 1 is
+                            // safe.
+                            let ends_here =
+                                annotation.span.end_position().line_number() == line_number;
+
+                            let starts_here =
+                                annotation.span.start_position().line_number() == line_number;
+
+                            let ends_offset = if ends_here { 1 } else { 0 };
+                            let starts_offset = if starts_here { 1 } else { 0 };
+
+                            writeln!(
+                                output.writer(),
+                                "{spaces}{underline_start}{underline_middle}{underline_end}{msg}",
+                                spaces = " ".repeat(start_term_pos),
+                                underline_start = if starts_here {
+                                    RENDERING_SPAN_START.to_string()
+                                } else {
+                                    "".to_string()
+                                },
+                                underline_middle = RENDERING_SPAN_MIDDLE
+                                    .to_string()
+                                    .repeat(term_width - starts_offset - ends_offset),
+                                underline_end = if ends_here {
+                                    RENDERING_SPAN_END.to_string()
+                                } else {
+                                    "".to_string()
+                                },
+                                msg = (if !ends_here || annotation.data == "" {
+                                    "".to_string()
+                                } else {
+                                    format!(" {}", annotation.data)
+                                })
+                            )?;
+                        }
                     }
                 }
             }
