@@ -225,10 +225,23 @@ const TAB_WIDTH: usize = 4;
 
 // All RENDERING_* characters MUST have a output width of
 // of 1 when rendered on the console.
-const RENDERING_SINGLE_CHAR_SPAN: char = '^';
-const RENDERING_SPAN_START: char = '\\';
-const RENDERING_SPAN_MIDDLE: char = '_';
-const RENDERING_SPAN_END: char = '/';
+const RENDERING_SINGLE_CHAR_SPAN: char = '⮤';
+const RENDERING_SPAN_START: char = '╰';
+const RENDERING_SPAN_MIDDLE: char = '─';
+const RENDERING_SPAN_END: char = '╯';
+const RENDERING_SPAN_CONTINUATION: char = '┈';
+
+// ASCII variant
+//const RENDERING_SINGLE_CHAR_SPAN: char = '^';
+//const RENDERING_SPAN_START: char = '\\';
+//const RENDERING_SPAN_MIDDLE: char = '_';
+//const RENDERING_SPAN_END: char = '/';
+
+// Fat variant of Unicode mode
+//const RENDERING_SPAN_START: char = '┗';
+//const RENDERING_SPAN_MIDDLE: char = '━';
+//const RENDERING_SPAN_END: char = '┛';
+//const RENDERING_SPAN_CONTINUATION: char = '┅';
 
 /// Color used for rendering line numbers, escape sequences
 /// and others...
@@ -484,25 +497,22 @@ impl<'file, 'msg> Message<'file, 'msg> {
                             let starts_here =
                                 annotation.span.start_position().line_number() == line_number;
 
-                            let ends_offset = if ends_here { 1 } else { 0 };
-                            let starts_offset = if starts_here { 1 } else { 0 };
-
                             writeln!(
                                 output.writer(),
                                 "{spaces}{underline_start}{underline_middle}{underline_end}{msg}",
                                 spaces = " ".repeat(start_term_pos),
                                 underline_start = if starts_here {
-                                    RENDERING_SPAN_START.to_string()
+                                    RENDERING_SPAN_START
                                 } else {
-                                    "".to_string()
+                                    RENDERING_SPAN_CONTINUATION
                                 },
                                 underline_middle = RENDERING_SPAN_MIDDLE
                                     .to_string()
-                                    .repeat(term_width - starts_offset - ends_offset),
+                                    .repeat(term_width - 2), // substract once for underline_start and once for underline_end
                                 underline_end = if ends_here {
-                                    RENDERING_SPAN_END.to_string()
+                                    RENDERING_SPAN_END
                                 } else {
-                                    "".to_string()
+                                    RENDERING_SPAN_CONTINUATION
                                 },
                                 msg = (if !ends_here || annotation.data == "" {
                                     "".to_string()
