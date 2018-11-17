@@ -1,0 +1,12 @@
+class Foo {
+    public static void main(String[] args) {
+        int ok1 = 2147483647;
+        int ok2 = -2147483648;
+        int ok3 = -2147483648;
+        int ok4 = - -2147483648;
+        int ok5 = - - - - -2147483648;
+
+        int bad1 = 2147483648;
+        int bad2 = -2147483649;
+    }
+}
