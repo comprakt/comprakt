@@ -116,7 +116,7 @@ pub struct ClassFieldDef<'src> {
     pub ty: CheckedType<'src>,
 }
 
-// TODO Clone or not? => Store types in hashmap
+// FIXME Clone or not? => Store types in hashmap
 #[derive(Debug, Clone, PartialEq)]
 pub enum CheckedType<'src> {
     Int,
@@ -137,7 +137,7 @@ impl<'src> CheckedType<'src> {
         }
     }
     pub fn is_assignable_from(&self, other: &CheckedType<'src>) -> bool {
-        // TODO there must be a better way
+        // FIXME there must be a better way
         (match other {
             CheckedType::Null => self.is_nullable(),
             _ => false
