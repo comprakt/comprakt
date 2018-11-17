@@ -270,7 +270,7 @@ impl<'span, 'file> Iterator for LineIterator<'span, 'file> {
         match self.line_to_emit {
             None => None,
             Some(ref line) => {
-                let line_to_emit = line.clone();
+                let line_to_emit = *line;
 
                 self.line_to_emit = if self.span.end_position() > line.end_position() {
                     line.end_position()

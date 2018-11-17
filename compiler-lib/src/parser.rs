@@ -985,6 +985,8 @@ mod tests {
                         Expr::Binary(op, lhs, rhs) => {
                             assert_eq!(op, Add);
                             assert_eq!(lhs.data, Expr::Int("3"));
+                            
+                            assert_eq!(lhs.data, Expr::Int("3"));
                             // rhs = 4 * 7
                             match rhs.data {
                                 Expr::Binary(op, lhs, rhs) => {

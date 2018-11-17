@@ -1,21 +1,15 @@
-use crate::{ast, strtab::Symbol};
+use crate::{ast, strtab::Symbol, asciifile::Spanned};
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TypeSystem<'src> {
     defined_classes: HashMap<Symbol<'src>, ClassDef<'src>>,
 }
 
 impl<'src> TypeSystem<'src> {
-    pub fn new() -> TypeSystem<'src> {
-        TypeSystem {
-            defined_classes: HashMap::new(),
-        }
-    }
-
     pub fn is_type_defined(&self, name: Symbol<'src>) -> bool {
         self.defined_classes.contains_key(&name)
     }
@@ -86,7 +80,7 @@ pub struct ClassMethodDef<'src> {
 impl<'src> ClassMethodDef<'src> {
     pub fn new(
         name: Symbol<'src>,
-        params: &ast::ParameterList<'src>,
+        params: &[Spanned<'src, ast::Parameter<'src>>],
         return_ty: CheckedType<'src>,
         is_static: bool,
     ) -> ClassMethodDef<'src> {

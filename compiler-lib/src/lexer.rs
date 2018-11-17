@@ -489,7 +489,7 @@ impl<'f, 's> Lexer<'f, 's> {
         let comment_body = self.lex_while_multiple(2, |span, context| {
             if span.as_str() == "/*" {
                 context.diagnostics.warning(&Spanned {
-                    span: span.clone(),
+                    span,
                     data: Warning::CommentSeparatorInsideComment,
                 });
             }

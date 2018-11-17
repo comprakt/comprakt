@@ -339,7 +339,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         &mut self,
         method_name: &Spanned<'src, Symbol<'src>>,
         target_class_def: &ClassDef<'src>,
-        args: &ast::ArgumentList<'src>,
+        args: &[Spanned<'src, ast::Expr<'src>>],
     ) -> Result<CheckedType<'src>, ()> {
         let method = match target_class_def.get_method(method_name.data) {
             Some(method) => method,
@@ -388,7 +388,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
     ) -> Result<CheckedType<'src>, ()> {
         match self.local_scope.lookup(var_name.data) {
             // local variable or param
-            Some(VarDef::Local { name: _, ty }) => Ok(ty.clone()),
+            Some(VarDef::Local { ty, .. }) => Ok(ty.clone()),
             Some(VarDef::Param(param_def)) => {
                 if self.current_method.is_main {
                     self.context.report_error(

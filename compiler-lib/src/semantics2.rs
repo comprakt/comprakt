@@ -118,7 +118,7 @@ pub fn check<'a, 'src>(
     let sem_context = SemanticContext::new(context);
 
     match ast {
-        ast::AST::Empty => Ok(TypeSystem::new()),
+        ast::AST::Empty => Ok(TypeSystem::default()),
         ast::AST::Program(program) => {
             let type_system = build_type_system(&sem_context, program);
 
@@ -143,7 +143,7 @@ impl<'src> SemanticContext<'src> {
     pub fn report_error(&self, span: &'src Span<'src>, error: SemanticError) {
         self.context
             .diagnostics
-            .error(&Spanned::new(span.clone(), error))
+            .error(&Spanned::new(*span, error))
     }
 }
 
@@ -151,7 +151,7 @@ fn build_type_system<'src>(
     context: &SemanticContext<'src>,
     program: &ast::Program<'src>,
 ) -> TypeSystem<'src> {
-    let mut type_system = TypeSystem::new();
+    let mut type_system = TypeSystem::default();
 
     for class_decl in &program.classes {
         let mut class_def = ClassDef::new(class_decl.name.data);
