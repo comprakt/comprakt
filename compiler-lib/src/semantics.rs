@@ -276,16 +276,16 @@ impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
                     let then_arm_always_returns = always_returns(&*then_arm);
                     let else_arm_always_returns = else_arm
                         .as_ref()
-                        .map_or(true, |else_arm| always_returns(&*else_arm));
+                        .map_or(false, |else_arm| always_returns(&*else_arm));
 
                     then_arm_always_returns && else_arm_always_returns
                 }
 
                 // An empty block does not return
                 ast::Stmt::Block(block) if block.statements.is_empty() => false,
-                // A non-empty block always returns iff all of its statements
-                // always return
-                ast::Stmt::Block(block) => block.statements.iter().all(always_returns),
+                // A non-empty block always returns iff any of its top-level statements
+                // always returns
+                ast::Stmt::Block(block) => block.statements.iter().any(always_returns),
 
                 // A return stmt always returns
                 ast::Stmt::Return(_) => true,
@@ -296,7 +296,7 @@ impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
         }
 
         // FIXME de-duplicate empty block logic from always_returns
-        if method_body.statements.is_empty() || !method_body.statements.iter().all(always_returns) {
+        if method_body.statements.is_empty() || !method_body.statements.iter().any(always_returns) {
             self.context.diagnostics.error(&Spanned {
                 span: hightlight_span,
                 data: SemanticError::MightNotReturn {
