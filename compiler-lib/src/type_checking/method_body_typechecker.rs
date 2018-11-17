@@ -1,5 +1,6 @@
-use super::{type_checking::*, type_system::*};
 use crate::{asciifile::Spanned, ast, strtab::Symbol, symtab::*};
+
+use super::{type_system::*, *};
 
 /*
 TODO return this in var lookup

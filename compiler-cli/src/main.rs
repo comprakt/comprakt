@@ -16,6 +16,7 @@ use compiler_lib::{
     lexer::{Lexer, TokenKind},
     parser::Parser,
     print::{self, lextest},
+    semantics,
     strtab::StringTable,
     type_checking,
 };
@@ -196,6 +197,12 @@ fn cmd_check(path: &PathBuf) -> Result<(), Error> {
             exit(1);
         }
     };
+
+    crate::semantics::check(&ast, &context).unwrap(); // FIXME
+    if context.diagnostics.errored() {
+        context.diagnostics.write_statistics();
+        exit(1)
+    }
 
     crate::type_checking::check(&mut strtab, &ast, &context);
     if context.diagnostics.errored() {

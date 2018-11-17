@@ -5,8 +5,8 @@ use crate::{
     strtab::Symbol,
     visitor::NodeKind,
 };
-use failure::{format_err, Error, Fail};
-use std::{collections::HashMap, rc::Rc};
+use failure::{Error, Fail};
+use std::collections::HashMap;
 
 #[derive(Debug, Fail)]
 enum SemanticError {
@@ -71,15 +71,12 @@ pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &Context<'_>) -> Result<(),
         // FIXME: Need ClassMember.name be Spanned instead of Symbol
         let highlightspan = &decl.span;
         context.diagnostics.info(&Spanned {
-            span: highlightspan.clone(),
+            span: *highlightspan,
             data: format!("{}.{} ({})", classsym, membersym, memberytypediscr),
         });
     }
 
-    // Now the second pass, this one will do (in one traversal)
-    //  - name analysis of the AST
-    //  - type checking of expressions
-    SecondPass::visit(ast, context, &first_pass_visitor.classes_and_members)
+    Ok(())
 }
 
 struct ClassesAndMembersVisitor<'a, 'f, 'cx> {
@@ -111,7 +108,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                             _ => panic!("class children are expected to be class members"),
                         };
                         self.class_member_to_its_span
-                            .insert(&member_decl.data as *const _, member_decl.span.clone());
+                            .insert(&member_decl.data as *const _, member_decl.span);
                     });
                 }
                 Program(prog) => {
@@ -119,7 +116,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                         for member in &class.members {
                             let discr = ast::ClassMemberKindDiscriminants::from(&member.kind);
                             self.classes_and_members
-                                .insert((class.name, member.name, discr), &member);
+                                .insert((class.name.data, member.name, discr), &member);
                         }
                     }
                 }
@@ -128,15 +125,15 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                     if let ast::ClassMemberKind::MainMethod(params, block) = &member.kind {
                         debug_assert!(params.len() == 1);
                         self.static_method_found += 1;
-                        if member.name.to_string() != "main" {
+                        if &member.name != "main" {
                             self.context.diagnostics.error(&Spanned {
-                                span: member.span.clone(),
+                                span: member.span,
                                 data: SemanticError::StaticMethodNotMain,
                             });
                         }
                         if self.static_method_found > 1 {
                             self.context.diagnostics.error(&Spanned {
-                                span: member.span.clone(),
+                                span: member.span,
                                 data: SemanticError::MultipleStaticMethods {
                                     amount: self.static_method_found,
                                 },
@@ -147,7 +144,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
 
                     match &member.kind {
                         ast::ClassMemberKind::Method(ty, pl, block)
-                            if ty.basic != ast::BasicType::Void =>
+                            if ty.basic.data != ast::BasicType::Void =>
                         {
                             let ptr = (&member.data) as *const _;
                             let member_decl = self.class_member_to_its_span.get(&ptr).expect(
@@ -190,7 +187,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                 }
 
                 // An empty block does not return
-                ast::Stmt::Block(block) if block.statements.len() == 0 => false,
+                ast::Stmt::Block(block) if block.statements.is_empty() => false,
                 // A non-empty block always returns iff all of its statements
                 // always return
                 ast::Stmt::Block(block) => block.statements.iter().all(always_returns),
@@ -204,7 +201,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
         }
 
         // FIXME de-duplicate empty block logic from always_returns
-        if method_body.statements.len() == 0 || !method_body.statements.iter().all(always_returns) {
+        if method_body.statements.is_empty() || !method_body.statements.iter().all(always_returns) {
             self.context.diagnostics.error(&Spanned {
                 span: hightlight_span,
                 data: SemanticError::MightNotReturn {
@@ -220,9 +217,9 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
             match child {
                 Stmt(stmt) => {
                     if let ast::Stmt::LocalVariableDeclaration(_, name, _) = &stmt.data {
-                        if arg_name == name {
+                        if arg_name == &name.data {
                             self.context.diagnostics.error(&Spanned {
-                                span: stmt.span.clone(),
+                                span: stmt.span,
                                 data: SemanticError::RedefinitionError {
                                     kind: "parameter".to_string(),
                                     name: arg_name.to_string(),
@@ -233,9 +230,9 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                 }
                 Expr(expr) => match &expr.data {
                     ast::Expr::Var(name) => {
-                        if arg_name == name {
+                        if arg_name == &name.data {
                             self.context.diagnostics.error(&Spanned {
-                                span: expr.span.clone(),
+                                span: expr.span,
                                 data: SemanticError::MainMethodParamUsed {
                                     name: arg_name.to_string(),
                                 },
@@ -244,7 +241,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                     }
                     ast::Expr::This => {
                         self.context.diagnostics.error(&Spanned {
-                            span: expr.span.clone(),
+                            span: expr.span,
                             data: SemanticError::ThisInStaticMethod,
                         });
                     }
@@ -255,9 +252,9 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                         // for the main function. We also cannot use the argument of the main
                         // function to call the main function.
                         self.context.diagnostics.error(&Spanned {
-                            span: expr.span.clone(),
+                            span: expr.span,
                             data: SemanticError::ThisMethodInvocationInStaticMethod {
-                                name: name.to_string(),
+                                name: name.data.to_string(),
                             },
                         });
                     }
@@ -268,98 +265,5 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
 
             self.visit_static_block(&child, arg_name)
         });
-    }
-}
-
-type ScopeDefs<'a, T> = HashMap<Symbol<'a>, T>;
-
-struct Scope<'a, T> {
-    parent: Option<Rc<Scope<'a, T>>>,
-    definitions: ScopeDefs<'a, T>,
-}
-
-impl<'a, T> Scope<'a, T> {
-    pub fn root() -> Rc<Self> {
-        Rc::new(Scope {
-            parent: None,
-            definitions: ScopeDefs::new(),
-        })
-    }
-    pub fn enter_scope(parent: Rc<Self>) -> Self {
-        Scope {
-            parent: Some(parent),
-            definitions: ScopeDefs::new(),
-        }
-    }
-    pub fn leave(self) -> Option<Rc<Self>> {
-        self.parent
-    }
-    pub fn define(&mut self, sym: &Symbol<'a>, val: T) -> Result<(), ()> {
-        use std::collections::hash_map::Entry;
-        match self.definitions.entry(*sym) {
-            Entry::Occupied(o) => return Err(()),
-            Entry::Vacant(e) => e.insert(val),
-        };
-        Ok(())
-    }
-}
-
-struct SecondPass;
-
-// TODO proper enum, but Type is definitely necessary
-type VarDef<'a, 'f> = &'a Spanned<'f, ast::Type<'a>>;
-struct TyDef; // TODO
-struct MethDef; // TODO
-
-impl SecondPass {
-    pub fn visit<'a, 'f>(
-        ast: &'a ast::AST<'f>,
-        context: &Context<'_>,
-        _classes_and_members: &ClassesAndMembers<'a, 'f>,
-    ) -> Result<(), Error> {
-        // TODO java.lang.System.out scope
-        // TODO ontop of that, scope of this package
-        let mut vardefs: Rc<Scope<'a, VarDef<'a, 'f>>> = Scope::root();
-        let mut tydefs: Rc<Scope<'a, TyDef>> = Scope::root();
-        let mut methdefs: Rc<Scope<'a, MethDef>> = Scope::root();
-        Self::do_visit(&NodeKind::from(ast), context, vardefs, tydefs, methdefs)
-    }
-
-    fn do_visit<'a, 'f>(
-        n: &NodeKind<'a, 'f>,
-        context: &Context<'_>,
-        vardefs: Rc<Scope<'a, VarDef<'a, 'f>>>,
-        tydefs: Rc<Scope<'a, TyDef>>,
-        methdefs: Rc<Scope<'a, MethDef>>,
-    ) -> Result<(), Error> {
-        use self::NodeKind::*;
-        match n {
-            ClassMember(m) if m.kind.is_method() => {
-                // Assume types have been checked
-                // TODO enforce somewhere that main has String[] arg type
-                let params = m.kind.method_params().unwrap();
-                let mut vardefs = Scope::enter_scope(vardefs);
-                for p in &params.data {
-                    vardefs
-                        .define(&p.name, &p.ty)
-                        .or(Err(format_err!("re-definition of variable in same scope")))?;
-                }
-
-                let _body = m.kind.method_body().unwrap();
-                println!("TODO analyze body statements for {}", m.name);
-                Ok(())
-            }
-            x => x
-                .for_each_child(&mut |c| {
-                    Self::do_visit(
-                        &NodeKind::from(c),
-                        context,
-                        Rc::clone(&vardefs),
-                        Rc::clone(&tydefs),
-                        Rc::clone(&methdefs),
-                    )
-                })
-                .unwrap_or(Ok(())),
-        }
     }
 }

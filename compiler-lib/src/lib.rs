@@ -25,6 +25,7 @@ pub mod parser;
 #[macro_use]
 pub mod visitor;
 pub mod print;
+pub mod semantics;
 mod spantracker;
 pub mod strtab;
 pub mod symtab;
