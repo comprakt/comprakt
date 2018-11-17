@@ -1,4 +1,4 @@
-use crate::{strtab::Symbol};
+use crate::strtab::Symbol;
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt,
@@ -114,9 +114,7 @@ pub struct MethodParamDef<'src> {
 
 impl<'src> MethodParamDef<'src> {
     pub fn new(name: Symbol<'src>, ty: CheckedType<'src>) -> MethodParamDef<'src> {
-        MethodParamDef {
-            name, ty
-        }
+        MethodParamDef { name, ty }
     }
 }
 

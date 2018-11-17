@@ -1046,23 +1046,32 @@ mod tests {
                     match lhs.data {
                         Expr::Binary(op, lhs, rhs) => {
                             assert_eq!(op, Add);
-                            assert_eq!(lhs.data, Expr::Int(Spanned {
-                                span: lhs.span,
-                                data: "3",
-                            }));
+                            assert_eq!(
+                                lhs.data,
+                                Expr::Int(Spanned {
+                                    span: lhs.span,
+                                    data: "3",
+                                })
+                            );
 
                             // rhs = 4 * 7
                             match rhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Mul);
-                                    assert_eq!(lhs.data, Expr::Int(Spanned {
-                                        span: lhs.span,
-                                        data: "4",
-                                    }));
-                                    assert_eq!(rhs.data, Expr::Int(Spanned {
-                                        span: rhs.span,
-                                        data: "7",
-                                    }));
+                                    assert_eq!(
+                                        lhs.data,
+                                        Expr::Int(Spanned {
+                                            span: lhs.span,
+                                            data: "4",
+                                        })
+                                    );
+                                    assert_eq!(
+                                        rhs.data,
+                                        Expr::Int(Spanned {
+                                            span: rhs.span,
+                                            data: "7",
+                                        })
+                                    );
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
@@ -1077,21 +1086,30 @@ mod tests {
                             match lhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Div);
-                                    assert_eq!(lhs.data, Expr::Int(Spanned {
-                                        span: lhs.span,
-                                        data: "9"
-                                    }));
-                                    assert_eq!(rhs.data, Expr::Int(Spanned {
-                                        span: rhs.span,
-                                        data: "7",
-                                    }));
+                                    assert_eq!(
+                                        lhs.data,
+                                        Expr::Int(Spanned {
+                                            span: lhs.span,
+                                            data: "9"
+                                        })
+                                    );
+                                    assert_eq!(
+                                        rhs.data,
+                                        Expr::Int(Spanned {
+                                            span: rhs.span,
+                                            data: "7",
+                                        })
+                                    );
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
-                            assert_eq!(rhs.data, Expr::Int(Spanned {
-                                span: rhs.span,
-                                data: "42",
-                            }));
+                            assert_eq!(
+                                rhs.data,
+                                Expr::Int(Spanned {
+                                    span: rhs.span,
+                                    data: "42",
+                                })
+                            );
                         }
                         expr => panic!("not a binary expr: {:#?}", expr),
                     }

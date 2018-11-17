@@ -327,7 +327,8 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
 
                 self.check_type(size_expr, &CheckedType::Int);
 
-                let basic_ty = checked_type_from_basic_ty(&basic_ty, Some(self.context), self.type_system);
+                let basic_ty =
+                    checked_type_from_basic_ty(&basic_ty, Some(self.context), self.type_system);
                 let ty = CheckedType::create_array_type(basic_ty, dimension + 1);
 
                 Ok(ty)
@@ -439,11 +440,9 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 None => Err(()),
             }
         })
-        .or_else(|_| {
-            match self.context.global_vars.get(&var_name.data) {
-                Some(ty) => Ok(ty.clone()),
-                None => Err(())
-            }
+        .or_else(|_| match self.context.global_vars.get(&var_name.data) {
+            Some(ty) => Ok(ty.clone()),
+            None => Err(()),
         })
         .or_else(|_| {
             self.context.report_error(
