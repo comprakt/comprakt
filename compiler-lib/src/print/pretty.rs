@@ -218,7 +218,10 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
     }
 }
 
-fn compare_class_member(a: &ast::ClassMember<'_>, b: &ast::ClassMember<'_>) -> std::cmp::Ordering {
+pub fn compare_class_member(
+    a: &ast::ClassMember<'_>,
+    b: &ast::ClassMember<'_>,
+) -> std::cmp::Ordering {
     use crate::ast::ClassMemberKind::*;
     match (&a.kind, &b.kind) {
         (Field(..), Field(..))

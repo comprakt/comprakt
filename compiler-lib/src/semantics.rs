@@ -62,7 +62,12 @@ pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &Context<'_>) -> Result<(),
 
     // Let's draw some pretty annotations that show we classified classes + their
     // members and method correctly
-    for ((classsym, membersym, memberytypediscr), decl) in &first_pass_visitor.classes_and_members {
+    // (stable sort classes_and_members first since output is currently part of
+    // integration tests)
+    let mut sorted_classes_and_members: Vec<_> =
+        first_pass_visitor.classes_and_members.iter().collect();
+    sorted_classes_and_members.sort_by(|(_, x), (_, y)| x.data.cmp(&y.data));
+    for ((classsym, membersym, memberytypediscr), decl) in sorted_classes_and_members {
         // FIXME: Need ClassMember.name be Spanned instead of Symbol
         let highlightspan = &decl.span;
         context.diagnostics.info(&Spanned {
