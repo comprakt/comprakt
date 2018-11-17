@@ -39,7 +39,7 @@ pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 /// * `MainMethod(params, body)`: a main method, which is a special method that
 /// is only allowed once in a MiniJava Program. `params` is guaranteed to
 /// only contain the `String[] IDENT` parameter.
-#[strum_discriminants(derive(Display, Hash))]
+#[strum_discriminants(derive(Display, Hash, PartialOrd, Ord))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
 pub enum ClassMemberKind<'t> {
     Field(Spanned<'t, Type<'t>>),
@@ -226,5 +226,17 @@ impl<'f> ClassMemberKind<'f> {
             MainMethod(_pl, block) => Some(block),
             Field(_) => None,
         }
+    }
+}
+
+impl std::cmp::PartialOrd for ClassMember<'_> {
+    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
+        Some(crate::print::pretty::compare_class_member(self, rhs))
+    }
+}
+
+impl std::cmp::Ord for ClassMember<'_> {
+    fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
+        crate::print::pretty::compare_class_member(self, rhs)
     }
 }

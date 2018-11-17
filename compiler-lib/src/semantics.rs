@@ -1,5 +1,5 @@
 use crate::{
-    asciifile::{MaybeSpanned, Spanned},
+    asciifile::{MaybeSpanned, Span, Spanned},
     ast,
     context::Context,
     strtab::Symbol,
@@ -36,6 +36,8 @@ enum SemanticError {
     ThisMethodInvocationInStaticMethod { name: String },
     #[fail(display = "non-static variable 'this' cannot be referenced from a static context")]
     ThisInStaticMethod,
+    #[fail(display = "method '{}' might not return", method_name)]
+    MightNotReturn { method_name: String },
 }
 
 type ClassesAndMembers<'a, 'f> = HashMap<
@@ -60,7 +62,12 @@ pub fn check<'a, 'f>(ast: &'a ast::AST<'f>, context: &Context<'_>) -> Result<(),
 
     // Let's draw some pretty annotations that show we classified classes + their
     // members and method correctly
-    for ((classsym, membersym, memberytypediscr), decl) in &first_pass_visitor.classes_and_members {
+    // (stable sort classes_and_members first since output is currently part of
+    // integration tests)
+    let mut sorted_classes_and_members: Vec<_> =
+        first_pass_visitor.classes_and_members.iter().collect();
+    sorted_classes_and_members.sort_by(|(_, x), (_, y)| x.data.cmp(&y.data));
+    for ((classsym, membersym, memberytypediscr), decl) in sorted_classes_and_members {
         // FIXME: Need ClassMember.name be Spanned instead of Symbol
         let highlightspan = &decl.span;
         context.diagnostics.info(&Spanned {
@@ -79,6 +86,7 @@ struct ClassesAndMembersVisitor<'a, 'f, 'cx> {
     context: &'cx Context<'cx>,
     classes_and_members: ClassesAndMembers<'a, 'f>,
     static_method_found: u64,
+    class_member_to_its_span: HashMap<*const ast::ClassMember<'f>, Span<'f>>,
 }
 
 impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
@@ -87,6 +95,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
             context,
             classes_and_members: HashMap::new(),
             static_method_found: 0,
+            class_member_to_its_span: HashMap::new(),
         }
     }
 
@@ -94,7 +103,17 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
         use self::{ast, NodeKind::*};
         node.for_each_child(&mut |child| {
             match child {
-                AST(_) | ClassDeclaration(_) => (),
+                ClassDeclaration(decl) => {
+                    let decl_node = NodeKind::from(decl);
+                    decl_node.for_each_child(&mut |member_node| {
+                        let member_decl: &Spanned<'_, ast::ClassMember<'_>> = match member_node {
+                            NodeKind::ClassMember(m) => m,
+                            _ => panic!("class children are expected to be class members"),
+                        };
+                        self.class_member_to_its_span
+                            .insert(&member_decl.data as *const _, member_decl.span.clone());
+                    });
+                }
                 Program(prog) => {
                     for class in &prog.classes {
                         for member in &class.members {
@@ -104,6 +123,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                         }
                     }
                 }
+
                 ClassMember(member) => {
                     if let ast::ClassMemberKind::MainMethod(params, block) = &member.kind {
                         debug_assert!(params.len() == 1);
@@ -124,6 +144,24 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                         }
                         self.visit_static_block(&NodeKind::from(block), &params[0].name);
                     }
+
+                    match &member.kind {
+                        ast::ClassMemberKind::Method(ty, pl, block)
+                            if ty.basic != ast::BasicType::Void =>
+                        {
+                            let ptr = (&member.data) as *const _;
+                            let member_decl = self.class_member_to_its_span.get(&ptr).expect(
+                                "must have current_member_decl while while visiting ClassMember",
+                            );
+                            let highlight_span = Span::from_positions(&[
+                                member_decl.start_position(),
+                                pl.span.end_position(),
+                            ])
+                            .unwrap();
+                            self.check_method_always_returns(&member.name, highlight_span, block)
+                        }
+                        _ => (),
+                    }
                 }
 
                 _ => (),
@@ -131,6 +169,49 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
 
             self.do_visit(&child)
         });
+    }
+
+    fn check_method_always_returns(
+        &self,
+        method_name: &Symbol<'_>,
+        hightlight_span: Span<'_>,
+        method_body: &Spanned<'_, ast::Block<'_>>,
+    ) {
+        fn always_returns<'t>(stmt: &Spanned<'t, ast::Stmt<'t>>) -> bool {
+            match &stmt.data {
+                // An if-else stmt always returns iff both arms always return
+                ast::Stmt::If(_, then_arm, else_arm) => {
+                    let then_arm_always_returns = always_returns(&*then_arm);
+                    let else_arm_always_returns = else_arm
+                        .as_ref()
+                        .map_or(true, |else_arm| always_returns(&*else_arm));
+
+                    then_arm_always_returns && else_arm_always_returns
+                }
+
+                // An empty block does not return
+                ast::Stmt::Block(block) if block.statements.len() == 0 => false,
+                // A non-empty block always returns iff all of its statements
+                // always return
+                ast::Stmt::Block(block) => block.statements.iter().all(always_returns),
+
+                // A return stmt always returns
+                ast::Stmt::Return(_) => true,
+
+                // All other stmts do not always return
+                _ => false,
+            }
+        }
+
+        // FIXME de-duplicate empty block logic from always_returns
+        if method_body.statements.len() == 0 || !method_body.statements.iter().all(always_returns) {
+            self.context.diagnostics.error(&Spanned {
+                span: hightlight_span,
+                data: SemanticError::MightNotReturn {
+                    method_name: format!("{}", method_name),
+                },
+            });
+        }
     }
 
     fn visit_static_block(&mut self, node: &NodeKind<'a, 'f>, arg_name: &Symbol<'_>) {
