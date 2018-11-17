@@ -1,6 +1,8 @@
 use crate::{ast, strtab::Symbol};
-use std::collections::{hash_map::Entry, HashMap};
-use std::fmt;
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    fmt,
+};
 
 #[derive(Debug)]
 pub struct TypeSystem<'src> {
@@ -99,7 +101,7 @@ impl<'src> ClassMethodDef<'src> {
                     ty: CheckedType::from(&p.ty.data),
                 })
                 .collect(),
-            is_main: is_static
+            is_main: is_static,
         }
     }
 }
@@ -129,11 +131,13 @@ pub enum CheckedType<'src> {
 
 impl<'src> CheckedType<'src> {
     pub fn create_array_type(item_type: CheckedType<'src>, dimension: u64) -> CheckedType<'src> {
-        if dimension == 0 { item_type }
-        else {
-            CheckedType::Array(
-                Box::new(CheckedType::create_array_type(item_type, dimension - 1))
-            )
+        if dimension == 0 {
+            item_type
+        } else {
+            CheckedType::Array(Box::new(CheckedType::create_array_type(
+                item_type,
+                dimension - 1,
+            )))
         }
     }
 
@@ -149,7 +153,7 @@ impl<'src> CheckedType<'src> {
         // FIXME there must be a better way
         (match other {
             CheckedType::Null => self.is_nullable(),
-            _ => false
+            _ => false,
         }) || self == other
     }
 }

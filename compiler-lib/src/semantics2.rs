@@ -1,4 +1,10 @@
-use crate::{asciifile::Spanned, asciifile::Span, ast, context::Context, type_system::*, method_body_typechecker::*};
+use crate::{
+    asciifile::{Span, Spanned},
+    ast,
+    context::Context,
+    method_body_typechecker::*,
+    type_system::*,
+};
 use failure::Fail;
 
 #[derive(Debug, Fail)]
@@ -30,10 +36,7 @@ pub enum SemanticError {
     )]
     ThisMethodInvocationInStaticMethod { method_name: String },
 
-    #[fail(
-        display = "cannot call static method '{}'",
-        method_name
-    )]
+    #[fail(display = "cannot call static method '{}'", method_name)]
     CannotCallStaticMethod { method_name: String },
 
     #[fail(display = "non-static variable 'this' cannot be referenced from a static context")]
@@ -45,7 +48,10 @@ pub enum SemanticError {
     #[fail(display = "cannot lookup var or field '{}'", name)]
     CannotLookupVarOrField { name: String },
 
-    #[fail(display = "cannot access non static field '{}' in static method", field_name)]
+    #[fail(
+        display = "cannot access non static field '{}' in static method",
+        field_name
+    )]
     CannotAccessNonStaticFieldInStaticMethod { field_name: String },
 
     #[fail(display = "method cannot return a value")]
@@ -54,9 +60,15 @@ pub enum SemanticError {
     #[fail(display = "method must return a value of type '{}'", ty)]
     MethodMustReturnSomething { ty: String },
 
-    #[fail(display = "invalid type: Expected expression of type '{}', but was of type '{}'",
-        ty_expected, ty_expr)]
-    InvalidType { ty_expected: String, ty_expr: String },
+    #[fail(
+        display = "invalid type: Expected expression of type '{}', but was of type '{}'",
+        ty_expected,
+        ty_expr
+    )]
+    InvalidType {
+        ty_expected: String,
+        ty_expr: String,
+    },
 
     #[fail(display = "cannot reference class '{}' here", class_name)]
     InvalidReferenceToClass { class_name: String },
@@ -67,19 +79,35 @@ pub enum SemanticError {
     #[fail(display = "cannot index non-array type '{}'", ty)]
     CannotIndexNonArrayType { ty: String },
 
-    #[fail(display = "method '{}' does not exist on type '{}'",
-        method_name, ty)]
+    #[fail(
+        display = "method '{}' does not exist on type '{}'",
+        method_name,
+        ty
+    )]
     MethodDoesNotExistOnType { method_name: String, ty: String },
 
-    #[fail(display = "field '{}' does not exist on type '{}'",
-        field_name, ty)]
+    #[fail(
+        display = "field '{}' does not exist on type '{}'",
+        field_name,
+        ty
+    )]
     FieldDoesNotExistOnType { field_name: String, ty: String },
 
-    #[fail(display = "method argument count does not match: Expected {} arguments, but found {}",
-        expected_args, actual_args)]
-    MethodArgCountDoesNotMatch { expected_args: usize, actual_args: usize },
+    #[fail(
+        display = "method argument count does not match: Expected {} arguments, but found {}",
+        expected_args,
+        actual_args
+    )]
+    MethodArgCountDoesNotMatch {
+        expected_args: usize,
+        actual_args: usize,
+    },
 
-    #[fail(display = "cannot compare values of type '{}' with values of type '{}'", ty1, ty2)]
+    #[fail(
+        display = "cannot compare values of type '{}' with values of type '{}'",
+        ty1,
+        ty2
+    )]
     CannotCompareValuesOfType1WithType2 { ty1: String, ty2: String },
 }
 
@@ -93,14 +121,13 @@ pub fn check<'a, 'src>(
         ast::AST::Empty => Ok(TypeSystem::new()),
         ast::AST::Program(program) => {
             let type_system = build_type_system(&sem_context, program);
-            
-            for class_decl in &program.classes {        
-                MethodBodyTypeChecker::check_methods(
-                    class_decl, &type_system, &sem_context);
+
+            for class_decl in &program.classes {
+                MethodBodyTypeChecker::check_methods(class_decl, &type_system, &sem_context);
             }
 
             Ok(type_system)
-        },
+        }
     }
 }
 
@@ -114,13 +141,16 @@ impl<'src> SemanticContext<'src> {
     }
 
     pub fn report_error(&self, span: &'src Span<'src>, error: SemanticError) {
-        self.context.diagnostics.error(
-            &Spanned::new(span.clone(), error)
-        )
+        self.context
+            .diagnostics
+            .error(&Spanned::new(span.clone(), error))
     }
 }
 
-fn build_type_system<'src>(context: &SemanticContext<'src>, program: &ast::Program<'src>) -> TypeSystem<'src> {
+fn build_type_system<'src>(
+    context: &SemanticContext<'src>,
+    program: &ast::Program<'src>,
+) -> TypeSystem<'src> {
     let mut type_system = TypeSystem::new();
 
     for class_decl in &program.classes {
@@ -136,7 +166,8 @@ fn build_type_system<'src>(context: &SemanticContext<'src>, program: &ast::Progr
                             ty: CheckedType::from(&ty.data),
                         })
                         .unwrap_or_else(|_| {
-                            context.report_error(&member.span,
+                            context.report_error(
+                                &member.span,
                                 SemanticError::RedefinitionError {
                                     kind: "field".to_string(),
                                     name: member.name.to_string(),
@@ -158,7 +189,8 @@ fn build_type_system<'src>(context: &SemanticContext<'src>, program: &ast::Progr
                             is_static,
                         ))
                         .unwrap_or_else(|_| {
-                            context.report_error(&member.span,
+                            context.report_error(
+                                &member.span,
                                 SemanticError::RedefinitionError {
                                     kind: "method".to_string(),
                                     name: member.name.to_string(),
@@ -169,16 +201,15 @@ fn build_type_system<'src>(context: &SemanticContext<'src>, program: &ast::Progr
             }
         }
 
-        type_system
-            .add_class_def(class_def)
-            .unwrap_or_else(|_| {
-                context.report_error(&class_decl.span,
-                    SemanticError::RedefinitionError {
-                        kind: "class".to_string(),
-                        name: class_decl.name.to_string(),
-                    },
-                )
-            });
+        type_system.add_class_def(class_def).unwrap_or_else(|_| {
+            context.report_error(
+                &class_decl.span,
+                SemanticError::RedefinitionError {
+                    kind: "class".to_string(),
+                    name: class_decl.name.to_string(),
+                },
+            )
+        });
     }
 
     type_system
