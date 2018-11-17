@@ -13,4 +13,9 @@ error: Usage of the parameter 'args' of the main function
  4 |         args.length();
    |         ^^^^
 
-Compilation aborted due to 3 errors
+error: method 'length' does not exist on type '$String[]'
+   | 
+ 4 |         args.length();
+   |              ^^^^^^
+
+Compilation aborted due to 4 errors

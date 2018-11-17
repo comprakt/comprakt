@@ -48,3 +48,4 @@ error: assignment to a non-l-value
  24 |         new int[5] = 5;
     |         ^^^^^^^^^^
 
+Compilation aborted due to 10 errors

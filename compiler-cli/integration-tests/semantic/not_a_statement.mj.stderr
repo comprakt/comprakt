@@ -48,3 +48,4 @@ error: not a statement
  26 |         !badBool;
     |         ^^^^^^^^^
 
+Compilation aborted due to 10 errors
