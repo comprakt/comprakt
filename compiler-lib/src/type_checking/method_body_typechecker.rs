@@ -28,6 +28,9 @@ pub struct MethodBodyTypeChecker<'src, 'sem> {
     local_scope: Scoped<Symbol<'src>, VarDef<'src, 'sem>>,
 }
 
+#[derive(Debug)]
+pub struct CouldNotDetermineType;
+
 impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
     pub fn check_methods(
         class_decl: &'sem ast::ClassDeclaration<'src>,
@@ -152,13 +155,16 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         }
     }
 
-    fn resolve_class(&mut self, ty: &CheckedType<'src>) -> Result<&'sem ClassDef<'src>, ()> {
+    fn resolve_class(
+        &mut self,
+        ty: &CheckedType<'src>,
+    ) -> Result<&'sem ClassDef<'src>, CouldNotDetermineType> {
         match ty {
             CheckedType::TypeRef(name) => match self.type_system.resolve_type_ref(*name) {
-                None => Err(()),
+                None => Err(CouldNotDetermineType),
                 Some(class_def) => Ok(class_def),
             },
-            _ => Err(()),
+            _ => Err(CouldNotDetermineType),
         }
     }
 
@@ -183,7 +189,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
     fn get_type_expr(
         &mut self,
         expr: &Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<CheckedType<'src>, ()> {
+    ) -> Result<CheckedType<'src>, CouldNotDetermineType> {
         use crate::ast::Expr::*;
         match &expr.data {
             Binary(op, lhs, rhs) => {
@@ -196,7 +202,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                                 self.check_type(rhs, &lhs_type);
                                 Ok(lhs_type)
                             }
-                            Err(_) => Err(()),
+                            Err(_) => Err(CouldNotDetermineType),
                         }
                     }
                     Equals | NotEquals => {
@@ -256,7 +262,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                                 ty: target_class_def.name.to_string(),
                             },
                         );
-                        Err(())
+                        Err(CouldNotDetermineType)
                     }
                 }
             }
@@ -289,9 +295,9 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                             &target_expr.span,
                             SemanticError::CannotIndexNonArrayType { ty: ty.to_string() },
                         );
-                        Err(())
+                        Err(CouldNotDetermineType)
                     }
-                    Err(_) => Err(()),
+                    Err(_) => Err(CouldNotDetermineType),
                 }
             }
             Null => Ok(CheckedType::Null),
@@ -303,7 +309,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                     self.context
                         .report_error(&expr.span, SemanticError::ThisInStaticMethod);
 
-                    Err(())
+                    Err(CouldNotDetermineType)
                 } else {
                     Ok(CheckedType::TypeRef(self.current_class.name))
                 }
@@ -319,7 +325,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                                 class_name: name.data.to_string(),
                             },
                         );
-                        Err(())
+                        Err(CouldNotDetermineType)
                     }
                 }
             }
@@ -342,7 +348,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         method_name: &Spanned<'src, Symbol<'src>>,
         target_class_def: &ClassDef<'src>,
         args: &[Spanned<'src, ast::Expr<'src>>],
-    ) -> Result<CheckedType<'src>, ()> {
+    ) -> Result<CheckedType<'src>, CouldNotDetermineType> {
         let method = match target_class_def.get_method(method_name.data) {
             Some(method) => method,
             None => {
@@ -354,7 +360,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                     },
                 );
 
-                return Err(());
+                return Err(CouldNotDetermineType);
             }
         };
 
@@ -387,7 +393,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
     fn check_var(
         &mut self,
         var_name: &Spanned<'src, Symbol<'src>>,
-    ) -> Result<CheckedType<'src>, ()> {
+    ) -> Result<CheckedType<'src>, CouldNotDetermineType> {
         match self.local_scope.visible_definition(var_name.data) {
             // local variable or param
             Some(VarDef::Local { ty, .. }) => Ok(ty.clone()),
@@ -400,12 +406,12 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                         },
                     );
 
-                    Err(())
+                    Err(CouldNotDetermineType)
                 } else {
                     Ok(param_def.ty.clone())
                 }
             }
-            None => Err(()),
+            None => Err(CouldNotDetermineType),
         }
         .or_else(|_| {
             // field
@@ -422,7 +428,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
 
                     Ok(field.ty.clone())
                 }
-                None => Err(()),
+                None => Err(CouldNotDetermineType),
             }
         })
         .or_else(|_| {
@@ -436,14 +442,14 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                             class_name: class_def.name.to_string(),
                         },
                     );
-                    Err(())
+                    Err(CouldNotDetermineType)
                 }
-                None => Err(()),
+                None => Err(CouldNotDetermineType),
             }
         })
         .or_else(|_| match self.context.global_vars.get(&var_name.data) {
             Some(ty) => Ok(ty.clone()),
-            None => Err(()),
+            None => Err(CouldNotDetermineType),
         })
         .or_else(|_| {
             self.context.report_error(
@@ -452,7 +458,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                     name: var_name.data.to_string(),
                 },
             );
-            Err(())
+            Err(CouldNotDetermineType)
         })
     }
 }

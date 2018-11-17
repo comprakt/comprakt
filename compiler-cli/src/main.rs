@@ -197,14 +197,11 @@ fn cmd_check(path: &PathBuf) -> Result<(), Error> {
         }
     };
 
-    match crate::type_checking::check(&mut strtab, &ast, &context) {
-        Ok(_type_system) => (),
-        Err(_) => {
-            //context.diagnostics.error(&error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    };
+    crate::type_checking::check(&mut strtab, &ast, &context);
+    if context.diagnostics.errored() {
+        context.diagnostics.write_statistics();
+        exit(1)
+    }
 
     Ok(())
 }

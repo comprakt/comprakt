@@ -116,21 +116,20 @@ pub fn check<'a, 'src>(
     mut strtab: &'src mut StringTable<'src>,
     ast: &'a ast::AST<'src>,
     context: &'src Context<'src>,
-) -> Result<TypeSystem<'src>, ()> {
+) -> TypeSystem<'src> {
     let mut sem_context = SemanticContext::new(context);
 
     match ast {
-        ast::AST::Empty => Ok(TypeSystem::default()),
+        ast::AST::Empty => TypeSystem::default(),
         ast::AST::Program(program) => {
             let mut type_system = build_type_system(&sem_context, program);
-
             add_system_types(&mut strtab, &mut type_system, &mut sem_context);
 
             for class_decl in &program.classes {
                 MethodBodyTypeChecker::check_methods(class_decl, &type_system, &sem_context);
             }
 
-            Ok(type_system)
+            type_system
         }
     }
 }

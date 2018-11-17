@@ -9,23 +9,31 @@ pub struct TypeSystem<'src> {
     defined_classes: HashMap<Symbol<'src>, ClassDef<'src>>,
 }
 
+#[derive(Debug)]
+pub struct ClassDoesNotExist;
+#[derive(Debug)]
+pub struct ClassAlreadyDeclared;
+
 impl<'src> TypeSystem<'src> {
     pub fn is_type_defined(&self, name: Symbol<'src>) -> bool {
         self.defined_classes.contains_key(&name)
     }
 
-    pub fn add_class_def(&mut self, class_def: ClassDef<'src>) -> Result<(), ()> {
+    pub fn add_class_def(&mut self, class_def: ClassDef<'src>) -> Result<(), ClassAlreadyDeclared> {
         match self.defined_classes.entry(class_def.name) {
-            Entry::Occupied(_) => return Err(()),
+            Entry::Occupied(_) => return Err(ClassAlreadyDeclared),
             Entry::Vacant(e) => e.insert(class_def),
         };
         Ok(())
     }
 
-    pub fn update_existing_class_def(&mut self, class_def: ClassDef<'src>) -> Result<(), ()> {
+    pub fn update_existing_class_def(
+        &mut self,
+        class_def: ClassDef<'src>,
+    ) -> Result<(), ClassDoesNotExist> {
         match self.defined_classes.entry(class_def.name) {
             Entry::Occupied(mut e) => e.insert(class_def),
-            Entry::Vacant(_) => return Err(()),
+            Entry::Vacant(_) => return Err(ClassDoesNotExist),
         };
         Ok(())
     }
