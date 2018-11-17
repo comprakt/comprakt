@@ -2,6 +2,7 @@ use crate::{asciifile::Spanned, strtab::Symbol,
     symtab::*, type_system::*, semantics2::*, ast};
 
 /*
+TODO return this in var lookup
 enum IdentLookupResult<'src, 'sem> {
     VarDef(VarDef<'src, 'sem>),
     Param(&'sem MethodParamDef<'src>),
@@ -102,45 +103,26 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
             Return(expr_opt) => {
                 let return_ty = &self.current_method.return_ty;
-                match expr_opt {
-                    None => {
-                        // case "return;"
-                        match return_ty {
-                            CheckedType::Void => {}
-                            _ => {
-                                self.context.report_error(&stmt.span,
-                                    SemanticError::MethodMustReturnSomething {
-                                        ty: return_ty.to_string()
-                                    }
-                                );
+
+                match (expr_opt, return_ty) {
+                    (None, CheckedType::Void) => {},
+                    (None, _) => {
+                        self.context.report_error(&stmt.span,
+                            SemanticError::MethodMustReturnSomething {
+                                ty: return_ty.to_string()
                             }
-                        }
+                        );
                     },
-                    Some(expr) => {
-                        // case "return expr;"
-                        let expr_ty = self.get_type_expr(expr);
-                        match return_ty {
-                            CheckedType::Void => {
-                                self.context.report_error(&stmt.span,
-                                    SemanticError::VoidMethodCannotReturnValue
-                                );
-                            }
-                            _ => {
-                                // FIXME reduce nesting
-                                if let Ok(expr_ty) = expr_ty {
-                                    if !return_ty.is_assignable_from(&expr_ty) {
-                                        self.context.report_error(&stmt.span,
-                                            SemanticError::InvalidReturnType {
-                                                ty_expr: expr_ty.to_string(),
-                                                ty_return: return_ty.to_string(),
-                                            }
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                };
+                    (Some(expr), CheckedType::Void) => {
+                        let _ = self.get_type_expr(expr);
+                        self.context.report_error(&stmt.span,
+                            SemanticError::VoidMethodCannotReturnValue
+                        );
+                    },
+                    (Some(expr), _) => {
+                        self.check_type(expr, return_ty)
+                    },
+                }
             }
             LocalVariableDeclaration(ty, name, opt_assign) => {
                 let def_ty = CheckedType::from(&ty.data);
@@ -328,15 +310,15 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                     }
                 }
             }
-            NewArray(_basic_ty, size_expr, _dimension) => {
+            NewArray(basic_ty, size_expr, dimension) => {
+                // e.g new int[10][][];
+
                 self.check_type(size_expr, &CheckedType::Int);
 
-                /*let ty = basic_type_to_checked_type(basic_ty);
-                self.get_type_expr(size);*/
+                let basic_ty = CheckedType::from(&basic_ty.data); // TODO validate type
+                let ty = CheckedType::create_array_type(basic_ty, dimension + 1);
 
-                // e.g new int[10][][];
-                // TODO
-                Err(())
+                Ok(ty)
             }
         }
     }

@@ -128,6 +128,15 @@ pub enum CheckedType<'src> {
 }
 
 impl<'src> CheckedType<'src> {
+    pub fn create_array_type(item_type: CheckedType<'src>, dimension: u64) -> CheckedType<'src> {
+        if dimension == 0 { item_type }
+        else {
+            CheckedType::Array(
+                Box::new(CheckedType::create_array_type(item_type, dimension - 1))
+            )
+        }
+    }
+
     pub fn is_nullable(&self) -> bool {
         match self {
             CheckedType::TypeRef(_) => true,

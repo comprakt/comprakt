@@ -54,10 +54,6 @@ pub enum SemanticError {
     #[fail(display = "method must return a value of type '{}'", ty)]
     MethodMustReturnSomething { ty: String },
 
-    #[fail(display = "invalid return type: Expected expression of type '{}', but was of type '{}'",
-        ty_return, ty_expr)]
-    InvalidReturnType { ty_expr: String, ty_return: String },
-
     #[fail(display = "invalid type: Expected expression of type '{}', but was of type '{}'",
         ty_expected, ty_expr)]
     InvalidType { ty_expected: String, ty_expr: String },
