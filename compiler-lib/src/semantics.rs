@@ -9,41 +9,114 @@ use failure::Fail;
 use std::collections::HashMap;
 
 #[derive(Debug, Fail)]
-enum SemanticError {
+pub enum SemanticError {
     #[fail(display = "redefinition of {} '{}'", kind, name)]
     RedefinitionError {
         kind: String, // "class", "parameter", ...
         name: String, // name of the parameter class...
     },
+
     #[fail(
         display = "Usage of the parameter '{}' of the main function",
         name
     )]
     MainMethodParamUsed { name: String },
+
     #[fail(display = "Only the 'main' method can be static")]
     StaticMethodNotMain,
+
     #[fail(display = "No 'main' method found")]
     NoMainMethod,
+
     #[fail(
         display = "{}. definition of a static method. Only one is allowed",
         amount
     )]
     MultipleStaticMethods { amount: u64 },
-    #[fail(
-        display = "non-static method '{}' cannot be referenced from a static context",
-        name
-    )]
-    ThisMethodInvocationInStaticMethod { name: String },
+
     #[fail(display = "non-static variable 'this' cannot be referenced from a static context")]
     ThisInStaticMethod,
+
     #[fail(display = "method '{}' might not return", method_name)]
     MightNotReturn { method_name: String },
-}
 
-type ClassesAndMembers<'a, 'f> = HashMap<
-    (Symbol<'a>, Symbol<'a>, ast::ClassMemberKindDiscriminants),
-    &'a Spanned<'f, ast::ClassMember<'f>>,
->;
+    #[fail(
+        display = "non-static method '{}' cannot be referenced from a static context",
+        method_name
+    )]
+    ThisMethodInvocationInStaticMethod { method_name: String },
+
+    #[fail(display = "cannot call static method '{}'", method_name)]
+    CannotCallStaticMethod { method_name: String },
+
+    #[fail(display = "condition must be boolean")]
+    ConditionMustBeBoolean,
+
+    #[fail(display = "cannot lookup var or field '{}'", name)]
+    CannotLookupVarOrField { name: String },
+
+    #[fail(
+        display = "cannot access non static field '{}' in static method",
+        field_name
+    )]
+    CannotAccessNonStaticFieldInStaticMethod { field_name: String },
+
+    #[fail(display = "method cannot return a value")]
+    VoidMethodCannotReturnValue,
+
+    #[fail(display = "method must return a value of type '{}'", ty)]
+    MethodMustReturnSomething { ty: String },
+
+    #[fail(
+        display = "invalid type: Expected expression of type '{}', but was of type '{}'",
+        ty_expected,
+        ty_expr
+    )]
+    InvalidType {
+        ty_expected: String,
+        ty_expr: String,
+    },
+
+    #[fail(display = "cannot reference class '{}' here", class_name)]
+    InvalidReferenceToClass { class_name: String },
+
+    #[fail(display = "class '{}' does not exist", class_name)]
+    ClassDoesNotExist { class_name: String },
+
+    #[fail(display = "cannot index non-array type '{}'", ty)]
+    CannotIndexNonArrayType { ty: String },
+
+    #[fail(
+        display = "method '{}' does not exist on type '{}'",
+        method_name,
+        ty
+    )]
+    MethodDoesNotExistOnType { method_name: String, ty: String },
+
+    #[fail(
+        display = "field '{}' does not exist on type '{}'",
+        field_name,
+        ty
+    )]
+    FieldDoesNotExistOnType { field_name: String, ty: String },
+
+    #[fail(
+        display = "method argument count does not match: Expected {} arguments, but found {}",
+        expected_args,
+        actual_args
+    )]
+    MethodArgCountDoesNotMatch {
+        expected_args: usize,
+        actual_args: usize,
+    },
+
+    #[fail(
+        display = "cannot compare values of type '{}' with values of type '{}'",
+        ty1,
+        ty2
+    )]
+    CannotCompareValuesOfType1WithType2 { ty1: String, ty2: String },
+}
 
 /// `check` returns an `Err` iff at least one errors was emitted through
 /// `context`.
@@ -75,24 +148,22 @@ pub fn check<'a, 'f>(
     Ok(())
 }
 
-struct ClassesAndMembersVisitor<'a, 'f, 'cx> {
+struct ClassesAndMembersVisitor<'f, 'cx> {
     context: &'cx Context<'cx>,
-    classes_and_members: ClassesAndMembers<'a, 'f>,
     static_method_found: u64,
     class_member_to_its_span: HashMap<*const ast::ClassMember<'f>, Span<'f>>,
 }
 
-impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
+impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
     pub fn new(context: &'cx Context<'_>) -> Self {
         Self {
             context,
-            classes_and_members: HashMap::new(),
             static_method_found: 0,
             class_member_to_its_span: HashMap::new(),
         }
     }
 
-    fn do_visit(&mut self, node: &NodeKind<'a, 'f>) {
+    fn do_visit(&mut self, node: &NodeKind<'_, 'f>) {
         use self::{ast, NodeKind::*};
         node.for_each_child(&mut |child| {
             match child {
@@ -107,18 +178,9 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                             .insert(&member_decl.data as *const _, member_decl.span);
                     });
                 }
-                Program(prog) => {
-                    for class in &prog.classes {
-                        for member in &class.members {
-                            let discr = ast::ClassMemberKindDiscriminants::from(&member.kind);
-                            self.classes_and_members
-                                .insert((class.name.data, member.name, discr), &member);
-                        }
-                    }
-                }
 
                 ClassMember(member) => {
-                    if let ast::ClassMemberKind::MainMethod(params, block) = &member.kind {
+                    if let ast::ClassMemberKind::MainMethod(params, _) = &member.kind {
                         debug_assert!(params.len() == 1);
                         self.static_method_found += 1;
                         if &member.name != "main" {
@@ -135,7 +197,6 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                                 },
                             })
                         }
-                        self.visit_static_block(&NodeKind::from(block), &params[0].name);
                     }
 
                     match &member.kind {
@@ -143,9 +204,10 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                             if ty.basic.data != ast::BasicType::Void =>
                         {
                             let ptr = (&member.data) as *const _;
-                            let member_decl = self.class_member_to_its_span.get(&ptr).expect(
-                                "must have current_member_decl while while visiting ClassMember",
-                            );
+                            let member_decl = self
+                                .class_member_to_its_span
+                                .get(&ptr)
+                                .expect("must have current_member_decl while visiting ClassMember");
                             let highlight_span = Span::from_positions(&[
                                 member_decl.start_position(),
                                 pl.span.end_position(),
@@ -205,61 +267,5 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                 },
             });
         }
-    }
-
-    fn visit_static_block(&mut self, node: &NodeKind<'a, 'f>, arg_name: &Symbol<'_>) {
-        use self::NodeKind::*;
-        node.for_each_child(&mut |child| {
-            match child {
-                Stmt(stmt) => {
-                    if let ast::Stmt::LocalVariableDeclaration(_, name, _) = &stmt.data {
-                        if arg_name == &name.data {
-                            self.context.diagnostics.error(&Spanned {
-                                span: stmt.span,
-                                data: SemanticError::RedefinitionError {
-                                    kind: "parameter".to_string(),
-                                    name: arg_name.to_string(),
-                                },
-                            })
-                        }
-                    }
-                }
-                Expr(expr) => match &expr.data {
-                    ast::Expr::Var(name) => {
-                        if arg_name == &name.data {
-                            self.context.diagnostics.error(&Spanned {
-                                span: expr.span,
-                                data: SemanticError::MainMethodParamUsed {
-                                    name: arg_name.to_string(),
-                                },
-                            });
-                        }
-                    }
-                    ast::Expr::This => {
-                        self.context.diagnostics.error(&Spanned {
-                            span: expr.span,
-                            data: SemanticError::ThisInStaticMethod,
-                        });
-                    }
-                    ast::Expr::ThisMethodInvocation(name, _) => {
-                        // This is for sure an error since there is only one static method and this
-                        // is the main function. We cannot call the main function from within the
-                        // main function, since we don't have a `String` type to create an argument
-                        // for the main function. We also cannot use the argument of the main
-                        // function to call the main function.
-                        self.context.diagnostics.error(&Spanned {
-                            span: expr.span,
-                            data: SemanticError::ThisMethodInvocationInStaticMethod {
-                                name: name.data.to_string(),
-                            },
-                        });
-                    }
-                    _ => (),
-                },
-                _ => (),
-            }
-
-            self.visit_static_block(&child, arg_name)
-        });
     }
 }

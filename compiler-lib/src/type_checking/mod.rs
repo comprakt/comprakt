@@ -2,119 +2,15 @@ use crate::{
     asciifile::{Span, Spanned},
     ast,
     context::Context,
+    semantics::SemanticError,
     strtab::{StringTable, Symbol},
 };
-use failure::Fail;
 use std::collections::HashMap;
 
 pub mod method_body_typechecker;
 pub mod type_system;
 
 use self::{method_body_typechecker::MethodBodyTypeChecker, type_system::*};
-
-#[derive(Debug, Fail)]
-pub enum SemanticError {
-    #[fail(display = "redefinition of {} '{}'", kind, name)]
-    RedefinitionError {
-        kind: String, // "class", "parameter", ...
-        name: String, // name of the parameter class...
-    },
-
-    #[fail(
-        display = "Usage of the parameter '{}' of the main function",
-        name
-    )]
-    MainMethodParamUsed { name: String },
-
-    #[fail(display = "Static methods have to be called 'main'")]
-    StaticMethodNotMain,
-
-    #[fail(
-        display = "{}. definition of a static method. Only one is allowed",
-        amount
-    )]
-    MultipleStaticMethods { amount: u64 },
-
-    #[fail(
-        display = "non-static method '{}' cannot be referenced from a static context",
-        method_name
-    )]
-    ThisMethodInvocationInStaticMethod { method_name: String },
-
-    #[fail(display = "cannot call static method '{}'", method_name)]
-    CannotCallStaticMethod { method_name: String },
-
-    #[fail(display = "non-static variable 'this' cannot be referenced from a static context")]
-    ThisInStaticMethod,
-
-    #[fail(display = "condition must be boolean")]
-    ConditionMustBeBoolean,
-
-    #[fail(display = "cannot lookup var or field '{}'", name)]
-    CannotLookupVarOrField { name: String },
-
-    #[fail(
-        display = "cannot access non static field '{}' in static method",
-        field_name
-    )]
-    CannotAccessNonStaticFieldInStaticMethod { field_name: String },
-
-    #[fail(display = "method cannot return a value")]
-    VoidMethodCannotReturnValue,
-
-    #[fail(display = "method must return a value of type '{}'", ty)]
-    MethodMustReturnSomething { ty: String },
-
-    #[fail(
-        display = "invalid type: Expected expression of type '{}', but was of type '{}'",
-        ty_expected,
-        ty_expr
-    )]
-    InvalidType {
-        ty_expected: String,
-        ty_expr: String,
-    },
-
-    #[fail(display = "cannot reference class '{}' here", class_name)]
-    InvalidReferenceToClass { class_name: String },
-
-    #[fail(display = "class '{}' does not exist", class_name)]
-    ClassDoesNotExist { class_name: String },
-
-    #[fail(display = "cannot index non-array type '{}'", ty)]
-    CannotIndexNonArrayType { ty: String },
-
-    #[fail(
-        display = "method '{}' does not exist on type '{}'",
-        method_name,
-        ty
-    )]
-    MethodDoesNotExistOnType { method_name: String, ty: String },
-
-    #[fail(
-        display = "field '{}' does not exist on type '{}'",
-        field_name,
-        ty
-    )]
-    FieldDoesNotExistOnType { field_name: String, ty: String },
-
-    #[fail(
-        display = "method argument count does not match: Expected {} arguments, but found {}",
-        expected_args,
-        actual_args
-    )]
-    MethodArgCountDoesNotMatch {
-        expected_args: usize,
-        actual_args: usize,
-    },
-
-    #[fail(
-        display = "cannot compare values of type '{}' with values of type '{}'",
-        ty1,
-        ty2
-    )]
-    CannotCompareValuesOfType1WithType2 { ty1: String, ty2: String },
-}
 
 pub fn check<'a, 'src>(
     mut strtab: &'_ mut StringTable<'src>,
