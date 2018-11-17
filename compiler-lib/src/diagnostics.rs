@@ -73,19 +73,20 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 /// let mut output: UnsafeCell<Vec<u8>> = UnsafeCell::new(Vec::new());
 /// let stderr = NoColor::new(unsafe { &mut *output.get() });
 /// let diagnostics = Diagnostics::new(Box::new(stderr));
-/// let input = "banana";
+/// let input = "banana\nanother banana";
 /// let file = AsciiFile::new(input.as_bytes()).unwrap();
 /// let initial_pos = Position::at_file_start(&file).unwrap();
+/// let banana_end = initial_pos.clone().iter().nth(5).unwrap();
 /// let last_pos = initial_pos.clone().iter().last().unwrap();
 ///
 /// diagnostics.error(&"banana");
 /// diagnostics.error(&Spanned {
 ///     data: "this is a banana",
-///     span: Span::new(initial_pos, last_pos),
+///     span: Span::new(initial_pos, banana_end),
 /// });
 /// diagnostics.warning(&WithSpan(Spanned {
 ///     data: "this is another banana",
-///     span: Span::new(initial_pos, last_pos),
+///     span: Span::new(initial_pos, banana_end),
 /// }));
 /// diagnostics.info(&WithoutSpan("there is a banana"));
 /// diagnostics.info(&Printable {
@@ -96,11 +97,30 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 ///             data: "the banana starts here",
 ///         },
 ///         Spanned {
-///             span: Span::new(last_pos, last_pos),
+///             span: Span::new(banana_end, banana_end),
 ///             data: "this is the end",
 ///         },
 ///     ],
 /// });
+/// diagnostics.error(&Printable {
+///     message: &"a bag of bananas",
+///     annotations: vec![
+///         Spanned {
+///             span: Span::new(initial_pos, banana_end),
+///             data: "this is the first banana",
+///         },
+///         Spanned {
+///             span: Span::new(initial_pos, initial_pos),
+///             data: "the first banana starts here",
+///         },
+///         Spanned {
+///             span: Span::new(initial_pos, last_pos),
+///             data: "this is the bag of bananas",
+///         },
+///     ],
+/// });
+///
+/// println!("{}", String::from_utf8_lossy(unsafe { &mut *output.get() }));
 ///
 /// assert_eq!(
 ///     r#"error: banana
@@ -122,6 +142,15 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 ///  1 | banana
 ///    | ^ the banana starts here
 ///    |      ^ this is the end
+///
+/// error: a bag of bananas
+///    |
+///  1 | banana
+///    | ^^^^^^ this is the first banana
+///    | ^ the first banana starts here
+///    | ^^^^^^
+///  2 | another banana
+///    | ^^^^^^^^^^^^^^ this is the bag of bananas
 ///
 /// "#,
 ///     &String::from_utf8_lossy(unsafe { &mut *output.get() })
@@ -382,31 +411,10 @@ impl<'file, 'msg> Message<'file, 'msg> {
         Some(overall)
     }
 
+    // TODO: must take multiple spans
     fn write_code(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
-        // TODO: print more than the first span
-        if let Some(spanned) = self.kind.annotations.get(0) {
-            self.write_code_block(writer, &spanned)?;
-        }
-
-        Ok(())
-
         // groups spans into blocks that are separated by at most 5 lines. then prints
         // each block separated by dots
-        //let mut blocks = vec![];
-
-        //for block in blocks {
-        //write_code_block(writer, block);
-        //}
-    }
-
-    // TODO: must take multiple spans
-    fn write_code_block(
-        &self,
-        writer: &mut dyn WriteColor,
-        error: &Spanned<'_, &str>,
-    ) -> Result<(), Error> {
-        let mut output = ColorOutput::new(writer);
-
         let span = match self.overall_span() {
             None => {
                 // no code blocks, return
@@ -414,6 +422,8 @@ impl<'file, 'msg> Message<'file, 'msg> {
             }
             Some(span) => span,
         };
+
+        let mut output = ColorOutput::new(writer);
 
         let num_fmt = LineNumberFormatter::new(&span);
 
@@ -425,39 +435,41 @@ impl<'file, 'msg> Message<'file, 'msg> {
             num_fmt.number(output.writer(), line_number)?;
             line_fmt.render(output.writer())?;
 
-            // currently, the span will always exist since we take the line from the error
-            // but future versions may print a line below and above for context that
-            // is not part of the error
-            if let Some(faulty_part_of_line) = Span::intersect(&error.span, &line) {
-                // TODO: implement this without the following 3 assumptions:
-                // - start_pos - end_pos >= 0, guranteed by data structure invariant of Span
-                // - start_term_pos - end_term_pos >= 0, guranteed by monotony of columns
-                //   (a Position.char() can only be rendered to 0 or more terminal characters)
-                // - unwrap(.): both positions are guranteed to exist in the line since we just
-                //   got them from the faulty line, which is a subset of the whole error line
-                let (start_term_pos, end_term_pos) =
-                    line_fmt.get_actual_columns(&faulty_part_of_line).unwrap();
+            for annotation in &self.kind.annotations {
+                if let Some(faulty_part_of_line) = Span::intersect(&annotation.span, &line) {
+                    // TODO: implement this without the following 3 assumptions:
+                    // - start_pos - end_pos >= 0, guranteed by data structure invariant of Span
+                    // - start_term_pos - end_term_pos >= 0, guranteed by monotony of columns
+                    //   (a Position.char() can only be rendered to 0 or more terminal characters)
+                    // - unwrap(.): both positions are guranteed to exist in the line since we just
+                    //   got them from the faulty line, which is a subset of the whole error line
+                    let (start_term_pos, end_term_pos) =
+                        line_fmt.get_actual_columns(&faulty_part_of_line).unwrap();
 
-                let term_width = end_term_pos - start_term_pos;
+                    let term_width = end_term_pos - start_term_pos;
 
-                num_fmt.spaces(output.writer())?;
+                    let ends_on_this_line =
+                        annotation.span.end_position().line_number() == line_number;
 
-                {
-                    let mut output = ColorOutput::new(output.writer());
-                    output.set_color(self.level.color());
-                    output.set_bold(true);
-                    // TODO dont print msg on multiline spans
-                    writeln!(
-                        output.writer(),
-                        "{spaces}{underline}{msg}",
-                        spaces = " ".repeat(start_term_pos),
-                        underline = "^".repeat(term_width),
-                        msg = (if error.data == "" {
-                            "".to_string()
-                        } else {
-                            format!(" {}", error.data)
-                        })
-                    )?;
+                    num_fmt.spaces(output.writer())?;
+
+                    {
+                        let mut output = ColorOutput::new(output.writer());
+                        output.set_color(self.level.color());
+                        output.set_bold(true);
+                        // TODO dont print msg on multiline spans
+                        writeln!(
+                            output.writer(),
+                            "{spaces}{underline}{msg}",
+                            spaces = " ".repeat(start_term_pos),
+                            underline = "^".repeat(term_width),
+                            msg = (if !ends_on_this_line || annotation.data == "" {
+                                "".to_string()
+                            } else {
+                                format!(" {}", annotation.data)
+                            })
+                        )?;
+                    }
                 }
             }
         }
