@@ -132,43 +132,8 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                         ast::ClassMemberKind::Method(ty, _, block)
                             if ty.basic != ast::BasicType::Void =>
                         {
-                            fn always_returns<'t>(stmt: &Spanned<'t, ast::Stmt<'t>>) -> bool {
-                                match &stmt.data {
-                                    // An if-else stmt always return iff both arms always return
-                                    ast::Stmt::If(_, then_arm, else_arm) => {
-                                        let then_arm_always_returns = always_returns(&*then_arm);
-                                        let else_arm_always_returns = else_arm
-                                            .as_ref()
-                                            .map_or(true, |else_arm| always_returns(&*else_arm));
-
-                                        then_arm_always_returns && else_arm_always_returns
-                                    }
-
-                                    // An empty block does not return
-                                    ast::Stmt::Block(block) if block.statements.len() == 0 => false,
-                                    // A non-empty block always returns iff all of its statements
-                                    // always return
-                                    ast::Stmt::Block(block) => {
-                                        block.statements.iter().all(always_returns)
-                                    }
-
-                                    // A return stmt always returns
-                                    ast::Stmt::Return(_) => true,
-
-                                    // All other stmts do not always return
-                                    _ => false,
-                                }
-                            }
-
-                            // FIXME de-duplicate empty block logic from always_returns
-                            if block.statements.len() == 0 || !block.statements.iter().all(always_returns) {
-                                self.context.diagnostics.error(&Spanned {
-                                    span: block.span.clone(),
-                                    data: SemanticError::MightNotReturn,
-                                });
-                            }
+                            self.check_method_always_returns(block)
                         }
-
                         _ => (),
                     }
                 }
@@ -178,6 +143,42 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
 
             self.do_visit(&child)
         });
+    }
+
+    fn check_method_always_returns(&self, method_body: &Spanned<'_, ast::Block<'_>>) {
+        fn always_returns<'t>(stmt: &Spanned<'t, ast::Stmt<'t>>) -> bool {
+            match &stmt.data {
+                // An if-else stmt always return iff both arms always return
+                ast::Stmt::If(_, then_arm, else_arm) => {
+                    let then_arm_always_returns = always_returns(&*then_arm);
+                    let else_arm_always_returns = else_arm
+                        .as_ref()
+                        .map_or(true, |else_arm| always_returns(&*else_arm));
+
+                    then_arm_always_returns && else_arm_always_returns
+                }
+
+                // An empty block does not return
+                ast::Stmt::Block(block) if block.statements.len() == 0 => false,
+                // A non-empty block always returns iff all of its statements
+                // always return
+                ast::Stmt::Block(block) => block.statements.iter().all(always_returns),
+
+                // A return stmt always returns
+                ast::Stmt::Return(_) => true,
+
+                // All other stmts do not always return
+                _ => false,
+            }
+        }
+
+        // FIXME de-duplicate empty block logic from always_returns
+        if method_body.statements.len() == 0 || !method_body.statements.iter().all(always_returns) {
+            self.context.diagnostics.error(&Spanned {
+                span: method_body.span.clone(),
+                data: SemanticError::MightNotReturn,
+            });
+        }
     }
 
     fn visit_static_block(&mut self, node: &NodeKind<'a, 'f>, arg_name: &Symbol<'_>) {
