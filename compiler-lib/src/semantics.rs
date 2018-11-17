@@ -174,7 +174,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
     ) {
         fn always_returns<'t>(stmt: &Spanned<'t, ast::Stmt<'t>>) -> bool {
             match &stmt.data {
-                // An if-else stmt always return iff both arms always return
+                // An if-else stmt always returns iff both arms always return
                 ast::Stmt::If(_, then_arm, else_arm) => {
                     let then_arm_always_returns = always_returns(&*then_arm);
                     let else_arm_always_returns = else_arm
