@@ -24,7 +24,7 @@ pub struct MethodBodyTypeChecker<'src, 'sem> {
     type_system: &'sem TypeSystem<'src>,
     current_class: &'sem ClassDef<'src>,
     current_method: &'sem ClassMethodDef<'src>,
-    local_scope: Scoped<'src, VarDef<'src, 'sem>>,
+    local_scope: Scoped<Symbol<'src>, VarDef<'src, 'sem>>,
 }
 
 impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
@@ -53,7 +53,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                     for param in &current_method.params {
                         checker
                             .local_scope
-                            .define(&param.name, VarDef::Param(&param))
+                            .define(param.name, VarDef::Param(&param))
                             .unwrap();
                     }
 
@@ -128,7 +128,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 let def_ty = CheckedType::from(&ty.data);
                 self.local_scope
                     .define(
-                        name,
+                        name.data,
                         VarDef::Local {
                             name: name.data,
                             ty: def_ty.clone(),
@@ -386,7 +386,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         &mut self,
         var_name: &Spanned<'src, Symbol<'src>>,
     ) -> Result<CheckedType<'src>, ()> {
-        match self.local_scope.lookup(var_name.data) {
+        match self.local_scope.visible_definition(var_name.data) {
             // local variable or param
             Some(VarDef::Local { ty, .. }) => Ok(ty.clone()),
             Some(VarDef::Param(param_def)) => {
