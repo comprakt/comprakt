@@ -24,10 +24,8 @@ pub mod lexer;
 pub mod parser;
 #[macro_use]
 pub mod visitor;
-mod method_body_typechecker;
 pub mod print;
-pub mod semantics2;
 mod spantracker;
 pub mod strtab;
 pub mod symtab;
-mod type_system;
+pub mod type_checking;

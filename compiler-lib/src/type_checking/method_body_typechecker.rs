@@ -1,4 +1,5 @@
-use crate::{asciifile::Spanned, ast, semantics2::*, strtab::Symbol, symtab::*, type_system::*};
+use super::{type_checking::*, type_system::*};
+use crate::{asciifile::Spanned, ast, strtab::Symbol, symtab::*};
 
 /*
 TODO return this in var lookup
@@ -183,7 +184,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
         &mut self,
         expr: &Spanned<'src, ast::Expr<'src>>,
     ) -> Result<CheckedType<'src>, ()> {
-        use crate::{ast::Expr::*, type_system::*};
+        use crate::ast::Expr::*;
         match &expr.data {
             Binary(op, lhs, rhs) => {
                 use crate::ast::BinaryOp::*;

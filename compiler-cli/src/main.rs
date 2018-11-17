@@ -16,8 +16,8 @@ use compiler_lib::{
     lexer::{Lexer, TokenKind},
     parser::Parser,
     print::{self, lextest},
-    semantics2,
     strtab::StringTable,
+    type_checking,
 };
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
@@ -197,7 +197,7 @@ fn cmd_check(path: &PathBuf) -> Result<(), Error> {
         }
     };
 
-    match crate::semantics2::check(&mut strtab, &ast, &context) {
+    match crate::type_checking::check(&mut strtab, &ast, &context) {
         Ok(_type_system) => (),
         Err(_) => {
             //context.diagnostics.error(&error);

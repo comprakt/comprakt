@@ -1,10 +1,9 @@
+use super::{method_body_typechecker::*, type_system::*};
 use crate::{
     asciifile::{Span, Spanned},
     ast,
     context::Context,
-    method_body_typechecker::*,
     strtab::{StringTable, Symbol},
-    type_system::*,
 };
 use failure::Fail;
 use std::collections::HashMap;
