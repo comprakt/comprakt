@@ -36,8 +36,8 @@ enum SemanticError {
     ThisMethodInvocationInStaticMethod { name: String },
     #[fail(display = "non-static variable 'this' cannot be referenced from a static context")]
     ThisInStaticMethod,
-    #[fail(display = "method might not return")]
-    MightNotReturn,
+    #[fail(display = "method '{}' might not return", method_name)]
+    MightNotReturn { method_name: String },
 }
 
 type ClassesAndMembers<'a, 'f> = HashMap<
@@ -132,7 +132,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                         ast::ClassMemberKind::Method(ty, _, block)
                             if ty.basic != ast::BasicType::Void =>
                         {
-                            self.check_method_always_returns(block)
+                            self.check_method_always_returns(&member.name, block)
                         }
                         _ => (),
                     }
@@ -145,7 +145,11 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
         });
     }
 
-    fn check_method_always_returns(&self, method_body: &Spanned<'_, ast::Block<'_>>) {
+    fn check_method_always_returns(
+        &self,
+        method_name: &Symbol<'_>,
+        method_body: &Spanned<'_, ast::Block<'_>>,
+    ) {
         fn always_returns<'t>(stmt: &Spanned<'t, ast::Stmt<'t>>) -> bool {
             match &stmt.data {
                 // An if-else stmt always return iff both arms always return
@@ -176,7 +180,9 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
         if method_body.statements.len() == 0 || !method_body.statements.iter().all(always_returns) {
             self.context.diagnostics.error(&Spanned {
                 span: method_body.span.clone(),
-                data: SemanticError::MightNotReturn,
+                data: SemanticError::MightNotReturn {
+                    method_name: format!("{}", method_name),
+                },
             });
         }
     }
