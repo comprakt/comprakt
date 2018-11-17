@@ -123,8 +123,11 @@ pub enum SemanticError {
     #[fail(display = "not a statement")]
     NotAStatement,
 
-    #[fail(display = "assignment to a non-l-value")]
-    AssignmentToNonLValue,
+    #[fail(display = "invalid assignment - can only assign to local variables, parameters, field and array fields")]
+    InvalidAssignment,
+
+    #[fail(display = "Cannot write to read-only field '{}'", field_name)]
+    CannotWriteToReadOnlyField { field_name: String },
 
     #[fail(display = "integer number too large: {}", int)]
     IntTooLarge { int: String },
@@ -235,11 +238,7 @@ impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
                     use crate::ast::Expr::*;
                     if let ast::Stmt::Expression(expr) = &stmt.data {
                         match &expr.data {
-                            Binary(ast::BinaryOp::Assign, lhs, _) => {
-                                //Check lhs
-
-                            }
-                            MethodInvocation(..) | ThisMethodInvocation(..) => (),
+                            Binary(ast::BinaryOp::Assign, _, _) | MethodInvocation(..) | ThisMethodInvocation(..) => (),
                             _ => {
                                 //Err
                                 self.context.diagnostics.error(&Spanned {
