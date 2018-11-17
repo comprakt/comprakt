@@ -7,14 +7,14 @@ extern crate quote;
 extern crate syn;
 
 use mjtest::SyntaxTestCase;
-use proc_macro::TokenStream;
-use quote::ToTokens;
+use proc_macro2::{Ident, Span, TokenStream, TokenTree};
+use quote::{quote, ToTokens};
 use std::{collections::HashSet, iter::FromIterator};
 
 #[proc_macro]
-pub fn gen_syntax_tests(input: proc_macro::TokenStream) -> TokenStream {
+pub fn gen_syntax_tests(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // parse arguments
-    let input: proc_macro2::TokenStream = input.into();
+    let input: TokenStream = input.into();
     let expr: syn::Expr = syn::parse2(input.clone()).expect("group");
     let t: syn::ExprTuple = match expr {
         syn::Expr::Tuple(t) => t,
@@ -46,23 +46,28 @@ pub fn gen_syntax_tests(input: proc_macro::TokenStream) -> TokenStream {
     let cases = SyntaxTestCase::all().expect("could not load test cases");
 
     // generate test cases
-    let mut out = String::new();
+    let mut out = proc_macro2::TokenStream::new();
     for case in cases {
         let mut tcdef = proc_macro2::TokenStream::new();
         case.to_tokens(&mut tcdef);
-        if releaseonly.contains(case.file_name()) && cfg!(debug_assertions) {
-            out.push_str("#[ignore]\n");
-        }
-        out.push_str("#[test]\nfn ");
-        out += &case.test_name();
-        out.push_str("() { ");
-        out += &format!("let tc = {};", tcdef);
+        let ignore = if releaseonly.contains(case.file_name()) && cfg!(debug_assertions) {
+            quote!{ #[ignore] }
+        } else {
+            quote!{}
+        };
+        let test_name = TokenTree::Ident(Ident::new(&case.test_name(), Span::call_site()));
         let mut handler_toks = proc_macro2::TokenStream::new();
         handler.to_tokens(&mut handler_toks);
-        out += &format!("let handler = {};", handler_toks);
-        out += "handler(&tc);";
-        out.push_str("}");
+        let test = quote!{
+            #ignore
+            #[test]
+            fn #test_name() {
+                let tc = #tcdef;
+                let handler = #handler_toks;
+                handler(&tc);
+            }
+        };
+        out.extend(test);
     }
-
-    out.parse().unwrap()
+    out.into()
 }
