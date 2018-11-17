@@ -242,8 +242,8 @@ fn add_system_types<'src>(strtab: &'_ mut StringTable<'src>, type_system: &'_ mu
     let arg_sym = strtab.intern("$InStream");
 
     let int_ty = CheckedType::Int;
-    let mut instream_class_def = ClassDef::new(strtab.intern("$InStream"));
-    instream_class_def.add_method(ClassMethodDef {
+    let mut reader_class_def = ClassDef::new(strtab.intern("$Reader"));
+    reader_class_def.add_method(ClassMethodDef {
         name: strtab.intern("read"),
         params: vec![],
         return_ty: int_ty.clone(),
@@ -251,22 +251,22 @@ fn add_system_types<'src>(strtab: &'_ mut StringTable<'src>, type_system: &'_ mu
         is_main: false,
     }).unwrap();
 
-    let mut outstream_class_def = ClassDef::new(strtab.intern("$OutStream"));
-    outstream_class_def.add_method(ClassMethodDef {
+    let mut writer_class_def = ClassDef::new(strtab.intern("$Writer"));
+    writer_class_def.add_method(ClassMethodDef {
         name: strtab.intern("println"),
         params: vec![ MethodParamDef::new(arg_sym, int_ty.clone()) ],
         return_ty: CheckedType::Void,
         is_static: false,
         is_main: false,
     }).unwrap();
-    outstream_class_def.add_method(ClassMethodDef {
+    writer_class_def.add_method(ClassMethodDef {
         name: strtab.intern("write"),
         params: vec![ MethodParamDef::new(arg_sym, int_ty.clone()) ],
         return_ty: CheckedType::Void,
         is_static: false,
         is_main: false,
     }).unwrap();
-    outstream_class_def.add_method(ClassMethodDef {
+    writer_class_def.add_method(ClassMethodDef {
         name: strtab.intern("flush"),
         params: vec![],
         return_ty: CheckedType::Void,
@@ -276,20 +276,20 @@ fn add_system_types<'src>(strtab: &'_ mut StringTable<'src>, type_system: &'_ mu
     
     let mut system_class_def = ClassDef::new(strtab.intern("$System"));
     system_class_def.add_field(ClassFieldDef {
-        name: strtab.intern("in"), ty: instream_class_def.get_type()
+        name: strtab.intern("in"), ty: reader_class_def.get_type()
     }).unwrap();
     system_class_def.add_field(ClassFieldDef {
-        name: strtab.intern("out"), ty: outstream_class_def.get_type()
+        name: strtab.intern("out"), ty: writer_class_def.get_type()
     }).unwrap();
     context.global_vars.insert(strtab.intern("System"), system_class_def.get_type());
 
-    type_system.add_class_def(instream_class_def).unwrap();
-    type_system.add_class_def(outstream_class_def).unwrap();
+    type_system.add_class_def(reader_class_def).unwrap();
+    type_system.add_class_def(writer_class_def).unwrap();
     type_system.add_class_def(system_class_def).unwrap();
 }
 
 // pass None as context to disable error reporting
-// FIXME better ideas?
+// TODO LATER better ideas?
 pub fn checked_type_from_basic_ty<'src>(
     basic_ty: &Spanned<'src, ast::BasicType<'src>>,
     context: Option<&SemanticContext<'src>>,
