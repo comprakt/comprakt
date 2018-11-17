@@ -171,7 +171,7 @@ fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
     let stderr_changeset = Changeset::new(
         &stderr_expected,
         &normalize_stderr(&String::from_utf8_lossy(&assertion.get_output().stderr)),
-        "\n",
+        " ",
     );
     let stderr_predicate = predicate::function(|actual: &[u8]| {
         normalize_stderr(&String::from_utf8_lossy(actual)) == stderr_expected
@@ -182,7 +182,7 @@ fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
     let stdout_changeset = Changeset::new(
         &stdout_expected,
         &String::from_utf8_lossy(&assertion.get_output().stdout),
-        "\n",
+        " ",
     );
     let stdout_predicate =
         predicate::function(|actual: &[u8]| actual == stdout_expected.as_bytes());
