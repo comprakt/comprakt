@@ -6,7 +6,7 @@ extern crate proc_macro2;
 extern crate quote;
 extern crate syn;
 
-use mjtest::SyntaxTestCase;
+use mjtest::{SemanticTestCase, SyntaxTestCase};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::quote;
 use std::{collections::HashSet, iter::FromIterator};
@@ -109,5 +109,17 @@ pub fn gen_syntax_tests(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     cases
         .into_iter()
         .for_each(|tc| gen_args.gen_testcase::<SyntaxTestCase>(&tc, &mut out));
+    out.into()
+}
+
+#[proc_macro]
+pub fn gen_semantic_tests(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let gen_args = GenArgs::must_from_token_stream(input);
+    let cases = SemanticTestCase::all().expect("could not load test cases");
+    // generate test cases
+    let mut out = proc_macro2::TokenStream::new();
+    cases
+        .into_iter()
+        .for_each(|tc| gen_args.gen_testcase(&tc, &mut out));
     out.into()
 }

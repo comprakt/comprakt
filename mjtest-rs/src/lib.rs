@@ -129,16 +129,37 @@ impl SyntaxTestCase {
         let p = mjtests_path().join("./syntax");
         SyntaxAndSemanticFilePath::all(&p)
     }
+}
 
-    pub fn test_name(&self) -> String {
-        use SyntaxTestCase::*;
-        let prefix = match self {
-            Valid(_) => "valid",
-            Invalid(_) => "invalid",
-        };
+#[derive(Debug, Serialize, Deserialize)]
+pub enum SemanticTestCase {
+    Valid(SyntaxAndSemanticFilePath),
+    Invalid(SyntaxAndSemanticFilePath),
+}
 
-        let escaped_name = self.file_name().replace(".", "__");
-        format!("mjtest_syntax_{}_{}", prefix, escaped_name)
+impl From<SyntaxAndSemanticFilePath> for SemanticTestCase {
+    fn from(fp: SyntaxAndSemanticFilePath) -> Self {
+        match fp {
+            SyntaxAndSemanticFilePath::Valid(_) => SemanticTestCase::Valid(fp),
+            SyntaxAndSemanticFilePath::Invalid(_) => SemanticTestCase::Invalid(fp),
+        }
+    }
+}
+
+impl Deref for SemanticTestCase {
+    type Target = SyntaxAndSemanticFilePath;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            SemanticTestCase::Valid(p) => p,
+            SemanticTestCase::Invalid(p) => p,
+        }
+    }
+}
+
+impl SemanticTestCase {
+    pub fn all() -> Result<Vec<SemanticTestCase>, Error> {
+        let p = mjtests_path().join("./semantic");
+        SyntaxAndSemanticFilePath::all(&p)
     }
 }
 
@@ -158,15 +179,23 @@ pub trait QuotingWormhole<'a>: serde::Deserialize<'a> + serde::Serialize {
 }
 
 impl<'a> QuotingWormhole<'a> for SyntaxTestCase {}
+impl<'a> QuotingWormhole<'a> for SemanticTestCase {}
 
-impl quote::ToTokens for SyntaxTestCase {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let x = self.to_json();
-        let code = quote!({
-            use mjtest::QuotingWormhole;
-            let y: SyntaxTestCase = QuotingWormhole::from_json(#x);
-            y
-        });
-        tokens.append_all(code);
-    }
+macro_rules! derive_to_tokens_for_wormwhole {
+    ($wormwholetype:ty) => {
+        impl quote::ToTokens for $wormwholetype {
+            fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+                let x = self.to_json();
+                let code = quote!({
+                    use mjtest::QuotingWormhole;
+                    let y: $wormwholetype = QuotingWormhole::from_json(#x);
+                    y
+                });
+                tokens.append_all(code);
+            }
+        }
+    };
 }
+
+derive_to_tokens_for_wormwhole!(SyntaxTestCase);
+derive_to_tokens_for_wormwhole!(SemanticTestCase);
