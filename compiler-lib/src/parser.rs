@@ -515,11 +515,9 @@ where
             Ok(Spanned::new(basic.span, ast::BasicType::Boolean))
         } else if let Some(basic) = self.omnomnoptional(exactly(Keyword::Void))? {
             Ok(Spanned::new(basic.span, ast::BasicType::Void))
-        } else if let Some(sym) = self.omnomnoptional(Identifier)? {
-            Ok(Spanned::new(sym.span, ast::BasicType::Custom(sym.data)))
         } else {
             let sym = self.omnomnom(Identifier)?;
-            Ok(ast::BasicType::Custom(sym.data))
+            Ok(Spanned::new(sym.span, ast::BasicType::Custom(sym.data)))
         }
     }
 
@@ -801,11 +799,9 @@ where
                 Ok(Boolean(true))
             } else if self.omnomnoptional(exactly(Keyword::This))?.is_some() {
                 Ok(This)
-            } else if let Some(lit) = self.omnomnoptional(IntegerLiteral)? {
-                Ok(Int(lit))
             } else {
                 let lit = self.omnomnom(IntegerLiteral)?;
-                Ok(Int(lit.data))
+                Ok(Int(lit))
             }
         })
         .map(Box::new)
@@ -1050,15 +1046,23 @@ mod tests {
                     match lhs.data {
                         Expr::Binary(op, lhs, rhs) => {
                             assert_eq!(op, Add);
-                            assert_eq!(lhs.data, Expr::Int("3"));
+                            assert_eq!(lhs.data, Expr::Int(Spanned {
+                                span: lhs.span,
+                                data: "3",
+                            }));
 
-                            assert_eq!(lhs.data, Expr::Int("3"));
                             // rhs = 4 * 7
                             match rhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Mul);
-                                    assert_eq!(lhs.data, Expr::Int("4"));
-                                    assert_eq!(rhs.data, Expr::Int("7"));
+                                    assert_eq!(lhs.data, Expr::Int(Spanned {
+                                        span: lhs.span,
+                                        data: "4",
+                                    }));
+                                    assert_eq!(rhs.data, Expr::Int(Spanned {
+                                        span: rhs.span,
+                                        data: "7",
+                                    }));
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
@@ -1073,12 +1077,21 @@ mod tests {
                             match lhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Div);
-                                    assert_eq!(lhs.data, Expr::Int("9"));
-                                    assert_eq!(rhs.data, Expr::Int("7"));
+                                    assert_eq!(lhs.data, Expr::Int(Spanned {
+                                        span: lhs.span,
+                                        data: "9"
+                                    }));
+                                    assert_eq!(rhs.data, Expr::Int(Spanned {
+                                        span: rhs.span,
+                                        data: "7",
+                                    }));
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
-                            assert_eq!(rhs.data, Expr::Int("42"));
+                            assert_eq!(rhs.data, Expr::Int(Spanned {
+                                span: rhs.span,
+                                data: "42",
+                            }));
                         }
                         expr => panic!("not a binary expr: {:#?}", expr),
                     }
