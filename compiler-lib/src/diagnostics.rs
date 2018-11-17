@@ -368,6 +368,18 @@ impl MessageLevel {
         }
     }
 
+    fn color_variant(self, variant :usize) -> Option<Color> {
+        if variant == 0 {
+            return self.color()
+        }
+
+        match self {
+            MessageLevel::Error => Some(Color::Ansi256(((124 + variant * 3) % 226) as u8)),
+            MessageLevel::Warning => Some(Color::Ansi256(((220 + variant * 3) % 226) as u8)),
+            MessageLevel::Info => Some(Color::Ansi256(((94 + variant * 3) % 226) as u8)),
+        }
+    }
+
     fn name(&self) -> &str {
         match self {
             MessageLevel::Error => "error",
@@ -455,7 +467,7 @@ impl<'file, 'msg> Message<'file, 'msg> {
             num_fmt.number(output.writer(), line_number)?;
             line_fmt.render(output.writer())?;
 
-            for annotation in &self.kind.annotations {
+            for (annotation_index, annotation) in self.kind.annotations.iter().enumerate() {
                 if let Some(faulty_part_of_line) = Span::intersect(&annotation.span, &line) {
                     // TODO: implement this without the following 3 assumptions:
                     // - start_pos - end_pos >= 0, guranteed by data structure invariant of Span
@@ -472,7 +484,7 @@ impl<'file, 'msg> Message<'file, 'msg> {
 
                     {
                         let mut output = ColorOutput::new(output.writer());
-                        output.set_color(self.level.color());
+                        output.set_color(self.level.color_variant(annotation_index));
                         output.set_bold(true);
 
                         if annotation.span.is_single_char() {
