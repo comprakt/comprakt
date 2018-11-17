@@ -423,11 +423,8 @@ where
                 let string_array_type = Spanned {
                     data: ast::Type {
                         // treat String[] as an opaque type
-                        basic: Spanned::new(
-                            java_string.span,
-                            ast::BasicType::Custom(java_string.data),
-                        ),
-                        array_depth: 1,
+                        basic: Spanned::new(java_string.span, ast::BasicType::MainParam),
+                        array_depth: 0,
                     },
                     span: Span::combine(&java_string.span, &java_string_array_close.span),
                 };

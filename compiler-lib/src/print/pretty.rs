@@ -157,6 +157,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 Boolean => printer.print_str(&"boolean"),
                 Void => printer.print_str(&"void"),
                 Custom(name) => printer.print(format_args!("{}", name)),
+                MainParam => printer.print_str(&"String[]"),
             }
         }
 

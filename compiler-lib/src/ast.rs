@@ -81,6 +81,7 @@ pub enum BasicType<'t> {
     Boolean,
     Void,
     Custom(Symbol<'t>),
+    MainParam,
 }
 
 /// A `Block` in the AST is basically just a vector of statements.

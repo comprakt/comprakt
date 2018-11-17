@@ -126,8 +126,9 @@ pub fn check<'a, 'src>(
     match ast {
         ast::AST::Empty => TypeSystem::default(),
         ast::AST::Program(program) => {
-            let mut type_system = build_type_system(&sem_context, program);
-            add_system_types(&mut strtab, &mut type_system, &mut sem_context);
+            let mut type_system = TypeSystem::default();
+            let builtin_types = add_builtin_types(&mut strtab, &mut type_system, &mut sem_context);
+            add_types_from_ast(&mut type_system, &builtin_types, &sem_context, program);
 
             for class_decl in &program.classes {
                 MethodBodyTypeChecker::check_methods(class_decl, &type_system, &sem_context);
@@ -156,12 +157,12 @@ impl<'ctx, 'src> SemanticContext<'ctx, 'src> {
     }
 }
 
-fn build_type_system<'ctx, 'src>(
+fn add_types_from_ast<'ctx, 'src>(
+    type_system: &mut TypeSystem<'src>,
+    builtin_types: &BuiltinTypes<'src>,
     context: &SemanticContext<'ctx, 'src>,
     program: &ast::Program<'src>,
-) -> TypeSystem<'src> {
-    let mut type_system = TypeSystem::default();
-
+) {
     for class_decl in &program.classes {
         // first pass: find all types
         let class_def = ClassDef::new(class_decl.name.data);
@@ -188,7 +189,7 @@ fn build_type_system<'ctx, 'src>(
                     class_def
                         .add_field(ClassFieldDef {
                             name: member.name,
-                            ty: checked_type_from_ty(&ty.data, Some(context), &type_system),
+                            ty: checked_type_from_ty(&ty.data, context, &type_system),
                         })
                         .unwrap_or_else(|_| {
                             context.report_error(
@@ -206,20 +207,23 @@ fn build_type_system<'ctx, 'src>(
                         Method(ty, _, _) => (
                             false,
                             false,
-                            checked_type_from_ty(&ty.data, Some(context), &type_system),
+                            checked_type_from_ty(&ty.data, context, &type_system),
                         ),
                         MainMethod(_, _) => (true, true, CheckedType::Void),
                     };
 
-                    // disable parameter checking in main methods, as "String" is not a valid
-                    // reference to a type
-                    let type_check_context = if is_main { None } else { Some(context) };
-
                     let checked_params = params
                         .iter()
-                        .map(|p| MethodParamDef {
-                            name: p.name,
-                            ty: checked_type_from_ty(&p.ty.data, type_check_context, &type_system),
+                        .map(|p| {
+                            let ty = match p.ty.data.basic.data {
+                                ast::BasicType::MainParam => {
+                                    assert!(is_main);
+                                    assert_eq!(p.ty.data.array_depth, 0);
+                                    CheckedType::Array(box builtin_types.string.clone())
+                                }
+                                _ => checked_type_from_ty(&p.ty.data, context, &type_system),
+                            };
+                            MethodParamDef { name: p.name, ty }
                         })
                         .collect();
 
@@ -245,15 +249,17 @@ fn build_type_system<'ctx, 'src>(
 
         type_system.update_existing_class_def(class_def).unwrap();
     }
-
-    type_system
 }
 
-fn add_system_types<'src>(
+struct BuiltinTypes<'src> {
+    string: CheckedType<'src>,
+}
+
+fn add_builtin_types<'src>(
     strtab: &'_ mut StringTable<'src>,
     type_system: &'_ mut TypeSystem<'src>,
     context: &'_ mut SemanticContext<'_, 'src>,
-) {
+) -> BuiltinTypes<'src> {
     let arg_sym = strtab.intern("$InStream");
 
     let int_ty = CheckedType::Int;
@@ -314,16 +320,20 @@ fn add_system_types<'src>(
         .global_vars
         .insert(strtab.intern("System"), system_class_def.get_type());
 
+    let string_class_def = ClassDef::new(strtab.intern("$String"));
+    let string = string_class_def.get_type();
+
     type_system.add_class_def(reader_class_def).unwrap();
     type_system.add_class_def(writer_class_def).unwrap();
     type_system.add_class_def(system_class_def).unwrap();
+    type_system.add_class_def(string_class_def).unwrap();
+
+    BuiltinTypes { string }
 }
 
-// pass None as context to disable error reporting
-// TODO LATER better ideas?
 pub fn checked_type_from_basic_ty<'src>(
     basic_ty: &Spanned<'src, ast::BasicType<'src>>,
-    context: Option<&SemanticContext<'_, 'src>>,
+    context: &SemanticContext<'_, 'src>,
     type_system: &TypeSystem<'src>,
 ) -> CheckedType<'src> {
     use self::ast::BasicType::*;
@@ -333,23 +343,23 @@ pub fn checked_type_from_basic_ty<'src>(
         Void => CheckedType::Void,
         Custom(name) => {
             if !type_system.is_type_defined(*name) {
-                if let Some(context) = context {
-                    context.report_error(
-                        &basic_ty.span,
-                        SemanticError::ClassDoesNotExist {
-                            class_name: name.to_string(),
-                        },
-                    );
-                }
+                context.report_error(
+                    &basic_ty.span,
+                    SemanticError::ClassDoesNotExist {
+                        class_name: name.to_string(),
+                    },
+                );
             }
             CheckedType::TypeRef(*name)
         }
+        // Parser only yields MainParam in that one case we handle anyway
+        MainParam => unreachable!(),
     }
 }
 
 pub fn checked_type_from_ty<'src>(
     ty: &ast::Type<'src>,
-    context: Option<&SemanticContext<'_, 'src>>,
+    context: &SemanticContext<'_, 'src>,
     type_system: &TypeSystem<'src>,
 ) -> CheckedType<'src> {
     let mut checked_ty = checked_type_from_basic_ty(&ty.basic, context, type_system);

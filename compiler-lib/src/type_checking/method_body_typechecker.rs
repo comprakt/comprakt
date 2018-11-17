@@ -130,7 +130,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                 }
             }
             LocalVariableDeclaration(ty, name, opt_assign) => {
-                let def_ty = checked_type_from_ty(&ty.data, Some(self.context), self.type_system);
+                let def_ty = checked_type_from_ty(&ty.data, self.context, self.type_system);
                 self.local_scope
                     .define(
                         name.data,
@@ -336,7 +336,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                 self.check_type(size_expr, &CheckedType::Int);
 
                 let basic_ty =
-                    checked_type_from_basic_ty(&basic_ty, Some(self.context), self.type_system);
+                    checked_type_from_basic_ty(&basic_ty, self.context, self.type_system);
                 let ty = CheckedType::create_array_type(basic_ty, dimension + 1);
 
                 Ok(ty)
@@ -406,11 +406,9 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                             name: var_name.data.to_string(),
                         },
                     );
-
-                    Err(CouldNotDetermineType)
-                } else {
-                    Ok(param_def.ty.clone())
                 }
+
+                Ok(param_def.ty.clone())
             }
             None => Err(CouldNotDetermineType),
         }
