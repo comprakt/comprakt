@@ -1,3 +1,5 @@
+#![feature(try_from)]
+
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
@@ -5,8 +7,11 @@ extern crate serde_derive;
 extern crate quote;
 #[macro_use]
 extern crate failure;
+extern crate strum;
+#[macro_use]
+extern crate strum_macros;
 
-use failure::{Error, ResultExt};
+use failure::{Error, Fail, ResultExt};
 use quote::TokenStreamExt;
 use std::path::PathBuf;
 
@@ -14,58 +19,72 @@ fn mjtests_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./tests")
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum SyntaxTestCase {
+#[derive(Serialize, Deserialize, Debug)]
+pub enum SyntaxAndSemanticFilePath {
     Valid(PathBuf),   // absolute path to test file
     Invalid(PathBuf), // absolute path to test file
 }
 
-impl SyntaxTestCase {
-    pub fn all() -> Result<Vec<SyntaxTestCase>, Error> {
-        let p = mjtests_path().join("./syntax");
+#[derive(Display, Debug, Fail)]
+enum SyntaxAndSemanticFilePathError {
+    GetFileType,
+    NotAFile,
+    FilenameNotUTF8,
+    UnexpectedFilename,
+}
+
+impl SyntaxAndSemanticFilePath {
+    fn all<TestCaseType>(p: &PathBuf) -> Result<Vec<TestCaseType>, Error>
+    where
+        TestCaseType: From<SyntaxAndSemanticFilePath>,
+    {
         let files = std::fs::read_dir(&p).context(format_err!(
             "cannot read syntax test case directory {:?}",
             p
         ))?;
-
-        let mut cases: Vec<SyntaxTestCase> = Vec::new();
+        let mut cases: Vec<TestCaseType> = Vec::new();
         for f in files {
             let f = f.expect("could not unwrap dir entry");
-            let ft = f
-                .file_type()
-                .context(format_err!("could not get filetype of {:?}", f.path()))?;
-            if !ft.is_file() {
-                continue;
-            }
-
-            let filename = f.file_name();
-            let filename = filename
-                .to_str()
-                .ok_or_else(|| format_err!("test file name not utf-8: {:?}", filename))?;
-
-            match filename {
-                n if n.ends_with(".invalid.mj") || n.ends_with(".invalid.java") => {
-                    cases.push(SyntaxTestCase::Invalid(f.path()))
-                }
-                n if n.ends_with(".mj")
-                    || n.ends_with(".java")
-                    || n.ends_with(".valid.mj")
-                    || n.ends_with(".valid.java") =>
-                {
-                    cases.push(SyntaxTestCase::Valid(f.path()))
-                }
-                n if n == ".mjtest_correct_testcases_syntax" => (),
-                _ => return Err(format_err!("unexpected file {:?}", filename)),
+            if let Some(fp) = SyntaxAndSemanticFilePath::from_dir_entry(&f)? {
+                cases.push(TestCaseType::from(fp));
             }
         }
-
         Ok(cases)
+    }
+
+    fn from_dir_entry(f: &std::fs::DirEntry) -> Result<Option<SyntaxAndSemanticFilePath>, Error> {
+        let ft = f
+            .file_type()
+            .context(SyntaxAndSemanticFilePathError::GetFileType)?;
+        if !ft.is_file() {
+            return Err(SyntaxAndSemanticFilePathError::NotAFile)?;
+        }
+
+        let filename = f.file_name();
+        let filename = filename
+            .to_str()
+            .ok_or_else(|| SyntaxAndSemanticFilePathError::FilenameNotUTF8)?;
+
+        match filename {
+            n if n.ends_with(".invalid.mj") || n.ends_with(".invalid.java") => {
+                Ok(Some(SyntaxAndSemanticFilePath::Invalid(f.path())))
+            }
+            n if n.ends_with(".mj")
+                || n.ends_with(".java")
+                || n.ends_with(".valid.mj")
+                || n.ends_with(".valid.java") =>
+            {
+                Ok(Some(SyntaxAndSemanticFilePath::Valid(f.path())))
+            }
+            n if n == ".mjtest_correct_testcases_syntax" => Ok(None),
+            _ => Err(SyntaxAndSemanticFilePathError::UnexpectedFilename)?,
+        }
     }
 
     pub fn path(&self) -> &PathBuf {
         match self {
-            SyntaxTestCase::Valid(ref p) => p,
-            SyntaxTestCase::Invalid(ref p) => p,
+            SyntaxAndSemanticFilePath::Valid(ref p) => p,
+            SyntaxAndSemanticFilePath::Invalid(ref p) => p,
         }
     }
 
@@ -75,6 +94,40 @@ impl SyntaxTestCase {
             .unwrap_or_else(|| panic!("test case path must point to file: {:?}", p))
             .to_str()
             .unwrap_or_else(|| panic!("test file name not utf-8: {:?}", p))
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum SyntaxTestCase {
+    Valid(SyntaxAndSemanticFilePath),   // absolute path to test file
+    Invalid(SyntaxAndSemanticFilePath), // absolute path to test file
+}
+
+impl From<SyntaxAndSemanticFilePath> for SyntaxTestCase {
+    fn from(fp: SyntaxAndSemanticFilePath) -> Self {
+        match fp {
+            SyntaxAndSemanticFilePath::Valid(_) => SyntaxTestCase::Valid(fp),
+            SyntaxAndSemanticFilePath::Invalid(_) => SyntaxTestCase::Invalid(fp),
+        }
+    }
+}
+
+use std::ops::Deref;
+
+impl Deref for SyntaxTestCase {
+    type Target = SyntaxAndSemanticFilePath;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            SyntaxTestCase::Valid(p) => p,
+            SyntaxTestCase::Invalid(p) => p,
+        }
+    }
+}
+
+impl SyntaxTestCase {
+    pub fn all() -> Result<Vec<SyntaxTestCase>, Error> {
+        let p = mjtests_path().join("./syntax");
+        SyntaxAndSemanticFilePath::all(&p)
     }
 
     pub fn test_name(&self) -> String {
