@@ -1,4 +1,4 @@
-error: expected primary expression, found keyword 'else'
+error: expected 'boolean', 'false', 'if', 'int', 'new', 'null', 'return', 'this', 'true', 'void', 'while', `(`, `;`, `{`, `}`, a unary operator, an identifier or an integer literal, found 'else'
     | 
  12 |         else return false;
     |         ^^^^

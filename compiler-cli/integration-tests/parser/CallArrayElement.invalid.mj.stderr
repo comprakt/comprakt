@@ -1,4 +1,4 @@
-error: expected operator ';', found operator '('
+error: expected `.`, `;`, `[` or a binary operator, found `(`
    | 
  4 |         ident[ident]();
    |                     ^

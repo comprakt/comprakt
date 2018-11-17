@@ -1,4 +1,4 @@
-error: expected operator ';', found keyword 'else'
+error: expected `.`, `;`, `[` or a binary operator, found 'else'
    | 
  5 |         else false
    |         ^^^^

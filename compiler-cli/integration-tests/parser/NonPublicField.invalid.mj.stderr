@@ -1,4 +1,4 @@
-error: expected keyword 'public', found keyword 'int'
+error: expected 'public' or `}`, found 'int'
    | 
  3 |     int field;
    |     ^^^

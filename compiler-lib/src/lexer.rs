@@ -34,29 +34,21 @@ pub type LexicalError<'f> = Spanned<'f, ErrorKind>;
 
 pub type IntLit<'f> = &'f str;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord, Display)]
+/// Keywords are single-ticked, operators back-ticked
 pub enum TokenKind<'f> {
+    #[display(fmt = "'{}'", _0)]
     Keyword(Keyword),
+    #[display(fmt = "`{}`", _0)]
     Operator(Operator),
+    #[display(fmt = "identifier `{}`", _0)]
     Identifier(Symbol<'f>),
+    #[display(fmt = "integer literal `{}`", _0)]
     IntegerLiteral(IntLit<'f>),
+    #[display(fmt = "a comment")]
     Comment(&'f str),
+    #[display(fmt = "whitespace")]
     Whitespace,
-}
-
-impl fmt::Display for TokenKind<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use self::TokenKind::*;
-
-        match self {
-            Keyword(keyword) => write!(f, "keyword '{}'", keyword),
-            Operator(operator) => write!(f, "operator '{}'", operator),
-            Identifier(symbol) => write!(f, "identifier '{}'", symbol),
-            IntegerLiteral(symbol) => write!(f, "integer literal '{}'", symbol),
-            Comment(_body) => write!(f, "comment"),
-            Whitespace => write!(f, "whitespace"),
-        }
-    }
 }
 
 #[derive(Debug, Fail)]
@@ -104,7 +96,7 @@ pub enum Warning {
     CommentSeparatorInsideComment,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord, Copy)]
 pub enum Keyword {
     Abstract,
     Assert,
@@ -161,138 +153,88 @@ pub enum Keyword {
     While,
 }
 
-impl fmt::Display for Keyword {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use self::Keyword::*;
-        write!(
-            f,
-            "{}",
-            match self {
-                Abstract => "abstract",
-                Assert => "assert",
-                Boolean => "boolean",
-                Break => "break",
-                Byte => "byte",
-                Case => "case",
-                Catch => "catch",
-                Char => "char",
-                Class => "class",
-                Const => "const",
-                Continue => "continue",
-                Default => "default",
-                Double => "double",
-                Do => "do",
-                Else => "else",
-                Enum => "enum",
-                Extends => "extends",
-                False => "false",
-                Finally => "finally",
-                Final => "final",
-                Float => "float",
-                For => "for",
-                Goto => "goto",
-                If => "if",
-                Implements => "implements",
-                Import => "import",
-                InstanceOf => "instanceof",
-                Interface => "interface",
-                Int => "int",
-                Long => "long",
-                Native => "native",
-                New => "new",
-                Null => "null",
-                Package => "package",
-                Private => "private",
-                Protected => "protected",
-                Public => "public",
-                Return => "return",
-                Short => "short",
-                Static => "static",
-                StrictFp => "strictfp",
-                Super => "super",
-                Switch => "switch",
-                Synchronized => "synchronized",
-                This => "this",
-                Throws => "throws",
-                Throw => "throw",
-                Transient => "transient",
-                True => "true",
-                Try => "try",
-                Void => "void",
-                Volatile => "volatile",
-                While => "while",
+macro_rules! derive_keyword_display_and_tryfrom {
+    ($( ( $keywordvariant:path = $minijavarep:expr ) ),+ ) => {
+        impl fmt::Display for Keyword {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                use self::Keyword::*;
+                let mj_rep = match self {
+                    $( $keywordvariant => $minijavarep ),* ,
+                };
+                write!(f, "{}", mj_rep)
             }
-        )
-    }
+        }
+        impl TryFrom<&str> for Keyword {
+            type Error = ();
+            fn try_from(s: &str) -> Result<Keyword, Self::Error> {
+                use self::Keyword::*;
+                match s {
+                    $( $minijavarep => Ok($keywordvariant) ),* ,
+                    _ => Err(()),
+                }
+            }
+        }
+    };
 }
 
-impl TryFrom<&str> for Keyword {
-    type Error = ();
-
-    fn try_from(s: &str) -> Result<Keyword, Self::Error> {
-        use self::Keyword::*;
-
-        match s {
-            "abstract" => Ok(Abstract),
-            "assert" => Ok(Assert),
-            "boolean" => Ok(Boolean),
-            "break" => Ok(Break),
-            "byte" => Ok(Byte),
-            "case" => Ok(Case),
-            "catch" => Ok(Catch),
-            "char" => Ok(Char),
-            "class" => Ok(Class),
-            "const" => Ok(Const),
-            "continue" => Ok(Continue),
-            "default" => Ok(Default),
-            "double" => Ok(Double),
-            "do" => Ok(Do),
-            "else" => Ok(Else),
-            "enum" => Ok(Enum),
-            "extends" => Ok(Extends),
-            "false" => Ok(False),
-            "finally" => Ok(Finally),
-            "final" => Ok(Final),
-            "float" => Ok(Float),
-            "for" => Ok(For),
-            "goto" => Ok(Goto),
-            "if" => Ok(If),
-            "implements" => Ok(Implements),
-            "import" => Ok(Import),
-            "instanceof" => Ok(InstanceOf),
-            "interface" => Ok(Interface),
-            "int" => Ok(Int),
-            "long" => Ok(Long),
-            "native" => Ok(Native),
-            "new" => Ok(New),
-            "null" => Ok(Null),
-            "package" => Ok(Package),
-            "private" => Ok(Private),
-            "protected" => Ok(Protected),
-            "public" => Ok(Public),
-            "return" => Ok(Return),
-            "short" => Ok(Short),
-            "static" => Ok(Static),
-            "strictfp" => Ok(StrictFp),
-            "super" => Ok(Super),
-            "switch" => Ok(Switch),
-            "synchronized" => Ok(Synchronized),
-            "this" => Ok(This),
-            "throws" => Ok(Throws),
-            "throw" => Ok(Throw),
-            "transient" => Ok(Transient),
-            "true" => Ok(True),
-            "try" => Ok(Try),
-            "void" => Ok(Void),
-            "volatile" => Ok(Volatile),
-            "while" => Ok(While),
-            _ => Err(()),
-        }
-    }
+derive_keyword_display_and_tryfrom!{
+    (Abstract      = "abstract"),
+    (Assert        = "assert"),
+    (Boolean       = "boolean"),
+    (Break         = "break"),
+    (Byte          = "byte"),
+    (Case          = "case"),
+    (Catch         = "catch"),
+    (Char          = "char"),
+    (Class         = "class"),
+    (Const         = "const"),
+    (Continue      = "continue"),
+    (Default       = "default"),
+    (Double        = "double"),
+    (Do            = "do"),
+    (Else          = "else"),
+    (Enum          = "enum"),
+    (Extends       = "extends"),
+    (False         = "false"),
+    (Finally       = "finally"),
+    (Final         = "final"),
+    (Float         = "float"),
+    (For           = "for"),
+    (Goto          = "goto"),
+    (If            = "if"),
+    (Implements    = "implements"),
+    (Import        = "import"),
+    (InstanceOf    = "instanceof"),
+    (Interface     = "interface"),
+    (Int           = "int"),
+    (Long          = "long"),
+    (Native        = "native"),
+    (New           = "new"),
+    (Null          = "null"),
+    (Package       = "package"),
+    (Private       = "private"),
+    (Protected     = "protected"),
+    (Public        = "public"),
+    (Return        = "return"),
+    (Short         = "short"),
+    (Static        = "static"),
+    (StrictFp      = "strictfp"),
+    (Super         = "super"),
+    (Switch        = "switch"),
+    (Synchronized  = "synchronized"),
+    (This          = "this"),
+    (Throws        = "throws"),
+    (Throw         = "throw"),
+    (Transient     = "transient"),
+    (True          = "true"),
+    (Try           = "try"),
+    (Void          = "void"),
+    (Volatile      = "volatile"),
+    (While         = "while")
 }
 
 // Use non-semantic names, since e.g. '<' might mean more than 'less-than'
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord, Copy)]
 pub enum Operator {
     ExclaimEqual,
     Exclaim,

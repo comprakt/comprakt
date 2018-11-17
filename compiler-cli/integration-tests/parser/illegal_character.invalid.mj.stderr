@@ -1,4 +1,4 @@
-error: expected keyword 'class', found keyword 'public'
+error: expected 'class', found 'public'
    | 
  1 | public static void illegalIdentifier$() {}
    | ^^^^^^
