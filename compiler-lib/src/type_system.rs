@@ -1,4 +1,4 @@
-use crate::{ast, strtab::Symbol, asciifile::Spanned};
+use crate::{asciifile::Spanned, ast, strtab::Symbol};
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt,

@@ -141,9 +141,7 @@ impl<'src> SemanticContext<'src> {
     }
 
     pub fn report_error(&self, span: &'src Span<'src>, error: SemanticError) {
-        self.context
-            .diagnostics
-            .error(&Spanned::new(*span, error))
+        self.context.diagnostics.error(&Spanned::new(*span, error))
     }
 }
 
