@@ -251,16 +251,25 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
             FieldAccess(target_expr, name) => {
                 let target_type = self.get_type_expr(&target_expr)?;
-                let target_class = self.resolve_class(&target_type)?;
-                let field = target_class.get_field(name.data).ok_or(())?;
-
-                Ok(field.ty.clone())
+                let target_class_def = self.resolve_class(&target_type)?;
+                match target_class_def.get_field(name.data) {
+                    Some(field) => Ok(field.ty.clone()),
+                    None => {
+                        self.context.report_error(&name.span,
+                            SemanticError::FieldDoesNotExistOnType {
+                                field_name: name.data.to_string(),
+                                ty: target_class_def.name.to_string(),
+                            }
+                        );
+                        Err(())
+                    }
+                }
             }
             MethodInvocation(target_expr, name, args) => {
                 // e.g. "target_expr.name(arg1, arg2)"
                 let target_type = self.get_type_expr(&target_expr)?;
-                let target_class = self.resolve_class(&target_type)?;
-                self.check_method_invocation(name, target_class, args)
+                let target_class_def = self.resolve_class(&target_type)?;
+                self.check_method_invocation(name, target_class_def, args)
             }
             ThisMethodInvocation(name, args) => {
                 // e.g. "name(arg1, arg2);"

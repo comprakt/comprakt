@@ -54,11 +54,11 @@ pub enum SemanticError {
     #[fail(display = "method must return a value of type '{}'", ty)]
     MethodMustReturnSomething { ty: String },
 
-    #[fail(display = "Invalid return type: Expected expression of type '{}', but was of type '{}'",
+    #[fail(display = "invalid return type: Expected expression of type '{}', but was of type '{}'",
         ty_return, ty_expr)]
     InvalidReturnType { ty_expr: String, ty_return: String },
 
-    #[fail(display = "Invalid type: Expected expression of type '{}', but was of type '{}'",
+    #[fail(display = "invalid type: Expected expression of type '{}', but was of type '{}'",
         ty_expected, ty_expr)]
     InvalidType { ty_expected: String, ty_expr: String },
 
@@ -74,6 +74,10 @@ pub enum SemanticError {
     #[fail(display = "method '{}' does not exist on type '{}'",
         method_name, ty)]
     MethodDoesNotExistOnType { method_name: String, ty: String },
+
+    #[fail(display = "field '{}' does not exist on type '{}'",
+        field_name, ty)]
+    FieldDoesNotExistOnType { field_name: String, ty: String },
 
     #[fail(display = "method argument count does not match: Expected {} arguments, but found {}",
         expected_args, actual_args)]
