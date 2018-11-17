@@ -1,5 +1,5 @@
 error: expected `[` or an identifier, found 'class'
-   | 
+   |
  2 |     public void class;
    |                 ^^^^^
 

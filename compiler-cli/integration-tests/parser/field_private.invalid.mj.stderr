@@ -1,5 +1,5 @@
 error: expected 'public' or `}`, found 'private'
-   | 
+   |
  2 |     private int hello;
    |     ^^^^^^^
 

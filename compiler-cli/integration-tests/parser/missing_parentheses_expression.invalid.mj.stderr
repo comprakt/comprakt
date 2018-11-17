@@ -1,5 +1,5 @@
 error: expected `)`, `.`, `[` or a binary operator, found `;`
-   | 
+   |
  7 |         d = ((((a + b) * c) - a) / (c % d + ((b - 1) * c));
    |                                                           ^
 

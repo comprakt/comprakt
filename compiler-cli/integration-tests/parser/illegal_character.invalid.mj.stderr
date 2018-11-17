@@ -1,5 +1,5 @@
 error: expected 'class', found 'public'
-   | 
+   |
  1 | public static void illegalIdentifier$() {}
    | ^^^^^^
 

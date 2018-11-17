@@ -1,5 +1,5 @@
 error: Unexpected control character '\x07'
-   | 
+   |
  1 | ring ring ring {\x07} who's there? 
    |                ^^^^^^
 

@@ -1,5 +1,5 @@
 error: expected 'boolean', 'int', 'static', 'void' or an identifier, found 'while'
-   | 
+   |
  2 |     public while testing;
    |            ^^^^^
 

@@ -1,5 +1,5 @@
 error: expected 'class', found identifier `A`
-   | 
+   |
  1 | A {
    | ^
 

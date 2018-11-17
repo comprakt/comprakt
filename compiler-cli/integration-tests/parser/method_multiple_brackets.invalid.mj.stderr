@@ -1,5 +1,5 @@
 error: expected 'throws' or `{`, found `(`
-   | 
+   |
  2 |     public int b()() {}
    |                   ^
 

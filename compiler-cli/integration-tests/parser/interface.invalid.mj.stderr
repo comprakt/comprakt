@@ -1,5 +1,5 @@
 error: expected 'class', found 'interface'
-   | 
+   |
  1 | interface Foo {}
    | ^^^^^^^^^
 

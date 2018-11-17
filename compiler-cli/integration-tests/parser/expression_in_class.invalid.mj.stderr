@@ -1,5 +1,5 @@
 error: expected 'public' or `}`, found identifier `here`
-   | 
+   |
  2 |     here.I.am();
    |     ^^^^
 

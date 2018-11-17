@@ -1,5 +1,5 @@
 error: expected 'class', found identifier `ring`
-   | 
+   |
  1 | ring ring ring {\x07} who's there? 
    | ^^^^
 

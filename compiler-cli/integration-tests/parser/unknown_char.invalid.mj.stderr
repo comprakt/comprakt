@@ -1,5 +1,5 @@
 error: expected 'class', found 'void'
-   | 
+   |
  1 | void #method() {}
    | ^^^^
 

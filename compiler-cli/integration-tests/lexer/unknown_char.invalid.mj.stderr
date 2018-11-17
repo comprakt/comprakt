@@ -1,5 +1,5 @@
 error: Unexpected character '#'
-   | 
+   |
  1 | void #method() {}
    |      ^
 

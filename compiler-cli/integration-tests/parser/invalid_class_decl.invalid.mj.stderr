@@ -1,5 +1,5 @@
 error: expected an identifier, found integer literal `42`
-   | 
+   |
  1 | class 42 {
    |       ^^
 

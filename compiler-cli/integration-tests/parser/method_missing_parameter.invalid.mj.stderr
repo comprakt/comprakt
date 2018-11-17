@@ -1,5 +1,5 @@
 error: expected 'boolean', 'int', 'void', `)` or an identifier, found `,`
-   | 
+   |
  2 | public Chicken likes(,eating corn) {}
    |                      ^
 

@@ -1,5 +1,5 @@
 error: unclosed comment
-   | 
+   |
  2 | /* This is a bad comment
    | ^^^^^^^^^^^^^^^^^^^^^^^^
 
