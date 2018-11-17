@@ -1,4 +1,4 @@
-error: expected keyword `int`, `boolean`, `void` or an identifier, found operator ')'
+error: expected 'boolean', 'int', 'void' or an identifier, found `)`
    | 
  2 |     public int[] method(int parameter, int parameter, int parameter, int parameter, int parameter, int parameter,) {}
    |                                                                                                                  ^

@@ -1,4 +1,4 @@
-error: expected keyword 'class', found identifier 'System'
+error: expected 'class', found identifier `System`
    | 
  1 | System.out.println("Hello world!");
    | ^^^^^^

@@ -10,8 +10,13 @@ use crate::{
 };
 
 use failure::Fail;
+use itertools::Itertools;
 
-use std::fmt;
+use std::{
+    collections::{HashSet, VecDeque},
+    fmt,
+    ops::{Deref, DerefMut},
+};
 
 type Precedence = usize;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,7 +54,7 @@ pub enum SyntaxError {
     #[fail(display = "expected {}, found {}", expected, actual)]
     UnexpectedToken {
         actual: String,
-        expected: String, // TODO This is temporary, shouldn't be string
+        expected: String, // Has to be string, because Alternatives has a lifetime
     },
     #[fail(display = "unexpected end of file")]
     UnexpectedEOF,
@@ -61,7 +66,7 @@ impl<'f> From<EOF> for MaybeSpanned<'f, SyntaxError> {
     }
 }
 
-pub trait ExpectedToken<'f>: fmt::Debug + fmt::Display {
+trait ExpectedToken<'f>: fmt::Debug + fmt::Display + Copy + Into<TaggedExpectedToken<'f>> {
     type Yields;
     fn matching(&self, token: &TokenKind<'f>) -> Option<Self::Yields>;
 
@@ -70,23 +75,89 @@ pub trait ExpectedToken<'f>: fmt::Debug + fmt::Display {
     }
 }
 
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Display, PartialOrd, Ord)]
+enum TaggedExpectedToken<'f> {
+    Exactly(Exactly<'f>),
+    BinaryOp(BinaryOp),
+    UnaryOp(UnaryOp),
+    Identifier(Identifier),
+    ExactlyIdentifier(ExactlyIdentifier<'f>),
+    IntegerLiteral(IntegerLiteral),
+}
+
+macro_rules! gen_from_expected_token {
+    ($name: ident) => {
+        gen_from_expected_token!($name, $name);
+    };
+    ($variant: ident, $name: ty) => {
+        impl<'f> From<$name> for TaggedExpectedToken<'f> {
+            fn from(src: $name) -> TaggedExpectedToken<'f> {
+                TaggedExpectedToken::$variant(src)
+            }
+        }
+    };
+}
+
+gen_from_expected_token!(Exactly, Exactly<'f>);
+gen_from_expected_token!(BinaryOp);
+gen_from_expected_token!(UnaryOp);
+gen_from_expected_token!(Identifier);
+gen_from_expected_token!(ExactlyIdentifier, ExactlyIdentifier<'f>);
+gen_from_expected_token!(IntegerLiteral);
+
+struct Alternatives<'f>(HashSet<TaggedExpectedToken<'f>>);
+
+impl<'f> Alternatives<'f> {
+    fn new() -> Self {
+        Alternatives(HashSet::new())
+    }
+}
+
+impl<'f> Deref for Alternatives<'f> {
+    type Target = HashSet<TaggedExpectedToken<'f>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'f> DerefMut for Alternatives<'f> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'f> fmt::Display for Alternatives<'f> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut alternatives: Vec<_> = self.0.iter().collect();
+        alternatives.sort();
+        if alternatives.is_empty() {
+            panic!("musn't be called with empty set")
+        } else if alternatives.len() == 1 {
+            write!(f, "{}", alternatives[0])
+        } else {
+            let last = alternatives.pop().unwrap();
+            let alts = alternatives.drain(..).format(", ");
+            write!(f, "{} or {}", alts, last)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "{}", _0)]
-// TODO Should be Copy, but TokenKind contains Rc
 struct Exactly<'f>(TokenKind<'f>);
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "a binary operator")]
 struct BinaryOp;
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "a unary operator")]
 struct UnaryOp;
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "an identifier")]
 struct Identifier;
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "identifier '{}'", _0)]
 struct ExactlyIdentifier<'s>(&'s str);
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[display(fmt = "an integer literal")]
 struct IntegerLiteral;
 
@@ -171,8 +242,7 @@ impl<'f> ExpectedToken<'f> for IntegerLiteral {
     }
 }
 
-// TODO private
-pub type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
+type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
 type ParserResult<'f, T> = SyntaxResult<'f, Spanned<'f, T>>;
 type BoxedResult<'f, T> = SyntaxResult<'f, Box<Spanned<'f, T>>>;
 
@@ -181,6 +251,7 @@ where
     I: Iterator<Item = Token<'f>>,
 {
     lexer: SpanTracker<'f, I>,
+    alternatives: VecDeque<Alternatives<'f>>,
 }
 
 macro_rules! spanned {
@@ -217,48 +288,37 @@ where
     pub fn new(lexer: I) -> Self {
         Parser {
             lexer: SpanTracker::new(lexer),
+            alternatives: VecDeque::new(),
         }
     }
 
-    #[allow(clippy::needless_pass_by_value)]
     fn omnomnom<E>(&mut self, want: E) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
     where
         E: ExpectedToken<'f>,
     {
         let actual = self.lexer.next()?;
+        let mut current_alternatives = self
+            .alternatives
+            .pop_front()
+            .unwrap_or_else(Alternatives::new);
 
         want.matching(&actual.data)
             .map(|yielded| actual.map(|_| yielded))
             .ok_or_else(|| {
+                current_alternatives.insert(want.into());
                 WithSpan(Spanned {
                     span: actual.span,
                     data: SyntaxError::UnexpectedToken {
                         actual: actual.data.to_string(),
-                        // TODO: display all expected
-                        expected: want.to_string(),
+                        expected: current_alternatives.to_string(),
                     },
                 })
             })
     }
 
-    #[allow(clippy::needless_pass_by_value)]
     fn omnomnoptional<E>(&mut self, want: E) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
     where
         E: ExpectedToken<'f>,
-    {
-        self.omnomnoptional_if(want, |_| true)
-    }
-
-    /// Only consume token if pred(E::Yields) holds
-    #[allow(clippy::needless_pass_by_value)]
-    fn omnomnoptional_if<E, P>(
-        &mut self,
-        want: E,
-        pred: P,
-    ) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
-    where
-        E: ExpectedToken<'f>,
-        P: Fn(&E::Yields) -> bool,
     {
         if self.lexer.eof() {
             return Ok(None);
@@ -266,13 +326,22 @@ where
 
         let got = self.lexer.peek()?;
 
-        Ok(want.matching(&got.data).filter(&pred).map(|yielded| {
-            let got = self.lexer.next().unwrap();
-            got.map(|_| yielded)
-        }))
+        Ok(match want.matching(&got.data) {
+            Some(yielded) => {
+                let got = self.lexer.next().unwrap();
+                self.alternatives.pop_front();
+                Some(got.map(|_| yielded))
+            }
+            None => {
+                if self.alternatives.get(0).is_none() {
+                    self.alternatives.push_back(Alternatives::new())
+                }
+                self.alternatives[0].insert(want.into());
+                None
+            }
+        })
     }
 
-    #[allow(clippy::needless_pass_by_value)]
     fn tastes_like<E>(&mut self, want: E) -> SyntaxResult<'f, bool>
     where
         E: ExpectedToken<'f>,
@@ -280,16 +349,24 @@ where
         self.nth_tastes_like(0, want)
     }
 
-    #[allow(clippy::needless_pass_by_value)]
     fn nth_tastes_like<E>(&mut self, n: usize, want: E) -> SyntaxResult<'f, bool>
     where
         E: ExpectedToken<'f>,
     {
-        if self.lexer.eof() {
-            return Ok(false);
+        let tastes_good = self
+            .lexer
+            .peek_nth(n)
+            .map(|got| want.matches(&got.data))
+            .unwrap_or(false);
+
+        if !tastes_good {
+            while self.alternatives.len() <= n {
+                self.alternatives.push_back(Alternatives::new());
+            }
+            self.alternatives[n].insert(want.into());
         }
 
-        Ok(self.lexer.peek_nth(n).map(|got| want.matches(&got.data))?)
+        Ok(tastes_good)
     }
 
     pub fn parse(&mut self) -> Result<ast::AST<'f>, MaybeSpanned<'f, SyntaxError>> {
@@ -314,7 +391,7 @@ where
     fn parse_class_declaration(&mut self) -> ParserResult<'f, ast::ClassDeclaration<'f>> {
         spanned!(self, {
             self.omnomnom(exactly(Keyword::Class))?;
-            let name = self.omnomnom(Identifier)?.data;
+            let name = self.omnomnom(Identifier)?;
 
             let mut members = Vec::new();
             self.omnomnom(exactly(Operator::LeftBrace))?;
@@ -346,7 +423,10 @@ where
                 let string_array_type = Spanned {
                     data: ast::Type {
                         // treat String[] as an opaque type
-                        basic: ast::BasicType::Custom(java_string.data),
+                        basic: Spanned::new(
+                            java_string.span,
+                            ast::BasicType::Custom(java_string.data),
+                        ),
                         array_depth: 1,
                     },
                     span: Span::combine(&java_string.span, &java_string_array_close.span),
@@ -428,24 +508,16 @@ where
         })
     }
 
-    fn parse_basic_type(&mut self) -> SyntaxResult<'f, ast::BasicType<'f>> {
-        if self.omnomnoptional(exactly(Keyword::Int))?.is_some() {
-            Ok(ast::BasicType::Int)
-        } else if self.omnomnoptional(exactly(Keyword::Boolean))?.is_some() {
-            Ok(ast::BasicType::Boolean)
-        } else if self.omnomnoptional(exactly(Keyword::Void))?.is_some() {
-            Ok(ast::BasicType::Void)
-        } else if let Some(sym) = self.omnomnoptional(Identifier)? {
-            Ok(ast::BasicType::Custom(sym.data))
+    fn parse_basic_type(&mut self) -> SyntaxResult<'f, Spanned<'f, ast::BasicType<'f>>> {
+        if let Some(basic) = self.omnomnoptional(exactly(Keyword::Int))? {
+            Ok(Spanned::new(basic.span, ast::BasicType::Int))
+        } else if let Some(basic) = self.omnomnoptional(exactly(Keyword::Boolean))? {
+            Ok(Spanned::new(basic.span, ast::BasicType::Boolean))
+        } else if let Some(basic) = self.omnomnoptional(exactly(Keyword::Void))? {
+            Ok(Spanned::new(basic.span, ast::BasicType::Void))
         } else {
-            let actual = self.lexer.next()?;
-            Err(WithSpan(Spanned {
-                span: actual.span,
-                data: SyntaxError::UnexpectedToken {
-                    actual: actual.data.to_string(),
-                    expected: "keyword `int`, `boolean`, `void` or an identifier".to_string(),
-                },
-            }))
+            let sym = self.omnomnom(Identifier)?;
+            Ok(Spanned::new(sym.span, ast::BasicType::Custom(sym.data)))
         }
     }
 
@@ -540,7 +612,7 @@ where
 
                 self.omnomnom(exactly(Operator::Semicolon))?;
 
-                Ok(LocalVariableDeclaration(ty, name.data, init))
+                Ok(LocalVariableDeclaration(ty, name, init))
             } else {
                 let expr = self.parse_expression()?;
                 self.omnomnom(exactly(Operator::Semicolon))?;
@@ -643,13 +715,13 @@ where
 
                     Spanned {
                         span: Span::combine(&expr.span, &args.span),
-                        data: ast::Expr::MethodInvocation(expr, adressee.data, args),
+                        data: ast::Expr::MethodInvocation(expr, adressee, args),
                     }
                 } else {
                     // member reference: EXPR.ident
                     Spanned {
                         span: Span::combine(&expr.span, &adressee.span),
-                        data: ast::Expr::FieldAccess(expr, adressee.data),
+                        data: ast::Expr::FieldAccess(expr, adressee),
                     }
                 }
             } else if self
@@ -680,10 +752,10 @@ where
                 if self.tastes_like(exactly(Operator::LeftParen))? {
                     // function call
                     let params = self.parse_parameter_values()?;
-                    Ok(ThisMethodInvocation(adressee.data, params))
+                    Ok(ThisMethodInvocation(adressee, params))
                 } else {
                     // var ref
-                    Ok(Var(adressee.data))
+                    Ok(Var(adressee))
                 }
             } else if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
                 // parenthesized expression
@@ -700,7 +772,7 @@ where
 
                     self.omnomnom(exactly(Operator::LeftParen))?;
                     self.omnomnom(exactly(Operator::RightParen))?;
-                    Ok(NewObject(new_type.data))
+                    Ok(NewObject(new_type))
                 } else {
                     // new array expression
                     let new_type = self.parse_basic_type()?;
@@ -727,16 +799,9 @@ where
                 Ok(Boolean(true))
             } else if self.omnomnoptional(exactly(Keyword::This))?.is_some() {
                 Ok(This)
-            } else if let Some(lit) = self.omnomnoptional(IntegerLiteral)? {
-                Ok(Int(lit.data))
             } else {
-                Err(WithSpan(Spanned {
-                    span: self.lexer.peek_span()?,
-                    data: SyntaxError::UnexpectedToken {
-                        actual: self.lexer.next()?.data.to_string(),
-                        expected: "primary expression".to_string(),
-                    },
-                }))
+                let lit = self.omnomnom(IntegerLiteral)?;
+                Ok(Int(lit))
             }
         })
         .map(Box::new)
@@ -981,13 +1046,32 @@ mod tests {
                     match lhs.data {
                         Expr::Binary(op, lhs, rhs) => {
                             assert_eq!(op, Add);
-                            assert_eq!(lhs.data, Expr::Int("3"));
+                            assert_eq!(
+                                lhs.data,
+                                Expr::Int(Spanned {
+                                    span: lhs.span,
+                                    data: "3",
+                                })
+                            );
+
                             // rhs = 4 * 7
                             match rhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Mul);
-                                    assert_eq!(lhs.data, Expr::Int("4"));
-                                    assert_eq!(rhs.data, Expr::Int("7"));
+                                    assert_eq!(
+                                        lhs.data,
+                                        Expr::Int(Spanned {
+                                            span: lhs.span,
+                                            data: "4",
+                                        })
+                                    );
+                                    assert_eq!(
+                                        rhs.data,
+                                        Expr::Int(Spanned {
+                                            span: rhs.span,
+                                            data: "7",
+                                        })
+                                    );
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
@@ -1002,12 +1086,30 @@ mod tests {
                             match lhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Div);
-                                    assert_eq!(lhs.data, Expr::Int("9"));
-                                    assert_eq!(rhs.data, Expr::Int("7"));
+                                    assert_eq!(
+                                        lhs.data,
+                                        Expr::Int(Spanned {
+                                            span: lhs.span,
+                                            data: "9"
+                                        })
+                                    );
+                                    assert_eq!(
+                                        rhs.data,
+                                        Expr::Int(Spanned {
+                                            span: rhs.span,
+                                            data: "7",
+                                        })
+                                    );
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
-                            assert_eq!(rhs.data, Expr::Int("42"));
+                            assert_eq!(
+                                rhs.data,
+                                Expr::Int(Spanned {
+                                    span: rhs.span,
+                                    data: "42",
+                                })
+                            );
                         }
                         expr => panic!("not a binary expr: {:#?}", expr),
                     }

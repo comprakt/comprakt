@@ -16,8 +16,8 @@ use compiler_lib::{
     lexer::{Lexer, TokenKind},
     parser::Parser,
     print::{self, lextest},
-    semantics,
     strtab::StringTable,
+    type_checking,
 };
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
@@ -197,7 +197,13 @@ fn cmd_check(path: &PathBuf) -> Result<(), Error> {
         }
     };
 
-    crate::semantics::check(&ast, &context)
+    crate::type_checking::check(&mut strtab, &ast, &context);
+    if context.diagnostics.errored() {
+        context.diagnostics.write_statistics();
+        exit(1)
+    }
+
+    Ok(())
 }
 
 fn cmd_printast<P>(path: &PathBuf, printer: &P) -> Result<(), Error>

@@ -1,5 +1,5 @@
-error: redefinition of parameter 'args'
+error: redefinition of local var 'args'
    | 
  3 |         int args = 42;
-   |         ^^^^^^^^^^^^^^
+   |             ^^^^
 

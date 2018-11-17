@@ -1,4 +1,4 @@
-error: expected keyword 'void', found keyword 'int'
+error: expected 'void', found 'int'
    | 
  2 |     public static int main(String[] args) {}
    |                   ^^^
