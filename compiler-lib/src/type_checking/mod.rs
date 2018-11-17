@@ -85,7 +85,12 @@ fn add_types_from_ast<'ctx, 'src>(
                     class_def
                         .add_field(ClassFieldDef {
                             name: member.name,
-                            ty: checked_type_from_ty(&ty.data, context, &type_system),
+                            ty: checked_type_from_ty(
+                                &ty.data,
+                                context,
+                                &type_system,
+                                VoidIs::Forbidden,
+                            ),
                         })
                         .unwrap_or_else(|_| {
                             context.report_error(
@@ -100,10 +105,15 @@ fn add_types_from_ast<'ctx, 'src>(
                 Method(_, params, _) | MainMethod(params, _) => {
                     let (is_static, is_main, return_ty) = match &member.kind {
                         Field(_) => panic!("impossible"),
-                        Method(ty, _, _) => (
+                        Method(return_ty, _, _) => (
                             false,
                             false,
-                            checked_type_from_ty(&ty.data, context, &type_system),
+                            checked_type_from_ty(
+                                &return_ty.data,
+                                context,
+                                &type_system,
+                                VoidIs::Allowed,
+                            ),
                         ),
                         MainMethod(_, _) => (true, true, CheckedType::Void),
                     };
@@ -117,7 +127,12 @@ fn add_types_from_ast<'ctx, 'src>(
                                     assert_eq!(p.ty.data.array_depth, 0);
                                     CheckedType::Array(box builtin_types.string.clone())
                                 }
-                                _ => checked_type_from_ty(&p.ty.data, context, &type_system),
+                                _ => checked_type_from_ty(
+                                    &p.ty.data,
+                                    context,
+                                    &type_system,
+                                    VoidIs::Forbidden,
+                                ),
                             };
                             MethodParamDef { name: p.name, ty }
                         })
@@ -231,12 +246,20 @@ pub fn checked_type_from_basic_ty<'src>(
     basic_ty: &Spanned<'src, ast::BasicType<'src>>,
     context: &SemanticContext<'_, 'src>,
     type_system: &TypeSystem<'src>,
+    void_handling: VoidIs,
 ) -> CheckedType<'src> {
     use self::ast::BasicType::*;
     match &basic_ty.data {
         Int => CheckedType::Int,
         Boolean => CheckedType::Boolean,
-        Void => CheckedType::Void,
+        Void => match void_handling {
+            VoidIs::Allowed => CheckedType::Void,
+            VoidIs::Forbidden => {
+                context.report_error(&basic_ty.span, SemanticError::VoidNotAllowed);
+
+                CheckedType::Void
+            }
+        },
         Custom(name) => {
             if !type_system.is_type_defined(*name) {
                 context.report_error(
@@ -253,12 +276,25 @@ pub fn checked_type_from_basic_ty<'src>(
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum VoidIs {
+    Allowed,
+    Forbidden,
+}
+
 pub fn checked_type_from_ty<'src>(
     ty: &ast::Type<'src>,
     context: &SemanticContext<'_, 'src>,
     type_system: &TypeSystem<'src>,
+    void_handling: VoidIs,
 ) -> CheckedType<'src> {
-    let mut checked_ty = checked_type_from_basic_ty(&ty.basic, context, type_system);
+    let void_handling = if ty.array_depth > 0 {
+        VoidIs::Forbidden
+    } else {
+        void_handling
+    };
+
+    let mut checked_ty = checked_type_from_basic_ty(&ty.basic, context, type_system, void_handling);
 
     for _ in 0..ty.array_depth {
         checked_ty = CheckedType::Array(Box::new(checked_ty));

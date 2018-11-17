@@ -64,6 +64,9 @@ pub enum SemanticError {
     #[fail(display = "method cannot return a value")]
     VoidMethodCannotReturnValue,
 
+    #[fail(display = "type 'void' is not allowed here")]
+    VoidNotAllowed,
+
     #[fail(display = "method must return a value of type '{}'", ty)]
     MethodMustReturnSomething { ty: String },
 
