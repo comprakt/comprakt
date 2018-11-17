@@ -74,6 +74,10 @@ impl<'src> ClassDef<'src> {
     pub fn get_method(&self, name: Symbol<'src>) -> Option<&ClassMethodDef<'src>> {
         self.methods.get(&name)
     }
+
+    pub fn get_type(&self) -> CheckedType<'src> {
+        CheckedType::TypeRef(self.name)
+    }
 }
 
 #[derive(Debug)]
@@ -106,6 +110,14 @@ impl<'src> ClassMethodDef<'src> {
 pub struct MethodParamDef<'src> {
     pub name: Symbol<'src>,
     pub ty: CheckedType<'src>,
+}
+
+impl<'src> MethodParamDef<'src> {
+    pub fn new(name: Symbol<'src>, ty: CheckedType<'src>) -> MethodParamDef<'src> {
+        MethodParamDef {
+            name, ty
+        }
+    }
 }
 
 #[derive(Debug)]

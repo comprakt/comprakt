@@ -440,8 +440,10 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
             }
         })
         .or_else(|_| {
-            // TODO System class access
-            Err(())
+            match self.context.global_vars.get(&var_name.data) {
+                Some(ty) => Ok(ty.clone()),
+                None => Err(())
+            }
         })
         .or_else(|_| {
             self.context.report_error(

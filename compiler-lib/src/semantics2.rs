@@ -4,7 +4,9 @@ use crate::{
     context::Context,
     method_body_typechecker::*,
     type_system::*,
+    strtab::{Symbol, StringTable},
 };
+use std::collections::HashMap;
 use failure::Fail;
 
 #[derive(Debug, Fail)]
@@ -112,18 +114,18 @@ pub enum SemanticError {
 }
 
 pub fn check<'a, 'src>(
+    mut strtab: &'src mut StringTable<'src>,
     ast: &'a ast::AST<'src>,
     context: &'src Context<'src>,
 ) -> Result<TypeSystem<'src>, ()> {
-    let sem_context = SemanticContext::new(context);
+    let mut sem_context = SemanticContext::new(context);
 
     match ast {
         ast::AST::Empty => Ok(TypeSystem::default()),
         ast::AST::Program(program) => {
-            let type_system = build_type_system(&sem_context, program);
+            let mut type_system = build_type_system(&sem_context, program);
 
-            // add $System
-
+            add_system_types(&mut strtab, &mut type_system, &mut sem_context);
 
             for class_decl in &program.classes {
                 MethodBodyTypeChecker::check_methods(class_decl, &type_system, &sem_context);
@@ -136,11 +138,12 @@ pub fn check<'a, 'src>(
 
 pub struct SemanticContext<'src> {
     pub context: &'src Context<'src>,
+    pub global_vars: HashMap<Symbol<'src>, CheckedType<'src>>,
 }
 
 impl<'src> SemanticContext<'src> {
     pub fn new(context: &'src Context<'src>) -> SemanticContext<'src> {
-        SemanticContext { context }
+        SemanticContext { context, global_vars: HashMap::new() }
     }
 
     pub fn report_error(&self, span: &'src Span<'src>, error: SemanticError) {
@@ -192,17 +195,20 @@ fn build_type_system<'src>(
                         });
                 }
                 Method(_, params, _) | MainMethod(params, _) => {
-                    let (is_static, return_ty) = match &member.kind {
+                    let (is_static, is_main, return_ty) = match &member.kind {
                         Field(_) => panic!("impossible"),
-                        Method(ty, _, _) => (false, checked_type_from_ty(&ty.data, Some(context), &type_system)),
-                        MainMethod(_, _) => (true, CheckedType::Void),
+                        Method(ty, _, _) => (false, false, checked_type_from_ty(&ty.data, Some(context), &type_system)),
+                        MainMethod(_, _) => (true, true, CheckedType::Void),
                     };
+
+                    // disable parameter checking in main methods, as "String" is not a valid reference to a type
+                    let type_check_context = if is_main { None } else { Some(context) };
 
                     let checked_params = params
                         .iter()
                         .map(|p| MethodParamDef {
                             name: p.name,
-                            ty: checked_type_from_ty(&p.ty.data, Some(context), &type_system),
+                            ty: checked_type_from_ty(&p.ty.data, type_check_context, &type_system),
                         })
                         .collect();
 
@@ -226,11 +232,60 @@ fn build_type_system<'src>(
             }
         }
 
-        let _ = type_system.update_existing_class_def(class_def);
-        // FIXME crash on error here: there is always an existing class_def
+        type_system.update_existing_class_def(class_def).unwrap();
     }
 
     type_system
+}
+
+fn add_system_types<'src>(strtab: &'_ mut StringTable<'src>, type_system: &'_ mut TypeSystem<'src>, context: &'_ mut SemanticContext<'src>) {
+    let arg_sym = strtab.intern("$InStream");
+
+    let int_ty = CheckedType::Int;
+    let mut instream_class_def = ClassDef::new(strtab.intern("$InStream"));
+    instream_class_def.add_method(ClassMethodDef {
+        name: strtab.intern("read"),
+        params: vec![],
+        return_ty: int_ty.clone(),
+        is_static: false,
+        is_main: false,
+    }).unwrap();
+
+    let mut outstream_class_def = ClassDef::new(strtab.intern("$OutStream"));
+    outstream_class_def.add_method(ClassMethodDef {
+        name: strtab.intern("println"),
+        params: vec![ MethodParamDef::new(arg_sym, int_ty.clone()) ],
+        return_ty: CheckedType::Void,
+        is_static: false,
+        is_main: false,
+    }).unwrap();
+    outstream_class_def.add_method(ClassMethodDef {
+        name: strtab.intern("write"),
+        params: vec![ MethodParamDef::new(arg_sym, int_ty.clone()) ],
+        return_ty: CheckedType::Void,
+        is_static: false,
+        is_main: false,
+    }).unwrap();
+    outstream_class_def.add_method(ClassMethodDef {
+        name: strtab.intern("flush"),
+        params: vec![],
+        return_ty: CheckedType::Void,
+        is_static: false,
+        is_main: false,
+    }).unwrap();
+    
+    let mut system_class_def = ClassDef::new(strtab.intern("$System"));
+    system_class_def.add_field(ClassFieldDef {
+        name: strtab.intern("in"), ty: instream_class_def.get_type()
+    }).unwrap();
+    system_class_def.add_field(ClassFieldDef {
+        name: strtab.intern("out"), ty: outstream_class_def.get_type()
+    }).unwrap();
+    context.global_vars.insert(strtab.intern("System"), system_class_def.get_type());
+
+    type_system.add_class_def(instream_class_def).unwrap();
+    type_system.add_class_def(outstream_class_def).unwrap();
+    type_system.add_class_def(system_class_def).unwrap();
 }
 
 // pass None as context to disable error reporting
