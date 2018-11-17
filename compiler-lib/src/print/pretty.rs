@@ -88,7 +88,7 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
         }
 
         ClassDeclaration(decl) => {
-            printer.print(format_args!("class {} {{", decl.name));
+            printer.print(format_args!("class {} {{", decl.name.data));
             let mut members = decl.members.clone();
             members.sort_by(|x, y| compare_class_member(x, y));
             if !members.is_empty() {
@@ -277,13 +277,13 @@ fn do_prettyprint_expr<'a, 't>(expr: &'a ast::Expr<'t>, printer: &mut IndentPrin
         }
         MethodInvocation(target_expr, name, args) => {
             do_prettyprint_expr_parenthesized(target_expr, printer);
-            printer.print(format_args!(".{}(", name));
+            printer.print(format_args!(".{}(", name.data));
             print_argument_list(&args.data, printer);
             printer.print_str(&")");
         }
         FieldAccess(target_expr, name) => {
             do_prettyprint_expr_parenthesized(target_expr, printer);
-            printer.print(format_args!(".{}", name));
+            printer.print(format_args!(".{}", name.data));
         }
         ArrayAccess(target_expr, idx_expr) => {
             do_prettyprint_expr_parenthesized(target_expr, printer);
@@ -294,16 +294,16 @@ fn do_prettyprint_expr<'a, 't>(expr: &'a ast::Expr<'t>, printer: &mut IndentPrin
         }
         Null => printer.print_str(&"null"),
         Boolean(val) => printer.print(format_args!("{}", val)),
-        Int(val) => printer.print(format_args!("{}", val)),
-        Var(name) => printer.print(format_args!("{}", name)),
+        Int(val) => printer.print(format_args!("{}", val.data)),
+        Var(name) => printer.print(format_args!("{}", name.data)),
         ThisMethodInvocation(name, args) => {
-            printer.print(format_args!("{}(", name));
+            printer.print(format_args!("{}(", name.data));
             print_argument_list(&args.data, printer);
             printer.print_str(&")");
         }
         This => printer.print_str(&"this"),
         NewObject(name) => {
-            printer.print(format_args!("new {}()", name));
+            printer.print(format_args!("new {}()", name.data));
         }
         NewArray(basic_ty, size, brackets) => {
             printer.print_str(&"new ");
@@ -423,7 +423,7 @@ fn do_prettyprint_stmt(
 
         LocalVariableDeclaration(ty, name, opt_assign) => {
             do_prettyprint(&NodeKind::from(ty), printer);
-            printer.print(format_args!(" {}", name));
+            printer.print(format_args!(" {}", name.data));
             if let Some(assign) = opt_assign {
                 printer.print_str(&" = ");
                 // no parenthesizes for expressions in declaration initializations
