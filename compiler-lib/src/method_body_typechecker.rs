@@ -12,7 +12,7 @@ enum IdentLookupResult<'src, 'sem> {
 */
 
 enum VarDef<'src, 'sem> {
-    Local { name: Symbol<'src>, ty: CheckedType<'src> },
+    Local { #[allow(dead_code)] name: Symbol<'src>, ty: CheckedType<'src> },
     Param(&'sem MethodParamDef<'src>)
 }
 
