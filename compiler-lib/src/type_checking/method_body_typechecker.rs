@@ -252,7 +252,16 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
             }
             FieldAccess(target_expr, name) => {
                 let target_type = self.get_type_expr(&target_expr)?;
-                let target_class_def = self.resolve_class(&target_type)?;
+                let target_class_def = self.resolve_class(&target_type).map_err(|e| {
+                    self.context.report_error(
+                        &name.span,
+                        SemanticError::FieldDoesNotExistOnType {
+                            field_name: name.data.to_string(),
+                            ty: target_type.to_string(),
+                        },
+                    );
+                    e
+                })?;
                 match target_class_def.get_field(name.data) {
                     Some(field) => Ok(field.ty.clone()),
                     None => {
@@ -267,10 +276,21 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                     }
                 }
             }
+
             MethodInvocation(target_expr, name, args) => {
                 // e.g. "target_expr.name(arg1, arg2)"
                 let target_type = self.get_type_expr(&target_expr)?;
-                let target_class_def = self.resolve_class(&target_type)?;
+                let target_class_def = self.resolve_class(&target_type).map_err(|e| {
+                    self.context.report_error(
+                        &name.span,
+                        SemanticError::MethodDoesNotExistOnType {
+                            method_name: name.data.to_string(),
+                            ty: target_type.to_string(),
+                        },
+                    );
+                    e
+                })?;
+                // TODO check args if type or class_def already fails
                 self.check_method_invocation(name, target_class_def, args)
             }
             ThisMethodInvocation(name, args) => {
