@@ -82,7 +82,7 @@ script:
       mjtest-*)
         MJTEST_KIND=${TEST_KIND#mjtest-}
         cargo build --release && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/comprakt python3 ./mjtest/mjt.py $MJTEST_KIND ;
+        MJ_TIMEOUT=60 MJ_RUN=target/release/comprakt-cli python3 ./mjtest/mjt.py $MJTEST_KIND ;
         ;;
       submission-system)
         ./build && \
