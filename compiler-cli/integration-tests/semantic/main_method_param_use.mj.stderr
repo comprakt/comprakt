@@ -3,9 +3,14 @@ error: Usage of the parameter 'args' of the main function
  3 |         int x = args[2];
    |                 ^^^^
 
+error: invalid type: Expected expression of type 'int', but was of type '$String'
+   | 
+ 3 |         int x = args[2];
+   |                 ^^^^^^^
+
 error: Usage of the parameter 'args' of the main function
    | 
  4 |         args.length();
    |         ^^^^
 
-Compilation aborted due to 2 errors
+Compilation aborted due to 3 errors
