@@ -1,5 +1,5 @@
 use crate::{
-    asciifile::{MaybeSpanned, Spanned},
+    asciifile::{MaybeSpanned, Span, Spanned},
     ast,
     context::Context,
     strtab::Symbol,
@@ -81,6 +81,7 @@ struct ClassesAndMembersVisitor<'a, 'f, 'cx> {
     context: &'cx Context<'cx>,
     classes_and_members: ClassesAndMembers<'a, 'f>,
     static_method_found: u64,
+    class_member_to_its_span: HashMap<*const ast::ClassMember<'f>, Span<'f>>,
 }
 
 impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
@@ -89,6 +90,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
             context,
             classes_and_members: HashMap::new(),
             static_method_found: 0,
+            class_member_to_its_span: HashMap::new(),
         }
     }
 
@@ -96,7 +98,17 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
         use self::{ast, NodeKind::*};
         node.for_each_child(&mut |child| {
             match child {
-                AST(_) | ClassDeclaration(_) => (),
+                ClassDeclaration(decl) => {
+                    let decl_node = NodeKind::from(decl);
+                    decl_node.for_each_child(&mut |member_node| {
+                        let member_decl: &Spanned<'_, ast::ClassMember<'_>> = match member_node {
+                            NodeKind::ClassMember(m) => m,
+                            _ => panic!("class children are expected to be class members"),
+                        };
+                        self.class_member_to_its_span
+                            .insert(&member_decl.data as *const _, member_decl.span.clone());
+                    });
+                }
                 Program(prog) => {
                     for class in &prog.classes {
                         for member in &class.members {
@@ -129,10 +141,19 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                     }
 
                     match &member.kind {
-                        ast::ClassMemberKind::Method(ty, _, block)
+                        ast::ClassMemberKind::Method(ty, pl, block)
                             if ty.basic != ast::BasicType::Void =>
                         {
-                            self.check_method_always_returns(&member.name, block)
+                            let ptr = (&member.data) as *const _;
+                            let member_decl = self.class_member_to_its_span.get(&ptr).expect(
+                                "must have current_member_decl while while visiting ClassMember",
+                            );
+                            let highlight_span = Span::from_positions(&[
+                                member_decl.start_position(),
+                                pl.span.end_position(),
+                            ])
+                            .unwrap();
+                            self.check_method_always_returns(&member.name, highlight_span, block)
                         }
                         _ => (),
                     }
@@ -148,6 +169,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
     fn check_method_always_returns(
         &self,
         method_name: &Symbol<'_>,
+        hightlight_span: Span<'_>,
         method_body: &Spanned<'_, ast::Block<'_>>,
     ) {
         fn always_returns<'t>(stmt: &Spanned<'t, ast::Stmt<'t>>) -> bool {
@@ -179,7 +201,7 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
         // FIXME de-duplicate empty block logic from always_returns
         if method_body.statements.len() == 0 || !method_body.statements.iter().all(always_returns) {
             self.context.diagnostics.error(&Spanned {
-                span: method_body.span.clone(),
+                span: hightlight_span,
                 data: SemanticError::MightNotReturn {
                     method_name: format!("{}", method_name),
                 },
