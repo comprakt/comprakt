@@ -21,8 +21,8 @@ enum VarDef<'src, 'sem> {
     Param(&'sem MethodParamDef<'src>),
 }
 
-pub struct MethodBodyTypeChecker<'src, 'sem> {
-    context: &'sem SemanticContext<'src>,
+pub struct MethodBodyTypeChecker<'ctx, 'src, 'sem> {
+    context: &'sem SemanticContext<'ctx, 'src>,
     type_system: &'sem TypeSystem<'src>,
     current_class: &'sem ClassDef<'src>,
     current_method: &'sem ClassMethodDef<'src>,
@@ -32,11 +32,11 @@ pub struct MethodBodyTypeChecker<'src, 'sem> {
 #[derive(Debug)]
 pub struct CouldNotDetermineType;
 
-impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
+impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
     pub fn check_methods(
         class_decl: &'sem ast::ClassDeclaration<'src>,
         type_system: &'sem TypeSystem<'src>,
-        context: &'sem SemanticContext<'src>,
+        context: &'sem SemanticContext<'ctx, 'src>,
     ) {
         let current_class = type_system.resolve_type_ref(class_decl.name.data).unwrap();
 

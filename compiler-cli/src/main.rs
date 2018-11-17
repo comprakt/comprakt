@@ -18,7 +18,6 @@ use compiler_lib::{
     print::{self, lextest},
     semantics,
     strtab::StringTable,
-    type_checking,
 };
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
@@ -198,14 +197,8 @@ fn cmd_check(path: &PathBuf) -> Result<(), Error> {
         }
     };
 
-    crate::semantics::check(&ast, &context).unwrap(); // FIXME
-    if context.diagnostics.errored() {
-        context.diagnostics.write_statistics();
-        exit(1)
-    }
-
-    crate::type_checking::check(&mut strtab, &ast, &context);
-    if context.diagnostics.errored() {
+    let check_res = crate::semantics::check(&mut strtab, &ast, &context);
+    if check_res.is_err() {
         context.diagnostics.write_statistics();
         exit(1)
     }

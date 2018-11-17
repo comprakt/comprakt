@@ -117,9 +117,9 @@ pub enum SemanticError {
 }
 
 pub fn check<'a, 'src>(
-    mut strtab: &'src mut StringTable<'src>,
+    mut strtab: &'_ mut StringTable<'src>,
     ast: &'a ast::AST<'src>,
-    context: &'src Context<'src>,
+    context: &Context<'src>,
 ) -> TypeSystem<'src> {
     let mut sem_context = SemanticContext::new(context);
 
@@ -138,26 +138,26 @@ pub fn check<'a, 'src>(
     }
 }
 
-pub struct SemanticContext<'src> {
-    pub context: &'src Context<'src>,
+pub struct SemanticContext<'ctx, 'src> {
+    pub context: &'ctx Context<'src>,
     pub global_vars: HashMap<Symbol<'src>, CheckedType<'src>>,
 }
 
-impl<'src> SemanticContext<'src> {
-    pub fn new(context: &'src Context<'src>) -> SemanticContext<'src> {
+impl<'ctx, 'src> SemanticContext<'ctx, 'src> {
+    pub fn new(context: &'ctx Context<'src>) -> SemanticContext<'ctx, 'src> {
         SemanticContext {
             context,
             global_vars: HashMap::new(),
         }
     }
 
-    pub fn report_error(&self, span: &'src Span<'src>, error: SemanticError) {
+    pub fn report_error(&self, span: &Span<'src>, error: SemanticError) {
         self.context.diagnostics.error(&Spanned::new(*span, error))
     }
 }
 
-fn build_type_system<'src>(
-    context: &SemanticContext<'src>,
+fn build_type_system<'ctx, 'src>(
+    context: &SemanticContext<'ctx, 'src>,
     program: &ast::Program<'src>,
 ) -> TypeSystem<'src> {
     let mut type_system = TypeSystem::default();
@@ -252,7 +252,7 @@ fn build_type_system<'src>(
 fn add_system_types<'src>(
     strtab: &'_ mut StringTable<'src>,
     type_system: &'_ mut TypeSystem<'src>,
-    context: &'_ mut SemanticContext<'src>,
+    context: &'_ mut SemanticContext<'_, 'src>,
 ) {
     let arg_sym = strtab.intern("$InStream");
 
@@ -323,7 +323,7 @@ fn add_system_types<'src>(
 // TODO LATER better ideas?
 pub fn checked_type_from_basic_ty<'src>(
     basic_ty: &Spanned<'src, ast::BasicType<'src>>,
-    context: Option<&SemanticContext<'src>>,
+    context: Option<&SemanticContext<'_, 'src>>,
     type_system: &TypeSystem<'src>,
 ) -> CheckedType<'src> {
     use self::ast::BasicType::*;
@@ -349,7 +349,7 @@ pub fn checked_type_from_basic_ty<'src>(
 
 pub fn checked_type_from_ty<'src>(
     ty: &ast::Type<'src>,
-    context: Option<&SemanticContext<'src>>,
+    context: Option<&SemanticContext<'_, 'src>>,
     type_system: &TypeSystem<'src>,
 ) -> CheckedType<'src> {
     let mut checked_ty = checked_type_from_basic_ty(&ty.basic, context, type_system);
