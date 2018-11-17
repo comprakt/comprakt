@@ -42,7 +42,7 @@ where
     }
 
     pub fn define(&mut self, sym: S, val: T) -> Result<(), RedefinitionError> {
-        if let Some(existing_definition) = self.visible_definition(sym) {
+        if let Some(_existing_definition) = self.visible_definition(sym) {
             return Err(RedefinitionError);
         }
         let insert_res = self.current_scope().insert(sym, val);
