@@ -223,6 +223,13 @@ impl<'a, 'b, T: Display + 'b> AsPrintable<'a, 'b> for MaybeSpanned<'a, T> {
 /// Width of tabs in error and warning messages
 const TAB_WIDTH: usize = 4;
 
+/// When rendering an error with multiple spans, replace lines that are not
+/// part of any span with an ellipsis if there is a block of at least
+/// `ELIDE_LINE_GAPS_LARGER_THAN` continous lines.
+///
+/// MUST be greater than 1.
+const ELIDE_LINE_GAPS_LARGER_THAN: usize = 3;
+
 // All RENDERING_* characters MUST have a output width of
 // of 1 when rendered on the console.
 const RENDERING_SINGLE_CHAR_SPAN: char = '⮤';
@@ -368,9 +375,9 @@ impl MessageLevel {
         }
     }
 
-    fn color_variant(self, variant :usize) -> Option<Color> {
+    fn color_variant(self, variant: usize) -> Option<Color> {
         if variant == 0 {
-            return self.color()
+            return self.color();
         }
 
         match self {
@@ -461,7 +468,36 @@ impl<'file, 'msg> Message<'file, 'msg> {
 
         num_fmt.empty_line(output.writer())?;
 
+        let mut currently_active_spans = 0;
+        let mut starting_span = self.kind.annotations.iter().peekable();
+        let mut skipping = false;
+
         for (line_number, line) in span.lines().numbered() {
+            if let Some(next) = starting_span.peek() {
+                if next.span.start_position().line_number() < line_number {
+                    starting_span.next();
+                }
+            }
+
+            if currently_active_spans == 0 {
+                if let Some(next) = starting_span.peek() {
+                    match next.span.start_position().line_number() {
+                        l if skipping && l == line_number => {
+                            num_fmt.ellipsis(output.writer())?;
+                            skipping = false;
+                        }
+                        l if l > line_number + ELIDE_LINE_GAPS_LARGER_THAN => {
+                            skipping = true;
+                            continue;
+                        }
+                        _ if skipping => {
+                            continue;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
             let line_fmt = LineFormatter::new(&line);
 
             num_fmt.number(output.writer(), line_number)?;
@@ -484,8 +520,23 @@ impl<'file, 'msg> Message<'file, 'msg> {
 
                     {
                         let mut output = ColorOutput::new(output.writer());
+                        // TODO: we can reuse colors by using
+                        // `currently_active_spans` instead of `annotation_index`
                         output.set_color(self.level.color_variant(annotation_index));
                         output.set_bold(true);
+
+                        let starts_here =
+                            annotation.span.start_position().line_number() == line_number;
+
+                        if starts_here {
+                            currently_active_spans += 1;
+                        }
+
+                        let ends_here = annotation.span.end_position().line_number() == line_number;
+
+                        if ends_here {
+                            currently_active_spans -= 1;
+                        }
 
                         if annotation.span.is_single_char() {
                             writeln!(
@@ -500,38 +551,71 @@ impl<'file, 'msg> Message<'file, 'msg> {
                                 })
                             )?;
                         } else {
-                            // NOTE: at this point we know that the span is not a single_char,
-                            // meaning it has at least length 2. This means substraction by 1 is
-                            // safe.
-                            let ends_here =
-                                annotation.span.end_position().line_number() == line_number;
+                            // NOTE: at this point we know that the WHOLE span is not a single_char,
+                            // meaning it has at least length 2. This does however not mean, that
+                            // the span of the current line has length > 1.
+                            if faulty_part_of_line.is_single_char() {
+                                writeln!(
+                                    output.writer(),
+                                    "{spaces}{underline}{msg}",
+                                    spaces = " ".repeat(start_term_pos),
+                                    underline = (if ends_here {
+                                        format!(
+                                            "{}{}",
+                                            RENDERING_SPAN_CONTINUATION, RENDERING_SPAN_END
+                                        )
+                                    } else if starts_here {
+                                        format!(
+                                            "{}{}",
+                                            RENDERING_SPAN_START, RENDERING_SPAN_CONTINUATION
+                                        )
+                                    } else {
+                                        format!(
+                                            "{}{}",
+                                            RENDERING_SPAN_CONTINUATION,
+                                            RENDERING_SPAN_CONTINUATION
+                                        )
+                                    }),
+                                    msg = (if !ends_here || annotation.data == "" {
+                                        "".to_string()
+                                    } else {
+                                        format!(" {}", annotation.data)
+                                    })
+                                );
+                            } else {
+                                let tail_offset =
+                                    if ends_here && faulty_part_of_line.as_bytes().len() >= 3 {
+                                        1
+                                    } else {
+                                        0
+                                    };
 
-                            let starts_here =
-                                annotation.span.start_position().line_number() == line_number;
-
-                            writeln!(
-                                output.writer(),
-                                "{spaces}{underline_start}{underline_middle}{underline_end}{msg}",
-                                spaces = " ".repeat(start_term_pos),
-                                underline_start = if starts_here {
-                                    RENDERING_SPAN_START
-                                } else {
-                                    RENDERING_SPAN_CONTINUATION
-                                },
-                                underline_middle = RENDERING_SPAN_MIDDLE
-                                    .to_string()
-                                    .repeat(term_width - 2), // substract once for underline_start and once for underline_end
-                                underline_end = if ends_here {
-                                    RENDERING_SPAN_END
-                                } else {
-                                    RENDERING_SPAN_CONTINUATION
-                                },
-                                msg = (if !ends_here || annotation.data == "" {
-                                    "".to_string()
-                                } else {
-                                    format!(" {}", annotation.data)
-                                })
-                            )?;
+                                writeln!(
+                                    output.writer(),
+                                    "{spaces}{underline_start}{middle}{end}{msg}",
+                                    spaces = " ".repeat(start_term_pos),
+                                    underline_start = if starts_here {
+                                        RENDERING_SPAN_START
+                                    } else {
+                                        RENDERING_SPAN_CONTINUATION
+                                    },
+                                    // substract once for underline_start and optionally 1 for
+                                    // underline_end
+                                    middle = RENDERING_SPAN_MIDDLE
+                                        .to_string()
+                                        .repeat(term_width - 1 - tail_offset),
+                                    end = if ends_here {
+                                        RENDERING_SPAN_END
+                                    } else {
+                                        RENDERING_SPAN_CONTINUATION
+                                    },
+                                    msg = (if !ends_here || annotation.data == "" {
+                                        "".to_string()
+                                    } else {
+                                        format!(" {}", annotation.data)
+                                    })
+                                )?;
+                            }
                         }
                     }
                 }
@@ -570,13 +654,13 @@ impl LineNumberFormatter {
         Ok(())
     }
 
-    //pub fn ellipsis(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
-    //let mut output = ColorOutput::new(writer);
-    //output.set_color(HIGHLIGHT_COLOR);
-    //output.set_bold(true);
-    //write!(output.writer(), " {} | ", " ".repeat(self.width))?;
-    //Ok(())
-    //}
+    pub fn ellipsis(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
+        let mut output = ColorOutput::new(writer);
+        output.set_color(HIGHLIGHT_COLOR);
+        output.set_bold(true);
+        writeln!(output.writer(), " ...")?;
+        Ok(())
+    }
 
     pub fn number(&self, writer: &mut dyn WriteColor, line_number: usize) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
