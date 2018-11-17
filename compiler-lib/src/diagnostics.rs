@@ -58,9 +58,79 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 ///         WithSpan("what looks like the declaration of the main function"), // add context span
 /// });
 /// ```
+///
+/// Here is a more elaborate example:
+///
+/// ```
+/// use compiler_lib::{
+///     asciifile::{AsciiFile, MaybeSpanned::*, Position, Span, Spanned},
+///     diagnostics::{Diagnostics, Printable},
+/// };
+/// use std::cell::UnsafeCell;
+/// use termcolor::NoColor;
+///
+/// // TODO: remove use of unsafe cell for a mut and immutable borrow concurrently
+/// let mut output: UnsafeCell<Vec<u8>> = UnsafeCell::new(Vec::new());
+/// let stderr = NoColor::new(unsafe { &mut *output.get() });
+/// let diagnostics = Diagnostics::new(Box::new(stderr));
+/// let input = "banana";
+/// let file = AsciiFile::new(input.as_bytes()).unwrap();
+/// let initial_pos = Position::at_file_start(&file).unwrap();
+/// let last_pos = initial_pos.clone().iter().last().unwrap();
+///
+/// diagnostics.error(&"banana");
+/// diagnostics.error(&Spanned {
+///     data: "this is a banana",
+///     span: Span::new(initial_pos, last_pos),
+/// });
+/// diagnostics.warning(&WithSpan(Spanned {
+///     data: "this is another banana",
+///     span: Span::new(initial_pos, last_pos),
+/// }));
+/// diagnostics.info(&WithoutSpan("there is a banana"));
+/// diagnostics.info(&Printable {
+///     message: &"let me show you!",
+///     annotations: vec![
+///         Spanned {
+///             span: Span::new(initial_pos, initial_pos),
+///             data: "the banana starts here",
+///         },
+///         Spanned {
+///             span: Span::new(last_pos, last_pos),
+///             data: "this is the end",
+///         },
+///     ],
+/// });
+///
+/// assert_eq!(
+///     r#"error: banana
+///
+/// error: this is a banana
+///    |
+///  1 | banana
+///    | ^^^^^^
+///
+/// warning: this is another banana
+///    |
+///  1 | banana
+///    | ^^^^^^
+///
+/// info: there is a banana
+///
+/// info: let me show you!
+///    |
+///  1 | banana
+///    | ^ the banana starts here
+///    |      ^ this is the end
+///
+/// "#,
+///     &String::from_utf8_lossy(unsafe { &mut *output.get() })
+/// );
+/// ```
+#[derive(Clone)]
 pub struct Printable<'ctx, 'caller> {
-    message: &'caller dyn Display,
-    annotations: Vec<Spanned<'ctx, &'caller str>>,
+    pub message: &'caller dyn Display,
+    pub annotations: Vec<Spanned<'ctx, &'caller str>>,
 }
 
 pub trait AsPrintable<'a, 'b> {
@@ -74,6 +144,15 @@ impl<'a, 'b> AsPrintable<'a, 'b> for &'b str {
         Printable {
             message: self,
             annotations: vec![],
+        }
+    }
+}
+
+impl<'a, 'b> AsPrintable<'a, 'b> for Printable<'a, 'b> {
+    fn as_printable(&'b self) -> Printable<'a, 'b> {
+        Printable {
+            message: self.message,
+            annotations: self.annotations.iter().cloned().collect(),
         }
     }
 }
@@ -250,11 +329,25 @@ impl MessageLevel {
 }
 
 pub struct Message<'file, 'msg> {
-    pub level: MessageLevel,
-    pub kind: Printable<'file, 'msg>,
+    level: MessageLevel,
+    kind: Printable<'file, 'msg>,
 }
 
 impl<'file, 'msg> Message<'file, 'msg> {
+    pub fn new(level: MessageLevel, kind: Printable<'file, 'msg>) -> Self {
+        // sort annotations in reading order using their start position
+        let mut sorted_annotations = kind.annotations.clone();
+        sorted_annotations
+            .sort_by_key(|spanned_str| spanned_str.span.start_position().byte_offset());
+
+        Self {
+            level,
+            kind: Printable {
+                message: kind.message,
+                annotations: sorted_annotations,
+            },
+        }
+    }
     pub fn write(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
         self.write_description(writer)?;
         self.write_code(writer)?;
@@ -273,10 +366,26 @@ impl<'file, 'msg> Message<'file, 'msg> {
 
         Ok(())
     }
+
+    fn overall_span(&self) -> Option<Span<'file>> {
+        let iter = self.kind.annotations.iter();
+
+        let mut overall = match self.kind.annotations.iter().next() {
+            None => return None,
+            Some(ref spanned) => spanned.span.clone(),
+        };
+
+        for spanned in iter {
+            overall = Span::combine(&overall, &spanned.span);
+        }
+
+        Some(overall)
+    }
+
     fn write_code(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
         // TODO: print more than the first span
         if let Some(spanned) = self.kind.annotations.get(0) {
-            self.write_code_block(writer, &spanned.span)?;
+            self.write_code_block(writer, &spanned)?;
         }
 
         Ok(())
@@ -291,21 +400,35 @@ impl<'file, 'msg> Message<'file, 'msg> {
     }
 
     // TODO: must take multiple spans
-    fn write_code_block(&self, writer: &mut dyn WriteColor, error: &Span<'_>) -> Result<(), Error> {
+    fn write_code_block(
+        &self,
+        writer: &mut dyn WriteColor,
+        error: &Spanned<'_, &str>,
+    ) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
-        let num_fmt = LineNumberFormatter::new(error);
+
+        let span = match self.overall_span() {
+            None => {
+                // no code blocks, return
+                return Ok(());
+            }
+            Some(span) => span,
+        };
+
+        let num_fmt = LineNumberFormatter::new(&span);
 
         num_fmt.empty_line(output.writer())?;
 
-        for (line_number, line) in error.lines().numbered() {
+        for (line_number, line) in span.lines().numbered() {
             let line_fmt = LineFormatter::new(&line);
 
             num_fmt.number(output.writer(), line_number)?;
             line_fmt.render(output.writer())?;
+
             // currently, the span will always exist since we take the line from the error
             // but future versions may print a line below and above for context that
             // is not part of the error
-            if let Some(faulty_part_of_line) = Span::intersect(error, &line) {
+            if let Some(faulty_part_of_line) = Span::intersect(&error.span, &line) {
                 // TODO: implement this without the following 3 assumptions:
                 // - start_pos - end_pos >= 0, guranteed by data structure invariant of Span
                 // - start_term_pos - end_term_pos >= 0, guranteed by monotony of columns
@@ -323,11 +446,17 @@ impl<'file, 'msg> Message<'file, 'msg> {
                     let mut output = ColorOutput::new(output.writer());
                     output.set_color(self.level.color());
                     output.set_bold(true);
+                    // TODO dont print msg on multiline spans
                     writeln!(
                         output.writer(),
-                        "{spaces}{underline}",
+                        "{spaces}{underline}{msg}",
                         spaces = " ".repeat(start_term_pos),
-                        underline = "^".repeat(term_width)
+                        underline = "^".repeat(term_width),
+                        msg = (if error.data == "" {
+                            "".to_string()
+                        } else {
+                            format!(" {}", error.data)
+                        })
                     )?;
                 }
             }
@@ -365,13 +494,13 @@ impl LineNumberFormatter {
         Ok(())
     }
 
-    pub fn ellipsis(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
-        let mut output = ColorOutput::new(writer);
-        output.set_color(HIGHLIGHT_COLOR);
-        output.set_bold(true);
-        write!(output.writer(), " {} | ", " ".repeat(self.width))?;
-        Ok(())
-    }
+    //pub fn ellipsis(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
+    //let mut output = ColorOutput::new(writer);
+    //output.set_color(HIGHLIGHT_COLOR);
+    //output.set_bold(true);
+    //write!(output.writer(), " {} | ", " ".repeat(self.width))?;
+    //Ok(())
+    //}
 
     pub fn number(&self, writer: &mut dyn WriteColor, line_number: usize) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
