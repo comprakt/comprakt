@@ -235,7 +235,7 @@ impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
                                     FieldAccess(..) | ArrayAccess(..) | Var(..) => (),
                                     _ => {
                                         self.context.diagnostics.error(&Spanned {
-                                            span: lhs.span.clone(),
+                                            span: lhs.span,
                                             data: SemanticError::AssignmentToNonLValue,
                                         });
                                     }
@@ -245,7 +245,7 @@ impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
                             _ => {
                                 //Err
                                 self.context.diagnostics.error(&Spanned {
-                                    span: stmt.span.clone(),
+                                    span: stmt.span,
                                     data: SemanticError::NotAStatement,
                                 });
                             }
