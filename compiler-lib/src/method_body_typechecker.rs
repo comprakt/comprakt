@@ -125,7 +125,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
                 }
             }
             LocalVariableDeclaration(ty, name, opt_assign) => {
-                let def_ty = CheckedType::from(&ty.data);
+                let def_ty = checked_type_from_ty(&ty.data, Some(self.context), self.type_system);
                 self.local_scope
                     .define(
                         name.data,
@@ -327,7 +327,7 @@ impl<'src, 'sem> MethodBodyTypeChecker<'src, 'sem> {
 
                 self.check_type(size_expr, &CheckedType::Int);
 
-                let basic_ty = CheckedType::from(&basic_ty.data); // TODO validate type
+                let basic_ty = checked_type_from_basic_ty(&basic_ty, Some(self.context), self.type_system);
                 let ty = CheckedType::create_array_type(basic_ty, dimension + 1);
 
                 Ok(ty)

@@ -122,6 +122,9 @@ pub fn check<'a, 'src>(
         ast::AST::Program(program) => {
             let type_system = build_type_system(&sem_context, program);
 
+            // add $System
+
+
             for class_decl in &program.classes {
                 MethodBodyTypeChecker::check_methods(class_decl, &type_system, &sem_context);
             }
@@ -152,6 +155,21 @@ fn build_type_system<'src>(
     let mut type_system = TypeSystem::default();
 
     for class_decl in &program.classes {
+        // first pass: find all types
+        let class_def = ClassDef::new(class_decl.name.data);
+        type_system.add_class_def(class_def).unwrap_or_else(|_| {
+            context.report_error(
+                &class_decl.span,
+                SemanticError::RedefinitionError {
+                    kind: "class".to_string(),
+                    name: class_decl.name.to_string(),
+                },
+            )
+        });
+    }
+
+    for class_decl in &program.classes {
+        // second pass: scan members of all types, check their type references against the first pass
         let mut class_def = ClassDef::new(class_decl.name.data);
 
         for member in &class_decl.members {
@@ -161,7 +179,7 @@ fn build_type_system<'src>(
                     class_def
                         .add_field(ClassFieldDef {
                             name: member.name,
-                            ty: CheckedType::from(&ty.data),
+                            ty: checked_type_from_ty(&ty.data, Some(context), &type_system),
                         })
                         .unwrap_or_else(|_| {
                             context.report_error(
@@ -176,13 +194,22 @@ fn build_type_system<'src>(
                 Method(_, params, _) | MainMethod(params, _) => {
                     let (is_static, return_ty) = match &member.kind {
                         Field(_) => panic!("impossible"),
-                        Method(ty, _, _) => (false, CheckedType::from(&ty.data)),
+                        Method(ty, _, _) => (false, checked_type_from_ty(&ty.data, Some(context), &type_system)),
                         MainMethod(_, _) => (true, CheckedType::Void),
                     };
+
+                    let checked_params = params
+                        .iter()
+                        .map(|p| MethodParamDef {
+                            name: p.name,
+                            ty: checked_type_from_ty(&p.ty.data, Some(context), &type_system),
+                        })
+                        .collect();
+
                     class_def
                         .add_method(ClassMethodDef::new(
                             member.name,
-                            &params,
+                            checked_params,
                             return_ty,
                             is_static,
                         ))
@@ -199,40 +226,48 @@ fn build_type_system<'src>(
             }
         }
 
-        type_system.add_class_def(class_def).unwrap_or_else(|_| {
-            context.report_error(
-                &class_decl.span,
-                SemanticError::RedefinitionError {
-                    kind: "class".to_string(),
-                    name: class_decl.name.to_string(),
-                },
-            )
-        });
+        let _ = type_system.update_existing_class_def(class_def);
+        // FIXME crash on error here: there is always an existing class_def
     }
 
     type_system
 }
 
-impl<'t> From<&ast::Type<'t>> for CheckedType<'t> {
-    fn from(ty: &ast::Type<'t>) -> Self {
-        let mut checked_ty = (&ty.basic.data).into();
-
-        for _ in 0..ty.array_depth {
-            checked_ty = CheckedType::Array(Box::new(checked_ty));
-        }
-
-        checked_ty
+// pass None as context to disable error reporting
+// FIXME better ideas?
+pub fn checked_type_from_basic_ty<'src>(
+    basic_ty: &Spanned<'src, ast::BasicType<'src>>,
+    context: Option<&SemanticContext<'src>>,
+    type_system: &TypeSystem<'src>,
+) -> CheckedType<'src> {
+    use self::ast::BasicType::*;
+    match &basic_ty.data {
+        Int => CheckedType::Int,
+        Boolean => CheckedType::Boolean,
+        Void => CheckedType::Void,
+        Custom(name) => {
+            if !type_system.is_type_defined(*name) {
+                if let Some(context) = context {
+                    context.report_error(&basic_ty.span, SemanticError::ClassDoesNotExist {
+                        class_name: name.to_string()
+                    });
+                }
+            }
+            CheckedType::TypeRef(*name)
+        },
     }
 }
 
-impl<'t> From<&ast::BasicType<'t>> for CheckedType<'t> {
-    fn from(basic_ty: &ast::BasicType<'t>) -> Self {
-        use self::ast::BasicType::*;
-        match basic_ty {
-            Int => CheckedType::Int,
-            Boolean => CheckedType::Boolean,
-            Void => CheckedType::Void,
-            Custom(symbol) => CheckedType::TypeRef(*symbol),
-        }
+pub fn checked_type_from_ty<'src>(
+    ty: &ast::Type<'src>,
+    context: Option<&SemanticContext<'src>>,
+    type_system: &TypeSystem<'src>
+) -> CheckedType<'src> {
+    let mut checked_ty = checked_type_from_basic_ty(&ty.basic, context, type_system);
+
+    for _ in 0..ty.array_depth {
+        checked_ty = CheckedType::Array(Box::new(checked_ty));
     }
+
+    checked_ty
 }

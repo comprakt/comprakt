@@ -1,4 +1,4 @@
-use crate::{asciifile::Spanned, ast, strtab::Symbol};
+use crate::{strtab::Symbol};
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt,
@@ -18,6 +18,14 @@ impl<'src> TypeSystem<'src> {
         match self.defined_classes.entry(class_def.name) {
             Entry::Occupied(_) => return Err(()),
             Entry::Vacant(e) => e.insert(class_def),
+        };
+        Ok(())
+    }
+
+    pub fn update_existing_class_def(&mut self, class_def: ClassDef<'src>) -> Result<(), ()> {
+        match self.defined_classes.entry(class_def.name) {
+            Entry::Occupied(mut e) => e.insert(class_def),
+            Entry::Vacant(_) => return Err(()),
         };
         Ok(())
     }
@@ -80,7 +88,7 @@ pub struct ClassMethodDef<'src> {
 impl<'src> ClassMethodDef<'src> {
     pub fn new(
         name: Symbol<'src>,
-        params: &[Spanned<'src, ast::Parameter<'src>>],
+        params: Vec<MethodParamDef<'src>>,
         return_ty: CheckedType<'src>,
         is_static: bool,
     ) -> ClassMethodDef<'src> {
@@ -88,13 +96,7 @@ impl<'src> ClassMethodDef<'src> {
             is_static,
             name,
             return_ty,
-            params: params
-                .iter()
-                .map(|p| MethodParamDef {
-                    name: p.name,
-                    ty: CheckedType::from(&p.ty.data),
-                })
-                .collect(),
+            params,
             is_main: is_static,
         }
     }
