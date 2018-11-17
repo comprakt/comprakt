@@ -247,8 +247,8 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
             }
             Unary(op, expr) => {
                 let ty = match op {
-                    ast::UnaryOp::Not => CheckedType::Int,
-                    ast::UnaryOp::Neg => CheckedType::Boolean,
+                    ast::UnaryOp::Not => CheckedType::Boolean,
+                    ast::UnaryOp::Neg => CheckedType::Int,
                 };
 
                 self.check_type(expr, &ty);
