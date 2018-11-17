@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 use compiler_lib::symtab::Scoped;
 
-fn scope_walk(scoped: &Scoped<&String, ()>, defs: &Vec<String>) {
+fn scope_walk(scoped: &Scoped<&String, ()>, defs: &[String]) {
     let rootdef = &defs[0];
     // ask for rootdef from innermost scope
     // a naive implementation would be in O(N) where N is number of nested scopes

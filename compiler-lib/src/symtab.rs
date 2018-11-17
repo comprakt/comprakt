@@ -26,6 +26,7 @@ pub struct CannotLeaveRootScopeError;
 #[derive(Debug)]
 pub struct RedefinitionError;
 
+#[allow(clippy::new_without_default_derive)]
 impl<S, T> Scoped<S, T>
 where
     S: std::hash::Hash + Eq + Copy,
@@ -84,7 +85,7 @@ where
     }
 
     fn current_scope(&mut self) -> (&mut SymbolTable<S, T>, ScopeIdx) {
-        if self.scopes.len() > 0 {
+        if !self.scopes.is_empty() {
             let idx = self.scopes.len() - 1;
             (&mut self.scopes[idx], ScopeIdx::Dynamic(idx))
         } else {
@@ -148,12 +149,12 @@ mod tests {
         assert_def!(scoped, &"root");
         assert_def!(scoped, &"l1");
         assert_def!(scoped, &"l2");
-        scoped.leave_scope();
+        scoped.leave_scope().expect("not in root scope");
         // at l1
         assert_def!(scoped, &"root");
         assert_def!(scoped, &"l1");
         assert_no_def!(scoped, &"l2");
-        scoped.leave_scope();
+        scoped.leave_scope().expect("not in root scope");
         // at root scope
         assert_def!(scoped, &"root");
         assert_no_def!(scoped, &"l1");
@@ -166,10 +167,10 @@ mod tests {
         def!(scoped, &"inroot");
         scoped.enter_scope();
         def!(scoped, &"v");
-        scoped.leave_scope();
+        scoped.leave_scope().expect("not in root scope");
         scoped.enter_scope();
         def!(scoped, &"v");
-        scoped.leave_scope();
+        scoped.leave_scope().expect("not in root scope");
     }
 
     #[test]
