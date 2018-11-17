@@ -70,3 +70,4 @@ error: 5. definition of a static method. Only one is allowed
  22 |     }
     | ^^^^^
 
+Compilation aborted due to 8 errors

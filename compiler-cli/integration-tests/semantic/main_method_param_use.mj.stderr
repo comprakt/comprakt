@@ -8,3 +8,4 @@ error: Usage of the parameter 'args' of the main function
  4 |         args.length();
    |         ^^^^
 
+Compilation aborted due to 2 errors
