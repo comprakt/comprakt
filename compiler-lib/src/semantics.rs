@@ -144,10 +144,12 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                                         then_arm_always_returns && else_arm_always_returns
                                     }
 
-                                    // A block always returns iff any of the statements always
-                                    // returns
+                                    // An empty block does not return
+                                    ast::Stmt::Block(block) if block.statements.len() == 0 => false,
+                                    // A non-empty block always returns iff all of its statements
+                                    // always return
                                     ast::Stmt::Block(block) => {
-                                        block.statements.iter().any(always_returns)
+                                        block.statements.iter().all(always_returns)
                                     }
 
                                     // A return stmt always returns
@@ -158,7 +160,8 @@ impl<'a, 'f, 'cx> ClassesAndMembersVisitor<'a, 'f, 'cx> {
                                 }
                             }
 
-                            if !block.statements.iter().any(always_returns) {
+                            // FIXME de-duplicate empty block logic from always_returns
+                            if block.statements.len() == 0 || !block.statements.iter().all(always_returns) {
                                 self.context.diagnostics.error(&Spanned {
                                     span: block.span.clone(),
                                     data: SemanticError::MightNotReturn,
