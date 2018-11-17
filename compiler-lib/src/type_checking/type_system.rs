@@ -130,6 +130,7 @@ impl<'src> MethodParamDef<'src> {
 pub struct ClassFieldDef<'src> {
     pub name: Symbol<'src>,
     pub ty: CheckedType<'src>,
+    pub can_write: bool,
 }
 
 // FIXME Clone or not? => Store types in hashmap

@@ -12,6 +12,21 @@ enum IdentLookupResult<'src, 'sem> {
 }
 */
 
+struct ExprInfo<'src, 'sem> {
+    ty: CheckedType<'src>,
+    ref_info: Option<RefInfo<'src, 'sem>>,
+}
+
+enum RefInfo<'src, 'sem> {
+    GlobalVarDef(Symbol<'src>),
+    VarDef(Symbol<'src>),
+    Param(&'sem MethodParamDef<'src>),
+    Field(&'sem ClassFieldDef<'src>),
+    Method(&'sem ClassMethodDef<'src>),
+    Class(&'sem ClassDef<'src>),
+}
+
+#[derive(Clone)]
 enum VarDef<'src, 'sem> {
     Local {
         #[allow(dead_code)]
@@ -195,16 +210,25 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
     fn get_type_expr(
         &mut self,
         expr: &Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<CheckedType<'src>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
         use crate::ast::Expr::*;
         match &expr.data {
             Binary(op, lhs, rhs) => {
                 use crate::ast::BinaryOp::*;
                 match op {
                     Assign => {
-                        // TODO ensure that lhs is L-Value
+                        match lhs.data {
+                            FieldAccess(..) | ArrayAccess(..) | Var(..) => (),
+                            _ => self
+                                .context
+                                .report_error(&lhs.span, SemanticError::AssignmentToNonLValue),
+                        }
                         match self.get_type_expr(lhs) {
-                            Ok(lhs_type) => {
+                            Ok(ExprInfo {
+                                ty: lhs_type,
+                                ref_info,
+                            }) => {
+                                // TODO check permissions
                                 self.check_type(rhs, &lhs_type);
                                 Ok(lhs_type)
                             }
@@ -212,8 +236,8 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                         }
                     }
                     Equals | NotEquals => {
-                        let lhs_type = self.get_type_expr(&lhs)?;
-                        let rhs_type = self.get_type_expr(&rhs)?;
+                        let lhs_type = self.get_type_expr(&lhs)?.ty;
+                        let rhs_type = self.get_type_expr(&rhs)?.ty;
 
                         if !lhs_type.is_assignable_from(&rhs_type)
                             && !rhs_type.is_assignable_from(&lhs_type)
@@ -256,7 +280,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                 Ok(ty)
             }
             FieldAccess(target_expr, name) => {
-                let target_type = self.get_type_expr(&target_expr)?;
+                let target_type = self.get_type_expr(&target_expr)?.ty;
                 let target_class_def = self.resolve_class(&target_type).map_err(|e| {
                     self.context.report_error(
                         &name.span,
@@ -284,7 +308,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
 
             MethodInvocation(target_expr, name, args) => {
                 // e.g. "target_expr.name(arg1, arg2)"
-                let target_type = self.get_type_expr(&target_expr)?;
+                let target_type = self.get_type_expr(&target_expr)?.ty;
                 let target_class_def = self.resolve_class(&target_type).map_err(|e| {
                     self.context.report_error(
                         &name.span,
@@ -420,13 +444,17 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
         Ok(method.return_ty.clone())
     }
 
+    /// Returned ExprInfo.ref_info is alwasy Some(_)
     fn check_var(
         &mut self,
         var_name: &Spanned<'src, Symbol<'src>>,
-    ) -> Result<CheckedType<'src>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
         match self.local_scope.visible_definition(var_name.data) {
             // local variable or param
-            Some(VarDef::Local { ty, .. }) => Ok(ty.clone()),
+            Some(VarDef::Local { ty, name }) => Ok(ExprInfo {
+                ty: ty.clone(),
+                ref_info: Some(RefInfo::VarDef(*name)),
+            }),
             Some(VarDef::Param(param_def)) => {
                 if self.current_method.is_main {
                     self.context.report_error(
@@ -437,7 +465,10 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                     );
                 }
 
-                Ok(param_def.ty.clone())
+                Ok(ExprInfo {
+                    ty: param_def.ty.clone(),
+                    ref_info: Some(RefInfo::Param(param_def)),
+                })
             }
             None => Err(CouldNotDetermineType),
         }
@@ -454,7 +485,10 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                         );
                     }
 
-                    Ok(field.ty.clone())
+                    Ok(ExprInfo {
+                        ty: field.ty.clone(),
+                        ref_info: Some(RefInfo::Field(field)),
+                    })
                 }
                 None => Err(CouldNotDetermineType),
             }
@@ -476,7 +510,10 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
             }
         })
         .or_else(|_| match self.context.global_vars.get(&var_name.data) {
-            Some(ty) => Ok(ty.clone()),
+            Some(ty) => Ok(ExprInfo {
+                ty: ty.clone(),
+                ref_info: Some(RefInfo::GlobalVarDef(var_name.data)),
+            }),
             None => Err(CouldNotDetermineType),
         })
         .or_else(|_| {

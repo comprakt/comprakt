@@ -237,15 +237,7 @@ impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
                         match &expr.data {
                             Binary(ast::BinaryOp::Assign, lhs, _) => {
                                 //Check lhs
-                                match lhs.data {
-                                    FieldAccess(..) | ArrayAccess(..) | Var(..) => (),
-                                    _ => {
-                                        self.context.diagnostics.error(&Spanned {
-                                            span: lhs.span,
-                                            data: SemanticError::AssignmentToNonLValue,
-                                        });
-                                    }
-                                }
+
                             }
                             MethodInvocation(..) | ThisMethodInvocation(..) => (),
                             _ => {

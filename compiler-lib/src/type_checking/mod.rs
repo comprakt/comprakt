@@ -91,6 +91,7 @@ fn add_types_from_ast<'ctx, 'src>(
                                 &type_system,
                                 VoidIs::Forbidden,
                             ),
+                            can_write: true,
                         })
                         .unwrap_or_else(|_| {
                             context.report_error(
@@ -219,12 +220,14 @@ fn add_builtin_types<'src>(
         .add_field(ClassFieldDef {
             name: strtab.intern("in"),
             ty: reader_class_def.get_type(),
+            can_write: false,
         })
         .unwrap();
     system_class_def
         .add_field(ClassFieldDef {
             name: strtab.intern("out"),
             ty: writer_class_def.get_type(),
+            can_write: false,
         })
         .unwrap();
     context
