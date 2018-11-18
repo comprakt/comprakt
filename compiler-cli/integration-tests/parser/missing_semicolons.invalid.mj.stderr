@@ -1,6 +1,6 @@
 error: expected `.`, `;`, `[` or a binary operator, found 'else'
-   |
- 5 |         else false
-   |         ^^^^
+   │
+ 5 │         else false
+   │         ╰──╯
 
 Compilation aborted due to an error

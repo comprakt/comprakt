@@ -1,73 +1,73 @@
 error: Only the 'main' method can be static
-   | 
- 6 |     public static void s1(String[] args) {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- 7 | 
-   | 
- 8 |     }
-   | ^^^^^
+   │
+ 6 │     public static void s1(String[] args) {
+   │     ╰─────────────────────────────────────┈
+ 7 │
+   │┈┈
+ 8 │     }
+   │┈────╯
 
 error: 2. definition of a static method. Only one is allowed
-   | 
- 6 |     public static void s1(String[] args) {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- 7 | 
-   | 
- 8 |     }
-   | ^^^^^
+   │
+ 6 │     public static void s1(String[] args) {
+   │     ╰─────────────────────────────────────┈
+ 7 │
+   │┈┈
+ 8 │     }
+   │┈────╯
 
 error: Only the 'main' method can be static
-    | 
- 10 |     public static void s2(String[] args) {
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- 11 | 
-    | 
- 12 |     }
-    | ^^^^^
+    │
+ 10 │     public static void s2(String[] args) {
+    │     ╰─────────────────────────────────────┈
+ 11 │
+    │┈┈
+ 12 │     }
+    │┈────╯
 
 error: 3. definition of a static method. Only one is allowed
-    | 
- 10 |     public static void s2(String[] args) {
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- 11 | 
-    | 
- 12 |     }
-    | ^^^^^
+    │
+ 10 │     public static void s2(String[] args) {
+    │     ╰─────────────────────────────────────┈
+ 11 │
+    │┈┈
+ 12 │     }
+    │┈────╯
 
 error: Only the 'main' method can be static
-    | 
- 14 |     public static void s3(String[] args) {
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- 15 | 
-    | 
- 16 |     }
-    | ^^^^^
+    │
+ 14 │     public static void s3(String[] args) {
+    │     ╰─────────────────────────────────────┈
+ 15 │
+    │┈┈
+ 16 │     }
+    │┈────╯
 
 error: 4. definition of a static method. Only one is allowed
-    | 
- 14 |     public static void s3(String[] args) {
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- 15 | 
-    | 
- 16 |     }
-    | ^^^^^
+    │
+ 14 │     public static void s3(String[] args) {
+    │     ╰─────────────────────────────────────┈
+ 15 │
+    │┈┈
+ 16 │     }
+    │┈────╯
 
 error: Only the 'main' method can be static
-    | 
- 20 |     public static void main2(String[] args) {
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- 21 | 
-    | 
- 22 |     }
-    | ^^^^^
+    │
+ 20 │     public static void main2(String[] args) {
+    │     ╰────────────────────────────────────────┈
+ 21 │
+    │┈┈
+ 22 │     }
+    │┈────╯
 
 error: 5. definition of a static method. Only one is allowed
-    | 
- 20 |     public static void main2(String[] args) {
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- 21 | 
-    | 
- 22 |     }
-    | ^^^^^
+    │
+ 20 │     public static void main2(String[] args) {
+    │     ╰────────────────────────────────────────┈
+ 21 │
+    │┈┈
+ 22 │     }
+    │┈────╯
 
 Compilation aborted due to 8 errors

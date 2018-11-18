@@ -1,6 +1,6 @@
 error: expected 'void', found 'int'
-   |
- 2 |     public static int main(String[] args) {}
-   |                   ^^^
+   │
+ 2 │     public static int main(String[] args) {}
+   │                   ╰─╯
 
 Compilation aborted due to an error

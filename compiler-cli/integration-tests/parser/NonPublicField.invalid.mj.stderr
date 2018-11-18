@@ -1,6 +1,6 @@
 error: expected 'public' or `}`, found 'int'
-   |
- 3 |     int field;
-   |     ^^^
+   │
+ 3 │     int field;
+   │     ╰─╯
 
 Compilation aborted due to an error

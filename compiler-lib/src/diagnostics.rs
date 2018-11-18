@@ -67,11 +67,11 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 ///     diagnostics::{Diagnostics, Printable},
 /// };
 /// use std::cell::UnsafeCell;
-/// use termcolor::Ansi;
+/// use termcolor::NoColor;
 ///
 /// // TODO: remove use of unsafe cell for a mut and immutable borrow concurrently
 /// let mut output: UnsafeCell<Vec<u8>> = UnsafeCell::new(Vec::new());
-/// let stderr = Ansi::new(unsafe { &mut *output.get() });
+/// let stderr = NoColor::new(unsafe { &mut *output.get() });
 /// let diagnostics = Diagnostics::new(Box::new(stderr));
 /// let input = "banana\nanother banana\nbananarama\na\n\n\n\nmuch more banana\n";
 /// let file = AsciiFile::new(input.as_bytes()).unwrap();
@@ -155,37 +155,69 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 ///     ],
 /// });
 ///
-/// println!("{}", String::from_utf8_lossy(unsafe { &mut *output.get() }));
+/// // println!("{}", String::from_utf8_lossy(unsafe { &mut *output.get() }));
 ///
 /// assert_eq!(
 ///     r#"error: banana
 ///
 /// error: this is a banana
-///    |
-///  1 | banana
-///    | ^^^^^^
+///    │
+///  1 │ banana
+///    │ ╰────╯
 ///
 /// warning: this is another banana
-///    |
-///  1 | banana
-///    | ^^^^^^
+///    │
+///  1 │ banana
+///    │ ╰────╯
 ///
 /// info: there is a banana
 ///
-/// info: let me show you!
-///    |
-///  1 | banana
-///    | ^ the banana starts here
-///    |      ^ this is the end
+/// warning: let me show you!
+///    │
+///  1 │ banana
+///    │ ⮤ the banana starts here
+///    │      ⮤ this is the end
+///  2 │ another banana
+///  3 │ bananarama
+///  4 │ a
+///    │ ╰╯ this line only has an A
 ///
 /// error: a bag of bananas
-///    |
-///  1 | banana
-///    | ^^^^^^ this is the first banana
-///    | ^ the first banana starts here
-///    | ^^^^^^
-///  2 | another banana
-///    | ^^^^^^^^^^^^^^ this is the bag of bananas
+///    │
+///  1 │ banana
+///    │ ╰────╯ this is the first banana
+///    │ ╰─────╯ multiline banana
+///    │ ╰─────┈
+///    │ ⮤ the first banana starts here
+///    │ ╰─────┈
+///  2 │ another banana
+///    │┈──────────────┈
+///    │┈──────────────┈
+///  3 │ bananarama
+///    │┈──────────┈
+///    │┈──────────┈
+///  4 │ a
+///    │┈─┈
+///    │┈─┈
+///  5 │
+///    │┈┈
+///    │┈┈
+///  6 │
+///    │┈╯ multiple newline banana
+///    │┈┈
+///  7 │
+///    │┈┈
+///  8 │ much more banana
+///    │┈────────────────╯ this is the bag of bananas
+///
+/// error: redefinition of method 'banana'
+///    │
+///  1 │ banana
+///    │ ╰────╯ 'banana' is first defined here
+///    ┆
+///    ┆
+///  8 │ much more banana
+///    │ ╰───────────────╯ this redefinition is not allowed
 ///
 /// "#,
 ///     &String::from_utf8_lossy(unsafe { &mut *output.get() })
@@ -216,7 +248,7 @@ impl<'a, 'b> AsPrintable<'a, 'b> for Printable<'a, 'b> {
     fn as_printable(&'b self) -> Printable<'a, 'b> {
         Printable {
             message: self.message,
-            annotations: self.annotations.iter().cloned().collect(),
+            annotations: self.annotations.clone(),
         }
     }
 }
@@ -230,7 +262,7 @@ impl<'a, 'b, T: Display + 'b> AsPrintable<'a, 'b> for Spanned<'a, T> {
         Printable {
             message: &self.data,
             annotations: vec![Spanned {
-                span: self.span.clone(),
+                span: self.span,
                 data: "",
             }],
         }
@@ -243,7 +275,7 @@ impl<'a, 'b, T: Display + 'b> AsPrintable<'a, 'b> for MaybeSpanned<'a, T> {
             MaybeSpanned::WithSpan(ref spanned) => Printable {
                 message: &spanned.data,
                 annotations: vec![Spanned {
-                    span: spanned.span.clone(),
+                    span: spanned.span,
                     data: "",
                 }],
             },
@@ -369,10 +401,10 @@ impl Diagnostics {
     /// Generate an error or a warning that is printed to the
     /// writer given in the `new` constructor. Most of the time
     /// this will be stderr.
-    pub fn emit(&self, level: MessageLevel, kind: Printable<'_, '_>) {
+    pub fn emit(&self, level: MessageLevel, kind: &Printable<'_, '_>) {
         self.increment_level_count(level);
         let mut writer = self.writer.borrow_mut();
-        let msg = Message { level, kind };
+        let msg = Message::new(level, kind);
 
         // `ok()` surpresses io error
         msg.write(&mut **writer).ok();
@@ -380,17 +412,17 @@ impl Diagnostics {
 
     #[allow(dead_code)]
     pub fn warning<'a, 'b, T: AsPrintable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
-        self.emit(MessageLevel::Warning, kind.as_printable())
+        self.emit(MessageLevel::Warning, &kind.as_printable())
     }
 
     #[allow(dead_code)]
     pub fn error<'a, 'b, T: AsPrintable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
-        self.emit(MessageLevel::Error, kind.as_printable())
+        self.emit(MessageLevel::Error, &kind.as_printable())
     }
 
     #[allow(dead_code)]
     pub fn info<'a, 'b, T: AsPrintable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
-        self.emit(MessageLevel::Info, kind.as_printable())
+        self.emit(MessageLevel::Info, &kind.as_printable())
     }
 
     fn increment_level_count(&self, level: MessageLevel) {
@@ -437,7 +469,7 @@ impl MessageLevel {
             ],
         })
         .iter()
-        .map(|color| Some(color.clone()))
+        .map(|color| Some(*color))
         .cycle()
         .nth(variant)
         .unwrap()
@@ -458,7 +490,7 @@ pub struct Message<'file, 'msg> {
 }
 
 impl<'file, 'msg> Message<'file, 'msg> {
-    pub fn new(level: MessageLevel, kind: Printable<'file, 'msg>) -> Self {
+    pub fn new(level: MessageLevel, kind: &Printable<'file, 'msg>) -> Self {
         // sort annotations in reading order using their start position
         let mut sorted_annotations = kind.annotations.clone();
         sorted_annotations
@@ -497,7 +529,7 @@ impl<'file, 'msg> Message<'file, 'msg> {
 
         let mut overall = match self.kind.annotations.iter().next() {
             None => return None,
-            Some(ref spanned) => spanned.span.clone(),
+            Some(ref spanned) => spanned.span,
         };
 
         for spanned in iter {
@@ -507,7 +539,8 @@ impl<'file, 'msg> Message<'file, 'msg> {
         Some(overall)
     }
 
-    // TODO: must take multiple spans
+    // TODO: reduce complexity!
+    #[allow(clippy::cyclomatic_complexity)]
     fn write_code(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
         // groups spans into blocks that are separated by at most 5 lines. then prints
         // each block separated by dots
@@ -558,7 +591,13 @@ impl<'file, 'msg> Message<'file, 'msg> {
             let line_fmt = LineFormatter::new(&line);
 
             num_fmt.number(output.writer(), line_number)?;
-            write!(output.writer(), " ");
+
+            // do not print a trailing whitespace if the line only consists of a newline.
+            // This is especially important if we edit integration tests in a text editor.
+            if line.as_str() != "\n" {
+                write!(output.writer(), " ");
+            }
+
             line_fmt.render(output.writer())?;
 
             for (annotation_index, annotation) in self.kind.annotations.iter().enumerate() {
@@ -620,84 +659,78 @@ impl<'file, 'msg> Message<'file, 'msg> {
                                     "".to_string()
                                 })
                             )?;
-                        } else {
+                        } else if faulty_part_of_line.is_single_char() {
                             // NOTE: at this point we know that the WHOLE span is not a single_char,
                             // meaning it has at least length 2. This does however not mean, that
                             // the span of the current line has length > 1.
-                            if faulty_part_of_line.is_single_char() {
-                                writeln!(
-                                    output.writer(),
-                                    "{margin}{spaces}{underline}{msg}",
-                                    margin = front_margin_char,
-                                    spaces = " ".repeat(start_term_pos),
-                                    underline = (if ends_here {
-                                        format!("{}", RENDERING_SPAN_END)
-                                    } else if starts_here {
-                                        format!(
-                                            "{}{}",
-                                            RENDERING_SPAN_START, RENDERING_SPAN_CONTINUATION
-                                        )
-                                    } else {
-                                        format!("{}", RENDERING_SPAN_CONTINUATION)
-                                    }),
-                                    msg = (if !ends_here || annotation.data == "" {
-                                        "".to_string()
-                                    } else {
-                                        format!(" {}", annotation.data)
-                                    })
-                                );
+                            writeln!(
+                                output.writer(),
+                                "{margin}{spaces}{underline}{msg}",
+                                margin = front_margin_char,
+                                spaces = " ".repeat(start_term_pos),
+                                underline = (if ends_here {
+                                    format!("{}", RENDERING_SPAN_END)
+                                } else if starts_here {
+                                    format!(
+                                        "{}{}",
+                                        RENDERING_SPAN_START, RENDERING_SPAN_CONTINUATION
+                                    )
+                                } else {
+                                    format!("{}", RENDERING_SPAN_CONTINUATION)
+                                }),
+                                msg = (if !ends_here || annotation.data == "" {
+                                    "".to_string()
+                                } else {
+                                    format!(" {}", annotation.data)
+                                })
+                            );
+                        } else {
+                            let tail_offset = if ends_here && !line_fmt
+                                .render_char(faulty_part_of_line.end_position().chr())
+                                .0
+                                .is_empty()
+                            {
+                                1
                             } else {
-                                let tail_offset = if ends_here
-                                    && line_fmt
-                                        .render_char(faulty_part_of_line.end_position().chr())
-                                        .0
-                                        .len()
-                                        > 0
-                                {
-                                    1
-                                } else {
-                                    0
-                                };
+                                0
+                            };
 
-                                let head_offset = if starts_here
-                                    && line_fmt
-                                        .render_char(faulty_part_of_line.start_position().chr())
-                                        .0
-                                        .len()
-                                        > 0
-                                {
-                                    1
-                                } else {
-                                    0
-                                };
+                            let head_offset = if starts_here && !line_fmt
+                                .render_char(faulty_part_of_line.start_position().chr())
+                                .0
+                                .is_empty()
+                            {
+                                1
+                            } else {
+                                0
+                            };
 
-                                writeln!(
-                                    output.writer(),
-                                    "{margin}{spaces}{underline_start}{middle}{end}{msg}",
-                                    margin = front_margin_char,
-                                    spaces = " ".repeat(start_term_pos),
-                                    underline_start = if starts_here {
-                                        RENDERING_SPAN_START.to_string()
-                                    } else {
-                                        "".to_string()
-                                    },
-                                    // substract once for underline_start and optionally 1 for
-                                    // underline_end
-                                    middle = RENDERING_SPAN_MIDDLE
-                                        .to_string()
-                                        .repeat(term_width - tail_offset - head_offset),
-                                    end = if ends_here {
-                                        RENDERING_SPAN_END
-                                    } else {
-                                        RENDERING_SPAN_CONTINUATION
-                                    },
-                                    msg = (if !ends_here || annotation.data == "" {
-                                        "".to_string()
-                                    } else {
-                                        format!(" {}", annotation.data)
-                                    })
-                                )?;
-                            }
+                            writeln!(
+                                output.writer(),
+                                "{margin}{spaces}{underline_start}{middle}{end}{msg}",
+                                margin = front_margin_char,
+                                spaces = " ".repeat(start_term_pos),
+                                underline_start = if starts_here {
+                                    RENDERING_SPAN_START.to_string()
+                                } else {
+                                    "".to_string()
+                                },
+                                // substract once for underline_start and optionally 1 for
+                                // underline_end
+                                middle = RENDERING_SPAN_MIDDLE
+                                    .to_string()
+                                    .repeat(term_width - tail_offset - head_offset),
+                                end = if ends_here {
+                                    RENDERING_SPAN_END
+                                } else {
+                                    RENDERING_SPAN_CONTINUATION
+                                },
+                                msg = (if !ends_here || annotation.data == "" {
+                                    "".to_string()
+                                } else {
+                                    format!(" {}", annotation.data)
+                                })
+                            )?;
                         }
                     }
                 }

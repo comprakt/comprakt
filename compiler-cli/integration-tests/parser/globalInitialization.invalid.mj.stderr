@@ -1,6 +1,6 @@
 error: expected `(` or `;`, found `=`
-   |
- 2 |     public boolean ident = false;
-   |                          ^
+   │
+ 2 │     public boolean ident = false;
+   │                          ^
 
 Compilation aborted due to an error

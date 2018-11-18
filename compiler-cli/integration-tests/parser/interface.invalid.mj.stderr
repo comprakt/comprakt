@@ -1,6 +1,6 @@
 error: expected 'class', found 'interface'
-   |
- 1 | interface Foo {}
-   | ^^^^^^^^^
+   │
+ 1 │ interface Foo {}
+   │ ╰───────╯
 
 Compilation aborted due to an error

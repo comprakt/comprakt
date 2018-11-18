@@ -1,6 +1,6 @@
 error: expected 'public' or `}`, found `;`
-   |
- 2 |     public int b() {};
-   |                      ^
+   │
+ 2 │     public int b() {};
+   │                      ^
 
 Compilation aborted due to an error

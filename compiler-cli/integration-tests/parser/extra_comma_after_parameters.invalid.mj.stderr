@@ -1,6 +1,6 @@
 error: expected 'boolean', 'int', 'void' or an identifier, found `)`
-   |
- 2 |     public int[] method(int parameter, int parameter, int parameter, int parameter, int parameter, int parameter,) {}
-   |                                                                                                                  ^
+   │
+ 2 │     public int[] method(int parameter, int parameter, int parameter, int parameter, int parameter, int parameter,) {}
+   │                                                                                                                  ^
 
 Compilation aborted due to an error

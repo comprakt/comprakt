@@ -1,6 +1,6 @@
 error: expected `[` or an identifier, found 'int'
-   |
- 2 |     public void int a() {}
-   |                 ^^^
+   │
+ 2 │     public void int a() {}
+   │                 ╰─╯
 
 Compilation aborted due to an error

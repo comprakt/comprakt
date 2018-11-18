@@ -1,6 +1,6 @@
 error: expected 'boolean', 'false', 'if', 'int', 'new', 'null', 'return', 'this', 'true', 'void', 'while', `(`, `;`, `{`, `}`, a unary operator, an identifier or an integer literal, found 'public'
-   |
- 3 |         public String bar() {
-   |         ^^^^^^
+   │
+ 3 │         public String bar() {
+   │         ╰────╯
 
 Compilation aborted due to an error

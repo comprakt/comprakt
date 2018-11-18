@@ -1,6 +1,6 @@
 error: expected 'class', found 'int'
-   |
- 1 | int a = 666;
-   | ^^^
+   │
+ 1 │ int a = 666;
+   │ ╰─╯
 
 Compilation aborted due to an error

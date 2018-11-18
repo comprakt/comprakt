@@ -1,6 +1,6 @@
 error: redefinition of parameter 'x'
-   | 
- 2 |     public void foo(int x, int x) {}
-   |                            ^^^^^
+   │
+ 2 │     public void foo(int x, int x) {}
+   │                            ╰───╯
 
 Compilation aborted due to an error

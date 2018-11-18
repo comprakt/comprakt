@@ -1,21 +1,21 @@
 error: invalid type: Expected expression of type 'int', but was of type 'boolean'
-   | 
- 3 |         System.out.println(true);
-   |                            ^^^^
+   │
+ 3 │         System.out.println(true);
+   │                            ╰──╯
 
 error: field 'out' does not exist on type 'int'
-    | 
- 11 |         System.out.println(false);
-    |                ^^^
+    │
+ 11 │         System.out.println(false);
+    │                ╰─╯
 
 error: field 'out' does not exist on type 'boolean'
-    | 
- 17 |         System.out.println(true + 1);
-    |                ^^^
+    │
+ 17 │         System.out.println(true + 1);
+    │                ╰─╯
 
 error: field 'out' does not exist on type 'boolean'
-    | 
- 23 |         System.out.println(42);
-    |                ^^^
+    │
+ 23 │         System.out.println(42);
+    │                ╰─╯
 
 Compilation aborted due to 4 errors

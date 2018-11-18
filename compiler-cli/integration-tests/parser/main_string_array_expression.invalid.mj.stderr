@@ -1,6 +1,6 @@
 error: expected `]`, found integer literal `5`
-   |
- 2 | public static void method(String[5]a){}
-   |                                  ^
+   │
+ 2 │ public static void method(String[5]a){}
+   │                                  ^
 
 Compilation aborted due to an error

@@ -1,6 +1,6 @@
 error: expected identifier 'String', found 'int'
-   |
- 3 |     public static void main(int[] args) {
-   |                             ^^^
+   │
+ 3 │     public static void main(int[] args) {
+   │                             ╰─╯
 
 Compilation aborted due to an error

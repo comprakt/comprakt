@@ -1,6 +1,6 @@
 error: expected an identifier, found integer literal `42`
-   |
- 1 | class 42 {
-   |       ^^
+   │
+ 1 │ class 42 {
+   │       ╰╯
 
 Compilation aborted due to an error

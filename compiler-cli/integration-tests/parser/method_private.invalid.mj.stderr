@@ -1,6 +1,6 @@
 error: expected 'public' or `}`, found 'private'
-   |
- 2 | private void method(){}
-   | ^^^^^^^
+   │
+ 2 │ private void method(){}
+   │ ╰─────╯
 
 Compilation aborted due to an error
