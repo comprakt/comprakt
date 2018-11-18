@@ -60,21 +60,32 @@ fn add_types_from_ast<'ctx, 'src>(
     context: &SemanticContext<'ctx, 'src>,
     program: &ast::Program<'src>,
 ) {
-    for class_decl in &program.classes {
-        // first pass: find all types
-        let class_def = ClassDef::new(class_decl.name.data);
-        type_system.add_class_def(class_def).unwrap_or_else(|_| {
-            context.report_error(
-                &class_decl.span,
-                SemanticError::RedefinitionError {
-                    kind: "class".to_string(),
-                    name: class_decl.name.to_string(),
-                },
-            )
-        });
-    }
+    // We don't want to mess up our type system by including methods of duplicate
+    // classes, so we filter them here
+    let usable_classes: Vec<_> = program
+        .classes
+        .iter()
+        .filter(|class_decl| {
+            // first pass: find all types
+            let class_def = ClassDef::new(class_decl.name.data);
+            type_system
+                .add_class_def(class_def)
+                .map_err(|err| {
+                    context.report_error(
+                        &class_decl.span,
+                        SemanticError::RedefinitionError {
+                            kind: "class".to_string(),
+                            name: class_decl.name.to_string(),
+                        },
+                    );
 
-    for class_decl in &program.classes {
+                    err
+                })
+                .is_ok()
+        })
+        .collect();
+
+    for class_decl in usable_classes {
         // second pass: scan members of all types, check their type references against
         // the first pass
         let mut class_def = ClassDef::new(class_decl.name.data);
