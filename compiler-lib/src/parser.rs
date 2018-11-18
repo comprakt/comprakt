@@ -292,7 +292,7 @@ where
         }
     }
 
-    fn omnomnom<E>(&mut self, want: E) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
+    fn eat<E>(&mut self, want: E) -> SyntaxResult<'f, Spanned<'f, E::Yields>>
     where
         E: ExpectedToken<'f>,
     {
@@ -316,7 +316,7 @@ where
             })
     }
 
-    fn omnomnoptional<E>(&mut self, want: E) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
+    fn eat_optional<E>(&mut self, want: E) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
     where
         E: ExpectedToken<'f>,
     {
@@ -390,15 +390,12 @@ where
 
     fn parse_class_declaration(&mut self) -> ParserResult<'f, ast::ClassDeclaration<'f>> {
         spanned!(self, {
-            self.omnomnom(exactly(Keyword::Class))?;
-            let name = self.omnomnom(Identifier)?;
+            self.eat(exactly(Keyword::Class))?;
+            let name = self.eat(Identifier)?;
 
             let mut members = Vec::new();
-            self.omnomnom(exactly(Operator::LeftBrace))?;
-            while self
-                .omnomnoptional(exactly(Operator::RightBrace))?
-                .is_none()
-            {
+            self.eat(exactly(Operator::LeftBrace))?;
+            while self.eat_optional(exactly(Operator::RightBrace))?.is_none() {
                 members.push(self.parse_class_member()?);
             }
 
@@ -408,18 +405,18 @@ where
 
     fn parse_class_member(&mut self) -> ParserResult<'f, ast::ClassMember<'f>> {
         spanned!(self, {
-            self.omnomnom(exactly(Keyword::Public))?;
-            let is_static = self.omnomnoptional(exactly(Keyword::Static))?.is_some();
+            self.eat(exactly(Keyword::Public))?;
+            let is_static = self.eat_optional(exactly(Keyword::Static))?.is_some();
 
             Ok(if is_static {
                 // Main Method
                 // Consume exactly `void IDENT(String[] IDENT)`
-                self.omnomnom(exactly(Keyword::Void))?;
-                let name = self.omnomnom(Identifier)?.data;
-                let params_begin = self.omnomnom(exactly(Operator::LeftParen))?;
-                let java_string = self.omnomnom(ExactlyIdentifier("String"))?;
-                self.omnomnom(exactly(Operator::LeftBracket))?;
-                let java_string_array_close = self.omnomnom(exactly(Operator::RightBracket))?;
+                self.eat(exactly(Keyword::Void))?;
+                let name = self.eat(Identifier)?.data;
+                let params_begin = self.eat(exactly(Operator::LeftParen))?;
+                let java_string = self.eat(ExactlyIdentifier("String"))?;
+                self.eat(exactly(Operator::LeftBracket))?;
+                let java_string_array_close = self.eat(exactly(Operator::RightBracket))?;
                 let string_array_type = Spanned {
                     data: ast::Type {
                         // treat String[] as an opaque type
@@ -428,8 +425,8 @@ where
                     },
                     span: Span::combine(&java_string.span, &java_string_array_close.span),
                 };
-                let param_name = self.omnomnom(Identifier)?;
-                let params_end = self.omnomnom(exactly(Operator::RightParen))?;
+                let param_name = self.eat(Identifier)?;
+                let params_end = self.eat(exactly(Operator::RightParen))?;
                 let params = Spanned {
                     data: vec![Spanned {
                         data: ast::Parameter {
@@ -448,7 +445,7 @@ where
                 ast::ClassMember { kind, name }
             } else {
                 let ty = self.parse_type()?;
-                let name = self.omnomnom(Identifier)?.data;
+                let name = self.eat(Identifier)?.data;
 
                 let kind = if self.tastes_like(exactly(Operator::LeftParen))? {
                     // Method
@@ -459,7 +456,7 @@ where
                     ast::ClassMemberKind::Method(ty, params, body)
                 } else {
                     // Field
-                    self.omnomnom(exactly(Operator::Semicolon))?;
+                    self.eat(exactly(Operator::Semicolon))?;
                     ast::ClassMemberKind::Field(ty)
                 };
 
@@ -469,8 +466,8 @@ where
     }
 
     fn skip_method_rest(&mut self) -> SyntaxResult<'f, ()> {
-        if self.omnomnoptional(exactly(Keyword::Throws))?.is_some() {
-            self.omnomnom(Identifier)?;
+        if self.eat_optional(exactly(Keyword::Throws))?.is_some() {
+            self.eat(Identifier)?;
         }
 
         Ok(())
@@ -483,7 +480,7 @@ where
     fn parse_parameter(&mut self) -> ParserResult<'f, ast::Parameter<'f>> {
         spanned!(self, {
             let ty = self.parse_type()?;
-            let name = self.omnomnom(Identifier)?.data;
+            let name = self.eat(Identifier)?.data;
             Ok(ast::Parameter { ty, name })
         })
     }
@@ -493,11 +490,8 @@ where
             let basic = self.parse_basic_type()?;
 
             let mut array_depth = 0;
-            while self
-                .omnomnoptional(exactly(Operator::LeftBracket))?
-                .is_some()
-            {
-                self.omnomnom(exactly(Operator::RightBracket))?;
+            while self.eat_optional(exactly(Operator::LeftBracket))?.is_some() {
+                self.eat(exactly(Operator::RightBracket))?;
                 array_depth += 1;
             }
 
@@ -506,27 +500,24 @@ where
     }
 
     fn parse_basic_type(&mut self) -> SyntaxResult<'f, Spanned<'f, ast::BasicType<'f>>> {
-        if let Some(basic) = self.omnomnoptional(exactly(Keyword::Int))? {
+        if let Some(basic) = self.eat_optional(exactly(Keyword::Int))? {
             Ok(Spanned::new(basic.span, ast::BasicType::Int))
-        } else if let Some(basic) = self.omnomnoptional(exactly(Keyword::Boolean))? {
+        } else if let Some(basic) = self.eat_optional(exactly(Keyword::Boolean))? {
             Ok(Spanned::new(basic.span, ast::BasicType::Boolean))
-        } else if let Some(basic) = self.omnomnoptional(exactly(Keyword::Void))? {
+        } else if let Some(basic) = self.eat_optional(exactly(Keyword::Void))? {
             Ok(Spanned::new(basic.span, ast::BasicType::Void))
         } else {
-            let sym = self.omnomnom(Identifier)?;
+            let sym = self.eat(Identifier)?;
             Ok(Spanned::new(sym.span, ast::BasicType::Custom(sym.data)))
         }
     }
 
     fn parse_block(&mut self) -> ParserResult<'f, ast::Block<'f>> {
         spanned!(self, {
-            self.omnomnom(exactly(Operator::LeftBrace))?;
+            self.eat(exactly(Operator::LeftBrace))?;
 
             let mut statements = Vec::new();
-            while self
-                .omnomnoptional(exactly(Operator::RightBrace))?
-                .is_none()
-            {
+            while self.eat_optional(exactly(Operator::RightBrace))?.is_none() {
                 statements.push(self.parse_block_statement()?);
             }
 
@@ -553,38 +544,38 @@ where
 
             if self.tastes_like(exactly(Operator::LeftBrace))? {
                 Ok(Block(self.parse_block()?))
-            } else if self.omnomnoptional(exactly(Operator::Semicolon))?.is_some() {
+            } else if self.eat_optional(exactly(Operator::Semicolon))?.is_some() {
                 // empty statement
                 Ok(Empty)
-            } else if self.omnomnoptional(exactly(Keyword::If))?.is_some() {
-                self.omnomnom(exactly(Operator::LeftParen))?;
+            } else if self.eat_optional(exactly(Keyword::If))?.is_some() {
+                self.eat(exactly(Operator::LeftParen))?;
                 let cond = self.parse_expression()?;
-                self.omnomnom(exactly(Operator::RightParen))?;
+                self.eat(exactly(Operator::RightParen))?;
 
                 let if_arm = self.parse_statement()?;
-                let else_arm = if self.omnomnoptional(exactly(Keyword::Else))?.is_some() {
+                let else_arm = if self.eat_optional(exactly(Keyword::Else))?.is_some() {
                     Some(self.parse_statement()?)
                 } else {
                     None
                 };
 
                 Ok(If(cond, box if_arm, else_arm.map(Box::new)))
-            } else if self.omnomnoptional(exactly(Keyword::While))?.is_some() {
-                self.omnomnom(exactly(Operator::LeftParen))?;
+            } else if self.eat_optional(exactly(Keyword::While))?.is_some() {
+                self.eat(exactly(Operator::LeftParen))?;
                 let cond = self.parse_expression()?;
-                self.omnomnom(exactly(Operator::RightParen))?;
+                self.eat(exactly(Operator::RightParen))?;
 
                 let body = self.parse_statement()?;
 
                 Ok(While(cond, box body))
-            } else if self.omnomnoptional(exactly(Keyword::Return))?.is_some() {
+            } else if self.eat_optional(exactly(Keyword::Return))?.is_some() {
                 let expr = if !self.tastes_like(exactly(Operator::Semicolon))? {
                     Some(self.parse_expression()?)
                 } else {
                     None
                 };
 
-                self.omnomnom(exactly(Operator::Semicolon))?;
+                self.eat(exactly(Operator::Semicolon))?;
 
                 Ok(Return(expr))
             } else if allow_local_var_decl
@@ -600,19 +591,19 @@ where
                 // and next after that (1st) like *Identifier* or 1st+2nd like '[]'
                 // Local var decl
                 let ty = self.parse_type()?;
-                let name = self.omnomnom(Identifier)?;
-                let init = if self.omnomnoptional(exactly(Operator::Equal))?.is_some() {
+                let name = self.eat(Identifier)?;
+                let init = if self.eat_optional(exactly(Operator::Equal))?.is_some() {
                     Some(self.parse_expression()?)
                 } else {
                     None
                 };
 
-                self.omnomnom(exactly(Operator::Semicolon))?;
+                self.eat(exactly(Operator::Semicolon))?;
 
                 Ok(LocalVariableDeclaration(ty, name, init))
             } else {
                 let expr = self.parse_expression()?;
-                self.omnomnom(exactly(Operator::Semicolon))?;
+                self.eat(exactly(Operator::Semicolon))?;
 
                 Ok(Expression(expr))
             }
@@ -653,8 +644,7 @@ where
 
         // Convert to RPN, but "evaluate" RPN on-the-fly (where "evaluate" means
         // constructing an AST)
-        while let Some((op, prec, assoc)) =
-            self.omnomnoptional(BinaryOp)?.map(|spanned| spanned.data)
+        while let Some((op, prec, assoc)) = self.eat_optional(BinaryOp)?.map(|spanned| spanned.data)
         {
             // This is the part that replaces the recursion from precedence climbing.
             // Instead, we use an explicit `operator_stack` of operands that we need to
@@ -683,7 +673,7 @@ where
 
     fn parse_unary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
         let mut ops = Vec::new();
-        while let Some(op) = self.omnomnoptional(UnaryOp)? {
+        while let Some(op) = self.eat_optional(UnaryOp)? {
             ops.push(op);
         }
 
@@ -703,8 +693,8 @@ where
         let mut expr = self.parse_primary_expression()?;
 
         loop {
-            expr = box if self.omnomnoptional(exactly(Operator::Dot))?.is_some() {
-                let adressee = self.omnomnom(Identifier)?;
+            expr = box if self.eat_optional(exactly(Operator::Dot))?.is_some() {
+                let adressee = self.eat(Identifier)?;
 
                 if self.tastes_like(exactly(Operator::LeftParen))? {
                     // method call: EXPR.ident(arg1, arg2, ...)
@@ -721,13 +711,10 @@ where
                         data: ast::Expr::FieldAccess(expr, adressee),
                     }
                 }
-            } else if self
-                .omnomnoptional(exactly(Operator::LeftBracket))?
-                .is_some()
-            {
+            } else if self.eat_optional(exactly(Operator::LeftBracket))?.is_some() {
                 // array access: EXPR[EXPR]
                 let index_expr = self.parse_expression()?;
-                let spanned = self.omnomnom(exactly(Operator::RightBracket))?;
+                let spanned = self.eat(exactly(Operator::RightBracket))?;
 
                 Spanned {
                     span: Span::combine(&expr.span, &spanned.span),
@@ -745,7 +732,7 @@ where
         spanned!(self, {
             use self::ast::Expr::*;
 
-            if let Some(adressee) = self.omnomnoptional(Identifier)? {
+            if let Some(adressee) = self.eat_optional(Identifier)? {
                 if self.tastes_like(exactly(Operator::LeftParen))? {
                     // function call
                     let params = self.parse_parameter_values()?;
@@ -754,50 +741,50 @@ where
                     // var ref
                     Ok(Var(adressee))
                 }
-            } else if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
+            } else if self.eat_optional(exactly(Operator::LeftParen))?.is_some() {
                 // parenthesized expression
                 let expr = self.parse_expression()?;
-                self.omnomnom(exactly(Operator::RightParen))?;
+                self.eat(exactly(Operator::RightParen))?;
 
                 // TODO Early return is dirty.. But we need it because we don't want a
                 // `ExprKind:Parenthesized` (for abstraction)
                 return Ok(expr);
-            } else if self.omnomnoptional(exactly(Keyword::New))?.is_some() {
+            } else if self.eat_optional(exactly(Keyword::New))?.is_some() {
                 if self.nth_tastes_like(1, exactly(Operator::LeftParen))? {
                     // new object expression
-                    let new_type = self.omnomnom(Identifier)?;
+                    let new_type = self.eat(Identifier)?;
 
-                    self.omnomnom(exactly(Operator::LeftParen))?;
-                    self.omnomnom(exactly(Operator::RightParen))?;
+                    self.eat(exactly(Operator::LeftParen))?;
+                    self.eat(exactly(Operator::RightParen))?;
                     Ok(NewObject(new_type))
                 } else {
                     // new array expression
                     let new_type = self.parse_basic_type()?;
-                    self.omnomnom(exactly(Operator::LeftBracket))?;
+                    self.eat(exactly(Operator::LeftBracket))?;
                     let first_index_expr = self.parse_expression()?;
-                    self.omnomnom(exactly(Operator::RightBracket))?;
+                    self.eat(exactly(Operator::RightBracket))?;
 
                     let mut array_depth = 0;
                     while self.tastes_like(exactly(Operator::LeftBracket))?
                         && self.nth_tastes_like(1, exactly(Operator::RightBracket))?
                     {
-                        self.omnomnom(exactly(Operator::LeftBracket))?;
-                        self.omnomnom(exactly(Operator::RightBracket))?;
+                        self.eat(exactly(Operator::LeftBracket))?;
+                        self.eat(exactly(Operator::RightBracket))?;
                         array_depth += 1;
                     }
 
                     Ok(NewArray(new_type, first_index_expr, array_depth))
                 }
-            } else if self.omnomnoptional(exactly(Keyword::Null))?.is_some() {
+            } else if self.eat_optional(exactly(Keyword::Null))?.is_some() {
                 Ok(Null)
-            } else if self.omnomnoptional(exactly(Keyword::False))?.is_some() {
+            } else if self.eat_optional(exactly(Keyword::False))?.is_some() {
                 Ok(Boolean(false))
-            } else if self.omnomnoptional(exactly(Keyword::True))?.is_some() {
+            } else if self.eat_optional(exactly(Keyword::True))?.is_some() {
                 Ok(Boolean(true))
-            } else if self.omnomnoptional(exactly(Keyword::This))?.is_some() {
+            } else if self.eat_optional(exactly(Keyword::This))?.is_some() {
                 Ok(This)
             } else {
-                let lit = self.omnomnom(IntegerLiteral)?;
+                let lit = self.eat(IntegerLiteral)?;
                 Ok(Int(lit))
             }
         })
@@ -814,16 +801,16 @@ where
     {
         spanned!(self, {
             let mut list = Vec::new();
-            self.omnomnom(exactly(Operator::LeftParen))?;
+            self.eat(exactly(Operator::LeftParen))?;
 
             if !self.tastes_like(exactly(Operator::RightParen))? {
                 list.push(parse_element(self)?);
-                while self.omnomnoptional(exactly(Operator::Comma))?.is_some() {
+                while self.eat_optional(exactly(Operator::Comma))?.is_some() {
                     list.push(parse_element(self)?);
                 }
             }
 
-            self.omnomnom(exactly(Operator::RightParen))?;
+            self.eat(exactly(Operator::RightParen))?;
 
             Ok(list)
         })
