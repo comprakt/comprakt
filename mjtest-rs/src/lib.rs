@@ -30,7 +30,7 @@ enum SyntaxAndSemanticFilePathError {
     GetFileType,
     NotAFile,
     FilenameNotUTF8,
-    UnexpectedFilename,
+    UnexpectedFilename(String),
 }
 
 impl SyntaxAndSemanticFilePath {
@@ -76,8 +76,11 @@ impl SyntaxAndSemanticFilePath {
             {
                 Ok(Some(SyntaxAndSemanticFilePath::Valid(f.path())))
             }
-            n if n == ".mjtest_correct_testcases_syntax" => Ok(None),
-            _ => Err(SyntaxAndSemanticFilePathError::UnexpectedFilename)?,
+            n if n.starts_with('.') => Ok(None), // hidden files
+            n if n.ends_with('~') => Ok(None),   // vim + emacs backup file
+            _ => Err(SyntaxAndSemanticFilePathError::UnexpectedFilename(
+                filename.to_string(),
+            ))?,
         }
     }
 

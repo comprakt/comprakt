@@ -343,28 +343,28 @@ mod tests {
     use mjtest::SemanticTestCase;
     use mjtest_macros::gen_semantic_tests;
 
+    macro_rules! gen_check_code {
+        ($check_res:ident = $input:expr) => {
+            let ascii_file = AsciiFile::new($input).unwrap();
+            let context = Context::dummy(&ascii_file);
+            let mut strtab = StringTable::new();
+            let lexer = Lexer::new(&mut strtab, &context);
+            let unforgiving_lexer = lexer.filter_map(|result| match result {
+                Ok(token) => match token.data {
+                    TokenKind::Whitespace | TokenKind::Comment(_) => None,
+                    _ => Some(token),
+                },
+                Err(lexical_error) => panic!("{}", lexical_error),
+            });
+            let ast = Parser::new(unforgiving_lexer).parse().unwrap();
+            let $check_res = super::check(&mut strtab, &ast, &context);
+        };
+    }
+
     fn do_mjtest_semantic_test(tc: &SemanticTestCase) {
         println!("file name: {:?}", tc.file_name());
         let input = std::fs::read_to_string(tc.path()).unwrap().into_bytes();
-        let ascii_file = AsciiFile::new(&input).unwrap();
-
-        let context = Context::dummy(&ascii_file);
-        let mut strtab = StringTable::new();
-        let lexer = Lexer::new(&mut strtab, &context);
-
-        // adapt lexer to fail on first error
-        // filter whitespace and comments
-        let unforgiving_lexer = lexer.filter_map(|result| match result {
-            Ok(token) => match token.data {
-                TokenKind::Whitespace | TokenKind::Comment(_) => None,
-                _ => Some(token),
-            },
-            Err(lexical_error) => panic!("{}", lexical_error),
-        });
-
-        let ast = Parser::new(unforgiving_lexer).parse().unwrap();
-
-        let check_res = super::check(&mut strtab, &ast, &context);
+        gen_check_code!(check_res = &input);
         match (tc, check_res) {
             (SemanticTestCase::Valid(_), Ok(_)) => (),
             (SemanticTestCase::Invalid(_), Err(_)) => (),
@@ -377,4 +377,77 @@ mod tests {
     }
     gen_semantic_tests!((do_mjtest_semantic_test, []));
 
+    #[derive(Debug, PartialEq, Eq)]
+    enum BinopCheckResult {
+        Accept,
+        Error,
+    }
+
+    macro_rules! binop_test {
+        (internal $mjcode:expr, $expected:ident, $testname:ident)  => {
+            #[test]
+            fn $testname() {
+                let prog = $mjcode;
+                let input = prog.into_bytes();
+                gen_check_code!(check_res = &input);
+                let exp = BinopCheckResult::$expected;
+                match (exp, check_res) {
+                    (BinopCheckResult::Accept, Ok(_)) => (),
+                    (BinopCheckResult::Error, Err(_)) => (),
+                    (exp, act) => {
+                        println!("expected: {:?}", exp);
+                        println!("actual:   {:?}", act);
+                        assert!(false);
+                    }
+                }
+            }
+        };
+        ($t1:expr, $val1:expr, $t2:expr, $val2:expr, $t3:expr, $op:expr, $exp:ident, $n:ident) => {
+            binop_test!(internal format!(r"
+                class C {{}}
+                class D {{}}
+                class BinopCheck {{
+                    public static void main(String[] args) {{
+                        {} v1 = {};
+                        {} v2 = {};
+                        {} v3 = v1 {} v2;
+                    }}
+                }}",
+                $t1, $val1, $t2, $val2, $t3, $op), $exp, $n
+            );
+        };
+        ($lit1:expr, $op:expr, $lit2:expr, $expected:ident, $testname:ident) => {
+            binop_test!(internal format!(r"
+                class C {{}}
+                class D {{}}
+                class BinopCheck {{
+                    public static void main(String[] args) {{
+                        if ({} {} {}) {{
+                            System.out.println(23);
+                        }}
+                    }}
+                }}",
+                $lit1, $op, $lit2), $expected, $testname
+            );
+        };
+    }
+
+    #[rustfmt::skip]
+    mod binop {
+        use super::*;
+        binop_test!("int", "1", "boolean", "true", "int", "==",    Error,  eq_int_bool_eq);
+        binop_test!("C", "null", "C", "null", "boolean", "==",     Accept, eq_same_class_null);
+        binop_test!("C", "null", "int", "23", "boolean", "==",     Error,  eq_class_int);
+        binop_test!("C", "null", "boolean", "23", "boolean", "==", Error,  eq_class_bool);
+        binop_test!("C", "null", "D", "null", "boolean", "==",     Error,  eq_class_class_eq);
+        binop_test!("23", "==", "42",                              Accept, eq_ints);
+        binop_test!("23", "==", "null",                            Error,  eq_integer_null);
+        binop_test!("0", "==", "null",                             Error,  eq_integer0_null);
+        binop_test!("true", "==", "null",                          Error,  eq_true_null);
+        binop_test!("false", "==", "null",                         Error,  eq_false_null );
+        binop_test!("0", "==", "false",                            Error,  eq_zero_false);
+        binop_test!("1", "==", "true",                             Error,  eq_one_true);
+        binop_test!("(new C())", "==", "null",                     Accept, eq_new_null);
+        binop_test!("(new C())", "==", "(new D())",                Error,  eq_new_new_2types);
+    }
 }
