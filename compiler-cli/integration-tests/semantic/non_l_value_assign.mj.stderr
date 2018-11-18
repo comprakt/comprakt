@@ -1,51 +1,81 @@
-error: assignment to a non-l-value
+error: invalid assignment - can only assign to local variables, parameters, field and array fields
     | 
  14 |         f() = 5;
     |         ^^^
 
-error: assignment to a non-l-value
+error: invalid type: Expected expression of type 'void', but was of type 'int'
     | 
- 15 |         ohNo + ohNo = 5;
-    |         ^^^^^^^^^^^
+ 14 |         f() = 5;
+    |               ^
 
-error: assignment to a non-l-value
+error: invalid assignment - can only assign to local variables, parameters, field and array fields
+    | 
+ 15 |         ok + ok = 5;
+    |         ^^^^^^^
+
+error: invalid assignment - can only assign to local variables, parameters, field and array fields
     | 
  16 |         !boolBad = false;
     |         ^^^^^^^^
 
-error: assignment to a non-l-value
+error: invalid assignment - can only assign to local variables, parameters, field and array fields
     | 
  17 |         foo.f() = 5;
     |         ^^^^^^^
 
-error: assignment to a non-l-value
+error: invalid type: Expected expression of type 'void', but was of type 'int'
+    | 
+ 17 |         foo.f() = 5;
+    |                   ^
+
+error: invalid assignment - can only assign to local variables, parameters, field and array fields
     | 
  18 |         foo.bad1.bad2.f() = 5;
     |         ^^^^^^^^^^^^^^^^^
 
-error: assignment to a non-l-value
+error: invalid type: Expected expression of type 'void', but was of type 'int'
+    | 
+ 18 |         foo.bad1.bad2.f() = 5;
+    |                             ^
+
+error: invalid assignment - can only assign to local variables, parameters, field and array fields
+    | 
+ 19 |         this = new Foo();
+    |         ^^^^
+
+error: invalid assignment - can only assign to local variables, parameters, field and array fields
     | 
  20 |         null = 5;
     |         ^^^^
 
-error: assignment to a non-l-value
+error: invalid type: Expected expression of type 'null', but was of type 'int'
+    | 
+ 20 |         null = 5;
+    |                ^
+
+error: invalid assignment - can only assign to local variables, parameters, field and array fields
     | 
  21 |         42 = 5;
     |         ^^
 
-error: assignment to a non-l-value
+error: invalid assignment - can only assign to local variables, parameters, field and array fields
     | 
  22 |         false = true;
     |         ^^^^^
 
-error: assignment to a non-l-value
+error: invalid assignment - can only assign to local variables, parameters, field and array fields
     | 
  23 |         new Foo() = new Foo();
     |         ^^^^^^^^^
 
-error: assignment to a non-l-value
+error: invalid assignment - can only assign to local variables, parameters, field and array fields
     | 
  24 |         new int[5] = 5;
     |         ^^^^^^^^^^
 
-Compilation aborted due to 10 errors
+error: invalid type: Expected expression of type 'int[]', but was of type 'int'
+    | 
+ 24 |         new int[5] = 5;
+    |                      ^
+
+Compilation aborted due to 16 errors
