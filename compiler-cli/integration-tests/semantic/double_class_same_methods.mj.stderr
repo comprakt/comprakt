@@ -1,0 +1,14 @@
+error: redefinition of class 'Foo at 6:6-6:8'
+    | 
+  6 | class Foo {
+    | ^^^^^^^^^^^
+  7 |     public void bazz() { }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  8 |     public void foo() { }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  9 |     public static void main(String[] args) { }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 10 | }
+    | ^
+
+Compilation aborted due to an error
