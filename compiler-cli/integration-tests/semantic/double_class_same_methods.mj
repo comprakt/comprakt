@@ -1,0 +1,10 @@
+class Foo {
+    public void buzz() { }
+    public void foo() { }
+}
+
+class Foo {
+    public void bazz() { }
+    public void foo() { }
+    public static void main(String[] args) { }
+}
