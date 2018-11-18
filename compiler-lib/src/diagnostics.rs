@@ -558,6 +558,7 @@ impl<'file, 'msg> Message<'file, 'msg> {
             let line_fmt = LineFormatter::new(&line);
 
             num_fmt.number(output.writer(), line_number)?;
+            write!(output.writer(), " ");
             line_fmt.render(output.writer())?;
 
             for (annotation_index, annotation) in self.kind.annotations.iter().enumerate() {
@@ -582,8 +583,14 @@ impl<'file, 'msg> Message<'file, 'msg> {
                         output.set_color(self.level.color_variant(annotation_index));
                         output.set_bold(true);
 
-                        let starts_here =
-                            annotation.span.start_position().line_number() == line_number;
+                        let (starts_here, front_margin_char) =
+                            if annotation.span.start_position().line_number() == line_number {
+                                (true, ' ')
+                            } else {
+                                // if it did not start on this line, it started on
+                                // a previous line
+                                (false, RENDERING_SPAN_CONTINUATION)
+                            };
 
                         if starts_here {
                             currently_active_spans += 1;
@@ -599,7 +606,8 @@ impl<'file, 'msg> Message<'file, 'msg> {
                             let has_annotation = annotation.data != "";
                             writeln!(
                                 output.writer(),
-                                "{spaces}{marker}{msg}",
+                                "{margin}{spaces}{marker}{msg}",
+                                margin = front_margin_char,
                                 spaces = " ".repeat(start_term_pos),
                                 marker = (if has_annotation {
                                     RENDERING_SINGLE_CHAR_SPAN
@@ -619,24 +627,18 @@ impl<'file, 'msg> Message<'file, 'msg> {
                             if faulty_part_of_line.is_single_char() {
                                 writeln!(
                                     output.writer(),
-                                    "{spaces}{underline}{msg}",
+                                    "{margin}{spaces}{underline}{msg}",
+                                    margin = front_margin_char,
                                     spaces = " ".repeat(start_term_pos),
                                     underline = (if ends_here {
-                                        format!(
-                                            "{}{}",
-                                            RENDERING_SPAN_CONTINUATION, RENDERING_SPAN_END
-                                        )
+                                        format!("{}", RENDERING_SPAN_END)
                                     } else if starts_here {
                                         format!(
                                             "{}{}",
                                             RENDERING_SPAN_START, RENDERING_SPAN_CONTINUATION
                                         )
                                     } else {
-                                        format!(
-                                            "{}{}",
-                                            RENDERING_SPAN_CONTINUATION,
-                                            RENDERING_SPAN_CONTINUATION
-                                        )
+                                        format!("{}", RENDERING_SPAN_CONTINUATION)
                                     }),
                                     msg = (if !ends_here || annotation.data == "" {
                                         "".to_string()
@@ -645,27 +647,45 @@ impl<'file, 'msg> Message<'file, 'msg> {
                                     })
                                 );
                             } else {
-                                let tail_offset =
-                                    if ends_here && faulty_part_of_line.as_bytes().len() >= 3 {
-                                        1
-                                    } else {
-                                        0
-                                    };
+                                let tail_offset = if ends_here
+                                    && line_fmt
+                                        .render_char(faulty_part_of_line.end_position().chr())
+                                        .0
+                                        .len()
+                                        > 0
+                                {
+                                    1
+                                } else {
+                                    0
+                                };
+
+                                let head_offset = if starts_here
+                                    && line_fmt
+                                        .render_char(faulty_part_of_line.start_position().chr())
+                                        .0
+                                        .len()
+                                        > 0
+                                {
+                                    1
+                                } else {
+                                    0
+                                };
 
                                 writeln!(
                                     output.writer(),
-                                    "{spaces}{underline_start}{middle}{end}{msg}",
+                                    "{margin}{spaces}{underline_start}{middle}{end}{msg}",
+                                    margin = front_margin_char,
                                     spaces = " ".repeat(start_term_pos),
                                     underline_start = if starts_here {
-                                        RENDERING_SPAN_START
+                                        RENDERING_SPAN_START.to_string()
                                     } else {
-                                        RENDERING_SPAN_CONTINUATION
+                                        "".to_string()
                                     },
                                     // substract once for underline_start and optionally 1 for
                                     // underline_end
                                     middle = RENDERING_SPAN_MIDDLE
                                         .to_string()
-                                        .repeat(term_width - 1 - tail_offset),
+                                        .repeat(term_width - tail_offset - head_offset),
                                     end = if ends_here {
                                         RENDERING_SPAN_END
                                     } else {
@@ -719,7 +739,7 @@ impl LineNumberFormatter {
         output.set_bold(true);
         write!(
             output.writer(),
-            " {} {} ",
+            " {} {}",
             " ".repeat(self.width),
             RENDERING_LINE_NUMBER_SEPARATOR
         )?;
@@ -750,7 +770,7 @@ impl LineNumberFormatter {
         let padded_number = pad_left(&line_number.to_string(), self.width);
         write!(
             output.writer(),
-            " {} {} ",
+            " {} {}",
             padded_number,
             RENDERING_LINE_NUMBER_SEPARATOR
         )?;

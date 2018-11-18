@@ -201,6 +201,23 @@ impl<'f> Span<'f> {
         }
     }
 
+    /// Remove trailing newlines from a span
+    pub fn trim_trailing_newlines(&self) -> Option<Span<'f>> {
+        let mut new_end = self.end_position();
+
+        while new_end.chr() == '\n' {
+            new_end = match new_end.prev() {
+                None => return None,
+                Some(prev) => prev,
+            };
+            if self.start_position().byte_offset() < new_end.byte_offset() {
+                return None;
+            }
+        }
+
+        Some(Self::new(self.start_position(), new_end))
+    }
+
     /// Get the number of characters in a span
     pub fn len(&self) -> usize {
         self.as_str().len()
