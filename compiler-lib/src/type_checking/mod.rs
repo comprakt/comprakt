@@ -5,7 +5,7 @@ use crate::{
     semantics::SemanticError,
     strtab::{StringTable, Symbol},
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub mod expr_typechecker;
 pub mod method_body_typechecker;
@@ -131,23 +131,36 @@ fn add_types_from_ast<'ctx, 'src>(
                         MainMethod(_, _) => (true, true, CheckedType::Void),
                     };
 
+                    let mut previous_params = HashSet::new();
                     let checked_params = params
                         .iter()
-                        .map(|p| {
-                            let ty = match p.ty.data.basic.data {
-                                ast::BasicType::MainParam => {
-                                    assert!(is_main);
-                                    assert_eq!(p.ty.data.array_depth, 0);
-                                    CheckedType::Array(box builtin_types.string.clone())
-                                }
-                                _ => checked_type_from_ty(
-                                    &p.ty.data,
-                                    context,
-                                    &type_system,
-                                    VoidIs::Forbidden,
-                                ),
-                            };
-                            MethodParamDef { name: p.name, ty }
+                        .filter_map(|p| {
+                            if previous_params.contains(&p.name) {
+                                context.report_error(
+                                    &p.span,
+                                    SemanticError::RedefinitionError {
+                                        kind: "parameter".to_string(),
+                                        name: p.name.to_string(),
+                                    },
+                                );
+                                None
+                            } else {
+                                previous_params.insert(p.name);
+                                let ty = match p.ty.data.basic.data {
+                                    ast::BasicType::MainParam => {
+                                        assert!(is_main);
+                                        assert_eq!(p.ty.data.array_depth, 0);
+                                        CheckedType::Array(box builtin_types.string.clone())
+                                    }
+                                    _ => checked_type_from_ty(
+                                        &p.ty.data,
+                                        context,
+                                        &type_system,
+                                        VoidIs::Forbidden,
+                                    ),
+                                };
+                                Some(MethodParamDef { name: p.name, ty })
+                            }
                         })
                         .collect();
 
