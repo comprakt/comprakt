@@ -25,9 +25,15 @@ pub fn check<'a, 'src>(
         ast::AST::Program(program) => {
             let mut type_system = TypeSystem::default();
             let builtin_types = add_builtin_types(&mut strtab, &mut type_system, &mut sem_context);
-            add_types_from_ast(&mut type_system, &builtin_types, &sem_context, program);
+            let usable_classes = collect_types_from_ast(&mut type_system, &sem_context, program);
+            check_members_of_types(
+                &mut type_system,
+                &builtin_types,
+                &sem_context,
+                &usable_classes,
+            );
 
-            for class_decl in &program.classes {
+            for class_decl in &usable_classes {
                 MethodBodyTypeChecker::check_methods(class_decl, &type_system, &sem_context);
             }
 
@@ -54,23 +60,23 @@ impl<'ctx, 'src> SemanticContext<'ctx, 'src> {
     }
 }
 
-fn add_types_from_ast<'ctx, 'src>(
+fn collect_types_from_ast<'ctx, 'src>(
     type_system: &mut TypeSystem<'src>,
-    builtin_types: &BuiltinTypes<'src>,
     context: &SemanticContext<'ctx, 'src>,
     program: &ast::Program<'src>,
-) {
+) -> Vec<ast::ClassDeclaration<'src>> {
     // We don't want to mess up our type system by including methods of duplicate
     // classes, so we filter them here
-    let usable_classes: Vec<_> = program
+    program
         .classes
         .iter()
-        .filter(|class_decl| {
+        .filter_map(|class_decl| {
             // first pass: find all types
             let class_def = ClassDef::new(class_decl.name.data);
-            type_system
-                .add_class_def(class_def)
-                .map_err(|err| {
+            let class_added = type_system.add_class_def(class_def);
+            match class_added {
+                Ok(()) => Some(&class_decl.data),
+                Err(_) => {
                     context.report_error(
                         &class_decl.span,
                         SemanticError::RedefinitionError {
@@ -78,13 +84,20 @@ fn add_types_from_ast<'ctx, 'src>(
                             name: class_decl.name.to_string(),
                         },
                     );
-
-                    err
-                })
-                .is_ok()
+                    None
+                }
+            }
         })
-        .collect();
+        .cloned()
+        .collect()
+}
 
+fn check_members_of_types<'ctx, 'src>(
+    type_system: &mut TypeSystem<'src>,
+    builtin_types: &BuiltinTypes<'src>,
+    context: &SemanticContext<'ctx, 'src>,
+    usable_classes: &[ast::ClassDeclaration<'src>],
+) {
     for class_decl in usable_classes {
         // second pass: scan members of all types, check their type references against
         // the first pass
