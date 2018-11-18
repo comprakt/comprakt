@@ -184,7 +184,9 @@ fn add_types_from_ast<'ctx, 'src>(
             }
         }
 
-        type_system.update_existing_class_def(class_def).unwrap();
+        type_system
+            .update_existing_class_def(class_def)
+            .expect("class was defined in first pass");
     }
 }
 

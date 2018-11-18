@@ -62,14 +62,18 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
         type_system: &'sem TypeSystem<'src>,
         context: &'sem SemanticContext<'ctx, 'src>,
     ) {
-        let current_class = type_system.resolve_type_ref(class_decl.name.data).unwrap();
+        let current_class = type_system
+            .resolve_type_ref(class_decl.name.data)
+            .expect("Class has to be already defined to check methods");
 
         for member in &class_decl.members {
             use self::ast::ClassMemberKind::*;
             match &member.kind {
                 Field(_) => {}
                 Method(_, _, block) | MainMethod(_, block) => {
-                    let current_method = current_class.get_method(member.name).unwrap();
+                    let current_method = current_class
+                        .get_method(member.name)
+                        .expect("a class only has a member if it exists");
 
                     let mut checker = MethodBodyTypeChecker {
                         context,
@@ -83,7 +87,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                         checker
                             .local_scope
                             .define(param.name, VarDef::Param(&param))
-                            .unwrap();
+                            .expect("no double params allowed");
                     }
 
                     checker.check_type_block(block);
@@ -97,7 +101,9 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
         for stmt in &block.statements {
             self.check_type_stmt(stmt);
         }
-        self.local_scope.leave_scope().unwrap();
+        self.local_scope
+            .leave_scope()
+            .expect("scope of a block is not root scope");
     }
 
     fn check_type_stmt(&mut self, stmt: &Spanned<'src, ast::Stmt<'src>>) {
