@@ -124,7 +124,8 @@ pub enum SemanticError {
     NotAStatement,
 
     #[fail(
-        display = "invalid assignment - can only assign to local variables, parameters, field and array fields"
+        display = "invalid assignment - can only assign to \
+                   local variables, parameters, field and array fields"
     )]
     InvalidAssignment,
 

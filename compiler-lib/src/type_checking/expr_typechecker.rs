@@ -1,16 +1,18 @@
-use crate::{asciifile::Spanned, ast, strtab::Symbol, symtab::*, asciifile::Span};
-use super::{ method_body_typechecker::* };
-use super::{type_system::*, *};
+use super::{method_body_typechecker::*, type_system::*, *};
+use crate::{
+    asciifile::{Span, Spanned},
+    ast,
+    strtab::Symbol,
+};
 
 impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
-
     pub fn get_type_expr(
         &mut self,
         expr: &Spanned<'src, ast::Expr<'src>>,
     ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
         use crate::ast::Expr::*;
         match &expr.data {
-            Binary(op, lhs, rhs) => self.check_binary_expr(expr.span, op, lhs, rhs),
+            Binary(op, lhs, rhs) => self.check_binary_expr(expr.span, *op, lhs, rhs),
             Unary(op, expr) => {
                 let ty = match op {
                     ast::UnaryOp::Not => CheckedType::Boolean,
@@ -150,24 +152,24 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
     fn check_binary_expr(
         &mut self,
         span: Span<'src>,
-        op: &ast::BinaryOp,
+        op: ast::BinaryOp,
         lhs: &Spanned<'src, ast::Expr<'src>>,
-        rhs: &Spanned<'src, ast::Expr<'src>>
+        rhs: &Spanned<'src, ast::Expr<'src>>,
     ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
-
         use crate::ast::BinaryOp::*;
         match op {
             Assign => {
-                let ExprInfo { ty: lhs_type, ref_info } = self.get_type_expr(lhs)?;
+                let ExprInfo {
+                    ty: lhs_type,
+                    ref_info,
+                } = self.get_type_expr(lhs)?;
                 self.check_type(rhs, &lhs_type); // IMPROVEMENT check even on Err
 
                 use self::RefInfo::*;
                 match ref_info {
                     Some(GlobalVar(_)) | Some(Method(_)) | Some(This(_)) | None => {
-                        self.context.report_error(
-                            &lhs.span,
-                            SemanticError::InvalidAssignment,
-                        );
+                        self.context
+                            .report_error(&lhs.span, SemanticError::InvalidAssignment);
                     }
                     Some(Field(field)) => {
                         if !field.can_write {

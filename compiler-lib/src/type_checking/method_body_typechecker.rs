@@ -1,5 +1,5 @@
-use crate::{asciifile::Spanned, ast, strtab::Symbol, symtab::*};
 use super::{type_system::*, *};
+use crate::{asciifile::Spanned, ast, strtab::Symbol, symtab::*};
 
 pub struct ExprInfo<'src, 'sem> {
     pub ty: CheckedType<'src>,

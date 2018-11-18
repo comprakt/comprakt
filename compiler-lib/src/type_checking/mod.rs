@@ -7,9 +7,9 @@ use crate::{
 };
 use std::collections::HashMap;
 
+pub mod expr_typechecker;
 pub mod method_body_typechecker;
 pub mod type_system;
-pub mod expr_typechecker;
 
 use self::{method_body_typechecker::MethodBodyTypeChecker, type_system::*};
 
