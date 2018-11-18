@@ -9,6 +9,7 @@ use std::collections::HashMap;
 
 pub mod method_body_typechecker;
 pub mod type_system;
+pub mod expr_typechecker;
 
 use self::{method_body_typechecker::MethodBodyTypeChecker, type_system::*};
 
@@ -245,6 +246,12 @@ fn add_builtin_types<'src>(
     BuiltinTypes { string }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum VoidIs {
+    Allowed,
+    Forbidden,
+}
+
 pub fn checked_type_from_basic_ty<'src>(
     basic_ty: &Spanned<'src, ast::BasicType<'src>>,
     context: &SemanticContext<'_, 'src>,
@@ -277,12 +284,6 @@ pub fn checked_type_from_basic_ty<'src>(
         // Parser only yields MainParam in that one case we handle anyway
         MainParam => unreachable!(),
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum VoidIs {
-    Allowed,
-    Forbidden,
 }
 
 pub fn checked_type_from_ty<'src>(

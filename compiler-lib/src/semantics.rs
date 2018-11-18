@@ -123,7 +123,9 @@ pub enum SemanticError {
     #[fail(display = "not a statement")]
     NotAStatement,
 
-    #[fail(display = "invalid assignment - can only assign to local variables, parameters, field and array fields")]
+    #[fail(
+        display = "invalid assignment - can only assign to local variables, parameters, field and array fields"
+    )]
     InvalidAssignment,
 
     #[fail(display = "Cannot write to read-only field '{}'", field_name)]
@@ -238,7 +240,9 @@ impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
                     use crate::ast::Expr::*;
                     if let ast::Stmt::Expression(expr) = &stmt.data {
                         match &expr.data {
-                            Binary(ast::BinaryOp::Assign, _, _) | MethodInvocation(..) | ThisMethodInvocation(..) => (),
+                            Binary(ast::BinaryOp::Assign, _, _)
+                            | MethodInvocation(..)
+                            | ThisMethodInvocation(..) => (),
                             _ => {
                                 //Err
                                 self.context.diagnostics.error(&Spanned {
