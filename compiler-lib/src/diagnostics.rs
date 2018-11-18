@@ -268,6 +268,7 @@ const ELIDE_LINE_GAPS_LARGER_THAN: usize = 3;
 // All RENDERING_* characters MUST have a output width of
 // of 1 when rendered on the console.
 const RENDERING_SINGLE_CHAR_SPAN: char = '⮤';
+const RENDERING_SINGLE_CHAR_SPAN_NO_ANNOTATION: char = '^';
 const RENDERING_SPAN_START: char = '╰';
 const RENDERING_SPAN_MIDDLE: char = '─';
 const RENDERING_SPAN_END: char = '╯';
@@ -595,15 +596,20 @@ impl<'file, 'msg> Message<'file, 'msg> {
                         }
 
                         if annotation.span.is_single_char() {
+                            let has_annotation = annotation.data != "";
                             writeln!(
                                 output.writer(),
                                 "{spaces}{marker}{msg}",
                                 spaces = " ".repeat(start_term_pos),
-                                marker = RENDERING_SINGLE_CHAR_SPAN,
-                                msg = (if annotation.data == "" {
-                                    "".to_string()
+                                marker = (if has_annotation {
+                                    RENDERING_SINGLE_CHAR_SPAN
                                 } else {
+                                    RENDERING_SINGLE_CHAR_SPAN_NO_ANNOTATION
+                                }),
+                                msg = (if has_annotation {
                                     format!(" {}", annotation.data)
+                                } else {
+                                    "".to_string()
                                 })
                             )?;
                         } else {
