@@ -1,0 +1,36 @@
+error: type 'void' is not allowed here
+   | 
+ 2 |     public void bar;
+   |            ^^^^
+
+error: type 'void' is not allowed here
+   | 
+ 4 |     public void func(void arg) {}
+   |                      ^^^^
+
+error: type 'void' is not allowed here
+   | 
+ 5 |     public void[] func2(void arg) {}
+   |            ^^^^
+
+error: type 'void' is not allowed here
+   | 
+ 5 |     public void[] func2(void arg) {}
+   |                         ^^^^
+
+error: type 'void' is not allowed here
+   | 
+ 8 |         void bar;
+   |         ^^^^
+
+error: type 'void' is not allowed here
+   | 
+ 9 |         void[] foo;
+   |         ^^^^
+
+error: type 'void' is not allowed here
+    | 
+ 11 |         foo = new void[42];
+    |                   ^^^^
+
+Compilation aborted due to 7 errors

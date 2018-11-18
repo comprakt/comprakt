@@ -1,0 +1,6 @@
+error: non-static variable 'this' cannot be referenced from a static context
+   | 
+ 5 |         this.x = 42;
+   |         ^^^^
+
+Compilation aborted due to an error

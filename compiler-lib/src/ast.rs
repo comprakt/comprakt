@@ -19,7 +19,7 @@ pub struct Program<'t> {
 /// the members of the class.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ClassDeclaration<'t> {
-    pub name: Symbol<'t>,
+    pub name: Spanned<'t, Symbol<'t>>,
     pub members: Vec<Spanned<'t, ClassMember<'t>>>,
 }
 
@@ -36,10 +36,10 @@ pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 /// A class member is either one of
 /// * `Field(type)`: a declaration of a field of a class
 /// * `Method(type, params, body)`: a method of a class
-/// * `MainMethod(param, body)`: a main method, which is a special method that
-/// is only allowed once in a MiniJava Program. The `param` is the name of a
-/// symbol that must not be used in the body.
-#[strum_discriminants(derive(Display))]
+/// * `MainMethod(params, body)`: a main method, which is a special method that
+/// is only allowed once in a MiniJava Program. `params` is guaranteed to
+/// only contain the `String[] IDENT` parameter.
+#[strum_discriminants(derive(Display, Hash, PartialOrd, Ord))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
 pub enum ClassMemberKind<'t> {
     Field(Spanned<'t, Type<'t>>),
@@ -48,7 +48,7 @@ pub enum ClassMemberKind<'t> {
         Spanned<'t, ParameterList<'t>>,
         Spanned<'t, Block<'t>>,
     ),
-    MainMethod(Symbol<'t>, Spanned<'t, Block<'t>>),
+    MainMethod(Spanned<'t, ParameterList<'t>>, Spanned<'t, Block<'t>>),
 }
 
 /// This AST node represents a method parameter. A parameter consists of a
@@ -63,7 +63,7 @@ pub struct Parameter<'t> {
 /// (n-dimensional) array type.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Type<'t> {
-    pub basic: BasicType<'t>,
+    pub basic: Spanned<'t, BasicType<'t>>,
     /// Depth of the array type (number of `[]`) i.e. this means means `self.ty
     /// []^(self.array)`
     pub array_depth: u64,
@@ -81,6 +81,7 @@ pub enum BasicType<'t> {
     Boolean,
     Void,
     Custom(Symbol<'t>),
+    MainParam,
 }
 
 /// A `Block` in the AST is basically just a vector of statements.
@@ -101,6 +102,8 @@ pub struct Block<'t> {
 /// a local variable
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
+// TODO: should all be named, especially variants with 3 arguments.
+// `LocalVariableDeclaration`
 pub enum Stmt<'t> {
     Block(Spanned<'t, Block<'t>>),
     Empty,
@@ -114,7 +117,7 @@ pub enum Stmt<'t> {
     Return(Option<Box<Spanned<'t, Expr<'t>>>>),
     LocalVariableDeclaration(
         Spanned<'t, Type<'t>>,
-        Symbol<'t>,
+        Spanned<'t, Symbol<'t>>,
         Option<Box<Spanned<'t, Expr<'t>>>>,
     ),
 }
@@ -153,21 +156,21 @@ pub enum Expr<'t> {
     // Postfix ops
     MethodInvocation(
         Box<Spanned<'t, Expr<'t>>>,
-        Symbol<'t>,
+        Spanned<'t, Symbol<'t>>,
         Spanned<'t, ArgumentList<'t>>,
     ),
-    FieldAccess(Box<Spanned<'t, Expr<'t>>>, Symbol<'t>),
+    FieldAccess(Box<Spanned<'t, Expr<'t>>>, Spanned<'t, Symbol<'t>>),
     ArrayAccess(Box<Spanned<'t, Expr<'t>>>, Box<Spanned<'t, Expr<'t>>>),
 
     // The old primary expressions
     Null,
     Boolean(bool),
-    Int(IntLit<'t>),
-    Var(Symbol<'t>),
-    ThisMethodInvocation(Symbol<'t>, Spanned<'t, ArgumentList<'t>>),
+    Int(Spanned<'t, IntLit<'t>>),
+    Var(Spanned<'t, Symbol<'t>>),
+    ThisMethodInvocation(Spanned<'t, Symbol<'t>>, Spanned<'t, ArgumentList<'t>>),
     This,
-    NewObject(Symbol<'t>),
-    NewArray(BasicType<'t>, Box<Spanned<'t, Expr<'t>>>, u64),
+    NewObject(Spanned<'t, Symbol<'t>>),
+    NewArray(Spanned<'t, BasicType<'t>>, Box<Spanned<'t, Expr<'t>>>, u64),
 }
 
 /// Binary operations like comparisons (`==`, `!=`, `<=`, ...), logical
@@ -201,3 +204,42 @@ pub enum UnaryOp {
 }
 
 pub type ArgumentList<'t> = Vec<Spanned<'t, Expr<'t>>>;
+
+impl<'f> ClassMemberKind<'f> {
+    pub fn is_method(&self) -> bool {
+        use self::ClassMemberKind::*;
+        match self {
+            Method(_, _, _) => true,
+            MainMethod(_, _) => true,
+            Field(_) => false,
+        }
+    }
+    pub fn method_params(&self) -> Option<&Spanned<'_, ParameterList<'_>>> {
+        use self::ClassMemberKind::*;
+        match &self {
+            Method(_t, pl, _block) => Some(pl),
+            MainMethod(pl, _block) => Some(pl),
+            Field(_) => None,
+        }
+    }
+    pub fn method_body(&self) -> Option<&Spanned<'_, Block<'_>>> {
+        use self::ClassMemberKind::*;
+        match &self {
+            Method(_t, _pl, block) => Some(block),
+            MainMethod(_pl, block) => Some(block),
+            Field(_) => None,
+        }
+    }
+}
+
+impl std::cmp::PartialOrd for ClassMember<'_> {
+    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
+        Some(crate::print::pretty::compare_class_member(self, rhs))
+    }
+}
+
+impl std::cmp::Ord for ClassMember<'_> {
+    fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
+        crate::print::pretty::compare_class_member(self, rhs)
+    }
+}

@@ -1,0 +1,13 @@
+class Foo {
+    public void bar;
+
+    public void func(void arg) {}
+    public void[] func2(void arg) {}
+
+    public static void main(String[] args) {
+        void bar;
+        void[] foo;
+
+        foo = new void[42];
+    }
+}

@@ -1,0 +1,25 @@
+class Foo {
+    public static void main(String[] args) {
+        System.out.println(true);
+    }
+}
+
+class Bar {
+    public int System;
+
+    public void foo() {
+        System.out.println(false);
+    }
+}
+
+class Baz {
+    public void bar(boolean System) {
+        System.out.println(true + 1);
+    }
+
+    public void baz() {
+        boolean System = true;
+
+        System.out.println(42);
+    }
+}

@@ -1,0 +1,8 @@
+class Foo {
+    public void foo() {}
+
+    public static void main(String[] args) {
+        foo();
+        this.foo();
+    }
+}

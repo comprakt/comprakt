@@ -26,6 +26,8 @@ matrix:
     - os: linux
       env: TEST_KIND="mjtest-syntax"
     - os: linux
+      env: TEST_KIND="mjtest-semantic"
+    - os: linux
       # only run integration tests, but redirect them
       # through the `build` and `run` scripts. We cannot
       # do this in the other CI builds, since they build
@@ -34,8 +36,6 @@ matrix:
     # Disable until implemented
     # - os: linux
     #   env: TEST_KIND="mjtest-ast"
-    # - os: linux
-    #   env: TEST_KIND="mjtest-semantic"
     # - os: linux
     #   env: TEST_KIND="mjtest-compile-firm"
     # - os: linux
@@ -82,7 +82,7 @@ script:
       mjtest-*)
         MJTEST_KIND=${TEST_KIND#mjtest-}
         cargo build --release && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/comprakt python3 ./mjtest/mjt.py $MJTEST_KIND ;
+        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py $MJTEST_KIND ;
         ;;
       submission-system)
         ./build && \

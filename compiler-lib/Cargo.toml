@@ -22,3 +22,8 @@ itertools = "0.7"
 [dev-dependencies]
 mjtest = { path = "../mjtest-rs" }
 mjtest_macros = { path = "../mjtest-rs/mjtest_macros" }
+criterion = "0.2"
+
+[[bench]]
+name = "symtab_bench"
+harness = false

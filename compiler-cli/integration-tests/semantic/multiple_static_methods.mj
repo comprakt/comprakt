@@ -1,0 +1,23 @@
+class Foo {
+    public static void main(String[] args) {
+
+    }
+
+    public static void s1(String[] args) {
+
+    }
+
+    public static void s2(String[] args) {
+
+    }
+
+    public static void s3(String[] args) {
+
+    }
+}
+
+class Bar {
+    public static void main2(String[] args) {
+
+    }
+}

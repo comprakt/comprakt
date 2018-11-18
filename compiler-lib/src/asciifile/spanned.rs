@@ -47,7 +47,7 @@ impl<'f, T> Spanned<'f, T> {
         F: FnOnce(&T) -> U,
     {
         Spanned {
-            span: self.span.clone(),
+            span: self.span,
             data: f(&self.data),
         }
     }

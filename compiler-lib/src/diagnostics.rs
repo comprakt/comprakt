@@ -60,7 +60,7 @@ impl<'a, 'b> Printable<'a, 'b> for &'b str {
 impl<'a, 'b, T: Display + 'b> Printable<'a, 'b> for Spanned<'a, T> {
     fn as_maybe_spanned(&'b self) -> MaybeSpanned<'a, &'b dyn Display> {
         MaybeSpanned::WithSpan(Spanned {
-            span: self.span.clone(),
+            span: self.span,
             data: &self.data,
         })
     }
@@ -70,7 +70,7 @@ impl<'a, 'b, T: Display + 'b> Printable<'a, 'b> for MaybeSpanned<'a, T> {
     fn as_maybe_spanned(&'b self) -> MaybeSpanned<'a, &'b dyn Display> {
         match self {
             MaybeSpanned::WithSpan(ref spanned) => MaybeSpanned::WithSpan(Spanned {
-                span: spanned.span.clone(),
+                span: spanned.span,
                 data: &spanned.data,
             }),
             MaybeSpanned::WithoutSpan(ref data) => MaybeSpanned::WithoutSpan(data),

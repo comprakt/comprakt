@@ -223,10 +223,10 @@ impl<'f> ExpectedToken<'f> for Identifier {
 }
 
 impl<'s> ExpectedToken<'s> for ExactlyIdentifier<'s> {
-    type Yields = ();
-    fn matching(&self, token: &TokenKind<'_>) -> Option<Self::Yields> {
+    type Yields = Symbol<'s>;
+    fn matching(&self, token: &TokenKind<'s>) -> Option<Self::Yields> {
         match token {
-            TokenKind::Identifier(ident) if ident == self.0 => Some(()),
+            TokenKind::Identifier(ident) if ident == self.0 => Some(*ident),
             _ => None,
         }
     }
@@ -391,7 +391,7 @@ where
     fn parse_class_declaration(&mut self) -> ParserResult<'f, ast::ClassDeclaration<'f>> {
         spanned!(self, {
             self.omnomnom(exactly(Keyword::Class))?;
-            let name = self.omnomnom(Identifier)?.data;
+            let name = self.omnomnom(Identifier)?;
 
             let mut members = Vec::new();
             self.omnomnom(exactly(Operator::LeftBrace))?;
@@ -416,17 +416,35 @@ where
                 // Consume exactly `void IDENT(String[] IDENT)`
                 self.omnomnom(exactly(Keyword::Void))?;
                 let name = self.omnomnom(Identifier)?.data;
-                self.omnomnom(exactly(Operator::LeftParen))?;
-                self.omnomnom(ExactlyIdentifier("String"))?;
+                let params_begin = self.omnomnom(exactly(Operator::LeftParen))?;
+                let java_string = self.omnomnom(ExactlyIdentifier("String"))?;
                 self.omnomnom(exactly(Operator::LeftBracket))?;
-                self.omnomnom(exactly(Operator::RightBracket))?;
-                let param = self.omnomnom(Identifier)?.data;
-                self.omnomnom(exactly(Operator::RightParen))?;
+                let java_string_array_close = self.omnomnom(exactly(Operator::RightBracket))?;
+                let string_array_type = Spanned {
+                    data: ast::Type {
+                        // treat String[] as an opaque type
+                        basic: Spanned::new(java_string.span, ast::BasicType::MainParam),
+                        array_depth: 0,
+                    },
+                    span: Span::combine(&java_string.span, &java_string_array_close.span),
+                };
+                let param_name = self.omnomnom(Identifier)?;
+                let params_end = self.omnomnom(exactly(Operator::RightParen))?;
+                let params = Spanned {
+                    data: vec![Spanned {
+                        data: ast::Parameter {
+                            ty: string_array_type,
+                            name: param_name.data,
+                        },
+                        span: Span::combine(&java_string.span, &param_name.span),
+                    }],
+                    span: Span::combine(&params_begin.span, &params_end.span),
+                };
 
                 self.skip_method_rest()?;
                 let body = self.parse_block()?;
 
-                let kind = ast::ClassMemberKind::MainMethod(param, body);
+                let kind = ast::ClassMemberKind::MainMethod(params, body);
                 ast::ClassMember { kind, name }
             } else {
                 let ty = self.parse_type()?;
@@ -487,16 +505,16 @@ where
         })
     }
 
-    fn parse_basic_type(&mut self) -> SyntaxResult<'f, ast::BasicType<'f>> {
-        if self.omnomnoptional(exactly(Keyword::Int))?.is_some() {
-            Ok(ast::BasicType::Int)
-        } else if self.omnomnoptional(exactly(Keyword::Boolean))?.is_some() {
-            Ok(ast::BasicType::Boolean)
-        } else if self.omnomnoptional(exactly(Keyword::Void))?.is_some() {
-            Ok(ast::BasicType::Void)
+    fn parse_basic_type(&mut self) -> SyntaxResult<'f, Spanned<'f, ast::BasicType<'f>>> {
+        if let Some(basic) = self.omnomnoptional(exactly(Keyword::Int))? {
+            Ok(Spanned::new(basic.span, ast::BasicType::Int))
+        } else if let Some(basic) = self.omnomnoptional(exactly(Keyword::Boolean))? {
+            Ok(Spanned::new(basic.span, ast::BasicType::Boolean))
+        } else if let Some(basic) = self.omnomnoptional(exactly(Keyword::Void))? {
+            Ok(Spanned::new(basic.span, ast::BasicType::Void))
         } else {
             let sym = self.omnomnom(Identifier)?;
-            Ok(ast::BasicType::Custom(sym.data))
+            Ok(Spanned::new(sym.span, ast::BasicType::Custom(sym.data)))
         }
     }
 
@@ -591,7 +609,7 @@ where
 
                 self.omnomnom(exactly(Operator::Semicolon))?;
 
-                Ok(LocalVariableDeclaration(ty, name.data, init))
+                Ok(LocalVariableDeclaration(ty, name, init))
             } else {
                 let expr = self.parse_expression()?;
                 self.omnomnom(exactly(Operator::Semicolon))?;
@@ -694,13 +712,13 @@ where
 
                     Spanned {
                         span: Span::combine(&expr.span, &args.span),
-                        data: ast::Expr::MethodInvocation(expr, adressee.data, args),
+                        data: ast::Expr::MethodInvocation(expr, adressee, args),
                     }
                 } else {
                     // member reference: EXPR.ident
                     Spanned {
                         span: Span::combine(&expr.span, &adressee.span),
-                        data: ast::Expr::FieldAccess(expr, adressee.data),
+                        data: ast::Expr::FieldAccess(expr, adressee),
                     }
                 }
             } else if self
@@ -731,10 +749,10 @@ where
                 if self.tastes_like(exactly(Operator::LeftParen))? {
                     // function call
                     let params = self.parse_parameter_values()?;
-                    Ok(ThisMethodInvocation(adressee.data, params))
+                    Ok(ThisMethodInvocation(adressee, params))
                 } else {
                     // var ref
-                    Ok(Var(adressee.data))
+                    Ok(Var(adressee))
                 }
             } else if self.omnomnoptional(exactly(Operator::LeftParen))?.is_some() {
                 // parenthesized expression
@@ -751,7 +769,7 @@ where
 
                     self.omnomnom(exactly(Operator::LeftParen))?;
                     self.omnomnom(exactly(Operator::RightParen))?;
-                    Ok(NewObject(new_type.data))
+                    Ok(NewObject(new_type))
                 } else {
                     // new array expression
                     let new_type = self.parse_basic_type()?;
@@ -780,7 +798,7 @@ where
                 Ok(This)
             } else {
                 let lit = self.omnomnom(IntegerLiteral)?;
-                Ok(Int(lit.data))
+                Ok(Int(lit))
             }
         })
         .map(Box::new)
@@ -1025,13 +1043,32 @@ mod tests {
                     match lhs.data {
                         Expr::Binary(op, lhs, rhs) => {
                             assert_eq!(op, Add);
-                            assert_eq!(lhs.data, Expr::Int("3"));
+                            assert_eq!(
+                                lhs.data,
+                                Expr::Int(Spanned {
+                                    span: lhs.span,
+                                    data: "3",
+                                })
+                            );
+
                             // rhs = 4 * 7
                             match rhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Mul);
-                                    assert_eq!(lhs.data, Expr::Int("4"));
-                                    assert_eq!(rhs.data, Expr::Int("7"));
+                                    assert_eq!(
+                                        lhs.data,
+                                        Expr::Int(Spanned {
+                                            span: lhs.span,
+                                            data: "4",
+                                        })
+                                    );
+                                    assert_eq!(
+                                        rhs.data,
+                                        Expr::Int(Spanned {
+                                            span: rhs.span,
+                                            data: "7",
+                                        })
+                                    );
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
@@ -1046,12 +1083,30 @@ mod tests {
                             match lhs.data {
                                 Expr::Binary(op, lhs, rhs) => {
                                     assert_eq!(op, Div);
-                                    assert_eq!(lhs.data, Expr::Int("9"));
-                                    assert_eq!(rhs.data, Expr::Int("7"));
+                                    assert_eq!(
+                                        lhs.data,
+                                        Expr::Int(Spanned {
+                                            span: lhs.span,
+                                            data: "9"
+                                        })
+                                    );
+                                    assert_eq!(
+                                        rhs.data,
+                                        Expr::Int(Spanned {
+                                            span: rhs.span,
+                                            data: "7",
+                                        })
+                                    );
                                 }
                                 expr => panic!("not a binary expr: {:#?}", expr),
                             }
-                            assert_eq!(rhs.data, Expr::Int("42"));
+                            assert_eq!(
+                                rhs.data,
+                                Expr::Int(Spanned {
+                                    span: rhs.span,
+                                    data: "42",
+                                })
+                            );
                         }
                         expr => panic!("not a binary expr: {:#?}", expr),
                     }

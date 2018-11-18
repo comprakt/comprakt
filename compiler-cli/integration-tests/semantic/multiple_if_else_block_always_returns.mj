@@ -1,0 +1,13 @@
+class Main {
+    public int foo(int x) {
+        if (x == 24) {
+            return 1;
+        }
+        if (x == 23) {
+            return 2;
+        } else {
+
+        }
+    }
+    public static void main(String[] args) { }
+}

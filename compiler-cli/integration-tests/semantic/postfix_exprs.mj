@@ -1,0 +1,13 @@
+class Foo {
+    public static void main(String[] args) {
+        Foo foo = new Foo();
+        foo.blub();
+        foo.bar;
+        foo[1];
+
+        int x = 42;
+        x.blub();
+        x.bar;
+        x[1];
+    }
+}

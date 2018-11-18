@@ -153,7 +153,7 @@ impl<'f> AstInspector<'f> {
             && self.cfg.regex_content.is_match(span.as_str())
         {
             self.context.diagnostics.info(&Spanned {
-                span: span.clone(),
+                span: *span,
                 data: Messages::Matched {
                     kind: kindname.to_string(),
                 },
