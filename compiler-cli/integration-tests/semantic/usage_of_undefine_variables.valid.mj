@@ -1,0 +1,12 @@
+class UseUndefinedVar {
+    public static void main(String[] args) {
+        int input = System.in.read();
+        int x;
+        if (input == 23) {
+            x = x + 23;
+        } else {
+            x = 42;
+        }
+        System.out.println(x);
+    }
+}
