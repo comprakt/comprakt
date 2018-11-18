@@ -1,0 +1,6 @@
+error: method 'foo' might not return
+   | 
+ 2 |     public int foo(int x) {
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+Compilation aborted due to an error

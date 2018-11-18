@@ -32,6 +32,7 @@ enum CompilerPhase {
     Lexer,
     Parser,
     Ast,
+    Semantic,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -48,6 +49,7 @@ fn compiler_flag(phase: CompilerPhase) -> &'static str {
         CompilerPhase::Lexer => "--lextest",
         CompilerPhase::Parser => "--parsetest",
         CompilerPhase::Ast => "--print-ast",
+        CompilerPhase::Semantic => "--check",
     }
 }
 
@@ -169,7 +171,7 @@ fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
     let stderr_changeset = Changeset::new(
         &stderr_expected,
         &normalize_stderr(&String::from_utf8_lossy(&assertion.get_output().stderr)),
-        "\n",
+        " ",
     );
     let stderr_predicate = predicate::function(|actual: &[u8]| {
         normalize_stderr(&String::from_utf8_lossy(actual)) == stderr_expected
@@ -180,7 +182,7 @@ fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
     let stdout_changeset = Changeset::new(
         &stdout_expected,
         &String::from_utf8_lossy(&assertion.get_output().stdout),
-        "\n",
+        " ",
     );
     let stdout_predicate =
         predicate::function(|actual: &[u8]| actual == stdout_expected.as_bytes());
@@ -215,4 +217,5 @@ gen_lexer_integration_tests!();
 gen_parser_integration_tests!();
 gen_ast_reference_integration_tests!();
 gen_ast_idempotence_integration_tests!();
+gen_semantic_integration_tests!();
 gen_ast_inspector_tests!();

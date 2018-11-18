@@ -27,7 +27,7 @@ where
         self.peek()?;
         let next = self.lexer.next().ok_or(EOF)?;
 
-        self.prev_span = Some(next.span.clone());
+        self.prev_span = Some(next.span);
         Ok(next)
     }
 
@@ -46,10 +46,10 @@ where
     }
 
     pub fn prev_span(&self) -> Option<Span<'f>> {
-        self.prev_span.clone()
+        self.prev_span
     }
 
     pub fn peek_span(&mut self) -> EOFResult<Span<'f>> {
-        self.peek().map(|token| token.span.clone())
+        self.peek().map(|token| token.span)
     }
 }

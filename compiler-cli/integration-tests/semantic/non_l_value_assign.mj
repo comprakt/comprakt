@@ -1,0 +1,30 @@
+class Foo {
+    public Foo bad1;
+    public Foo bad2;
+
+    public void test() {
+        int ok;
+        int intBad;
+        boolean boolBad;
+        Foo foo = new Foo();
+
+        ok = 5; /* this is ok */
+        foo.bad1.bad2 = new Foo(); /* this is ok */
+
+        f() = 5;
+        ok + ok = 5;
+        !boolBad = false;
+        foo.f() = 5;
+        foo.bad1.bad2.f() = 5;
+        this = new Foo();
+        null = 5;
+        42 = 5;
+        false = true;
+        new Foo() = new Foo();
+        new int[5] = 5;
+    }
+
+    public void f() {}
+
+    public static void main(String[] args) {}
+}

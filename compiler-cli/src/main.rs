@@ -12,11 +12,11 @@
 
 use compiler_lib::{
     asciifile, ast,
-    context::{self, Context},
+    context::Context,
     lexer::{Lexer, TokenKind},
     parser::Parser,
     print::{self, lextest},
-    sem,
+    semantics,
     strtab::StringTable,
 };
 use failure::{Error, Fail, ResultExt};
@@ -104,7 +104,7 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::ParserTest { path } => cmd_parsetest(path),
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
-        CliCommand::Check { path } => cmd_check(path, &sem::check),
+        CliCommand::Check { path } => cmd_check(path),
     }
 }
 
@@ -167,10 +167,7 @@ macro_rules! setup_io {
     };
 }
 
-fn cmd_check<C>(path: &PathBuf, checker: &C) -> Result<(), Error>
-where
-    C: Fn(&ast::AST<'_>, &context::Context<'_>) -> Result<(), Error>,
-{
+fn cmd_check(path: &PathBuf) -> Result<(), Error> {
     setup_io!(let context = path);
     let mut strtab = StringTable::new();
     let lexer = Lexer::new(&mut strtab, &context);
@@ -191,7 +188,7 @@ where
 
     let mut parser = Parser::new(unforgiving_lexer);
 
-    let program = match parser.parse() {
+    let ast = match parser.parse() {
         Ok(p) => p,
         Err(parser_error) => {
             context.diagnostics.error(&parser_error);
@@ -200,7 +197,13 @@ where
         }
     };
 
-    checker(&program, &context)
+    let check_res = crate::semantics::check(&mut strtab, &ast, &context);
+    if check_res.is_err() {
+        context.diagnostics.write_statistics();
+        exit(1)
+    }
+
+    Ok(())
 }
 
 fn cmd_printast<P>(path: &PathBuf, printer: &P) -> Result<(), Error>

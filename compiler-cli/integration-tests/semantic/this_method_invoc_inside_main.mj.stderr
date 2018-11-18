@@ -1,0 +1,11 @@
+error: non-static method 'foo' cannot be referenced from a static context
+   | 
+ 5 |         foo();
+   |         ^^^
+
+error: non-static variable 'this' cannot be referenced from a static context
+   | 
+ 6 |         this.foo();
+   |         ^^^^
+
+Compilation aborted due to 2 errors

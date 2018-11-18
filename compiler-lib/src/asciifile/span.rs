@@ -28,8 +28,7 @@ use std::{
     fmt,
 };
 
-///
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span<'f> {
     /// position of the first char in the span.
     start: Position<'f>,
@@ -302,7 +301,7 @@ impl<'span, 'file> Iterator for LineIterator<'span, 'file> {
         match self.line_to_emit {
             None => None,
             Some(ref line) => {
-                let line_to_emit = line.clone();
+                let line_to_emit = *line;
 
                 self.line_to_emit = if self.span.end_position() > line.end_position() {
                     line.end_position()

@@ -1,0 +1,6 @@
+error: method 'bar' might not return
+    | 
+ 11 |       public int bar() {
+    |       ^^^^^^^^^^^^^^^^
+
+Compilation aborted due to an error
