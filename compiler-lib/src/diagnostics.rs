@@ -73,11 +73,21 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 /// let mut output: UnsafeCell<Vec<u8>> = UnsafeCell::new(Vec::new());
 /// let stderr = Ansi::new(unsafe { &mut *output.get() });
 /// let diagnostics = Diagnostics::new(Box::new(stderr));
-/// let input = "banana\nanother banana";
+/// let input = "banana\nanother banana\nbananarama\na\n\n\n\nmuch more banana\n";
 /// let file = AsciiFile::new(input.as_bytes()).unwrap();
 /// let initial_pos = Position::at_file_start(&file).unwrap();
+/// let a_line = initial_pos.clone().iter().nth(33);
+/// assert_eq!(a_line.unwrap().chr(), 'a');
 /// let banana_end = initial_pos.clone().iter().nth(5).unwrap();
+/// let banana_end_newline = initial_pos.clone().iter().nth(6).unwrap();
+/// let banana_end_multinewline = initial_pos.clone().iter().nth(36).unwrap();
 /// let last_pos = initial_pos.clone().iter().last().unwrap();
+///
+/// assert_eq!(Span::new(initial_pos, banana_end).as_str(), "banana");
+/// assert_eq!(
+///     Span::new(initial_pos, banana_end_newline).as_str(),
+///     "banana\n"
+/// );
 ///
 /// diagnostics.error(&"banana");
 /// diagnostics.error(&Spanned {
@@ -89,7 +99,7 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 ///     span: Span::new(initial_pos, banana_end),
 /// }));
 /// diagnostics.info(&WithoutSpan("there is a banana"));
-/// diagnostics.info(&Printable {
+/// diagnostics.warning(&Printable {
 ///     message: &"let me show you!",
 ///     annotations: vec![
 ///         Spanned {
@@ -99,6 +109,10 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 ///         Spanned {
 ///             span: Span::new(banana_end, banana_end),
 ///             data: "this is the end",
+///         },
+///         Spanned {
+///             span: a_line.unwrap().get_line(),
+///             data: "this line only has an A",
 ///         },
 ///     ],
 /// });
@@ -110,12 +124,33 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 ///             data: "this is the first banana",
 ///         },
 ///         Spanned {
+///             span: Span::new(initial_pos, banana_end_newline),
+///             data: "multiline banana",
+///         },
+///         Spanned {
+///             span: Span::new(initial_pos, banana_end_multinewline),
+///             data: "multiple newline banana",
+///         },
+///         Spanned {
 ///             span: Span::new(initial_pos, initial_pos),
 ///             data: "the first banana starts here",
 ///         },
 ///         Spanned {
 ///             span: Span::new(initial_pos, last_pos),
 ///             data: "this is the bag of bananas",
+///         },
+///     ],
+/// });
+/// diagnostics.error(&Printable {
+///     message: &"redefinition of method 'banana'",
+///     annotations: vec![
+///         Spanned {
+///             span: Span::new(initial_pos, banana_end),
+///             data: "'banana' is first defined here",
+///         },
+///         Spanned {
+///             span: last_pos.get_line(),
+///             data: "this redefinition is not allowed",
 ///         },
 ///     ],
 /// });
@@ -237,12 +272,17 @@ const RENDERING_SPAN_START: char = '╰';
 const RENDERING_SPAN_MIDDLE: char = '─';
 const RENDERING_SPAN_END: char = '╯';
 const RENDERING_SPAN_CONTINUATION: char = '┈';
+const RENDERING_LINE_NUMBER_SEPARATOR: char = '│';
+const RENDERING_LINE_NUMBER_ELLIPSIS: char = '┆';
+const RENDERING_LINE_NUMBER_ELLIPSIS_NUM: usize = 2;
 
 // ASCII variant
 //const RENDERING_SINGLE_CHAR_SPAN: char = '^';
 //const RENDERING_SPAN_START: char = '\\';
 //const RENDERING_SPAN_MIDDLE: char = '_';
 //const RENDERING_SPAN_END: char = '/';
+//const RENDERING_LINE_NUMBER_SEPARATOR: char = '|';
+//const RENDERING_LINE_NUMBER_ELLIPSIS: &str = "...";
 
 // Fat variant of Unicode mode
 //const RENDERING_SPAN_START: char = '┗';
@@ -250,9 +290,12 @@ const RENDERING_SPAN_CONTINUATION: char = '┈';
 //const RENDERING_SPAN_END: char = '┛';
 //const RENDERING_SPAN_CONTINUATION: char = '┅';
 
-/// Color used for rendering line numbers, escape sequences
-/// and others...
+/// Color used for rendering escape sequences and other special
+/// output...
 const HIGHLIGHT_COLOR: Option<Color> = Some(Color::Cyan);
+/// Color used for line numbers next to source code output
+/// in messages
+const LINE_NUMBER_COLOR: Option<Color> = Some(Color::Rgb(0x99, 0x99, 0x99));
 
 // TODO reimplement line truncation
 
@@ -368,23 +411,35 @@ impl MessageLevel {
         // Don't be confused by the return type.
         // `None` means default color in the colorterm
         // crate!
-        match self {
-            MessageLevel::Error => Some(Color::Red),
-            MessageLevel::Warning => Some(Color::Yellow),
-            MessageLevel::Info => Some(Color::Cyan),
-        }
+        self.color_variant(0)
     }
 
     fn color_variant(self, variant: usize) -> Option<Color> {
-        if variant == 0 {
-            return self.color();
-        }
-
-        match self {
-            MessageLevel::Error => Some(Color::Ansi256(((124 + variant * 3) % 226) as u8)),
-            MessageLevel::Warning => Some(Color::Ansi256(((220 + variant * 3) % 226) as u8)),
-            MessageLevel::Info => Some(Color::Ansi256(((94 + variant * 3) % 226) as u8)),
-        }
+        (match self {
+            MessageLevel::Error => [
+                Color::Rgb(0xFF, 0x00, 0x00),
+                Color::Rgb(0xFF, 0x00, 0x80),
+                Color::Rgb(0xFF, 0x00, 0xB0),
+                Color::Rgb(0xFF, 0x00, 0xF0),
+            ],
+            MessageLevel::Warning => [
+                Color::Rgb(0xFF, 0xFF, 0x00),
+                Color::Rgb(0xFF, 0xBF, 0x00),
+                Color::Rgb(0xFF, 0x8F, 0x00),
+                Color::Rgb(0xFF, 0x4F, 0x00),
+            ],
+            MessageLevel::Info => [
+                Color::Rgb(0x00, 0xFF, 0xFF),
+                Color::Rgb(0x00, 0xBF, 0xFF),
+                Color::Rgb(0x00, 0x8F, 0xFF),
+                Color::Rgb(0x00, 0x4F, 0xFF),
+            ],
+        })
+        .iter()
+        .map(|color| Some(color.clone()))
+        .cycle()
+        .nth(variant)
+        .unwrap()
     }
 
     fn name(&self) -> &str {
@@ -435,6 +490,7 @@ impl<'file, 'msg> Message<'file, 'msg> {
         Ok(())
     }
 
+    /// Get the smallest span that contains all spans of this message
     fn overall_span(&self) -> Option<Span<'file>> {
         let iter = self.kind.annotations.iter();
 
@@ -640,34 +696,58 @@ impl LineNumberFormatter {
 
     pub fn empty_line(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
-        output.set_color(HIGHLIGHT_COLOR);
+        output.set_color(LINE_NUMBER_COLOR);
         output.set_bold(true);
-        writeln!(output.writer(), " {} |", " ".repeat(self.width))?;
+        writeln!(
+            output.writer(),
+            " {} {}",
+            " ".repeat(self.width),
+            RENDERING_LINE_NUMBER_SEPARATOR
+        )?;
         Ok(())
     }
 
     pub fn spaces(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
-        output.set_color(HIGHLIGHT_COLOR);
+        output.set_color(LINE_NUMBER_COLOR);
         output.set_bold(true);
-        write!(output.writer(), " {} | ", " ".repeat(self.width))?;
+        write!(
+            output.writer(),
+            " {} {} ",
+            " ".repeat(self.width),
+            RENDERING_LINE_NUMBER_SEPARATOR
+        )?;
         Ok(())
     }
 
     pub fn ellipsis(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
-        output.set_color(HIGHLIGHT_COLOR);
+        output.set_color(LINE_NUMBER_COLOR);
         output.set_bold(true);
-        writeln!(output.writer(), " ...")?;
+
+        for _ in 0..RENDERING_LINE_NUMBER_ELLIPSIS_NUM {
+            writeln!(
+                output.writer(),
+                " {} {}",
+                " ".repeat(self.width),
+                RENDERING_LINE_NUMBER_ELLIPSIS
+            )?;
+        }
+
         Ok(())
     }
 
     pub fn number(&self, writer: &mut dyn WriteColor, line_number: usize) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
-        output.set_color(HIGHLIGHT_COLOR);
+        output.set_color(LINE_NUMBER_COLOR);
         output.set_bold(true);
         let padded_number = pad_left(&line_number.to_string(), self.width);
-        write!(output.writer(), " {} | ", padded_number)?;
+        write!(
+            output.writer(),
+            " {} {} ",
+            padded_number,
+            RENDERING_LINE_NUMBER_SEPARATOR
+        )?;
         Ok(())
     }
 }
