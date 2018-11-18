@@ -343,28 +343,28 @@ mod tests {
     use mjtest::SemanticTestCase;
     use mjtest_macros::gen_semantic_tests;
 
+    macro_rules! gen_check_code {
+        ($check_res:ident = $input:expr) => {
+            let ascii_file = AsciiFile::new($input).unwrap();
+            let context = Context::dummy(&ascii_file);
+            let mut strtab = StringTable::new();
+            let lexer = Lexer::new(&mut strtab, &context);
+            let unforgiving_lexer = lexer.filter_map(|result| match result {
+                Ok(token) => match token.data {
+                    TokenKind::Whitespace | TokenKind::Comment(_) => None,
+                    _ => Some(token),
+                },
+                Err(lexical_error) => panic!("{}", lexical_error),
+            });
+            let ast = Parser::new(unforgiving_lexer).parse().unwrap();
+            let $check_res = super::check(&mut strtab, &ast, &context);
+        };
+    }
+
     fn do_mjtest_semantic_test(tc: &SemanticTestCase) {
         println!("file name: {:?}", tc.file_name());
         let input = std::fs::read_to_string(tc.path()).unwrap().into_bytes();
-        let ascii_file = AsciiFile::new(&input).unwrap();
-
-        let context = Context::dummy(&ascii_file);
-        let mut strtab = StringTable::new();
-        let lexer = Lexer::new(&mut strtab, &context);
-
-        // adapt lexer to fail on first error
-        // filter whitespace and comments
-        let unforgiving_lexer = lexer.filter_map(|result| match result {
-            Ok(token) => match token.data {
-                TokenKind::Whitespace | TokenKind::Comment(_) => None,
-                _ => Some(token),
-            },
-            Err(lexical_error) => panic!("{}", lexical_error),
-        });
-
-        let ast = Parser::new(unforgiving_lexer).parse().unwrap();
-
-        let check_res = super::check(&mut strtab, &ast, &context);
+        gen_check_code!(check_res = &input);
         match (tc, check_res) {
             (SemanticTestCase::Valid(_), Ok(_)) => (),
             (SemanticTestCase::Invalid(_), Err(_)) => (),
