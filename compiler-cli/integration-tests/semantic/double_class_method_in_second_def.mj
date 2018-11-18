@@ -1,0 +1,8 @@
+class Foo {
+    public void f() {}
+    public static void main(String[] args) {}
+}
+
+class Foo {
+    public void g() {}
+}
