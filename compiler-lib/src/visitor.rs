@@ -195,7 +195,7 @@ impl<'a, 't> NodeKind<'a, 't> {
                         ccb!(target_expr.as_ref());
                         ccb!(idx_expr.as_ref())
                     }
-                    Null | Boolean(_) | Int(_) | Var(_) | This => None,
+                    Null | Boolean(_) | Int(_) | NegInt(_) | Var(_) | This => None,
                     ThisMethodInvocation(_, al) => ccb!(for_each al.iter()),
                     NewObject(_) => None,
                     NewArray(_, expr, _) => ccb!(expr.as_ref()),

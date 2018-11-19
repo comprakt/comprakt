@@ -166,6 +166,7 @@ pub enum Expr<'t> {
     Null,
     Boolean(bool),
     Int(Spanned<'t, IntLit<'t>>),
+    NegInt(Spanned<'t, IntLit<'t>>),
     Var(Spanned<'t, Symbol<'t>>),
     ThisMethodInvocation(Spanned<'t, Symbol<'t>>, Spanned<'t, ArgumentList<'t>>),
     This,
