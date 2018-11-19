@@ -1,6 +1,6 @@
 error: expected 'public' or `}`, found identifier `here`
-   | 
- 2 |     here.I.am();
-   |     ^^^^
+   │
+ 2 │     here.I.am();
+   │     ╰──╯
 
 Compilation aborted due to an error

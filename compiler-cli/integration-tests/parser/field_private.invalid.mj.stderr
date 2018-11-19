@@ -1,6 +1,6 @@
 error: expected 'public' or `}`, found 'private'
-   | 
- 2 |     private int hello;
-   |     ^^^^^^^
+   │
+ 2 │     private int hello;
+   │     ╰─────╯
 
 Compilation aborted due to an error

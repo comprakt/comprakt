@@ -1,6 +1,6 @@
 error: expected `{`, found `;`
-   | 
- 1 | class A;
-   |        ^
+   │
+ 1 │ class A;
+   │        ^
 
 Compilation aborted due to an error

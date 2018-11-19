@@ -1,6 +1,6 @@
 error: expected `[` or an identifier, found `;`
-   | 
- 3 |         ident[];
-   |                ^
+   │
+ 3 │         ident[];
+   │                ^
 
 Compilation aborted due to an error

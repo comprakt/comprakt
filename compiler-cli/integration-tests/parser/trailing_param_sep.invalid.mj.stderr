@@ -1,6 +1,6 @@
 error: expected `)`, found `,`
-   | 
- 2 |     public static void main(String[] args, )
-   |                                          ^
+   │
+ 2 │     public static void main(String[] args, )
+   │                                          ^
 
 Compilation aborted due to an error

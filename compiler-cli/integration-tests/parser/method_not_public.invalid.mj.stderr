@@ -1,6 +1,6 @@
 error: expected 'public' or `}`, found 'int'
-   | 
- 4 |     int actualSolution()  {
-   |     ^^^
+   │
+ 4 │     int actualSolution()  {
+   │     ╰─╯
 
 Compilation aborted due to an error

@@ -1,6 +1,6 @@
 error: expected `.`, `;`, `[` or a binary operator, found `(`
-   | 
- 4 |         ident[ident]();
-   |                     ^
+   │
+ 4 │         ident[ident]();
+   │                     ^
 
 Compilation aborted due to an error

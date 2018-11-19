@@ -1,6 +1,6 @@
 error: expected `{`, found identifier `B`
-   | 
- 1 | class A B {}
-   |         ^
+   │
+ 1 │ class A B {}
+   │         ^
 
 Compilation aborted due to an error

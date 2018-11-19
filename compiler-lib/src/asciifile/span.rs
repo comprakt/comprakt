@@ -96,8 +96,22 @@ impl<'f> Span<'f> {
         self.end.byte_offset() == self.start.byte_offset()
     }
 
+    ///
+    ///
+    /// ```
+    /// use compiler_lib::asciifile::{AsciiFile, Position};
+    ///
+    /// let input = "abc";
+    /// let file = AsciiFile::new(input.as_bytes()).unwrap();
+    /// let span = Position::at_file_start(&file)
+    ///     .unwrap()
+    ///     .to_single_char_span();
+    ///
+    /// assert_eq!(span.as_str(), "a");
+    /// assert!(span.is_single_char());
+    /// ```
     pub fn is_single_char(&self) -> bool {
-        self.end.byte_offset() - self.start.byte_offset() == 1
+        self.end == self.start
     }
 
     pub fn start_position(&self) -> Position<'f> {
@@ -184,6 +198,23 @@ impl<'f> Span<'f> {
                 end: min(a.end, b.end),
             })
         }
+    }
+
+    /// Remove trailing newlines from a span
+    pub fn trim_trailing_newlines(&self) -> Option<Span<'f>> {
+        let mut new_end = self.end_position();
+
+        while new_end.chr() == '\n' {
+            new_end = match new_end.prev() {
+                None => return None,
+                Some(prev) => prev,
+            };
+            if self.start_position().byte_offset() < new_end.byte_offset() {
+                return None;
+            }
+        }
+
+        Some(Self::new(self.start_position(), new_end))
     }
 
     /// Get the number of characters in a span

@@ -975,7 +975,8 @@ mod tests {
         let end = prog.span.end_position();
 
         // Not part of the assertion, but gives a really easy to understand
-        // error message in case the assertion fails. Expected output is:
+        // error message in case the assertion fails. Expected output is
+        // similar to:
         //
         //
         // info: span for AST node 'whole program with trimmed whitespace'
@@ -990,11 +991,13 @@ mod tests {
         //    | ^^^^^^^^^^^^^^^^^
         //  6 |             }
         //    | ^^^^^^^^^^^^^
+        //
+        //
 
-        ctx.diagnostics.info(&Spanned {
-            span: prog.span,
-            data: "span for AST node 'whole program with trimmed whitespace'",
-        });
+        //ctx.diagnostics.info(&Spanned {
+        //    span: prog.span,
+        //    data: "span for AST node 'whole program with trimmed whitespace'",
+        //});
 
         assert_eq!(start.line_number(), 2);
         assert_eq!(start.column(), 12);

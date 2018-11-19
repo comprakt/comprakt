@@ -1,6 +1,6 @@
 error: expected 'throws' or `{`, found `}`
-   | 
- 3 | }
-   | ^
+   │
+ 3 │ }
+   │ ^
 
 Compilation aborted due to an error

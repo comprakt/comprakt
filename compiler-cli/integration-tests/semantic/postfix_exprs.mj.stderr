@@ -1,21 +1,21 @@
 error: not a statement
-   | 
- 5 |         foo.bar;
-   |         ^^^^^^^^
+   │
+ 5 │         foo.bar;
+   │         ╰──────╯
 
 error: not a statement
-   | 
- 6 |         foo[1];
-   |         ^^^^^^^
+   │
+ 6 │         foo[1];
+   │         ╰─────╯
 
 error: not a statement
-    | 
- 10 |         x.bar;
-    |         ^^^^^^
+    │
+ 10 │         x.bar;
+    │         ╰────╯
 
 error: not a statement
-    | 
- 11 |         x[1];
-    |         ^^^^^
+    │
+ 11 │         x[1];
+    │         ╰───╯
 
 Compilation aborted due to 4 errors

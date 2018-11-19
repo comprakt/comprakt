@@ -40,40 +40,249 @@ pub fn u8_to_printable_representation(byte: u8) -> String {
 /// // `lexer_error` is the `Err` returned by `Lexer::next`
 /// context.diagnostics.error(&lexer_error);
 /// // `span` is some `asciifile::Span`
-/// context.diagnostics.error({
+/// context.diagnostics.error(&Spanned {
 ///     span: span,
 ///     data: "something went wrong"
 /// });
+///
+/// context.diagnostics.error(Printable {
+///     message: "expected an identifier, found 'int'",
+///     annotations: vec![
+///         Spanned(""), // mark something without a message
+///         WithoutSpan("'int' is a keyword and cannot be used as a class name"), // add a hint
+/// });
+/// context.diagnostics.error(Printable {
+///     message: "expected 'String', found 'int'",
+///     annotations: vec![
+///         WithSpan("expected 'String'"), // mark exact problem
+///         WithSpan("what looks like the declaration of the main function"), // add context span
+/// });
 /// ```
-pub trait Printable<'a, 'b> {
-    fn as_maybe_spanned(&'b self) -> MaybeSpanned<'a, &'b dyn Display>;
+///
+/// Here is a more elaborate example:
+///
+/// ```
+/// use compiler_lib::{
+///     asciifile::{AsciiFile, MaybeSpanned::*, Position, Span, Spanned},
+///     diagnostics::{Diagnostics, Printable},
+/// };
+/// use std::cell::UnsafeCell;
+/// use termcolor::NoColor;
+///
+/// // TODO: remove use of unsafe cell for a mut and immutable borrow concurrently
+/// let mut output: UnsafeCell<Vec<u8>> = UnsafeCell::new(Vec::new());
+/// let stderr = NoColor::new(unsafe { &mut *output.get() });
+/// let diagnostics = Diagnostics::new(Box::new(stderr));
+/// let input = "banana\nanother banana\nbananarama\na\n\n\n\nmuch more banana\n";
+/// let file = AsciiFile::new(input.as_bytes()).unwrap();
+/// let initial_pos = Position::at_file_start(&file).unwrap();
+/// let a_line = initial_pos.clone().iter().nth(33);
+/// assert_eq!(a_line.unwrap().chr(), 'a');
+/// let banana_end = initial_pos.clone().iter().nth(5).unwrap();
+/// let banana_end_newline = initial_pos.clone().iter().nth(6).unwrap();
+/// let banana_end_multinewline = initial_pos.clone().iter().nth(36).unwrap();
+/// let last_pos = initial_pos.clone().iter().last().unwrap();
+///
+/// assert_eq!(Span::new(initial_pos, banana_end).as_str(), "banana");
+/// assert_eq!(
+///     Span::new(initial_pos, banana_end_newline).as_str(),
+///     "banana\n"
+/// );
+///
+/// diagnostics.error(&"banana");
+/// diagnostics.error(&Spanned {
+///     data: "this is a banana",
+///     span: Span::new(initial_pos, banana_end),
+/// });
+/// diagnostics.warning(&WithSpan(Spanned {
+///     data: "this is another banana",
+///     span: Span::new(initial_pos, banana_end),
+/// }));
+/// diagnostics.info(&WithoutSpan("there is a banana"));
+/// diagnostics.warning(&Printable {
+///     message: &"let me show you!",
+///     annotations: vec![
+///         Spanned {
+///             span: Span::new(initial_pos, initial_pos),
+///             data: "the banana starts here",
+///         },
+///         Spanned {
+///             span: Span::new(banana_end, banana_end),
+///             data: "this is the end",
+///         },
+///         Spanned {
+///             span: a_line.unwrap().get_line(),
+///             data: "this line only has an A",
+///         },
+///     ],
+/// });
+/// diagnostics.error(&Printable {
+///     message: &"a bag of bananas",
+///     annotations: vec![
+///         Spanned {
+///             span: Span::new(initial_pos, banana_end),
+///             data: "this is the first banana",
+///         },
+///         Spanned {
+///             span: Span::new(initial_pos, banana_end_newline),
+///             data: "multiline banana",
+///         },
+///         Spanned {
+///             span: Span::new(initial_pos, banana_end_multinewline),
+///             data: "multiple newline banana",
+///         },
+///         Spanned {
+///             span: Span::new(initial_pos, initial_pos),
+///             data: "the first banana starts here",
+///         },
+///         Spanned {
+///             span: Span::new(initial_pos, last_pos),
+///             data: "this is the bag of bananas",
+///         },
+///     ],
+/// });
+/// diagnostics.error(&Printable {
+///     message: &"redefinition of method 'banana'",
+///     annotations: vec![
+///         Spanned {
+///             span: Span::new(initial_pos, banana_end),
+///             data: "'banana' is first defined here",
+///         },
+///         Spanned {
+///             span: last_pos.get_line(),
+///             data: "this redefinition is not allowed",
+///         },
+///     ],
+/// });
+///
+/// // println!("{}", String::from_utf8_lossy(unsafe { &mut *output.get() }));
+///
+/// assert_eq!(
+///     r#"error: banana
+///
+/// error: this is a banana
+///    │
+///  1 │ banana
+///    │ ╰────╯
+///
+/// warning: this is another banana
+///    │
+///  1 │ banana
+///    │ ╰────╯
+///
+/// info: there is a banana
+///
+/// warning: let me show you!
+///    │
+///  1 │ banana
+///    │ ⮤ the banana starts here
+///    │      ⮤ this is the end
+///  2 │ another banana
+///  3 │ bananarama
+///  4 │ a
+///    │ ╰╯ this line only has an A
+///
+/// error: a bag of bananas
+///    │
+///  1 │ banana
+///    │ ╰────╯ this is the first banana
+///    │ ╰─────╯ multiline banana
+///    │ ╰─────┈
+///    │ ⮤ the first banana starts here
+///    │ ╰─────┈
+///  2 │ another banana
+///    │┈──────────────┈
+///    │┈──────────────┈
+///  3 │ bananarama
+///    │┈──────────┈
+///    │┈──────────┈
+///  4 │ a
+///    │┈─┈
+///    │┈─┈
+///  5 │
+///    │┈┈
+///    │┈┈
+///  6 │
+///    │┈╯ multiple newline banana
+///    │┈┈
+///  7 │
+///    │┈┈
+///  8 │ much more banana
+///    │┈────────────────╯ this is the bag of bananas
+///
+/// error: redefinition of method 'banana'
+///    │
+///  1 │ banana
+///    │ ╰────╯ 'banana' is first defined here
+///    ┆
+///    ┆
+///  8 │ much more banana
+///    │ ╰───────────────╯ this redefinition is not allowed
+///
+/// "#,
+///     &String::from_utf8_lossy(unsafe { &mut *output.get() })
+/// );
+/// ```
+#[derive(Clone)]
+pub struct Printable<'ctx, 'caller> {
+    pub message: &'caller dyn Display,
+    pub annotations: Vec<Spanned<'ctx, &'caller str>>,
+}
+
+pub trait AsPrintable<'a, 'b> {
+    fn as_printable(&'b self) -> Printable<'a, 'b>;
 }
 
 // TODO: implementing on `str` (which is what you would like to do, to
 // support calls with warning("aa") instead of warning(&"aa").
-impl<'a, 'b> Printable<'a, 'b> for &'b str {
-    fn as_maybe_spanned(&'b self) -> MaybeSpanned<'a, &'b dyn Display> {
-        MaybeSpanned::WithoutSpan(self)
+impl<'a, 'b> AsPrintable<'a, 'b> for &'b str {
+    fn as_printable(&'b self) -> Printable<'a, 'b> {
+        Printable {
+            message: self,
+            annotations: vec![],
+        }
     }
 }
 
-impl<'a, 'b, T: Display + 'b> Printable<'a, 'b> for Spanned<'a, T> {
-    fn as_maybe_spanned(&'b self) -> MaybeSpanned<'a, &'b dyn Display> {
-        MaybeSpanned::WithSpan(Spanned {
-            span: self.span,
-            data: &self.data,
-        })
+impl<'a, 'b> AsPrintable<'a, 'b> for Printable<'a, 'b> {
+    fn as_printable(&'b self) -> Printable<'a, 'b> {
+        Printable {
+            message: self.message,
+            annotations: self.annotations.clone(),
+        }
     }
 }
 
-impl<'a, 'b, T: Display + 'b> Printable<'a, 'b> for MaybeSpanned<'a, T> {
-    fn as_maybe_spanned(&'b self) -> MaybeSpanned<'a, &'b dyn Display> {
+/// This signature is satisfied by all error messages generated by each
+/// subsystem of the compiler (lexer, parser, semantic analysis, ...)
+/// and therefore allows error objects to be rendered directly without
+/// conversion.
+impl<'a, 'b, T: Display + 'b> AsPrintable<'a, 'b> for Spanned<'a, T> {
+    fn as_printable(&'b self) -> Printable<'a, 'b> {
+        Printable {
+            message: &self.data,
+            annotations: vec![Spanned {
+                span: self.span,
+                data: "",
+            }],
+        }
+    }
+}
+
+impl<'a, 'b, T: Display + 'b> AsPrintable<'a, 'b> for MaybeSpanned<'a, T> {
+    fn as_printable(&'b self) -> Printable<'a, 'b> {
         match self {
-            MaybeSpanned::WithSpan(ref spanned) => MaybeSpanned::WithSpan(Spanned {
-                span: spanned.span,
-                data: &spanned.data,
-            }),
-            MaybeSpanned::WithoutSpan(ref data) => MaybeSpanned::WithoutSpan(data),
+            MaybeSpanned::WithSpan(ref spanned) => Printable {
+                message: &spanned.data,
+                annotations: vec![Spanned {
+                    span: spanned.span,
+                    data: "",
+                }],
+            },
+            MaybeSpanned::WithoutSpan(ref data) => Printable {
+                message: data,
+                annotations: vec![],
+            },
         }
     }
 }
@@ -81,9 +290,45 @@ impl<'a, 'b, T: Display + 'b> Printable<'a, 'b> for MaybeSpanned<'a, T> {
 /// Width of tabs in error and warning messages
 const TAB_WIDTH: usize = 4;
 
-/// Color used for rendering line numbers, escape sequences
-/// and others...
+/// When rendering an error with multiple spans, replace lines that are not
+/// part of any span with an ellipsis if there is a block of at least
+/// `ELIDE_LINE_GAPS_LARGER_THAN` continous lines.
+///
+/// MUST be greater than 1.
+const ELIDE_LINE_GAPS_LARGER_THAN: usize = 3;
+
+// All RENDERING_* characters MUST have a output width of
+// of 1 when rendered on the console.
+const RENDERING_SINGLE_CHAR_SPAN: char = '⮤';
+const RENDERING_SINGLE_CHAR_SPAN_NO_ANNOTATION: char = '^';
+const RENDERING_SPAN_START: char = '╰';
+const RENDERING_SPAN_MIDDLE: char = '─';
+const RENDERING_SPAN_END: char = '╯';
+const RENDERING_SPAN_CONTINUATION: char = '┈';
+const RENDERING_LINE_NUMBER_SEPARATOR: char = '│';
+const RENDERING_LINE_NUMBER_ELLIPSIS: char = '┆';
+const RENDERING_LINE_NUMBER_ELLIPSIS_NUM: usize = 2;
+
+// ASCII variant
+//const RENDERING_SINGLE_CHAR_SPAN: char = '^';
+//const RENDERING_SPAN_START: char = '\\';
+//const RENDERING_SPAN_MIDDLE: char = '_';
+//const RENDERING_SPAN_END: char = '/';
+//const RENDERING_LINE_NUMBER_SEPARATOR: char = '|';
+//const RENDERING_LINE_NUMBER_ELLIPSIS: &str = "...";
+
+// Fat variant of Unicode mode
+//const RENDERING_SPAN_START: char = '┗';
+//const RENDERING_SPAN_MIDDLE: char = '━';
+//const RENDERING_SPAN_END: char = '┛';
+//const RENDERING_SPAN_CONTINUATION: char = '┅';
+
+/// Color used for rendering escape sequences and other special
+/// output...
 const HIGHLIGHT_COLOR: Option<Color> = Some(Color::Cyan);
+/// Color used for line numbers next to source code output
+/// in messages
+const LINE_NUMBER_COLOR: Option<Color> = Some(Color::Rgb(0x99, 0x99, 0x99));
 
 // TODO reimplement line truncation
 
@@ -156,28 +401,28 @@ impl Diagnostics {
     /// Generate an error or a warning that is printed to the
     /// writer given in the `new` constructor. Most of the time
     /// this will be stderr.
-    pub fn emit(&self, level: MessageLevel, kind: MaybeSpanned<'_, &dyn Display>) {
+    pub fn emit(&self, level: MessageLevel, kind: &Printable<'_, '_>) {
         self.increment_level_count(level);
         let mut writer = self.writer.borrow_mut();
-        let msg = Message { level, kind };
+        let msg = Message::new(level, kind);
 
         // `ok()` surpresses io error
         msg.write(&mut **writer).ok();
     }
 
     #[allow(dead_code)]
-    pub fn warning<'a, 'b, T: Printable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
-        self.emit(MessageLevel::Warning, kind.as_maybe_spanned())
+    pub fn warning<'a, 'b, T: AsPrintable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
+        self.emit(MessageLevel::Warning, &kind.as_printable())
     }
 
     #[allow(dead_code)]
-    pub fn error<'a, 'b, T: Printable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
-        self.emit(MessageLevel::Error, kind.as_maybe_spanned())
+    pub fn error<'a, 'b, T: AsPrintable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
+        self.emit(MessageLevel::Error, &kind.as_printable())
     }
 
     #[allow(dead_code)]
-    pub fn info<'a, 'b, T: Printable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
-        self.emit(MessageLevel::Info, kind.as_maybe_spanned())
+    pub fn info<'a, 'b, T: AsPrintable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
+        self.emit(MessageLevel::Info, &kind.as_printable())
     }
 
     fn increment_level_count(&self, level: MessageLevel) {
@@ -199,11 +444,35 @@ impl MessageLevel {
         // Don't be confused by the return type.
         // `None` means default color in the colorterm
         // crate!
-        match self {
-            MessageLevel::Error => Some(Color::Red),
-            MessageLevel::Warning => Some(Color::Yellow),
-            MessageLevel::Info => Some(Color::Cyan),
-        }
+        self.color_variant(0)
+    }
+
+    fn color_variant(self, variant: usize) -> Option<Color> {
+        (match self {
+            MessageLevel::Error => [
+                Color::Rgb(0xFF, 0x00, 0x00),
+                Color::Rgb(0xFF, 0x00, 0x80),
+                Color::Rgb(0xFF, 0x00, 0xB0),
+                Color::Rgb(0xFF, 0x00, 0xF0),
+            ],
+            MessageLevel::Warning => [
+                Color::Rgb(0xFF, 0xFF, 0x00),
+                Color::Rgb(0xFF, 0xBF, 0x00),
+                Color::Rgb(0xFF, 0x8F, 0x00),
+                Color::Rgb(0xFF, 0x4F, 0x00),
+            ],
+            MessageLevel::Info => [
+                Color::Rgb(0x00, 0xFF, 0xFF),
+                Color::Rgb(0x00, 0xBF, 0xFF),
+                Color::Rgb(0x00, 0x8F, 0xFF),
+                Color::Rgb(0x00, 0x4F, 0xFF),
+            ],
+        })
+        .iter()
+        .map(|color| Some(*color))
+        .cycle()
+        .nth(variant)
+        .unwrap()
     }
 
     fn name(&self) -> &str {
@@ -216,23 +485,28 @@ impl MessageLevel {
 }
 
 pub struct Message<'file, 'msg> {
-    pub level: MessageLevel,
-    pub kind: MaybeSpanned<'file, &'msg dyn Display>,
+    level: MessageLevel,
+    kind: Printable<'file, 'msg>,
 }
 
 impl<'file, 'msg> Message<'file, 'msg> {
-    pub fn write(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
-        match &self.kind {
-            MaybeSpanned::WithoutSpan(_) => {
-                self.write_description(writer)?;
-            }
+    pub fn new(level: MessageLevel, kind: &Printable<'file, 'msg>) -> Self {
+        // sort annotations in reading order using their start position
+        let mut sorted_annotations = kind.annotations.clone();
+        sorted_annotations
+            .sort_by_key(|spanned_str| spanned_str.span.start_position().byte_offset());
 
-            MaybeSpanned::WithSpan(spanned) => {
-                self.write_description(writer)?;
-                self.write_code(writer, &spanned.span)?;
-            }
+        Self {
+            level,
+            kind: Printable {
+                message: kind.message,
+                annotations: sorted_annotations,
+            },
         }
-
+    }
+    pub fn write(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
+        self.write_description(writer)?;
+        self.write_code(writer)?;
         writeln!(writer)?;
         Ok(())
     }
@@ -244,50 +518,221 @@ impl<'file, 'msg> Message<'file, 'msg> {
         write!(output.writer(), "{}: ", self.level.name())?;
 
         output.set_color(None);
-        writeln!(output.writer(), "{}", *self.kind)?;
+        writeln!(output.writer(), "{}", self.kind.message)?;
 
         Ok(())
     }
 
-    fn write_code(&self, writer: &mut dyn WriteColor, error: &Span<'_>) -> Result<(), Error> {
+    /// Get the smallest span that contains all spans of this message
+    fn overall_span(&self) -> Option<Span<'file>> {
+        let iter = self.kind.annotations.iter();
+
+        let mut overall = match self.kind.annotations.iter().next() {
+            None => return None,
+            Some(ref spanned) => spanned.span,
+        };
+
+        for spanned in iter {
+            overall = Span::combine(&overall, &spanned.span);
+        }
+
+        Some(overall)
+    }
+
+    // TODO: reduce complexity!
+    #[allow(clippy::cyclomatic_complexity)]
+    fn write_code(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
+        // groups spans into blocks that are separated by at most 5 lines. then prints
+        // each block separated by dots
+        let span = match self.overall_span() {
+            None => {
+                // no code blocks, return
+                return Ok(());
+            }
+            Some(span) => span,
+        };
+
         let mut output = ColorOutput::new(writer);
-        let num_fmt = LineNumberFormatter::new(error);
 
-        num_fmt.spaces(output.writer())?;
-        writeln!(output.writer())?;
+        let num_fmt = LineNumberFormatter::new(&span);
 
-        for (line_number, line) in error.lines().numbered() {
+        num_fmt.empty_line(output.writer())?;
+
+        let mut currently_active_spans = 0;
+        let mut starting_span = self.kind.annotations.iter().peekable();
+        let mut skipping = false;
+
+        for (line_number, line) in span.lines().numbered() {
+            if let Some(next) = starting_span.peek() {
+                if next.span.start_position().line_number() < line_number {
+                    starting_span.next();
+                }
+            }
+
+            if currently_active_spans == 0 {
+                if let Some(next) = starting_span.peek() {
+                    match next.span.start_position().line_number() {
+                        l if skipping && l == line_number => {
+                            num_fmt.ellipsis(output.writer())?;
+                            skipping = false;
+                        }
+                        l if l > line_number + ELIDE_LINE_GAPS_LARGER_THAN => {
+                            skipping = true;
+                            continue;
+                        }
+                        _ if skipping => {
+                            continue;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
             let line_fmt = LineFormatter::new(&line);
 
             num_fmt.number(output.writer(), line_number)?;
+
+            // do not print a trailing whitespace if the line only consists of a newline.
+            // This is especially important if we edit integration tests in a text editor.
+            if line.as_str() != "\n" {
+                write!(output.writer(), " ");
+            }
+
             line_fmt.render(output.writer())?;
-            // currently, the span will always exist since we take the line from the error
-            // but future versions may print a line below and above for context that
-            // is not part of the error
-            if let Some(faulty_part_of_line) = Span::intersect(error, &line) {
-                // TODO: implement this without the following 3 assumptions:
-                // - start_pos - end_pos >= 0, guranteed by data structure invariant of Span
-                // - start_term_pos - end_term_pos >= 0, guranteed by monotony of columns
-                //   (a Position.char() can only be rendered to 0 or more terminal characters)
-                // - unwrap(.): both positions are guranteed to exist in the line since we just
-                //   got them from the faulty line, which is a subset of the whole error line
-                let (start_term_pos, end_term_pos) =
-                    line_fmt.get_actual_columns(&faulty_part_of_line).unwrap();
 
-                let term_width = end_term_pos - start_term_pos;
+            for (annotation_index, annotation) in self.kind.annotations.iter().enumerate() {
+                if let Some(faulty_part_of_line) = Span::intersect(&annotation.span, &line) {
+                    // TODO: implement this without the following 3 assumptions:
+                    // - start_pos - end_pos >= 0, guranteed by data structure invariant of Span
+                    // - start_term_pos - end_term_pos >= 0, guranteed by monotony of columns
+                    //   (a Position.char() can only be rendered to 0 or more terminal characters)
+                    // - unwrap(.): both positions are guranteed to exist in the line since we just
+                    //   got them from the faulty line, which is a subset of the whole error line
+                    let (start_term_pos, end_term_pos) =
+                        line_fmt.get_actual_columns(&faulty_part_of_line).unwrap();
 
-                num_fmt.spaces(output.writer())?;
+                    let term_width = end_term_pos - start_term_pos;
 
-                {
-                    let mut output = ColorOutput::new(output.writer());
-                    output.set_color(self.level.color());
-                    output.set_bold(true);
-                    writeln!(
-                        output.writer(),
-                        "{spaces}{underline}",
-                        spaces = " ".repeat(start_term_pos),
-                        underline = "^".repeat(term_width)
-                    )?;
+                    num_fmt.spaces(output.writer())?;
+
+                    {
+                        let mut output = ColorOutput::new(output.writer());
+                        // TODO: we can reuse colors by using
+                        // `currently_active_spans` instead of `annotation_index`
+                        output.set_color(self.level.color_variant(annotation_index));
+                        output.set_bold(true);
+
+                        let (starts_here, front_margin_char) =
+                            if annotation.span.start_position().line_number() == line_number {
+                                (true, ' ')
+                            } else {
+                                // if it did not start on this line, it started on
+                                // a previous line
+                                (false, RENDERING_SPAN_CONTINUATION)
+                            };
+
+                        if starts_here {
+                            currently_active_spans += 1;
+                        }
+
+                        let ends_here = annotation.span.end_position().line_number() == line_number;
+
+                        if ends_here {
+                            currently_active_spans -= 1;
+                        }
+
+                        if annotation.span.is_single_char() {
+                            let has_annotation = annotation.data != "";
+                            writeln!(
+                                output.writer(),
+                                "{margin}{spaces}{marker}{msg}",
+                                margin = front_margin_char,
+                                spaces = " ".repeat(start_term_pos),
+                                marker = (if has_annotation {
+                                    RENDERING_SINGLE_CHAR_SPAN
+                                } else {
+                                    RENDERING_SINGLE_CHAR_SPAN_NO_ANNOTATION
+                                }),
+                                msg = (if has_annotation {
+                                    format!(" {}", annotation.data)
+                                } else {
+                                    "".to_string()
+                                })
+                            )?;
+                        } else if faulty_part_of_line.is_single_char() {
+                            // NOTE: at this point we know that the WHOLE span is not a single_char,
+                            // meaning it has at least length 2. This does however not mean, that
+                            // the span of the current line has length > 1.
+                            writeln!(
+                                output.writer(),
+                                "{margin}{spaces}{underline}{msg}",
+                                margin = front_margin_char,
+                                spaces = " ".repeat(start_term_pos),
+                                underline = (if ends_here {
+                                    format!("{}", RENDERING_SPAN_END)
+                                } else if starts_here {
+                                    format!(
+                                        "{}{}",
+                                        RENDERING_SPAN_START, RENDERING_SPAN_CONTINUATION
+                                    )
+                                } else {
+                                    format!("{}", RENDERING_SPAN_CONTINUATION)
+                                }),
+                                msg = (if !ends_here || annotation.data == "" {
+                                    "".to_string()
+                                } else {
+                                    format!(" {}", annotation.data)
+                                })
+                            );
+                        } else {
+                            let tail_offset = if ends_here && !line_fmt
+                                .render_char(faulty_part_of_line.end_position().chr())
+                                .0
+                                .is_empty()
+                            {
+                                1
+                            } else {
+                                0
+                            };
+
+                            let head_offset = if starts_here && !line_fmt
+                                .render_char(faulty_part_of_line.start_position().chr())
+                                .0
+                                .is_empty()
+                            {
+                                1
+                            } else {
+                                0
+                            };
+
+                            writeln!(
+                                output.writer(),
+                                "{margin}{spaces}{underline_start}{middle}{end}{msg}",
+                                margin = front_margin_char,
+                                spaces = " ".repeat(start_term_pos),
+                                underline_start = if starts_here {
+                                    RENDERING_SPAN_START.to_string()
+                                } else {
+                                    "".to_string()
+                                },
+                                // substract once for underline_start and optionally 1 for
+                                // underline_end
+                                middle = RENDERING_SPAN_MIDDLE
+                                    .to_string()
+                                    .repeat(term_width - tail_offset - head_offset),
+                                end = if ends_here {
+                                    RENDERING_SPAN_END
+                                } else {
+                                    RENDERING_SPAN_CONTINUATION
+                                },
+                                msg = (if !ends_here || annotation.data == "" {
+                                    "".to_string()
+                                } else {
+                                    format!(" {}", annotation.data)
+                                })
+                            )?;
+                        }
+                    }
                 }
             }
         }
@@ -308,20 +753,60 @@ impl LineNumberFormatter {
         }
     }
 
+    pub fn empty_line(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
+        let mut output = ColorOutput::new(writer);
+        output.set_color(LINE_NUMBER_COLOR);
+        output.set_bold(true);
+        writeln!(
+            output.writer(),
+            " {} {}",
+            " ".repeat(self.width),
+            RENDERING_LINE_NUMBER_SEPARATOR
+        )?;
+        Ok(())
+    }
+
     pub fn spaces(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
-        output.set_color(HIGHLIGHT_COLOR);
+        output.set_color(LINE_NUMBER_COLOR);
         output.set_bold(true);
-        write!(output.writer(), " {} | ", " ".repeat(self.width))?;
+        write!(
+            output.writer(),
+            " {} {}",
+            " ".repeat(self.width),
+            RENDERING_LINE_NUMBER_SEPARATOR
+        )?;
+        Ok(())
+    }
+
+    pub fn ellipsis(&self, writer: &mut dyn WriteColor) -> Result<(), Error> {
+        let mut output = ColorOutput::new(writer);
+        output.set_color(LINE_NUMBER_COLOR);
+        output.set_bold(true);
+
+        for _ in 0..RENDERING_LINE_NUMBER_ELLIPSIS_NUM {
+            writeln!(
+                output.writer(),
+                " {} {}",
+                " ".repeat(self.width),
+                RENDERING_LINE_NUMBER_ELLIPSIS
+            )?;
+        }
+
         Ok(())
     }
 
     pub fn number(&self, writer: &mut dyn WriteColor, line_number: usize) -> Result<(), Error> {
         let mut output = ColorOutput::new(writer);
-        output.set_color(HIGHLIGHT_COLOR);
+        output.set_color(LINE_NUMBER_COLOR);
         output.set_bold(true);
         let padded_number = pad_left(&line_number.to_string(), self.width);
-        write!(output.writer(), " {} | ", padded_number)?;
+        write!(
+            output.writer(),
+            " {} {}",
+            padded_number,
+            RENDERING_LINE_NUMBER_SEPARATOR
+        )?;
         Ok(())
     }
 }

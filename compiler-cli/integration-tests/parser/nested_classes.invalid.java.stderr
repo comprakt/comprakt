@@ -1,6 +1,6 @@
 error: expected 'public' or `}`, found 'class'
-   | 
- 2 |     class Inner {
-   |     ^^^^^
+   │
+ 2 │     class Inner {
+   │     ╰───╯
 
 Compilation aborted due to an error

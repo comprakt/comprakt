@@ -1,6 +1,6 @@
 error: expected 'false', 'new', 'null', 'this', 'true', `(`, a unary operator, an identifier or an integer literal, found `]`
-   | 
- 3 |         new int[][][];
-   |                 ^
+   │
+ 3 │         new int[][][];
+   │                 ^
 
 Compilation aborted due to an error

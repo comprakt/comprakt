@@ -1,10 +1,10 @@
 error: Only the 'main' method can be static
-   | 
- 2 |     public static void s1(String[] args) {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
- 3 | 
-   | 
- 4 |     }
-   | ^^^^^
+   │
+ 2 │     public static void s1(String[] args) {
+   │     ╰─────────────────────────────────────┈
+ 3 │
+   │┈┈
+ 4 │     }
+   │┈────╯
 
 Compilation aborted due to an error

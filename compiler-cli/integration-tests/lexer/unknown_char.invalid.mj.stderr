@@ -1,6 +1,6 @@
 error: Unexpected character '#'
-   | 
- 1 | void #method() {}
-   |      ^
+   │
+ 1 │ void #method() {}
+   │      ^
 
 Compilation aborted due to an error

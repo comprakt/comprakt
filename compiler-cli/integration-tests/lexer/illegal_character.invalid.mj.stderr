@@ -1,6 +1,6 @@
 error: Unexpected character '$'
-   | 
- 1 | public static void illegalIdentifier$() {}
-   |                                     ^
+   │
+ 1 │ public static void illegalIdentifier$() {}
+   │                                     ^
 
 Compilation aborted due to an error

@@ -1,6 +1,6 @@
 error: expected `[` or an identifier, found `(`
-   | 
- 2 | public void(){}
-   |            ^
+   │
+ 2 │ public void(){}
+   │            ^
 
 Compilation aborted due to an error

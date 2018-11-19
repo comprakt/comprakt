@@ -1,11 +1,11 @@
 error: integer number too large: 2147483648 at 9:19-9:28
-   | 
- 9 |         int bad1 = 2147483648;
-   |                    ^^^^^^^^^^
+   │
+ 9 │         int bad1 = 2147483648;
+   │                    ╰────────╯
 
 error: integer number too large: 2147483649 at 10:20-10:29
-    | 
- 10 |         int bad2 = -2147483649;
-    |                     ^^^^^^^^^^
+    │
+ 10 │         int bad2 = -2147483649;
+    │                     ╰────────╯
 
 Compilation aborted due to 2 errors

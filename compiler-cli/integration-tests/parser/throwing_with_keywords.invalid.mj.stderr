@@ -1,6 +1,6 @@
 error: expected an identifier, found 'int'
-   | 
- 2 |     public static void main(String[] _what_) throws int {
-   |                                                     ^^^
+   │
+ 2 │     public static void main(String[] _what_) throws int {
+   │                                                     ╰─╯
 
 Compilation aborted due to an error

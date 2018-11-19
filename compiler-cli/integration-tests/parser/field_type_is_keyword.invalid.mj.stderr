@@ -1,6 +1,6 @@
 error: expected 'boolean', 'int', 'static', 'void' or an identifier, found 'while'
-   | 
- 2 |     public while testing;
-   |            ^^^^^
+   │
+ 2 │     public while testing;
+   │            ╰───╯
 
 Compilation aborted due to an error

@@ -1,6 +1,6 @@
 error: expected 'boolean', 'int', 'static', 'void' or an identifier, found 'package'
-   | 
- 2 |     public package[] foo;
-   |            ^^^^^^^
+   │
+ 2 │     public package[] foo;
+   │            ╰─────╯
 
 Compilation aborted due to an error

@@ -1,6 +1,6 @@
 error: expected `)`, `.`, `[` or a binary operator, found `;`
-   | 
- 7 |         d = ((((a + b) * c) - a) / (c % d + ((b - 1) * c));
-   |                                                           ^
+   │
+ 7 │         d = ((((a + b) * c) - a) / (c % d + ((b - 1) * c));
+   │                                                           ^
 
 Compilation aborted due to an error

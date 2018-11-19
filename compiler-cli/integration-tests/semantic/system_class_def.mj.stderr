@@ -1,6 +1,6 @@
 error: cannot reference class 'System' here
-   | 
- 5 |         System.out.println(42);
-   |         ^^^^^^
+   │
+ 5 │         System.out.println(42);
+   │         ╰────╯
 
 Compilation aborted due to an error

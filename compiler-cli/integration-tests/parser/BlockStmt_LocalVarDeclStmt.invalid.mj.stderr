@@ -1,6 +1,6 @@
 error: expected `.`, `;`, `[` or a binary operator, found identifier `ident`
-   | 
- 3 |         ident[3] ident;
-   |                  ^^^^^
+   │
+ 3 │         ident[3] ident;
+   │                  ╰───╯
 
 Compilation aborted due to an error
