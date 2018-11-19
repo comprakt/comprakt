@@ -673,7 +673,17 @@ where
             ops.push(op);
         }
 
-        let mut expr = self.parse_postfix_expression()?;
+        let mut expr = if ops.last().map_or(false, |op| op.data == ast::UnaryOp::Neg) {
+            if let Some(lit) = self.eat_optional(IntegerLiteral) {
+                // Unwrap is safe, because `.map_or(false, ...`
+                let op = ops.pop().unwrap();
+                box op.combine_with(lit, |_, lit| ast::Expr::NegInt(lit))
+            } else {
+                self.parse_postfix_expression()?
+            }
+        } else {
+            self.parse_postfix_expression()?
+        };
 
         for op in ops {
             expr = box op.combine_with_boxed(expr, |op, expr| ast::Expr::Unary(op.data, expr));

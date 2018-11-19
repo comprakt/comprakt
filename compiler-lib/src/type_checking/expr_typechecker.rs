@@ -102,6 +102,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
             Null => Ok(CheckedType::Null.into()),
             Boolean(_) => Ok(CheckedType::Boolean.into()),
             Int(_) => Ok(CheckedType::Int.into()),
+            NegInt(_) => Ok(CheckedType::Int.into()),
             Var(name) => self.check_var(&name),
             This => {
                 if self.current_method.is_static {
