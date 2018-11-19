@@ -1,0 +1,31 @@
+error: integer number too large: 2147483648
+   | 
+ 6 |         int d = -(2147483648); /*  should be rejected */
+   |                   ^^^^^^^^^^
+
+error: integer number too large: 2147483648
+   | 
+ 7 |         int e = - (2147483648); /*  should be rejected */
+   |                    ^^^^^^^^^^
+
+error: integer number too large: 2147483648
+   | 
+ 8 |         int f = - ((2147483648)); /*  should be rejected */
+   |                     ^^^^^^^^^^
+
+error: integer number too large: 2147483648
+   | 
+ 9 |         if (-(2147483648) == -2147483648) { /* lhs should be rejected */
+   |               ^^^^^^^^^^
+
+error: integer number too large: 2147483648
+    | 
+ 11 |         if (-(2147483648) ==  -((((2147483648))))) { /*  both should be rejected */
+    |               ^^^^^^^^^^
+
+error: integer number too large: 2147483648
+    | 
+ 11 |         if (-(2147483648) ==  -((((2147483648))))) { /*  both should be rejected */
+    |                                    ^^^^^^^^^^
+
+Compilation aborted due to 6 errors

@@ -1,0 +1,14 @@
+class A {
+    public static void main(String[] args) {
+        int a = -/* a */2147483648;
+        int b = - 2147483648;
+        int c = -2147483648;
+        int d = -(2147483648); /*  should be rejected */
+        int e = - (2147483648); /*  should be rejected */
+        int f = - ((2147483648)); /*  should be rejected */
+        if (-(2147483648) == -2147483648) { /* lhs should be rejected */
+        }
+        if (-(2147483648) ==  -((((2147483648))))) { /*  both should be rejected */
+        }
+    }
+}
