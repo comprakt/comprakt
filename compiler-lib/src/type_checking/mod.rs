@@ -6,12 +6,33 @@ use crate::{
     strtab::{StringTable, Symbol},
 };
 use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 
 pub mod expr_typechecker;
 pub mod method_body_typechecker;
 pub mod type_system;
 
 use self::{method_body_typechecker::MethodBodyTypeChecker, type_system::*};
+
+#[derive(Eq)]
+pub struct RefEquality<'a, T>(&'a T);
+
+impl<'a, T> std::hash::Hash for RefEquality<'a, T> {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: std::hash::Hasher,
+    {
+        (self.0 as *const T).hash(state)
+    }
+}
+
+impl<'a, 'b, T> PartialEq<RefEquality<'b, T>> for RefEquality<'a, T> {
+    fn eq(&self, other: &'_ RefEquality<'b, T>) -> bool {
+        self.0 as *const T == other.0 as *const T
+    }
+}
+
+
 
 pub fn check<'a, 'src>(
     mut strtab: &'_ mut StringTable<'src>,
@@ -24,17 +45,26 @@ pub fn check<'a, 'src>(
         ast::AST::Empty => TypeSystem::default(),
         ast::AST::Program(program) => {
             let mut type_system = TypeSystem::default();
-            let builtin_types = add_builtin_types(&mut strtab, &mut type_system, &mut sem_context);
-            let usable_classes = collect_types_from_ast(&mut type_system, &sem_context, program);
-            check_members_of_types(
+            let mut type_analysis = TypeAnalysis::new();
+
+            let builtin_types = add_builtin_types(
+                &mut strtab,
                 &mut type_system,
-                &builtin_types,
-                &sem_context,
-                &usable_classes,
+                &mut sem_context,
             );
 
-            for class_decl in &usable_classes {
-                MethodBodyTypeChecker::check_methods(class_decl, &type_system, &sem_context);
+            add_types_from_ast(
+                &mut strtab,
+                &mut type_system,
+                &mut type_analysis,
+                &builtin_types,
+                &sem_context,
+                program,
+            );
+
+            for class_decl in &program.classes {
+                MethodBodyTypeChecker::check_methods(
+                    class_decl, &type_system, &mut type_analysis, &sem_context);
             }
 
             type_system
@@ -60,62 +90,66 @@ impl<'ctx, 'src> SemanticContext<'ctx, 'src> {
     }
 }
 
-fn collect_types_from_ast<'ctx, 'src>(
-    type_system: &mut TypeSystem<'src>,
-    context: &SemanticContext<'ctx, 'src>,
-    program: &ast::Program<'src>,
-) -> Vec<ast::ClassDeclaration<'src>> {
-    // We don't want to mess up our type system by including methods of duplicate
-    // classes, so we filter them here
-    program
-        .classes
-        .iter()
-        .filter_map(|class_decl| {
-            // first pass: find all types
-            let class_def = ClassDef::new(class_decl.name.data);
-            let class_added = type_system.add_class_def(class_def);
-            match class_added {
-                Ok(()) => Some(&class_decl.data),
-                Err(_) => {
-                    context.report_error(
-                        &class_decl.span,
-                        SemanticError::RedefinitionError {
-                            kind: "class".to_string(),
-                            name: class_decl.name.to_string(),
-                        },
-                    );
-                    None
-                }
-            }
-        })
-        .cloned()
-        .collect()
-}
-
-fn check_members_of_types<'ctx, 'src>(
-    type_system: &mut TypeSystem<'src>,
+fn add_types_from_ast<'ctx, 'sem, 'src, 'a>(
+    strtab: &mut StringTable<'src>,
+    type_system: &'sem mut TypeSystem<'src>,
+    type_analysis:  &'sem mut TypeAnalysis<'src, 'a>,
     builtin_types: &BuiltinTypes<'src>,
     context: &SemanticContext<'ctx, 'src>,
-    usable_classes: &[ast::ClassDeclaration<'src>],
+    program: &'a ast::Program<'src>,
 ) {
-    for class_decl in usable_classes {
+    for class_decl in &program.classes {
+        // first pass: find all types and add them to the type system.
+        // rename them if they have invalid names
+        let name = match type_system.lookup_class_mut(class_decl.name.data) {
+            Some(class_def) => {
+                context.report_error(
+                    &class_decl.span,
+                    SemanticError::RedefinitionError {
+                        kind: "class".to_string(),
+                        name: class_decl.name.data.to_string(),
+                    },
+                );
+                
+                let id = class_def.get_new_redefinition_number() + 1;
+                let string = format!("${}{}", class_decl.name.data, id);
+                // IMPROVEMENT do not leak memory
+                strtab.intern(Box::leak(Box::new(string)))
+            }
+            None => class_decl.name.data
+        };
+
+        let (_, class_def_id) = type_system
+            .add_class_def(ClassDef::new(name))
+            .expect("The redefinition number ensures this cannot happen");
+        
+        type_analysis.decl_set_class_id(&class_decl.data, class_def_id);
+        
+    }
+
+    for class_decl in &program.classes {
         // second pass: scan members of all types, check their type references against
         // the first pass
-        let mut class_def = ClassDef::new(class_decl.name.data);
+
+        let class_def_id = type_analysis.decl_get_class_id(&class_decl)
+            .expect("Class def was attached to this class_decl in first pass");
 
         for member in &class_decl.members {
             use crate::ast::ClassMemberKind::*;
             match &member.kind {
                 Field(ty) => {
-                    class_def
+                    let field_type = type_analysis.checked_type_from_ty(
+                        &ty.data,
+                        context,
+                        type_system,
+                        VoidIs::Forbidden,
+                    );
+
+                    type_system
+                        .get_class_mut(class_def_id)
                         .add_field(ClassFieldDef {
                             name: member.name,
-                            ty: checked_type_from_ty(
-                                &ty.data,
-                                context,
-                                &type_system,
-                                VoidIs::Forbidden,
-                            ),
+                            ty: field_type,
                             can_write: true,
                         })
                         .unwrap_or_else(|_| {
@@ -134,7 +168,7 @@ fn check_members_of_types<'ctx, 'src>(
                         Method(return_ty, _, _) => (
                             false,
                             false,
-                            checked_type_from_ty(
+                            type_analysis.checked_type_from_ty(
                                 &return_ty.data,
                                 context,
                                 &type_system,
@@ -165,10 +199,10 @@ fn check_members_of_types<'ctx, 'src>(
                                         assert_eq!(p.ty.data.array_depth, 0);
                                         CheckedType::Array(box builtin_types.string.clone())
                                     }
-                                    _ => checked_type_from_ty(
+                                    _ => type_analysis.checked_type_from_ty(
                                         &p.ty.data,
                                         context,
-                                        &type_system,
+                                        type_system,
                                         VoidIs::Forbidden,
                                     ),
                                 };
@@ -177,7 +211,7 @@ fn check_members_of_types<'ctx, 'src>(
                         })
                         .collect();
 
-                    class_def
+                    type_system.get_class_mut(class_def_id)
                         .add_method(ClassMethodDef::new(
                             member.name,
                             checked_params,
@@ -196,10 +230,6 @@ fn check_members_of_types<'ctx, 'src>(
                 }
             }
         }
-
-        type_system
-            .update_existing_class_def(class_def)
-            .expect("class was defined in first pass");
     }
 }
 
@@ -285,63 +315,91 @@ fn add_builtin_types<'src>(
     BuiltinTypes { string }
 }
 
+pub struct TypeAnalysis<'src, 'a> {
+    class_types: HashMap<
+        RefEquality<'a, ast::ClassDeclaration<'src>>,
+        ClassDefId<'src>,
+    >,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum VoidIs {
     Allowed,
     Forbidden,
 }
 
-pub fn checked_type_from_basic_ty<'src>(
-    basic_ty: &Spanned<'src, ast::BasicType<'src>>,
-    context: &SemanticContext<'_, 'src>,
-    type_system: &TypeSystem<'src>,
-    void_handling: VoidIs,
-) -> CheckedType<'src> {
-    use self::ast::BasicType::*;
-    match &basic_ty.data {
-        Int => CheckedType::Int,
-        Boolean => CheckedType::Boolean,
-        Void => match void_handling {
-            VoidIs::Allowed => CheckedType::Void,
-            VoidIs::Forbidden => {
-                context.report_error(&basic_ty.span, SemanticError::VoidNotAllowed);
-
-                CheckedType::Void
-            }
-        },
-        Custom(name) => {
-            if !type_system.is_type_defined(*name) {
-                context.report_error(
-                    &basic_ty.span,
-                    SemanticError::ClassDoesNotExist {
-                        class_name: name.to_string(),
-                    },
-                );
-            }
-            CheckedType::TypeRef(*name)
+impl<'src, 'a> TypeAnalysis<'src, 'a> {
+    pub fn new() -> TypeAnalysis<'src, 'a> {
+        TypeAnalysis {
+            class_types: HashMap::new(),
         }
-        // Parser only yields MainParam in that one case we handle anyway
-        MainParam => unreachable!(),
-    }
-}
-
-pub fn checked_type_from_ty<'src>(
-    ty: &ast::Type<'src>,
-    context: &SemanticContext<'_, 'src>,
-    type_system: &TypeSystem<'src>,
-    void_handling: VoidIs,
-) -> CheckedType<'src> {
-    let void_handling = if ty.array_depth > 0 {
-        VoidIs::Forbidden
-    } else {
-        void_handling
-    };
-
-    let mut checked_ty = checked_type_from_basic_ty(&ty.basic, context, type_system, void_handling);
-
-    for _ in 0..ty.array_depth {
-        checked_ty = CheckedType::Array(Box::new(checked_ty));
     }
 
-    checked_ty
+    pub fn decl_set_class_id<'sem>(&mut self,
+        class_decl: &'a ast::ClassDeclaration<'src>,
+        name: ClassDefId<'src>,
+    ) {
+        self.class_types.insert(RefEquality(class_decl), name);
+    }
+
+    pub fn decl_get_class_id(&mut self, class_decl: &'_ ast::ClassDeclaration<'src>
+    ) -> Option<ClassDefId<'src>> {
+        self.class_types.get(&RefEquality(class_decl)).map(|id| id.clone())
+    }
+
+    pub fn checked_type_from_basic_ty(&mut self,
+        basic_ty: &Spanned<'src, ast::BasicType<'src>>,
+        context: &SemanticContext<'_, 'src>,
+        type_system: &TypeSystem<'src>,
+        void_handling: VoidIs,
+    ) -> CheckedType<'src> {
+        use self::ast::BasicType::*;
+        match &basic_ty.data {
+            Int => CheckedType::Int,
+            Boolean => CheckedType::Boolean,
+            Void => match void_handling {
+                VoidIs::Allowed => CheckedType::Void,
+                VoidIs::Forbidden => {
+                    context.report_error(&basic_ty.span, SemanticError::VoidNotAllowed);
+
+                    CheckedType::Void
+                }
+            },
+            Custom(name) => {
+                if !type_system.is_type_defined(*name) {
+                    context.report_error(
+                        &basic_ty.span,
+                        SemanticError::ClassDoesNotExist {
+                            class_name: name.to_string(),
+                        },
+                    );
+                }
+                CheckedType::TypeRef(*name)
+            }
+            // Parser only yields MainParam in that one case we handle anyways
+            MainParam => unreachable!(),
+        }
+    }
+
+    pub fn checked_type_from_ty(&mut self,
+        ty: &ast::Type<'src>,
+        context: &SemanticContext<'_, 'src>,
+        type_system: &TypeSystem<'src>,
+        void_handling: VoidIs,
+    ) -> CheckedType<'src> {
+        let void_handling = if ty.array_depth > 0 {
+            VoidIs::Forbidden
+        } else {
+            void_handling
+        };
+
+        let mut checked_ty = self.checked_type_from_basic_ty(
+            &ty.basic, context, type_system, void_handling);
+
+        for _ in 0..ty.array_depth {
+            checked_ty = CheckedType::Array(Box::new(checked_ty));
+        }
+
+        checked_ty
+    }
 }

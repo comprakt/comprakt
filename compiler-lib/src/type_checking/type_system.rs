@@ -4,47 +4,60 @@ use std::{
     fmt,
 };
 
-#[derive(Debug, Default)]
-pub struct TypeSystem<'src> {
-    defined_classes: HashMap<Symbol<'src>, ClassDef<'src>>,
-}
-
 #[derive(Debug)]
 pub struct ClassDoesNotExist;
 #[derive(Debug)]
 pub struct ClassAlreadyDeclared;
+
+#[derive(Debug, Default)]
+pub struct TypeSystem<'src> {
+    defined_classes: HashMap<Symbol<'src>, ClassDef<'src>>,
+}
 
 impl<'src> TypeSystem<'src> {
     pub fn is_type_defined(&self, name: Symbol<'src>) -> bool {
         self.defined_classes.contains_key(&name)
     }
 
-    pub fn add_class_def(&mut self, class_def: ClassDef<'src>) -> Result<(), ClassAlreadyDeclared> {
+    pub fn add_class_def<'a>(&'a mut self, class_def: ClassDef<'src>)
+    -> Result<(&'a ClassDef<'src>, ClassDefId<'src>), ClassAlreadyDeclared> {
         match self.defined_classes.entry(class_def.name) {
-            Entry::Occupied(_) => return Err(ClassAlreadyDeclared),
-            Entry::Vacant(e) => e.insert(class_def),
-        };
-        Ok(())
+            Entry::Occupied(_) => Err(ClassAlreadyDeclared),
+            Entry::Vacant(e) => {
+                let id = ClassDefId { id: class_def.name };
+                Ok((e.insert(class_def), id))
+            },
+        }
     }
 
-    pub fn update_existing_class_def(
-        &mut self,
-        class_def: ClassDef<'src>,
-    ) -> Result<(), ClassDoesNotExist> {
-        match self.defined_classes.entry(class_def.name) {
-            Entry::Occupied(mut e) => e.insert(class_def),
-            Entry::Vacant(_) => return Err(ClassDoesNotExist),
-        };
-        Ok(())
+    pub fn get_class_mut(&mut self, id: ClassDefId<'src>) -> &mut ClassDef<'src> {
+        self.defined_classes.get_mut(&id.id)
+            .expect("Ids always point to existing classes")
     }
 
-    pub fn resolve_type_ref(&self, type_ref: Symbol<'src>) -> Option<&ClassDef<'src>> {
-        self.defined_classes.get(&type_ref)
+    pub fn get_class(&self, id: ClassDefId<'src>) -> &ClassDef<'src> {
+        self.defined_classes.get(&id.id)
+            .expect("Ids always point to existing classes")
     }
+
+    pub fn lookup_class_mut(&mut self, name: Symbol<'src>) -> Option<&mut ClassDef<'src>> {
+        self.defined_classes.get_mut(&name)
+    }
+
+    pub fn lookup_class(&self, name: Symbol<'src>) -> Option<&ClassDef<'src>> {
+        self.defined_classes.get(&name)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct ClassDefId<'src> {
+    id: Symbol<'src>,
 }
 
 #[derive(Debug)]
 pub struct ClassDef<'src> {
+    // tracks how many redefinitions there are
+    redefinitions: usize,
     pub name: Symbol<'src>,
     fields: HashMap<Symbol<'src>, ClassFieldDef<'src>>,
     methods: HashMap<Symbol<'src>, ClassMethodDef<'src>>,
@@ -53,10 +66,16 @@ pub struct ClassDef<'src> {
 impl<'src> ClassDef<'src> {
     pub fn new(name: Symbol<'src>) -> ClassDef<'src> {
         ClassDef {
+            redefinitions: 0,
             name,
             fields: HashMap::new(),
             methods: HashMap::new(),
         }
+    }
+
+    pub fn get_new_redefinition_number(&mut self) -> usize {
+        self.redefinitions += 1;
+        self.redefinitions
     }
 
     pub fn add_field(&mut self, field: ClassFieldDef<'src>) -> Result<(), ()> {
