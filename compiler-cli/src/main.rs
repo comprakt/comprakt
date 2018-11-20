@@ -72,21 +72,54 @@ enum CliCommand {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
+    /// Output the AST as normalized MiniJava.
     #[structopt(name = "--print-ast")]
     PrintAst {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
-    #[structopt(name = "--debug-dumpast")] // nonstandard
+    /// Dump the AST in a format close to the actual internal data structure
+    #[structopt(name = "--debug-dumpast")]
     DebugDumpAst {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
+    /// Analyze the input file and report errors, but don't build object files
     #[structopt(name = "--check")]
     Check {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
+    /// Output x86-assembler or the firm graph in various stages
+    #[structopt(name = "--assemble")]
+    Assemble(AssembleOptions),
+}
+
+#[derive(StructOpt, Debug, Clone)]
+pub struct AssembleOptions {
+    /// Output the matured unlowered firm graph as VCG file
+    #[structopt(long = "--firm-graph", short = "-g", parse(from_os_str))]
+    pub dump_firm_graph: Option<PathBuf>,
+    /// Output the matured lowered firm graph as VCG file
+    #[structopt(
+        long = "--lowered-firm-graph",
+        short = "-l",
+        parse(from_os_str)
+    )]
+    pub dump_lowered_firm_graph: Option<PathBuf>,
+    /// Write generated assembler code to the given file.
+    #[structopt(long = "--assembler", short = "-a", parse(from_os_str))]
+    pub dump_assembler: Option<PathBuf>,
+}
+
+impl Into<compiler_lib::firm::AssembleOptions> for AssembleOptions {
+    fn into(self) -> compiler_lib::firm::AssembleOptions {
+        compiler_lib::firm::AssembleOptions {
+            dump_assembler: self.dump_assembler,
+            dump_lowered_firm_graph: self.dump_lowered_firm_graph,
+            dump_firm_graph: self.dump_firm_graph,
+        }
+    }
 }
 
 fn main() {
@@ -105,6 +138,7 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path),
+        CliCommand::Assemble(options) => cmd_assemble(&options.clone().into()),
     }
 }
 
@@ -122,6 +156,11 @@ fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error> {
     for cause in err.iter_causes() {
         writeln!(writer, "caused by: {}", cause)?;
     }
+    Ok(())
+}
+
+fn cmd_assemble(opts: &compiler_lib::firm::AssembleOptions) -> Result<(), Error> {
+    unsafe { compiler_lib::firm::assemble(opts) };
     Ok(())
 }
 
