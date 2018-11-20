@@ -303,7 +303,7 @@ where
             .unwrap_or_else(Alternatives::new);
 
         want.matching(&actual.data)
-            .map(|yielded| actual.map(|_| yielded))
+            .map(|yielded| actual.map_ref(|_| yielded))
             .ok_or_else(|| {
                 current_alternatives.insert(want.into());
                 WithSpan(Spanned {
@@ -416,12 +416,12 @@ where
                 self.eat(exactly(Operator::LeftBracket))?;
                 let java_string_array_close = self.eat(exactly(Operator::RightBracket))?;
                 let string_array_type = Spanned {
+                    span: Span::combine(&java_string.span, &java_string_array_close.span),
                     data: ast::Type {
                         // treat String[] as an opaque type
                         basic: Spanned::new(java_string.span, ast::BasicType::MainParam),
                         array_depth: 0,
                     },
-                    span: Span::combine(&java_string.span, &java_string_array_close.span),
                 };
                 let param_name = self.eat(Identifier)?;
                 let params_end = self.eat(exactly(Operator::RightParen))?;
@@ -631,11 +631,8 @@ where
             assert!(operand_stack.len() >= 2); // Invariant: we only construct valid RPN
             let rhs = operand_stack.pop().unwrap();
             let lhs = operand_stack.pop().unwrap();
-            let res = box Spanned {
-                span: Span::new(lhs.span.start_position(), rhs.span.end_position()),
-                data: ast::Expr::Binary(op, lhs, rhs),
-            };
-            operand_stack.push(res);
+            let res = lhs.combine_boxed_with_boxed(rhs, |lhs, rhs| ast::Expr::Binary(op, lhs, rhs));
+            operand_stack.push(box res);
         }
 
         operand_stack.push(self.parse_unary_expression()?);
@@ -678,10 +675,7 @@ where
         let mut expr = self.parse_postfix_expression()?;
 
         for op in ops {
-            expr = box Spanned {
-                span: Span::combine(&op.span, &expr.span),
-                data: ast::Expr::Unary(op.data, expr),
-            };
+            expr = box op.combine_with_boxed(expr, |op, expr| ast::Expr::Unary(op.data, expr));
         }
 
         Ok(expr)
@@ -698,22 +692,20 @@ where
                     // method call: EXPR.ident(arg1, arg2, ...)
                     let args = self.parse_parameter_values()?;
 
-                    Spanned {
-                        span: Span::combine(&expr.span, &args.span),
-                        data: ast::Expr::MethodInvocation(expr, adressee, args),
-                    }
+                    expr.combine_boxed_with(args, |expr, args| {
+                        ast::Expr::MethodInvocation(expr, adressee, args)
+                    })
                 } else {
                     // member reference: EXPR.ident
-                    Spanned {
-                        span: Span::combine(&expr.span, &adressee.span),
-                        data: ast::Expr::FieldAccess(expr, adressee),
-                    }
+                    expr.combine_boxed_with(adressee, ast::Expr::FieldAccess)
                 }
             } else if self.eat_optional(exactly(Operator::LeftBracket)).is_some() {
                 // array access: EXPR[EXPR]
                 let index_expr = self.parse_expression()?;
                 let spanned = self.eat(exactly(Operator::RightBracket))?;
 
+                // Can't use Spanned::combine because the `]` is not included in the span of the
+                // index_expr
                 Spanned {
                     span: Span::combine(&expr.span, &spanned.span),
                     data: ast::Expr::ArrayAccess(expr, index_expr),
