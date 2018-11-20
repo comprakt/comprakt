@@ -299,6 +299,7 @@ fn do_prettyprint_expr<'a, 't>(expr: &'a ast::Expr<'t>, printer: &mut IndentPrin
         Null => printer.print_str(&"null"),
         Boolean(val) => printer.print(format_args!("{}", val)),
         Int(val) => printer.print(format_args!("{}", val.data)),
+        NegInt(val) => printer.print(format_args!("-{}", val.data)),
         Var(name) => printer.print(format_args!("{}", name.data)),
         ThisMethodInvocation(name, args) => {
             printer.print(format_args!("{}(", name.data));

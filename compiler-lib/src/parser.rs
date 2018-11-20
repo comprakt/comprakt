@@ -303,7 +303,7 @@ where
             .unwrap_or_else(Alternatives::new);
 
         want.matching(&actual.data)
-            .map(|yielded| actual.map(|_| yielded))
+            .map(|yielded| actual.map_ref(|_| yielded))
             .ok_or_else(|| {
                 current_alternatives.insert(want.into());
                 WithSpan(Spanned {
@@ -316,17 +316,15 @@ where
             })
     }
 
-    fn eat_optional<E>(&mut self, want: E) -> SyntaxResult<'f, Option<Spanned<'f, E::Yields>>>
+    /// This cannot fail, because the only possible error is EOF, and that is
+    /// covered by `None`
+    fn eat_optional<E>(&mut self, want: E) -> Option<Spanned<'f, E::Yields>>
     where
         E: ExpectedToken<'f>,
     {
-        if self.lexer.eof() {
-            return Ok(None);
-        }
+        let got = self.lexer.peek().ok()?;
 
-        let got = self.lexer.peek()?;
-
-        Ok(match want.matching(&got.data) {
+        match want.matching(&got.data) {
             Some(yielded) => {
                 let got = self.lexer.next().unwrap();
                 self.alternatives.pop_front();
@@ -339,17 +337,17 @@ where
                 self.alternatives[0].insert(want.into());
                 None
             }
-        })
+        }
     }
 
-    fn tastes_like<E>(&mut self, want: E) -> SyntaxResult<'f, bool>
+    fn tastes_like<E>(&mut self, want: E) -> bool
     where
         E: ExpectedToken<'f>,
     {
         self.nth_tastes_like(0, want)
     }
 
-    fn nth_tastes_like<E>(&mut self, n: usize, want: E) -> SyntaxResult<'f, bool>
+    fn nth_tastes_like<E>(&mut self, n: usize, want: E) -> bool
     where
         E: ExpectedToken<'f>,
     {
@@ -366,7 +364,7 @@ where
             self.alternatives[n].insert(want.into());
         }
 
-        Ok(tastes_good)
+        tastes_good
     }
 
     pub fn parse(&mut self) -> Result<ast::AST<'f>, MaybeSpanned<'f, SyntaxError>> {
@@ -395,7 +393,7 @@ where
 
             let mut members = Vec::new();
             self.eat(exactly(Operator::LeftBrace))?;
-            while self.eat_optional(exactly(Operator::RightBrace))?.is_none() {
+            while self.eat_optional(exactly(Operator::RightBrace)).is_none() {
                 members.push(self.parse_class_member()?);
             }
 
@@ -406,7 +404,7 @@ where
     fn parse_class_member(&mut self) -> ParserResult<'f, ast::ClassMember<'f>> {
         spanned!(self, {
             self.eat(exactly(Keyword::Public))?;
-            let is_static = self.eat_optional(exactly(Keyword::Static))?.is_some();
+            let is_static = self.eat_optional(exactly(Keyword::Static)).is_some();
 
             Ok(if is_static {
                 // Main Method
@@ -418,12 +416,12 @@ where
                 self.eat(exactly(Operator::LeftBracket))?;
                 let java_string_array_close = self.eat(exactly(Operator::RightBracket))?;
                 let string_array_type = Spanned {
+                    span: Span::combine(&java_string.span, &java_string_array_close.span),
                     data: ast::Type {
                         // treat String[] as an opaque type
                         basic: Spanned::new(java_string.span, ast::BasicType::MainParam),
                         array_depth: 0,
                     },
-                    span: Span::combine(&java_string.span, &java_string_array_close.span),
                 };
                 let param_name = self.eat(Identifier)?;
                 let params_end = self.eat(exactly(Operator::RightParen))?;
@@ -447,7 +445,7 @@ where
                 let ty = self.parse_type()?;
                 let name = self.eat(Identifier)?.data;
 
-                let kind = if self.tastes_like(exactly(Operator::LeftParen))? {
+                let kind = if self.tastes_like(exactly(Operator::LeftParen)) {
                     // Method
                     let params = self.parse_parameter_declarations()?;
                     self.skip_method_rest()?;
@@ -466,7 +464,7 @@ where
     }
 
     fn skip_method_rest(&mut self) -> SyntaxResult<'f, ()> {
-        if self.eat_optional(exactly(Keyword::Throws))?.is_some() {
+        if self.eat_optional(exactly(Keyword::Throws)).is_some() {
             self.eat(Identifier)?;
         }
 
@@ -490,7 +488,7 @@ where
             let basic = self.parse_basic_type()?;
 
             let mut array_depth = 0;
-            while self.eat_optional(exactly(Operator::LeftBracket))?.is_some() {
+            while self.eat_optional(exactly(Operator::LeftBracket)).is_some() {
                 self.eat(exactly(Operator::RightBracket))?;
                 array_depth += 1;
             }
@@ -500,16 +498,17 @@ where
     }
 
     fn parse_basic_type(&mut self) -> SyntaxResult<'f, Spanned<'f, ast::BasicType<'f>>> {
-        if let Some(basic) = self.eat_optional(exactly(Keyword::Int))? {
-            Ok(Spanned::new(basic.span, ast::BasicType::Int))
-        } else if let Some(basic) = self.eat_optional(exactly(Keyword::Boolean))? {
-            Ok(Spanned::new(basic.span, ast::BasicType::Boolean))
-        } else if let Some(basic) = self.eat_optional(exactly(Keyword::Void))? {
-            Ok(Spanned::new(basic.span, ast::BasicType::Void))
-        } else {
-            let sym = self.eat(Identifier)?;
-            Ok(Spanned::new(sym.span, ast::BasicType::Custom(sym.data)))
-        }
+        Ok(
+            if let Some(basic) = self.eat_optional(exactly(Keyword::Int)) {
+                basic.map(|_| ast::BasicType::Int)
+            } else if let Some(basic) = self.eat_optional(exactly(Keyword::Boolean)) {
+                basic.map(|_| ast::BasicType::Boolean)
+            } else if let Some(basic) = self.eat_optional(exactly(Keyword::Void)) {
+                basic.map(|_| ast::BasicType::Void)
+            } else {
+                self.eat(Identifier)?.map(ast::BasicType::Custom)
+            },
+        )
     }
 
     fn parse_block(&mut self) -> ParserResult<'f, ast::Block<'f>> {
@@ -517,7 +516,7 @@ where
             self.eat(exactly(Operator::LeftBrace))?;
 
             let mut statements = Vec::new();
-            while self.eat_optional(exactly(Operator::RightBrace))?.is_none() {
+            while self.eat_optional(exactly(Operator::RightBrace)).is_none() {
                 statements.push(self.parse_block_statement()?);
             }
 
@@ -542,34 +541,34 @@ where
         spanned!(self, {
             use self::ast::Stmt::*;
 
-            if self.tastes_like(exactly(Operator::LeftBrace))? {
-                Ok(Block(self.parse_block()?))
-            } else if self.eat_optional(exactly(Operator::Semicolon))?.is_some() {
+            Ok(if self.tastes_like(exactly(Operator::LeftBrace)) {
+                Block(self.parse_block()?)
+            } else if self.eat_optional(exactly(Operator::Semicolon)).is_some() {
                 // empty statement
-                Ok(Empty)
-            } else if self.eat_optional(exactly(Keyword::If))?.is_some() {
+                Empty
+            } else if self.eat_optional(exactly(Keyword::If)).is_some() {
                 self.eat(exactly(Operator::LeftParen))?;
                 let cond = self.parse_expression()?;
                 self.eat(exactly(Operator::RightParen))?;
 
                 let if_arm = self.parse_statement()?;
-                let else_arm = if self.eat_optional(exactly(Keyword::Else))?.is_some() {
+                let else_arm = if self.eat_optional(exactly(Keyword::Else)).is_some() {
                     Some(self.parse_statement()?)
                 } else {
                     None
                 };
 
-                Ok(If(cond, box if_arm, else_arm.map(Box::new)))
-            } else if self.eat_optional(exactly(Keyword::While))?.is_some() {
+                If(cond, box if_arm, else_arm.map(Box::new))
+            } else if self.eat_optional(exactly(Keyword::While)).is_some() {
                 self.eat(exactly(Operator::LeftParen))?;
                 let cond = self.parse_expression()?;
                 self.eat(exactly(Operator::RightParen))?;
 
                 let body = self.parse_statement()?;
 
-                Ok(While(cond, box body))
-            } else if self.eat_optional(exactly(Keyword::Return))?.is_some() {
-                let expr = if !self.tastes_like(exactly(Operator::Semicolon))? {
+                While(cond, box body)
+            } else if self.eat_optional(exactly(Keyword::Return)).is_some() {
+                let expr = if !self.tastes_like(exactly(Operator::Semicolon)) {
                     Some(self.parse_expression()?)
                 } else {
                     None
@@ -577,22 +576,22 @@ where
 
                 self.eat(exactly(Operator::Semicolon))?;
 
-                Ok(Return(expr))
+                Return(expr)
             } else if allow_local_var_decl
-                && (self.tastes_like(exactly(Keyword::Int))?
-                    || self.tastes_like(exactly(Keyword::Boolean))?
-                    || self.tastes_like(exactly(Keyword::Void))?
-                    || self.tastes_like(Identifier)?)
-                && (self.nth_tastes_like(1, Identifier)?
-                    || (self.nth_tastes_like(1, exactly(Operator::LeftBracket))?
-                        && self.nth_tastes_like(2, exactly(Operator::RightBracket))?))
+                && (self.tastes_like(exactly(Keyword::Int))
+                    || self.tastes_like(exactly(Keyword::Boolean))
+                    || self.tastes_like(exactly(Keyword::Void))
+                    || self.tastes_like(Identifier))
+                && (self.nth_tastes_like(1, Identifier)
+                    || (self.nth_tastes_like(1, exactly(Operator::LeftBracket))
+                        && self.nth_tastes_like(2, exactly(Operator::RightBracket))))
             {
                 // next (0th) tastes like *BasicType*
                 // and next after that (1st) like *Identifier* or 1st+2nd like '[]'
                 // Local var decl
                 let ty = self.parse_type()?;
                 let name = self.eat(Identifier)?;
-                let init = if self.eat_optional(exactly(Operator::Equal))?.is_some() {
+                let init = if self.eat_optional(exactly(Operator::Equal)).is_some() {
                     Some(self.parse_expression()?)
                 } else {
                     None
@@ -600,13 +599,13 @@ where
 
                 self.eat(exactly(Operator::Semicolon))?;
 
-                Ok(LocalVariableDeclaration(ty, name, init))
+                LocalVariableDeclaration(ty, name, init)
             } else {
                 let expr = self.parse_expression()?;
                 self.eat(exactly(Operator::Semicolon))?;
 
-                Ok(Expression(expr))
-            }
+                Expression(expr)
+            })
         })
     }
 
@@ -633,18 +632,15 @@ where
             assert!(operand_stack.len() >= 2); // Invariant: we only construct valid RPN
             let rhs = operand_stack.pop().unwrap();
             let lhs = operand_stack.pop().unwrap();
-            let res = box Spanned {
-                span: Span::new(lhs.span.start_position(), rhs.span.end_position()),
-                data: ast::Expr::Binary(op, lhs, rhs),
-            };
-            operand_stack.push(res);
+            let res = lhs.combine_boxed_with_boxed(rhs, |lhs, rhs| ast::Expr::Binary(op, lhs, rhs));
+            operand_stack.push(box res);
         }
 
         operand_stack.push(self.parse_unary_expression()?);
 
         // Convert to RPN, but "evaluate" RPN on-the-fly (where "evaluate" means
         // constructing an AST)
-        while let Some((op, prec, assoc)) = self.eat_optional(BinaryOp)?.map(|spanned| spanned.data)
+        while let Some((op, prec, assoc)) = self.eat_optional(BinaryOp).map(|spanned| spanned.data)
         {
             // This is the part that replaces the recursion from precedence climbing.
             // Instead, we use an explicit `operator_stack` of operands that we need to
@@ -663,7 +659,7 @@ where
         }
 
         // Consume remaining operators
-        while let Some((op, _, _)) = operator_stack.pop() {
+        for (op, _, _) in operator_stack.drain(..).rev() {
             rpn_eval(&mut operand_stack, op)
         }
 
@@ -673,17 +669,24 @@ where
 
     fn parse_unary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
         let mut ops = Vec::new();
-        while let Some(op) = self.eat_optional(UnaryOp)? {
+        while let Some(op) = self.eat_optional(UnaryOp) {
             ops.push(op);
         }
 
-        let mut expr = self.parse_postfix_expression()?;
+        let mut expr = if ops.last().map_or(false, |op| op.data == ast::UnaryOp::Neg) {
+            if let Some(lit) = self.eat_optional(IntegerLiteral) {
+                // Unwrap is safe, because `.map_or(false, ...`
+                let op = ops.pop().unwrap();
+                box op.combine_with(lit, |_, lit| ast::Expr::NegInt(lit))
+            } else {
+                self.parse_postfix_expression()?
+            }
+        } else {
+            self.parse_postfix_expression()?
+        };
 
         for op in ops {
-            expr = box Spanned {
-                span: Span::combine(&op.span, &expr.span),
-                data: ast::Expr::Unary(op.data, expr),
-            };
+            expr = box op.combine_with_boxed(expr, |op, expr| ast::Expr::Unary(op.data, expr));
         }
 
         Ok(expr)
@@ -693,29 +696,27 @@ where
         let mut expr = self.parse_primary_expression()?;
 
         loop {
-            expr = box if self.eat_optional(exactly(Operator::Dot))?.is_some() {
+            expr = box if self.eat_optional(exactly(Operator::Dot)).is_some() {
                 let adressee = self.eat(Identifier)?;
 
-                if self.tastes_like(exactly(Operator::LeftParen))? {
+                if self.tastes_like(exactly(Operator::LeftParen)) {
                     // method call: EXPR.ident(arg1, arg2, ...)
                     let args = self.parse_parameter_values()?;
 
-                    Spanned {
-                        span: Span::combine(&expr.span, &args.span),
-                        data: ast::Expr::MethodInvocation(expr, adressee, args),
-                    }
+                    expr.combine_boxed_with(args, |expr, args| {
+                        ast::Expr::MethodInvocation(expr, adressee, args)
+                    })
                 } else {
                     // member reference: EXPR.ident
-                    Spanned {
-                        span: Span::combine(&expr.span, &adressee.span),
-                        data: ast::Expr::FieldAccess(expr, adressee),
-                    }
+                    expr.combine_boxed_with(adressee, ast::Expr::FieldAccess)
                 }
-            } else if self.eat_optional(exactly(Operator::LeftBracket))?.is_some() {
+            } else if self.eat_optional(exactly(Operator::LeftBracket)).is_some() {
                 // array access: EXPR[EXPR]
                 let index_expr = self.parse_expression()?;
                 let spanned = self.eat(exactly(Operator::RightBracket))?;
 
+                // Can't use Spanned::combine because the `]` is not included in the span of the
+                // index_expr
                 Spanned {
                     span: Span::combine(&expr.span, &spanned.span),
                     data: ast::Expr::ArrayAccess(expr, index_expr),
@@ -732,16 +733,16 @@ where
         spanned!(self, {
             use self::ast::Expr::*;
 
-            if let Some(adressee) = self.eat_optional(Identifier)? {
-                if self.tastes_like(exactly(Operator::LeftParen))? {
+            Ok(if let Some(adressee) = self.eat_optional(Identifier) {
+                if self.tastes_like(exactly(Operator::LeftParen)) {
                     // function call
                     let params = self.parse_parameter_values()?;
-                    Ok(ThisMethodInvocation(adressee, params))
+                    ThisMethodInvocation(adressee, params)
                 } else {
                     // var ref
-                    Ok(Var(adressee))
+                    Var(adressee)
                 }
-            } else if self.eat_optional(exactly(Operator::LeftParen))?.is_some() {
+            } else if self.eat_optional(exactly(Operator::LeftParen)).is_some() {
                 // parenthesized expression
                 let expr = self.parse_expression()?;
                 self.eat(exactly(Operator::RightParen))?;
@@ -749,14 +750,14 @@ where
                 // TODO Early return is dirty.. But we need it because we don't want a
                 // `ExprKind:Parenthesized` (for abstraction)
                 return Ok(expr);
-            } else if self.eat_optional(exactly(Keyword::New))?.is_some() {
-                if self.nth_tastes_like(1, exactly(Operator::LeftParen))? {
+            } else if self.eat_optional(exactly(Keyword::New)).is_some() {
+                if self.nth_tastes_like(1, exactly(Operator::LeftParen)) {
                     // new object expression
                     let new_type = self.eat(Identifier)?;
 
                     self.eat(exactly(Operator::LeftParen))?;
                     self.eat(exactly(Operator::RightParen))?;
-                    Ok(NewObject(new_type))
+                    NewObject(new_type)
                 } else {
                     // new array expression
                     let new_type = self.parse_basic_type()?;
@@ -765,28 +766,28 @@ where
                     self.eat(exactly(Operator::RightBracket))?;
 
                     let mut array_depth = 0;
-                    while self.tastes_like(exactly(Operator::LeftBracket))?
-                        && self.nth_tastes_like(1, exactly(Operator::RightBracket))?
+                    while self.tastes_like(exactly(Operator::LeftBracket))
+                        && self.nth_tastes_like(1, exactly(Operator::RightBracket))
                     {
                         self.eat(exactly(Operator::LeftBracket))?;
                         self.eat(exactly(Operator::RightBracket))?;
                         array_depth += 1;
                     }
 
-                    Ok(NewArray(new_type, first_index_expr, array_depth))
+                    NewArray(new_type, first_index_expr, array_depth)
                 }
-            } else if self.eat_optional(exactly(Keyword::Null))?.is_some() {
-                Ok(Null)
-            } else if self.eat_optional(exactly(Keyword::False))?.is_some() {
-                Ok(Boolean(false))
-            } else if self.eat_optional(exactly(Keyword::True))?.is_some() {
-                Ok(Boolean(true))
-            } else if self.eat_optional(exactly(Keyword::This))?.is_some() {
-                Ok(This)
+            } else if self.eat_optional(exactly(Keyword::Null)).is_some() {
+                Null
+            } else if self.eat_optional(exactly(Keyword::False)).is_some() {
+                Boolean(false)
+            } else if self.eat_optional(exactly(Keyword::True)).is_some() {
+                Boolean(true)
+            } else if self.eat_optional(exactly(Keyword::This)).is_some() {
+                This
             } else {
                 let lit = self.eat(IntegerLiteral)?;
-                Ok(Int(lit))
-            }
+                Int(lit)
+            })
         })
         .map(Box::new)
     }
@@ -803,9 +804,9 @@ where
             let mut list = Vec::new();
             self.eat(exactly(Operator::LeftParen))?;
 
-            if !self.tastes_like(exactly(Operator::RightParen))? {
+            if !self.tastes_like(exactly(Operator::RightParen)) {
                 list.push(parse_element(self)?);
-                while self.eat_optional(exactly(Operator::Comma))?.is_some() {
+                while self.eat_optional(exactly(Operator::Comma)).is_some() {
                     list.push(parse_element(self)?);
                 }
             }

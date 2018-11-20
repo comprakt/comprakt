@@ -255,36 +255,30 @@ impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
                     }
                 }
 
-                Expr(expr) => {
-                    match &expr.data {
-                        ast::Expr::Unary(ast::UnaryOp::Neg, expr) => {
-                            // This is visited before the containing int is checked.
-                            // If the int is MIN_INT, return without checking the int.
-                            if let ast::Expr::Int(int) = &expr.data {
-                                if int.data == "2147483648" {
-                                    return;
-                                }
-                            }
-                        }
-                        ast::Expr::Int(int) => {
-                            if int.parse::<i32>().is_err() {
-                                self.context.diagnostics.error(&Spanned {
-                                    span: expr.span,
-                                    data: SemanticError::IntTooLarge {
-                                        int: int.to_string(),
-                                    },
-                                });
-                            }
-                        }
-                        _ => (),
+                Expr(expr) => match &expr.data {
+                    ast::Expr::NegInt(int) if int.data != "2147483648" => {
+                        self.check_int(int.data, int.span)
                     }
-                }
+                    ast::Expr::Int(int) => self.check_int(int.data, int.span),
+                    _ => (),
+                },
 
                 _ => (),
             };
 
             self.do_visit(&child)
         });
+    }
+
+    fn check_int(&self, int: &str, span: Span<'_>) {
+        if int.parse::<i32>().is_err() {
+            self.context.diagnostics.error(&Spanned {
+                span,
+                data: SemanticError::IntTooLarge {
+                    int: int.to_string(),
+                },
+            });
+        }
     }
 
     fn check_method_always_returns(
