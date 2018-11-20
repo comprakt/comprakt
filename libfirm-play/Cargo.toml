@@ -1,0 +1,8 @@
+[package]
+name = "libfirm-play"
+version = "0.1.0"
+authors = ["flip1995 <hello@philkrones.com>"]
+edition = "2018"
+
+[dependencies]
+libfirm-rs-bindings = { path = "../libfirm-rs-bindings" }

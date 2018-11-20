@@ -410,6 +410,13 @@ version = "0.2.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "libfirm-play"
+version = "0.1.0"
+dependencies = [
+ "libfirm-rs-bindings 0.0.1",
+]
+
+[[package]]
 name = "libfirm-rs"
 version = "0.0.1"
 dependencies = [
