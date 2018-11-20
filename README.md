@@ -4,28 +4,36 @@
 
 A [MiniJava](https://pp.ipd.kit.edu/lehre/WS201819/compprakt/intern/sprachbericht.pdf) compiler
 
-## Install Rust
-
-[rust-lang.org](https://www.rust-lang.org/en-US/install.html)
+## Checkout & Install Build Dependencies
 
 ```bash
+# Check out this repo and submodules
+git clone https://github.com/comprakt/comprakt.git
+git submodule update --init --recursive
+# Install Rust using rustup and the toolchain we are using
 curl https://sh.rustup.rs -sSf | sh
 rustup toolchain install nightly-2018-10-14
-```
 
-## Tools
-
-We're using the tools [`rustfmt`](https://github.com/rust-lang-nursery/rustfmt)
-to format our code and
-[`clippy`](https://github.com/rust-lang-nursery/rust-clippy) as a linter to keep
-the code clean, idiomatic and correct. These tools are available in
-`nightly-2018-10-14` via `rustup`:
-
-```bash
+cd comprakt
 rustup component add clippy-preview
 rustup component add rustfmt-preview
 ```
 
+Additionally, make sure the following build dependencies of *libFirm* are installed (see `libfirm-rs-bindings/build.rs`):
+- Python (2.7.x or >=3.3 are supported)
+- Perl
+- an ANSI C99 compiler (gcc, clang, icc are known to work)
+- Git
+- GNU Make
+
+More detailed Rust install instructions can be found at [rust-lang.org](https://www.rust-lang.org/en-US/install.html).
+
+## Tools
+
+We use the tools [`rustfmt`](https://github.com/rust-lang-nursery/rustfmt)
+to format our code and
+[`clippy`](https://github.com/rust-lang-nursery/rust-clippy) as a linter to keep
+the code clean, idiomatic and correct.
 To run those tools use
 
 ```bash
@@ -70,6 +78,8 @@ Before creating a PR make sure to run
 cargo clippy
 cargo fmt --all
 cargo test
+# or
+./build --ci
 ```
 
 locally. If one of these commands produce an error the CI will fail.
