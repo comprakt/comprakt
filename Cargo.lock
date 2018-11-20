@@ -359,6 +359,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "inflections"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "inspect-ast"
 version = "0.1.0"
 dependencies = [
@@ -421,6 +426,7 @@ name = "libfirm-rs-bindings"
 version = "0.0.1"
 dependencies = [
  "bindgen 0.42.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "inflections 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -535,6 +541,13 @@ dependencies = [
  "pest 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.11.11 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "play-libfirm"
+version = "0.1.0"
+dependencies = [
+ "libfirm-rs-bindings 0.0.1",
 ]
 
 [[package]]
@@ -997,6 +1010,7 @@ dependencies = [
 "checksum handlebars 0.32.4 (registry+https://github.com/rust-lang/crates.io-index)" = "d89ec99d1594f285d4590fc32bac5f75cdab383f1123d504d27862c644a807dd"
 "checksum heck 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ea04fa3ead4e05e51a7c806fc07271fdbde4e246a6c6d1efd52e72230b771b82"
 "checksum humantime 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0484fda3e7007f2a4a0d9c3a703ca38c71c54c55602ce4660c419fd32e188c9e"
+"checksum inflections 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a257582fdcde896fd96463bf2d40eefea0580021c0712a0e2b028b60b47a837a"
 "checksum itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)" = "f58856976b776fedd95533137617a02fb25719f40e7d9b01c7043cd65474f450"
 "checksum itertools-num 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "83ca7b70b838f2e34bc6c2f367a1ed1cfe34fb82464adecadd31cdcc7da882fc"
 "checksum itoa 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "1306f3464951f30e30d12373d31c79fbd52d236e5e896fd92f96ec7babbbe60b"
