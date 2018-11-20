@@ -119,7 +119,7 @@ fn main() {
         set_store(new_Proj(store, mode_M, pn_Store_pn_Store_M));
 
         let i_val = get_value(5, mode_Is);
-        set_value(5, new_Add(i_val, new_Const(new_tarval_from_long(0, mode_Is))));
+        set_value(5, new_Add(i_val, new_Const(new_tarval_from_long(1, mode_Is))));
 
         let jmp = new_Jmp();
         add_immBlock_pred(loop_header, jmp);
