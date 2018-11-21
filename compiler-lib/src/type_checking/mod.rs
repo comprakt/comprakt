@@ -5,8 +5,10 @@ use crate::{
     semantics::SemanticError,
     strtab::{StringTable, Symbol},
 };
-use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
 
 pub mod expr_typechecker;
 pub mod method_body_typechecker;
@@ -32,8 +34,6 @@ impl<'a, 'b, T> PartialEq<RefEquality<'b, T>> for RefEquality<'a, T> {
     }
 }
 
-
-
 pub fn check<'a, 'src>(
     mut strtab: &'_ mut StringTable<'src>,
     ast: &'a ast::AST<'src>,
@@ -47,11 +47,7 @@ pub fn check<'a, 'src>(
             let mut type_system = TypeSystem::default();
             let mut type_analysis = TypeAnalysis::new();
 
-            let builtin_types = add_builtin_types(
-                &mut strtab,
-                &mut type_system,
-                &mut sem_context,
-            );
+            let builtin_types = add_builtin_types(&mut strtab, &mut type_system, &mut sem_context);
 
             add_types_from_ast(
                 &mut strtab,
@@ -64,7 +60,11 @@ pub fn check<'a, 'src>(
 
             for class_decl in &program.classes {
                 MethodBodyTypeChecker::check_methods(
-                    class_decl, &type_system, &mut type_analysis, &sem_context);
+                    class_decl,
+                    &type_system,
+                    &mut type_analysis,
+                    &sem_context,
+                );
             }
 
             type_system
@@ -93,7 +93,7 @@ impl<'ctx, 'src> SemanticContext<'ctx, 'src> {
 fn add_types_from_ast<'ctx, 'sem, 'src, 'a>(
     strtab: &mut StringTable<'src>,
     type_system: &'sem mut TypeSystem<'src>,
-    type_analysis:  &'sem mut TypeAnalysis<'src, 'a>,
+    type_analysis: &'sem mut TypeAnalysis<'src, 'a>,
     builtin_types: &BuiltinTypes<'src>,
     context: &SemanticContext<'ctx, 'src>,
     program: &'a ast::Program<'src>,
@@ -110,28 +110,28 @@ fn add_types_from_ast<'ctx, 'sem, 'src, 'a>(
                         name: class_decl.name.data.to_string(),
                     },
                 );
-                
+
                 let id = class_def.get_new_redefinition_number() + 1;
                 let string = format!("${}{}", class_decl.name.data, id);
                 // IMPROVEMENT do not leak memory
                 strtab.intern(Box::leak(Box::new(string)))
             }
-            None => class_decl.name.data
+            None => class_decl.name.data,
         };
 
         let (_, class_def_id) = type_system
             .add_class_def(ClassDef::new(name))
             .expect("The redefinition number ensures this cannot happen");
-        
+
         type_analysis.decl_set_class_id(&class_decl.data, class_def_id);
-        
     }
 
     for class_decl in &program.classes {
         // second pass: scan members of all types, check their type references against
         // the first pass
 
-        let class_def_id = type_analysis.decl_get_class_id(&class_decl)
+        let class_def_id = type_analysis
+            .decl_get_class_id(&class_decl)
             .expect("Class def was attached to this class_decl in first pass");
 
         for member in &class_decl.members {
@@ -211,7 +211,8 @@ fn add_types_from_ast<'ctx, 'sem, 'src, 'a>(
                         })
                         .collect();
 
-                    type_system.get_class_mut(class_def_id)
+                    type_system
+                        .get_class_mut(class_def_id)
                         .add_method(ClassMethodDef::new(
                             member.name,
                             checked_params,
@@ -316,10 +317,7 @@ fn add_builtin_types<'src>(
 }
 
 pub struct TypeAnalysis<'src, 'a> {
-    class_types: HashMap<
-        RefEquality<'a, ast::ClassDeclaration<'src>>,
-        ClassDefId<'src>,
-    >,
+    class_types: HashMap<RefEquality<'a, ast::ClassDeclaration<'src>>, ClassDefId<'src>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -335,19 +333,25 @@ impl<'src, 'a> TypeAnalysis<'src, 'a> {
         }
     }
 
-    pub fn decl_set_class_id<'sem>(&mut self,
+    pub fn decl_set_class_id<'sem>(
+        &mut self,
         class_decl: &'a ast::ClassDeclaration<'src>,
         name: ClassDefId<'src>,
     ) {
         self.class_types.insert(RefEquality(class_decl), name);
     }
 
-    pub fn decl_get_class_id(&mut self, class_decl: &'_ ast::ClassDeclaration<'src>
+    pub fn decl_get_class_id(
+        &mut self,
+        class_decl: &'_ ast::ClassDeclaration<'src>,
     ) -> Option<ClassDefId<'src>> {
-        self.class_types.get(&RefEquality(class_decl)).map(|id| id.clone())
+        self.class_types
+            .get(&RefEquality(class_decl))
+            .map(|id| id.clone())
     }
 
-    pub fn checked_type_from_basic_ty(&mut self,
+    pub fn checked_type_from_basic_ty(
+        &mut self,
         basic_ty: &Spanned<'src, ast::BasicType<'src>>,
         context: &SemanticContext<'_, 'src>,
         type_system: &TypeSystem<'src>,
@@ -381,7 +385,8 @@ impl<'src, 'a> TypeAnalysis<'src, 'a> {
         }
     }
 
-    pub fn checked_type_from_ty(&mut self,
+    pub fn checked_type_from_ty(
+        &mut self,
         ty: &ast::Type<'src>,
         context: &SemanticContext<'_, 'src>,
         type_system: &TypeSystem<'src>,
@@ -393,8 +398,8 @@ impl<'src, 'a> TypeAnalysis<'src, 'a> {
             void_handling
         };
 
-        let mut checked_ty = self.checked_type_from_basic_ty(
-            &ty.basic, context, type_system, void_handling);
+        let mut checked_ty =
+            self.checked_type_from_basic_ty(&ty.basic, context, type_system, void_handling);
 
         for _ in 0..ty.array_depth {
             checked_ty = CheckedType::Array(Box::new(checked_ty));

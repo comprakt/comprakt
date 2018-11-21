@@ -64,7 +64,8 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
         type_analysis: &'ana mut TypeAnalysis<'src, 'sem>,
         context: &'sem SemanticContext<'ctx, 'src>,
     ) {
-        let current_class_id = type_analysis.decl_get_class_id(class_decl)
+        let current_class_id = type_analysis
+            .decl_get_class_id(class_decl)
             .expect("Class has to be already defined to check methods");
         let current_class = type_system.get_class(current_class_id);
 

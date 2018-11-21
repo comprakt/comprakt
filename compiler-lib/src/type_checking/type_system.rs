@@ -19,24 +19,28 @@ impl<'src> TypeSystem<'src> {
         self.defined_classes.contains_key(&name)
     }
 
-    pub fn add_class_def<'a>(&'a mut self, class_def: ClassDef<'src>)
-    -> Result<(&'a ClassDef<'src>, ClassDefId<'src>), ClassAlreadyDeclared> {
+    pub fn add_class_def<'a>(
+        &'a mut self,
+        class_def: ClassDef<'src>,
+    ) -> Result<(&'a ClassDef<'src>, ClassDefId<'src>), ClassAlreadyDeclared> {
         match self.defined_classes.entry(class_def.name) {
             Entry::Occupied(_) => Err(ClassAlreadyDeclared),
             Entry::Vacant(e) => {
                 let id = ClassDefId { id: class_def.name };
                 Ok((e.insert(class_def), id))
-            },
+            }
         }
     }
 
     pub fn get_class_mut(&mut self, id: ClassDefId<'src>) -> &mut ClassDef<'src> {
-        self.defined_classes.get_mut(&id.id)
+        self.defined_classes
+            .get_mut(&id.id)
             .expect("Ids always point to existing classes")
     }
 
     pub fn get_class(&self, id: ClassDefId<'src>) -> &ClassDef<'src> {
-        self.defined_classes.get(&id.id)
+        self.defined_classes
+            .get(&id.id)
             .expect("Ids always point to existing classes")
     }
 
