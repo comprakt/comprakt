@@ -111,6 +111,9 @@ impl Graph {
             Graph { entity, irg }
         }
     }
+
+    pub fn start_block(&self) -> Node { unsafe{ get_irg_start_block(self.irg) }.into() }
+
 }
 
 impl Into<*mut ir_graph> for Graph {
@@ -123,6 +126,17 @@ impl Into<*const ir_graph> for Graph {
     fn into(self) -> *const ir_graph {
         self.irg as *const _
     }
+}
+
+#[derive(Clone,Copy)]
+pub struct Node(*mut ir_node);
+
+impl From<*mut ir_node> for Node {
+    fn from(n: *mut ir_node) -> Node { Node(n) }
+}
+
+impl Into<*mut ir_node> for Node {
+    fn into(self) -> *mut ir_node { self.0 }
 }
 
 #[cfg(test)]
