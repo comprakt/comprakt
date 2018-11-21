@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/comprakt/comprakt.svg?branch=master)](https://travis-ci.org/comprakt/comprakt)
-[![API documentation for master branch](https://img.shields.io/badge/API%20documentation-master.svg?colorB=brightgreen&longCache=true&style=flat)](https://comprakt.github.io/comprakt)
+[![API documentation for master branch](https://img.shields.io/badge/API%20documentation-master-brightgreen.svg?longCache=true&style=flat)](https://comprakt.github.io/comprakt)
 
 # comprakt
 
