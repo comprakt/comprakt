@@ -223,7 +223,7 @@ impl fmt::Display for Span<'_> {
 /// "abcd\nefgh\nijkl" the iterator will return the following
 /// two lines: ["abcd\n", "efgh\n"]
 ///
-/// Analog to `Position::get_line` this function will append
+/// Analog to `Position::line` this function will append
 /// newlines to the end of each line. This means that `is_mutiline(.)`
 /// will be true, since "\n" is positioned at the next line.
 ///
@@ -254,7 +254,7 @@ impl<'span, 'file> LineIterator<'span, 'file> {
     pub fn new(span: &'span Span<'file>) -> Self {
         Self {
             span,
-            line_to_emit: Some(span.start_position().get_line()),
+            line_to_emit: Some(span.start_position().line()),
         }
     }
 
@@ -275,7 +275,7 @@ impl<'span, 'file> Iterator for LineIterator<'span, 'file> {
                 self.line_to_emit = if self.span.end_position() > line.end_position() {
                     line.end_position()
                         .next()
-                        .map(|first_char| first_char.get_line())
+                        .map(|first_char| first_char.line())
                 } else {
                     None
                 };
