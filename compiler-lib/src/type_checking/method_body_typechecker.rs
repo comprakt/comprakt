@@ -45,9 +45,10 @@ pub enum VarDef<'src, 'sem> {
     Param(&'sem MethodParamDef<'src>),
 }
 
-pub struct MethodBodyTypeChecker<'ctx, 'src, 'sem> {
+pub struct MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
     pub context: &'sem SemanticContext<'ctx, 'src>,
     pub type_system: &'sem TypeSystem<'src>,
+    pub type_analysis: &'ana mut TypeAnalysis<'src, 'sem>,
     pub current_class: &'sem ClassDef<'src>,
     pub current_method: &'sem ClassMethodDef<'src>,
     pub local_scope: Scoped<Symbol<'src>, VarDef<'src, 'sem>>,
@@ -56,15 +57,17 @@ pub struct MethodBodyTypeChecker<'ctx, 'src, 'sem> {
 #[derive(Debug)]
 pub struct CouldNotDetermineType;
 
-impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
+impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
     pub fn check_methods(
         class_decl: &'sem ast::ClassDeclaration<'src>,
         type_system: &'sem TypeSystem<'src>,
+        type_analysis: &'ana mut TypeAnalysis<'src, 'sem>,
         context: &'sem SemanticContext<'ctx, 'src>,
     ) {
-        let current_class = type_system
-            .resolve_type_ref(class_decl.name.data)
+        let current_class_id = type_analysis
+            .decl_get_class_id(class_decl)
             .expect("Class has to be already defined to check methods");
+        let current_class = type_system.get_class(current_class_id);
 
         for member in &class_decl.members {
             use self::ast::ClassMemberKind::*;
@@ -78,6 +81,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                     let mut checker = MethodBodyTypeChecker {
                         context,
                         type_system,
+                        type_analysis,
                         current_class,
                         current_method,
                         local_scope: Scoped::new(),
@@ -159,7 +163,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                 }
             }
             LocalVariableDeclaration(ty, name, opt_assign) => {
-                let def_ty = checked_type_from_ty(
+                let def_ty = self.type_analysis.checked_type_from_ty(
                     &ty.data,
                     self.context,
                     self.type_system,

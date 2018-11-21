@@ -5,7 +5,7 @@ use crate::{
     strtab::Symbol,
 };
 
-impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
+impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
     pub fn type_expr(
         &mut self,
         expr: &Spanned<'src, ast::Expr<'src>>,
@@ -137,7 +137,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
 
                 self.check_type(size_expr, &CheckedType::Int);
 
-                let basic_ty = checked_type_from_basic_ty(
+                let basic_ty = self.type_analysis.checked_type_from_basic_ty(
                     &basic_ty,
                     self.context,
                     self.type_system,
@@ -298,7 +298,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
         ty: &CheckedType<'src>,
     ) -> Result<&'sem ClassDef<'src>, CouldNotDetermineType> {
         match ty {
-            CheckedType::TypeRef(name) => match self.type_system.resolve_type_ref(*name) {
+            CheckedType::TypeRef(name) => match self.type_system.lookup_class(*name) {
                 None => Err(CouldNotDetermineType),
                 Some(class_def) => Ok(class_def),
             },
@@ -358,7 +358,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
         .or_else(|_| {
             // static classes access (is not allowed).
             // Is important to check if user defines a "System" class
-            match self.type_system.resolve_type_ref(var_name.data) {
+            match self.type_system.lookup_class(var_name.data) {
                 Some(class_def) => {
                     self.context.report_error(
                         &var_name.span,
