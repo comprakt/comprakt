@@ -53,6 +53,11 @@ impl<'src> TypeSystem<'src> {
     }
 }
 
+/// A `ClassDefId` identifies a class.
+///
+/// This encapsulates the `Symbol` so that only the type system can create a
+/// `ClassDefId`. This guarantees that every `ClassDefId` can be mapped to a
+/// type.
 #[derive(Clone, Copy)]
 pub struct ClassDefId<'src> {
     id: Symbol<'src>,
