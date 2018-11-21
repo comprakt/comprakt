@@ -140,6 +140,10 @@ impl Graph {
     pub fn new_const(&self, tarval: *mut ir_tarval) -> Const {
         unsafe { new_r_Const(self.irg, tarval) }.into()
     }
+
+    pub fn cur_store(&self) -> MemoryState {
+        unsafe { get_r_store(self.irg) }.into()
+    }
 }
 
 impl Into<*mut ir_graph> for Graph {
@@ -247,6 +251,50 @@ impl Block {
     pub fn new_add<A: ALUOperand, B: ALUOperand>(&self, left: A, right: B) -> ALUOpNode {
         unsafe { new_r_Add(self.0, left.as_alu_operand(), right.as_alu_operand()) }.into()
     }
+
+    /// `flags` specifies alignment, volatility and pin state. See libfirm docs.
+    pub fn new_load<P: AsPointer>(
+        &self,
+        mem: MemoryState,
+        pointer: P,
+        mode: mode::Type,
+        ty: Ty,
+        flags: ir_cons_flags::Type,
+    ) -> Load {
+        unsafe {
+            new_r_Load(
+                self.0,
+                mem.into(),
+                pointer.as_pointer(),
+                mode,
+                ty.into(),
+                flags,
+            )
+        }
+        .into()
+    }
+
+    /// `flags` specifies alignment, volatility and pin state. See libfirm docs.
+    pub fn new_store<V: ValueNode, P: AsPointer>(
+        &self,
+        mem: MemoryState,
+        pointer: P,
+        value: V,
+        ty: Ty,
+        flags: ir_cons_flags::Type,
+    ) -> Store {
+        unsafe {
+            new_r_Store(
+                self.0,
+                mem.into(),
+                pointer.as_pointer(),
+                value.as_value_node(),
+                ty.into(),
+                flags,
+            )
+        }
+        .into()
+    }
 }
 
 #[derive(Clone, Copy, Into, From)]
@@ -342,6 +390,12 @@ impl AsIndex for *mut ir_node {
 #[derive(Clone, Copy, Into, From)]
 pub struct Sel(*mut ir_node);
 
+impl AsPointer for Sel {
+    fn as_pointer(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
 /// Const is an `ir_node` resulting from a new_const operation.
 #[derive(Clone, Copy, Into, From)]
 pub struct Const(*mut ir_node);
@@ -371,6 +425,46 @@ pub struct ALUOpNode(*mut ir_node);
 impl ValueNode for ALUOpNode {
     fn as_value_node(&self) -> *mut ir_node {
         self.0
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct MemoryState(*mut ir_node);
+
+/// Node representing a load operation.
+#[derive(Clone, Copy, Into, From)]
+pub struct Load(*mut ir_node);
+
+/// The value of a projection of `Load`.
+#[derive(Clone, Copy, Into, From)]
+pub struct LoadValue(*mut ir_node);
+
+impl ValueNode for LoadValue {
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
+impl Load {
+    /// TODO can ret type be `MemoryState` ?
+    pub fn project_mem(&self) -> *mut ir_node {
+        unsafe { new_r_Proj(self.0, mode::M, pn_Load::M) }
+    }
+    pub fn project_res(&self, mode: mode::Type) -> LoadValue {
+        unsafe { new_r_Proj(self.0, mode, pn_Load::Res) }.into()
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Store(*mut ir_node);
+
+#[derive(Clone, Copy, Into, From)]
+pub struct StoreValue(*mut ir_node);
+
+impl Store {
+    /// TODO can ret type be `MemoryState` ?
+    pub fn project_mem(&self) -> *mut ir_node {
+        unsafe { new_r_Proj(self.0, mode::M, pn_Store::M) }
     }
 }
 
