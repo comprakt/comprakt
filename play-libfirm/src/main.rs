@@ -43,30 +43,26 @@ unsafe fn build_running_sum() {
 	//set_method_param_type(function_type, 2, unsigned_type);
 	//set_method_res_type(function_type, 0, int_type);
 
-    let global_type: *mut ir_type = get_glob_type();
-    let name: *mut ident = new_id_from_str(cstr!("running_sum\0"));
-    let our_function: *mut ir_entity  = new_entity(global_type, name, function_type.into());
 
-	let n_slots = 5; // values, output, length, total, i
-	let graph: *mut ir_graph = new_ir_graph(our_function, n_slots);
-	set_current_ir_graph(graph);
+    let graph = libfirm_rs::Graph::function("running_sum".to_owned(), function_type, 5);
+	set_current_ir_graph(graph.into());
 
 
 	// If you want to have a look at the nodes which are not yet
 	// used by any others, try calling "keep_alive" on them.
 	// This is only for debugging, as it might break later phases.
 	// We're luck here, though.
-	keep_alive(get_irg_start_block(graph));
+	keep_alive(get_irg_start_block(graph.into()));
 
-	dump_ir_graph(graph, cstr!("empty\0"));
+	dump_ir_graph(graph.into(), cstr!("empty\0"));
 
 	/* start block */
-	let start_block: *mut ir_node  = get_irg_start_block(graph);
+	let start_block: *mut ir_node  = get_irg_start_block(graph.into());
 	set_cur_block(start_block);
 
-	set_value(0, new_Proj(get_irg_args(graph), mode::P, 0));
-	set_value(1, new_Proj(get_irg_args(graph), mode::P, 1));
-	set_value(2, new_Proj(get_irg_args(graph), mode::Iu, 2));
+	set_value(0, new_Proj(get_irg_args(graph.into()), mode::P, 0));
+	set_value(1, new_Proj(get_irg_args(graph.into()), mode::P, 1));
+	set_value(2, new_Proj(get_irg_args(graph.into()), mode::Iu, 2));
 
 	/* int total = 0; */
 	let int0: *mut ir_node = new_Const(new_tarval_from_long(0, mode::Is));
@@ -134,24 +130,24 @@ unsafe fn build_running_sum() {
     let additional_inputs = &[rb_total];
 	let rb_return = new_Return(mem, additional_inputs.len() as i32, additional_inputs as *const *mut ir_node);
 
-	add_immBlock_pred(get_irg_end_block(graph), rb_return);
+	add_immBlock_pred(get_irg_end_block(graph.into()), rb_return);
 
 	keep_alive(lb_store);
 
-	dump_ir_graph(graph, cstr!("immature\0"));
+	dump_ir_graph(graph.into(), cstr!("immature\0"));
 
 	mature_immBlock(start_block);
 	mature_immBlock(loop_header);
 	mature_immBlock(loop_body);
 	mature_immBlock(return_block);
-	irg_finalize_cons(graph);
+	irg_finalize_cons(graph.into());
 
-	dump_ir_graph(graph, cstr!("ssa-constructed\0"));
+	dump_ir_graph(graph.into(), cstr!("ssa-constructed\0"));
 
-	lower_highlevel_graph(graph);
+	lower_highlevel_graph(graph.into());
 	be_lower_for_target();
 
-	dump_ir_graph(graph, cstr!("lowered\0"));
+	dump_ir_graph(graph.into(), cstr!("lowered\0"));
 
 	be_main(stdout, cstr!("<stdin>\0"));
 

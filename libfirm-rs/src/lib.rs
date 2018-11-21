@@ -1,6 +1,7 @@
 pub use libfirm_rs_bindings as bindings;
 
 use libfirm_rs_bindings::*;
+use std::ffi::CString;
 
 #[derive(Clone, Copy)]
 pub struct Ty(*mut ir_type);
@@ -86,6 +87,41 @@ impl FunctionType {
             unsafe { set_method_res_type(ft, i, res.into()) };
         }
         Ty(ft)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Graph {
+    entity: *mut ir_entity,
+    irg: *mut ir_graph,
+}
+
+impl Graph {
+    /// Create a new function entity and initialize an ir_graph for it.
+    /// The entity is registered with the `get_glob_type()`, hence the name
+    /// must be mangled to avoid collisions with other classes' functions.
+    pub fn function(mangled_name: String, function_type: Ty, num_slots: usize) -> Graph {
+        let mangled_name =
+            CString::new(mangled_name).expect("mangled_name expected to be valid CString");
+        unsafe {
+            let global_type: *mut ir_type = get_glob_type();
+            let name: *mut ident = new_id_from_str(mangled_name.as_ptr());
+            let entity = new_entity(global_type, name, function_type.into());
+            let irg = new_ir_graph(entity, num_slots as i32);
+            Graph { entity, irg }
+        }
+    }
+}
+
+impl Into<*mut ir_graph> for Graph {
+    fn into(self) -> *mut ir_graph {
+        self.irg
+    }
+}
+
+impl Into<*const ir_graph> for Graph {
+    fn into(self) -> *const ir_graph {
+        self.irg as *const _
     }
 }
 
