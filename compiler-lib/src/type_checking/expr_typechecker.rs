@@ -6,7 +6,7 @@ use crate::{
 };
 
 impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
-    pub fn get_type_expr(
+    pub fn type_expr(
         &mut self,
         expr: &Spanned<'src, ast::Expr<'src>>,
     ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
@@ -24,7 +24,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                 Ok(ty.into())
             }
             FieldAccess(target_expr, name) => {
-                let target_type = self.get_type_expr(&target_expr)?.ty;
+                let target_type = self.type_expr(&target_expr)?.ty;
                 let target_class_def = self.resolve_class(&target_type).map_err(|e| {
                     self.context.report_error(
                         &name.span,
@@ -36,7 +36,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                     e
                 })?;
                 // IMPROVEMENT: unite error handling
-                match target_class_def.get_field(name.data) {
+                match target_class_def.field(name.data) {
                     Some(field) => Ok(ExprInfo::new(field.ty.clone(), RefInfo::Field(field))),
                     None => {
                         self.context.report_error(
@@ -53,7 +53,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
 
             MethodInvocation(target_expr, name, args) => {
                 // e.g. "target_expr.name(arg1, arg2)"
-                let target_type = self.get_type_expr(&target_expr)?.ty;
+                let target_type = self.type_expr(&target_expr)?.ty;
                 let target_class_def = self.resolve_class(&target_type).map_err(|e| {
                     self.context.report_error(
                         &name.span,
@@ -82,7 +82,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
             }
             ArrayAccess(target_expr, idx_expr) => {
                 self.check_type(idx_expr, &CheckedType::Int);
-                let target_expr_info = self.get_type_expr(target_expr)?;
+                let target_expr_info = self.type_expr(target_expr)?;
 
                 match target_expr_info.ty {
                     CheckedType::Array(item_type) => {
@@ -163,7 +163,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                 let ExprInfo {
                     ty: lhs_type,
                     ref_info,
-                } = self.get_type_expr(lhs)?;
+                } = self.type_expr(lhs)?;
                 self.check_type(rhs, &lhs_type); // IMPROVEMENT check even on Err
 
                 use self::RefInfo::*;
@@ -188,8 +188,8 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                 Ok(lhs_type.into())
             }
             Equals | NotEquals => {
-                let lhs_info = self.get_type_expr(&lhs);
-                let rhs_info = self.get_type_expr(&rhs);
+                let lhs_info = self.type_expr(&lhs);
+                let rhs_info = self.type_expr(&rhs);
 
                 let lhs_type = lhs_info?.ty;
                 let rhs_type = rhs_info?.ty;
@@ -230,7 +230,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
         expr: &Spanned<'src, ast::Expr<'src>>,
         expected_ty: &CheckedType<'src>,
     ) {
-        if let Ok(expr_info) = self.get_type_expr(expr) {
+        if let Ok(expr_info) = self.type_expr(expr) {
             if !expected_ty.is_assignable_from(&expr_info.ty) {
                 self.context.report_error(
                     &expr.span,
@@ -249,7 +249,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
         target_class_def: &'sem ClassDef<'src>,
         args: &[Spanned<'src, ast::Expr<'src>>],
     ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
-        let method = match target_class_def.get_method(method_name.data) {
+        let method = match target_class_def.method(method_name.data) {
             Some(method) => method,
             None => {
                 self.context.report_error(
@@ -336,7 +336,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
         }
         .or_else(|_| {
             // field
-            match self.current_class.get_field(var_name.data) {
+            match self.current_class.field(var_name.data) {
                 Some(field) => {
                     if self.current_method.is_static {
                         self.context.report_error(
