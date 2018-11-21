@@ -13,6 +13,7 @@
 use compiler_lib::{
     asciifile, ast,
     context::Context,
+    firm,
     lexer::{Lexer, TokenKind},
     parser::Parser,
     print::{self, lextest},
@@ -91,12 +92,12 @@ enum CliCommand {
         path: PathBuf,
     },
     /// Output x86-assembler or the firm graph in various stages
-    #[structopt(name = "--assemble")]
-    Assemble(AssembleOptions),
+    #[structopt(name = "--lower")]
+    Lower(LoweringOptions),
 }
 
 #[derive(StructOpt, Debug, Clone)]
-pub struct AssembleOptions {
+pub struct LoweringOptions {
     /// Output the matured unlowered firm graph as VCG file
     #[structopt(long = "--firm-graph", short = "-g", parse(from_os_str))]
     pub dump_firm_graph: Option<PathBuf>,
@@ -112,9 +113,9 @@ pub struct AssembleOptions {
     pub dump_assembler: Option<PathBuf>,
 }
 
-impl Into<compiler_lib::firm::AssembleOptions> for AssembleOptions {
-    fn into(self) -> compiler_lib::firm::AssembleOptions {
-        compiler_lib::firm::AssembleOptions {
+impl Into<firm::Options> for LoweringOptions {
+    fn into(self) -> firm::Options {
+        firm::Options {
             dump_assembler: self.dump_assembler,
             dump_lowered_firm_graph: self.dump_lowered_firm_graph,
             dump_firm_graph: self.dump_firm_graph,
@@ -138,7 +139,7 @@ fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path),
-        CliCommand::Assemble(options) => cmd_assemble(&options.clone().into()),
+        CliCommand::Lower(options) => cmd_lower(&options.clone().into()),
     }
 }
 
@@ -159,8 +160,8 @@ fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error> {
     Ok(())
 }
 
-fn cmd_assemble(opts: &compiler_lib::firm::AssembleOptions) -> Result<(), Error> {
-    unsafe { compiler_lib::firm::assemble(opts) };
+fn cmd_lower(opts: &firm::Options) -> Result<(), Error> {
+    unsafe { firm::build(opts) };
     Ok(())
 }
 

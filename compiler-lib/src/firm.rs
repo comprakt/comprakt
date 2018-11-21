@@ -2,13 +2,13 @@ use libfirm_rs::bindings::*;
 use std::{ffi::CStr, path::PathBuf};
 
 #[derive(Debug, Clone)]
-pub struct AssembleOptions {
+pub struct Options {
     pub dump_firm_graph: Option<PathBuf>,
     pub dump_lowered_firm_graph: Option<PathBuf>,
     pub dump_assembler: Option<PathBuf>,
 }
 
-pub unsafe fn assemble(opts: &AssembleOptions) {
+pub unsafe fn build(opts: &Options) {
     ir_init_library();
 
     // this call panics on error
