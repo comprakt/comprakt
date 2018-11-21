@@ -100,7 +100,7 @@ unsafe fn build_running_sum() {
 	set_r_store(graph.into(), new_r_Proj(lb_load, mode::M, pn_Load::M));
 
 	let mut lb_total = graph.get_value(3, mode::Is);
-	graph.set_value(3, new_r_Add(loop_body.into(), lb_total, new_r_Proj(lb_load, mode::Is, pn_Load::Res)));
+	graph.set_value(3, loop_body.new_add(lb_total, new_r_Proj(lb_load, mode::Is, pn_Load::Res)));
 
 	/* output[i] = total; */
 	lb_total = graph.get_value(3, mode::Is);
@@ -112,7 +112,7 @@ unsafe fn build_running_sum() {
 
 	/* i++; */
 	lb_i = graph.get_value(4, mode::Iu);
-	graph.set_value(4, new_r_Add(loop_body.into(), lb_i, graph.new_const(new_tarval_from_long(1, mode::Iu)).into()));
+	graph.set_value(4, loop_body.new_add(lb_i, graph.new_const(new_tarval_from_long(1, mode::Iu))));
 
 	let lb_jmp = loop_body.new_jmp();
 
