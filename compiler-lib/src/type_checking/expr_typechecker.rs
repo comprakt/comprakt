@@ -140,7 +140,7 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
                 let basic_ty = self.type_analysis.checked_type_from_basic_ty(
                     &basic_ty,
                     self.context,
-                    &mut self.type_system,
+                    self.type_system,
                     VoidIs::Forbidden,
                 );
                 let ty = CheckedType::create_array_type(basic_ty, dimension + 1);

@@ -316,6 +316,7 @@ fn add_builtin_types<'src>(
     BuiltinTypes { string }
 }
 
+#[derive(Default)]
 pub struct TypeAnalysis<'src, 'a> {
     class_types: HashMap<RefEquality<'a, ast::ClassDeclaration<'src>>, ClassDefId<'src>>,
 }
@@ -333,7 +334,7 @@ impl<'src, 'a> TypeAnalysis<'src, 'a> {
         }
     }
 
-    pub fn decl_set_class_id<'sem>(
+    pub fn decl_set_class_id(
         &mut self,
         class_decl: &'a ast::ClassDeclaration<'src>,
         name: ClassDefId<'src>,
@@ -345,9 +346,7 @@ impl<'src, 'a> TypeAnalysis<'src, 'a> {
         &mut self,
         class_decl: &'_ ast::ClassDeclaration<'src>,
     ) -> Option<ClassDefId<'src>> {
-        self.class_types
-            .get(&RefEquality(class_decl))
-            .map(|id| id.clone())
+        self.class_types.get(&RefEquality(class_decl)).cloned()
     }
 
     pub fn checked_type_from_basic_ty(

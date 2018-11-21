@@ -1,4 +1,4 @@
-error: redefinition of class 'Foo at 6:6-6:8'
+error: redefinition of class 'Foo'
    | 
  6 | class Foo {
    | ^^^^^^^^^^^
