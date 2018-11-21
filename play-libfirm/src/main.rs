@@ -1,5 +1,5 @@
 use libfirm_rs_bindings::*;
-use libfirm_rs;
+use libfirm_rs::*;
 
 use std::ffi::CStr;
 
@@ -60,16 +60,17 @@ unsafe fn build_running_sum() {
 	let start_block  = graph.start_block();
 	set_r_cur_block(graph.into(), start_block.into());
 
-	set_r_value(graph.into(), 0, new_r_Proj(get_irg_args(graph.into()), mode::P, 0));
-	set_r_value(graph.into(), 1, new_r_Proj(get_irg_args(graph.into()), mode::P, 1));
-	set_r_value(graph.into(), 2, new_r_Proj(get_irg_args(graph.into()), mode::Iu, 2));
+    let args= graph.args_node();
+    graph.set_value(0, args.project(mode::P, 0));
+	graph.set_value(1, args.project(mode::P, 1));
+	graph.set_value(2, args.project(mode::Iu, 2));
 
 	/* int total = 0; */
 	let int0: *mut ir_node = new_r_Const(graph.into(), new_tarval_from_long(0, mode::Is));
-	set_r_value(graph.into(), 3, int0);
+	graph.set_value(3, int0);
 	/* unsigned i = 0; */
 	let unsigned0: *mut ir_node = new_r_Const(graph.into(), new_tarval_from_long(0, mode::Iu));
-	set_r_value(graph.into(), 4, unsigned0);
+	graph.set_value(4, unsigned0);
 
 	let start_jmp = start_block.new_jmp();
 
@@ -83,8 +84,8 @@ unsafe fn build_running_sum() {
 	let lh_cmp = loop_header.new_cmp(lh_i, lh_length, ir_relation::Less);
 
 	let lh_cond = loop_header.new_cond(lh_cmp);
-	let lh_true = new_r_Proj(lh_cond.into(), mode::X, pn_Cond::True);
-	let lh_false = new_r_Proj(lh_cond.into(), mode::X, pn_Cond::False);
+	let lh_true = lh_cond.project_true();
+	let lh_false = lh_cond.project_false();
 
 	/* loop body */
 	let loop_body = graph.new_imm_block(lh_true);
@@ -99,7 +100,7 @@ unsafe fn build_running_sum() {
 	set_r_store(graph.into(), new_r_Proj(lb_load, mode::M, pn_Load::M));
 
 	let mut lb_total = get_r_value(graph.into(), 3, mode::Is);
-	set_r_value(graph.into(), 3, new_r_Add(loop_body.into(), lb_total, new_r_Proj(lb_load, mode::Is, pn_Load::Res)));
+	graph.set_value(3, new_r_Add(loop_body.into(), lb_total, new_r_Proj(lb_load, mode::Is, pn_Load::Res)));
 
 	/* output[i] = total; */
 	lb_total = get_r_value(graph.into(), 3, mode::Is);
@@ -111,7 +112,7 @@ unsafe fn build_running_sum() {
 
 	/* i++; */
 	lb_i = get_r_value(graph.into(), 4, mode::Iu);
-	set_r_value(graph.into(), 4, new_r_Add(loop_body.into(), lb_i, new_r_Const(graph.into(), new_tarval_from_long(1, mode::Iu))));
+	graph.set_value(4, new_r_Add(loop_body.into(), lb_i, new_r_Const(graph.into(), new_tarval_from_long(1, mode::Iu))));
 
 	let lb_jmp = loop_body.new_jmp();
 

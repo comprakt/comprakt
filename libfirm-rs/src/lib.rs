@@ -118,6 +118,14 @@ impl Graph {
         Block(unsafe { get_irg_start_block(self.irg) })
     }
 
+    pub fn set_value<V: ValueNode>(&self, slot_idx: usize, vn: V) {
+        unsafe { set_r_value(self.irg, slot_idx as i32, vn.as_value_node()) }
+    }
+
+    pub fn args_node(&self) -> GraphArgs {
+        unsafe { get_irg_args(self.irg) }.into()
+    }
+
     pub fn new_imm_block<P: AsPred>(&self, pred: P) -> Block {
         let block = Block(unsafe { new_r_immBlock(self.irg) });
         block.add_pred(pred);
@@ -164,6 +172,10 @@ pub trait CmpOperand {
     fn as_cmp_operand(&self) -> *mut ir_node;
 }
 
+pub trait ValueNode {
+    fn as_value_node(&self) -> *mut ir_node;
+}
+
 /// FIXME: remove this blanket impl because it allows invalid node types as
 /// CmpOperand
 impl<N> CmpOperand for N
@@ -180,6 +192,14 @@ where
 impl AsPred for *mut ir_node {
     fn as_pred(&self) -> Pred {
         Pred(*self)
+    }
+}
+
+/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
+/// ValueNode
+impl ValueNode for *mut ir_node {
+    fn as_value_node(&self) -> *mut ir_node {
+        *self
     }
 }
 
@@ -226,6 +246,15 @@ impl AsPred for Jmp {
 #[derive(Clone, Copy, Into, From)]
 pub struct Cond(*mut ir_node);
 
+impl Cond {
+    pub fn project_true(&self) -> Jmp {
+        unsafe { new_r_Proj(self.0, mode::X, pn_Cond::True) }.into()
+    }
+    pub fn project_false(&self) -> Jmp {
+        unsafe { new_r_Proj(self.0, mode::X, pn_Cond::False) }.into()
+    }
+}
+
 #[derive(Clone, Copy, Into)]
 pub struct Selector(*mut ir_node);
 
@@ -235,6 +264,35 @@ pub struct Cmp(*mut ir_node);
 impl AsSelector for Cmp {
     fn as_selector(&self) -> Selector {
         Selector(self.0)
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct GraphArgs(*mut ir_node);
+
+pub trait Projectable {
+    fn ir_node(&self) -> *mut ir_node;
+    fn project(
+        &self,
+        mode: libfirm_rs_bindings::mode::Type,
+        component_number: usize,
+    ) -> Projection {
+        unsafe { new_r_Proj(self.ir_node(), mode, component_number as u32) }.into()
+    }
+}
+
+impl Projectable for GraphArgs {
+    fn ir_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Projection(*mut ir_node);
+
+impl ValueNode for Projection {
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
     }
 }
 

@@ -25,6 +25,7 @@ pub mod mode {
     pub use super::mode_T as T;
     pub use super::mode_X as X;
     pub use super::mode_b as b;
+    pub type Type = *mut super::ir_mode;
 }
 
 /// A little more idiomatic access to the op_* statics.
