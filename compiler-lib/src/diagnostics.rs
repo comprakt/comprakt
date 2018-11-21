@@ -272,7 +272,7 @@ impl<'file, 'msg> Message<'file, 'msg> {
                 // - unwrap(.): both positions are guranteed to exist in the line since we just
                 //   got them from the faulty line, which is a subset of the whole error line
                 let (start_term_pos, end_term_pos) =
-                    line_fmt.get_actual_columns(&faulty_part_of_line).unwrap();
+                    line_fmt.actual_columns(&faulty_part_of_line).unwrap();
 
                 let term_width = end_term_pos - start_term_pos;
 
@@ -382,7 +382,7 @@ impl<'span, 'file> LineFormatter<'span, 'file> {
     /// position.
     ///
     /// Returns `None` if the column is out of bounds.
-    fn get_actual_columns(&self, span: &Span<'_>) -> Option<(usize, usize)> {
+    fn actual_columns(&self, span: &Span<'_>) -> Option<(usize, usize)> {
         let lower = self.len_printed_before(span.start_position().column());
         let upper = self.len_printed_before(span.end_position().column());
 
