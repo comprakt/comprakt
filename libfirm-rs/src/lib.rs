@@ -1,4 +1,6 @@
 pub use libfirm_rs_bindings as bindings;
+#[macro_use]
+extern crate derive_more;
 
 use libfirm_rs_bindings::*;
 use std::ffi::CString;
@@ -112,8 +114,15 @@ impl Graph {
         }
     }
 
-    pub fn start_block(&self) -> Node { unsafe{ get_irg_start_block(self.irg) }.into() }
+    pub fn start_block(&self) -> Block {
+        Block(unsafe { get_irg_start_block(self.irg) })
+    }
 
+    pub fn new_imm_block<P: AsPred>(&self, pred: P) -> Block {
+        let block = Block(unsafe { new_r_immBlock(self.irg) });
+        block.add_pred(pred);
+        block
+    }
 }
 
 impl Into<*mut ir_graph> for Graph {
@@ -128,15 +137,105 @@ impl Into<*const ir_graph> for Graph {
     }
 }
 
-#[derive(Clone,Copy)]
-pub struct Node(*mut ir_node);
+#[derive(Clone, Copy)]
+pub struct Block(*mut ir_node);
 
-impl From<*mut ir_node> for Node {
-    fn from(n: *mut ir_node) -> Node { Node(n) }
+impl From<*mut ir_node> for Block {
+    fn from(n: *mut ir_node) -> Block {
+        Block(n)
+    }
 }
 
-impl Into<*mut ir_node> for Node {
-    fn into(self) -> *mut ir_node { self.0 }
+impl Into<*mut ir_node> for Block {
+    fn into(self) -> *mut ir_node {
+        self.0
+    }
+}
+
+pub trait AsPred {
+    fn as_pred(&self) -> Pred;
+}
+
+pub trait AsSelector {
+    fn as_selector(&self) -> Selector;
+}
+
+pub trait CmpOperand {
+    fn as_cmp_operand(&self) -> *mut ir_node;
+}
+
+/// FIXME: remove this blanket impl because it allows invalid node types as
+/// CmpOperand
+impl<N> CmpOperand for N
+where
+    N: Into<*mut ir_node> + Copy,
+{
+    fn as_cmp_operand(&self) -> *mut ir_node {
+        (*self).into()
+    }
+}
+
+/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
+/// Predi
+impl AsPred for *mut ir_node {
+    fn as_pred(&self) -> Pred {
+        Pred(*self)
+    }
+}
+
+impl Block {
+    pub fn new_jmp(&self) -> Jmp {
+        unsafe { new_r_Jmp(self.0) }.into()
+    }
+    pub fn add_pred<P: AsPred>(&self, pred: P) {
+        unsafe { add_immBlock_pred(self.0, pred.as_pred().0) }
+    }
+    pub fn new_cond<S: AsSelector>(&self, selector: S) -> Cond {
+        unsafe { new_r_Cond(self.0, selector.as_selector().0) }.into()
+    }
+    pub fn new_cmp<C: CmpOperand, D: CmpOperand>(
+        &self,
+        left: C,
+        right: D,
+        relation: libfirm_rs_bindings::ir_relation::Type,
+    ) -> Cmp {
+        unsafe {
+            new_r_Cmp(
+                self.0,
+                left.as_cmp_operand(),
+                right.as_cmp_operand(),
+                relation,
+            )
+        }
+        .into()
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Jmp(*mut ir_node);
+
+#[derive(Clone, Copy, Into)]
+pub struct Pred(*mut ir_node);
+
+impl AsPred for Jmp {
+    fn as_pred(&self) -> Pred {
+        Pred(self.0)
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Cond(*mut ir_node);
+
+#[derive(Clone, Copy, Into)]
+pub struct Selector(*mut ir_node);
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Cmp(*mut ir_node);
+
+impl AsSelector for Cmp {
+    fn as_selector(&self) -> Selector {
+        Selector(self.0)
+    }
 }
 
 #[cfg(test)]
