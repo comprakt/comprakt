@@ -26,15 +26,15 @@ unsafe fn build_running_sum() {
     ir_target_init();
     set_optimize(0);
 
-    let int_type: *mut ir_type = new_type_primitive(mode::Is);
-    let unsigned_type: *mut ir_type = new_type_primitive(mode::Iu);
-    let int_array_type: *mut ir_type = new_type_array(int_type, 0);
+    let int_type = libfirm_rs::PrimitiveType::isize();
+    let unsigned_type = libfirm_rs::PrimitiveType::usize();
+    let int_array_type = libfirm_rs::ArrayType::varlength(int_type);
 
     let function_type = libfirm_rs::FunctionType::new()
-        .param(new_type_pointer(int_type).into())
-        .param(new_type_pointer(int_type).into())
-        .param(unsigned_type.into())
-        .res(int_type.into())
+        .param(int_array_type.pointer())
+        .param(int_array_type.pointer())
+        .param(unsigned_type)
+        .res(int_type)
         .build();
 
 	//let function_type: *mut ir_type = new_type_method(3, 1, false.into(), cc_cdecl_set, mtp_additional_properties::NoProperty);
@@ -99,9 +99,9 @@ unsafe fn build_running_sum() {
     /* total += values[i] */
 	let lb_values = get_value(0, mode::P);
 	let mut lb_i = get_value(4, mode::Iu);
-	let lb_values_i_ptr = new_Sel(lb_values, lb_i, int_array_type);
+	let lb_values_i_ptr = new_Sel(lb_values, lb_i, int_array_type.into());
 	let mut mem = get_store();
-	let lb_load = new_Load(mem, lb_values_i_ptr, mode::Is, int_type, ir_cons_flags::None);
+	let lb_load = new_Load(mem, lb_values_i_ptr, mode::Is, int_type.into(), ir_cons_flags::None);
 	set_store(new_Proj(lb_load, mode::M, pn_Load::M));
 
 	let mut lb_total = get_value(3, mode::Is);
@@ -110,9 +110,9 @@ unsafe fn build_running_sum() {
 	/* output[i] = total; */
 	lb_total = get_value(3, mode::Is);
 	let lb_output = get_value(1, mode::P);
-	let lb_output_i_ptr = new_Sel(lb_output, lb_i, int_array_type);
+	let lb_output_i_ptr = new_Sel(lb_output, lb_i, int_array_type.into());
 	mem = get_store();
-	let lb_store = new_Store(mem, lb_values_i_ptr, lb_total, int_type, ir_cons_flags::None);
+	let lb_store = new_Store(mem, lb_values_i_ptr, lb_total, int_type.into(), ir_cons_flags::None);
 	set_store(new_Proj(lb_store, mode::M, pn_Store::M));
 
 	/* i++; */
