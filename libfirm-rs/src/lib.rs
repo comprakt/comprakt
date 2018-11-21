@@ -136,6 +136,10 @@ impl Graph {
         block.add_pred(pred);
         block
     }
+
+    pub fn new_const(&self, tarval: *mut ir_tarval) -> Const {
+        unsafe { new_r_Const(self.irg, tarval) }.into()
+    }
 }
 
 impl Into<*mut ir_graph> for Graph {
@@ -331,6 +335,15 @@ impl AsIndex for *mut ir_node {
 /// Sel is an `ir_node` representing the result of a by-index selection.
 #[derive(Clone, Copy, Into, From)]
 pub struct Sel(*mut ir_node);
+
+/// Const is an `ir_node` resulting from a new_const operation.
+#[derive(Clone, Copy, Into, From)]
+pub struct Const(*mut ir_node);
+
+impl ValueNode for Const {
+    fn as_value_node(&self) -> *mut ir_node { self.0 }
+}
+
 
 #[cfg(test)]
 mod tests {

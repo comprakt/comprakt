@@ -66,10 +66,10 @@ unsafe fn build_running_sum() {
 	graph.set_value(2, args.project(mode::Iu, 2));
 
 	/* int total = 0; */
-	let int0: *mut ir_node = new_r_Const(graph.into(), new_tarval_from_long(0, mode::Is));
+	let int0 = graph.new_const(new_tarval_from_long(0, mode::Is));
 	graph.set_value(3, int0);
 	/* unsigned i = 0; */
-	let unsigned0: *mut ir_node = new_r_Const(graph.into(), new_tarval_from_long(0, mode::Iu));
+	let unsigned0 = graph.new_const(new_tarval_from_long(0, mode::Iu));
 	graph.set_value(4, unsigned0);
 
 	let start_jmp = start_block.new_jmp();
@@ -112,7 +112,7 @@ unsafe fn build_running_sum() {
 
 	/* i++; */
 	lb_i = graph.get_value(4, mode::Iu);
-	graph.set_value(4, new_r_Add(loop_body.into(), lb_i, new_r_Const(graph.into(), new_tarval_from_long(1, mode::Iu))));
+	graph.set_value(4, new_r_Add(loop_body.into(), lb_i, graph.new_const(new_tarval_from_long(1, mode::Iu)).into()));
 
 	let lb_jmp = loop_body.new_jmp();
 
