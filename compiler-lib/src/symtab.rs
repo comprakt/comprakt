@@ -74,7 +74,7 @@ where
     pub fn visible_definition(&self, sym: S) -> Option<&T> {
         // amortized O(1) lookup to get sym's scope
         let scope = match self.visible_defs.get(&sym) {
-            Some(&idx) => self.get_scope(idx),
+            Some(&idx) => self.scope(idx),
             None => return None,
         };
         // amortized O(1) lookup of symbol in that scope
@@ -93,7 +93,7 @@ where
         }
     }
 
-    fn get_scope(&self, scope_idx: ScopeIdx) -> &SymbolTable<S, T> {
+    fn scope(&self, scope_idx: ScopeIdx) -> &SymbolTable<S, T> {
         match scope_idx {
             ScopeIdx::Root => &self.root,
             ScopeIdx::Dynamic(idx) => &self.scopes[idx],
