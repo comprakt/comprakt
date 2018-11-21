@@ -52,13 +52,13 @@ unsafe fn build_running_sum() {
 	// used by any others, try calling "keep_alive" on them.
 	// This is only for debugging, as it might break later phases.
 	// We're luck here, though.
-	keep_alive(get_irg_start_block(graph.into()));
+	keep_alive(graph.start_block().into());
 
 	dump_ir_graph(graph.into(), cstr!("empty\0"));
 
 	/* start block */
-	let start_block: *mut ir_node  = get_irg_start_block(graph.into());
-	set_cur_block(start_block);
+	let start_block  = graph.start_block();
+	set_cur_block(start_block.into());
 
 	set_value(0, new_Proj(get_irg_args(graph.into()), mode::P, 0));
 	set_value(1, new_Proj(get_irg_args(graph.into()), mode::P, 1));
@@ -136,7 +136,7 @@ unsafe fn build_running_sum() {
 
 	dump_ir_graph(graph.into(), cstr!("immature\0"));
 
-	mature_immBlock(start_block);
+	mature_immBlock(start_block.into());
 	mature_immBlock(loop_header);
 	mature_immBlock(loop_body);
 	mature_immBlock(return_block);
