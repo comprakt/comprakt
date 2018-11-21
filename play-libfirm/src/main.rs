@@ -95,20 +95,20 @@ unsafe fn build_running_sum() {
 	let lb_values = graph.get_value(0, mode::P);
 	let mut lb_i = graph.get_value(4, mode::Iu);
 	let lb_values_i_ptr = loop_body.new_sel(lb_values, lb_i, int_array_type.into());
-	let mut mem = get_r_store(graph.into());
-	let lb_load = new_r_Load(loop_body.into(), mem, lb_values_i_ptr.into(), mode::Is, int_type.into(), ir_cons_flags::None);
-	set_r_store(graph.into(), new_r_Proj(lb_load, mode::M, pn_Load::M));
+	let mem = graph.cur_store();
+	let lb_load = loop_body.new_load(mem, lb_values_i_ptr, mode::Is, int_type.into(), ir_cons_flags::None);
+	set_r_store(graph.into(), lb_load.project_mem());
 
 	let mut lb_total = graph.get_value(3, mode::Is);
-	graph.set_value(3, loop_body.new_add(lb_total, new_r_Proj(lb_load, mode::Is, pn_Load::Res)));
+	graph.set_value(3, loop_body.new_add(lb_total, lb_load.project_res(mode::Is)));
 
 	/* output[i] = total; */
 	lb_total = graph.get_value(3, mode::Is);
 	let lb_output = graph.get_value(1, mode::P);
-	let lb_output_i_ptr = new_r_Sel(loop_body.into(), lb_output, lb_i, int_array_type.into());
-	mem = get_r_store(graph.into());
-	let lb_store = new_r_Store(loop_body.into(), mem, lb_values_i_ptr.into(), lb_total, int_type.into(), ir_cons_flags::None);
-	set_r_store(graph.into(), new_r_Proj(lb_store, mode::M, pn_Store::M));
+	let lb_output_i_ptr = loop_body.new_sel(lb_output, lb_i, int_array_type);
+	let mem = graph.cur_store();
+	let lb_store = loop_body.new_store(mem, lb_values_i_ptr, lb_total, int_type, ir_cons_flags::None);
+	set_r_store(graph.into(), lb_store.project_mem());
 
 	/* i++; */
 	lb_i = graph.get_value(4, mode::Iu);
@@ -124,13 +124,13 @@ unsafe fn build_running_sum() {
 	set_r_cur_block(graph.into(), return_block.into());
 
 	let rb_total: *mut ir_node = graph.get_value(3, mode::Is);
-	mem = get_r_store(graph.into());
+	let mem = graph.cur_store();
     let additional_inputs = &[rb_total];
-	let rb_return = new_r_Return(return_block.into(), mem, additional_inputs.len() as i32, additional_inputs as *const *mut ir_node);
+	let rb_return = new_r_Return(return_block.into(), mem.into(), additional_inputs.len() as i32, additional_inputs as *const *mut ir_node);
 
 	add_immBlock_pred(get_irg_end_block(graph.into()), rb_return);
 
-	keep_alive(lb_store);
+	keep_alive(lb_store.into());
 
 	dump_ir_graph(graph.into(), cstr!("immature\0"));
 
