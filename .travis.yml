@@ -41,8 +41,7 @@ matrix:
     # - os: linux
     #   env: TEST_KIND="mjtest-compile"
 
-install:
-  - >
+install: |
     case "$TEST_KIND" in
       comprakt-*)
         rustup component add clippy-preview && \
@@ -66,8 +65,7 @@ install:
     esac
 
 
-script:
-  - >
+script: |
     case "$TEST_KIND" in
       comprakt-*)
         case "$TEST_KIND" in
@@ -93,3 +91,23 @@ script:
         return 1 ;
         ;;
     esac
+
+
+after_success: |
+    case "$TEST_KIND" in
+      comprakt-release)
+        cargo doc \
+        && echo '<!doctype html><title>Redirecting...</title><meta http-equiv=refresh content=0;url=compiler-cli/index.html><a href="compiler-cli/index.html">Redirecting to "compiler-cli" crate...</a>' > target/doc/index.html ;
+        ;;
+    esac
+
+
+deploy:
+  provider: pages
+  skip-cleanup: true
+  github-token: $GITHUB_TOKEN
+  keep-history: true
+  local-dir: target/doc/
+  on:
+    branch: master
+    condition: $TEST_KIND = comprakt-release
