@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["PositionIterator",""],["ReversePositionIterator","Iterator that traverses a file from front to back."]]});

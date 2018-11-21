@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["SemanticError",""]],"fn":[["check","`check` returns an `Err` iff at least one errors was emitted through `context`."]]});

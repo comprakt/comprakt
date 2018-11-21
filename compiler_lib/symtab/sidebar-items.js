@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["CannotLeaveRootScopeError",""],["RedefinitionError",""],["Scoped","Scoped implements scoping for SymbolTable. The generic type `S` is the Symbol and `T` is the value stored for that symbol."]],"type":[["SymbolTable","SymbolTable associates a Symbol `S` with a stored value `T`."]]});

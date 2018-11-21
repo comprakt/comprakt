@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Output","Our default `Display` output for each `TokenKind` is less ambiguous than the format required by `--lextest` and therefore improves error messages."]]});
