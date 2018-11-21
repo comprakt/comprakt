@@ -122,6 +122,7 @@ impl Graph {
         unsafe { set_r_value(self.irg, slot_idx as i32, vn.as_value_node()) }
     }
 
+    /// TODO: have `get_value_$mode::??` for each `mode::??`
     pub fn get_value(&self, slot_idx: usize, mode: mode::Type) -> *mut ir_node {
         unsafe { get_r_value(self.irg, slot_idx as i32, mode) }
     }
@@ -233,6 +234,9 @@ impl Block {
         }
         .into()
     }
+    pub fn new_sel<P: AsPointer, I: AsIndex>(&self, p: P, i: I, array_type: Ty) -> Sel {
+        unsafe { new_r_Sel(self.0, p.as_pointer(), i.as_index(), array_type.into()) }.into()
+    }
 }
 
 #[derive(Clone, Copy, Into, From)]
@@ -299,6 +303,34 @@ impl ValueNode for Projection {
         self.0
     }
 }
+
+pub trait AsPointer {
+    fn as_pointer(&self) -> *mut ir_node;
+}
+
+/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
+/// AsPointer
+impl AsPointer for *mut ir_node {
+    fn as_pointer(&self) -> *mut ir_node {
+        *self
+    }
+}
+
+pub trait AsIndex {
+    fn as_index(&self) -> *mut ir_node;
+}
+
+/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
+/// AsIndex
+impl AsIndex for *mut ir_node {
+    fn as_index(&self) -> *mut ir_node {
+        *self
+    }
+}
+
+/// Sel is an `ir_node` representing the result of a by-index selection.
+#[derive(Clone, Copy, Into, From)]
+pub struct Sel(*mut ir_node);
 
 #[cfg(test)]
 mod tests {
