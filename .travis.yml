@@ -64,10 +64,10 @@ install:
         return 1;
         ;;
     esac
-    
+
 
 script:
-  - > 
+  - >
     case "$TEST_KIND" in
       comprakt-*)
         case "$TEST_KIND" in
@@ -86,7 +86,7 @@ script:
         ;;
       submission-system)
         ./build && \
-        COMPILER_BINARY="$(pwd)/run" cargo test --test integration ;
+        COMPILER_BINARY="$(pwd)/run" cargo test --release --test integration ;
         ;;
       *)
         echo "INVALID TEST_KIND=$TEST_KIND"
