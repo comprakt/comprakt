@@ -1,4 +1,5 @@
 use libfirm_rs_bindings::*;
+use libfirm_rs;
 
 use std::ffi::CStr;
 
@@ -29,15 +30,22 @@ unsafe fn build_running_sum() {
     let unsigned_type: *mut ir_type = new_type_primitive(mode::Iu);
     let int_array_type: *mut ir_type = new_type_array(int_type, 0);
 
-	let function_type: *mut ir_type = new_type_method(3, 1, false.into(), cc_cdecl_set, mtp_additional_properties::NoProperty);
-	set_method_param_type(function_type, 0, new_type_pointer(int_type));
-	set_method_param_type(function_type, 1, new_type_pointer(int_type));
-	set_method_param_type(function_type, 2, unsigned_type);
-	set_method_res_type(function_type, 0, int_type);
+    let function_type = libfirm_rs::FunctionType::new()
+        .param(new_type_pointer(int_type).into())
+        .param(new_type_pointer(int_type).into())
+        .param(unsigned_type.into())
+        .res(int_type.into())
+        .build();
+
+	//let function_type: *mut ir_type = new_type_method(3, 1, false.into(), cc_cdecl_set, mtp_additional_properties::NoProperty);
+	//set_method_param_type(function_type, 0, new_type_pointer(int_type));
+	//set_method_param_type(function_type, 1, new_type_pointer(int_type));
+	//set_method_param_type(function_type, 2, unsigned_type);
+	//set_method_res_type(function_type, 0, int_type);
 
     let global_type: *mut ir_type = get_glob_type();
     let name: *mut ident = new_id_from_str(cstr!("running_sum\0"));
-    let our_function: *mut ir_entity  = new_entity(global_type, name, function_type);
+    let our_function: *mut ir_entity  = new_entity(global_type, name, function_type.into());
 
 	let n_slots = 5; // values, output, length, total, i
 	let graph: *mut ir_graph = new_ir_graph(our_function, n_slots);
