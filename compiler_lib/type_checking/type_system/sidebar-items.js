@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["CheckedType",""]],"struct":[["ClassAlreadyDeclared",""],["ClassDef",""],["ClassDoesNotExist",""],["ClassFieldDef",""],["ClassMethodDef",""],["MethodParamDef",""],["TypeSystem",""]]});
+initSidebarItems({"enum":[["CheckedType",""]],"struct":[["ClassAlreadyDeclared",""],["ClassDef",""],["ClassDefId","A `ClassDefId` identifies a class."],["ClassDoesNotExist",""],["ClassFieldDef",""],["ClassMethodDef",""],["MethodParamDef",""],["TypeSystem",""]]});

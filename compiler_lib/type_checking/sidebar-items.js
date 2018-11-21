@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["VoidIs",""]],"fn":[["check",""],["checked_type_from_basic_ty",""],["checked_type_from_ty",""]],"mod":[["expr_typechecker",""],["method_body_typechecker",""],["type_system",""]],"struct":[["SemanticContext",""]]});
+initSidebarItems({"enum":[["VoidIs",""]],"fn":[["check",""]],"mod":[["expr_typechecker",""],["method_body_typechecker",""],["type_system",""]],"struct":[["RefEquality",""],["SemanticContext",""],["TypeAnalysis",""]]});
