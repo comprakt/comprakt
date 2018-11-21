@@ -241,6 +241,12 @@ impl Block {
     pub fn new_sel<P: AsPointer, I: AsIndex>(&self, p: P, i: I, array_type: Ty) -> Sel {
         unsafe { new_r_Sel(self.0, p.as_pointer(), i.as_index(), array_type.into()) }.into()
     }
+
+    /// FIXME: either generate methods for all `ir_op` or use `ir_op` as
+    /// parameter.
+    pub fn new_add<A: ALUOperand, B: ALUOperand>(&self, left: A, right: B) -> ALUOpNode {
+        unsafe { new_r_Add(self.0, left.as_alu_operand(), right.as_alu_operand()) }.into()
+    }
 }
 
 #[derive(Clone, Copy, Into, From)]
@@ -341,9 +347,32 @@ pub struct Sel(*mut ir_node);
 pub struct Const(*mut ir_node);
 
 impl ValueNode for Const {
-    fn as_value_node(&self) -> *mut ir_node { self.0 }
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
 }
 
+pub trait ALUOperand {
+    fn as_alu_operand(&self) -> *mut ir_node;
+}
+
+impl<T> ALUOperand for T
+where
+    T: ValueNode,
+{
+    fn as_alu_operand(&self) -> *mut ir_node {
+        self.as_value_node()
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct ALUOpNode(*mut ir_node);
+
+impl ValueNode for ALUOpNode {
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
 
 #[cfg(test)]
 mod tests {
