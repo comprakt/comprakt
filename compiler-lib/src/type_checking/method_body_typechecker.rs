@@ -72,7 +72,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                 Field(_) => {}
                 Method(_, _, block) | MainMethod(_, block) => {
                     let current_method = current_class
-                        .get_method(member.name)
+                        .method(member.name)
                         .expect("a class only has a member if it exists");
 
                     let mut checker = MethodBodyTypeChecker {
@@ -112,7 +112,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
             Block(block) => self.check_type_block(block),
             Empty => {}
             If(cond, stmt, opt_else) => {
-                if let Ok(ty) = self.get_type_expr(cond) {
+                if let Ok(ty) = self.type_expr(cond) {
                     if !CheckedType::Boolean.is_assignable_from(&ty.ty) {
                         self.context
                             .report_error(&cond.span, SemanticError::ConditionMustBeBoolean)
@@ -125,7 +125,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                 }
             }
             While(cond, stmt) => {
-                if let Ok(ty) = self.get_type_expr(cond) {
+                if let Ok(ty) = self.type_expr(cond) {
                     if !CheckedType::Boolean.is_assignable_from(&ty.ty) {
                         self.context
                             .report_error(&cond.span, SemanticError::ConditionMustBeBoolean)
@@ -135,7 +135,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                 self.check_type_stmt(&stmt);
             }
             Expression(expr) => {
-                let _ = self.get_type_expr(expr);
+                let _ = self.type_expr(expr);
             }
             Return(expr_opt) => {
                 let return_ty = &self.current_method.return_ty;
@@ -151,7 +151,7 @@ impl<'ctx, 'src, 'sem> MethodBodyTypeChecker<'ctx, 'src, 'sem> {
                         );
                     }
                     (Some(expr), CheckedType::Void) => {
-                        let _ = self.get_type_expr(expr);
+                        let _ = self.type_expr(expr);
                         self.context
                             .report_error(&stmt.span, SemanticError::VoidMethodCannotReturnValue);
                     }

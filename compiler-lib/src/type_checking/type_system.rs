@@ -67,7 +67,7 @@ impl<'src> ClassDef<'src> {
         Ok(())
     }
 
-    pub fn get_field(&self, name: Symbol<'src>) -> Option<&ClassFieldDef<'src>> {
+    pub fn field(&self, name: Symbol<'src>) -> Option<&ClassFieldDef<'src>> {
         self.fields.get(&name)
     }
 
@@ -79,11 +79,11 @@ impl<'src> ClassDef<'src> {
         Ok(())
     }
 
-    pub fn get_method(&self, name: Symbol<'src>) -> Option<&ClassMethodDef<'src>> {
+    pub fn method(&self, name: Symbol<'src>) -> Option<&ClassMethodDef<'src>> {
         self.methods.get(&name)
     }
 
-    pub fn get_type(&self) -> CheckedType<'src> {
+    pub fn ty(&self) -> CheckedType<'src> {
         CheckedType::TypeRef(self.name)
     }
 }

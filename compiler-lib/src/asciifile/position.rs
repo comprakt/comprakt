@@ -176,7 +176,7 @@ impl<'t> Position<'t> {
     /// let lines = file
     ///     .iter()
     ///     .map(|position| {
-    ///         let line = position.get_line();
+    ///         let line = position.line();
     ///         (position.chr(), line.as_str().to_string())
     ///     })
     ///     .collect::<Vec<_>>();
@@ -210,7 +210,7 @@ impl<'t> Position<'t> {
     ///
     /// Windows style line endings are not considered. This means `'\r'`
     /// will be evaluated as a normal character without any special meaning.
-    pub fn get_line(&self) -> Span<'t> {
+    pub fn line(&self) -> Span<'t> {
         // TODO: this is way more complicated than it has to be, because we are
         // converting our 'NEWLINE in front-position at column 0' convention to
         // a trailing newline convention. But having the newline at the front

@@ -259,23 +259,23 @@ fn add_builtin_types<'src>(
     system_class_def
         .add_field(ClassFieldDef {
             name: strtab.intern("in"),
-            ty: reader_class_def.get_type(),
+            ty: reader_class_def.ty(),
             can_write: false,
         })
         .unwrap();
     system_class_def
         .add_field(ClassFieldDef {
             name: strtab.intern("out"),
-            ty: writer_class_def.get_type(),
+            ty: writer_class_def.ty(),
             can_write: false,
         })
         .unwrap();
     context
         .global_vars
-        .insert(strtab.intern("System"), system_class_def.get_type());
+        .insert(strtab.intern("System"), system_class_def.ty());
 
     let string_class_def = ClassDef::new(strtab.intern("$String"));
-    let string = string_class_def.get_type();
+    let string = string_class_def.ty();
 
     type_system.add_class_def(reader_class_def).unwrap();
     type_system.add_class_def(writer_class_def).unwrap();
