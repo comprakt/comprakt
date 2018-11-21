@@ -418,6 +418,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "libfirm-rs"
 version = "0.0.1"
 dependencies = [
+ "derive_more 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libfirm-rs-bindings 0.0.1",
 ]
 

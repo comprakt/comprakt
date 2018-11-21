@@ -71,26 +71,24 @@ unsafe fn build_running_sum() {
 	let unsigned0: *mut ir_node = new_r_Const(graph.into(), new_tarval_from_long(0, mode::Iu));
 	set_r_value(graph.into(), 4, unsigned0);
 
-	let start_jmp = new_r_Jmp(start_block.into());
+	let start_jmp = start_block.new_jmp();
 
 	/* loop header */
-	let loop_header = new_r_immBlock(graph.into(), );
-	add_immBlock_pred(loop_header, start_jmp);
-	set_r_cur_block(graph.into(), loop_header);
+	let loop_header = graph.new_imm_block(start_jmp);
+	set_r_cur_block(graph.into(), loop_header.into());
 
 	/* if (i < length) */
 	let lh_i = get_r_value(graph.into(), 4, mode::Iu);
 	let lh_length = get_r_value(graph.into(), 2, mode::Iu);
-	let lh_cmp = new_r_Cmp(loop_header.into(), lh_i, lh_length, ir_relation::Less);
+	let lh_cmp = loop_header.new_cmp(lh_i, lh_length, ir_relation::Less);
 
-	let lh_cond = new_r_Cond(loop_header.into(), lh_cmp);
-	let lh_true = new_r_Proj(lh_cond, mode::X, pn_Cond::True);
-	let lh_false = new_r_Proj(lh_cond, mode::X, pn_Cond::False);
+	let lh_cond = loop_header.new_cond(lh_cmp);
+	let lh_true = new_r_Proj(lh_cond.into(), mode::X, pn_Cond::True);
+	let lh_false = new_r_Proj(lh_cond.into(), mode::X, pn_Cond::False);
 
 	/* loop body */
-	let loop_body = new_r_immBlock(graph.into());
-	add_immBlock_pred(loop_body, lh_true);
-	set_r_cur_block(graph.into(), loop_body);
+	let loop_body = graph.new_imm_block(lh_true);
+	set_r_cur_block(graph.into(), loop_body.into());
 
     /* total += values[i] */
 	let lb_values = get_r_value(graph.into(), 0, mode::P);
@@ -115,15 +113,14 @@ unsafe fn build_running_sum() {
 	lb_i = get_r_value(graph.into(), 4, mode::Iu);
 	set_r_value(graph.into(), 4, new_r_Add(loop_body.into(), lb_i, new_r_Const(graph.into(), new_tarval_from_long(1, mode::Iu))));
 
-	let lb_jmp = new_r_Jmp(loop_body.into());
+	let lb_jmp = loop_body.new_jmp();
 
 	/* goto loop header */
-	add_immBlock_pred(loop_header, lb_jmp);
+	loop_header.add_pred(lb_jmp);
 
 	/* return block */
-	let return_block = new_r_immBlock(graph.into());
-	add_immBlock_pred(return_block, lh_false);
-	set_r_cur_block(graph.into(), return_block);
+	let return_block = graph.new_imm_block(lh_false);
+	set_r_cur_block(graph.into(), return_block.into());
 
 	let rb_total: *mut ir_node = get_r_value(graph.into(), 3, mode::Is);
 	mem = get_r_store(graph.into());
@@ -137,9 +134,9 @@ unsafe fn build_running_sum() {
 	dump_ir_graph(graph.into(), cstr!("immature\0"));
 
 	mature_immBlock(start_block.into());
-	mature_immBlock(loop_header);
-	mature_immBlock(loop_body);
-	mature_immBlock(return_block);
+	mature_immBlock(loop_header.into());
+	mature_immBlock(loop_body.into());
+	mature_immBlock(return_block.into());
 	irg_finalize_cons(graph.into());
 
 	dump_ir_graph(graph.into(), cstr!("ssa-constructed\0"));
