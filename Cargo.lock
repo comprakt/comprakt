@@ -547,6 +547,7 @@ dependencies = [
 name = "play-libfirm"
 version = "0.1.0"
 dependencies = [
+ "libfirm-rs 0.0.1",
  "libfirm-rs-bindings 0.0.1",
 ]
 
