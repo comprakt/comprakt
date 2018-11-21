@@ -94,9 +94,9 @@ unsafe fn build_running_sum() {
     /* total += values[i] */
 	let lb_values = graph.get_value(0, mode::P);
 	let mut lb_i = graph.get_value(4, mode::Iu);
-	let lb_values_i_ptr = new_r_Sel(loop_body.into(), lb_values, lb_i, int_array_type.into());
+	let lb_values_i_ptr = loop_body.new_sel(lb_values, lb_i, int_array_type.into());
 	let mut mem = get_r_store(graph.into());
-	let lb_load = new_r_Load(loop_body.into(), mem, lb_values_i_ptr, mode::Is, int_type.into(), ir_cons_flags::None);
+	let lb_load = new_r_Load(loop_body.into(), mem, lb_values_i_ptr.into(), mode::Is, int_type.into(), ir_cons_flags::None);
 	set_r_store(graph.into(), new_r_Proj(lb_load, mode::M, pn_Load::M));
 
 	let mut lb_total = graph.get_value(3, mode::Is);
@@ -107,7 +107,7 @@ unsafe fn build_running_sum() {
 	let lb_output = graph.get_value(1, mode::P);
 	let lb_output_i_ptr = new_r_Sel(loop_body.into(), lb_output, lb_i, int_array_type.into());
 	mem = get_r_store(graph.into());
-	let lb_store = new_r_Store(loop_body.into(), mem, lb_values_i_ptr, lb_total, int_type.into(), ir_cons_flags::None);
+	let lb_store = new_r_Store(loop_body.into(), mem, lb_values_i_ptr.into(), lb_total, int_type.into(), ir_cons_flags::None);
 	set_r_store(graph.into(), new_r_Proj(lb_store, mode::M, pn_Store::M));
 
 	/* i++; */
