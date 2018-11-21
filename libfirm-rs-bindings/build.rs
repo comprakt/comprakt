@@ -150,7 +150,7 @@ fn main() {
     let libfirm_lib_dir = libfirm_install_dir.join("lib");
     tell_cargo!("include", libfirm_include_dir.display());
     tell_cargo!("rustc-link-search", libfirm_lib_dir.display());
-    tell_cargo!("rustc-link-lib", "firm");
+    tell_cargo!("rustc-link-lib=static", "firm");
 
     let builder = bindgen::Builder::default()
         .header("wrapper.h")
