@@ -122,6 +122,10 @@ impl Graph {
         unsafe { set_r_value(self.irg, slot_idx as i32, vn.as_value_node()) }
     }
 
+    pub fn get_value(&self, slot_idx: usize, mode: mode::Type) -> *mut ir_node {
+        unsafe { get_r_value(self.irg, slot_idx as i32, mode) }
+    }
+
     pub fn args_node(&self) -> GraphArgs {
         unsafe { get_irg_args(self.irg) }.into()
     }
