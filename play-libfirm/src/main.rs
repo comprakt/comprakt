@@ -45,7 +45,7 @@ unsafe fn build_running_sum() {
 
 
     let graph = libfirm_rs::Graph::function("running_sum".to_owned(), function_type, 5);
-	set_current_ir_graph(graph.into());
+//	set_current_ir_graph(graph.into());
 
 
 	// If you want to have a look at the nodes which are not yet
@@ -58,77 +58,77 @@ unsafe fn build_running_sum() {
 
 	/* start block */
 	let start_block  = graph.start_block();
-	set_cur_block(start_block.into());
+	set_r_cur_block(graph.into(), start_block.into());
 
-	set_value(0, new_Proj(get_irg_args(graph.into()), mode::P, 0));
-	set_value(1, new_Proj(get_irg_args(graph.into()), mode::P, 1));
-	set_value(2, new_Proj(get_irg_args(graph.into()), mode::Iu, 2));
+	set_r_value(graph.into(), 0, new_r_Proj(get_irg_args(graph.into()), mode::P, 0));
+	set_r_value(graph.into(), 1, new_r_Proj(get_irg_args(graph.into()), mode::P, 1));
+	set_r_value(graph.into(), 2, new_r_Proj(get_irg_args(graph.into()), mode::Iu, 2));
 
 	/* int total = 0; */
-	let int0: *mut ir_node = new_Const(new_tarval_from_long(0, mode::Is));
-	set_value(3, int0);
+	let int0: *mut ir_node = new_r_Const(graph.into(), new_tarval_from_long(0, mode::Is));
+	set_r_value(graph.into(), 3, int0);
 	/* unsigned i = 0; */
-	let unsigned0: *mut ir_node = new_Const(new_tarval_from_long(0, mode::Iu));
-	set_value(4, unsigned0);
+	let unsigned0: *mut ir_node = new_r_Const(graph.into(), new_tarval_from_long(0, mode::Iu));
+	set_r_value(graph.into(), 4, unsigned0);
 
-	let start_jmp = new_Jmp();
+	let start_jmp = new_r_Jmp(start_block.into());
 
 	/* loop header */
-	let loop_header = new_immBlock();
+	let loop_header = new_r_immBlock(graph.into(), );
 	add_immBlock_pred(loop_header, start_jmp);
-	set_cur_block(loop_header);
+	set_r_cur_block(graph.into(), loop_header);
 
 	/* if (i < length) */
-	let lh_i = get_value(4, mode::Iu);
-	let lh_length = get_value(2, mode::Iu);
-	let lh_cmp = new_Cmp(lh_i, lh_length, ir_relation::Less);
+	let lh_i = get_r_value(graph.into(), 4, mode::Iu);
+	let lh_length = get_r_value(graph.into(), 2, mode::Iu);
+	let lh_cmp = new_r_Cmp(loop_header.into(), lh_i, lh_length, ir_relation::Less);
 
-	let lh_cond = new_Cond(lh_cmp);
-	let lh_true = new_Proj(lh_cond, mode::X, pn_Cond::True);
-	let lh_false = new_Proj(lh_cond, mode::X, pn_Cond::False);
+	let lh_cond = new_r_Cond(loop_header.into(), lh_cmp);
+	let lh_true = new_r_Proj(lh_cond, mode::X, pn_Cond::True);
+	let lh_false = new_r_Proj(lh_cond, mode::X, pn_Cond::False);
 
 	/* loop body */
-	let loop_body = new_immBlock();
+	let loop_body = new_r_immBlock(graph.into());
 	add_immBlock_pred(loop_body, lh_true);
-	set_cur_block(loop_body);
+	set_r_cur_block(graph.into(), loop_body);
 
     /* total += values[i] */
-	let lb_values = get_value(0, mode::P);
-	let mut lb_i = get_value(4, mode::Iu);
-	let lb_values_i_ptr = new_Sel(lb_values, lb_i, int_array_type.into());
-	let mut mem = get_store();
-	let lb_load = new_Load(mem, lb_values_i_ptr, mode::Is, int_type.into(), ir_cons_flags::None);
-	set_store(new_Proj(lb_load, mode::M, pn_Load::M));
+	let lb_values = get_r_value(graph.into(), 0, mode::P);
+	let mut lb_i = get_r_value(graph.into(), 4, mode::Iu);
+	let lb_values_i_ptr = new_r_Sel(loop_body.into(), lb_values, lb_i, int_array_type.into());
+	let mut mem = get_r_store(graph.into());
+	let lb_load = new_r_Load(loop_body.into(), mem, lb_values_i_ptr, mode::Is, int_type.into(), ir_cons_flags::None);
+	set_r_store(graph.into(), new_r_Proj(lb_load, mode::M, pn_Load::M));
 
-	let mut lb_total = get_value(3, mode::Is);
-	set_value(3, new_Add(lb_total, new_Proj(lb_load, mode::Is, pn_Load::Res)));
+	let mut lb_total = get_r_value(graph.into(), 3, mode::Is);
+	set_r_value(graph.into(), 3, new_r_Add(loop_body.into(), lb_total, new_r_Proj(lb_load, mode::Is, pn_Load::Res)));
 
 	/* output[i] = total; */
-	lb_total = get_value(3, mode::Is);
-	let lb_output = get_value(1, mode::P);
-	let lb_output_i_ptr = new_Sel(lb_output, lb_i, int_array_type.into());
-	mem = get_store();
-	let lb_store = new_Store(mem, lb_values_i_ptr, lb_total, int_type.into(), ir_cons_flags::None);
-	set_store(new_Proj(lb_store, mode::M, pn_Store::M));
+	lb_total = get_r_value(graph.into(), 3, mode::Is);
+	let lb_output = get_r_value(graph.into(), 1, mode::P);
+	let lb_output_i_ptr = new_r_Sel(loop_body.into(), lb_output, lb_i, int_array_type.into());
+	mem = get_r_store(graph.into());
+	let lb_store = new_r_Store(loop_body.into(), mem, lb_values_i_ptr, lb_total, int_type.into(), ir_cons_flags::None);
+	set_r_store(graph.into(), new_r_Proj(lb_store, mode::M, pn_Store::M));
 
 	/* i++; */
-	lb_i = get_value(4, mode::Iu);
-	set_value(4, new_Add(lb_i, new_Const(new_tarval_from_long(1, mode::Iu))));
+	lb_i = get_r_value(graph.into(), 4, mode::Iu);
+	set_r_value(graph.into(), 4, new_r_Add(loop_body.into(), lb_i, new_r_Const(graph.into(), new_tarval_from_long(1, mode::Iu))));
 
-	let lb_jmp = new_Jmp();
+	let lb_jmp = new_r_Jmp(loop_body.into());
 
 	/* goto loop header */
 	add_immBlock_pred(loop_header, lb_jmp);
 
 	/* return block */
-	let return_block = new_immBlock();
+	let return_block = new_r_immBlock(graph.into());
 	add_immBlock_pred(return_block, lh_false);
-	set_cur_block(return_block);
+	set_r_cur_block(graph.into(), return_block);
 
-	let rb_total: *mut ir_node = get_value(3, mode::Is);
-	mem = get_store();
+	let rb_total: *mut ir_node = get_r_value(graph.into(), 3, mode::Is);
+	mem = get_r_store(graph.into());
     let additional_inputs = &[rb_total];
-	let rb_return = new_Return(mem, additional_inputs.len() as i32, additional_inputs as *const *mut ir_node);
+	let rb_return = new_r_Return(return_block.into(), mem, additional_inputs.len() as i32, additional_inputs as *const *mut ir_node);
 
 	add_immBlock_pred(get_irg_end_block(graph.into()), rb_return);
 
