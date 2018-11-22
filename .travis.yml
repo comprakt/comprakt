@@ -17,29 +17,21 @@ branches:
 matrix:
   include:
     - os: linux
+      name: "unit and integration tests in debug mode"
       env: TEST_KIND="comprakt-debug"
+      if: head_branch != master
     - os: linux
+      name: "unit and integration tests in release mode"
       env: TEST_KIND="comprakt-release"
-
+      if: head_branch = master OR branch IN (staging, trying)
     - os: linux
-      env: TEST_KIND="mjtest-lexer"
+      name: "mj-tests via original python script"
+      env: TEST_KIND="mjtest"
+      if: head_branch != master
     - os: linux
-      env: TEST_KIND="mjtest-syntax"
-    - os: linux
-      env: TEST_KIND="mjtest-semantic"
-    - os: linux
-      # only run integration tests, but redirect them
-      # through the `build` and `run` scripts. We cannot
-      # do this in the other CI builds, since they build
-      # `debug` and `release` versions explicitly.
+      name: "submission: integration tests using build and run scripts"
       env: TEST_KIND="submission-system"
-    # Disable until implemented
-    # - os: linux
-    #   env: TEST_KIND="mjtest-ast"
-    # - os: linux
-    #   env: TEST_KIND="mjtest-compile-firm"
-    # - os: linux
-    #   env: TEST_KIND="mjtest-compile"
+      if: head_branch = master OR branch IN (staging, trying)
 
 install: |
     case "$TEST_KIND" in
@@ -47,7 +39,7 @@ install: |
         rustup component add clippy-preview && \
         rustup component add rustfmt-preview;
         ;;
-      mjtest-*)
+      mjtest)
         curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py --user && \
         pip install typing --user && \
         git clone https://git.scc.kit.edu/IPDSnelting/mjtest.git && \
@@ -77,10 +69,11 @@ script: |
         cargo clippy $FLAGS --all-targets --all-features -- -D warnings && \
         cargo test $FLAGS ;
         ;;
-      mjtest-*)
-        MJTEST_KIND=${TEST_KIND#mjtest-}
+      mjtest)
         cargo build --release && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py $MJTEST_KIND ;
+        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py lexer && \
+        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py syntax && \
+        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py semantic ;
         ;;
       submission-system)
         ./build && \
@@ -94,12 +87,14 @@ script: |
 
 
 after_success: |
-    case "$TEST_KIND" in
-      comprakt-release)
-        cargo doc \
-        && echo '<!doctype html><title>Redirecting...</title><meta http-equiv=refresh content=0;url=compiler_cli/index.html><a href="compiler_cli/index.html">Redirecting to "compiler-cli" crate...</a>' > target/doc/index.html ;
-        ;;
-    esac
+    if [ "$TRAVIS_PULL_REQUEST" = "false" ] && [ "$TRAVIS_BRANCH" = "master" ]; then
+        case "$TEST_KIND" in
+          comprakt-release)
+            cargo doc \
+            && echo '<!doctype html><title>Redirecting...</title><meta http-equiv=refresh content=0;url=compiler_cli/index.html><a href="compiler_cli/index.html">Redirecting to "compiler-cli" crate...</a>' > target/doc/index.html ;
+            ;;
+        esac
+    fi
 
 
 deploy:
