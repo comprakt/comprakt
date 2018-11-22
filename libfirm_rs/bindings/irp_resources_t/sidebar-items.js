@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["EntityLink",""],["IrgLink",""],["None",""],["TypeLink",""],["TypeVisited",""]],"type":[["Type",""]]});

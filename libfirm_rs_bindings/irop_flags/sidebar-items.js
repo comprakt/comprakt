@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["Cfopcode",""],["Commutative",""],["ConstMemory",""],["Constlike",""],["DumpNoblock",""],["Forking",""],["Fragile",""],["Keep",""],["None",""],["StartBlock",""],["UnknownJump",""],["UsesMemory",""]],"type":[["Type",""]]});
