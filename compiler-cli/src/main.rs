@@ -122,6 +122,9 @@ pub enum CliCommand {
 /// Command-line options for the [`CliCommand::Lower`] (`--lower`) call
 #[derive(StructOpt, Debug, Clone, Default)]
 pub struct LoweringOptions {
+    /// A MiniJava input file
+    #[structopt(name = "FILE", parse(from_os_str))]
+    pub path: PathBuf,
     /// Output the matured unlowered firm graph as VCG file
     #[structopt(long = "--firm-graph", short = "-g", parse(from_os_str))]
     pub dump_firm_graph: Option<PathBuf>,
@@ -165,7 +168,7 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path),
-        CliCommand::Lower(options) => cmd_lower(&options.clone().into()),
+        CliCommand::Lower(options) => cmd_lower(&options.path, &options.clone().into()),
         CliCommand::Compile { path } => cmd_compile(path),
     }
 }
@@ -185,6 +188,48 @@ pub fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error>
         writeln!(writer, "caused by: {}", cause)?;
     }
     Ok(())
+}
+
+fn cmd_echo(path: &PathBuf) -> Result<(), Error> {
+    let mut f = File::open(&path).context(CliError::OpenInput { path: path.clone() })?;
+
+    let mut stdout = io::stdout();
+    io::copy(&mut f, &mut stdout).context(CliError::Echo {
+        input: path.clone(),
+    })?;
+
+    Ok(())
+}
+
+macro_rules! setup_io {
+    (let $context:ident = $path:expr) => {
+        let path: &PathBuf = $path;
+        let file = File::open(&path).context(CliError::OpenInput { path: path.clone() })?;
+        let mmres = unsafe { Mmap::map(&file) };
+        const EMPTY: [u8; 0] = [0; 0];
+        let bytes: &[u8] = match mmres {
+            Ok(ref m) => m,
+            Err(e) if e.kind() == io::ErrorKind::InvalidInput => {
+                // Linux returns EINVAL on file size 0, but let's be sure
+                let file_size = file
+                    .metadata()
+                    .map(|m| m.len())
+                    .context("could not get file metadata while interpreting mmap error")?;
+                if file_size == 0 {
+                    &EMPTY
+                } else {
+                    Err(e.context(CliError::Mmap { path: path.clone() }))?
+                }
+            }
+            Err(e) => Err(e.context(CliError::Mmap { path: path.clone() }))?,
+        };
+
+        let ascii_file =
+            asciifile::AsciiFile::new(&bytes).context(CliError::Ascii { path: path.clone() })?;
+
+        let stderr = StandardStream::stderr(ColorChoice::Auto);
+        let $context = Context::new(&ascii_file, box stderr);
+    };
 }
 
 fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
@@ -237,51 +282,46 @@ fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
     Ok(())
 }
 
-fn cmd_lower(opts: &firm::Options) -> Result<(), Error> {
-    unsafe { firm::build(opts) };
-    Ok(())
-}
+fn cmd_lower(path: &PathBuf, opts: &firm::Options) -> Result<(), Error> {
+    setup_io!(let context = path);
+    let mut strtab = StringTable::new();
+    let lexer = Lexer::new(&mut strtab, &context);
 
-fn cmd_echo(path: &PathBuf) -> Result<(), Error> {
-    let mut f = File::open(&path).context(CliError::OpenInput { path: path.clone() })?;
+    // adapt lexer to fail on first error
+    // filter whitespace and comments
+    let unforgiving_lexer = lexer.filter_map(|result| match result {
+        Ok(token) => match token.data {
+            TokenKind::Whitespace | TokenKind::Comment(_) => None,
+            _ => Some(token),
+        },
+        Err(lexical_error) => {
+            context.diagnostics.error(&lexical_error);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    });
 
-    let mut stdout = io::stdout();
-    io::copy(&mut f, &mut stdout).context(CliError::Echo {
-        input: path.clone(),
-    })?;
+    let mut parser = Parser::new(unforgiving_lexer);
 
-    Ok(())
-}
-
-macro_rules! setup_io {
-    (let $context:ident = $path:expr) => {
-        let path: &PathBuf = $path;
-        let file = File::open(&path).context(CliError::OpenInput { path: path.clone() })?;
-        let mmres = unsafe { Mmap::map(&file) };
-        const EMPTY: [u8; 0] = [0; 0];
-        let bytes: &[u8] = match mmres {
-            Ok(ref m) => m,
-            Err(e) if e.kind() == io::ErrorKind::InvalidInput => {
-                // Linux returns EINVAL on file size 0, but let's be sure
-                let file_size = file
-                    .metadata()
-                    .map(|m| m.len())
-                    .context("could not get file metadata while interpreting mmap error")?;
-                if file_size == 0 {
-                    &EMPTY
-                } else {
-                    Err(e.context(CliError::Mmap { path: path.clone() }))?
-                }
-            }
-            Err(e) => Err(e.context(CliError::Mmap { path: path.clone() }))?,
-        };
-
-        let ascii_file =
-            asciifile::AsciiFile::new(&bytes).context(CliError::Ascii { path: path.clone() })?;
-
-        let stderr = StandardStream::stderr(ColorChoice::Auto);
-        let $context = Context::new(&ascii_file, box stderr);
+    let ast = match parser.parse() {
+        Ok(p) => p,
+        Err(parser_error) => {
+            context.diagnostics.error(&parser_error);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
     };
+
+    let type_system = match crate::semantics::check(&mut strtab, &ast, &context) {
+        Ok(type_system) => type_system,
+        Err(()) => {
+            context.diagnostics.write_statistics();
+            exit(1)
+        }
+    };
+
+    unsafe { firm::build(opts, &ast, &type_system) };
+    Ok(())
 }
 
 fn cmd_check(path: &PathBuf) -> Result<(), Error> {
