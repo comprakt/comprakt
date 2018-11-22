@@ -1,7 +1,7 @@
 use libfirm_rs::bindings::*;
 use std::{ffi::CStr, path::PathBuf};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Options {
     pub dump_firm_graph: Option<PathBuf>,
     pub dump_lowered_firm_graph: Option<PathBuf>,
@@ -72,6 +72,7 @@ pub unsafe fn build(opts: &Options) {
 
         // TODO: print target machine triple, input file name, compiler version
         // on top of assembler output
+        #[allow(clippy::cast_ptr_alignment)]
         be_main(
             assembly_file as *mut _IO_FILE,
             CStr::from_bytes_with_nul(b"<stdin>\0").unwrap().as_ptr(),

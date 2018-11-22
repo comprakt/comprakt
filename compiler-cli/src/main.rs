@@ -190,17 +190,24 @@ pub fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error>
 fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
     let temp_dir = tempdir()?;
     let out_dir = temp_dir.path().to_path_buf();
-    let runtime = runtime_rs::SOURCE_CODE;
-    let runtime_path = out_dir.join("runtime.rs");
-    let out_name = path.file_stem().unwrap();
 
-    std::fs::copy("running_sum.S", out_dir.join("a.s"))?;
-
-    {
-        let mut file = File::create(&runtime_path)?;
-        file.write_all(runtime)?;
+    // lower user code to assembler
+    let mut firm_options = firm::Options::default();
+    firm_options.dump_assembler = Some(out_dir.join("a.s"));
+    unsafe {
+        firm::build(&firm_options);
     }
 
+    // get runtime library
+    let runtime_path = out_dir.join("runtime.rs");
+    {
+        let mut file = File::create(&runtime_path)?;
+        file.write_all(runtime_rs::SOURCE_CODE)?;
+    }
+
+    let out_name = path.file_stem().unwrap();
+
+    // assembler of user code to object file
     Command::new("as")
         .arg("-o")
         .arg(&out_dir.join("a.o"))
@@ -208,6 +215,7 @@ fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
         .status()
         .context("assembling using 'as' failed")?;
 
+    // object file of user code to lib
     Command::new("ar")
         .arg("-crus")
         .arg(&(out_dir.join("liba.a")))
@@ -215,6 +223,7 @@ fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
         .status()
         .context("packing using 'ar' failed")?;
 
+    // compile runtime and link it with user's code
     Command::new("rustc")
         .arg("-L")
         .arg(format!("{}", out_dir.display()))
