@@ -5,4 +5,5 @@ members = [
     "inspect-ast",
     "libfirm-rs-bindings",
     "libfirm-rs",
+    "runtime-rs"
 ]

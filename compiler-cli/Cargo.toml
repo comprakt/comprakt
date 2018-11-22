@@ -24,6 +24,7 @@ libc = "*"
 termcolor = "1.0.4"
 compiler-lib = { path = "../compiler-lib" }
 inspect-ast = { path = "../inspect-ast" }
+tempfile = "3.0"
 
 [dev-dependencies]
 integration_test_codegen = { path = "integration-test-codegen" }
