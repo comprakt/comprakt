@@ -12,3 +12,4 @@ edition = "2018"
 
 [dependencies]
 libfirm-rs-bindings = { path = "../libfirm-rs-bindings" }
+derive_more = "0.13"
