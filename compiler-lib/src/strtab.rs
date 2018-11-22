@@ -11,6 +11,10 @@ impl Symbol<'_> {
     fn as_raw(&self) -> *const str {
         self.0 as *const str
     }
+
+    pub fn as_str(&self) -> &str {
+        self.0
+    }
 }
 
 impl PartialEq for Symbol<'_> {
