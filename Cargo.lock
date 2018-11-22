@@ -545,14 +545,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "play-libfirm"
-version = "0.1.0"
-dependencies = [
- "libfirm-rs 0.0.1",
- "libfirm-rs-bindings 0.0.1",
-]
-
-[[package]]
 name = "predicates"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

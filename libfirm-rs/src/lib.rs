@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 pub use libfirm_rs_bindings as bindings;
 #[macro_use]
 extern crate derive_more;
@@ -51,6 +52,7 @@ impl ArrayType {
 }
 
 /// Builder for new_type_method
+#[derive(Default)]
 pub struct FunctionType {
     params: Vec<Ty>,
     results: Vec<Ty>,
@@ -94,7 +96,7 @@ impl FunctionType {
 
 #[derive(Clone, Copy)]
 pub struct Graph {
-    entity: *mut ir_entity,
+    _entity: *mut ir_entity,
     irg: *mut ir_graph,
 }
 
@@ -108,9 +110,9 @@ impl Graph {
         unsafe {
             let global_type: *mut ir_type = get_glob_type();
             let name: *mut ident = new_id_from_str(mangled_name.as_ptr());
-            let entity = new_entity(global_type, name, function_type.into());
-            let irg = new_ir_graph(entity, num_slots as i32);
-            Graph { entity, irg }
+            let _entity = new_entity(global_type, name, function_type.into());
+            let irg = new_ir_graph(_entity, num_slots as i32);
+            Graph { _entity, irg }
         }
     }
 
@@ -118,7 +120,7 @@ impl Graph {
         Block(unsafe { get_irg_start_block(self.irg) })
     }
 
-    pub fn set_value<V: ValueNode>(&self, slot_idx: usize, vn: V) {
+    pub fn set_value<V: ValueNode>(&self, slot_idx: usize, vn: &V) {
         unsafe { set_r_value(self.irg, slot_idx as i32, vn.as_value_node()) }
     }
 
@@ -131,7 +133,7 @@ impl Graph {
         unsafe { get_irg_args(self.irg) }.into()
     }
 
-    pub fn new_imm_block<P: AsPred>(&self, pred: P) -> Block {
+    pub fn new_imm_block<P: AsPred>(&self, pred: &P) -> Block {
         let block = Block(unsafe { new_r_immBlock(self.irg) });
         block.add_pred(pred);
         block
@@ -217,19 +219,19 @@ impl ValueNode for *mut ir_node {
 }
 
 impl Block {
-    pub fn new_jmp(&self) -> Jmp {
+    pub fn new_jmp(self) -> Jmp {
         unsafe { new_r_Jmp(self.0) }.into()
     }
-    pub fn add_pred<P: AsPred>(&self, pred: P) {
+    pub fn add_pred<P: AsPred>(self, pred: &P) {
         unsafe { add_immBlock_pred(self.0, pred.as_pred().0) }
     }
-    pub fn new_cond<S: AsSelector>(&self, selector: S) -> Cond {
+    pub fn new_cond<S: AsSelector>(self, selector: &S) -> Cond {
         unsafe { new_r_Cond(self.0, selector.as_selector().0) }.into()
     }
     pub fn new_cmp<C: CmpOperand, D: CmpOperand>(
-        &self,
-        left: C,
-        right: D,
+        self,
+        left: &C,
+        right: &D,
         relation: libfirm_rs_bindings::ir_relation::Type,
     ) -> Cmp {
         unsafe {
@@ -242,21 +244,21 @@ impl Block {
         }
         .into()
     }
-    pub fn new_sel<P: AsPointer, I: AsIndex>(&self, p: P, i: I, array_type: Ty) -> Sel {
+    pub fn new_sel<P: AsPointer, I: AsIndex>(self, p: &P, i: &I, array_type: Ty) -> Sel {
         unsafe { new_r_Sel(self.0, p.as_pointer(), i.as_index(), array_type.into()) }.into()
     }
 
     /// FIXME: either generate methods for all `ir_op` or use `ir_op` as
     /// parameter.
-    pub fn new_add<A: ALUOperand, B: ALUOperand>(&self, left: A, right: B) -> ALUOpNode {
+    pub fn new_add<A: ALUOperand, B: ALUOperand>(self, left: &A, right: &B) -> ALUOpNode {
         unsafe { new_r_Add(self.0, left.as_alu_operand(), right.as_alu_operand()) }.into()
     }
 
     /// `flags` specifies alignment, volatility and pin state. See libfirm docs.
     pub fn new_load<P: AsPointer>(
-        &self,
+        self,
         mem: MemoryState,
-        pointer: P,
+        pointer: &P,
         mode: mode::Type,
         ty: Ty,
         flags: ir_cons_flags::Type,
@@ -276,10 +278,10 @@ impl Block {
 
     /// `flags` specifies alignment, volatility and pin state. See libfirm docs.
     pub fn new_store<V: ValueNode, P: AsPointer>(
-        &self,
+        self,
         mem: MemoryState,
-        pointer: P,
-        value: V,
+        pointer: &P,
+        value: &V,
         ty: Ty,
         flags: ir_cons_flags::Type,
     ) -> Store {
@@ -313,10 +315,10 @@ impl AsPred for Jmp {
 pub struct Cond(*mut ir_node);
 
 impl Cond {
-    pub fn project_true(&self) -> Jmp {
+    pub fn project_true(self) -> Jmp {
         unsafe { new_r_Proj(self.0, mode::X, pn_Cond::True) }.into()
     }
-    pub fn project_false(&self) -> Jmp {
+    pub fn project_false(self) -> Jmp {
         unsafe { new_r_Proj(self.0, mode::X, pn_Cond::False) }.into()
     }
 }
@@ -447,10 +449,10 @@ impl ValueNode for LoadValue {
 
 impl Load {
     /// TODO can ret type be `MemoryState` ?
-    pub fn project_mem(&self) -> *mut ir_node {
+    pub fn project_mem(self) -> *mut ir_node {
         unsafe { new_r_Proj(self.0, mode::M, pn_Load::M) }
     }
-    pub fn project_res(&self, mode: mode::Type) -> LoadValue {
+    pub fn project_res(self, mode: mode::Type) -> LoadValue {
         unsafe { new_r_Proj(self.0, mode, pn_Load::Res) }.into()
     }
 }
@@ -463,7 +465,7 @@ pub struct StoreValue(*mut ir_node);
 
 impl Store {
     /// TODO can ret type be `MemoryState` ?
-    pub fn project_mem(&self) -> *mut ir_node {
+    pub fn project_mem(self) -> *mut ir_node {
         unsafe { new_r_Proj(self.0, mode::M, pn_Store::M) }
     }
 }

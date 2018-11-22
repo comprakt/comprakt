@@ -6,6 +6,7 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 /// A little more idiomatic access to the mode_* statics.
+#[rustfmt::skip]
 pub mod mode {
     pub use super::mode_ANY as Any;
     pub use super::mode_BAD as BAD;
@@ -29,6 +30,7 @@ pub mod mode {
 }
 
 /// A little more idiomatic access to the op_* statics.
+#[rustfmt::skip]
 pub mod op {
     pub use super::op_ASM as ASM;
     pub use super::op_Add as Add;
@@ -86,5 +88,3 @@ pub mod op {
     pub use super::op_Tuple as Tuple;
     pub use super::op_Unknown as Unknown;
 }
-
-
