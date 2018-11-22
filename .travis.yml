@@ -19,19 +19,19 @@ matrix:
     - os: linux
       name: "unit and integration tests in debug mode"
       env: TEST_KIND="comprakt-debug"
-      if: head_branch != master
+      if: branch IN (staging, trying) OR type = pull_request
     - os: linux
       name: "unit and integration tests in release mode"
       env: TEST_KIND="comprakt-release"
-      if: head_branch = master OR branch IN (staging, trying)
+      if: type != pull_request
     - os: linux
       name: "mj-tests via original python script"
       env: TEST_KIND="mjtest"
-      if: head_branch != master
+      if: branch IN (staging, trying) OR type = pull_request
     - os: linux
       name: "submission: integration tests using build and run scripts"
       env: TEST_KIND="submission-system"
-      if: head_branch = master OR branch IN (staging, trying)
+      if: type != pull_request
 
 install: |
     case "$TEST_KIND" in
