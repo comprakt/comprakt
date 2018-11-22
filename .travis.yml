@@ -18,28 +18,20 @@ matrix:
   include:
     - os: linux
       env: TEST_KIND="comprakt-debug"
+      if: branch != master
     - os: linux
       env: TEST_KIND="comprakt-release"
-
+      if: branch IN (staging, trying, master)
     - os: linux
-      env: TEST_KIND="mjtest-lexer"
-    - os: linux
-      env: TEST_KIND="mjtest-syntax"
-    - os: linux
-      env: TEST_KIND="mjtest-semantic"
+      env: TEST_KIND="mjtest"
+      if: branch != master
     - os: linux
       # only run integration tests, but redirect them
       # through the `build` and `run` scripts. We cannot
       # do this in the other CI builds, since they build
       # `debug` and `release` versions explicitly.
       env: TEST_KIND="submission-system"
-    # Disable until implemented
-    # - os: linux
-    #   env: TEST_KIND="mjtest-ast"
-    # - os: linux
-    #   env: TEST_KIND="mjtest-compile-firm"
-    # - os: linux
-    #   env: TEST_KIND="mjtest-compile"
+      if: branch IN (staging, trying, master)
 
 install: |
     case "$TEST_KIND" in
@@ -47,7 +39,7 @@ install: |
         rustup component add clippy-preview && \
         rustup component add rustfmt-preview;
         ;;
-      mjtest-*)
+      mjtest)
         curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py --user && \
         pip install typing --user && \
         git clone https://git.scc.kit.edu/IPDSnelting/mjtest.git && \
@@ -77,10 +69,12 @@ script: |
         cargo clippy $FLAGS --all-targets --all-features -- -D warnings && \
         cargo test $FLAGS ;
         ;;
-      mjtest-*)
-        MJTEST_KIND=${TEST_KIND#mjtest-}
+      mjtest)
         cargo build --release && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py $MJTEST_KIND ;
+        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py lexer && \
+        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py syntax && \
+        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py ast && \
+        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py semantic ;
         ;;
       submission-system)
         ./build && \
