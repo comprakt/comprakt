@@ -190,10 +190,7 @@ pub fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error>
 fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
     let temp_dir = tempdir()?;
     let out_dir = temp_dir.path().to_path_buf();
-    let runtime = include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../runtime-rs/src/main.rs"
-    ));
+    let runtime = runtime_rs::SOURCE_CODE;
     let runtime_path = out_dir.join("runtime.rs");
     let out_name = path.file_stem().unwrap();
 
