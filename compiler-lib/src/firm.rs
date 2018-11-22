@@ -53,12 +53,27 @@ pub unsafe fn build(opts: &Options) {
         //dump_ir_graph(graph, cstr);
     }
 
-    if let Some(ref _path) = opts.dump_assembler {
-        // TODO: open file with C api instead of foring stdout
+    if let Some(ref path) = opts.dump_assembler {
+        // NOTE: we could also do:
+        // - open file with rust API
+        // - get a file pointer using as_raw_fd()
+        // - use libc::fdopen() to convert the file pointer to a FILE struct
+        let mut cpath = path.to_string_lossy().to_string();
+        cpath.push('\0');
+
+        let path_cstr = CStr::from_bytes_with_nul(cpath.as_bytes())
+            .unwrap()
+            .as_ptr();
+
+        let assembly_file: *mut libc::FILE = libc::fopen(
+            path_cstr,
+            CStr::from_bytes_with_nul(b"w\0").unwrap().as_ptr(),
+        );
+
         // TODO: print target machine triple, input file name, compiler version
         // on top of assembler output
         be_main(
-            stdout,
+            assembly_file as *mut _IO_FILE,
             CStr::from_bytes_with_nul(b"<stdin>\0").unwrap().as_ptr(),
         );
     }

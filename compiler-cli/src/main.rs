@@ -225,9 +225,6 @@ fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
         .arg(&out_name)
         .status()?;
 
-    //let opts = LoweringOptions::default().into();
-    //unsafe { firm::build(&opts) };
-    //cc::Build::new().file("running_sum.S").compile(path);
     Ok(())
 }
 
