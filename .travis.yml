@@ -87,12 +87,15 @@ script: |
 
 
 after_success: |
-    case "$TEST_KIND" in
-      comprakt-release)
-        cargo doc \
-        && echo '<!doctype html><title>Redirecting...</title><meta http-equiv=refresh content=0;url=compiler_cli/index.html><a href="compiler_cli/index.html">Redirecting to "compiler-cli" crate...</a>' > target/doc/index.html ;
-        ;;
-    esac
+    if [ "$TRAVIS_PULL_REQUEST" = "false" ]
+      then
+        case "$TEST_KIND" in
+          comprakt-release)
+            cargo doc \
+            && echo '<!doctype html><title>Redirecting...</title><meta http-equiv=refresh content=0;url=compiler_cli/index.html><a href="compiler_cli/index.html">Redirecting to "compiler-cli" crate...</a>' > target/doc/index.html ;
+            ;;
+        esac
+    fi
 
 
 deploy:
