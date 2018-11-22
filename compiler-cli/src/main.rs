@@ -108,6 +108,8 @@ pub enum CliCommand {
 /// Command-line options for the [`CliCommand::Lower`] (`--lower`) call
 #[derive(StructOpt, Debug, Clone)]
 pub struct LoweringOptions {
+    #[structopt(name = "FILE", parse(from_os_str))]
+    pub path: PathBuf,
     /// Output the matured unlowered firm graph as VCG file
     #[structopt(long = "--firm-graph", short = "-g", parse(from_os_str))]
     pub dump_firm_graph: Option<PathBuf>,
@@ -151,7 +153,7 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path),
-        CliCommand::Lower(options) => cmd_lower(&options.clone().into()),
+        CliCommand::Lower(options) => cmd_lower(&options.path, &options.clone().into()),
     }
 }
 
@@ -169,11 +171,6 @@ pub fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error>
     for cause in err.iter_causes() {
         writeln!(writer, "caused by: {}", cause)?;
     }
-    Ok(())
-}
-
-fn cmd_lower(opts: &firm::Options) -> Result<(), Error> {
-    unsafe { firm::build(opts) };
     Ok(())
 }
 
@@ -217,6 +214,48 @@ macro_rules! setup_io {
         let stderr = StandardStream::stderr(ColorChoice::Auto);
         let $context = Context::new(&ascii_file, box stderr);
     };
+}
+
+fn cmd_lower(path: &PathBuf, opts: &firm::Options) -> Result<(), Error> {
+    setup_io!(let context = path);
+    let mut strtab = StringTable::new();
+    let lexer = Lexer::new(&mut strtab, &context);
+
+    // adapt lexer to fail on first error
+    // filter whitespace and comments
+    let unforgiving_lexer = lexer.filter_map(|result| match result {
+        Ok(token) => match token.data {
+            TokenKind::Whitespace | TokenKind::Comment(_) => None,
+            _ => Some(token),
+        },
+        Err(lexical_error) => {
+            context.diagnostics.error(&lexical_error);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    });
+
+    let mut parser = Parser::new(unforgiving_lexer);
+
+    let ast = match parser.parse() {
+        Ok(p) => p,
+        Err(parser_error) => {
+            context.diagnostics.error(&parser_error);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    };
+
+    let type_system = match crate::semantics::check(&mut strtab, &ast, &context) {
+        Ok(type_system) => type_system,
+        Err(()) => {
+            context.diagnostics.write_statistics();
+            exit(1)
+        }
+    };
+
+    unsafe { firm::build(opts, &ast, &type_system) };
+    Ok(())
 }
 
 fn cmd_check(path: &PathBuf) -> Result<(), Error> {
