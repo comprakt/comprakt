@@ -17,21 +17,21 @@ branches:
 matrix:
   include:
     - os: linux
+      name: "Unit and Integration Tests in Debug Mode"
       env: TEST_KIND="comprakt-debug"
-      if: branch != master
+      if: head_branch != master
     - os: linux
+      name: "Unit and Integration Tests in Release Mode"
       env: TEST_KIND="comprakt-release"
-      if: branch IN (staging, trying, master)
+      if: head_branch IN (staging, trying, master)
     - os: linux
+      name: "MjTests via original python script"
       env: TEST_KIND="mjtest"
-      if: branch != master
+      if: head_branch != master
     - os: linux
-      # only run integration tests, but redirect them
-      # through the `build` and `run` scripts. We cannot
-      # do this in the other CI builds, since they build
-      # `debug` and `release` versions explicitly.
+      name: "Submission: Integration tests using build and run scripts"
       env: TEST_KIND="submission-system"
-      if: branch IN (staging, trying, master)
+      if: head_branch IN (staging, trying, master)
 
 install: |
     case "$TEST_KIND" in
