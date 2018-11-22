@@ -28,7 +28,7 @@ extern "C" fn system_out_println(num: MjInt) {
 #[no_mangle]
 // TODO: this should write a byte. But what's a byte in MiniJava?
 extern "C" fn system_out_write(num: MjInt) {
-    println!("{}", num);
+    print!("{}", num);
 }
 
 #[no_mangle]
