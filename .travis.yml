@@ -87,8 +87,7 @@ script: |
 
 
 after_success: |
-    if [ "$TRAVIS_PULL_REQUEST" = "false" ]
-      then
+    if [ "$TRAVIS_PULL_REQUEST" = "false" ] && [ "$TRAVIS_BRANCH" = "master" ]; then
         case "$TEST_KIND" in
           comprakt-release)
             cargo doc \
