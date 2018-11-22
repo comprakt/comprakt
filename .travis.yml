@@ -17,19 +17,19 @@ branches:
 matrix:
   include:
     - os: linux
-      name: "Unit and Integration Tests in Debug Mode"
+      name: "unit and integration tests in debug mode"
       env: TEST_KIND="comprakt-debug"
       if: head_branch != master
     - os: linux
-      name: "Unit and Integration Tests in Release Mode"
+      name: "unit and integration tests in release mode"
       env: TEST_KIND="comprakt-release"
       if: head_branch IN (staging, trying, master)
     - os: linux
-      name: "MjTests via original python script"
+      name: "mj-tests via original python script"
       env: TEST_KIND="mjtest"
       if: head_branch != master
     - os: linux
-      name: "Submission: Integration tests using build and run scripts"
+      name: "submission: integration tests using build and run scripts"
       env: TEST_KIND="submission-system"
       if: head_branch IN (staging, trying, master)
 
