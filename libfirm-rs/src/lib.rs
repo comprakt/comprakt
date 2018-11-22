@@ -28,26 +28,38 @@ impl Ty {
 }
 
 pub struct PrimitiveType;
+
 impl PrimitiveType {
-    pub fn from_mode(mode: *mut libfirm_rs_bindings::ir_mode) -> Ty {
+    pub fn from_mode(mode: *mut ir_mode) -> Ty {
         unsafe { new_type_primitive(mode) }.into()
     }
-    pub fn isize() -> Ty {
+    pub fn i32() -> Ty {
         unsafe { new_type_primitive(mode::Is) }.into()
     }
-    pub fn usize() -> Ty {
-        unsafe { new_type_primitive(mode::Iu) }.into()
+    pub fn bool() -> Ty {
+        unsafe { new_type_primitive(mode::Bu) }.into()
     }
 }
 
 pub struct ArrayType;
 
 impl ArrayType {
-    pub fn varlength(element_type: Ty) -> Ty {
+    pub fn variable_length(element_type: Ty) -> Ty {
         unsafe { new_type_array(element_type.into(), 0) }.into()
     }
-    pub fn fixedlength(element_type: Ty, length: usize) -> Ty {
+    pub fn fixed_length(element_type: Ty, length: usize) -> Ty {
         unsafe { new_type_array(element_type.into(), length as u32) }.into()
+    }
+}
+
+pub struct ClassType;
+
+impl ClassType {
+    pub fn new_class_type(name: &str) -> Ty {
+        unsafe {
+            new_type_class(CString::new(name).expect("CString::new failed").as_ptr() as *mut _)
+        }
+        .into()
     }
 }
 
@@ -55,40 +67,43 @@ impl ArrayType {
 #[derive(Default)]
 pub struct FunctionType {
     params: Vec<Ty>,
-    results: Vec<Ty>,
+    result: Option<Ty>,
 }
 
 impl FunctionType {
     pub fn new() -> Self {
         FunctionType {
             params: Vec::new(),
-            results: Vec::new(),
+            result: None,
         }
     }
-    pub fn param(mut self, ty: Ty) -> FunctionType {
+    /// If the function isn't the main function don't forget to add a this
+    /// param as the first param.
+    pub fn add_param(&mut self, ty: Ty) {
         self.params.push(ty);
-        self
     }
-    pub fn res(mut self, res: Ty) -> FunctionType {
-        self.results.push(res);
-        self
+    pub fn set_res(&mut self, res: Ty) {
+        self.result = Some(res);
     }
-    pub fn build(self) -> Ty {
-        use libfirm_rs_bindings::*;
+    pub fn build(self, is_main: bool) -> Ty {
         let ft = unsafe {
             new_type_method(
                 self.params.len(),
-                self.results.len(),
+                if self.result.is_some() { 1 } else { 0 },
                 false.into(), // variadic
-                cc_cdecl_set,
+                if is_main {
+                    cc_cdecl_set
+                } else {
+                    calling_convention::ThisCall
+                },
                 mtp_additional_properties::NoProperty,
             )
         };
         for (i, param) in self.params.into_iter().enumerate() {
             unsafe { set_method_param_type(ft, i, param.into()) };
         }
-        for (i, res) in self.results.into_iter().enumerate() {
-            unsafe { set_method_res_type(ft, i, res.into()) };
+        if let Some(res) = self.result {
+            unsafe { set_method_res_type(ft, 0, res.into()) };
         }
         Ty(ft)
     }
@@ -96,7 +111,6 @@ impl FunctionType {
 
 #[derive(Clone, Copy)]
 pub struct Graph {
-    _entity: *mut ir_entity,
     irg: *mut ir_graph,
 }
 
@@ -104,46 +118,53 @@ impl Graph {
     /// Create a new function entity and initialize an ir_graph for it.
     /// The entity is registered with the `get_glob_type()`, hence the name
     /// must be mangled to avoid collisions with other classes' functions.
-    pub fn function(mangled_name: String, function_type: Ty, num_slots: usize) -> Graph {
-        let mangled_name =
-            CString::new(mangled_name).expect("mangled_name expected to be valid CString");
+    pub fn function(mangled_name: &str, function_type: Ty, num_slots: usize) -> Graph {
+        let mangled_name = CString::new(mangled_name).expect("CString::new failed");
         unsafe {
             let global_type: *mut ir_type = get_glob_type();
             let name: *mut ident = new_id_from_str(mangled_name.as_ptr());
-            let _entity = new_entity(global_type, name, function_type.into());
-            let irg = new_ir_graph(_entity, num_slots as i32);
-            Graph { _entity, irg }
+            let entity = new_entity(global_type, name, function_type.into());
+            let irg = new_ir_graph(entity, num_slots as i32);
+            Graph { irg }
         }
     }
 
-    pub fn start_block(&self) -> Block {
+    pub fn entity(self) -> *mut ir_entity {
+        unsafe { get_irg_entity(self.irg) }
+    }
+
+    pub fn start_block(self) -> Block {
         Block(unsafe { get_irg_start_block(self.irg) })
     }
 
-    pub fn set_value<V: ValueNode>(&self, slot_idx: usize, vn: &V) {
+    pub fn end_block(self) -> Block {
+        Block(unsafe { get_irg_end_block(self.irg) })
+    }
+
+    pub fn set_value<V: ValueNode>(self, slot_idx: usize, vn: &V) {
         unsafe { set_r_value(self.irg, slot_idx as i32, vn.as_value_node()) }
     }
 
     /// TODO: have `get_value_$mode::??` for each `mode::??`
-    pub fn get_value(&self, slot_idx: usize, mode: mode::Type) -> *mut ir_node {
+    pub fn value(self, slot_idx: usize, mode: mode::Type) -> *mut ir_node {
         unsafe { get_r_value(self.irg, slot_idx as i32, mode) }
     }
 
-    pub fn args_node(&self) -> GraphArgs {
+    pub fn args_node(self) -> GraphArgs {
         unsafe { get_irg_args(self.irg) }.into()
     }
 
-    pub fn new_imm_block<P: AsPred>(&self, pred: &P) -> Block {
+    pub fn new_imm_block<P: AsPred>(self, pred: &P) -> Block {
         let block = Block(unsafe { new_r_immBlock(self.irg) });
         block.add_pred(pred);
         block
     }
 
-    pub fn new_const(&self, tarval: *mut ir_tarval) -> Const {
+    pub fn new_const(self, tarval: *mut ir_tarval) -> Const {
         unsafe { new_r_Const(self.irg, tarval) }.into()
     }
 
-    pub fn cur_store(&self) -> MemoryState {
+    pub fn cur_store(self) -> MemoryState {
         unsafe { get_r_store(self.irg) }.into()
     }
 }
@@ -232,7 +253,7 @@ impl Block {
         self,
         left: &C,
         right: &D,
-        relation: libfirm_rs_bindings::ir_relation::Type,
+        relation: ir_relation::Type,
     ) -> Cmp {
         unsafe {
             new_r_Cmp(
@@ -297,6 +318,14 @@ impl Block {
         }
         .into()
     }
+
+    pub fn new_return(self, mem: MemoryState, ret: Option<*mut ir_node>) -> Return {
+        let (arity, inputs) = match ret {
+            Some(node) => (1, vec![node]),
+            None => (0, vec![]),
+        };
+        unsafe { new_r_Return(self.0, mem.into(), arity, inputs.as_ptr()) }.into()
+    }
 }
 
 #[derive(Clone, Copy, Into, From)]
@@ -340,11 +369,7 @@ pub struct GraphArgs(*mut ir_node);
 
 pub trait Projectable {
     fn ir_node(&self) -> *mut ir_node;
-    fn project(
-        &self,
-        mode: libfirm_rs_bindings::mode::Type,
-        component_number: usize,
-    ) -> Projection {
+    fn project(&self, mode: mode::Type, component_number: usize) -> Projection {
         unsafe { new_r_Proj(self.ir_node(), mode, component_number as u32) }.into()
     }
 }
@@ -401,6 +426,15 @@ impl AsPointer for Sel {
 /// Const is an `ir_node` resulting from a new_const operation.
 #[derive(Clone, Copy, Into, From)]
 pub struct Const(*mut ir_node);
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Return(*mut ir_node);
+
+impl AsPred for Return {
+    fn as_pred(&self) -> Pred {
+        Pred(self.0)
+    }
+}
 
 impl ValueNode for Const {
     fn as_value_node(&self) -> *mut ir_node {
