@@ -73,7 +73,6 @@ script: |
         cargo build --release && \
         MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py lexer && \
         MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py syntax && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py ast && \
         MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py semantic ;
         ;;
       submission-system)
