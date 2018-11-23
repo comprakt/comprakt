@@ -131,7 +131,6 @@ impl<'a, 'ir, 'src> MethodBodyGenerator<'ir, 'src> {
     fn gen_method(&mut self, body: &Spanned<'src, ast::Block<'src>>) {
         unsafe { self.graph.set_cur_block(self.graph.start_block()) };
         self.gen_block(body);
-        self.graph.start_block().mature();
 
         // Void functions have an implicit return in the end
         if self.method_def.return_ty == CheckedType::Void {
@@ -140,6 +139,7 @@ impl<'a, 'ir, 'src> MethodBodyGenerator<'ir, 'src> {
             self.graph.end_block().add_pred(&ret);
         }
 
+        self.graph.cur_block().mature();
         self.graph.end_block().mature();
     }
 
