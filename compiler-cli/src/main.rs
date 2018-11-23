@@ -126,17 +126,17 @@ pub struct LoweringOptions {
     #[structopt(name = "FILE", parse(from_os_str))]
     pub path: PathBuf,
     /// Output the matured unlowered firm graph as VCG file
-    #[structopt(long = "--firm-graph", short = "-g", parse(from_os_str))]
+    #[structopt(long = "--emit-firm-graph", short = "-g", parse(from_os_str))]
     pub dump_firm_graph: Option<PathBuf>,
     /// Output the matured lowered firm graph as VCG file
     #[structopt(
-        long = "--lowered-firm-graph",
+        long = "--emit-lowered-firm-graph",
         short = "-l",
         parse(from_os_str)
     )]
     pub dump_lowered_firm_graph: Option<PathBuf>,
     /// Write generated assembler code to the given file.
-    #[structopt(long = "--assembler", short = "-a", parse(from_os_str))]
+    #[structopt(long = "--emit-asm", short = "-a", parse(from_os_str))]
     pub dump_assembler: Option<PathBuf>,
 }
 
@@ -233,15 +233,52 @@ macro_rules! setup_io {
 }
 
 fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
+    setup_io!(let context = path);
+    let mut strtab = StringTable::new();
+    let lexer = Lexer::new(&mut strtab, &context);
+
+    // adapt lexer to fail on first error
+    // filter whitespace and comments
+    let unforgiving_lexer = lexer.filter_map(|result| match result {
+        Ok(token) => match token.data {
+            TokenKind::Whitespace | TokenKind::Comment(_) => None,
+            _ => Some(token),
+        },
+        Err(lexical_error) => {
+            context.diagnostics.error(&lexical_error);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    });
+
+    let mut parser = Parser::new(unforgiving_lexer);
+
+    let ast = match parser.parse() {
+        Ok(p) => p,
+        Err(parser_error) => {
+            context.diagnostics.error(&parser_error);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    };
+
+    let type_system = match crate::semantics::check(&mut strtab, &ast, &context) {
+        Ok(type_system) => type_system,
+        Err(()) => {
+            context.diagnostics.write_statistics();
+            exit(1)
+        }
+    };
+
     let temp_dir = tempdir()?;
     let out_dir = temp_dir.path().to_path_buf();
+    let user_assembly = out_dir.join("a.s");
 
     // lower user code to assembler
     let mut firm_options = firm::Options::default();
-    firm_options.dump_assembler = Some(out_dir.join("a.s"));
-    unsafe {
-        firm::build(&firm_options);
-    }
+    firm_options.dump_assembler = Some(user_assembly.clone());
+
+    unsafe { firm::build(&firm_options, &ast, &type_system) };
 
     // get runtime library
     let runtime_path = out_dir.join("runtime.rs");
@@ -256,7 +293,7 @@ fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
     Command::new("as")
         .arg("-o")
         .arg(&out_dir.join("a.o"))
-        .arg(&out_dir.join("a.s"))
+        .arg(&user_assembly)
         .status()
         .context("assembling using 'as' failed")?;
 
@@ -316,7 +353,7 @@ fn cmd_lower(path: &PathBuf, opts: &firm::Options) -> Result<(), Error> {
         Ok(type_system) => type_system,
         Err(()) => {
             context.diagnostics.write_statistics();
-            exit(1)
+            exit(1);
         }
     };
 
