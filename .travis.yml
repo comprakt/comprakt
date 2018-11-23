@@ -89,7 +89,7 @@ script: |
 after_success: |
     if [ "$TRAVIS_BRANCH" = "master" ]; then
         case "$TEST_KIND" in
-          comprakt-release)
+          comprakt-debug)
             sudo apt-get update \
             && sudo apt-get install -y doxygen \
             && cargo doc \
