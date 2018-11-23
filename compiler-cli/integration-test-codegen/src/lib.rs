@@ -102,11 +102,14 @@ fn gen_integration_tests<F>(
 where
     F: Fn(proc_macro2::TokenStream) -> proc_macro2::TokenStream,
 {
-    let mut out = String::new();
-
     let test_dir: PathBuf = [ROOT_DIR, INTEGRATION_TEST_DIR, subfolder].iter().collect();
 
     let ascii_test_dir = subfolder.replace(|c: char| !c.is_ascii_alphanumeric(), "_");
+
+    let mut out = format!(
+        "mod {}{} {{ use super::*;",
+        ascii_test_dir, test_name_suffix
+    );
 
     let cases = fs::read_dir(&test_dir)
         .unwrap_or_else(|_| panic!("test directory {:?} does not exist.", test_dir))
@@ -129,13 +132,7 @@ where
             .to_string_lossy()
             .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
 
-        let function_name = Ident::new(
-            &format!(
-                "cli_{}_{}{}",
-                ascii_test_dir, ascii_casename, test_name_suffix
-            ),
-            Span::call_site(),
-        );
+        let function_name = Ident::new(&ascii_casename, Span::call_site());
 
         let path_str = case.to_str().unwrap();
         let path_input_tokenstream = input_adaptor(quote! { PathBuf::from(#path_str) });
@@ -157,6 +154,8 @@ where
 
         out.push_str(&tokens.to_string());
     }
+
+    out.push('}'); // close test module
 
     out.parse().unwrap()
 }
