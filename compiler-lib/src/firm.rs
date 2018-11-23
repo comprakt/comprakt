@@ -199,7 +199,36 @@ impl<'a, 'ir, 'src> MethodBodyGenerator<'ir, 'src> {
                 else_block.mature();
             }
 
-            While(cond, body) => unimplemented!(),
+            While(cond, body) => {
+                // TODO DRY beginning nearly the same as If-case
+                let prev_block = self.graph.cur_block();
+
+                let incoming_jmp = prev_block.new_jmp();
+                let header_block = self.graph.new_imm_block(&incoming_jmp);
+
+                prev_block.mature(); // This block is done now
+                unsafe { self.graph.set_cur_block(header_block) };
+
+                // We evaluate the condition
+                let cond = header_block.new_cond(&self.gen_cond_expr(cond));
+
+                // Run body if cond is true
+                let body_block = self.graph.new_imm_block(&cond.project_true());
+                {
+                    unsafe { self.graph.set_cur_block(body_block) };
+                    self.gen_stmt(&**body);
+
+                    // We jump back to the condition-check
+                    header_block.add_pred(&body_block.new_jmp());
+                }
+
+                // Leave loop if cond is false
+                let next_block = self.graph.new_imm_block(&cond.project_false());
+                unsafe { self.graph.set_cur_block(next_block) };
+
+                header_block.mature();
+                body_block.mature();
+            }
 
             Expression(expr) => {
                 self.gen_expr(expr);
