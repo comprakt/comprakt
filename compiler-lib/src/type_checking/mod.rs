@@ -14,7 +14,7 @@ pub mod expr_typechecker;
 pub mod method_body_typechecker;
 pub mod type_system;
 
-use self::{method_body_typechecker::MethodBodyTypeChecker, type_system::*};
+use self::{method_body_typechecker::{MethodBodyTypeChecker, ExprInfo}, type_system::*};
 
 #[derive(Eq)]
 pub struct RefEquality<'a, T>(&'a T);
@@ -38,7 +38,7 @@ pub fn check<'a, 'src>(
     mut strtab: &'_ mut StringTable<'src>,
     ast: &'a ast::AST<'src>,
     context: &Context<'src>,
-) -> TypeSystem<'src> {
+) -> (TypeSystem<'src>, TypeAnalysis<'src, 'a, '_>) { // TODO which lifetime here??
     let mut sem_context = SemanticContext::new(context);
 
     match ast {
@@ -60,14 +60,14 @@ pub fn check<'a, 'src>(
 
             for class_decl in &program.classes {
                 MethodBodyTypeChecker::check_methods(
-                    class_decl,
+                    &class_decl,
                     &type_system,
                     &mut type_analysis,
                     &sem_context,
                 );
             }
 
-            type_system
+            (type_system, type_analysis)
         }
     }
 }
@@ -90,13 +90,14 @@ impl<'ctx, 'src> SemanticContext<'ctx, 'src> {
     }
 }
 
-fn add_types_from_ast<'ctx, 'sem, 'src, 'a>(
+fn add_types_from_ast<'ctx, 'src, 'ast, 'ts, 'ana>(
     strtab: &mut StringTable<'src>,
-    type_system: &'sem mut TypeSystem<'src>,
-    type_analysis: &'sem mut TypeAnalysis<'src, 'a>,
+    // TODO TODO WHY THE HECK DOES IT NOT WORK IF I ADD 'ts HERE!?!?!? Why does it work without having 'ts there?
+    type_system: &mut TypeSystem<'src>,
+    type_analysis: &'ana mut TypeAnalysis<'src, 'ast, 'ts>,
     builtin_types: &BuiltinTypes<'src>,
     context: &SemanticContext<'ctx, 'src>,
-    program: &'a ast::Program<'src>,
+    program: &'ast ast::Program<'src>,
 ) {
     for class_decl in &program.classes {
         // first pass: find all types and add them to the type system.
@@ -146,7 +147,7 @@ fn add_types_from_ast<'ctx, 'sem, 'src, 'a>(
                     );
 
                     type_system
-                        .get_class_mut(class_def_id)
+                        .class_mut(class_def_id)
                         .add_field(ClassFieldDef {
                             name: member.name,
                             ty: field_type,
@@ -212,7 +213,7 @@ fn add_types_from_ast<'ctx, 'sem, 'src, 'a>(
                         .collect();
 
                     type_system
-                        .get_class_mut(class_def_id)
+                        .class_mut(class_def_id)
                         .add_method(ClassMethodDef::new(
                             member.name,
                             checked_params,
@@ -238,9 +239,9 @@ struct BuiltinTypes<'src> {
     string: CheckedType<'src>,
 }
 
-fn add_builtin_types<'src>(
+fn add_builtin_types<'src, 'ts>(
     strtab: &'_ mut StringTable<'src>,
-    type_system: &'_ mut TypeSystem<'src>,
+    type_system: &'ts mut TypeSystem<'src>,
     context: &'_ mut SemanticContext<'_, 'src>,
 ) -> BuiltinTypes<'src> {
     let arg_sym = strtab.intern("$InStream");
@@ -317,8 +318,9 @@ fn add_builtin_types<'src>(
 }
 
 #[derive(Default)]
-pub struct TypeAnalysis<'src, 'a> {
-    class_types: HashMap<RefEquality<'a, ast::ClassDeclaration<'src>>, ClassDefId<'src>>,
+pub struct TypeAnalysis<'src, 'ast, 'ts> {
+    class_types: HashMap<RefEquality<'ast, ast::ClassDeclaration<'src>>, ClassDefId<'src>>,
+    expr_info: HashMap<RefEquality<'ast, ast::Expr<'src>>, ExprInfo<'src, 'ts>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -327,16 +329,26 @@ pub enum VoidIs {
     Forbidden,
 }
 
-impl<'src, 'a> TypeAnalysis<'src, 'a> {
-    pub fn new() -> TypeAnalysis<'src, 'a> {
+impl<'src, 'ast, 'ts> TypeAnalysis<'src, 'ast, 'ts> {
+    pub fn new() -> TypeAnalysis<'src, 'ast, 'ts> {
         TypeAnalysis {
             class_types: HashMap::new(),
+            expr_info: HashMap::new(),
         }
+    }
+
+    pub fn expr_info(&self, expr: &'ast ast::Expr<'src>) -> &ExprInfo<'src, 'ts> {
+        self.expr_info.get(&RefEquality(expr))
+            .expect("after typechecking every expression should have a type")
+    }
+
+    pub fn set_expr_info(&mut self, expr: &'ast ast::Expr<'src>, expr_info: ExprInfo<'src, 'ts>) {
+        self.expr_info.insert(RefEquality(expr), expr_info);
     }
 
     pub fn decl_set_class_id(
         &mut self,
-        class_decl: &'a ast::ClassDeclaration<'src>,
+        class_decl: &'ast ast::ClassDeclaration<'src>,
         name: ClassDefId<'src>,
     ) {
         self.class_types.insert(RefEquality(class_decl), name);
@@ -344,14 +356,14 @@ impl<'src, 'a> TypeAnalysis<'src, 'a> {
 
     pub fn decl_get_class_id(
         &mut self,
-        class_decl: &'_ ast::ClassDeclaration<'src>,
+        class_decl: &'ast ast::ClassDeclaration<'src>,
     ) -> Option<ClassDefId<'src>> {
         self.class_types.get(&RefEquality(class_decl)).cloned()
     }
 
     pub fn checked_type_from_basic_ty(
         &mut self,
-        basic_ty: &Spanned<'src, ast::BasicType<'src>>,
+        basic_ty: &'ast Spanned<'src, ast::BasicType<'src>>,
         context: &SemanticContext<'_, 'src>,
         type_system: &TypeSystem<'src>,
         void_handling: VoidIs,
@@ -386,7 +398,7 @@ impl<'src, 'a> TypeAnalysis<'src, 'a> {
 
     pub fn checked_type_from_ty(
         &mut self,
-        ty: &ast::Type<'src>,
+        ty: &'ast ast::Type<'src>,
         context: &SemanticContext<'_, 'src>,
         type_system: &TypeSystem<'src>,
         void_handling: VoidIs,

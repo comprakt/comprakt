@@ -5,11 +5,23 @@ use crate::{
     strtab::Symbol,
 };
 
-impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
+impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana>  {
     pub fn type_expr(
         &mut self,
-        expr: &Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
+        expr: &'ast Spanned<'src, ast::Expr<'src>>,
+    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
+        let t = self.type_expr_internal(expr);
+
+        if let Ok(ref t) = t {
+            self.type_analysis.set_expr_info(&expr.data, t.clone());
+        }
+        t
+    }
+
+    pub fn type_expr_internal(
+        &mut self,
+        expr: &'ast Spanned<'src, ast::Expr<'src>>,
+    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
         use crate::ast::Expr::*;
         match &expr.data {
             Binary(op, lhs, rhs) => self.check_binary_expr(expr.span, *op, lhs, rhs),
@@ -154,9 +166,9 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
         &mut self,
         span: Span<'src>,
         op: ast::BinaryOp,
-        lhs: &Spanned<'src, ast::Expr<'src>>,
-        rhs: &Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
+        lhs: &'ast Spanned<'src, ast::Expr<'src>>,
+        rhs: &'ast Spanned<'src, ast::Expr<'src>>,
+    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
         use crate::ast::BinaryOp::*;
         match op {
             Assign => {
@@ -227,7 +239,7 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
 
     pub fn check_type(
         &mut self,
-        expr: &Spanned<'src, ast::Expr<'src>>,
+        expr: &'ast Spanned<'src, ast::Expr<'src>>,
         expected_ty: &CheckedType<'src>,
     ) {
         if let Ok(expr_info) = self.type_expr(expr) {
@@ -246,9 +258,9 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
     fn check_method_invocation(
         &mut self,
         method_name: &Spanned<'src, Symbol<'src>>,
-        target_class_def: &'sem ClassDef<'src>,
-        args: &[Spanned<'src, ast::Expr<'src>>],
-    ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
+        target_class_def: &'ts ClassDef<'src>,
+        args: &'ast [Spanned<'src, ast::Expr<'src>>],
+    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
         let method = match target_class_def.method(method_name.data) {
             Some(method) => method,
             None => {
@@ -296,7 +308,7 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
     fn resolve_class(
         &mut self,
         ty: &CheckedType<'src>,
-    ) -> Result<&'sem ClassDef<'src>, CouldNotDetermineType> {
+    ) -> Result<&'ts ClassDef<'src>, CouldNotDetermineType> {
         match ty {
             CheckedType::TypeRef(name) => match self.type_system.lookup_class(*name) {
                 None => Err(CouldNotDetermineType),
@@ -310,7 +322,7 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
     fn check_var(
         &mut self,
         var_name: &Spanned<'src, Symbol<'src>>,
-    ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
         match self.local_scope.visible_definition(var_name.data) {
             // local variable or param
             Some(VarDef::Local { ty, name }) => Ok(ExprInfo {
