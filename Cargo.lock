@@ -163,8 +163,8 @@ dependencies = [
  "integration_test_codegen 0.0.1",
  "libc 0.2.43 (registry+https://github.com/rust-lang/crates.io-index)",
  "memmap 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mjrt-bin 0.1.0",
  "predicates 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "runtime-rs 0.1.0",
  "structopt 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile 3.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "termcolor 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -478,6 +478,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "mjrt-bin"
+version = "0.1.0"
+dependencies = [
+ "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mjrt-src 0.1.0",
+]
+
+[[package]]
+name = "mjrt-src"
+version = "0.1.0"
+
+[[package]]
 name = "mjtest"
 version = "0.0.1"
 dependencies = [
@@ -698,10 +710,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
-
-[[package]]
-name = "runtime-rs"
-version = "0.1.0"
 
 [[package]]
 name = "rustc-demangle"

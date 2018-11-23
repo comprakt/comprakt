@@ -36,6 +36,8 @@ extern "C" fn system_out_flush() {
     stdout().flush().ok();
 }
 
+#[no_mangle]
 fn main() {
+    println!("starting minijava");
     unsafe { mj_main() };
 }

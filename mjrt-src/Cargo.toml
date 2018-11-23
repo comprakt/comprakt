@@ -1,0 +1,20 @@
+[package]
+name = "mjrt-src"
+version = "0.1.0"
+authors = ["Christian Schwarz <me@cschwarz.com>"]
+edition = "2018"
+
+# the links directive publishes build.rs printlns of the following format as environment variables
+# to the build scripts of dependent crates (mjrt-bin in this case):
+#   println!("cargo:ABC=xyz")
+# => xys is made availble to mjrt-bin's build script as DEP_$links_ABC=xyz environment variable
+#                                                              ^
+#                                                             mjrt
+#
+links = "mjrt"
+build = "build.rs"
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]

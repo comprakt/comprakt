@@ -5,5 +5,9 @@ members = [
     "inspect-ast",
     "libfirm-rs-bindings",
     "libfirm-rs",
-    "runtime-rs"
+    "mjrt-src",
+    "mjrt-bin",
 ]
+
+
+#    "runtime-rs",

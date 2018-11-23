@@ -281,40 +281,32 @@ fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
     unsafe { firm::build(&firm_options, &ast, &type_system) };
 
     // get runtime library
-    let runtime_path = out_dir.join("runtime.rs");
+    let runtime_path = out_dir.join("mjrt.a");
     {
         let mut file = File::create(&runtime_path)?;
-        file.write_all(runtime_rs::SOURCE_CODE)?;
+        file.write_all(mjrt_bin::STATIC_LIB)?;
     }
 
     let out_name = path.file_stem().unwrap();
 
+    let user_assembly_obj = out_dir.join("a.o");
+
     // assembler of user code to object file
     Command::new("as")
         .arg("-o")
-        .arg(&out_dir.join("a.o"))
+        .arg(&user_assembly_obj)
         .arg(&user_assembly)
         .status()
         .context("assembling using 'as' failed")?;
 
-    // object file of user code to lib
-    Command::new("ar")
-        .arg("-crus")
-        .arg(&(out_dir.join("liba.a")))
-        .arg(&(out_dir.join("a.o")))
-        .status()
-        .context("packing using 'ar' failed")?;
-
     // compile runtime and link it with user's code
-    Command::new("rustc")
-        .arg("-L")
-        .arg(format!("{}", out_dir.display()))
-        .arg("-l")
-        .arg("static=a")
+    Command::new("gcc")
+        .args(mjrt_bin::LINKER_FLAGS)
+        .arg(&user_assembly_obj)
         .arg(&runtime_path)
         .arg("-o")
         .arg(&out_name)
-        .status()?;
+        .status()?; // TODO use output
 
     Ok(())
 }
