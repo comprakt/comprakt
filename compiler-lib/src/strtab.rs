@@ -2,9 +2,13 @@
 //!
 //! [1]: https://users.rust-lang.org/t/get-ref-to-just-inserted-hashset-element/13021
 
-use std::{collections::HashSet, fmt};
+use std::{
+    collections::HashSet,
+    fmt,
+    hash::{Hash, Hasher},
+};
 
-#[derive(Debug, Clone, Copy, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialOrd, Ord)]
 pub struct Symbol<'f>(&'f str);
 
 impl Symbol<'_> {
@@ -14,6 +18,12 @@ impl Symbol<'_> {
 
     pub fn as_str(&self) -> &str {
         self.0
+    }
+}
+
+impl Hash for Symbol<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_raw().hash(state)
     }
 }
 
