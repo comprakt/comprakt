@@ -47,7 +47,7 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
                     let mut ft = FunctionType::new();
 
                     // Set param and return types. `main` method has neither
-                    if !is_main {
+                    let method_name = if !is_main {
                         let this_param = ClassType::new_class_type(class.name.as_str());
                         ft.add_param(this_param);
 
@@ -59,13 +59,16 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
                         if let Some(ty) = get_firm_type(&method.return_ty) {
                             ft.set_res(ty);
                         }
-                    }
+                        format!("{}.{}", class.name.data, method.name)
+                    } else {
+                        format!(".{}", method.name)
+                    };
 
                     let method_type = ft.build(is_main);
                     let mut local_var_def_visitor = LocalVarDefVisitor::new();
                     local_var_def_visitor.visit(&NodeKind::from(block));
                     let graph = Graph::function(
-                        &format!("{}::{}", class.name.data, method.name),
+                        &method_name,
                         method_type,
                         method.params.len() + local_var_def_visitor.count,
                     );
