@@ -185,6 +185,8 @@ pub unsafe fn build(opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>)
             assembly_file as *mut _IO_FILE,
             CStr::from_bytes_with_nul(b"<stdin>\0").unwrap().as_ptr(),
         );
+
+        libc::fclose(assembly_file);
     }
 
     ir_finish();
