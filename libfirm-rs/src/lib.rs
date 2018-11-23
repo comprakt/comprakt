@@ -146,8 +146,8 @@ impl Graph {
     }
 
     /// TODO: have `get_value_$mode::??` for each `mode::??`
-    pub fn value(self, slot_idx: usize, mode: mode::Type) -> *mut ir_node {
-        unsafe { get_r_value(self.irg, slot_idx as i32, mode) }
+    pub fn value(self, slot_idx: usize, mode: mode::Type) -> LocalVar {
+        unsafe { get_r_value(self.irg, slot_idx as i32, mode) }.into()
     }
 
     pub fn args_node(self) -> GraphArgs {
@@ -167,6 +167,15 @@ impl Graph {
     pub fn cur_store(self) -> MemoryState {
         unsafe { get_r_store(self.irg) }.into()
     }
+
+    pub fn cur_block(self) -> Block {
+        unsafe { get_r_cur_block(self.irg) }.into()
+    }
+
+    // TODO
+    pub unsafe fn set_cur_block(self, blk: Block) {
+        set_r_cur_block(self.irg, blk.into())
+    }
 }
 
 impl Into<*mut ir_graph> for Graph {
@@ -183,6 +192,12 @@ impl Into<*const ir_graph> for Graph {
 
 #[derive(Clone, Copy)]
 pub struct Block(*mut ir_node);
+
+impl Block {
+    pub fn mature(self) {
+        unsafe { mature_immBlock(self.0) }
+    }
+}
 
 impl From<*mut ir_node> for Block {
     fn from(n: *mut ir_node) -> Block {
@@ -364,6 +379,12 @@ impl AsSelector for Cmp {
     }
 }
 
+impl AsSelector for Selector {
+    fn as_selector(&self) -> Selector {
+        *self
+    }
+}
+
 #[derive(Clone, Copy, Into, From)]
 pub struct GraphArgs(*mut ir_node);
 
@@ -430,6 +451,9 @@ pub struct Const(*mut ir_node);
 #[derive(Clone, Copy, Into, From)]
 pub struct Return(*mut ir_node);
 
+#[derive(Clone, Copy, Into, From)]
+pub struct LocalVar(*mut ir_node);
+
 impl AsPred for Return {
     fn as_pred(&self) -> Pred {
         Pred(self.0)
@@ -437,6 +461,12 @@ impl AsPred for Return {
 }
 
 impl ValueNode for Const {
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
+impl ValueNode for LocalVar {
     fn as_value_node(&self) -> *mut ir_node {
         self.0
     }
