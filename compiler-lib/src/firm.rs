@@ -61,7 +61,7 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
                         }
                         format!("{}.{}", class.name.data, method.name)
                     } else {
-                        "mj_main".to_string()
+                        ".main".to_string()
                     };
 
                     let method_type = ft.build(is_main);
