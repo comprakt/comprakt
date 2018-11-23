@@ -5,7 +5,7 @@ use crate::{
 };
 use libfirm_rs::{bindings::*, *};
 use std::{
-    ffi::{CStr, CString},
+    ffi::{CStr, CString, OsStr},
     path::PathBuf,
 };
 
@@ -162,31 +162,33 @@ pub unsafe fn build(opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>)
     be_lower_for_target();
 
     if let Some(ref path) = opts.dump_assembler {
-        // NOTE: we could also do:
-        // - open file with rust API
-        // - get a file pointer using as_raw_fd()
-        // - use libc::fdopen() to convert the file pointer to a FILE struct
-        let mut cpath = path.to_string_lossy().to_string();
-        cpath.push('\0');
+        let is_stdout = path == OsStr::new("-");
+        let label = CStr::from_bytes_with_nul(b"<stdin>\0").unwrap().as_ptr();
 
-        let path_cstr = CStr::from_bytes_with_nul(cpath.as_bytes())
-            .unwrap()
-            .as_ptr();
+        if is_stdout {
+            be_main(stdout, label);
+        } else {
+            // NOTE: we could also do:
+            // - open file with rust API
+            // - get a file pointer using as_raw_fd()
+            // - use libc::fdopen() to convert the file pointer to a FILE struct
+            let mut cpath = path.to_string_lossy().to_string();
+            cpath.push('\0');
 
-        let assembly_file: *mut libc::FILE = libc::fopen(
-            path_cstr,
-            CStr::from_bytes_with_nul(b"w\0").unwrap().as_ptr(),
-        );
+            let path_cstr = CStr::from_bytes_with_nul(cpath.as_bytes())
+                .unwrap()
+                .as_ptr();
 
-        // TODO: print target machine triple, input file name, compiler version
-        // on top of assembler output
-        #[allow(clippy::cast_ptr_alignment)]
-        be_main(
-            assembly_file as *mut _IO_FILE,
-            CStr::from_bytes_with_nul(b"<stdin>\0").unwrap().as_ptr(),
-        );
+            let assembly_file = libc::fopen(
+                path_cstr,
+                CStr::from_bytes_with_nul(b"w\0").unwrap().as_ptr(),
+            );
 
-        libc::fclose(assembly_file);
+            #[allow(clippy::cast_ptr_alignment)]
+            be_main(assembly_file as *mut _IO_FILE, label);
+
+            libc::fclose(assembly_file);
+        }
     }
 
     ir_finish();
