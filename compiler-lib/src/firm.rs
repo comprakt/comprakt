@@ -64,8 +64,14 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
                     let method_type = ft.build(is_main);
                     let mut local_var_def_visitor = LocalVarDefVisitor::new();
                     local_var_def_visitor.visit(&NodeKind::from(block));
+
+                    let label_name = if is_main {
+                        "mj_main".to_string()
+                    } else {
+                        format!("{}::{}", class.name.data, method.name)
+                    };
                     let graph = Graph::function(
-                        &format!("{}::{}", class.name.data, method.name),
+                        &label_name,
                         method_type,
                         method.params.len() + local_var_def_visitor.count,
                     );
@@ -143,7 +149,7 @@ unsafe fn setup() {
     set_optimize(0);
 }
 
-pub unsafe fn build(_opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>) {
+pub unsafe fn build(opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>) {
     let program = match ast {
         ast::AST::Program(program) => program,
         ast::AST::Empty => unreachable!(),
@@ -151,7 +157,8 @@ pub unsafe fn build(_opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>
     let firm_gen = FirmGenerator::new(program, type_system);
     setup();
 
-    let graphs = firm_gen.init_functions();
+    // TODO: implement firm dumps in opts
+    let _graphs = firm_gen.init_functions();
 
     lower_highlevel();
     be_lower_for_target();
@@ -181,6 +188,7 @@ pub unsafe fn build(_opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>
             CStr::from_bytes_with_nul(b"<stdin>\0").unwrap().as_ptr(),
         );
     }
+
     ir_finish();
 }
 
