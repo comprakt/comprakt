@@ -313,10 +313,7 @@ impl<'a, 'ir, 'src> MethodBodyGenerator<'ir, 'src> {
 
     /// Get name and mode of previously allocated local var
     fn local_var(&mut self, name: Symbol<'src>) -> (usize, mode::Type) {
-        self.local_vars
-            .get(&name)
-            .expect(&format!("undefined variable '{}'", name))
-            .clone()
+        *self.local_vars.get(&name).expect("undefined variable")
     }
 }
 
