@@ -281,41 +281,22 @@ fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
     unsafe { firm::build(&firm_options, &ast, &type_system) };
 
     // get runtime library
-    let runtime_path = out_dir.join("runtime.rs");
+    let runtime_path = out_dir.join("mjrt.a");
     {
         let mut file = File::create(&runtime_path)?;
-        file.write_all(runtime_rs::SOURCE_CODE)?;
+        file.write_all(mjrt_bin::STATIC_LIB)?;
     }
 
     let out_name = path.file_stem().unwrap();
 
-    // assembler of user code to object file
-    Command::new("as")
-        .arg("-o")
-        .arg(&out_dir.join("a.o"))
-        .arg(&user_assembly)
-        .status()
-        .context("assembling using 'as' failed")?;
-
-    // object file of user code to lib
-    Command::new("ar")
-        .arg("-crus")
-        .arg(&(out_dir.join("liba.a")))
-        .arg(&(out_dir.join("a.o")))
-        .status()
-        .context("packing using 'ar' failed")?;
-
     // compile runtime and link it with user's code
-    Command::new("rustc")
-        .arg("-L")
-        .arg(format!("{}", out_dir.display()))
-        .arg("-l")
-        .arg("static=a")
-        .arg(&runtime_path)
+    Command::new("cc")
         .arg("-o")
         .arg(&out_name)
+        .args(mjrt_bin::LINKER_FLAGS)
+        .arg(&user_assembly)
+        .arg(&runtime_path)
         .status()?;
-
     Ok(())
 }
 
