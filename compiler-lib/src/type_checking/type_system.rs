@@ -32,13 +32,13 @@ impl<'src> TypeSystem<'src> {
         }
     }
 
-    pub fn get_class_mut(&mut self, id: ClassDefId<'src>) -> &mut ClassDef<'src> {
+    pub fn class_mut(&mut self, id: ClassDefId<'src>) -> &mut ClassDef<'src> {
         self.defined_classes
             .get_mut(&id.id)
             .expect("Ids always point to existing classes")
     }
 
-    pub fn get_class(&self, id: ClassDefId<'src>) -> &ClassDef<'src> {
+    pub fn class(&self, id: ClassDefId<'src>) -> &ClassDef<'src> {
         self.defined_classes
             .get(&id.id)
             .expect("Ids always point to existing classes")

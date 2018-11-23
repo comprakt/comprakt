@@ -1,13 +1,14 @@
 use super::{type_system::*, *};
 use crate::{asciifile::Spanned, ast, strtab::Symbol, symtab::*};
 
-pub struct ExprInfo<'src, 'sem> {
+#[derive(Debug, Clone)]
+pub struct ExprInfo<'src, 'ts> {
     pub ty: CheckedType<'src>,
-    pub ref_info: Option<RefInfo<'src, 'sem>>,
+    pub ref_info: Option<RefInfo<'src, 'ts>>,
 }
 
-impl<'src, 'sem> ExprInfo<'src, 'sem> {
-    pub fn new(ty: CheckedType<'src>, ref_info: RefInfo<'src, 'sem>) -> ExprInfo<'src, 'sem> {
+impl<'src, 'ts> ExprInfo<'src, 'ts> {
+    pub fn new(ty: CheckedType<'src>, ref_info: RefInfo<'src, 'ts>) -> ExprInfo<'src, 'ts> {
         ExprInfo {
             ty,
             ref_info: Some(ref_info),
@@ -15,8 +16,8 @@ impl<'src, 'sem> ExprInfo<'src, 'sem> {
     }
 }
 
-impl<'src, 'sem> From<CheckedType<'src>> for ExprInfo<'src, 'sem> {
-    fn from(item: CheckedType<'src>) -> ExprInfo<'src, 'sem> {
+impl<'src, 'ts> From<CheckedType<'src>> for ExprInfo<'src, 'ts> {
+    fn from(item: CheckedType<'src>) -> ExprInfo<'src, 'ts> {
         ExprInfo {
             ty: item,
             ref_info: None,
@@ -24,50 +25,51 @@ impl<'src, 'sem> From<CheckedType<'src>> for ExprInfo<'src, 'sem> {
     }
 }
 
-pub enum RefInfo<'src, 'sem> {
+#[derive(Debug, Clone)]
+pub enum RefInfo<'src, 'ts> {
     GlobalVar(Symbol<'src>),
     Var(Symbol<'src>),
-    Param(&'sem MethodParamDef<'src>),
-    Field(&'sem ClassFieldDef<'src>),
-    Method(&'sem ClassMethodDef<'src>),
-    // impossible in minijava: Class(&'sem ClassDef<'src>),
-    This(&'sem ClassDef<'src>),
+    Param(&'ts MethodParamDef<'src>),
+    Field(&'ts ClassFieldDef<'src>),
+    Method(&'ts ClassMethodDef<'src>),
+    // impossible in minijava: Class(&'ts ClassDef<'src>),
+    This(&'ts ClassDef<'src>),
     ArrayAccess,
 }
 
 #[derive(Clone)]
-pub enum VarDef<'src, 'sem> {
+pub enum VarDef<'src, 'ts> {
     Local {
         #[allow(dead_code)]
         name: Symbol<'src>,
         ty: CheckedType<'src>,
     },
-    Param(&'sem MethodParamDef<'src>),
+    Param(&'ts MethodParamDef<'src>),
 }
 
-pub struct MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
-    pub context: &'sem SemanticContext<'ctx, 'src>,
-    pub type_system: &'sem TypeSystem<'src>,
-    pub type_analysis: &'ana mut TypeAnalysis<'src, 'sem>,
-    pub current_class: &'sem ClassDef<'src>,
-    pub current_method: &'sem ClassMethodDef<'src>,
-    pub local_scope: Scoped<Symbol<'src>, VarDef<'src, 'sem>>,
+pub struct MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana> {
+    pub context: &'ts SemanticContext<'ctx, 'src>,
+    pub type_system: &'ts TypeSystem<'src>,
+    pub current_class: &'ts ClassDef<'src>,
+    pub current_method: &'ts ClassMethodDef<'src>,
+    pub type_analysis: &'ana mut TypeAnalysis<'src, 'ast, 'ts>,
+    pub local_scope: Scoped<Symbol<'src>, VarDef<'src, 'ts>>,
 }
 
 #[derive(Debug)]
 pub struct CouldNotDetermineType;
 
-impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
+impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana> {
     pub fn check_methods(
-        class_decl: &'sem ast::ClassDeclaration<'src>,
-        type_system: &'sem TypeSystem<'src>,
-        type_analysis: &'ana mut TypeAnalysis<'src, 'sem>,
-        context: &'sem SemanticContext<'ctx, 'src>,
+        class_decl: &'ast ast::ClassDeclaration<'src>,
+        type_system: &'ts TypeSystem<'src>,
+        type_analysis: &'ana mut TypeAnalysis<'src, 'ast, 'ts>,
+        context: &'ts SemanticContext<'ctx, 'src>,
     ) {
         let current_class_id = type_analysis
             .decl_get_class_id(class_decl)
             .expect("Class has to be already defined to check methods");
-        let current_class = type_system.get_class(current_class_id);
+        let current_class = type_system.class(current_class_id);
 
         for member in &class_decl.members {
             use self::ast::ClassMemberKind::*;
@@ -100,7 +102,7 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
         }
     }
 
-    fn check_type_block(&mut self, block: &ast::Block<'src>) {
+    fn check_type_block(&mut self, block: &'ast ast::Block<'src>) {
         self.local_scope.enter_scope();
         for stmt in &block.statements {
             self.check_type_stmt(stmt);
@@ -110,7 +112,7 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
             .expect("scope of a block is not root scope");
     }
 
-    fn check_type_stmt(&mut self, stmt: &Spanned<'src, ast::Stmt<'src>>) {
+    fn check_type_stmt(&mut self, stmt: &'ast Spanned<'src, ast::Stmt<'src>>) {
         use self::ast::Stmt::*;
         match &stmt.data {
             Block(block) => self.check_type_block(block),
