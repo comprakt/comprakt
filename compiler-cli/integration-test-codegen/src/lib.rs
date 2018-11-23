@@ -122,7 +122,7 @@ where
             }
         });
 
-    for (id, case) in cases.enumerate() {
+    for case in cases {
         let ascii_casename = case
             .file_name()
             .unwrap_or_else(|| OsStr::new(""))
@@ -131,8 +131,8 @@ where
 
         let function_name = Ident::new(
             &format!(
-                "cli_{}_{}_{}{}",
-                ascii_test_dir, id, ascii_casename, test_name_suffix
+                "cli_{}_{}{}",
+                ascii_test_dir, ascii_casename, test_name_suffix
             ),
             Span::call_site(),
         );
