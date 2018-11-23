@@ -113,9 +113,12 @@ pub enum CliCommand {
     /// Output an executable
     #[structopt(name = "--compile")]
     Compile {
-        /// the location of the generated executable file
+        /// the location of the input MiniJava file
         #[structopt(name = "FILE", parse(from_os_str))]
-        path: PathBuf,
+        input: PathBuf,
+        /// the location of the generated executable file
+        #[structopt(long = "--output", short = "-o", parse(from_os_str))]
+        output: Option<PathBuf>,
     },
 }
 
@@ -169,7 +172,7 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path),
         CliCommand::Lower(options) => cmd_lower(&options.path, &options.clone().into()),
-        CliCommand::Compile { path } => cmd_compile(path),
+        CliCommand::Compile { input, output } => cmd_compile(input, output),
     }
 }
 
@@ -232,8 +235,8 @@ macro_rules! setup_io {
     };
 }
 
-fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
-    setup_io!(let context = path);
+fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
+    setup_io!(let context = input);
     let mut strtab = StringTable::new();
     let lexer = Lexer::new(&mut strtab, &context);
 
@@ -287,12 +290,20 @@ fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
         file.write_all(mjrt_bin::STATIC_LIB)?;
     }
 
-    let out_name = path.file_stem().unwrap();
+    // TODO: this should be smarted and check wether output
+    // contains a file stem.
+    let out_name = input.file_stem().unwrap();
+
+    let out_path = if let Some(out_dir) = output {
+        out_dir.join(out_name)
+    } else {
+        PathBuf::new().join(out_name)
+    };
 
     // compile runtime and link it with user's code
     Command::new("cc")
         .arg("-o")
-        .arg(&out_name)
+        .arg(&out_path)
         .args(mjrt_bin::LINKER_FLAGS)
         .arg(&user_assembly)
         .arg(&runtime_path)
