@@ -90,7 +90,9 @@ after_success: |
     if [ "$TRAVIS_PULL_REQUEST" = "false" ] && [ "$TRAVIS_BRANCH" = "master" ]; then
         case "$TEST_KIND" in
           comprakt-release)
-            cargo doc \
+            sudo apt-get update \
+            && sudo apt-get install -y doxygen \
+            && cargo doc \
             && echo '<!doctype html><title>Redirecting...</title><meta http-equiv=refresh content=0;url=compiler_cli/index.html><a href="compiler_cli/index.html">Redirecting to "compiler-cli" crate...</a>' > target/doc/index.html \
             && make -C libfirm-rs-bindings/libfirm doc \
             && mv libfirm-rs-bindings/libfirm/build/doc/html target/doc/doxygen_libfirm;
