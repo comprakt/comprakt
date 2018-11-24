@@ -124,7 +124,7 @@ impl Entity {
     pub fn ty(self) -> Ty {
         unsafe { get_entity_type(self.0) }.into()
     }
-    pub fn ident(&self) -> Ident {
+    pub fn ident(self) -> Ident {
         unsafe { get_entity_ident(self.0) }.into()
     }
     pub fn name(&self) -> &CStr {
