@@ -463,7 +463,7 @@ fn get_firm_type(ty: &CheckedType<'_>) -> Option<Ty> {
     match ty {
         CheckedType::Int => Some(PrimitiveType::i32()),
         CheckedType::Boolean => Some(PrimitiveType::bool()),
-        CheckedType::TypeRef(name) => Some(ClassType::new_class_type(name.as_str())),
+        CheckedType::TypeRef(name) => Some(ClassType::new_class_type(name.id.as_str())),
         CheckedType::Array(checked_type) => Some(
             get_firm_type(checked_type)
                 .expect("Arrays are never of type `void` or `null`")
@@ -471,6 +471,7 @@ fn get_firm_type(ty: &CheckedType<'_>) -> Option<Ty> {
         ),
         // Not possible
         CheckedType::Void | CheckedType::Null => None,
+        CheckedType::UnknownType(s) => panic!("don't know what to do: {:?}", s),
     }
 }
 
@@ -483,6 +484,7 @@ fn get_firm_mode(ty: &CheckedType<'_>) -> Option<mode::Type> {
         }
         // Not possible
         CheckedType::Void => None,
+        CheckedType::UnknownType(s) => panic!("don't know what to do: {:?}", s),
     }
 }
 
