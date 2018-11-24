@@ -44,6 +44,18 @@ pub fn gen_parser_integration_tests(_args: TokenStream) -> TokenStream {
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
+pub fn gen_assembly_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests(
+        &quote! { CompilerCall::RawCompiler(CompilerPhase::Assembly) },
+        "assembly",
+        |v| quote! { #v },
+        "",
+        true,
+    )
+}
+
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
 pub fn gen_ast_reference_integration_tests(_args: TokenStream) -> TokenStream {
     gen_integration_tests(
         &quote! { CompilerCall::RawCompiler(CompilerPhase::Ast) },
@@ -102,11 +114,14 @@ fn gen_integration_tests<F>(
 where
     F: Fn(proc_macro2::TokenStream) -> proc_macro2::TokenStream,
 {
-    let mut out = String::new();
-
     let test_dir: PathBuf = [ROOT_DIR, INTEGRATION_TEST_DIR, subfolder].iter().collect();
 
     let ascii_test_dir = subfolder.replace(|c: char| !c.is_ascii_alphanumeric(), "_");
+
+    let mut out = format!(
+        "mod {}{} {{ use super::*;",
+        ascii_test_dir, test_name_suffix
+    );
 
     let cases = fs::read_dir(&test_dir)
         .unwrap_or_else(|_| panic!("test directory {:?} does not exist.", test_dir))
@@ -122,20 +137,14 @@ where
             }
         });
 
-    for (id, case) in cases.enumerate() {
+    for case in cases {
         let ascii_casename = case
             .file_name()
             .unwrap_or_else(|| OsStr::new(""))
             .to_string_lossy()
             .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
 
-        let function_name = Ident::new(
-            &format!(
-                "cli_{}_{}_{}{}",
-                ascii_test_dir, id, ascii_casename, test_name_suffix
-            ),
-            Span::call_site(),
-        );
+        let function_name = Ident::new(&ascii_casename, Span::call_site());
 
         let path_str = case.to_str().unwrap();
         let path_input_tokenstream = input_adaptor(quote! { PathBuf::from(#path_str) });
@@ -157,6 +166,8 @@ where
 
         out.push_str(&tokens.to_string());
     }
+
+    out.push('}'); // close test module
 
     out.parse().unwrap()
 }

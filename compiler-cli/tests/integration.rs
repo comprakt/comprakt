@@ -33,6 +33,8 @@ enum CompilerPhase {
     Parser,
     Ast,
     Semantic,
+    Assembly,
+    Binary,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -44,12 +46,14 @@ enum CompilerCall {
 
 const ROOT_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
-fn compiler_flag(phase: CompilerPhase) -> &'static str {
+fn compiler_args(phase: CompilerPhase) -> &'static [&'static str] {
     match phase {
-        CompilerPhase::Lexer => "--lextest",
-        CompilerPhase::Parser => "--parsetest",
-        CompilerPhase::Ast => "--print-ast",
-        CompilerPhase::Semantic => "--check",
+        CompilerPhase::Lexer => &["--lextest"],
+        CompilerPhase::Parser => &["--parsetest"],
+        CompilerPhase::Ast => &["--print-ast"],
+        CompilerPhase::Semantic => &["--check"],
+        CompilerPhase::Assembly => &["--lower", "--emit-asm", "-"],
+        CompilerPhase::Binary => &["--compile"],
     }
 }
 
@@ -66,7 +70,13 @@ fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
                     Command::main_binary().unwrap()
                 });
             cmd.env("TERM", "dumb"); // disable color output
-            cmd.args(&[OsStr::new(compiler_flag(phase)), filepath.as_os_str()]);
+            cmd.args(
+                compiler_args(phase)
+                    .iter()
+                    .map(|arg| OsStr::new(arg))
+                    .collect::<Vec<_>>(),
+            );
+            cmd.arg(filepath.as_os_str());
             cmd
         }
         CompilerCall::AstInspector => {
@@ -219,3 +229,4 @@ gen_ast_reference_integration_tests!();
 gen_ast_idempotence_integration_tests!();
 gen_semantic_integration_tests!();
 gen_ast_inspector_tests!();
+gen_assembly_integration_tests!();

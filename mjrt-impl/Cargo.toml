@@ -1,0 +1,10 @@
+[package]
+name = "mjrt-impl"
+version = "0.1.0"
+authors = ["Christian Schwarz <me@cschwarz.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]

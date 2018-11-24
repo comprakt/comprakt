@@ -1,7 +1,0 @@
-[package]
-name = "runtime-rs"
-version = "0.1.0"
-authors = ["Reiner Dolp <reiner-dolp@users.noreply.github.com>"]
-edition = "2018"
-
-[dependencies]

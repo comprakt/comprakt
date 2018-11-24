@@ -51,6 +51,10 @@ impl<'src> TypeSystem<'src> {
     pub fn lookup_class(&self, name: Symbol<'src>) -> Option<&ClassDef<'src>> {
         self.defined_classes.get(&name)
     }
+
+    pub fn defined_classes(&self) -> &HashMap<Symbol<'_>, ClassDef<'_>> {
+        &self.defined_classes
+    }
 }
 
 /// A `ClassDefId` identifies a class.

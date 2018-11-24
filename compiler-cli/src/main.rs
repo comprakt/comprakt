@@ -113,27 +113,33 @@ pub enum CliCommand {
     /// Output an executable
     #[structopt(name = "--compile")]
     Compile {
-        /// the location of the generated executable file
+        /// the location of the input MiniJava file
         #[structopt(name = "FILE", parse(from_os_str))]
-        path: PathBuf,
+        input: PathBuf,
+        /// the location of the generated executable file
+        #[structopt(long = "--output", short = "-o", parse(from_os_str))]
+        output: Option<PathBuf>,
     },
 }
 
 /// Command-line options for the [`CliCommand::Lower`] (`--lower`) call
 #[derive(StructOpt, Debug, Clone, Default)]
 pub struct LoweringOptions {
+    /// A MiniJava input file
+    #[structopt(name = "FILE", parse(from_os_str))]
+    pub path: PathBuf,
     /// Output the matured unlowered firm graph as VCG file
-    #[structopt(long = "--firm-graph", short = "-g", parse(from_os_str))]
+    #[structopt(long = "--emit-firm-graph", short = "-g", parse(from_os_str))]
     pub dump_firm_graph: Option<PathBuf>,
     /// Output the matured lowered firm graph as VCG file
     #[structopt(
-        long = "--lowered-firm-graph",
+        long = "--emit-lowered-firm-graph",
         short = "-l",
         parse(from_os_str)
     )]
     pub dump_lowered_firm_graph: Option<PathBuf>,
     /// Write generated assembler code to the given file.
-    #[structopt(long = "--assembler", short = "-a", parse(from_os_str))]
+    #[structopt(long = "--emit-asm", short = "-a", parse(from_os_str))]
     pub dump_assembler: Option<PathBuf>,
 }
 
@@ -165,8 +171,8 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path),
-        CliCommand::Lower(options) => cmd_lower(&options.clone().into()),
-        CliCommand::Compile { path } => cmd_compile(path),
+        CliCommand::Lower(options) => cmd_lower(&options.path, &options.clone().into()),
+        CliCommand::Compile { input, output } => cmd_compile(input, output),
     }
 }
 
@@ -184,61 +190,6 @@ pub fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error>
     for cause in err.iter_causes() {
         writeln!(writer, "caused by: {}", cause)?;
     }
-    Ok(())
-}
-
-fn cmd_compile(path: &PathBuf) -> Result<(), Error> {
-    let temp_dir = tempdir()?;
-    let out_dir = temp_dir.path().to_path_buf();
-
-    // lower user code to assembler
-    let mut firm_options = firm::Options::default();
-    firm_options.dump_assembler = Some(out_dir.join("a.s"));
-    unsafe {
-        firm::build(&firm_options);
-    }
-
-    // get runtime library
-    let runtime_path = out_dir.join("runtime.rs");
-    {
-        let mut file = File::create(&runtime_path)?;
-        file.write_all(runtime_rs::SOURCE_CODE)?;
-    }
-
-    let out_name = path.file_stem().unwrap();
-
-    // assembler of user code to object file
-    Command::new("as")
-        .arg("-o")
-        .arg(&out_dir.join("a.o"))
-        .arg(&out_dir.join("a.s"))
-        .status()
-        .context("assembling using 'as' failed")?;
-
-    // object file of user code to lib
-    Command::new("ar")
-        .arg("-crus")
-        .arg(&(out_dir.join("liba.a")))
-        .arg(&(out_dir.join("a.o")))
-        .status()
-        .context("packing using 'ar' failed")?;
-
-    // compile runtime and link it with user's code
-    Command::new("rustc")
-        .arg("-L")
-        .arg(format!("{}", out_dir.display()))
-        .arg("-l")
-        .arg("static=a")
-        .arg(&runtime_path)
-        .arg("-o")
-        .arg(&out_name)
-        .status()?;
-
-    Ok(())
-}
-
-fn cmd_lower(opts: &firm::Options) -> Result<(), Error> {
-    unsafe { firm::build(opts) };
     Ok(())
 }
 
@@ -282,6 +233,124 @@ macro_rules! setup_io {
         let stderr = StandardStream::stderr(ColorChoice::Auto);
         let $context = Context::new(&ascii_file, box stderr);
     };
+}
+
+fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
+    setup_io!(let context = input);
+    let mut strtab = StringTable::new();
+    let lexer = Lexer::new(&mut strtab, &context);
+
+    // adapt lexer to fail on first error
+    // filter whitespace and comments
+    let unforgiving_lexer = lexer.filter_map(|result| match result {
+        Ok(token) => match token.data {
+            TokenKind::Whitespace | TokenKind::Comment(_) => None,
+            _ => Some(token),
+        },
+        Err(lexical_error) => {
+            context.diagnostics.error(&lexical_error);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    });
+
+    let mut parser = Parser::new(unforgiving_lexer);
+
+    let ast = match parser.parse() {
+        Ok(p) => p,
+        Err(parser_error) => {
+            context.diagnostics.error(&parser_error);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    };
+
+    let type_system = match crate::semantics::check(&mut strtab, &ast, &context) {
+        Ok(type_system) => type_system,
+        Err(()) => {
+            context.diagnostics.write_statistics();
+            exit(1)
+        }
+    };
+
+    let temp_dir = tempdir()?;
+    let out_dir = temp_dir.path().to_path_buf();
+    let user_assembly = out_dir.join("a.s");
+
+    // lower user code to assembler
+    let mut firm_options = firm::Options::default();
+    firm_options.dump_assembler = Some(user_assembly.clone());
+
+    unsafe { firm::build(&firm_options, &ast, &type_system) };
+
+    // get runtime library
+    let runtime_path = out_dir.join("mjrt.a");
+    {
+        let mut file = File::create(&runtime_path)?;
+        file.write_all(mjrt::STATIC_LIB)?;
+    }
+
+    // TODO: this should be smarted and check wether output
+    // contains a file stem.
+    let out_name = input.file_stem().unwrap();
+
+    let out_path = if let Some(out_dir) = output {
+        out_dir.join(out_name)
+    } else {
+        PathBuf::new().join(out_name)
+    };
+
+    // compile runtime and link it with user's code
+    Command::new("cc")
+        .arg("-o")
+        .arg(&out_path)
+        .args(mjrt::LINKER_FLAGS)
+        .arg(&user_assembly)
+        .arg(&runtime_path)
+        .status()?;
+    Ok(())
+}
+
+fn cmd_lower(path: &PathBuf, opts: &firm::Options) -> Result<(), Error> {
+    setup_io!(let context = path);
+    let mut strtab = StringTable::new();
+    let lexer = Lexer::new(&mut strtab, &context);
+
+    // adapt lexer to fail on first error
+    // filter whitespace and comments
+    let unforgiving_lexer = lexer.filter_map(|result| match result {
+        Ok(token) => match token.data {
+            TokenKind::Whitespace | TokenKind::Comment(_) => None,
+            _ => Some(token),
+        },
+        Err(lexical_error) => {
+            context.diagnostics.error(&lexical_error);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    });
+
+    let mut parser = Parser::new(unforgiving_lexer);
+
+    let ast = match parser.parse() {
+        Ok(p) => p,
+        Err(parser_error) => {
+            context.diagnostics.error(&parser_error);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    };
+
+    let type_system = match crate::semantics::check(&mut strtab, &ast, &context) {
+        Ok(type_system) => type_system,
+        Err(()) => {
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
+    };
+
+    unsafe { firm::build(opts, &ast, &type_system) };
+    Ok(())
 }
 
 fn cmd_check(path: &PathBuf) -> Result<(), Error> {
