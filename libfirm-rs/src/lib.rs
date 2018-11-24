@@ -109,7 +109,7 @@ impl FunctionType {
     }
 }
 
-#[derive(Clone,Copy,From,Into)]
+#[derive(Clone, Copy, From, Into)]
 pub struct Entity(*mut ir_entity);
 
 impl Entity {
@@ -118,7 +118,8 @@ impl Entity {
             let global_type: *mut ir_type = get_glob_type();
             let name: *mut ident = new_id_from_str(id.as_ptr());
             new_entity(global_type, name, ty.into())
-        }.into()
+        }
+        .into()
     }
     pub fn ty(self) -> Ty {
         unsafe { get_entity_type(self.0) }.into()
@@ -127,15 +128,25 @@ impl Entity {
         unsafe { get_entity_ident(self.0) }.into()
     }
     pub fn name(&self) -> &CStr {
-        unsafe { CStr::from_ptr( get_entity_name(self.0)) }
+        unsafe { CStr::from_ptr(get_entity_name(self.0)) }
     }
     pub fn ld_name(&self) -> &CStr {
-        unsafe { CStr::from_ptr( get_entity_ld_name(self.0)) }
+        unsafe { CStr::from_ptr(get_entity_ld_name(self.0)) }
     }
 }
 
-#[derive(Clone,Copy,From,Into)]
+#[derive(Clone, Copy, From, Into)]
 pub struct Ident(*mut ident);
+
+/// An `ir_node` that is the result of `new_Addr`
+#[derive(Clone, Copy, From, Into)]
+pub struct Addr(*mut ir_node);
+
+impl Addr {
+    pub fn entity(self) -> Entity {
+        unsafe { get_Address_entity(self.0) }.into()
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct Graph {
@@ -194,6 +205,10 @@ impl Graph {
         unsafe { get_r_store(self.irg) }.into()
     }
 
+    pub fn set_store(self, s: MemoryState) {
+        unsafe { set_r_store(self.irg, s.into()) }
+    }
+
     pub fn cur_block(self) -> Block {
         unsafe { get_r_cur_block(self.irg) }.into()
     }
@@ -201,6 +216,10 @@ impl Graph {
     // TODO
     pub unsafe fn set_cur_block(self, blk: Block) {
         set_r_cur_block(self.irg, blk.into())
+    }
+
+    pub fn new_addr(self, e: Entity) -> Addr {
+        unsafe { new_r_Address(self.irg, e.into()) }.into()
     }
 }
 
@@ -366,6 +385,23 @@ impl Block {
             None => (0, vec![]),
         };
         unsafe { new_r_Return(self.0, mem.into(), arity, inputs.as_ptr()) }.into()
+    }
+
+    /// Use `Call.project_mem()` to get the memory state after the function call
+    /// and set the graph's current memory state to that state.
+    pub fn new_call(self, mem: MemoryState, func_addr: Addr, inputs: &[*mut ir_node]) -> Call {
+
+        unsafe {
+            new_r_Call(
+                self.0,
+                mem.into(),
+                func_addr.into(),
+                inputs.len() as i32,
+                inputs.as_ptr(),
+                func_addr.entity().ty().into(),
+            )
+        }
+        .into()
     }
 }
 
@@ -557,6 +593,16 @@ impl Store {
     /// TODO can ret type be `MemoryState` ?
     pub fn project_mem(self) -> *mut ir_node {
         unsafe { new_r_Proj(self.0, mode::M, pn_Store::M) }
+    }
+}
+
+/// An ir_node resulting from `new_Call`
+#[derive(Clone, Copy, Into, From)]
+pub struct Call(*mut ir_node);
+
+impl Call {
+    pub fn project_mem(self) -> MemoryState {
+        unsafe {new_r_Proj(self.0, mode::M, pn_Call::M) }.into()
     }
 }
 
