@@ -5,7 +5,7 @@ pub use libfirm_rs_bindings as bindings;
 extern crate derive_more;
 
 use libfirm_rs_bindings::*;
-use std::ffi::{CString,CStr};
+use std::ffi::{CStr, CString};
 
 #[derive(Clone, Copy)]
 pub struct Ty(*mut ir_type);
