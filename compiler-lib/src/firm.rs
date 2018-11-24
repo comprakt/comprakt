@@ -462,7 +462,7 @@ fn get_firm_mode(ty: &CheckedType<'_>) -> Option<mode::Type> {
             Some(unsafe { mode::P })
         }
         // Not possible
-        CheckedType::Void => None,
+        CheckedType::Void | CheckedType::UnknownType(_) => None,
     }
 }
 
