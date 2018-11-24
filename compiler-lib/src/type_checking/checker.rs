@@ -115,12 +115,8 @@ fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
             use crate::ast::ClassMemberKind::*;
             match &member.kind {
                 Field(ty) => {
-                    let field_type = checked_type_from_ty(
-                        &ty.data,
-                        context,
-                        type_system,
-                        VoidIs::Forbidden,
-                    );
+                    let field_type =
+                        checked_type_from_ty(&ty.data, context, type_system, VoidIs::Forbidden);
 
                     type_system
                         .class_mut(class_def_id)
@@ -251,7 +247,7 @@ pub fn checked_type_from_basic_ty<'src, 'ast>(
     }
 }
 
-pub fn checked_type_from_ty<'src, 'ast, 'ts>(
+pub fn checked_type_from_ty<'src, 'ast>(
     ty: &'ast ast::Type<'src>,
     context: &SemanticContext<'_, 'src>,
     type_system: &TypeSystem<'src>,
@@ -263,12 +259,7 @@ pub fn checked_type_from_ty<'src, 'ast, 'ts>(
         void_handling
     };
 
-    let mut checked_ty = checked_type_from_basic_ty(
-        &ty.basic,
-        context,
-        type_system,
-        void_handling,
-    );
+    let mut checked_ty = checked_type_from_basic_ty(&ty.basic, context, type_system, void_handling);
 
     for _ in 0..ty.array_depth {
         checked_ty = CheckedType::Array(Box::new(checked_ty));
