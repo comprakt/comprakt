@@ -158,8 +158,8 @@ pub fn check<'a, 'f>(
     if context.diagnostics.errored() {
         return Err(());
     }
-
-    crate::type_checking::check(strtab, &ast, &context);
+    let mut type_system = crate::type_checking::type_system::TypeSystem::default();
+    crate::type_checking::check(strtab, &ast, &mut type_system, &context);
     if context.diagnostics.errored() {
         return Err(());
     }
