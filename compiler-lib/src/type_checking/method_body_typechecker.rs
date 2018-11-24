@@ -171,7 +171,6 @@ where
             }
             LocalVariableDeclaration(ty, name, opt_assign) => {
                 let def_ty = checked_type_from_ty(
-                    self.type_analysis,
                     &ty.data,
                     self.context,
                     self.type_system,

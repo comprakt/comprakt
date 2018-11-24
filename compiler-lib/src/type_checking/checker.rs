@@ -116,7 +116,6 @@ fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
             match &member.kind {
                 Field(ty) => {
                     let field_type = checked_type_from_ty(
-                        type_analysis,
                         &ty.data,
                         context,
                         type_system,
@@ -147,7 +146,6 @@ fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
                             false,
                             false,
                             checked_type_from_ty(
-                                type_analysis,
                                 &return_ty.data,
                                 context,
                                 &type_system,
@@ -179,7 +177,6 @@ fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
                                         CheckedType::Array(box builtin_types.string.clone())
                                     }
                                     _ => checked_type_from_ty(
-                                        type_analysis,
                                         &p.ty.data,
                                         context,
                                         type_system,
@@ -220,8 +217,7 @@ pub enum VoidIs {
     Forbidden,
 }
 
-pub fn checked_type_from_basic_ty<'src, 'ast, 'ts>(
-    _type_analysis: &mut TypeAnalysis<'src, 'ast, 'ts>,
+pub fn checked_type_from_basic_ty<'src, 'ast>(
     basic_ty: &'ast Spanned<'src, ast::BasicType<'src>>,
     context: &SemanticContext<'_, 'src>,
     type_system: &TypeSystem<'src>,
@@ -256,7 +252,6 @@ pub fn checked_type_from_basic_ty<'src, 'ast, 'ts>(
 }
 
 pub fn checked_type_from_ty<'src, 'ast, 'ts>(
-    _type_analysis: &mut TypeAnalysis<'src, 'ast, 'ts>,
     ty: &'ast ast::Type<'src>,
     context: &SemanticContext<'_, 'src>,
     type_system: &TypeSystem<'src>,
@@ -269,7 +264,6 @@ pub fn checked_type_from_ty<'src, 'ast, 'ts>(
     };
 
     let mut checked_ty = checked_type_from_basic_ty(
-        _type_analysis,
         &ty.basic,
         context,
         type_system,

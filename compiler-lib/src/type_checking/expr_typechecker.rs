@@ -148,7 +148,6 @@ impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, '
                 self.check_type(size_expr, &CheckedType::Int);
 
                 let basic_ty = checked_type_from_basic_ty(
-                    self.type_analysis,
                     &basic_ty,
                     self.context,
                     self.type_system,
