@@ -15,10 +15,8 @@
 //! COMPILER_BINARY="./run" cargo test --test integration
 //! ```
 
-use assert_cmd::prelude::*;
 use difference::Changeset;
 use integration_test_codegen::*;
-use predicates::prelude::*;
 use std::{
     collections::HashMap,
     ffi::OsStr,
@@ -26,8 +24,8 @@ use std::{
     io::{Read, Write},
     path::PathBuf,
     process::Command,
+    sync::Mutex,
 };
-use std::sync::Mutex;
 
 #[derive(Debug, Copy, Clone)]
 #[allow(dead_code)]
@@ -146,100 +144,149 @@ fn tentative_file_path(reference: &PathBuf) -> PathBuf {
     }
 }
 
-#[allow(dead_code)]
-fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
-    if !file.stderr.is_file() || !file.stdout.is_file() || !file.exitcode.is_file() {
-        // if any of the files is missing. Fail the test. Regenerate all files
-        // with an additional ".tenative" extension. The programmer can then
-        // verify the generated tentative new reference results and remove
-        // the ".tentative" suffix.
-        if !file.generate_tentatives {
-            panic!("Cannot find required reference output files.");
-        }
-
-        let file_stderr_tentative = tentative_file_path(&file.stderr);
-        let file_stdout_tentative = tentative_file_path(&file.stdout);
-        let file_exitcode_tentative = tentative_file_path(&file.exitcode);
-
-        match compiler_call(phase, &file.input)
-            .stdout(File::create(&file_stdout_tentative).expect("write stdout file failed"))
-            .stderr(File::create(&file_stderr_tentative).expect("write stderr file failed"))
-            .status()
-        {
-            Ok(status) => {
-                // output exitcode to file
-                File::create(&file_exitcode_tentative)
-                    .and_then(|mut file| {
-                        if let Some(exit_code) = status.code() {
-                            file.write_all(exit_code.to_string().as_bytes())
-                        } else {
-                            Ok(())
-                        }
-                    })
-                    .ok();
-
-                // fail the incomplete test
-                panic!(
-                    "Cannot find required reference output files. \
-                     The current output was written to {:?}, {:?}
-                     and {:?}. \
-                     Verify them and remove the `.tentative` suffix.",
-                    file_stderr_tentative, file_stdout_tentative, file_exitcode_tentative
-                );
-            }
-            Err(_msg) => panic!("Cannot find required reference output files.",),
-        }
-    }
-
-    let assertion = compiler_call(phase, &file.input).assert();
-
-    // stderr
-    let stderr_expected = read_file(&file.stderr);
-    let stderr_changeset = Changeset::new(
-        &stderr_expected,
-        &normalize_stderr(&String::from_utf8_lossy(&assertion.get_output().stderr)),
-        " ",
-    );
-    let stderr_predicate = predicate::function(|actual: &[u8]| {
-        normalize_stderr(&String::from_utf8_lossy(actual)) == stderr_expected
-    });
-
-    // stdout
-    let stdout_expected = read_file(&file.stdout);
-    let stdout_changeset = Changeset::new(
-        &stdout_expected,
-        &String::from_utf8_lossy(&assertion.get_output().stdout),
-        " ",
-    );
-    let stdout_predicate =
-        predicate::function(|actual: &[u8]| actual == stdout_expected.as_bytes());
-
-    // exitcode
-    let exit_code_expected_str = read_file(&file.exitcode);
-    let exit_code_expected_str = exit_code_expected_str.trim();
-
-    if let Ok(exit_code_expected) = exit_code_expected_str.parse::<i32>() {
-        // all reference files available, check if the outputs of the current
-        // version are identical to the reference outputs.
-        assertion
-            .append_context("changeset stderr", format!("\n{}", stderr_changeset))
-            .append_context("changeset stdout", format!("\n{}", stdout_changeset))
-            .stderr(stderr_predicate)
-            .stdout(stdout_predicate)
-            .code(exit_code_expected);
+fn load_reference(
+    generate_tentatives: bool,
+    path: &PathBuf,
+    actual: &str,
+) -> Result<String, Option<PathBuf>> {
+    if !path.is_file() {
+        Err(generate_tentative_reference(
+            generate_tentatives,
+            path,
+            actual,
+        ))
     } else {
-        panic!("failed to parse reference exit code. Failing test.");
+        Ok(read_file(path))
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
+fn generate_tentative_reference(
+    generate_tentatives: bool,
+    path: &PathBuf,
+    actual: &str,
+) -> Option<PathBuf> {
+    if !generate_tentatives {
+        return None;
+    }
+
+    let file_tentative = tentative_file_path(&path);
+
+    File::create(&file_tentative)
+        .and_then(|mut file| file.write_all(actual.as_bytes()))
+        .ok();
+
+    Some(file_tentative)
+}
+
+fn assert_changeset(
+    generate_tentatives: bool,
+    label: &str,
+    path: &PathBuf,
+    reference: &str,
+    actual: &str,
+) -> Result<(), Option<PathBuf>> {
+    if reference != actual {
+        let diff_style = std::env::var("DIFF_USING").unwrap_or_else(|_| {
+            let num_different = (reference.len() as isize - actual.len() as isize).abs() as usize
+                + reference
+                    .chars()
+                    .zip(actual.chars())
+                    .filter(|(a, b)| a != b)
+                    .count();
+            if num_different > 10 {
+                "\n".to_string()
+            } else {
+                " ".to_string()
+            }
+        });
+
+        let changeset = Changeset::new(reference, actual, &diff_style);
+
+        eprintln!("diff for '{}' >>>\n{}<<< end of diff", label, changeset);
+
+        Err(generate_tentative_reference(
+            generate_tentatives,
+            &path,
+            actual,
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+#[allow(dead_code)]
+fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
+    let output = compiler_call(phase, &file.input)
+        .output()
+        .expect("failed to call compiler under test");
+
+    let stderr = normalize_stderr(&String::from_utf8_lossy(&output.stderr));
+    let stderr_result =
+        load_reference(file.generate_tentatives, &file.stderr, &stderr).and_then(|reference| {
+            assert_changeset(
+                file.generate_tentatives,
+                "stderr",
+                &file.stderr,
+                &reference,
+                &stderr,
+            )
+        });
+
+    let stdout = &String::from_utf8_lossy(&output.stdout);
+    let stdout_result =
+        load_reference(file.generate_tentatives, &file.stdout, &stdout).and_then(|reference| {
+            assert_changeset(
+                file.generate_tentatives,
+                "stdout",
+                &file.stdout,
+                &reference,
+                &stdout,
+            )
+        });
+
+    let exitcode = output
+        .status
+        .code()
+        .map(|code| code.to_string())
+        .unwrap_or_else(|| "terminated by signal".to_string());
+    let exitcode_result = load_reference(file.generate_tentatives, &file.exitcode, &exitcode)
+        .and_then(|reference| {
+            assert_changeset(
+                file.generate_tentatives,
+                "exitcode",
+                &file.exitcode,
+                &reference.trim(),
+                &exitcode,
+            )
+        });
+
+    match (stderr_result, stdout_result, exitcode_result) {
+        (Ok(_), Ok(_), Ok(_)) => (),
+        (err, out, code) => panic!(
+            "Regression test failed:\nstderr = {},\nstdout = {},\nexit code = {}\n",
+            result_to_string(err),
+            result_to_string(out),
+            result_to_string(code)
+        ),
+    }
+}
+
+fn result_to_string(res: Result<(), Option<PathBuf>>) -> String {
+    match res {
+        Ok(()) => "Ok!".to_string(),
+        Err(None) => "Wrong!".to_string(),
+        Err(Some(path)) => format!("Wrong! Actual output written to {:?}", path),
+    }
+}
+
+#[derive(Debug, serde_derive::Deserialize)]
 struct CompilerTarget {
     kind: Vec<String>,
     crate_types: Vec<String>,
     name: String,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde_derive::Deserialize)]
 struct CompilerArtifact {
     reason: String,
     target: CompilerTarget,
@@ -247,7 +294,8 @@ struct CompilerArtifact {
 }
 
 lazy_static::lazy_static! {
-    static ref BIN_PATH_CACHE: Mutex<HashMap<Option<&'static str>, PathBuf>> = { Mutex::new(HashMap::new()) };
+    static ref BIN_PATH_CACHE: Mutex<HashMap<Option<&'static str>, PathBuf>> =
+            { Mutex::new(HashMap::new()) };
 }
 
 fn main_binary() -> PathBuf {
@@ -256,7 +304,6 @@ fn main_binary() -> PathBuf {
 
 /// Build and get the main binary
 fn project_binary(subproject: Option<&'static str>) -> PathBuf {
-
     let mut cache = BIN_PATH_CACHE.lock().unwrap();
 
     if let Some(path) = cache.get(&subproject) {
