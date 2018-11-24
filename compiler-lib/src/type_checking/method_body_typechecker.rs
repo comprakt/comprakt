@@ -1,5 +1,5 @@
-use super::{type_system::*, *};
-use crate::{asciifile::Spanned, ast, strtab::Symbol, symtab::*};
+use super::{checker::*, type_analysis::*, type_system::*};
+use crate::{asciifile::Spanned, ast, semantics::SemanticError, strtab::Symbol, symtab::*};
 
 #[derive(Debug, Clone)]
 pub struct ExprInfo<'src, 'ts> {
@@ -48,8 +48,9 @@ pub enum VarDef<'src, 'ts> {
 }
 
 pub struct MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana> {
-    pub context: &'ts SemanticContext<'ctx, 'src>,
+    pub context: &'ctx SemanticContext<'ctx, 'src>,
     pub type_system: &'ts TypeSystem<'src>,
+    pub current_class_id: ClassDefId<'src>,
     pub current_class: &'ts ClassDef<'src>,
     pub current_method: &'ts ClassMethodDef<'src>,
     pub type_analysis: &'ana mut TypeAnalysis<'src, 'ast, 'ts>,
@@ -59,12 +60,15 @@ pub struct MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana> {
 #[derive(Debug)]
 pub struct CouldNotDetermineType;
 
-impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana> {
+impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana>
+where
+    'ts: 'ana,
+{
     pub fn check_methods(
         class_decl: &'ast ast::ClassDeclaration<'src>,
         type_system: &'ts TypeSystem<'src>,
         type_analysis: &'ana mut TypeAnalysis<'src, 'ast, 'ts>,
-        context: &'ts SemanticContext<'ctx, 'src>,
+        context: &'ctx SemanticContext<'ctx, 'src>,
     ) {
         let current_class_id = type_analysis
             .decl_get_class_id(class_decl)
@@ -84,6 +88,7 @@ impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, '
                         context,
                         type_system,
                         type_analysis,
+                        current_class_id,
                         current_class,
                         current_method,
                         local_scope: Scoped::new(),
@@ -165,7 +170,8 @@ impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, '
                 }
             }
             LocalVariableDeclaration(ty, name, opt_assign) => {
-                let def_ty = self.type_analysis.checked_type_from_ty(
+                let def_ty = checked_type_from_ty(
+                    self.type_analysis,
                     &ty.data,
                     self.context,
                     self.type_system,

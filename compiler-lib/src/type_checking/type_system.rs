@@ -48,8 +48,14 @@ impl<'src> TypeSystem<'src> {
         self.defined_classes.get_mut(&name)
     }
 
-    pub fn lookup_class(&self, name: Symbol<'src>) -> Option<&ClassDef<'src>> {
-        self.defined_classes.get(&name)
+    pub fn lookup_class(&self, name: Symbol<'src>) -> Option<(&ClassDef<'src>, ClassDefId<'src>)> {
+        match self.defined_classes.get(&name) {
+            Some(class) => {
+                let id = ClassDefId { id: name };
+                Some((class, id))
+            }
+            None => None,
+        }
     }
 
     pub fn defined_classes(&self) -> &HashMap<Symbol<'_>, ClassDef<'_>> {
@@ -57,14 +63,26 @@ impl<'src> TypeSystem<'src> {
     }
 }
 
-/// A `ClassDefId` identifies a class.
+/// A `ClassDefId` refers to a class definition.
 ///
-/// This encapsulates the `Symbol` so that only the type system can create a
-/// `ClassDefId`. This guarantees that every `ClassDefId` can be mapped to a
-/// type.
-#[derive(Clone, Copy)]
+/// Having an instance of this struct ensures that
+/// the type system that issued this instance can
+/// provide the definition of that class.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ClassDefId<'src> {
     id: Symbol<'src>,
+}
+
+impl<'src, 'ts> From<ClassDefId<'src>> for CheckedType<'src> {
+    fn from(id: ClassDefId<'src>) -> CheckedType<'src> {
+        CheckedType::TypeRef(id)
+    }
+}
+
+impl<'src> fmt::Display for ClassDefId<'src> {
+    fn fmt(&self, f: &'_ mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.id)
+    }
 }
 
 #[derive(Debug)]
@@ -113,10 +131,6 @@ impl<'src> ClassDef<'src> {
 
     pub fn method(&self, name: Symbol<'src>) -> Option<&ClassMethodDef<'src>> {
         self.methods.get(&name)
-    }
-
-    pub fn ty(&self) -> CheckedType<'src> {
-        CheckedType::TypeRef(self.name)
     }
 }
 
@@ -172,7 +186,8 @@ pub enum CheckedType<'src> {
     Boolean,
     Void,
     Null,
-    TypeRef(Symbol<'src>),
+    TypeRef(ClassDefId<'src>),
+    UnknownType(Symbol<'src>),
     Array(Box<CheckedType<'src>>),
 }
 
@@ -191,6 +206,7 @@ impl<'src> CheckedType<'src> {
     pub fn is_nullable(&self) -> bool {
         match self {
             CheckedType::TypeRef(_) => true,
+            CheckedType::UnknownType(_) => true,
             CheckedType::Array(_) => true,
             CheckedType::Null => true,
             _ => false,
@@ -214,6 +230,7 @@ impl<'src> fmt::Display for CheckedType<'src> {
             Void => write!(f, "void"),
             Null => write!(f, "null"),
             TypeRef(name) => write!(f, "{}", name),
+            UnknownType(name) => write!(f, "?{}", name),
             Array(item) => write!(f, "{}[]", item),
         }
     }
