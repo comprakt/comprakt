@@ -97,7 +97,7 @@ fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
             None => class_decl.name.data,
         };
 
-        let (_, class_def_id) = type_system
+        let class_def_id = type_system
             .add_class_def(ClassDef::new(name))
             .expect("The redefinition number ensures this cannot happen");
 

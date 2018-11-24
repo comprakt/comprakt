@@ -14,7 +14,7 @@ impl<'src> BuiltinTypes<'src> {
     ) -> BuiltinTypes<'src> {
         let int_ty = CheckedType::Int;
 
-        let (_, reader_class_id) = {
+        let reader_class_id = {
             let mut reader_class_def = ClassDef::new(strtab.intern("$Reader"));
             reader_class_def
                 .add_method(ClassMethodDef {
@@ -28,7 +28,7 @@ impl<'src> BuiltinTypes<'src> {
             type_system.add_class_def(reader_class_def).unwrap()
         };
 
-        let (_, writer_class_id) = {
+        let writer_class_id = {
             let arg_sym = strtab.intern("data");
 
             let mut writer_class_def = ClassDef::new(strtab.intern("$Writer"));
@@ -62,7 +62,7 @@ impl<'src> BuiltinTypes<'src> {
             type_system.add_class_def(writer_class_def).unwrap()
         };
 
-        let (_, system_class_id) = {
+        let system_class_id = {
             let mut system_class_def = ClassDef::new(strtab.intern("$System"));
             system_class_def
                 .add_field(ClassFieldDef {
@@ -86,10 +86,10 @@ impl<'src> BuiltinTypes<'src> {
             .insert(strtab.intern("System"), system_class_id.into());
 
         let string_class_def = ClassDef::new(strtab.intern("$String"));
-        let (_, string) = type_system.add_class_def(string_class_def).unwrap();
+        let string_class_id = type_system.add_class_def(string_class_def).unwrap();
 
         BuiltinTypes {
-            string: string.into(),
+            string: string_class_id.into(),
         }
     }
 }
