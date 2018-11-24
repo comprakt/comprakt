@@ -85,16 +85,16 @@ impl FunctionType {
     pub fn set_res(&mut self, res: Ty) {
         self.result = Some(res);
     }
-    pub fn build(self, is_main: bool) -> Ty {
+    pub fn build(self, is_this_call: bool) -> Ty {
         let ft = unsafe {
             new_type_method(
                 self.params.len(),
                 if self.result.is_some() { 1 } else { 0 },
                 false.into(), // variadic
-                if is_main {
-                    cc_cdecl_set
-                } else {
+                if is_this_call {
                     calling_convention::ThisCall
+                } else {
+                    cc_cdecl_set
                 },
                 mtp_additional_properties::NoProperty,
             )
