@@ -1,3 +1,4 @@
+#![feature(nll)]
 //! Checks for regresssions in the CLI interface code
 //!
 //! To skip unit tests, and only run integration tests, execute:
@@ -19,12 +20,14 @@ use difference::Changeset;
 use integration_test_codegen::*;
 use predicates::prelude::*;
 use std::{
+    collections::HashMap,
     ffi::OsStr,
     fs::File,
     io::{Read, Write},
     path::PathBuf,
     process::Command,
 };
+use std::sync::Mutex;
 
 #[derive(Debug, Copy, Clone)]
 #[allow(dead_code)]
@@ -66,8 +69,9 @@ fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
                     Command::new(path)
                 })
                 .unwrap_or_else(|_| {
-                    println!("Test run using the default compiler binary");
-                    Command::main_binary().unwrap()
+                    let binary = main_binary();
+                    println!("Test run using the default compiler binary at {:?}", binary);
+                    Command::new(binary)
                 });
             cmd.env("TERM", "dumb"); // disable color output
             cmd.args(
@@ -80,10 +84,13 @@ fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
             cmd
         }
         CompilerCall::AstInspector => {
-            // TODO: do not invoke through cargo to speed up tests
-            let mut cmd = Command::new("cargo");
+            let ast_inspector_path = project_binary(Some("inspect-ast"));
+            println!(
+                "Test run using the ast inspector binary at {:?}",
+                ast_inspector_path
+            );
+            let mut cmd = Command::new(ast_inspector_path);
             cmd.env("TERM", "dumb"); // disable color output
-            cmd.args(&[OsStr::new("-q"), OsStr::new("run")]);
 
             if !cfg!(debug_assertions) {
                 cmd.arg(OsStr::new("--release"));
@@ -129,10 +136,10 @@ struct TestFiles {
     generate_tentatives: bool,
 }
 
-fn tentative_file_path(reference :&PathBuf) -> PathBuf {
+fn tentative_file_path(reference: &PathBuf) -> PathBuf {
     let update_references = std::env::var("UPDATE_REFERENCES");
 
-    let extension = if UPDATE_REFERENCES.is_some() {
+    if update_references.is_ok() {
         reference.clone()
     } else {
         with_extension(reference, ".tentative")
@@ -149,8 +156,6 @@ fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
         if !file.generate_tentatives {
             panic!("Cannot find required reference output files.");
         }
-
-        let tentative_extension = tentative_extension();
 
         let file_stderr_tentative = tentative_file_path(&file.stderr);
         let file_stdout_tentative = tentative_file_path(&file.stdout);
@@ -225,6 +230,89 @@ fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
     } else {
         panic!("failed to parse reference exit code. Failing test.");
     }
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct CompilerTarget {
+    kind: Vec<String>,
+    crate_types: Vec<String>,
+    name: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct CompilerArtifact {
+    reason: String,
+    target: CompilerTarget,
+    filenames: Vec<PathBuf>,
+}
+
+lazy_static::lazy_static! {
+    static ref BIN_PATH_CACHE: Mutex<HashMap<Option<&'static str>, PathBuf>> = { Mutex::new(HashMap::new()) };
+}
+
+fn main_binary() -> PathBuf {
+    project_binary(None)
+}
+
+/// Build and get the main binary
+fn project_binary(subproject: Option<&'static str>) -> PathBuf {
+
+    let mut cache = BIN_PATH_CACHE.lock().unwrap();
+
+    if let Some(path) = cache.get(&subproject) {
+        return path.clone();
+    }
+
+    let mut cmd = Command::new("cargo");
+
+    if !cfg!(debug_assertions) {
+        cmd.arg("--release");
+    }
+
+    cmd.arg("build").arg("--message-format=json");
+
+    if let Some(workspace_crate) = subproject {
+        cmd.arg("-p");
+        cmd.arg(workspace_crate);
+    }
+
+    let output = cmd.output().expect("failed to invoke cargo");
+
+    if !output.status.success() {
+        panic!(
+            "cargo failed to build project: {:?}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    let artifacts: Vec<CompilerArtifact> = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .collect();
+
+    let possibly_invoked_binaries = artifacts
+        .iter()
+        .filter(|artifact| {
+            artifact.reason == "compiler-artifact"
+                && artifact.target.crate_types == ["bin".to_string()]
+                && artifact.target.kind == ["bin".to_string()]
+        })
+        .collect::<Vec<_>>();
+
+    if possibly_invoked_binaries.len() != 1 {
+        panic!(
+            "could not determine invoked binary. Candidates: {:?}",
+            possibly_invoked_binaries
+                .iter()
+                .map(|candidate| candidate.filenames.clone())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    let invoked_binary = possibly_invoked_binaries[0].filenames[0].clone();
+
+    cache.insert(subproject, invoked_binary);
+    cache.get(&subproject).unwrap().clone()
 }
 
 fn read_file(filename: &PathBuf) -> String {
