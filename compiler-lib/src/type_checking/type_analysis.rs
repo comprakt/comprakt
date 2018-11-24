@@ -1,7 +1,7 @@
 use crate::ast;
 use std::{collections::HashMap, hash::Hash};
 
-use super::{method_body_typechecker::*, type_system::*};
+use super::{method_body_type_checker::*, type_system::*};
 
 #[derive(Eq)]
 pub struct RefEquality<'a, T>(&'a T);

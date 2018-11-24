@@ -8,7 +8,7 @@ use crate::{
 use std::collections::{HashMap, HashSet};
 
 use super::{
-    builtin_types::BuiltinTypes, method_body_typechecker::MethodBodyTypeChecker,
+    builtin_types::BuiltinTypes, method_body_type_checker::MethodBodyTypeChecker,
     type_analysis::TypeAnalysis, type_system::*,
 };
 

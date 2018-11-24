@@ -20,7 +20,7 @@
 
 pub mod builtin_types;
 pub mod checker;
-pub mod method_body_typechecker;
+pub mod method_body_type_checker;
 pub mod type_analysis;
 pub mod type_system;
 
