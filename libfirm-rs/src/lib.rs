@@ -4,7 +4,7 @@ pub use libfirm_rs_bindings as bindings;
 extern crate derive_more;
 
 use libfirm_rs_bindings::*;
-use std::ffi::CString;
+use std::ffi::{CString,CStr};
 
 #[derive(Clone, Copy)]
 pub struct Ty(*mut ir_type);
@@ -109,6 +109,34 @@ impl FunctionType {
     }
 }
 
+#[derive(Clone,Copy,From,Into)]
+pub struct Entity(*mut ir_entity);
+
+impl Entity {
+    pub fn new_global(id: &CStr, ty: Ty) -> Entity {
+        unsafe {
+            let global_type: *mut ir_type = get_glob_type();
+            let name: *mut ident = new_id_from_str(id.as_ptr());
+            new_entity(global_type, name, ty.into())
+        }.into()
+    }
+    pub fn ty(self) -> Ty {
+        unsafe { get_entity_type(self.0) }.into()
+    }
+    pub fn ident(&self) -> Ident {
+        unsafe { get_entity_ident(self.0) }.into()
+    }
+    pub fn name(&self) -> &CStr {
+        unsafe { CStr::from_ptr( get_entity_name(self.0)) }
+    }
+    pub fn ld_name(&self) -> &CStr {
+        unsafe { CStr::from_ptr( get_entity_ld_name(self.0)) }
+    }
+}
+
+#[derive(Clone,Copy,From,Into)]
+pub struct Ident(*mut ident);
+
 #[derive(Clone, Copy)]
 pub struct Graph {
     irg: *mut ir_graph,
@@ -121,10 +149,8 @@ impl Graph {
     pub fn function(mangled_name: &str, function_type: Ty, num_slots: usize) -> Graph {
         let mangled_name = CString::new(mangled_name).expect("CString::new failed");
         unsafe {
-            let global_type: *mut ir_type = get_glob_type();
-            let name: *mut ident = new_id_from_str(mangled_name.as_ptr());
-            let entity = new_entity(global_type, name, function_type.into());
-            let irg = new_ir_graph(entity, num_slots as i32);
+            let entity = Entity::new_global(&mangled_name, function_type);
+            let irg = new_ir_graph(entity.into(), num_slots as i32);
             Graph { irg }
         }
     }
