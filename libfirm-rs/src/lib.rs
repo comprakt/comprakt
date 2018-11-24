@@ -391,7 +391,6 @@ impl Block {
     /// Use `Call.project_mem()` to get the memory state after the function call
     /// and set the graph's current memory state to that state.
     pub fn new_call(self, mem: MemoryState, func_addr: Addr, inputs: &[*mut ir_node]) -> Call {
-
         unsafe {
             new_r_Call(
                 self.0,
@@ -603,7 +602,7 @@ pub struct Call(*mut ir_node);
 
 impl Call {
     pub fn project_mem(self) -> MemoryState {
-        unsafe {new_r_Proj(self.0, mode::M, pn_Call::M) }.into()
+        unsafe { new_r_Proj(self.0, mode::M, pn_Call::M) }.into()
     }
 }
 
