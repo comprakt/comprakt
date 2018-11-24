@@ -5,6 +5,8 @@ members = [
     "inspect-ast",
     "libfirm-rs-bindings",
     "libfirm-rs",
-    "mjrt-src",
-    "mjrt-bin",
+    "mjrt",
+]
+exclude = [
+    "mjrt-impl",
 ]

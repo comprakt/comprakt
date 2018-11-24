@@ -287,7 +287,7 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
     let runtime_path = out_dir.join("mjrt.a");
     {
         let mut file = File::create(&runtime_path)?;
-        file.write_all(mjrt_bin::STATIC_LIB)?;
+        file.write_all(mjrt::STATIC_LIB)?;
     }
 
     // TODO: this should be smarted and check wether output
@@ -304,7 +304,7 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
     Command::new("cc")
         .arg("-o")
         .arg(&out_path)
-        .args(mjrt_bin::LINKER_FLAGS)
+        .args(mjrt::LINKER_FLAGS)
         .arg(&user_assembly)
         .arg(&runtime_path)
         .status()?;

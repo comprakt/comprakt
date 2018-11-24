@@ -1,12 +1,11 @@
 [package]
-name = "mjrt-src"
+name = "mjrt-impl"
 version = "0.1.0"
 authors = ["Christian Schwarz <me@cschwarz.com>"]
 edition = "2018"
+#workspace = "."
 
 [lib]
-# we produce the rlib to satisfy cargo when this crate is used
-# as a dependency by mjrt-bin
 crate-type = ["staticlib", "rlib"]
 
 [dependencies]

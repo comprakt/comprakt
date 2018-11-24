@@ -1,14 +1,13 @@
 [package]
-name = "mjrt-bin"
+name = "mjrt"
 version = "0.1.0"
 authors = ["Christian Schwarz <me@cschwarz.com>"]
 edition = "2018"
-links = "mjrt_src"
+links = "mjrt"
 build = "build.rs"
 
-[dependencies]
-mjrt-src = { path = "../mjrt-src" }
-
 [build-dependencies]
-mjrt-src = { path = "../mjrt-src" }
 glob = "0.2"
+
+[lib]
+path = "lib.rs"
