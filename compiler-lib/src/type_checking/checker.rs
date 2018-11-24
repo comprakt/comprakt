@@ -68,7 +68,7 @@ impl<'ctx, 'src> SemanticContext<'ctx, 'src> {
     }
 }
 
-fn add_types_from_ast<'ctx, 'src, 'ast, 'ts, 'ana>(
+fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
     strtab: &mut StringTable<'src>,
     type_system: &mut TypeSystem<'src>,
     type_analysis: &'ana mut TypeAnalysis<'src, 'ast, '_>,

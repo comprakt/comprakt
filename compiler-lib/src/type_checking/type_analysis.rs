@@ -54,8 +54,6 @@ impl<'src, 'ast, 'ts> TypeAnalysis<'src, 'ast, 'ts> {
         &mut self,
         class_decl: &'ast ast::ClassDeclaration<'src>,
     ) -> Option<ClassDefId<'src>> {
-        self.class_types
-            .get(&RefEquality(class_decl))
-            .map(|id| id.clone())
+        self.class_types.get(&RefEquality(class_decl)).cloned()
     }
 }
