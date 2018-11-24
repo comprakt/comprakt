@@ -129,6 +129,16 @@ struct TestFiles {
     generate_tentatives: bool,
 }
 
+fn tentative_file_path(reference :&PathBuf) -> PathBuf {
+    let update_references = std::env::var("UPDATE_REFERENCES");
+
+    let extension = if UPDATE_REFERENCES.is_some() {
+        reference.clone()
+    } else {
+        with_extension(reference, ".tentative")
+    }
+}
+
 #[allow(dead_code)]
 fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
     if !file.stderr.is_file() || !file.stdout.is_file() || !file.exitcode.is_file() {
@@ -140,9 +150,11 @@ fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
             panic!("Cannot find required reference output files.");
         }
 
-        let file_stderr_tentative = with_extension(&file.stderr, ".tentative");
-        let file_stdout_tentative = with_extension(&file.stdout, ".tentative");
-        let file_exitcode_tentative = with_extension(&file.exitcode, ".tentative");
+        let tentative_extension = tentative_extension();
+
+        let file_stderr_tentative = tentative_file_path(&file.stderr);
+        let file_stdout_tentative = tentative_file_path(&file.stdout);
+        let file_exitcode_tentative = tentative_file_path(&file.exitcode);
 
         match compiler_call(phase, &file.input)
             .stdout(File::create(&file_stdout_tentative).expect("write stdout file failed"))
