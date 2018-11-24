@@ -22,12 +22,13 @@ impl<'src> TypeSystem<'src> {
     pub fn add_class_def<'a>(
         &'a mut self,
         class_def: ClassDef<'src>,
-    ) -> Result<(&'a ClassDef<'src>, ClassDefId<'src>), ClassAlreadyDeclared> {
+    ) -> Result<ClassDefId<'src>, ClassAlreadyDeclared> {
         match self.defined_classes.entry(class_def.name) {
             Entry::Occupied(_) => Err(ClassAlreadyDeclared),
             Entry::Vacant(e) => {
                 let id = ClassDefId { id: class_def.name };
-                Ok((e.insert(class_def), id))
+                e.insert(class_def);
+                Ok(id)
             }
         }
     }
