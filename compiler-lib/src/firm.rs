@@ -2,7 +2,7 @@ use crate::{
     asciifile::Spanned,
     ast::{self, Program, AST},
     strtab::Symbol,
-    type_checking::type_system::{CheckedType, ClassMethodDef, TypeSystem},
+    type_checking::type_system::{ClassDef, CheckedType, ClassMethodDef, TypeSystem},
     visitor::NodeKind,
 };
 use libfirm_rs::{bindings::*, *};
@@ -25,6 +25,20 @@ pub struct FirmGenerator<'ir, 'src> {
     runtime: Runtime,
 }
 
+struct Class<'src> {
+    ast_class: &'src, ast::ClassDeclaration,
+    ts_def: &'ir ClassDef<'src>,
+    ty: Ty,
+}
+
+struct Function<'src> {
+    class: Rc<Class>,
+    ast_member: &'src ast::ClassMember,
+    ts_def: &'ir ClassMethodDef<'src>,
+    ty: Ty,
+    graph: Graph,
+}
+
 impl<'ir, 'src> FirmGenerator<'ir, 'src> {
     fn new(program: &'ir Program<'src>, type_system: &'ir TypeSystem<'src>) -> Self {
         Self {
@@ -34,9 +48,18 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
         }
     }
 
-    fn init_functions(&self) -> Vec<Graph> {
-        let mut fn_graphs = vec![];
+    fn init_functions(&self) -> Vec<Function> {
+        let mut functions = vec![];
         for class in &self.program.classes {
+
+            let class_type = ClassType::new_class_type(class.name.as_str());
+            let (class_def, _) = self.type_system.lookup_class(class.data.name.data).unwrap();
+            let rclass = Class {
+                ast_class: class.data,
+                ts_class: class_def,
+                ty: class_type,
+            };
+
             for member in &class.members {
                 if let Some(block) = member.kind.method_body() {
                     let method = self
@@ -53,8 +76,7 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
 
                     // Set param and return types. `main` method has neither
                     let method_name = if !is_main {
-                        let this_param = ClassType::new_class_type(class.name.as_str());
-                        ft.add_param(this_param);
+                        ft.add_param(class_type);
 
                         for param in &method.params {
                             let ty = get_firm_type(&param.ty);
@@ -80,12 +102,10 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
                         method.params.len() + 1 + local_var_def_visitor.count,
                     );
 
-                    MethodBodyGenerator::new(graph, method, &self.runtime).gen_method(&block);
+                    functions.push(Function{
+                        graph,
 
-                    unsafe {
-                        irg_finalize_cons(graph.into());
-                    }
-                    fn_graphs.push(graph);
+                    });
                 }
             }
         }
@@ -190,21 +210,27 @@ impl Runtime {
 }
 
 struct MethodBodyGenerator<'ir, 'src> {
-    graph: Graph,
-    method_def: &'ir ClassMethodDef<'src>,
+    function: Function,
     local_vars: HashMap<Symbol<'src>, (usize, mode::Type)>,
     num_vars: usize,
     runtime: &'ir Runtime,
+    type_system: &'src TypeSystem<'src>,
 }
 
 impl<'a, 'ir, 'src> MethodBodyGenerator<'ir, 'src> {
-    fn new(graph: Graph, method_def: &'ir ClassMethodDef<'src>, runtime: &'ir Runtime) -> Self {
+    fn new(
+        function: &
+        runtime: &'ir Runtime,
+        type_system: &'src TypeSystem<'_>,
+    ) -> Self {
         let mut se1f = MethodBodyGenerator {
             graph,
             local_vars: HashMap::new(),
             num_vars: 0,
             method_def,
             runtime,
+            type_system,
+            class_def,
         };
 
         let args = graph.args_node();
@@ -392,7 +418,13 @@ impl<'a, 'ir, 'src> MethodBodyGenerator<'ir, 'src> {
                 let (slot, mode) = self.local_var(**name);
                 self.graph.value(slot, mode).as_value_node()
             }
-
+            ThisMethodInvocation(sym, arglist) {
+                
+            }
+//            NewObject(classname) => {
+//                let (class_def, class_def_id) = self.type_system.lookup_class(classname.data).unwrap();
+//                class_def.
+//            }
             _ => unimplemented!(),
         }
     }
@@ -513,7 +545,18 @@ pub unsafe fn build(opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>)
     let firm_gen = FirmGenerator::new(program, type_system);
 
     // TODO: implement firm dumps in opts
-    let _graphs = firm_gen.init_functions();
+    let functions = firm_gen.init_functions();
+
+    for f in functions {
+        MethodBodyGenerator::new(
+            f.graph,
+            f.class.class_def, method, &self.runtime, &self.type_system)
+            .gen_method(&block);
+
+        unsafe {
+            irg_finalize_cons(graph.into());
+        }
+    }
 
     lower_highlevel();
     be_lower_for_target();
