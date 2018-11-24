@@ -128,7 +128,7 @@ fn get_firm_type(ty: &CheckedType<'_>) -> Option<Ty> {
                 .pointer(),
         ),
         // Not possible
-        CheckedType::Void | CheckedType::Null => None,
+        CheckedType::Void | CheckedType::Null | CheckedType::UnknownType(_) => None,
     }
 }
 

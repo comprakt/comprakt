@@ -86,6 +86,12 @@ impl<'src> fmt::Display for ClassDefId<'src> {
     }
 }
 
+impl<'src> ClassDefId<'src> {
+    pub fn as_str(&self) -> &str {
+        self.id.as_str()
+    }
+}
+
 #[derive(Debug)]
 pub struct ClassDef<'src> {
     // tracks how many redefinitions there are
