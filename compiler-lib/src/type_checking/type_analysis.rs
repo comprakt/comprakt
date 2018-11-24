@@ -24,11 +24,6 @@ impl<'a, 'b, T> PartialEq<RefEquality<'b, T>> for RefEquality<'a, T> {
 #[derive(Default)]
 pub struct TypeAnalysis<'src, 'ast, 'ts> {
     class_types: HashMap<RefEquality<'ast, ast::ClassDeclaration<'src>>, ClassDefId<'src>>,
-    pub field_info:
-        HashMap<RefEquality<'ast, ast::ClassMemberKind<'src>>, &'ts ClassFieldDef<'src>>,
-    pub method_info:
-        HashMap<RefEquality<'ast, ast::ClassMemberKind<'src>>, &'ts ClassMethodDef<'src>>,
-    pub param_info: HashMap<RefEquality<'ast, ast::Parameter<'src>>, ExprInfo<'src, 'ts>>,
     expr_info: HashMap<RefEquality<'ast, ast::Expr<'src>>, ExprInfo<'src, 'ts>>,
 }
 
