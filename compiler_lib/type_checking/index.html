@@ -1,15 +1,46 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `type_checking` mod in crate `compiler_lib`."><meta name="keywords" content="rust, rustlang, rust-lang, type_checking"><title>compiler_lib::type_checking - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Module type_checking</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'><a href='../index.html'>compiler_lib</a></p><script>window.sidebarCurrent = {name: 'type_checking', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/compiler_lib/type_checking/mod.rs.html#1-409' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>compiler_lib</a>::<wbr><a class="mod" href=''>type_checking</a></span></h1><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `type_checking` mod in crate `compiler_lib`."><meta name="keywords" content="rust, rustlang, rust-lang, type_checking"><title>compiler_lib::type_checking - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Module type_checking</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li></ul></div><p class='location'><a href='../index.html'>compiler_lib</a></p><script>window.sidebarCurrent = {name: 'type_checking', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/compiler_lib/type_checking/mod.rs.html#1-27' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>compiler_lib</a>::<wbr><a class="mod" href=''>type_checking</a></span></h1><div class='docblock'><p>This module implements type checking on the AST. The type checking
+produces an instance of <code>type_system::TypeSystem</code>, which is later used by
+the <code>firm</code> module for IR graph construction.</p>
+<h2 id="-types-builtin_types" class="section-header"><a href="#-types-builtin_types"><code>$</code> Types (<code>builtin_types</code>)</a></h2>
+<p>MiniJava suffers from the fact that its specification was stripped down
+from the Java language report.  A good example is the handling of the main
+method's arguments: <code>String[] args</code> must not be used, and according to the
+spec, <code>String[]</code> within the main method's parameter list is not a type.
+However, it is possible for users to define a <code>class String</code> in MiniJava,
+which ,in Java, would shadow the <code>java.lang.String</code> that is part of the
+main method's parameter type. Not so in MiniJava - at least that's the
+result of the discussion we had in the lecture.</p>
+<p>To accomodate this and other spec quirks, we define built-in types using
+<code>$String</code> or similar: Since a class definition beginning with <code>$</code> is
+rejected by the lexer, we can safely introduce such definitions during type
+analysis for the built-in types.</p>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Re-exports</a></h2>
+<table><tr><td><code>pub use self::checker::<a class="fn" href="../../compiler_lib/type_checking/checker/fn.check.html" title="fn compiler_lib::type_checking::checker::check">check</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
 <table>
                        <tr class=' module-item'>
-                           <td><a class="mod" href="expr_typechecker/index.html"
-                                  title='mod compiler_lib::type_checking::expr_typechecker'>expr_typechecker</a></td>
+                           <td><a class="mod" href="builtin_types/index.html"
+                                  title='mod compiler_lib::type_checking::builtin_types'>builtin_types</a></td>
                            <td class='docblock-short'>
                                 
                            </td>
                        </tr>
                        <tr class=' module-item'>
-                           <td><a class="mod" href="method_body_typechecker/index.html"
-                                  title='mod compiler_lib::type_checking::method_body_typechecker'>method_body_typechecker</a></td>
+                           <td><a class="mod" href="checker/index.html"
+                                  title='mod compiler_lib::type_checking::checker'>checker</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="method_body_type_checker/index.html"
+                                  title='mod compiler_lib::type_checking::method_body_type_checker'>method_body_type_checker</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="type_analysis/index.html"
+                                  title='mod compiler_lib::type_checking::type_analysis'>type_analysis</a></td>
                            <td class='docblock-short'>
                                 
                            </td>
@@ -17,44 +48,6 @@
                        <tr class=' module-item'>
                            <td><a class="mod" href="type_system/index.html"
                                   title='mod compiler_lib::type_checking::type_system'>type_system</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.RefEquality.html"
-                                  title='struct compiler_lib::type_checking::RefEquality'>RefEquality</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.SemanticContext.html"
-                                  title='struct compiler_lib::type_checking::SemanticContext'>SemanticContext</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.TypeAnalysis.html"
-                                  title='struct compiler_lib::type_checking::TypeAnalysis'>TypeAnalysis</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="enum" href="enum.VoidIs.html"
-                                  title='enum compiler_lib::type_checking::VoidIs'>VoidIs</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="fn" href="fn.check.html"
-                                  title='fn compiler_lib::type_checking::check'>check</a></td>
                            <td class='docblock-short'>
                                 
                            </td>
