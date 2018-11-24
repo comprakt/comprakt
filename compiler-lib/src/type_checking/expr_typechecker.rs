@@ -1,11 +1,12 @@
-use super::{method_body_typechecker::*, type_system::*, *};
+use super::{checker::*, method_body_typechecker::*, type_system::*};
 use crate::{
     asciifile::{Span, Spanned},
     ast,
+    semantics::SemanticError,
     strtab::Symbol,
 };
 
-impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana>  {
+impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana> {
     pub fn type_expr(
         &mut self,
         expr: &'ast Spanned<'src, ast::Expr<'src>>,
@@ -37,7 +38,7 @@ impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, '
             }
             FieldAccess(target_expr, name) => {
                 let target_type = self.type_expr(&target_expr)?.ty;
-                let target_class_def = self.resolve_class(&target_type).map_err(|e| {
+                let target_class_def = self.resolve_to_class_def(&target_type).map_err(|e| {
                     self.context.report_error(
                         &name.span,
                         SemanticError::FieldDoesNotExistOnType {
@@ -66,7 +67,7 @@ impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, '
             MethodInvocation(target_expr, name, args) => {
                 // e.g. "target_expr.name(arg1, arg2)"
                 let target_type = self.type_expr(&target_expr)?.ty;
-                let target_class_def = self.resolve_class(&target_type).map_err(|e| {
+                let target_class_def = self.resolve_to_class_def(&target_type).map_err(|e| {
                     self.context.report_error(
                         &name.span,
                         SemanticError::MethodDoesNotExistOnType {
@@ -124,32 +125,30 @@ impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, '
                     Err(CouldNotDetermineType)
                 } else {
                     Ok(ExprInfo::new(
-                        CheckedType::TypeRef(self.current_class.name),
+                        CheckedType::TypeRef(self.current_class_id),
                         RefInfo::This(self.current_class),
                     ))
                 }
             }
-            NewObject(name) => {
-                let ty = CheckedType::TypeRef(name.data);
-                match self.resolve_class(&ty) {
-                    Ok(_) => Ok(ty.into()),
-                    Err(_) => {
-                        self.context.report_error(
-                            &name.span,
-                            SemanticError::ClassDoesNotExist {
-                                class_name: name.data.to_string(),
-                            },
-                        );
-                        Err(CouldNotDetermineType)
-                    }
+            NewObject(name) => match self.type_system.lookup_class(name.data) {
+                Some((_, class_def_id)) => Ok(CheckedType::TypeRef(class_def_id).into()),
+                None => {
+                    self.context.report_error(
+                        &name.span,
+                        SemanticError::ClassDoesNotExist {
+                            class_name: name.data.to_string(),
+                        },
+                    );
+                    Err(CouldNotDetermineType)
                 }
-            }
+            },
             NewArray(basic_ty, size_expr, dimension) => {
                 // e.g new int[10][][];
 
                 self.check_type(size_expr, &CheckedType::Int);
 
-                let basic_ty = self.type_analysis.checked_type_from_basic_ty(
+                let basic_ty = checked_type_from_basic_ty(
+                    self.type_analysis,
                     &basic_ty,
                     self.context,
                     &mut self.type_system,
@@ -305,15 +304,12 @@ impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, '
         ))
     }
 
-    fn resolve_class(
+    fn resolve_to_class_def(
         &mut self,
         ty: &CheckedType<'src>,
     ) -> Result<&'ts ClassDef<'src>, CouldNotDetermineType> {
         match ty {
-            CheckedType::TypeRef(name) => match self.type_system.lookup_class(*name) {
-                None => Err(CouldNotDetermineType),
-                Some(class_def) => Ok(class_def),
-            },
+            CheckedType::TypeRef(id) => Ok(self.type_system.class(*id)),
             _ => Err(CouldNotDetermineType),
         }
     }
@@ -371,7 +367,7 @@ impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, '
             // static classes access (is not allowed).
             // Is important to check if user defines a "System" class
             match self.type_system.lookup_class(var_name.data) {
-                Some(class_def) => {
+                Some((class_def, _)) => {
                     self.context.report_error(
                         &var_name.span,
                         SemanticError::InvalidReferenceToClass {
