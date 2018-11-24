@@ -1,15 +1,228 @@
-use super::{method_body_typechecker::*, type_system::*, *};
+use super::{checker::*, type_analysis::*, type_system::*};
 use crate::{
     asciifile::{Span, Spanned},
     ast,
+    semantics::SemanticError,
     strtab::Symbol,
+    symtab::*,
 };
 
-impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
-    pub fn type_expr(
+#[derive(Debug, Clone)]
+pub struct ExprInfo<'src, 'ts> {
+    pub ty: CheckedType<'src>,
+    pub ref_info: Option<RefInfo<'src, 'ts>>,
+}
+
+impl<'src, 'ts> ExprInfo<'src, 'ts> {
+    pub fn new(ty: CheckedType<'src>, ref_info: RefInfo<'src, 'ts>) -> ExprInfo<'src, 'ts> {
+        ExprInfo {
+            ty,
+            ref_info: Some(ref_info),
+        }
+    }
+}
+
+impl<'src, 'ts> From<CheckedType<'src>> for ExprInfo<'src, 'ts> {
+    fn from(item: CheckedType<'src>) -> ExprInfo<'src, 'ts> {
+        ExprInfo {
+            ty: item,
+            ref_info: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum RefInfo<'src, 'ts> {
+    GlobalVar(Symbol<'src>),
+    Var(Symbol<'src>),
+    Param(&'ts MethodParamDef<'src>),
+    Field(&'ts ClassFieldDef<'src>),
+    Method(&'ts ClassMethodDef<'src>),
+    // impossible in minijava: Class(&'ts ClassDef<'src>),
+    This(&'ts ClassDef<'src>),
+    ArrayAccess,
+}
+
+#[derive(Clone)]
+pub enum VarDef<'src, 'ts> {
+    Local {
+        #[allow(dead_code)]
+        name: Symbol<'src>,
+        ty: CheckedType<'src>,
+    },
+    Param(&'ts MethodParamDef<'src>),
+}
+
+pub struct MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana> {
+    pub context: &'ctx SemanticContext<'ctx, 'src>,
+    pub type_system: &'ts TypeSystem<'src>,
+    pub current_class_id: ClassDefId<'src>,
+    pub current_class: &'ts ClassDef<'src>,
+    pub current_method: &'ts ClassMethodDef<'src>,
+    pub type_analysis: &'ana mut TypeAnalysis<'src, 'ast, 'ts>,
+    pub local_scope: Scoped<Symbol<'src>, VarDef<'src, 'ts>>,
+}
+
+#[derive(Debug)]
+pub struct CouldNotDetermineType;
+
+impl<'ctx, 'src, 'ast, 'ts, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana>
+where
+    'ts: 'ana,
+{
+    pub fn check_methods(
+        class_decl: &'ast ast::ClassDeclaration<'src>,
+        type_system: &'ts TypeSystem<'src>,
+        type_analysis: &'ana mut TypeAnalysis<'src, 'ast, 'ts>,
+        context: &'ctx SemanticContext<'ctx, 'src>,
+    ) {
+        let current_class_id = type_analysis
+            .decl_get_class_id(class_decl)
+            .expect("Class has to be already defined to check methods");
+        let current_class = type_system.class(current_class_id);
+
+        for member in &class_decl.members {
+            use self::ast::ClassMemberKind::*;
+            match &member.kind {
+                Field(_) => {}
+                Method(_, _, block) | MainMethod(_, block) => {
+                    let current_method = current_class
+                        .method(member.name)
+                        .expect("a class only has a member if it exists");
+
+                    let mut checker = MethodBodyTypeChecker {
+                        context,
+                        type_system,
+                        type_analysis,
+                        current_class_id,
+                        current_class,
+                        current_method,
+                        local_scope: Scoped::new(),
+                    };
+
+                    for param in &current_method.params {
+                        checker
+                            .local_scope
+                            .define(param.name, VarDef::Param(&param))
+                            .expect("no double params allowed");
+                    }
+
+                    checker.check_type_block(block);
+                }
+            }
+        }
+    }
+
+    fn check_type_block(&mut self, block: &'ast ast::Block<'src>) {
+        self.local_scope.enter_scope();
+        for stmt in &block.statements {
+            self.check_type_stmt(stmt);
+        }
+        self.local_scope
+            .leave_scope()
+            .expect("scope of a block is not root scope");
+    }
+
+    fn check_type_stmt(&mut self, stmt: &'ast Spanned<'src, ast::Stmt<'src>>) {
+        use self::ast::Stmt::*;
+        match &stmt.data {
+            Block(block) => self.check_type_block(block),
+            Empty => {}
+            If(cond, stmt, opt_else) => {
+                if let Ok(ty) = self.type_expr(cond) {
+                    if !CheckedType::Boolean.is_assignable_from(&ty.ty) {
+                        self.context
+                            .report_error(&cond.span, SemanticError::ConditionMustBeBoolean)
+                    }
+                }
+
+                self.check_type_stmt(&stmt);
+                if let Some(els) = opt_else {
+                    self.check_type_stmt(&els);
+                }
+            }
+            While(cond, stmt) => {
+                if let Ok(ty) = self.type_expr(cond) {
+                    if !CheckedType::Boolean.is_assignable_from(&ty.ty) {
+                        self.context
+                            .report_error(&cond.span, SemanticError::ConditionMustBeBoolean)
+                    }
+                }
+
+                self.check_type_stmt(&stmt);
+            }
+            Expression(expr) => {
+                let _ = self.type_expr(expr);
+            }
+            Return(expr_opt) => {
+                let return_ty = &self.current_method.return_ty;
+
+                match (expr_opt, return_ty) {
+                    (None, CheckedType::Void) => {}
+                    (None, _) => {
+                        self.context.report_error(
+                            &stmt.span,
+                            SemanticError::MethodMustReturnSomething {
+                                ty: return_ty.to_string(),
+                            },
+                        );
+                    }
+                    (Some(expr), CheckedType::Void) => {
+                        let _ = self.type_expr(expr);
+                        self.context
+                            .report_error(&stmt.span, SemanticError::VoidMethodCannotReturnValue);
+                    }
+                    (Some(expr), _) => self.check_type(expr, return_ty),
+                }
+            }
+            LocalVariableDeclaration(ty, name, opt_assign) => {
+                let def_ty = checked_type_from_ty(
+                    &ty.data,
+                    self.context,
+                    self.type_system,
+                    VoidIs::Forbidden,
+                );
+                self.local_scope
+                    .define(
+                        name.data,
+                        VarDef::Local {
+                            name: name.data,
+                            ty: def_ty.clone(),
+                        },
+                    )
+                    .unwrap_or_else(|_| {
+                        self.context.report_error(
+                            &name.span,
+                            SemanticError::RedefinitionError {
+                                kind: "local var".to_string(),
+                                name: name.data.to_string(),
+                            },
+                        )
+                    });
+
+                if let Some(assign) = opt_assign {
+                    self.check_type(assign, &def_ty);
+                }
+            }
+        }
+    }
+
+    fn type_expr(
         &mut self,
-        expr: &Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
+        expr: &'ast Spanned<'src, ast::Expr<'src>>,
+    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
+        let t = self.type_expr_internal(expr);
+
+        if let Ok(ref t) = t {
+            self.type_analysis.set_expr_info(&expr.data, t.clone());
+        }
+        t
+    }
+
+    fn type_expr_internal(
+        &mut self,
+        expr: &'ast Spanned<'src, ast::Expr<'src>>,
+    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
         use crate::ast::Expr::*;
         match &expr.data {
             Binary(op, lhs, rhs) => self.check_binary_expr(expr.span, *op, lhs, rhs),
@@ -25,7 +238,7 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
             }
             FieldAccess(target_expr, name) => {
                 let target_type = self.type_expr(&target_expr)?.ty;
-                let target_class_def = self.resolve_class(&target_type).map_err(|e| {
+                let target_class_def = self.resolve_to_class_def(&target_type).map_err(|e| {
                     self.context.report_error(
                         &name.span,
                         SemanticError::FieldDoesNotExistOnType {
@@ -54,7 +267,7 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
             MethodInvocation(target_expr, name, args) => {
                 // e.g. "target_expr.name(arg1, arg2)"
                 let target_type = self.type_expr(&target_expr)?.ty;
-                let target_class_def = self.resolve_class(&target_type).map_err(|e| {
+                let target_class_def = self.resolve_to_class_def(&target_type).map_err(|e| {
                     self.context.report_error(
                         &name.span,
                         SemanticError::MethodDoesNotExistOnType {
@@ -112,32 +325,29 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
                     Err(CouldNotDetermineType)
                 } else {
                     Ok(ExprInfo::new(
-                        CheckedType::TypeRef(self.current_class.name),
+                        CheckedType::TypeRef(self.current_class_id),
                         RefInfo::This(self.current_class),
                     ))
                 }
             }
-            NewObject(name) => {
-                let ty = CheckedType::TypeRef(name.data);
-                match self.resolve_class(&ty) {
-                    Ok(_) => Ok(ty.into()),
-                    Err(_) => {
-                        self.context.report_error(
-                            &name.span,
-                            SemanticError::ClassDoesNotExist {
-                                class_name: name.data.to_string(),
-                            },
-                        );
-                        Err(CouldNotDetermineType)
-                    }
+            NewObject(name) => match self.type_system.lookup_class(name.data) {
+                Some((_, class_def_id)) => Ok(CheckedType::TypeRef(class_def_id).into()),
+                None => {
+                    self.context.report_error(
+                        &name.span,
+                        SemanticError::ClassDoesNotExist {
+                            class_name: name.data.to_string(),
+                        },
+                    );
+                    Err(CouldNotDetermineType)
                 }
-            }
+            },
             NewArray(basic_ty, size_expr, dimension) => {
                 // e.g new int[10][][];
 
                 self.check_type(size_expr, &CheckedType::Int);
 
-                let basic_ty = self.type_analysis.checked_type_from_basic_ty(
+                let basic_ty = checked_type_from_basic_ty(
                     &basic_ty,
                     self.context,
                     self.type_system,
@@ -154,9 +364,9 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
         &mut self,
         span: Span<'src>,
         op: ast::BinaryOp,
-        lhs: &Spanned<'src, ast::Expr<'src>>,
-        rhs: &Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
+        lhs: &'ast Spanned<'src, ast::Expr<'src>>,
+        rhs: &'ast Spanned<'src, ast::Expr<'src>>,
+    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
         use crate::ast::BinaryOp::*;
         match op {
             Assign => {
@@ -225,9 +435,9 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
         }
     }
 
-    pub fn check_type(
+    fn check_type(
         &mut self,
-        expr: &Spanned<'src, ast::Expr<'src>>,
+        expr: &'ast Spanned<'src, ast::Expr<'src>>,
         expected_ty: &CheckedType<'src>,
     ) {
         if let Ok(expr_info) = self.type_expr(expr) {
@@ -246,9 +456,9 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
     fn check_method_invocation(
         &mut self,
         method_name: &Spanned<'src, Symbol<'src>>,
-        target_class_def: &'sem ClassDef<'src>,
-        args: &[Spanned<'src, ast::Expr<'src>>],
-    ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
+        target_class_def: &'ts ClassDef<'src>,
+        args: &'ast [Spanned<'src, ast::Expr<'src>>],
+    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
         let method = match target_class_def.method(method_name.data) {
             Some(method) => method,
             None => {
@@ -293,15 +503,12 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
         ))
     }
 
-    fn resolve_class(
+    fn resolve_to_class_def(
         &mut self,
         ty: &CheckedType<'src>,
-    ) -> Result<&'sem ClassDef<'src>, CouldNotDetermineType> {
+    ) -> Result<&'ts ClassDef<'src>, CouldNotDetermineType> {
         match ty {
-            CheckedType::TypeRef(name) => match self.type_system.lookup_class(*name) {
-                None => Err(CouldNotDetermineType),
-                Some(class_def) => Ok(class_def),
-            },
+            CheckedType::TypeRef(id) => Ok(self.type_system.class(*id)),
             _ => Err(CouldNotDetermineType),
         }
     }
@@ -310,7 +517,7 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
     fn check_var(
         &mut self,
         var_name: &Spanned<'src, Symbol<'src>>,
-    ) -> Result<ExprInfo<'src, 'sem>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
         match self.local_scope.visible_definition(var_name.data) {
             // local variable or param
             Some(VarDef::Local { ty, name }) => Ok(ExprInfo {
@@ -359,7 +566,7 @@ impl<'ctx, 'src, 'sem, 'ana> MethodBodyTypeChecker<'ctx, 'src, 'sem, 'ana> {
             // static classes access (is not allowed).
             // Is important to check if user defines a "System" class
             match self.type_system.lookup_class(var_name.data) {
-                Some(class_def) => {
+                Some((class_def, _)) => {
                     self.context.report_error(
                         &var_name.span,
                         SemanticError::InvalidReferenceToClass {
