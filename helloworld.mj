@@ -1,0 +1,9 @@
+class X {}
+class Main {
+    public int foo() {
+        int x = 32;
+        return 23;
+    }
+	public static void main(String[] args) {
+    }
+}

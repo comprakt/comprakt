@@ -334,6 +334,16 @@ impl<'a, 'ir, 'src> MethodBodyGenerator<'ir, 'src> {
             }
 
             Return(res_expr) => {
+                unsafe {
+                    let func_addr = self.graph.new_addr(self.runtime.dumpstack);
+                    let call =
+                        self.graph
+                            .cur_block()
+                            .new_call(self.graph.cur_store(), func_addr, &[]);
+                    let call_post_mem = call.project_mem();
+                    self.graph.set_store(call_post_mem);
+                }
+
                 let mem = self.graph.cur_store();
                 let res = res_expr.as_ref().map(|res_expr| self.gen_expr(&*res_expr));
 
@@ -366,7 +376,17 @@ impl<'a, 'ir, 'src> MethodBodyGenerator<'ir, 'src> {
         match &**expr {
             Int(lit) => {
                 let val = unsafe { new_tarval_from_long(lit.parse().unwrap(), mode::Is) };
-                self.graph.new_const(val).as_value_node()
+                let vnode = self.graph.new_const(val).as_value_node();
+
+                let func_addr = self.graph.new_addr(self.runtime.system_out_println);
+                let call = self.graph.cur_block().new_call(
+                    self.graph.cur_store(),
+                    func_addr,
+                    &[vnode.into()],
+                );
+                let call_post_mem = call.project_mem();
+                self.graph.set_store(call_post_mem);
+                vnode
             }
             Var(name) => {
                 let (slot, mode) = self.local_var(**name);
