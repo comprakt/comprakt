@@ -22,6 +22,7 @@ pub struct Options {
 pub struct FirmGenerator<'ir, 'src> {
     program: &'ir Program<'src>,
     type_system: &'ir TypeSystem<'src>,
+    runtime: Runtime,
 }
 
 impl<'ir, 'src> FirmGenerator<'ir, 'src> {
@@ -29,6 +30,7 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
         Self {
             program,
             type_system,
+            runtime: Runtime::new(),
         }
     }
 
@@ -64,7 +66,7 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
                         }
                         format!("{}.{}", class.name.data, method.name)
                     } else {
-                        ".main".to_string()
+                        "mj_main".to_string()
                     };
 
                     let method_type = ft.build(!is_main);
@@ -78,7 +80,7 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
                         method.params.len() + 1 + local_var_def_visitor.count,
                     );
 
-                    MethodBodyGenerator::new(graph, method).gen_method(&block);
+                    MethodBodyGenerator::new(graph, method, &self.runtime).gen_method(&block);
 
                     unsafe {
                         irg_finalize_cons(graph.into());
@@ -92,20 +94,117 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
     }
 }
 
+struct Runtime {
+    system_out_println: Entity,
+    system_out_write: Entity,
+    system_out_flush: Entity,
+    system_in_read: Entity,
+    new: Entity,
+
+    dumpstack: Entity,
+    null_usage: Entity,
+    array_out_of_bounds: Entity,
+    div_by_zero: Entity,
+}
+
+impl Runtime {
+    fn new() -> Runtime {
+        let dumpstack = {
+            let t = FunctionType::new().build(false);
+            let id = CString::new("mjrt_dumpstack").unwrap();
+            Entity::new_global(&id, t)
+        };
+
+        let system_out_println = {
+            let it = PrimitiveType::i32();
+            let mut t = FunctionType::new();
+            t.add_param(it);
+            let t = t.build(false);
+            let id = CString::new("mjrt_system_out_println").unwrap();
+            Entity::new_global(&id, t)
+        };
+
+        let system_out_write = {
+            let it = PrimitiveType::i32();
+            let mut t = FunctionType::new();
+            t.add_param(it);
+            let t = t.build(false);
+            let id = CString::new("mjrt_system_out_write").unwrap();
+            Entity::new_global(&id, t)
+        };
+
+        let system_out_flush = {
+            let t = FunctionType::new().build(false);
+            let id = CString::new("mjrt_system_out_flush").unwrap();
+            Entity::new_global(&id, t)
+        };
+
+        let system_in_read = {
+            let it = PrimitiveType::i32();
+            let mut t = FunctionType::new();
+            t.set_res(it);
+            let t = t.build(false);
+            let id = CString::new("mjrt_system_in_read").unwrap();
+            Entity::new_global(&id, t)
+        };
+
+        let new = {
+            let it = PrimitiveType::i32();
+            let mut t = FunctionType::new();
+            t.set_res(it);
+            let t = t.build(false);
+            let id = CString::new("mjrt_new").unwrap();
+            Entity::new_global(&id, t)
+        };
+
+        let div_by_zero = {
+            let t = FunctionType::new().build(false);
+            let id = CString::new("mjrt_div_by_zero").unwrap();
+            Entity::new_global(&id, t)
+        };
+
+        let null_usage = {
+            let t = FunctionType::new().build(false);
+            let id = CString::new("mjrt_null_usage").unwrap();
+            Entity::new_global(&id, t)
+        };
+
+        let array_out_of_bounds = {
+            let t = FunctionType::new().build(false);
+            let id = CString::new("mjrt_array_out_of_bounds").unwrap();
+            Entity::new_global(&id, t)
+        };
+
+        Runtime {
+            system_out_println,
+            system_out_write,
+            system_out_flush,
+            system_in_read,
+            new,
+            dumpstack,
+            div_by_zero,
+            null_usage,
+            array_out_of_bounds,
+        }
+    }
+}
+
 struct MethodBodyGenerator<'ir, 'src> {
     graph: Graph,
     method_def: &'ir ClassMethodDef<'src>,
     local_vars: HashMap<Symbol<'src>, (usize, mode::Type)>,
     num_vars: usize,
+    runtime: &'ir Runtime,
 }
 
 impl<'a, 'ir, 'src> MethodBodyGenerator<'ir, 'src> {
-    fn new(graph: Graph, method_def: &'ir ClassMethodDef<'src>) -> Self {
+    fn new(graph: Graph, method_def: &'ir ClassMethodDef<'src>, runtime: &'ir Runtime) -> Self {
         let mut se1f = MethodBodyGenerator {
             graph,
             local_vars: HashMap::new(),
             num_vars: 0,
             method_def,
+            runtime,
         };
 
         let args = graph.args_node();
@@ -387,8 +486,9 @@ pub unsafe fn build(opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>)
         ast::AST::Program(program) => program,
         ast::AST::Empty => unreachable!(),
     };
-    let firm_gen = FirmGenerator::new(program, type_system);
     setup();
+
+    let firm_gen = FirmGenerator::new(program, type_system);
 
     // TODO: implement firm dumps in opts
     let _graphs = firm_gen.init_functions();
