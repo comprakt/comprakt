@@ -480,6 +480,40 @@
 <span id="480">480</span>
 <span id="481">481</span>
 <span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
 </pre><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">not_unsafe_ptr_arg_deref</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
@@ -511,26 +545,38 @@
 }
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PrimitiveType</span>;
+
 <span class="kw">impl</span> <span class="ident">PrimitiveType</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_mode</span>(<span class="ident">mode</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">libfirm_rs_bindings</span>::<span class="ident">ir_mode</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_mode</span>(<span class="ident">mode</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_mode</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
         <span class="kw">unsafe</span> { <span class="ident">new_type_primitive</span>(<span class="ident">mode</span>) }.<span class="ident">into</span>()
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">isize</span>() <span class="op">-&gt;</span> <span class="ident">Ty</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">i32</span>() <span class="op">-&gt;</span> <span class="ident">Ty</span> {
         <span class="kw">unsafe</span> { <span class="ident">new_type_primitive</span>(<span class="ident">mode</span>::<span class="ident">Is</span>) }.<span class="ident">into</span>()
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">usize</span>() <span class="op">-&gt;</span> <span class="ident">Ty</span> {
-        <span class="kw">unsafe</span> { <span class="ident">new_type_primitive</span>(<span class="ident">mode</span>::<span class="ident">Iu</span>) }.<span class="ident">into</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bool</span>() <span class="op">-&gt;</span> <span class="ident">Ty</span> {
+        <span class="kw">unsafe</span> { <span class="ident">new_type_primitive</span>(<span class="ident">mode</span>::<span class="ident">Bu</span>) }.<span class="ident">into</span>()
     }
 }
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ArrayType</span>;
 
 <span class="kw">impl</span> <span class="ident">ArrayType</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">varlength</span>(<span class="ident">element_type</span>: <span class="ident">Ty</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">variable_length</span>(<span class="ident">element_type</span>: <span class="ident">Ty</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
         <span class="kw">unsafe</span> { <span class="ident">new_type_array</span>(<span class="ident">element_type</span>.<span class="ident">into</span>(), <span class="number">0</span>) }.<span class="ident">into</span>()
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fixedlength</span>(<span class="ident">element_type</span>: <span class="ident">Ty</span>, <span class="ident">length</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fixed_length</span>(<span class="ident">element_type</span>: <span class="ident">Ty</span>, <span class="ident">length</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
         <span class="kw">unsafe</span> { <span class="ident">new_type_array</span>(<span class="ident">element_type</span>.<span class="ident">into</span>(), <span class="ident">length</span> <span class="kw">as</span> <span class="ident">u32</span>) }.<span class="ident">into</span>()
+    }
+}
+
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ClassType</span>;
+
+<span class="kw">impl</span> <span class="ident">ClassType</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_class_type</span>(<span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
+        <span class="kw">unsafe</span> {
+            <span class="ident">new_type_class</span>(<span class="ident">CString</span>::<span class="ident">new</span>(<span class="ident">name</span>).<span class="ident">expect</span>(<span class="string">&quot;CString::new failed&quot;</span>).<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span>)
+        }
+        .<span class="ident">into</span>()
     }
 }
 
@@ -538,40 +584,43 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FunctionType</span> {
     <span class="ident">params</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ty</span><span class="op">&gt;</span>,
-    <span class="ident">results</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ty</span><span class="op">&gt;</span>,
+    <span class="ident">result</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ty</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">FunctionType</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">FunctionType</span> {
             <span class="ident">params</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
-            <span class="ident">results</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
+            <span class="ident">result</span>: <span class="prelude-val">None</span>,
         }
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">param</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">Ty</span>) <span class="op">-&gt;</span> <span class="ident">FunctionType</span> {
+    <span class="doccomment">/// If the function isn&#39;t the main function don&#39;t forget to add a this</span>
+    <span class="doccomment">/// param as the first param.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_param</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">Ty</span>) {
         <span class="self">self</span>.<span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">ty</span>);
-        <span class="self">self</span>
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">res</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">res</span>: <span class="ident">Ty</span>) <span class="op">-&gt;</span> <span class="ident">FunctionType</span> {
-        <span class="self">self</span>.<span class="ident">results</span>.<span class="ident">push</span>(<span class="ident">res</span>);
-        <span class="self">self</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_res</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">res</span>: <span class="ident">Ty</span>) {
+        <span class="self">self</span>.<span class="ident">result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">res</span>);
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
-        <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span>::<span class="kw-2">*</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="self">self</span>, <span class="ident">is_main</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
         <span class="kw">let</span> <span class="ident">ft</span> <span class="op">=</span> <span class="kw">unsafe</span> {
             <span class="ident">new_type_method</span>(
                 <span class="self">self</span>.<span class="ident">params</span>.<span class="ident">len</span>(),
-                <span class="self">self</span>.<span class="ident">results</span>.<span class="ident">len</span>(),
+                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">result</span>.<span class="ident">is_some</span>() { <span class="number">1</span> } <span class="kw">else</span> { <span class="number">0</span> },
                 <span class="bool-val">false</span>.<span class="ident">into</span>(), <span class="comment">// variadic</span>
-                <span class="ident">cc_cdecl_set</span>,
+                <span class="kw">if</span> <span class="ident">is_main</span> {
+                    <span class="ident">cc_cdecl_set</span>
+                } <span class="kw">else</span> {
+                    <span class="ident">calling_convention</span>::<span class="ident">ThisCall</span>
+                },
                 <span class="ident">mtp_additional_properties</span>::<span class="ident">NoProperty</span>,
             )
         };
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">param</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">params</span>.<span class="ident">into_iter</span>().<span class="ident">enumerate</span>() {
             <span class="kw">unsafe</span> { <span class="ident">set_method_param_type</span>(<span class="ident">ft</span>, <span class="ident">i</span>, <span class="ident">param</span>.<span class="ident">into</span>()) };
         }
-        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">res</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">results</span>.<span class="ident">into_iter</span>().<span class="ident">enumerate</span>() {
-            <span class="kw">unsafe</span> { <span class="ident">set_method_res_type</span>(<span class="ident">ft</span>, <span class="ident">i</span>, <span class="ident">res</span>.<span class="ident">into</span>()) };
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">res</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">result</span> {
+            <span class="kw">unsafe</span> { <span class="ident">set_method_res_type</span>(<span class="ident">ft</span>, <span class="number">0</span>, <span class="ident">res</span>.<span class="ident">into</span>()) };
         }
         <span class="ident">Ty</span>(<span class="ident">ft</span>)
     }
@@ -579,7 +628,6 @@
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Graph</span> {
-    <span class="ident">_entity</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_entity</span>,
     <span class="ident">irg</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_graph</span>,
 }
 
@@ -587,46 +635,53 @@
     <span class="doccomment">/// Create a new function entity and initialize an ir_graph for it.</span>
     <span class="doccomment">/// The entity is registered with the `get_glob_type()`, hence the name</span>
     <span class="doccomment">/// must be mangled to avoid collisions with other classes&#39; functions.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">function</span>(<span class="ident">mangled_name</span>: <span class="ident">String</span>, <span class="ident">function_type</span>: <span class="ident">Ty</span>, <span class="ident">num_slots</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">Graph</span> {
-        <span class="kw">let</span> <span class="ident">mangled_name</span> <span class="op">=</span>
-            <span class="ident">CString</span>::<span class="ident">new</span>(<span class="ident">mangled_name</span>).<span class="ident">expect</span>(<span class="string">&quot;mangled_name expected to be valid CString&quot;</span>);
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">function</span>(<span class="ident">mangled_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">function_type</span>: <span class="ident">Ty</span>, <span class="ident">num_slots</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">Graph</span> {
+        <span class="kw">let</span> <span class="ident">mangled_name</span> <span class="op">=</span> <span class="ident">CString</span>::<span class="ident">new</span>(<span class="ident">mangled_name</span>).<span class="ident">expect</span>(<span class="string">&quot;CString::new failed&quot;</span>);
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">global_type</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_type</span> <span class="op">=</span> <span class="ident">get_glob_type</span>();
             <span class="kw">let</span> <span class="ident">name</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ident</span> <span class="op">=</span> <span class="ident">new_id_from_str</span>(<span class="ident">mangled_name</span>.<span class="ident">as_ptr</span>());
-            <span class="kw">let</span> <span class="ident">_entity</span> <span class="op">=</span> <span class="ident">new_entity</span>(<span class="ident">global_type</span>, <span class="ident">name</span>, <span class="ident">function_type</span>.<span class="ident">into</span>());
-            <span class="kw">let</span> <span class="ident">irg</span> <span class="op">=</span> <span class="ident">new_ir_graph</span>(<span class="ident">_entity</span>, <span class="ident">num_slots</span> <span class="kw">as</span> <span class="ident">i32</span>);
-            <span class="ident">Graph</span> { <span class="ident">_entity</span>, <span class="ident">irg</span> }
+            <span class="kw">let</span> <span class="ident">entity</span> <span class="op">=</span> <span class="ident">new_entity</span>(<span class="ident">global_type</span>, <span class="ident">name</span>, <span class="ident">function_type</span>.<span class="ident">into</span>());
+            <span class="kw">let</span> <span class="ident">irg</span> <span class="op">=</span> <span class="ident">new_ir_graph</span>(<span class="ident">entity</span>, <span class="ident">num_slots</span> <span class="kw">as</span> <span class="ident">i32</span>);
+            <span class="ident">Graph</span> { <span class="ident">irg</span> }
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">start_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Block</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">entity</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_entity</span> {
+        <span class="kw">unsafe</span> { <span class="ident">get_irg_entity</span>(<span class="self">self</span>.<span class="ident">irg</span>) }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">start_block</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Block</span> {
         <span class="ident">Block</span>(<span class="kw">unsafe</span> { <span class="ident">get_irg_start_block</span>(<span class="self">self</span>.<span class="ident">irg</span>) })
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_value</span><span class="op">&lt;</span><span class="ident">V</span>: <span class="ident">ValueNode</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">slot_idx</span>: <span class="ident">usize</span>, <span class="ident">vn</span>: <span class="kw-2">&amp;</span><span class="ident">V</span>) {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">end_block</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Block</span> {
+        <span class="ident">Block</span>(<span class="kw">unsafe</span> { <span class="ident">get_irg_end_block</span>(<span class="self">self</span>.<span class="ident">irg</span>) })
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_value</span><span class="op">&lt;</span><span class="ident">V</span>: <span class="ident">ValueNode</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">slot_idx</span>: <span class="ident">usize</span>, <span class="ident">vn</span>: <span class="kw-2">&amp;</span><span class="ident">V</span>) {
         <span class="kw">unsafe</span> { <span class="ident">set_r_value</span>(<span class="self">self</span>.<span class="ident">irg</span>, <span class="ident">slot_idx</span> <span class="kw">as</span> <span class="ident">i32</span>, <span class="ident">vn</span>.<span class="ident">as_value_node</span>()) }
     }
 
     <span class="doccomment">/// TODO: have `get_value_$mode::??` for each `mode::??`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_value</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">slot_idx</span>: <span class="ident">usize</span>, <span class="ident">mode</span>: <span class="ident">mode</span>::<span class="ident">Type</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_node</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">value</span>(<span class="self">self</span>, <span class="ident">slot_idx</span>: <span class="ident">usize</span>, <span class="ident">mode</span>: <span class="ident">mode</span>::<span class="ident">Type</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_node</span> {
         <span class="kw">unsafe</span> { <span class="ident">get_r_value</span>(<span class="self">self</span>.<span class="ident">irg</span>, <span class="ident">slot_idx</span> <span class="kw">as</span> <span class="ident">i32</span>, <span class="ident">mode</span>) }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">args_node</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">GraphArgs</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">args_node</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">GraphArgs</span> {
         <span class="kw">unsafe</span> { <span class="ident">get_irg_args</span>(<span class="self">self</span>.<span class="ident">irg</span>) }.<span class="ident">into</span>()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_imm_block</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsPred</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pred</span>: <span class="kw-2">&amp;</span><span class="ident">P</span>) <span class="op">-&gt;</span> <span class="ident">Block</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_imm_block</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsPred</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">pred</span>: <span class="kw-2">&amp;</span><span class="ident">P</span>) <span class="op">-&gt;</span> <span class="ident">Block</span> {
         <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="ident">Block</span>(<span class="kw">unsafe</span> { <span class="ident">new_r_immBlock</span>(<span class="self">self</span>.<span class="ident">irg</span>) });
         <span class="ident">block</span>.<span class="ident">add_pred</span>(<span class="ident">pred</span>);
         <span class="ident">block</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_const</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tarval</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_tarval</span>) <span class="op">-&gt;</span> <span class="ident">Const</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_const</span>(<span class="self">self</span>, <span class="ident">tarval</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_tarval</span>) <span class="op">-&gt;</span> <span class="ident">Const</span> {
         <span class="kw">unsafe</span> { <span class="ident">new_r_Const</span>(<span class="self">self</span>.<span class="ident">irg</span>, <span class="ident">tarval</span>) }.<span class="ident">into</span>()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">cur_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">MemoryState</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">cur_store</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">MemoryState</span> {
         <span class="kw">unsafe</span> { <span class="ident">get_r_store</span>(<span class="self">self</span>.<span class="ident">irg</span>) }.<span class="ident">into</span>()
     }
 }
@@ -715,7 +770,7 @@
         <span class="self">self</span>,
         <span class="ident">left</span>: <span class="kw-2">&amp;</span><span class="ident">C</span>,
         <span class="ident">right</span>: <span class="kw-2">&amp;</span><span class="ident">D</span>,
-        <span class="ident">relation</span>: <span class="ident">libfirm_rs_bindings</span>::<span class="ident">ir_relation</span>::<span class="ident">Type</span>,
+        <span class="ident">relation</span>: <span class="ident">ir_relation</span>::<span class="ident">Type</span>,
     ) <span class="op">-&gt;</span> <span class="ident">Cmp</span> {
         <span class="kw">unsafe</span> {
             <span class="ident">new_r_Cmp</span>(
@@ -780,6 +835,14 @@
         }
         .<span class="ident">into</span>()
     }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_return</span>(<span class="self">self</span>, <span class="ident">mem</span>: <span class="ident">MemoryState</span>, <span class="ident">ret</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_node</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Return</span> {
+        <span class="kw">let</span> (<span class="ident">arity</span>, <span class="ident">inputs</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">ret</span> {
+            <span class="prelude-val">Some</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> (<span class="number">1</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">node</span>]),
+            <span class="prelude-val">None</span> <span class="op">=&gt;</span> (<span class="number">0</span>, <span class="macro">vec</span><span class="macro">!</span>[]),
+        };
+        <span class="kw">unsafe</span> { <span class="ident">new_r_Return</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mem</span>.<span class="ident">into</span>(), <span class="ident">arity</span>, <span class="ident">inputs</span>.<span class="ident">as_ptr</span>()) }.<span class="ident">into</span>()
+    }
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Into</span>, <span class="ident">From</span>)]</span>
@@ -823,11 +886,7 @@
 
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Projectable</span> {
     <span class="kw">fn</span> <span class="ident">ir_node</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_node</span>;
-    <span class="kw">fn</span> <span class="ident">project</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">mode</span>: <span class="ident">libfirm_rs_bindings</span>::<span class="ident">mode</span>::<span class="ident">Type</span>,
-        <span class="ident">component_number</span>: <span class="ident">usize</span>,
-    ) <span class="op">-&gt;</span> <span class="ident">Projection</span> {
+    <span class="kw">fn</span> <span class="ident">project</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">mode</span>: <span class="ident">mode</span>::<span class="ident">Type</span>, <span class="ident">component_number</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">Projection</span> {
         <span class="kw">unsafe</span> { <span class="ident">new_r_Proj</span>(<span class="self">self</span>.<span class="ident">ir_node</span>(), <span class="ident">mode</span>, <span class="ident">component_number</span> <span class="kw">as</span> <span class="ident">u32</span>) }.<span class="ident">into</span>()
     }
 }
@@ -884,6 +943,15 @@
 <span class="doccomment">/// Const is an `ir_node` resulting from a new_const operation.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Into</span>, <span class="ident">From</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Const</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_node</span>);
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Into</span>, <span class="ident">From</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Return</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_node</span>);
+
+<span class="kw">impl</span> <span class="ident">AsPred</span> <span class="kw">for</span> <span class="ident">Return</span> {
+    <span class="kw">fn</span> <span class="ident">as_pred</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Pred</span> {
+        <span class="ident">Pred</span>(<span class="self">self</span>.<span class="number">0</span>)
+    }
+}
 
 <span class="kw">impl</span> <span class="ident">ValueNode</span> <span class="kw">for</span> <span class="ident">Const</span> {
     <span class="kw">fn</span> <span class="ident">as_value_node</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_node</span> {

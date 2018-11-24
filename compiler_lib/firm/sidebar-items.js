@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["_print_machine_triple",""],["build",""]],"struct":[["Options",""]]});
+initSidebarItems({"fn":[["_print_machine_triple",""],["build",""]],"struct":[["FirmGenerator",""],["Options",""]]});

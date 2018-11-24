@@ -429,6 +429,75 @@
 <span id="429">429</span>
 <span id="430">430</span>
 <span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! A command-line interface for the [`compiler_lib`]. If you are using</span>
 <span class="doccomment">//! this crate programatically, you probably want to call it as follows:</span>
@@ -545,27 +614,33 @@
     <span class="doccomment">/// Output an executable</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;--compile&quot;</span>)]</span>
     <span class="ident">Compile</span> {
-        <span class="doccomment">/// the location of the generated executable file</span>
+        <span class="doccomment">/// the location of the input MiniJava file</span>
         <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
-        <span class="ident">path</span>: <span class="ident">PathBuf</span>,
+        <span class="ident">input</span>: <span class="ident">PathBuf</span>,
+        <span class="doccomment">/// the location of the generated executable file</span>
+        <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--output&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-o&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+        <span class="ident">output</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
     },
 }
 
 <span class="doccomment">/// Command-line options for the [`CliCommand::Lower`] (`--lower`) call</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LoweringOptions</span> {
+    <span class="doccomment">/// A MiniJava input file</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="kw">pub</span> <span class="ident">path</span>: <span class="ident">PathBuf</span>,
     <span class="doccomment">/// Output the matured unlowered firm graph as VCG file</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--firm-graph&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-g&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--emit-firm-graph&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-g&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="kw">pub</span> <span class="ident">dump_firm_graph</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Output the matured lowered firm graph as VCG file</span>
     <span class="attribute">#[<span class="ident">structopt</span>(
-        <span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--lowered-firm-graph&quot;</span>,
+        <span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--emit-lowered-firm-graph&quot;</span>,
         <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-l&quot;</span>,
         <span class="ident">parse</span>(<span class="ident">from_os_str</span>)
     )]</span>
     <span class="kw">pub</span> <span class="ident">dump_lowered_firm_graph</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Write generated assembler code to the given file.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--assembler&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-a&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--emit-asm&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-a&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="kw">pub</span> <span class="ident">dump_assembler</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 }
 
@@ -597,8 +672,8 @@
         <span class="ident">CliCommand</span>::<span class="ident">PrintAst</span> { <span class="ident">path</span> } <span class="op">=&gt;</span> <span class="ident">cmd_printast</span>(<span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">print</span>::<span class="ident">pretty</span>::<span class="ident">print</span>),
         <span class="ident">CliCommand</span>::<span class="ident">DebugDumpAst</span> { <span class="ident">path</span> } <span class="op">=&gt;</span> <span class="ident">cmd_printast</span>(<span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">print</span>::<span class="ident">structure</span>::<span class="ident">print</span>),
         <span class="ident">CliCommand</span>::<span class="ident">Check</span> { <span class="ident">path</span> } <span class="op">=&gt;</span> <span class="ident">cmd_check</span>(<span class="ident">path</span>),
-        <span class="ident">CliCommand</span>::<span class="ident">Lower</span>(<span class="ident">options</span>) <span class="op">=&gt;</span> <span class="ident">cmd_lower</span>(<span class="kw-2">&amp;</span><span class="ident">options</span>.<span class="ident">clone</span>().<span class="ident">into</span>()),
-        <span class="ident">CliCommand</span>::<span class="ident">Compile</span> { <span class="ident">path</span> } <span class="op">=&gt;</span> <span class="ident">cmd_compile</span>(<span class="ident">path</span>),
+        <span class="ident">CliCommand</span>::<span class="ident">Lower</span>(<span class="ident">options</span>) <span class="op">=&gt;</span> <span class="ident">cmd_lower</span>(<span class="kw-2">&amp;</span><span class="ident">options</span>.<span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">options</span>.<span class="ident">clone</span>().<span class="ident">into</span>()),
+        <span class="ident">CliCommand</span>::<span class="ident">Compile</span> { <span class="ident">input</span>, <span class="ident">output</span> } <span class="op">=&gt;</span> <span class="ident">cmd_compile</span>(<span class="ident">input</span>, <span class="ident">output</span>),
     }
 }
 
@@ -616,61 +691,6 @@
     <span class="kw">for</span> <span class="ident">cause</span> <span class="kw">in</span> <span class="ident">err</span>.<span class="ident">iter_causes</span>() {
         <span class="macro">writeln</span><span class="macro">!</span>(<span class="ident">writer</span>, <span class="string">&quot;caused by: {}&quot;</span>, <span class="ident">cause</span>)<span class="question-mark">?</span>;
     }
-    <span class="prelude-val">Ok</span>(())
-}
-
-<span class="kw">fn</span> <span class="ident">cmd_compile</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">temp_dir</span> <span class="op">=</span> <span class="ident">tempdir</span>()<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">out_dir</span> <span class="op">=</span> <span class="ident">temp_dir</span>.<span class="ident">path</span>().<span class="ident">to_path_buf</span>();
-
-    <span class="comment">// lower user code to assembler</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">firm_options</span> <span class="op">=</span> <span class="ident">firm</span>::<span class="ident">Options</span>::<span class="ident">default</span>();
-    <span class="ident">firm_options</span>.<span class="ident">dump_assembler</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">out_dir</span>.<span class="ident">join</span>(<span class="string">&quot;a.s&quot;</span>));
-    <span class="kw">unsafe</span> {
-        <span class="ident">firm</span>::<span class="ident">build</span>(<span class="kw-2">&amp;</span><span class="ident">firm_options</span>);
-    }
-
-    <span class="comment">// get runtime library</span>
-    <span class="kw">let</span> <span class="ident">runtime_path</span> <span class="op">=</span> <span class="ident">out_dir</span>.<span class="ident">join</span>(<span class="string">&quot;runtime.rs&quot;</span>);
-    {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">File</span>::<span class="ident">create</span>(<span class="kw-2">&amp;</span><span class="ident">runtime_path</span>)<span class="question-mark">?</span>;
-        <span class="ident">file</span>.<span class="ident">write_all</span>(<span class="ident">runtime_rs</span>::<span class="ident">SOURCE_CODE</span>)<span class="question-mark">?</span>;
-    }
-
-    <span class="kw">let</span> <span class="ident">out_name</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">file_stem</span>().<span class="ident">unwrap</span>();
-
-    <span class="comment">// assembler of user code to object file</span>
-    <span class="ident">Command</span>::<span class="ident">new</span>(<span class="string">&quot;as&quot;</span>)
-        .<span class="ident">arg</span>(<span class="string">&quot;-o&quot;</span>)
-        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">out_dir</span>.<span class="ident">join</span>(<span class="string">&quot;a.o&quot;</span>))
-        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">out_dir</span>.<span class="ident">join</span>(<span class="string">&quot;a.s&quot;</span>))
-        .<span class="ident">status</span>()
-        .<span class="ident">context</span>(<span class="string">&quot;assembling using &#39;as&#39; failed&quot;</span>)<span class="question-mark">?</span>;
-
-    <span class="comment">// object file of user code to lib</span>
-    <span class="ident">Command</span>::<span class="ident">new</span>(<span class="string">&quot;ar&quot;</span>)
-        .<span class="ident">arg</span>(<span class="string">&quot;-crus&quot;</span>)
-        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span>(<span class="ident">out_dir</span>.<span class="ident">join</span>(<span class="string">&quot;liba.a&quot;</span>)))
-        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span>(<span class="ident">out_dir</span>.<span class="ident">join</span>(<span class="string">&quot;a.o&quot;</span>)))
-        .<span class="ident">status</span>()
-        .<span class="ident">context</span>(<span class="string">&quot;packing using &#39;ar&#39; failed&quot;</span>)<span class="question-mark">?</span>;
-
-    <span class="comment">// compile runtime and link it with user&#39;s code</span>
-    <span class="ident">Command</span>::<span class="ident">new</span>(<span class="string">&quot;rustc&quot;</span>)
-        .<span class="ident">arg</span>(<span class="string">&quot;-L&quot;</span>)
-        .<span class="ident">arg</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">out_dir</span>.<span class="ident">display</span>()))
-        .<span class="ident">arg</span>(<span class="string">&quot;-l&quot;</span>)
-        .<span class="ident">arg</span>(<span class="string">&quot;static=a&quot;</span>)
-        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">runtime_path</span>)
-        .<span class="ident">arg</span>(<span class="string">&quot;-o&quot;</span>)
-        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">out_name</span>)
-        .<span class="ident">status</span>()<span class="question-mark">?</span>;
-
-    <span class="prelude-val">Ok</span>(())
-}
-
-<span class="kw">fn</span> <span class="ident">cmd_lower</span>(<span class="ident">opts</span>: <span class="kw-2">&amp;</span><span class="ident">firm</span>::<span class="ident">Options</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">unsafe</span> { <span class="ident">firm</span>::<span class="ident">build</span>(<span class="ident">opts</span>) };
     <span class="prelude-val">Ok</span>(())
 }
 
@@ -714,6 +734,124 @@
         <span class="kw">let</span> <span class="ident">stderr</span> <span class="op">=</span> <span class="ident">StandardStream</span>::<span class="ident">stderr</span>(<span class="ident">ColorChoice</span>::<span class="ident">Auto</span>);
         <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">context</span> <span class="op">=</span> <span class="ident">Context</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">ascii_file</span>, <span class="kw">box</span> <span class="ident">stderr</span>);
     };
+}
+
+<span class="kw">fn</span> <span class="ident">cmd_compile</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>, <span class="ident">output</span>: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="macro">setup_io</span><span class="macro">!</span>(<span class="kw">let</span> <span class="ident">context</span> <span class="op">=</span> <span class="ident">input</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">strtab</span> <span class="op">=</span> <span class="ident">StringTable</span>::<span class="ident">new</span>();
+    <span class="kw">let</span> <span class="ident">lexer</span> <span class="op">=</span> <span class="ident">Lexer</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">strtab</span>, <span class="kw-2">&amp;</span><span class="ident">context</span>);
+
+    <span class="comment">// adapt lexer to fail on first error</span>
+    <span class="comment">// filter whitespace and comments</span>
+    <span class="kw">let</span> <span class="ident">unforgiving_lexer</span> <span class="op">=</span> <span class="ident">lexer</span>.<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">result</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">result</span> {
+        <span class="prelude-val">Ok</span>(<span class="ident">token</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">token</span>.<span class="ident">data</span> {
+            <span class="ident">TokenKind</span>::<span class="ident">Whitespace</span> <span class="op">|</span> <span class="ident">TokenKind</span>::<span class="ident">Comment</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">token</span>),
+        },
+        <span class="prelude-val">Err</span>(<span class="ident">lexical_error</span>) <span class="op">=&gt;</span> {
+            <span class="ident">context</span>.<span class="ident">diagnostics</span>.<span class="ident">error</span>(<span class="kw-2">&amp;</span><span class="ident">lexical_error</span>);
+            <span class="ident">context</span>.<span class="ident">diagnostics</span>.<span class="ident">write_statistics</span>();
+            <span class="ident">exit</span>(<span class="number">1</span>);
+        }
+    });
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parser</span> <span class="op">=</span> <span class="ident">Parser</span>::<span class="ident">new</span>(<span class="ident">unforgiving_lexer</span>);
+
+    <span class="kw">let</span> <span class="ident">ast</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">parser</span>.<span class="ident">parse</span>() {
+        <span class="prelude-val">Ok</span>(<span class="ident">p</span>) <span class="op">=&gt;</span> <span class="ident">p</span>,
+        <span class="prelude-val">Err</span>(<span class="ident">parser_error</span>) <span class="op">=&gt;</span> {
+            <span class="ident">context</span>.<span class="ident">diagnostics</span>.<span class="ident">error</span>(<span class="kw-2">&amp;</span><span class="ident">parser_error</span>);
+            <span class="ident">context</span>.<span class="ident">diagnostics</span>.<span class="ident">write_statistics</span>();
+            <span class="ident">exit</span>(<span class="number">1</span>);
+        }
+    };
+
+    <span class="kw">let</span> <span class="ident">type_system</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw">crate</span>::<span class="ident">semantics</span>::<span class="ident">check</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">strtab</span>, <span class="kw-2">&amp;</span><span class="ident">ast</span>, <span class="kw-2">&amp;</span><span class="ident">context</span>) {
+        <span class="prelude-val">Ok</span>(<span class="ident">type_system</span>) <span class="op">=&gt;</span> <span class="ident">type_system</span>,
+        <span class="prelude-val">Err</span>(()) <span class="op">=&gt;</span> {
+            <span class="ident">context</span>.<span class="ident">diagnostics</span>.<span class="ident">write_statistics</span>();
+            <span class="ident">exit</span>(<span class="number">1</span>)
+        }
+    };
+
+    <span class="kw">let</span> <span class="ident">temp_dir</span> <span class="op">=</span> <span class="ident">tempdir</span>()<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">out_dir</span> <span class="op">=</span> <span class="ident">temp_dir</span>.<span class="ident">path</span>().<span class="ident">to_path_buf</span>();
+    <span class="kw">let</span> <span class="ident">user_assembly</span> <span class="op">=</span> <span class="ident">out_dir</span>.<span class="ident">join</span>(<span class="string">&quot;a.s&quot;</span>);
+
+    <span class="comment">// lower user code to assembler</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">firm_options</span> <span class="op">=</span> <span class="ident">firm</span>::<span class="ident">Options</span>::<span class="ident">default</span>();
+    <span class="ident">firm_options</span>.<span class="ident">dump_assembler</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">user_assembly</span>.<span class="ident">clone</span>());
+
+    <span class="kw">unsafe</span> { <span class="ident">firm</span>::<span class="ident">build</span>(<span class="kw-2">&amp;</span><span class="ident">firm_options</span>, <span class="kw-2">&amp;</span><span class="ident">ast</span>, <span class="kw-2">&amp;</span><span class="ident">type_system</span>) };
+
+    <span class="comment">// get runtime library</span>
+    <span class="kw">let</span> <span class="ident">runtime_path</span> <span class="op">=</span> <span class="ident">out_dir</span>.<span class="ident">join</span>(<span class="string">&quot;mjrt.a&quot;</span>);
+    {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">File</span>::<span class="ident">create</span>(<span class="kw-2">&amp;</span><span class="ident">runtime_path</span>)<span class="question-mark">?</span>;
+        <span class="ident">file</span>.<span class="ident">write_all</span>(<span class="ident">mjrt</span>::<span class="ident">STATIC_LIB</span>)<span class="question-mark">?</span>;
+    }
+
+    <span class="comment">// TODO: this should be smarted and check wether output</span>
+    <span class="comment">// contains a file stem.</span>
+    <span class="kw">let</span> <span class="ident">out_name</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">file_stem</span>().<span class="ident">unwrap</span>();
+
+    <span class="kw">let</span> <span class="ident">out_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">out_dir</span>) <span class="op">=</span> <span class="ident">output</span> {
+        <span class="ident">out_dir</span>.<span class="ident">join</span>(<span class="ident">out_name</span>)
+    } <span class="kw">else</span> {
+        <span class="ident">PathBuf</span>::<span class="ident">new</span>().<span class="ident">join</span>(<span class="ident">out_name</span>)
+    };
+
+    <span class="comment">// compile runtime and link it with user&#39;s code</span>
+    <span class="ident">Command</span>::<span class="ident">new</span>(<span class="string">&quot;cc&quot;</span>)
+        .<span class="ident">arg</span>(<span class="string">&quot;-o&quot;</span>)
+        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">out_path</span>)
+        .<span class="ident">args</span>(<span class="ident">mjrt</span>::<span class="ident">LINKER_FLAGS</span>)
+        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">user_assembly</span>)
+        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">runtime_path</span>)
+        .<span class="ident">status</span>()<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="kw">fn</span> <span class="ident">cmd_lower</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>, <span class="ident">opts</span>: <span class="kw-2">&amp;</span><span class="ident">firm</span>::<span class="ident">Options</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="macro">setup_io</span><span class="macro">!</span>(<span class="kw">let</span> <span class="ident">context</span> <span class="op">=</span> <span class="ident">path</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">strtab</span> <span class="op">=</span> <span class="ident">StringTable</span>::<span class="ident">new</span>();
+    <span class="kw">let</span> <span class="ident">lexer</span> <span class="op">=</span> <span class="ident">Lexer</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">strtab</span>, <span class="kw-2">&amp;</span><span class="ident">context</span>);
+
+    <span class="comment">// adapt lexer to fail on first error</span>
+    <span class="comment">// filter whitespace and comments</span>
+    <span class="kw">let</span> <span class="ident">unforgiving_lexer</span> <span class="op">=</span> <span class="ident">lexer</span>.<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">result</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">result</span> {
+        <span class="prelude-val">Ok</span>(<span class="ident">token</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">token</span>.<span class="ident">data</span> {
+            <span class="ident">TokenKind</span>::<span class="ident">Whitespace</span> <span class="op">|</span> <span class="ident">TokenKind</span>::<span class="ident">Comment</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">token</span>),
+        },
+        <span class="prelude-val">Err</span>(<span class="ident">lexical_error</span>) <span class="op">=&gt;</span> {
+            <span class="ident">context</span>.<span class="ident">diagnostics</span>.<span class="ident">error</span>(<span class="kw-2">&amp;</span><span class="ident">lexical_error</span>);
+            <span class="ident">context</span>.<span class="ident">diagnostics</span>.<span class="ident">write_statistics</span>();
+            <span class="ident">exit</span>(<span class="number">1</span>);
+        }
+    });
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parser</span> <span class="op">=</span> <span class="ident">Parser</span>::<span class="ident">new</span>(<span class="ident">unforgiving_lexer</span>);
+
+    <span class="kw">let</span> <span class="ident">ast</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">parser</span>.<span class="ident">parse</span>() {
+        <span class="prelude-val">Ok</span>(<span class="ident">p</span>) <span class="op">=&gt;</span> <span class="ident">p</span>,
+        <span class="prelude-val">Err</span>(<span class="ident">parser_error</span>) <span class="op">=&gt;</span> {
+            <span class="ident">context</span>.<span class="ident">diagnostics</span>.<span class="ident">error</span>(<span class="kw-2">&amp;</span><span class="ident">parser_error</span>);
+            <span class="ident">context</span>.<span class="ident">diagnostics</span>.<span class="ident">write_statistics</span>();
+            <span class="ident">exit</span>(<span class="number">1</span>);
+        }
+    };
+
+    <span class="kw">let</span> <span class="ident">type_system</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw">crate</span>::<span class="ident">semantics</span>::<span class="ident">check</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">strtab</span>, <span class="kw-2">&amp;</span><span class="ident">ast</span>, <span class="kw-2">&amp;</span><span class="ident">context</span>) {
+        <span class="prelude-val">Ok</span>(<span class="ident">type_system</span>) <span class="op">=&gt;</span> <span class="ident">type_system</span>,
+        <span class="prelude-val">Err</span>(()) <span class="op">=&gt;</span> {
+            <span class="ident">context</span>.<span class="ident">diagnostics</span>.<span class="ident">write_statistics</span>();
+            <span class="ident">exit</span>(<span class="number">1</span>);
+        }
+    };
+
+    <span class="kw">unsafe</span> { <span class="ident">firm</span>::<span class="ident">build</span>(<span class="ident">opts</span>, <span class="kw-2">&amp;</span><span class="ident">ast</span>, <span class="kw-2">&amp;</span><span class="ident">type_system</span>) };
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="kw">fn</span> <span class="ident">cmd_check</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
