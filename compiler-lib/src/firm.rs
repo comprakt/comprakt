@@ -67,7 +67,7 @@ impl<'ir, 'src> FirmGenerator<'ir, 'src> {
                         ".main".to_string()
                     };
 
-                    let method_type = ft.build(is_main);
+                    let method_type = ft.build(!is_main);
                     let mut local_var_def_visitor = LocalVarDefVisitor::new();
                     local_var_def_visitor.visit(&NodeKind::from(block));
 
