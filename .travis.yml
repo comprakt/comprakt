@@ -64,6 +64,14 @@ install: |
         ;;
     esac
 
+before_script: |
+    case "$TEST_KIND" in
+      comprakt-*)
+        cc -v ;
+        ;;
+      *)
+        ;;
+    esac
 
 script: |
     case "$TEST_KIND" in
