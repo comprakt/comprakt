@@ -41,7 +41,8 @@ install: |
     case "$TEST_KIND" in
       comprakt-*)
         rustup component add clippy-preview && \
-        rustup component add rustfmt-preview;
+        rustup component add rustfmt-preview && \
+        cc -v;
         ;;
       mjtest)
         curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py --user && \
@@ -61,15 +62,6 @@ install: |
       *)
         echo "INVALID TEST_KIND=$TEST_KIND";
         return 1;
-        ;;
-    esac
-
-before_script: |
-    case "$TEST_KIND" in
-      comprakt-*)
-        cc -v ;
-        ;;
-      *)
         ;;
     esac
 
