@@ -2,6 +2,7 @@
 //! compilation. We do this to make them show up as single tests in the output
 //! of `cargo test`.
 #![feature(proc_macro_hygiene)]
+#![recursion_limit = "128"]
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -21,98 +22,171 @@ const INTEGRATION_TEST_DIR: &str = "../integration-tests";
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
 pub fn gen_lexer_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(
-        &quote! { CompilerCall::RawCompiler(CompilerPhase::Lexer) },
-        "lexer",
-        |v| quote! { #v },
-        "",
-        true,
-    )
+    gen_integration_tests("lexer", "", |test_name, mj_file| {
+        default_test_generator(
+            &quote! { CompilerCall::RawCompiler(CompilerPhase::Lexer) },
+            test_name,
+            mj_file,
+        )
+    })
 }
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
 pub fn gen_parser_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(
-        &quote! { CompilerCall::RawCompiler(CompilerPhase::Parser) },
-        "parser",
-        |v| quote! { #v },
-        "",
-        true,
-    )
+    gen_integration_tests("parser", "", |test_name, mj_file| {
+        default_test_generator(
+            &quote! { CompilerCall::RawCompiler(CompilerPhase::Parser) },
+            test_name,
+            mj_file,
+        )
+    })
 }
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
 pub fn gen_assembly_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(
-        &quote! { CompilerCall::RawCompiler(CompilerPhase::Assembly) },
-        "assembly",
-        |v| quote! { #v },
-        "",
-        true,
-    )
+    gen_integration_tests("assembly", "", |test_name, mj_file| {
+        default_test_generator(
+            &quote! { CompilerCall::RawCompiler(CompilerPhase::Assembly) },
+            test_name,
+            mj_file,
+        )
+    })
+}
+
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
+pub fn gen_binary_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests("binary", "", |test_name, mj_file| {
+        let function_name = Ident::new(&test_name, Span::call_site());
+        let path_str = mj_file.to_str().unwrap();
+
+        quote! {
+            #[test]
+            fn #function_name() {
+                let input = PathBuf::from(#path_str);
+                // we are explicitly not writing the binary into a temporary
+                // directory or file to make debugging assertion failures easier.
+                let mut binary_dir = input.clone();
+                binary_dir.pop(); // remove file name
+
+                let mut binary = binary_dir.clone();
+                binary.push(input.file_stem().unwrap());
+
+                assert_compiler_phase(CompilerCall::RawCompiler(CompilerPhase::Binary {
+                    output: binary_dir
+                }), &TestFiles {
+                    stderr: with_extension(&input, ".stderr"),
+                    stdout: with_extension(&input, ".stdout"),
+                    exitcode: with_extension(&input, ".exitcode"),
+                    input: input,
+                    generate_tentatives: true
+                });
+
+                // reaching this line means the compiler assertions were correct
+                let mut cmd = std::process::Command::new(&binary);
+                let output = cmd.output().expect("failed to invoke generated binary");
+
+                assert_output(&output, &TestFiles {
+                    stderr: with_extension(&binary, "stderr"),
+                    stdout: with_extension(&binary, "stdout"),
+                    exitcode: with_extension(&binary, "exitcode"),
+                    input: binary,
+                    generate_tentatives: true
+                });
+            }
+        }
+    })
 }
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
 pub fn gen_ast_reference_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(
-        &quote! { CompilerCall::RawCompiler(CompilerPhase::Ast) },
-        "ast",
-        |v| quote! { #v },
-        "",
-        true,
-    )
+    gen_integration_tests("ast", "", |test_name, mj_file| {
+        default_test_generator(
+            &quote! { CompilerCall::RawCompiler(CompilerPhase::Ast) },
+            test_name,
+            mj_file,
+        )
+    })
 }
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
 pub fn gen_ast_idempotence_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(
-        &quote! { CompilerCall::RawCompiler(CompilerPhase::Ast) },
-        "ast",
-        |v| {
-            quote! { with_extension(&#v, ".stdout") }
-        },
-        "_idempotence",
-        false,
-    )
+    gen_integration_tests("ast", "_idempotence", |test_name, mj_file| {
+        let function_name = Ident::new(&test_name, Span::call_site());
+        let path_str = mj_file.to_str().unwrap();
+
+        quote! {
+            #[test]
+            fn #function_name() {
+                let input = PathBuf::from(#path_str);
+
+                assert_compiler_phase(CompilerCall::RawCompiler(CompilerPhase::Ast), &TestFiles {
+                    stderr: with_extension(&input, ".stderr"),
+                    stdout: with_extension(&input, ".stdout"),
+                    exitcode: with_extension(&input, ".exitcode"),
+                    input: with_extension(&input, ".stdout"),
+                    generate_tentatives: false
+                });
+            }
+        }
+    })
 }
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
 pub fn gen_semantic_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(
-        &quote! { CompilerCall::RawCompiler(CompilerPhase::Semantic) },
-        "semantic",
-        |v| quote! { #v },
-        "",
-        true,
-    )
+    gen_integration_tests("semantic", "", |test_name, mj_file| {
+        default_test_generator(
+            &quote! { CompilerCall::RawCompiler(CompilerPhase::Semantic) },
+            test_name,
+            mj_file,
+        )
+    })
 }
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
 pub fn gen_ast_inspector_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests(
-        &quote! { CompilerCall::AstInspector },
-        "spans",
-        |v| quote! { #v },
-        "",
-        true,
-    )
+    gen_integration_tests("spans", "", |test_name, mj_file| {
+        default_test_generator(&quote! { CompilerCall::AstInspector }, test_name, mj_file)
+    })
+}
+
+fn default_test_generator(
+    phase: &proc_macro2::TokenStream,
+    test_name: &str,
+    mj_file: &PathBuf,
+) -> proc_macro2::TokenStream {
+    let function_name = Ident::new(&test_name, Span::call_site());
+    let path_str = mj_file.to_str().unwrap();
+
+    quote! {
+        #[test]
+        fn #function_name() {
+            let input = PathBuf::from(#path_str);
+
+            assert_compiler_phase(#phase, &TestFiles {
+                stderr: with_extension(&input, ".stderr"),
+                stdout: with_extension(&input, ".stdout"),
+                exitcode: with_extension(&input, ".exitcode"),
+                input: input,
+                generate_tentatives: true
+            });
+        }
+    }
 }
 
 fn gen_integration_tests<F>(
-    phase: &proc_macro2::TokenStream,
     subfolder: &str,
-    input_adaptor: F,
     test_name_suffix: &str,
-    should_generate: bool,
+    test_generator: F,
 ) -> TokenStream
 where
-    F: Fn(proc_macro2::TokenStream) -> proc_macro2::TokenStream,
+    F: Fn(&str, &PathBuf) -> proc_macro2::TokenStream,
 {
     let test_dir: PathBuf = [ROOT_DIR, INTEGRATION_TEST_DIR, subfolder].iter().collect();
 
@@ -140,29 +214,11 @@ where
     for case in cases {
         let ascii_casename = case
             .file_name()
-            .unwrap_or_else(|| OsStr::new(""))
+            .expect("failed to get file name of test case")
             .to_string_lossy()
             .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
 
-        let function_name = Ident::new(&ascii_casename, Span::call_site());
-
-        let path_str = case.to_str().unwrap();
-        let path_input_tokenstream = input_adaptor(quote! { PathBuf::from(#path_str) });
-        let tokens = quote! {
-            #[test]
-            fn #function_name() {
-                let path = PathBuf::from(#path_str);
-                let input = #path_input_tokenstream;
-
-                assert_compiler_phase(#phase, &TestFiles {
-                    input,
-                    stderr: with_extension(&path, ".stderr"),
-                    stdout: with_extension(&path, ".stdout"),
-                    exitcode: with_extension(&path, ".exitcode"),
-                    generate_tentatives: #should_generate
-                });
-            }
-        };
+        let tokens = test_generator(&ascii_casename, &case);
 
         out.push_str(&tokens.to_string());
     }

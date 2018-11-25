@@ -19,15 +19,15 @@ use difference::Changeset;
 use integration_test_codegen::*;
 use std::{
     collections::HashMap,
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     fs::File,
     io::{Read, Write},
     path::PathBuf,
-    process::Command,
+    process::{Command, Output},
     sync::Mutex,
 };
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 enum CompilerPhase {
     Lexer,
@@ -35,10 +35,10 @@ enum CompilerPhase {
     Ast,
     Semantic,
     Assembly,
-    Binary,
+    Binary { output: PathBuf },
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 enum CompilerCall {
     RawCompiler(CompilerPhase),
@@ -47,15 +47,24 @@ enum CompilerCall {
 
 const ROOT_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
-fn compiler_args(phase: CompilerPhase) -> &'static [&'static str] {
-    match phase {
+/// Arguments that should be given to the compiler under test
+fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
+    let args: &[&str] = match phase {
         CompilerPhase::Lexer => &["--lextest"],
         CompilerPhase::Parser => &["--parsetest"],
         CompilerPhase::Ast => &["--print-ast"],
         CompilerPhase::Semantic => &["--check"],
         CompilerPhase::Assembly => &["--lower", "--emit-asm", "-"],
-        CompilerPhase::Binary => &["--compile"],
-    }
+        CompilerPhase::Binary { output } => {
+            return vec![
+                OsString::from("--compile"),
+                OsString::from("-o"),
+                output.as_os_str().to_os_string(),
+            ]
+        }
+    };
+
+    args.iter().map(OsString::from).collect::<Vec<_>>()
 }
 
 fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
@@ -71,14 +80,12 @@ fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
                     println!("Test run using the default compiler binary at {:?}", binary);
                     Command::new(binary)
                 });
+
             cmd.env("TERM", "dumb"); // disable color output
-            cmd.args(
-                compiler_args(phase)
-                    .iter()
-                    .map(|arg| OsStr::new(arg))
-                    .collect::<Vec<_>>(),
-            );
+
+            cmd.args(compiler_args(phase));
             cmd.arg(filepath.as_os_str());
+
             cmd
         }
         CompilerCall::AstInspector => {
@@ -87,19 +94,11 @@ fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
                 "Test run using the ast inspector binary at {:?}",
                 ast_inspector_path
             );
+
             let mut cmd = Command::new(ast_inspector_path);
-            cmd.env("TERM", "dumb"); // disable color output
 
-            if !cfg!(debug_assertions) {
-                cmd.arg(OsStr::new("--release"));
-            }
+            cmd.env("TERM", "dumb").arg(filepath.as_os_str());
 
-            cmd.args(&[
-                OsStr::new("-p"),
-                OsStr::new("inspect-ast"),
-                OsStr::new("--"),
-                OsStr::new(filepath.as_os_str()),
-            ]);
             cmd
         }
     }
@@ -214,12 +213,7 @@ fn assert_changeset(
     }
 }
 
-#[allow(dead_code)]
-fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
-    let output = compiler_call(phase, &file.input)
-        .output()
-        .expect("failed to call compiler under test");
-
+fn assert_output(output: &Output, file: &TestFiles) {
     let stderr = normalize_stderr(&String::from_utf8_lossy(&output.stderr));
     let stderr_result =
         load_reference(file.generate_tentatives, &file.stderr, &stderr).and_then(|reference| {
@@ -269,6 +263,15 @@ fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
             result_to_string(code)
         ),
     }
+}
+
+#[allow(dead_code)]
+fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
+    let output = compiler_call(phase, &file.input)
+        .output()
+        .expect("failed to call compiler under test");
+
+    assert_output(&output, &file);
 }
 
 fn result_to_string(res: Result<(), Option<PathBuf>>) -> String {
@@ -377,3 +380,4 @@ gen_ast_idempotence_integration_tests!();
 gen_semantic_integration_tests!();
 gen_ast_inspector_tests!();
 gen_assembly_integration_tests!();
+gen_binary_integration_tests!();
