@@ -316,11 +316,11 @@ fn project_binary(subproject: Option<&'static str>) -> PathBuf {
 
     let mut cmd = Command::new(env::var("CARGO").unwrap());
 
+    cmd.arg("build").arg("--message-format=json");
+
     if !cfg!(debug_assertions) {
         cmd.arg("--release");
     }
-
-    cmd.arg("build").arg("--message-format=json");
 
     if let Some(workspace_crate) = subproject {
         cmd.arg("-p");
