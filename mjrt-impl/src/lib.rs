@@ -1,7 +1,6 @@
-#![feature(main)]
-
 //! This is the runtime automatically linked into
 //! the compiled mini java file
+use libc::c_int;
 use std::io::{stdin, stdout, Read, Write};
 
 extern "C" {
@@ -41,6 +40,7 @@ pub extern "C" fn system_out_flush() {
 
 #[cfg(not(test))]
 #[no_mangle]
-pub extern "C" fn main() {
+pub extern "C" fn main() -> c_int {
     unsafe { mj_main() };
+    0
 }

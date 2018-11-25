@@ -488,6 +488,9 @@ dependencies = [
 [[package]]
 name = "mjrt-impl"
 version = "0.1.0"
+dependencies = [
+ "libc 0.2.43 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "mjtest"
