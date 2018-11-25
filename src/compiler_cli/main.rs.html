@@ -498,6 +498,7 @@
 <span id="498">498</span>
 <span id="499">499</span>
 <span id="500">500</span>
+<span id="501">501</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! A command-line interface for the [`compiler_lib`]. If you are using</span>
 <span class="doccomment">//! this crate programatically, you probably want to call it as follows:</span>
@@ -808,6 +809,7 @@
         .<span class="ident">args</span>(<span class="ident">mjrt</span>::<span class="ident">LINKER_FLAGS</span>)
         .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">user_assembly</span>)
         .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">runtime_path</span>)
+        .<span class="ident">args</span>(<span class="ident">mjrt</span>::<span class="ident">LINKER_LIBS</span>)
         .<span class="ident">status</span>()<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }

@@ -171,11 +171,68 @@
 <span id="171">171</span>
 <span id="172">172</span>
 <span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! A macro that generates a test case for each test available during</span>
 <span class="doccomment">//! compilation. We do this to make them show up as single tests in the output</span>
 <span class="doccomment">//! of `cargo test`.</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">proc_macro_hygiene</span>)]</span>
+<span class="attribute">#![<span class="ident">recursion_limit</span> <span class="op">=</span> <span class="string">&quot;128&quot;</span>]</span>
 
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">proc_macro</span>;
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">proc_macro2</span>;
@@ -195,98 +252,171 @@
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">needless_pass_by_value</span>)]</span> <span class="comment">// rust-clippy/issues/3067</span>
 <span class="attribute">#[<span class="ident">proc_macro</span>]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_lexer_integration_tests</span>(<span class="ident">_args</span>: <span class="ident">TokenStream</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="ident">gen_integration_tests</span>(
-        <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Lexer</span>) },
-        <span class="string">&quot;lexer&quot;</span>,
-        <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="macro">quote</span><span class="macro">!</span> { #<span class="ident">v</span> },
-        <span class="string">&quot;&quot;</span>,
-        <span class="bool-val">true</span>,
-    )
+    <span class="ident">gen_integration_tests</span>(<span class="string">&quot;lexer&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="op">|</span><span class="ident">test_name</span>, <span class="ident">mj_file</span><span class="op">|</span> {
+        <span class="ident">default_test_generator</span>(
+            <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Lexer</span>) },
+            <span class="ident">test_name</span>,
+            <span class="ident">mj_file</span>,
+        )
+    })
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">needless_pass_by_value</span>)]</span> <span class="comment">// rust-clippy/issues/3067</span>
 <span class="attribute">#[<span class="ident">proc_macro</span>]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_parser_integration_tests</span>(<span class="ident">_args</span>: <span class="ident">TokenStream</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="ident">gen_integration_tests</span>(
-        <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Parser</span>) },
-        <span class="string">&quot;parser&quot;</span>,
-        <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="macro">quote</span><span class="macro">!</span> { #<span class="ident">v</span> },
-        <span class="string">&quot;&quot;</span>,
-        <span class="bool-val">true</span>,
-    )
+    <span class="ident">gen_integration_tests</span>(<span class="string">&quot;parser&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="op">|</span><span class="ident">test_name</span>, <span class="ident">mj_file</span><span class="op">|</span> {
+        <span class="ident">default_test_generator</span>(
+            <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Parser</span>) },
+            <span class="ident">test_name</span>,
+            <span class="ident">mj_file</span>,
+        )
+    })
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">needless_pass_by_value</span>)]</span> <span class="comment">// rust-clippy/issues/3067</span>
 <span class="attribute">#[<span class="ident">proc_macro</span>]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_assembly_integration_tests</span>(<span class="ident">_args</span>: <span class="ident">TokenStream</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="ident">gen_integration_tests</span>(
-        <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Assembly</span>) },
-        <span class="string">&quot;assembly&quot;</span>,
-        <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="macro">quote</span><span class="macro">!</span> { #<span class="ident">v</span> },
-        <span class="string">&quot;&quot;</span>,
-        <span class="bool-val">true</span>,
-    )
+    <span class="ident">gen_integration_tests</span>(<span class="string">&quot;assembly&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="op">|</span><span class="ident">test_name</span>, <span class="ident">mj_file</span><span class="op">|</span> {
+        <span class="ident">default_test_generator</span>(
+            <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Assembly</span>) },
+            <span class="ident">test_name</span>,
+            <span class="ident">mj_file</span>,
+        )
+    })
+}
+
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">needless_pass_by_value</span>)]</span> <span class="comment">// rust-clippy/issues/3067</span>
+<span class="attribute">#[<span class="ident">proc_macro</span>]</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_binary_integration_tests</span>(<span class="ident">_args</span>: <span class="ident">TokenStream</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
+    <span class="ident">gen_integration_tests</span>(<span class="string">&quot;binary&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="op">|</span><span class="ident">test_name</span>, <span class="ident">mj_file</span><span class="op">|</span> {
+        <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span> <span class="ident">Ident</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">test_name</span>, <span class="ident">Span</span>::<span class="ident">call_site</span>());
+        <span class="kw">let</span> <span class="ident">path_str</span> <span class="op">=</span> <span class="ident">mj_file</span>.<span class="ident">to_str</span>().<span class="ident">unwrap</span>();
+
+        <span class="macro">quote</span><span class="macro">!</span> {
+            <span class="attribute">#[<span class="ident">test</span>]</span>
+            <span class="kw">fn</span> #<span class="ident">function_name</span>() {
+                <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">PathBuf</span>::<span class="ident">from</span>(#<span class="ident">path_str</span>);
+                <span class="comment">// we are explicitly not writing the binary into a temporary</span>
+                <span class="comment">// directory or file to make debugging assertion failures easier.</span>
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">binary_dir</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">clone</span>();
+                <span class="ident">binary_dir</span>.<span class="ident">pop</span>(); <span class="comment">// remove file name</span>
+
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">binary</span> <span class="op">=</span> <span class="ident">binary_dir</span>.<span class="ident">clone</span>();
+                <span class="ident">binary</span>.<span class="ident">push</span>(<span class="ident">input</span>.<span class="ident">file_stem</span>().<span class="ident">unwrap</span>());
+
+                <span class="ident">assert_compiler_phase</span>(<span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Binary</span> {
+                    <span class="ident">output</span>: <span class="ident">binary_dir</span>
+                }), <span class="kw-2">&amp;</span><span class="ident">TestFiles</span> {
+                    <span class="ident">stderr</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>, <span class="string">&quot;.stderr&quot;</span>),
+                    <span class="ident">stdout</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>, <span class="string">&quot;.stdout&quot;</span>),
+                    <span class="ident">exitcode</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>, <span class="string">&quot;.exitcode&quot;</span>),
+                    <span class="ident">input</span>: <span class="ident">input</span>,
+                    <span class="ident">generate_tentatives</span>: <span class="bool-val">true</span>
+                });
+
+                <span class="comment">// reaching this line means the compiler assertions were correct</span>
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">process</span>::<span class="ident">Command</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">binary</span>);
+                <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">cmd</span>.<span class="ident">output</span>().<span class="ident">expect</span>(<span class="string">&quot;failed to invoke generated binary&quot;</span>);
+
+                <span class="ident">assert_output</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>, <span class="kw-2">&amp;</span><span class="ident">TestFiles</span> {
+                    <span class="ident">stderr</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">binary</span>, <span class="string">&quot;stderr&quot;</span>),
+                    <span class="ident">stdout</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">binary</span>, <span class="string">&quot;stdout&quot;</span>),
+                    <span class="ident">exitcode</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">binary</span>, <span class="string">&quot;exitcode&quot;</span>),
+                    <span class="ident">input</span>: <span class="ident">binary</span>,
+                    <span class="ident">generate_tentatives</span>: <span class="bool-val">true</span>
+                });
+            }
+        }
+    })
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">needless_pass_by_value</span>)]</span> <span class="comment">// rust-clippy/issues/3067</span>
 <span class="attribute">#[<span class="ident">proc_macro</span>]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_ast_reference_integration_tests</span>(<span class="ident">_args</span>: <span class="ident">TokenStream</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="ident">gen_integration_tests</span>(
-        <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Ast</span>) },
-        <span class="string">&quot;ast&quot;</span>,
-        <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="macro">quote</span><span class="macro">!</span> { #<span class="ident">v</span> },
-        <span class="string">&quot;&quot;</span>,
-        <span class="bool-val">true</span>,
-    )
+    <span class="ident">gen_integration_tests</span>(<span class="string">&quot;ast&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="op">|</span><span class="ident">test_name</span>, <span class="ident">mj_file</span><span class="op">|</span> {
+        <span class="ident">default_test_generator</span>(
+            <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Ast</span>) },
+            <span class="ident">test_name</span>,
+            <span class="ident">mj_file</span>,
+        )
+    })
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">needless_pass_by_value</span>)]</span> <span class="comment">// rust-clippy/issues/3067</span>
 <span class="attribute">#[<span class="ident">proc_macro</span>]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_ast_idempotence_integration_tests</span>(<span class="ident">_args</span>: <span class="ident">TokenStream</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="ident">gen_integration_tests</span>(
-        <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Ast</span>) },
-        <span class="string">&quot;ast&quot;</span>,
-        <span class="op">|</span><span class="ident">v</span><span class="op">|</span> {
-            <span class="macro">quote</span><span class="macro">!</span> { <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span>#<span class="ident">v</span>, <span class="string">&quot;.stdout&quot;</span>) }
-        },
-        <span class="string">&quot;_idempotence&quot;</span>,
-        <span class="bool-val">false</span>,
-    )
+    <span class="ident">gen_integration_tests</span>(<span class="string">&quot;ast&quot;</span>, <span class="string">&quot;_idempotence&quot;</span>, <span class="op">|</span><span class="ident">test_name</span>, <span class="ident">mj_file</span><span class="op">|</span> {
+        <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span> <span class="ident">Ident</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">test_name</span>, <span class="ident">Span</span>::<span class="ident">call_site</span>());
+        <span class="kw">let</span> <span class="ident">path_str</span> <span class="op">=</span> <span class="ident">mj_file</span>.<span class="ident">to_str</span>().<span class="ident">unwrap</span>();
+
+        <span class="macro">quote</span><span class="macro">!</span> {
+            <span class="attribute">#[<span class="ident">test</span>]</span>
+            <span class="kw">fn</span> #<span class="ident">function_name</span>() {
+                <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">PathBuf</span>::<span class="ident">from</span>(#<span class="ident">path_str</span>);
+
+                <span class="ident">assert_compiler_phase</span>(<span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Ast</span>), <span class="kw-2">&amp;</span><span class="ident">TestFiles</span> {
+                    <span class="ident">stderr</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>, <span class="string">&quot;.stderr&quot;</span>),
+                    <span class="ident">stdout</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>, <span class="string">&quot;.stdout&quot;</span>),
+                    <span class="ident">exitcode</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>, <span class="string">&quot;.exitcode&quot;</span>),
+                    <span class="ident">input</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>, <span class="string">&quot;.stdout&quot;</span>),
+                    <span class="ident">generate_tentatives</span>: <span class="bool-val">false</span>
+                });
+            }
+        }
+    })
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">needless_pass_by_value</span>)]</span> <span class="comment">// rust-clippy/issues/3067</span>
 <span class="attribute">#[<span class="ident">proc_macro</span>]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_semantic_integration_tests</span>(<span class="ident">_args</span>: <span class="ident">TokenStream</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="ident">gen_integration_tests</span>(
-        <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Semantic</span>) },
-        <span class="string">&quot;semantic&quot;</span>,
-        <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="macro">quote</span><span class="macro">!</span> { #<span class="ident">v</span> },
-        <span class="string">&quot;&quot;</span>,
-        <span class="bool-val">true</span>,
-    )
+    <span class="ident">gen_integration_tests</span>(<span class="string">&quot;semantic&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="op">|</span><span class="ident">test_name</span>, <span class="ident">mj_file</span><span class="op">|</span> {
+        <span class="ident">default_test_generator</span>(
+            <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Semantic</span>) },
+            <span class="ident">test_name</span>,
+            <span class="ident">mj_file</span>,
+        )
+    })
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">needless_pass_by_value</span>)]</span> <span class="comment">// rust-clippy/issues/3067</span>
 <span class="attribute">#[<span class="ident">proc_macro</span>]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_ast_inspector_tests</span>(<span class="ident">_args</span>: <span class="ident">TokenStream</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="ident">gen_integration_tests</span>(
-        <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">AstInspector</span> },
-        <span class="string">&quot;spans&quot;</span>,
-        <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="macro">quote</span><span class="macro">!</span> { #<span class="ident">v</span> },
-        <span class="string">&quot;&quot;</span>,
-        <span class="bool-val">true</span>,
-    )
+    <span class="ident">gen_integration_tests</span>(<span class="string">&quot;spans&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="op">|</span><span class="ident">test_name</span>, <span class="ident">mj_file</span><span class="op">|</span> {
+        <span class="ident">default_test_generator</span>(<span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">AstInspector</span> }, <span class="ident">test_name</span>, <span class="ident">mj_file</span>)
+    })
+}
+
+<span class="kw">fn</span> <span class="ident">default_test_generator</span>(
+    <span class="ident">phase</span>: <span class="kw-2">&amp;</span><span class="ident">proc_macro2</span>::<span class="ident">TokenStream</span>,
+    <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    <span class="ident">mj_file</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>,
+) <span class="op">-&gt;</span> <span class="ident">proc_macro2</span>::<span class="ident">TokenStream</span> {
+    <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span> <span class="ident">Ident</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">test_name</span>, <span class="ident">Span</span>::<span class="ident">call_site</span>());
+    <span class="kw">let</span> <span class="ident">path_str</span> <span class="op">=</span> <span class="ident">mj_file</span>.<span class="ident">to_str</span>().<span class="ident">unwrap</span>();
+
+    <span class="macro">quote</span><span class="macro">!</span> {
+        <span class="attribute">#[<span class="ident">test</span>]</span>
+        <span class="kw">fn</span> #<span class="ident">function_name</span>() {
+            <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">PathBuf</span>::<span class="ident">from</span>(#<span class="ident">path_str</span>);
+
+            <span class="ident">assert_compiler_phase</span>(#<span class="ident">phase</span>, <span class="kw-2">&amp;</span><span class="ident">TestFiles</span> {
+                <span class="ident">stderr</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>, <span class="string">&quot;.stderr&quot;</span>),
+                <span class="ident">stdout</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>, <span class="string">&quot;.stdout&quot;</span>),
+                <span class="ident">exitcode</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>, <span class="string">&quot;.exitcode&quot;</span>),
+                <span class="ident">input</span>: <span class="ident">input</span>,
+                <span class="ident">generate_tentatives</span>: <span class="bool-val">true</span>
+            });
+        }
+    }
 }
 
 <span class="kw">fn</span> <span class="ident">gen_integration_tests</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(
-    <span class="ident">phase</span>: <span class="kw-2">&amp;</span><span class="ident">proc_macro2</span>::<span class="ident">TokenStream</span>,
     <span class="ident">subfolder</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">input_adaptor</span>: <span class="ident">F</span>,
     <span class="ident">test_name_suffix</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">should_generate</span>: <span class="ident">bool</span>,
+    <span class="ident">test_generator</span>: <span class="ident">F</span>,
 ) <span class="op">-&gt;</span> <span class="ident">TokenStream</span>
 <span class="kw">where</span>
-    <span class="ident">F</span>: <span class="ident">Fn</span>(<span class="ident">proc_macro2</span>::<span class="ident">TokenStream</span>) <span class="op">-&gt;</span> <span class="ident">proc_macro2</span>::<span class="ident">TokenStream</span>,
+    <span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>) <span class="op">-&gt;</span> <span class="ident">proc_macro2</span>::<span class="ident">TokenStream</span>,
 {
     <span class="kw">let</span> <span class="ident">test_dir</span>: <span class="ident">PathBuf</span> <span class="op">=</span> [<span class="ident">ROOT_DIR</span>, <span class="ident">INTEGRATION_TEST_DIR</span>, <span class="ident">subfolder</span>].<span class="ident">iter</span>().<span class="ident">collect</span>();
 
@@ -314,29 +444,11 @@
     <span class="kw">for</span> <span class="ident">case</span> <span class="kw">in</span> <span class="ident">cases</span> {
         <span class="kw">let</span> <span class="ident">ascii_casename</span> <span class="op">=</span> <span class="ident">case</span>
             .<span class="ident">file_name</span>()
-            .<span class="ident">unwrap_or_else</span>(<span class="op">||</span> <span class="ident">OsStr</span>::<span class="ident">new</span>(<span class="string">&quot;&quot;</span>))
+            .<span class="ident">expect</span>(<span class="string">&quot;failed to get file name of test case&quot;</span>)
             .<span class="ident">to_string_lossy</span>()
             .<span class="ident">replace</span>(<span class="op">|</span><span class="ident">c</span>: <span class="ident">char</span><span class="op">|</span> <span class="op">!</span><span class="ident">c</span>.<span class="ident">is_ascii_alphanumeric</span>(), <span class="string">&quot;_&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span> <span class="ident">Ident</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">ascii_casename</span>, <span class="ident">Span</span>::<span class="ident">call_site</span>());
-
-        <span class="kw">let</span> <span class="ident">path_str</span> <span class="op">=</span> <span class="ident">case</span>.<span class="ident">to_str</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">path_input_tokenstream</span> <span class="op">=</span> <span class="ident">input_adaptor</span>(<span class="macro">quote</span><span class="macro">!</span> { <span class="ident">PathBuf</span>::<span class="ident">from</span>(#<span class="ident">path_str</span>) });
-        <span class="kw">let</span> <span class="ident">tokens</span> <span class="op">=</span> <span class="macro">quote</span><span class="macro">!</span> {
-            <span class="attribute">#[<span class="ident">test</span>]</span>
-            <span class="kw">fn</span> #<span class="ident">function_name</span>() {
-                <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">PathBuf</span>::<span class="ident">from</span>(#<span class="ident">path_str</span>);
-                <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> #<span class="ident">path_input_tokenstream</span>;
-
-                <span class="ident">assert_compiler_phase</span>(#<span class="ident">phase</span>, <span class="kw-2">&amp;</span><span class="ident">TestFiles</span> {
-                    <span class="ident">input</span>,
-                    <span class="ident">stderr</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>, <span class="string">&quot;.stderr&quot;</span>),
-                    <span class="ident">stdout</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>, <span class="string">&quot;.stdout&quot;</span>),
-                    <span class="ident">exitcode</span>: <span class="ident">with_extension</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>, <span class="string">&quot;.exitcode&quot;</span>),
-                    <span class="ident">generate_tentatives</span>: #<span class="ident">should_generate</span>
-                });
-            }
-        };
+        <span class="kw">let</span> <span class="ident">tokens</span> <span class="op">=</span> <span class="ident">test_generator</span>(<span class="kw-2">&amp;</span><span class="ident">ascii_casename</span>, <span class="kw-2">&amp;</span><span class="ident">case</span>);
 
         <span class="ident">out</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">tokens</span>.<span class="ident">to_string</span>());
     }

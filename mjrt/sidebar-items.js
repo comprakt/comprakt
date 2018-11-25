@@ -1,1 +1,1 @@
-initSidebarItems({"constant":[["LINKER_FLAGS",""],["STATIC_LIB",""]]});
+initSidebarItems({"constant":[["LINKER_FLAGS",""],["LINKER_LIBS",""],["STATIC_LIB",""]]});
