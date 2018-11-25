@@ -19,6 +19,7 @@ use difference::Changeset;
 use integration_test_codegen::*;
 use std::{
     collections::HashMap,
+    env,
     ffi::{OsStr, OsString},
     fs::File,
     io::{Read, Write},
@@ -70,7 +71,7 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
 fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
     match compiler_call {
         CompilerCall::RawCompiler(phase) => {
-            let mut cmd = std::env::var("COMPILER_BINARY")
+            let mut cmd = env::var("COMPILER_BINARY")
                 .map(|path| {
                     println!("Test run using alternate compiler binary at {}", path);
                     Command::new(path)
@@ -134,7 +135,7 @@ struct TestFiles {
 }
 
 fn tentative_file_path(reference: &PathBuf) -> PathBuf {
-    let update_references = std::env::var("UPDATE_REFERENCES");
+    let update_references = env::var("UPDATE_REFERENCES");
 
     if update_references.is_ok() {
         reference.clone()
@@ -185,7 +186,7 @@ fn assert_changeset(
     actual: &str,
 ) -> Result<(), Option<PathBuf>> {
     if reference != actual {
-        let diff_style = std::env::var("DIFF_USING").unwrap_or_else(|_| {
+        let diff_style = env::var("DIFF_USING").unwrap_or_else(|_| {
             let num_different = (reference.len() as isize - actual.len() as isize).abs() as usize
                 + reference
                     .chars()
@@ -313,7 +314,7 @@ fn project_binary(subproject: Option<&'static str>) -> PathBuf {
         return path.clone();
     }
 
-    let mut cmd = Command::new("cargo");
+    let mut cmd = Command::new(env::var("CARGO").unwrap());
 
     if !cfg!(debug_assertions) {
         cmd.arg("--release");
