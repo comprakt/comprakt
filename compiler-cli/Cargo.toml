@@ -29,6 +29,8 @@ mjrt = { path = "../mjrt" }
 
 [dev-dependencies]
 integration_test_codegen = { path = "integration-test-codegen" }
-assert_cmd = "0.10"
-predicates = "1.0"
 difference = "2.0"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+lazy_static = "1.2.0"

@@ -307,6 +307,7 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
         .args(mjrt::LINKER_FLAGS)
         .arg(&user_assembly)
         .arg(&runtime_path)
+        .args(mjrt::LINKER_LIBS)
         .status()?;
     Ok(())
 }
