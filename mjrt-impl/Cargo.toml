@@ -8,3 +8,4 @@ edition = "2018"
 crate-type = ["staticlib", "rlib"]
 
 [dependencies]
+libc = "0.2"
