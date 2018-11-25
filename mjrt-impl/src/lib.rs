@@ -1,5 +1,3 @@
-#![feature(main)]
-
 //! This is the runtime automatically linked into
 //! the compiled mini java file
 use std::io::{stdin, stdout, Read, Write};
