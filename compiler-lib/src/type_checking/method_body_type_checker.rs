@@ -130,7 +130,7 @@ where
             Empty => {}
             If(cond, stmt, opt_else) => {
                 if let Ok(ty) = self.type_expr(cond) {
-                    if !CheckedType::Boolean.is_assignable_from(&ty.ty) {
+                    if !CheckedType::Boolean.is_assignable_from(&ty.ty, self.type_system) {
                         self.context
                             .report_error(&cond.span, SemanticError::ConditionMustBeBoolean)
                     }
@@ -143,7 +143,7 @@ where
             }
             While(cond, stmt) => {
                 if let Ok(ty) = self.type_expr(cond) {
-                    if !CheckedType::Boolean.is_assignable_from(&ty.ty) {
+                    if !CheckedType::Boolean.is_assignable_from(&ty.ty, self.type_system) {
                         self.context
                             .report_error(&cond.span, SemanticError::ConditionMustBeBoolean)
                     }
@@ -404,8 +404,8 @@ where
                 let lhs_type = lhs_info?.ty;
                 let rhs_type = rhs_info?.ty;
 
-                if !lhs_type.is_assignable_from(&rhs_type)
-                    && !rhs_type.is_assignable_from(&lhs_type)
+                if !lhs_type.is_assignable_from(&rhs_type, self.type_system)
+                    && !rhs_type.is_assignable_from(&lhs_type, self.type_system)
                 {
                     self.context.report_error(
                         &span,
@@ -441,7 +441,7 @@ where
         expected_ty: &CheckedType<'src>,
     ) {
         if let Ok(expr_info) = self.type_expr(expr) {
-            if !expected_ty.is_assignable_from(&expr_info.ty) {
+            if !expected_ty.is_assignable_from(&expr_info.ty, self.type_system) {
                 self.context.report_error(
                     &expr.span,
                     SemanticError::InvalidType {
