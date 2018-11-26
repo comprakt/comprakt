@@ -304,8 +304,8 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
         PathBuf::new().join(out_name)
     };
 
-    // compile runtime and link it with user's code
-    Command::new("cc")
+    // link runtime static library with user's code
+    let linker_status = Command::new("cc")
         .arg("-o")
         .arg(&out_path)
         .args(mjrt::LINKER_FLAGS)
@@ -313,7 +313,13 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
         .arg(&runtime_path)
         .args(mjrt::LINKER_LIBS)
         .status()?;
-    Ok(())
+
+    let linker_failure_action = std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP");
+
+    match (linker_status.success(), linker_failure_action) {
+        (true, _) | (false, Err(_)) => return Ok(()),
+        (false, Ok(_)) => std::process::exit(1),
+    }
 }
 
 fn cmd_lower(path: &PathBuf, opts: &firm::Options) -> Result<(), Error> {
