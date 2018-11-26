@@ -21,6 +21,7 @@ itertools = "0.7"
 libfirm-rs = { path = "../libfirm-rs" }
 # we need libc to open files for libfirm
 libc = "0.2"
+log = "0.4"
 
 [dev-dependencies]
 mjtest = { path = "../mjtest-rs" }

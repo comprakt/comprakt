@@ -1,11 +1,15 @@
 use crate::{
     asciifile::Spanned,
-    ast::{self, Program, AST},
+    ast,
     strtab::Symbol,
-    type_checking::type_system::{CheckedType, ClassMethodDef, TypeSystem},
+    type_checking::type_system::{
+        BuiltinMethodBody, CheckedType, ClassDef, ClassFieldDef, ClassMethodBody, ClassMethodDef,
+        TypeSystem,
+    },
     visitor::NodeKind,
 };
 use libfirm_rs::{bindings::*, *};
+use log;
 use std::{
     collections::HashMap,
     ffi::{CStr, CString, OsStr},
@@ -19,78 +23,197 @@ pub struct Options {
     pub dump_assembler: Option<PathBuf>,
 }
 
-pub struct FirmGenerator<'ir, 'src> {
-    program: &'ir Program<'src>,
-    type_system: &'ir TypeSystem<'src>,
-    runtime: Runtime,
+pub struct FirmGenerator<'src, 'ast> {
+    /// `FirmGenerator::gen()` creates identifiers for Firm entities using
+    /// CString, which heap-allocates.
+    /// However, firm only contains raw pointers to the CString instances,
+    /// hence the CString must be kept around for the lifetime of the graph.
+    /// Users of `FirmGenerator::gen()` must thus keep the instance of Self
+    /// around until the graph is no longer used.
+    _classes: Vec<Rc<RefCell<GeneratorClass<'src, 'ast>>>>,
 }
 
-impl<'ir, 'src> FirmGenerator<'ir, 'src> {
-    fn new(program: &'ir Program<'src>, type_system: &'ir TypeSystem<'src>) -> Self {
-        Self {
-            program,
-            type_system,
-            runtime: Runtime::new(),
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
+
+struct GeneratorClass<'src, 'ast> {
+    def: &'src ClassDef<'src, 'ast>,
+    entity: Entity,
+    /// `entity` stores a ref to `_name_store`, hence keep `_name_store` alive
+    /// in this struct
+    _name_store: CString,
+    fields: Vec<Rc<RefCell<GeneratorField<'src, 'ast>>>>,
+    methods: Vec<Rc<RefCell<GeneratorMethod<'src, 'ast>>>>,
+}
+
+struct GeneratorField<'src, 'ast> {
+    class: Weak<RefCell<GeneratorClass<'src, 'ast>>>,
+    def: &'src ClassFieldDef<'src>,
+    /// `entity` stores a ref to `_name_store`, hence keep `_name_store` alive
+    /// in this struct
+    _name_store: CString,
+    entity: Entity,
+}
+
+struct GeneratorMethod<'src, 'ast> {
+    class: Weak<RefCell<GeneratorClass<'src, 'ast>>>,
+    body: ClassMethodBody<'src, 'ast>,
+    def: &'src ClassMethodDef<'src, 'ast>,
+    entity: Entity,
+    /// `entity` stores a ref to `_name_store`, hence keep `_name_store` alive
+    /// in this struct
+    _name_store: CString,
+    graph: Option<Graph>,
+}
+
+impl<'src, 'ast> FirmGenerator<'src, 'ast> {
+    fn gen(type_system: &'src TypeSystem<'src, 'ast>) -> Self {
+        let runtime = Runtime::new();
+        let classes = Self::build_entities(type_system);
+        // TODO glue classes and runtime functions together here!
+        for class in &classes {
+            let class = class.borrow_mut();
+            log::debug!("generate methods for class {:?}", class.def.name);
+            for method in &class.methods {
+                let mut method = method.borrow_mut();
+
+                log::debug!("generate method body for {:?}", method.def.name);
+
+                let matured_graph = match method.body {
+                    ClassMethodBody::Builtin(builtin) => {
+                        runtime.graph_from_builtin_method_body(builtin)
+                    }
+                    ClassMethodBody::AST(body) => {
+                        let mut local_var_def_visitor = LocalVarDefVisitor::new();
+                        local_var_def_visitor.visit(&NodeKind::from(body));
+
+                        assert!(
+                            !method.def.is_static || (method.def.is_static && method.def.is_main)
+                        );
+                        let this_param = if method.def.is_main { 0 } else { 1 };
+                        let param_count =
+                            this_param + method.def.params.len() + local_var_def_visitor.count;
+                        let graph = Graph::function_with_entity(method.entity, param_count);
+                        let mut method_body_gen =
+                            MethodBodyGenerator::new(graph, method.def, &runtime);
+                        method_body_gen.gen_method(body);
+                        unsafe {
+                            irg_finalize_cons(graph.into());
+                        }
+                        graph
+                    }
+                };
+                // TODO assert matured
+                method.graph = Some(matured_graph);
+            }
         }
+        Self { _classes: classes }
     }
 
-    fn init_functions(&self) -> Vec<Graph> {
-        let mut fn_graphs = vec![];
-        for class in &self.program.classes {
-            for member in &class.members {
-                if let Some(block) = member.kind.method_body() {
-                    let method = self
-                        .type_system
-                        .defined_classes()
-                        .get(&class.name)
-                        .expect(
-                            "after type checking every class should be defined in the type system",
-                        )
-                        .method(member.name)
-                        .expect("after type checking every method should be deined in it's class");
-                    let is_main = method.is_static;
-                    let mut ft = FunctionType::new();
+    /// `None` indicates that the given type is not convertible, which
+    /// is not necessarily an error (e.g. `void`)
+    fn ty_from_checked_type(ct: &CheckedType<'src>) -> Option<Ty> {
+        let ty = match ct {
+            CheckedType::Int => PrimitiveType::i32(),
+            CheckedType::Void => return None,
+            CheckedType::TypeRef(_) => PrimitiveType::ptr(),
+            CheckedType::Array(_) => PrimitiveType::ptr(), // TODO safe array type?
+            x => panic!("unimplemented to-libfirm-type conversion for {:?}", x), // TODO
+        };
+        Some(ty)
+    }
 
-                    // Set param and return types. `main` method has neither
-                    let method_name = if !is_main {
-                        let this_param = ClassType::new_class_type(class.name.as_str());
-                        ft.add_param(this_param);
+    fn build_entities(
+        type_system: &'src TypeSystem<'src, 'ast>,
+    ) -> Vec<Rc<RefCell<GeneratorClass<'src, 'ast>>>> {
+        let mut classes = Vec::new();
+        // Define classes
+        for (_, class) in &type_system.defined_classes {
+            unsafe {
+                log::debug!("gen class {:?}", class.name.as_str());
+                let class_name_str = class.name.as_str();
+                let class_name = CString::new(class_name_str).unwrap();
+                let class_name_id = new_id_from_str(class_name.as_ptr());
+                let class_type = new_type_class(class_name_id);
+                let class_entity = Entity::new_global(&class_name, class_type.into());
 
-                        for param in &method.params {
-                            let ty = get_firm_type(&param.ty);
-                            ft.add_param(ty.expect("params never have `void` or `null` type"));
-                        }
+                let gclass = Rc::new(RefCell::new(GeneratorClass {
+                    def: class,
+                    _name_store: class_name,
+                    entity: class_entity,
+                    fields: Vec::new(),
+                    methods: Vec::new(),
+                }));
 
-                        if let Some(ty) = get_firm_type(&method.return_ty) {
-                            ft.set_res(ty);
-                        }
-                        format!("{}.{}", class.name.data, method.name)
-                    } else {
-                        "mj_main".to_string()
-                    };
-
-                    let method_type = ft.build(!is_main);
-                    let mut local_var_def_visitor = LocalVarDefVisitor::new();
-                    local_var_def_visitor.visit(&NodeKind::from(block));
-
-                    let graph = Graph::function(
-                        &method_name,
-                        method_type,
-                        // "+1" is THIS-ptr
-                        method.params.len() + 1 + local_var_def_visitor.count,
+                for field in class.iter_fields() {
+                    log::debug!("\tgen field {:?}", field.name.as_str());
+                    let field_type = Self::ty_from_checked_type(&field.ty)
+                        .expect("field type must be convertible to a Firm type");
+                    let field_name =
+                        CString::new(format!("{}.F.{}", class_name_str, field.name)).unwrap();
+                    let field_entity = new_entity(
+                        class_type,
+                        field_name.as_ptr() as *mut i8,
+                        field_type.into(),
                     );
 
-                    MethodBodyGenerator::new(graph, method, &self.runtime).gen_method(&block);
-
-                    unsafe {
-                        irg_finalize_cons(graph.into());
-                    }
-                    fn_graphs.push(graph);
+                    gclass
+                        .borrow_mut()
+                        .fields
+                        .push(Rc::new(RefCell::new(GeneratorField {
+                            class: Rc::downgrade(&gclass),
+                            _name_store: field_name,
+                            def: field,
+                            entity: field_entity.into(),
+                        })));
                 }
+
+                for method in class.iter_methods() {
+                    log::debug!("\tgen method{:?}", method.name.as_str());
+                    assert!(!method.is_static || (method.is_static && method.is_main));
+                    let mut method_type = FunctionType::new();
+                    // TODO `this` param?
+                    for param in &method.params {
+                        let param_type = Self::ty_from_checked_type(&param.ty)
+                            .expect("parameter must be convertible to a Firm type");
+                        method_type.add_param(param_type);
+                    }
+                    if let Some(return_ty) = Self::ty_from_checked_type(&method.return_ty) {
+                        method_type.set_res(return_ty);
+                    }
+                    let method_type = method_type.build(!method.is_main);
+
+                    let method_name = if method.is_main {
+                        CString::new("mj_main").unwrap()
+                    } else {
+                        CString::new(format!("{}.M.{}", class_name_str, method.name)).unwrap()
+                    };
+                    let method_entity = new_entity(
+                        class_type,
+                        method_name.as_ptr() as *mut i8,
+                        method_type.into(),
+                    );
+
+                    gclass
+                        .borrow_mut()
+                        .methods
+                        .push(Rc::new(RefCell::new(GeneratorMethod {
+                            class: Rc::downgrade(&gclass),
+                            _name_store: method_name,
+                            def: method,
+                            entity: method_entity.into(),
+                            graph: None,
+                            body: method.body,
+                        })));
+                }
+
+                classes.push(gclass);
             }
         }
 
-        fn_graphs
+        classes
     }
 }
 
@@ -187,18 +310,75 @@ impl Runtime {
             array_out_of_bounds,
         }
     }
+
+    fn graph_from_builtin_method_body(&self, mb: BuiltinMethodBody) -> Graph {
+        let (rt_entity, slot_count, has_int_arg, returns_value) = match mb {
+            BuiltinMethodBody::SystemOutPrintln => (self.system_out_println, 2, true, false),
+            BuiltinMethodBody::SystemOutWrite => (self.system_out_write, 2, true, false),
+            BuiltinMethodBody::SystemInRead => (self.system_in_read, 1, false, true),
+            BuiltinMethodBody::SystemOutFlush => (self.system_out_flush, 1, false, false),
+        };
+
+        // wrap it into a proper function
+        let wrapper_function_name = rt_entity.name().to_str().unwrap();
+        let wrapper_function_name = format!("$WRAPPER$_{}", wrapper_function_name);
+
+        let graph = Graph::function(&wrapper_function_name, rt_entity.ty(), slot_count);
+
+        let args = if has_int_arg {
+            let paramnode = graph.value(1, unsafe { mode::Is }).into();
+            vec![paramnode] // slot 1 because 0 is this
+        } else {
+            vec![]
+        };
+        let func_addr = graph.new_addr(rt_entity);
+        let call = graph
+            .cur_block()
+            .new_call(graph.cur_store(), func_addr, &args);
+        unsafe {
+            keep_alive(call.into());
+        }
+        let call_post_mem = call.project_mem();
+        graph.set_store(call_post_mem);
+
+        let mem = graph.cur_store();
+        if returns_value {
+            let result_tuple = call.project_result_tuple();
+            let result_int = result_tuple.project(unsafe { mode::Is }, 0);
+            let ret = graph.cur_block().new_return(mem, Some(result_int.into()));
+            graph.end_block().add_pred(&ret);
+        } else {
+            let ret = graph.cur_block().new_return(mem, None);
+            graph.end_block().add_pred(&ret);
+        }
+
+        graph.cur_block().mature();
+        graph.end_block().mature();
+
+        unsafe {
+            irg_finalize_cons(graph.into());
+        }
+
+        log::debug!("\tgraph done");
+
+        graph
+    }
 }
 
-struct MethodBodyGenerator<'ir, 'src> {
+struct MethodBodyGenerator<'ir, 'src, 'ast> {
     graph: Graph,
-    method_def: &'ir ClassMethodDef<'src>,
+    method_def: &'ir ClassMethodDef<'src, 'ast>,
     local_vars: HashMap<Symbol<'src>, (usize, mode::Type)>,
     num_vars: usize,
     runtime: &'ir Runtime,
 }
 
-impl<'a, 'ir, 'src> MethodBodyGenerator<'ir, 'src> {
-    fn new(graph: Graph, method_def: &'ir ClassMethodDef<'src>, runtime: &'ir Runtime) -> Self {
+impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
+    fn new(
+        graph: Graph,
+        method_def: &'ir ClassMethodDef<'src, 'ast>,
+        runtime: &'ir Runtime,
+    ) -> Self {
         let mut se1f = MethodBodyGenerator {
             graph,
             local_vars: HashMap::new(),
@@ -481,17 +661,10 @@ unsafe fn setup() {
     set_optimize(0);
 }
 
-pub unsafe fn build(opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>) {
-    let program = match ast {
-        ast::AST::Program(program) => program,
-        ast::AST::Empty => unreachable!(),
-    };
+pub unsafe fn build(opts: &Options, type_system: &TypeSystem<'_, '_>) {
     setup();
 
-    let firm_gen = FirmGenerator::new(program, type_system);
-
-    // TODO: implement firm dumps in opts
-    let _graphs = firm_gen.init_functions();
+    let gen = FirmGenerator::gen(type_system);
 
     lower_highlevel();
     be_lower_for_target();
@@ -525,6 +698,9 @@ pub unsafe fn build(opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>)
             libc::fclose(assembly_file);
         }
     }
+
+    // See comment inside FirmGenerator for why this is necessary.
+    drop(gen);
 
     ir_finish();
 }

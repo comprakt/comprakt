@@ -8,13 +8,16 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct ExprInfo<'src, 'ts> {
+pub struct ExprInfo<'src, 'ast, 'ts> {
     pub ty: CheckedType<'src>,
-    pub ref_info: Option<RefInfo<'src, 'ts>>,
+    pub ref_info: Option<RefInfo<'src, 'ast, 'ts>>,
 }
 
-impl<'src, 'ts> ExprInfo<'src, 'ts> {
-    pub fn new(ty: CheckedType<'src>, ref_info: RefInfo<'src, 'ts>) -> ExprInfo<'src, 'ts> {
+impl<'src, 'ast, 'ts> ExprInfo<'src, 'ast, 'ts> {
+    pub fn new(
+        ty: CheckedType<'src>,
+        ref_info: RefInfo<'src, 'ast, 'ts>,
+    ) -> ExprInfo<'src, 'ast, 'ts> {
         ExprInfo {
             ty,
             ref_info: Some(ref_info),
@@ -22,8 +25,8 @@ impl<'src, 'ts> ExprInfo<'src, 'ts> {
     }
 }
 
-impl<'src, 'ts> From<CheckedType<'src>> for ExprInfo<'src, 'ts> {
-    fn from(item: CheckedType<'src>) -> ExprInfo<'src, 'ts> {
+impl<'src, 'ast, 'ts> From<CheckedType<'src>> for ExprInfo<'src, 'ast, 'ts> {
+    fn from(item: CheckedType<'src>) -> ExprInfo<'src, 'ast, 'ts> {
         ExprInfo {
             ty: item,
             ref_info: None,
@@ -32,14 +35,14 @@ impl<'src, 'ts> From<CheckedType<'src>> for ExprInfo<'src, 'ts> {
 }
 
 #[derive(Debug, Clone)]
-pub enum RefInfo<'src, 'ts> {
+pub enum RefInfo<'src, 'ast, 'ts> {
     GlobalVar(Symbol<'src>),
     Var(Symbol<'src>),
     Param(&'ts MethodParamDef<'src>),
     Field(&'ts ClassFieldDef<'src>),
-    Method(&'ts ClassMethodDef<'src>),
-    // impossible in minijava: Class(&'ts ClassDef<'src>),
-    This(&'ts ClassDef<'src>),
+    Method(&'ts ClassMethodDef<'src, 'ast>),
+    // impossible in minijava: Class(&'ts ClassDef<'src, 'ast>),
+    This(&'ts ClassDef<'src, 'ast>),
     ArrayAccess,
 }
 
@@ -55,10 +58,10 @@ pub enum VarDef<'src, 'ts> {
 
 pub struct MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana> {
     pub context: &'ctx SemanticContext<'ctx, 'src>,
-    pub type_system: &'ts TypeSystem<'src>,
+    pub type_system: &'ts TypeSystem<'src, 'ast>,
     pub current_class_id: ClassDefId<'src>,
-    pub current_class: &'ts ClassDef<'src>,
-    pub current_method: &'ts ClassMethodDef<'src>,
+    pub current_class: &'ts ClassDef<'src, 'ast>,
+    pub current_method: &'ts ClassMethodDef<'src, 'ast>,
     pub type_analysis: &'ana mut TypeAnalysis<'src, 'ast, 'ts>,
     pub local_scope: Scoped<Symbol<'src>, VarDef<'src, 'ts>>,
 }
@@ -72,7 +75,7 @@ where
 {
     pub fn check_methods(
         class_decl: &'ast ast::ClassDeclaration<'src>,
-        type_system: &'ts TypeSystem<'src>,
+        type_system: &'ts TypeSystem<'src, 'ast>,
         type_analysis: &'ana mut TypeAnalysis<'src, 'ast, 'ts>,
         context: &'ctx SemanticContext<'ctx, 'src>,
     ) {
@@ -210,7 +213,7 @@ where
     fn type_expr(
         &mut self,
         expr: &'ast Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ast, 'ts>, CouldNotDetermineType> {
         let t = self.type_expr_internal(expr);
 
         if let Ok(ref t) = t {
@@ -222,7 +225,7 @@ where
     fn type_expr_internal(
         &mut self,
         expr: &'ast Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ast, 'ts>, CouldNotDetermineType> {
         use crate::ast::Expr::*;
         match &expr.data {
             Binary(op, lhs, rhs) => self.check_binary_expr(expr.span, *op, lhs, rhs),
@@ -366,7 +369,7 @@ where
         op: ast::BinaryOp,
         lhs: &'ast Spanned<'src, ast::Expr<'src>>,
         rhs: &'ast Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ast, 'ts>, CouldNotDetermineType> {
         use crate::ast::BinaryOp::*;
         match op {
             Assign => {
@@ -456,9 +459,9 @@ where
     fn check_method_invocation(
         &mut self,
         method_name: &Spanned<'src, Symbol<'src>>,
-        target_class_def: &'ts ClassDef<'src>,
+        target_class_def: &'ts ClassDef<'src, 'ast>,
         args: &'ast [Spanned<'src, ast::Expr<'src>>],
-    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ast, 'ts>, CouldNotDetermineType> {
         let method = match target_class_def.method(method_name.data) {
             Some(method) => method,
             None => {
@@ -506,7 +509,7 @@ where
     fn resolve_to_class_def(
         &mut self,
         ty: &CheckedType<'src>,
-    ) -> Result<&'ts ClassDef<'src>, CouldNotDetermineType> {
+    ) -> Result<&'ts ClassDef<'src, 'ast>, CouldNotDetermineType> {
         match ty {
             CheckedType::TypeRef(id) => Ok(self.type_system.class(*id)),
             _ => Err(CouldNotDetermineType),
@@ -517,7 +520,7 @@ where
     fn check_var(
         &mut self,
         var_name: &Spanned<'src, Symbol<'src>>,
-    ) -> Result<ExprInfo<'src, 'ts>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ast, 'ts>, CouldNotDetermineType> {
         match self.local_scope.visible_definition(var_name.data) {
             // local variable or param
             Some(VarDef::Local { ty, name }) => Ok(ExprInfo {

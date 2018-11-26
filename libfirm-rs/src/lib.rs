@@ -40,6 +40,9 @@ impl PrimitiveType {
     pub fn bool() -> Ty {
         unsafe { new_type_primitive(mode::Bu) }.into()
     }
+    pub fn ptr() -> Ty {
+        unsafe { new_type_primitive(mode::P) }.into()
+    }
 }
 
 pub struct ArrayType;
@@ -160,8 +163,12 @@ impl Graph {
     /// must be mangled to avoid collisions with other classes' functions.
     pub fn function(mangled_name: &str, function_type: Ty, num_slots: usize) -> Graph {
         let mangled_name = CString::new(mangled_name).expect("CString::new failed");
+        let entity = Entity::new_global(&mangled_name, function_type);
+        Self::function_with_entity(entity, num_slots)
+    }
+
+    pub fn function_with_entity(entity: Entity, num_slots: usize) -> Graph {
         unsafe {
-            let entity = Entity::new_global(&mangled_name, function_type);
             let irg = new_ir_graph(entity.into(), num_slots as i32);
             Graph { irg }
         }
@@ -221,6 +228,10 @@ impl Graph {
 
     pub fn new_addr(self, e: Entity) -> Addr {
         unsafe { new_r_Address(self.irg, e.into()) }.into()
+    }
+
+    pub fn slots(self) -> i32 {
+        unsafe { get_irg_n_locs(self.irg) }
     }
 }
 
@@ -600,9 +611,24 @@ impl Store {
 #[derive(Clone, Copy, Into, From)]
 pub struct Call(*mut ir_node);
 
+#[derive(Clone, Copy, Into, From)]
+pub struct CallResultTuple(*mut ir_node);
+
+impl Projectable for CallResultTuple {
+    fn ir_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
 impl Call {
     pub fn project_mem(self) -> MemoryState {
         unsafe { new_r_Proj(self.0, mode::M, pn_Call::M) }.into()
+    }
+    pub fn project_result_tuple(self) -> CallResultTuple {
+        unsafe {
+            let result_node = new_r_Proj(self.0, mode::T, pn_Call::TResult);
+            CallResultTuple(result_node)
+        }
     }
 }
 

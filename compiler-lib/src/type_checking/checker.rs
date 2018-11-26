@@ -15,7 +15,7 @@ use super::{
 pub fn check<'ast, 'src, 'ts>(
     strtab: &'_ mut StringTable<'src>,
     ast: &'ast ast::AST<'src>,
-    type_system: &'ts mut TypeSystem<'src>,
+    type_system: &'ts mut TypeSystem<'src, 'ast>,
     context: &Context<'src>,
 ) -> TypeAnalysis<'src, 'ast, 'ts> {
     let mut sem_context = SemanticContext::new(context);
@@ -68,9 +68,10 @@ impl<'ctx, 'src> SemanticContext<'ctx, 'src> {
     }
 }
 
+// FIXME: simplify lifetimes by merging 'src and 'ast
 fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
     strtab: &mut StringTable<'src>,
-    type_system: &mut TypeSystem<'src>,
+    type_system: &mut TypeSystem<'src, 'ast>,
     type_analysis: &'ana mut TypeAnalysis<'src, 'ast, '_>,
     builtin_types: &BuiltinTypes<'src>,
     context: &SemanticContext<'ctx, 'src>,
@@ -135,7 +136,7 @@ fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
                             )
                         });
                 }
-                Method(_, params, _) | MainMethod(params, _) => {
+                Method(_, params, block) | MainMethod(params, block) => {
                     let (is_static, is_main, return_ty) = match &member.kind {
                         Field(_) => panic!("impossible"),
                         Method(return_ty, _, _) => (
@@ -188,6 +189,7 @@ fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
                         .class_mut(class_def_id)
                         .add_method(ClassMethodDef::new(
                             member.name,
+                            ClassMethodBody::AST(block),
                             checked_params,
                             return_ty,
                             is_static,
@@ -216,7 +218,7 @@ pub enum VoidIs {
 pub fn checked_type_from_basic_ty<'src, 'ast>(
     basic_ty: &'ast Spanned<'src, ast::BasicType<'src>>,
     context: &SemanticContext<'_, 'src>,
-    type_system: &TypeSystem<'src>,
+    type_system: &TypeSystem<'src, 'ast>,
     void_handling: VoidIs,
 ) -> CheckedType<'src> {
     use self::ast::BasicType::*;
@@ -250,7 +252,7 @@ pub fn checked_type_from_basic_ty<'src, 'ast>(
 pub fn checked_type_from_ty<'src, 'ast>(
     ty: &'ast ast::Type<'src>,
     context: &SemanticContext<'_, 'src>,
-    type_system: &TypeSystem<'src>,
+    type_system: &TypeSystem<'src, 'ast>,
     void_handling: VoidIs,
 ) -> CheckedType<'src> {
     let void_handling = if ty.array_depth > 0 {

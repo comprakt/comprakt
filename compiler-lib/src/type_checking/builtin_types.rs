@@ -6,9 +6,9 @@ pub struct BuiltinTypes<'src> {
     pub string: CheckedType<'src>,
 }
 
-impl<'src> BuiltinTypes<'src> {
+impl<'src, 'ast> BuiltinTypes<'src> {
     pub fn add_to<'ts>(
-        type_system: &'ts mut TypeSystem<'src>,
+        type_system: &'ts mut TypeSystem<'src, 'ast>,
         strtab: &'_ mut StringTable<'src>,
         context: &'_ mut SemanticContext<'_, 'src>,
     ) -> BuiltinTypes<'src> {
@@ -19,6 +19,7 @@ impl<'src> BuiltinTypes<'src> {
             reader_class_def
                 .add_method(ClassMethodDef {
                     name: strtab.intern("read"),
+                    body: ClassMethodBody::Builtin(BuiltinMethodBody::SystemInRead),
                     params: vec![],
                     return_ty: int_ty.clone(),
                     is_static: false,
@@ -35,6 +36,7 @@ impl<'src> BuiltinTypes<'src> {
             writer_class_def
                 .add_method(ClassMethodDef {
                     name: strtab.intern("println"),
+                    body: ClassMethodBody::Builtin(BuiltinMethodBody::SystemOutPrintln),
                     params: vec![MethodParamDef::new(arg_sym, int_ty.clone())],
                     return_ty: CheckedType::Void,
                     is_static: false,
@@ -44,6 +46,7 @@ impl<'src> BuiltinTypes<'src> {
             writer_class_def
                 .add_method(ClassMethodDef {
                     name: strtab.intern("write"),
+                    body: ClassMethodBody::Builtin(BuiltinMethodBody::SystemOutWrite),
                     params: vec![MethodParamDef::new(arg_sym, int_ty.clone())],
                     return_ty: CheckedType::Void,
                     is_static: false,
@@ -53,6 +56,7 @@ impl<'src> BuiltinTypes<'src> {
             writer_class_def
                 .add_method(ClassMethodDef {
                     name: strtab.intern("flush"),
+                    body: ClassMethodBody::Builtin(BuiltinMethodBody::SystemOutFlush),
                     params: vec![],
                     return_ty: CheckedType::Void,
                     is_static: false,

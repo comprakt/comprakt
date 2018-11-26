@@ -26,6 +26,7 @@ compiler-lib = { path = "../compiler-lib" }
 inspect-ast = { path = "../inspect-ast" }
 tempfile = "3.0"
 mjrt = { path = "../mjrt" }
+env_logger = "0.6"
 
 [dev-dependencies]
 integration_test_codegen = { path = "integration-test-codegen" }
