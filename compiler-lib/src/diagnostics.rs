@@ -442,6 +442,7 @@ impl<'span, 'file> LineFormatter<'span, 'file> {
 }
 
 #[cfg(test)]
+#[allow(clippy::print_stdout)]
 mod tests {
     use super::*;
 

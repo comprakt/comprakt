@@ -194,6 +194,7 @@ pub unsafe fn build(opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>)
     ir_finish();
 }
 
+#[allow(clippy::print_stdout)]
 pub unsafe fn _print_machine_triple(triple: *mut ir_machine_triple_t) {
     let cpu = ir_triple_get_cpu_type(triple);
     let manu = ir_triple_get_manufacturer(triple);

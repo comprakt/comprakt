@@ -74,6 +74,7 @@ impl<'m, 'a> Into<&'m str> for &'a AsciiFile<'m> {
 }
 
 #[cfg(test)]
+#[allow(clippy::print_stdout)]
 mod tests {
     use super::*;
 

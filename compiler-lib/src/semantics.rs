@@ -328,6 +328,7 @@ impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
 }
 
 #[cfg(test)]
+#[allow(clippy::print_stdout)]
 mod tests {
     use super::*;
     use crate::{
