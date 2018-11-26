@@ -32,6 +32,7 @@ use compiler_lib::{
     semantics,
     strtab::StringTable,
 };
+use env_logger;
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{
@@ -154,6 +155,8 @@ impl Into<firm::Options> for LoweringOptions {
 }
 
 fn main() {
+    env_logger::init();
+
     let cmd = CliCommand::from_args();
 
     if let Err(msg) = run_compiler(&cmd) {
@@ -281,7 +284,7 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
     let mut firm_options = firm::Options::default();
     firm_options.dump_assembler = Some(user_assembly.clone());
 
-    unsafe { firm::build(&firm_options, &ast, &type_system) };
+    unsafe { firm::build(&firm_options, &type_system) };
 
     // get runtime library
     let runtime_path = out_dir.join("mjrt.a");
@@ -349,7 +352,7 @@ fn cmd_lower(path: &PathBuf, opts: &firm::Options) -> Result<(), Error> {
         }
     };
 
-    unsafe { firm::build(opts, &ast, &type_system) };
+    unsafe { firm::build(opts, &type_system) };
     Ok(())
 }
 

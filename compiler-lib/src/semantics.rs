@@ -143,7 +143,7 @@ pub fn check<'a, 'f>(
     strtab: &mut strtab::StringTable<'f>,
     ast: &'a ast::AST<'f>,
     context: &Context<'f>,
-) -> Result<TypeSystem<'f>, ()> {
+) -> Result<TypeSystem<'f, 'a>, ()> {
     let mut first_pass_visitor = ClassesAndMembersVisitor::new(context);
     first_pass_visitor.do_visit(&NodeKind::from(ast));
 

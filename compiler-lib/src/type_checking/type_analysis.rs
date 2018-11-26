@@ -24,7 +24,7 @@ impl<'a, 'b, T> PartialEq<RefEquality<'b, T>> for RefEquality<'a, T> {
 #[derive(Default)]
 pub struct TypeAnalysis<'src, 'ast, 'ts> {
     class_types: HashMap<RefEquality<'ast, ast::ClassDeclaration<'src>>, ClassDefId<'src>>,
-    expr_info: HashMap<RefEquality<'ast, ast::Expr<'src>>, ExprInfo<'src, 'ts>>,
+    expr_info: HashMap<RefEquality<'ast, ast::Expr<'src>>, ExprInfo<'src, 'ast, 'ts>>,
 }
 
 impl<'src, 'ast, 'ts> TypeAnalysis<'src, 'ast, 'ts> {
@@ -32,13 +32,17 @@ impl<'src, 'ast, 'ts> TypeAnalysis<'src, 'ast, 'ts> {
         TypeAnalysis::default()
     }
 
-    pub fn expr_info(&self, expr: &'ast ast::Expr<'src>) -> &ExprInfo<'src, 'ts> {
+    pub fn expr_info(&self, expr: &'ast ast::Expr<'src>) -> &ExprInfo<'src, 'ast, 'ts> {
         self.expr_info
             .get(&RefEquality(expr))
             .expect("after typechecking every expression should have a type")
     }
 
-    pub fn set_expr_info(&mut self, expr: &'ast ast::Expr<'src>, expr_info: ExprInfo<'src, 'ts>) {
+    pub fn set_expr_info(
+        &mut self,
+        expr: &'ast ast::Expr<'src>,
+        expr_info: ExprInfo<'src, 'ast, 'ts>,
+    ) {
         self.expr_info.insert(RefEquality(expr), expr_info);
     }
 
