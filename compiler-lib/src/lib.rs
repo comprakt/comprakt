@@ -1,4 +1,5 @@
 #![warn(rust_2018_idioms)]
+#![warn(clippy::print_stdout)]
 #![feature(try_from)]
 #![feature(if_while_or_patterns)]
 #![feature(bind_by_move_pattern_guards)]

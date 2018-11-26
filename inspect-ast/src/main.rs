@@ -1,3 +1,4 @@
+#![warn(clippy::print_stdout)]
 use failure::{Error, Fail, ResultExt};
 use regex::Regex;
 use std::{

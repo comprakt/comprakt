@@ -273,6 +273,7 @@ impl PartialEq for Position<'_> {
 impl Eq for Position<'_> {}
 
 #[cfg(test)]
+#[allow(clippy::print_stdout)]
 mod tests {
     use super::*;
 

@@ -1,4 +1,5 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
+#![warn(clippy::print_stdout)]
 pub use libfirm_rs_bindings as bindings;
 #[macro_use]
 extern crate derive_more;

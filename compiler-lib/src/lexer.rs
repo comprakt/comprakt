@@ -592,6 +592,7 @@ impl<'f, 's> Iterator for Lexer<'f, 's> {
 }
 
 #[cfg(test)]
+#[allow(clippy::print_stdout)]
 mod tests {
 
     use super::is_minijava_whitespace;
