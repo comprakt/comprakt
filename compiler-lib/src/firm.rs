@@ -193,29 +193,3 @@ pub unsafe fn build(opts: &Options, ast: &AST<'_>, type_system: &TypeSystem<'_>)
 
     ir_finish();
 }
-
-#[allow(clippy::print_stdout)]
-pub unsafe fn _print_machine_triple(triple: *mut ir_machine_triple_t) {
-    let cpu = ir_triple_get_cpu_type(triple);
-    let manu = ir_triple_get_manufacturer(triple);
-    let os = ir_triple_get_operating_system(triple);
-
-    println!("% TARGET TRIPLE");
-    println!("% =============\n");
-
-    println!(
-        "% CPU:                  {}",
-        CStr::from_ptr(cpu).to_string_lossy()
-    );
-    println!(
-        "% Manufacturer:         {}",
-        CStr::from_ptr(manu).to_string_lossy()
-    );
-    println!(
-        "% Operating System:     {}",
-        CStr::from_ptr(os).to_string_lossy()
-    );
-
-    let pointer_size = ir_target_pointer_size();
-    println!("% Pointer Size:         {} Byte", pointer_size);
-}
