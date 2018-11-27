@@ -32,6 +32,7 @@ use compiler_lib::{
     print::{self, lextest},
     semantics,
     strtab::StringTable,
+    OutputSpecification,
 };
 use env_logger;
 use failure::{Error, Fail, ResultExt};
@@ -150,7 +151,10 @@ impl Into<firm::Options> for LoweringOptions {
     fn into(self) -> firm::Options {
         firm::Options {
             // TODO: remove stringly typed api "-" for stdout
-            dump_assembler: Some(self.output.unwrap_or_else(|| PathBuf::from("-"))),
+            dump_assembler: Some(match self.output {
+                None => OutputSpecification::Stdout,
+                Some(path) => OutputSpecification::File(path),
+            }),
             dump_lowered_firm_graph: self.dump_lowered_firm_graph,
             dump_firm_graph: self.dump_firm_graph,
         }
@@ -283,7 +287,7 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
 
     // lower user code to assembler
     let mut firm_options = firm::Options::default();
-    firm_options.dump_assembler = Some(user_assembly.clone());
+    firm_options.dump_assembler = Some(OutputSpecification::File(user_assembly.clone()));
 
     unsafe { firm::build(&firm_options, &type_system, &type_analysis) };
 

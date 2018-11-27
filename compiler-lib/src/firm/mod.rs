@@ -30,13 +30,14 @@ use crate::{
         },
     },
     visitor::NodeKind,
+    OutputSpecification,
 };
 use libfirm_rs::{bindings::*, *};
 use log;
 use std::{
     cell::RefCell,
     collections::HashMap,
-    ffi::{CStr, CString, OsStr},
+    ffi::{CStr, CString},
     path::PathBuf,
     rc::{Rc, Weak},
 };
@@ -45,7 +46,7 @@ use std::{
 pub struct Options {
     pub dump_firm_graph: Option<PathBuf>,
     pub dump_lowered_firm_graph: Option<PathBuf>,
-    pub dump_assembler: Option<PathBuf>,
+    pub dump_assembler: Option<OutputSpecification>,
 }
 
 pub struct ProgramGenerator<'src, 'ast> {
@@ -577,33 +578,34 @@ pub unsafe fn build(
     lower_highlevel();
     be_lower_for_target();
 
-    if let Some(ref path) = opts.dump_assembler {
-        let is_stdout = path == OsStr::new("-");
+    if let Some(ref output_spec) = opts.dump_assembler {
+        // TODO: real label
         let label = CStr::from_bytes_with_nul(b"<stdin>\0").unwrap().as_ptr();
 
-        if is_stdout {
-            be_main(stdout, label);
-        } else {
-            // NOTE: we could also do:
-            // - open file with rust API
-            // - get a file pointer using as_raw_fd()
-            // - use libc::fdopen() to convert the file pointer to a FILE struct
-            let mut cpath = path.to_string_lossy().to_string();
-            cpath.push('\0');
+        match output_spec {
+            OutputSpecification::Stdout => be_main(stdout, label),
+            OutputSpecification::File(path) => {
+                // NOTE: we could also do:
+                // - open file with rust API
+                // - get a file pointer using as_raw_fd()
+                // - use libc::fdopen() to convert the file pointer to a FILE struct
+                let mut cpath = path.to_string_lossy().to_string();
+                cpath.push('\0');
 
-            let path_cstr = CStr::from_bytes_with_nul(cpath.as_bytes())
-                .unwrap()
-                .as_ptr();
+                let path_cstr = CStr::from_bytes_with_nul(cpath.as_bytes())
+                    .unwrap()
+                    .as_ptr();
 
-            let assembly_file = libc::fopen(
-                path_cstr,
-                CStr::from_bytes_with_nul(b"w\0").unwrap().as_ptr(),
-            );
+                let assembly_file = libc::fopen(
+                    path_cstr,
+                    CStr::from_bytes_with_nul(b"w\0").unwrap().as_ptr(),
+                );
 
-            #[allow(clippy::cast_ptr_alignment)]
-            be_main(assembly_file as *mut _IO_FILE, label);
+                #[allow(clippy::cast_ptr_alignment)]
+                be_main(assembly_file as *mut _IO_FILE, label);
 
-            libc::fclose(assembly_file);
+                libc::fclose(assembly_file);
+            }
         }
     }
 
