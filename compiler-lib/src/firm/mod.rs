@@ -144,7 +144,9 @@ impl<'src, 'ast> FirmGenerator<'src, 'ast> {
             CheckedType::Void => return None,
             CheckedType::TypeRef(_) => PrimitiveType::ptr(),
             CheckedType::Array(_) => PrimitiveType::ptr(), // TODO safe array type?
-            x => panic!("unimplemented to-libfirm-type conversion for {:?}", x), // TODO
+            CheckedType::Boolean => unimplemented!(),
+            CheckedType::Null => unimplemented!(),
+            CheckedType::UnknownType(_) => unimplemented!(),
         };
         Some(ty)
     }
@@ -424,16 +426,26 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     fn gen_expr(&mut self, expr: &Spanned<'src, ast::Expr<'src>>) -> *mut ir_node {
         use self::ast::Expr::*;
         match &**expr {
-            Int(lit) => {
-                let val = unsafe { new_tarval_from_long(lit.parse().unwrap(), mode::Is) };
+            Int(literal) => {
+                let val = unsafe { new_tarval_from_long(literal.parse().unwrap(), mode::Is) };
                 self.graph.new_const(val).as_value_node()
             }
             Var(name) => {
                 let (slot, mode) = self.local_var(**name);
                 self.graph.value(slot, mode).as_value_node()
             }
-
-            _ => unimplemented!(),
+            Binary(_op, _expr_left, _expr_right) => unimplemented!(),
+            Unary(_op, _expr) => unimplemented!(),
+            MethodInvocation(_expr, _symbol, _argument_list) => unimplemented!(),
+            FieldAccess(_expr, _symbol) => unimplemented!(),
+            ArrayAccess(_expr, _index_expr) => unimplemented!(),
+            Null => unimplemented!(),
+            Boolean(_val) => unimplemented!(),
+            NegInt(_literal) => unimplemented!(),
+            ThisMethodInvocation(_symbol, _argument_list) => unimplemented!(),
+            This => unimplemented!(),
+            NewObject(_symbol) => unimplemented!(),
+            NewArray(_basic_type, _expr, _dimension) => unimplemented!(),
         }
     }
 
@@ -457,8 +469,19 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .new_cmp(&val, &zero, ir_relation::Greater)
                     .as_selector()
             }
-
-            _ => unimplemented!(),
+            Int(_literal) => unimplemented!(),
+            Binary(_op, _expr_left, _expr_right) => unimplemented!(),
+            Unary(_op, _expr) => unimplemented!(),
+            MethodInvocation(_expr, _symbol, _argument_list) => unimplemented!(),
+            FieldAccess(_expr, _symbol) => unimplemented!(),
+            ArrayAccess(_expr, _index_expr) => unimplemented!(),
+            Null => unimplemented!(),
+            Boolean(_val) => unimplemented!(),
+            NegInt(_literal) => unimplemented!(),
+            ThisMethodInvocation(_symbol, _argument_list) => unimplemented!(),
+            This => unimplemented!(),
+            NewObject(_symbol) => unimplemented!(),
+            NewArray(_basic_type, _expr, _dimension) => unimplemented!(),
         }
     }
 
