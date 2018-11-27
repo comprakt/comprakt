@@ -277,7 +277,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
             let method_def = Rc::clone(&se1f.method_def);
             for (i, p) in method_def.params.iter().enumerate() {
-                let mode = get_firm_mode(&p.ty).expect("args mustn't have void type");
+                let mode = get_firm_mode(&p.ty);
                 graph.set_value(se1f.new_local_var(p.name, mode), &args.project(mode, i + 1));
             }
         }
@@ -538,15 +538,13 @@ fn get_firm_type(ty: &CheckedType<'_>) -> Option<Ty> {
     }
 }
 
-fn get_firm_mode(ty: &CheckedType<'_>) -> Option<mode::Type> {
+fn get_firm_mode(ty: &CheckedType<'_>) -> mode::Type {
     match ty {
-        CheckedType::Int => Some(unsafe { mode::Is }),
-        CheckedType::Boolean => Some(unsafe { mode::Bu }),
-        CheckedType::TypeRef(_) | CheckedType::Array(_) | CheckedType::Null => {
-            Some(unsafe { mode::P })
-        }
-        // Not possible
-        CheckedType::Void | CheckedType::UnknownType(_) => None,
+        CheckedType::Int => unsafe { mode::Is },
+        CheckedType::Boolean => unsafe { mode::Bu },
+        CheckedType::TypeRef(_) | CheckedType::Array(_) | CheckedType::Null => unsafe { mode::P },
+        // MUST NOT be void or unknown type after semantic analysis phase.
+        CheckedType::Void | CheckedType::UnknownType(_) => unreachable!(),
     }
 }
 
