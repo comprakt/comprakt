@@ -317,7 +317,7 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
     let linker_failure_action = std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP");
 
     match (linker_status.success(), linker_failure_action) {
-        (true, _) | (false, Err(_)) => return Ok(()),
+        (true, _) | (false, Err(_)) => Ok(()),
         (false, Ok(_)) => std::process::exit(1),
     }
 }

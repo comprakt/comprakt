@@ -15,6 +15,12 @@ pub struct Runtime {
     div_by_zero: Entity,
 }
 
+impl Default for Runtime {
+    fn default() -> Self {
+        Runtime::new()
+    }
+}
+
 impl Runtime {
     pub fn new() -> Runtime {
         let dumpstack = {

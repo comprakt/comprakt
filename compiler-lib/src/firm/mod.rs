@@ -156,7 +156,7 @@ impl<'src, 'ast> FirmGenerator<'src, 'ast> {
     ) -> Vec<Rc<RefCell<GeneratorClass<'src, 'ast>>>> {
         let mut classes = Vec::new();
         // Define classes
-        for (_, class) in &type_system.defined_classes {
+        for class in type_system.defined_classes.values() {
             unsafe {
                 log::debug!("gen class {:?}", class.name.as_str());
                 let class_name_str = class.name.as_str();
