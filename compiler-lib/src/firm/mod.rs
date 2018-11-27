@@ -34,9 +34,11 @@ use crate::{
 use libfirm_rs::{bindings::*, *};
 use log;
 use std::{
+    cell::RefCell,
     collections::HashMap,
     ffi::{CStr, CString, OsStr},
     path::PathBuf,
+    rc::{Rc, Weak},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -46,20 +48,15 @@ pub struct Options {
     pub dump_assembler: Option<PathBuf>,
 }
 
-pub struct FirmGenerator<'src, 'ast> {
-    /// `FirmGenerator::gen()` creates identifiers for Firm entities using
-    /// CString, which heap-allocates.
-    /// However, firm only contains raw pointers to the CString instances,
-    /// hence the CString must be kept around for the lifetime of the graph.
-    /// Users of `FirmGenerator::gen()` must thus keep the instance of Self
-    /// around until the graph is no longer used.
-    _classes: Vec<Rc<RefCell<GeneratorClass<'src, 'ast>>>>,
+pub struct ProgramGenerator<'src, 'ast> {
+    runtime: Runtime,
+    type_system: &'src TypeSystem<'src, 'ast>,
+    type_analysis: &'src TypeAnalysis<'src, 'ast>,
 }
 
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
+pub struct Program<'src, 'ast> {
+    _classes: Vec<Rc<RefCell<GeneratorClass<'src, 'ast>>>>,
+}
 
 struct GeneratorClass<'src, 'ast> {
     _name: CString,
@@ -85,55 +82,63 @@ struct GeneratorMethod<'src, 'ast> {
     graph: Option<Graph>,
 }
 
-impl<'src, 'ast> FirmGenerator<'src, 'ast> {
-    fn gen(
+impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
+    fn new(
         type_system: &'src TypeSystem<'src, 'ast>,
-        type_analysis: &TypeAnalysis<'src, 'ast>,
+        type_analysis: &'src TypeAnalysis<'src, 'ast>,
     ) -> Self {
-        let runtime = Runtime::new();
-        let classes = Self::build_entities(type_system);
+        Self {
+            runtime: Runtime::new(),
+            type_system,
+            type_analysis,
+        }
+    }
+
+    fn generate(self) -> Program<'src, 'ast> {
+        let classes = self.build_entities();
+
         // TODO glue classes and runtime functions together here!
         for class in &classes {
             let class = class.borrow_mut();
             log::debug!("generate methods for class {:?}", class.def.name);
             for method in &class.methods {
-                let mut method = method.borrow_mut();
+                log::debug!("generate method body for {:?}", method.borrow().def.name);
 
-                log::debug!("generate method body for {:?}", method.def.name);
-
-                let matured_graph = match method.body {
-                    ClassMethodBody::Builtin(builtin) => {
-                        runtime.graph_from_builtin_method_body(builtin)
-                    }
-                    ClassMethodBody::AST(body) => {
-                        let mut local_var_def_visitor = LocalVarDefVisitor::new();
-                        local_var_def_visitor.visit(&NodeKind::from(body));
-
-                        assert!(
-                            !method.def.is_static || (method.def.is_static && method.def.is_main)
-                        );
-                        let this_param = if method.def.is_main { 0 } else { 1 };
-                        let param_count =
-                            this_param + method.def.params.len() + local_var_def_visitor.count;
-                        let graph = Graph::function_with_entity(method.entity, param_count);
-                        let mut method_body_gen = MethodBodyGenerator::new(
-                            graph,
-                            Rc::clone(&method.def),
-                            type_analysis,
-                            &runtime,
-                        );
-                        method_body_gen.gen_method(body);
-                        unsafe {
-                            irg_finalize_cons(graph.into());
-                        }
-                        graph
-                    }
-                };
+                let matured_graph = self.generate_method_body(&method.borrow());
                 // TODO assert matured
-                method.graph = Some(matured_graph);
+                method.borrow_mut().graph = Some(matured_graph);
             }
         }
-        Self { _classes: classes }
+        Program { _classes: classes }
+    }
+
+    fn generate_method_body(&self, method: &GeneratorMethod<'_, '_>) -> Graph {
+        match method.body {
+            ClassMethodBody::Builtin(builtin) => {
+                self.runtime.graph_from_builtin_method_body(builtin)
+            }
+            ClassMethodBody::AST(body) => {
+                let mut local_var_def_visitor = LocalVarDefVisitor::new();
+                local_var_def_visitor.visit(&NodeKind::from(body));
+
+                assert!(!method.def.is_static || (method.def.is_static && method.def.is_main));
+                let this_param = if method.def.is_main { 0 } else { 1 };
+                let param_count =
+                    this_param + method.def.params.len() + local_var_def_visitor.count;
+                let graph = Graph::function_with_entity(method.entity, param_count);
+                let mut method_body_gen = MethodBodyGenerator::new(
+                    graph,
+                    Rc::clone(&method.def),
+                    &self.type_analysis,
+                    &self.runtime,
+                );
+                method_body_gen.gen_method(body);
+                unsafe {
+                    irg_finalize_cons(graph.into());
+                }
+                graph
+            }
+        }
     }
 
     /// `None` indicates that the given type is not convertible, which
@@ -151,12 +156,10 @@ impl<'src, 'ast> FirmGenerator<'src, 'ast> {
         Some(ty)
     }
 
-    fn build_entities(
-        type_system: &'src TypeSystem<'src, 'ast>,
-    ) -> Vec<Rc<RefCell<GeneratorClass<'src, 'ast>>>> {
+    fn build_entities(&self) -> Vec<Rc<RefCell<GeneratorClass<'src, 'ast>>>> {
         let mut classes = Vec::new();
         // Define classes
-        for class in type_system.defined_classes.values() {
+        for class in self.type_system.defined_classes.values() {
             unsafe {
                 log::debug!("gen class {:?}", class.name.as_str());
                 let class_name_str = class.name.as_str();
@@ -571,7 +574,8 @@ pub unsafe fn build(
 ) {
     setup();
 
-    let gen = FirmGenerator::gen(type_system, type_analysis);
+    let generator = ProgramGenerator::new(type_system, type_analysis);
+    let program = generator.generate();
 
     lower_highlevel();
     be_lower_for_target();
@@ -606,8 +610,10 @@ pub unsafe fn build(
         }
     }
 
-    // See comment inside FirmGenerator for why this is necessary.
-    drop(gen);
+    // This is necessary to extend the lifetime of program
+    // data beyond their usage within libfirm. See comments
+    // in the head of this file.
+    drop(program);
 
     ir_finish();
 }
