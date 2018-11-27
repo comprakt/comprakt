@@ -1,4 +1,5 @@
 use crate::strtab::StringTable;
+use std::rc::Rc;
 
 use super::{checker::SemanticContext, type_system::*};
 
@@ -37,7 +38,7 @@ impl<'src, 'ast> BuiltinTypes<'src> {
                 .add_method(ClassMethodDef {
                     name: strtab.intern("println"),
                     body: ClassMethodBody::Builtin(BuiltinMethodBody::SystemOutPrintln),
-                    params: vec![MethodParamDef::new(arg_sym, int_ty.clone())],
+                    params: vec![Rc::new(MethodParamDef::new(arg_sym, int_ty.clone()))],
                     return_ty: CheckedType::Void,
                     is_static: false,
                     is_main: false,
@@ -47,7 +48,7 @@ impl<'src, 'ast> BuiltinTypes<'src> {
                 .add_method(ClassMethodDef {
                     name: strtab.intern("write"),
                     body: ClassMethodBody::Builtin(BuiltinMethodBody::SystemOutWrite),
-                    params: vec![MethodParamDef::new(arg_sym, int_ty.clone())],
+                    params: vec![Rc::new(MethodParamDef::new(arg_sym, int_ty.clone()))],
                     return_ty: CheckedType::Void,
                     is_static: false,
                     is_main: false,

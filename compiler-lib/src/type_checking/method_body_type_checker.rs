@@ -7,17 +7,16 @@ use crate::{
     symtab::*,
 };
 
+use std::rc::Rc;
+
 #[derive(Debug, Clone)]
-pub struct ExprInfo<'src, 'ast, 'ts> {
+pub struct ExprInfo<'src, 'ast> {
     pub ty: CheckedType<'src>,
-    pub ref_info: Option<RefInfo<'src, 'ast, 'ts>>,
+    pub ref_info: Option<RefInfo<'src, 'ast>>,
 }
 
-impl<'src, 'ast, 'ts> ExprInfo<'src, 'ast, 'ts> {
-    pub fn new(
-        ty: CheckedType<'src>,
-        ref_info: RefInfo<'src, 'ast, 'ts>,
-    ) -> ExprInfo<'src, 'ast, 'ts> {
+impl<'src, 'ast> ExprInfo<'src, 'ast> {
+    pub fn new(ty: CheckedType<'src>, ref_info: RefInfo<'src, 'ast>) -> Self {
         ExprInfo {
             ty,
             ref_info: Some(ref_info),
@@ -25,8 +24,8 @@ impl<'src, 'ast, 'ts> ExprInfo<'src, 'ast, 'ts> {
     }
 }
 
-impl<'src, 'ast, 'ts> From<CheckedType<'src>> for ExprInfo<'src, 'ast, 'ts> {
-    fn from(item: CheckedType<'src>) -> ExprInfo<'src, 'ast, 'ts> {
+impl<'src, 'ast, 'ts> From<CheckedType<'src>> for ExprInfo<'src, 'ast> {
+    fn from(item: CheckedType<'src>) -> ExprInfo<'src, 'ast> {
         ExprInfo {
             ty: item,
             ref_info: None,
@@ -35,35 +34,35 @@ impl<'src, 'ast, 'ts> From<CheckedType<'src>> for ExprInfo<'src, 'ast, 'ts> {
 }
 
 #[derive(Debug, Clone)]
-pub enum RefInfo<'src, 'ast, 'ts> {
+pub enum RefInfo<'src, 'ast> {
     GlobalVar(Symbol<'src>),
     Var(Symbol<'src>),
-    Param(&'ts MethodParamDef<'src>),
-    Field(&'ts ClassFieldDef<'src>),
-    Method(&'ts ClassMethodDef<'src, 'ast>),
-    // impossible in minijava: Class(&'ts ClassDef<'src, 'ast>),
-    This(&'ts ClassDef<'src, 'ast>),
+    Param(Rc<MethodParamDef<'src>>),
+    Field(Rc<ClassFieldDef<'src>>),
+    Method(Rc<ClassMethodDef<'src, 'ast>>),
+    // impossible in minijava: Class(Rc<ClassDef<'src, 'ast>),
+    This(Rc<ClassDef<'src, 'ast>>),
     ArrayAccess,
 }
 
 #[derive(Clone)]
-pub enum VarDef<'src, 'ts> {
+pub enum VarDef<'src> {
     Local {
         #[allow(dead_code)]
         name: Symbol<'src>,
         ty: CheckedType<'src>,
     },
-    Param(&'ts MethodParamDef<'src>),
+    Param(Rc<MethodParamDef<'src>>),
 }
 
 pub struct MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana> {
     pub context: &'ctx SemanticContext<'ctx, 'src>,
     pub type_system: &'ts TypeSystem<'src, 'ast>,
     pub current_class_id: ClassDefId<'src>,
-    pub current_class: &'ts ClassDef<'src, 'ast>,
-    pub current_method: &'ts ClassMethodDef<'src, 'ast>,
-    pub type_analysis: &'ana mut TypeAnalysis<'src, 'ast, 'ts>,
-    pub local_scope: Scoped<Symbol<'src>, VarDef<'src, 'ts>>,
+    pub current_class: Rc<ClassDef<'src, 'ast>>,
+    pub current_method: Rc<ClassMethodDef<'src, 'ast>>,
+    pub type_analysis: &'ana mut TypeAnalysis<'src, 'ast>,
+    pub local_scope: Scoped<Symbol<'src>, VarDef<'src>>,
 }
 
 #[derive(Debug)]
@@ -76,7 +75,7 @@ where
     pub fn check_methods(
         class_decl: &'ast ast::ClassDeclaration<'src>,
         type_system: &'ts TypeSystem<'src, 'ast>,
-        type_analysis: &'ana mut TypeAnalysis<'src, 'ast, 'ts>,
+        type_analysis: &'ana mut TypeAnalysis<'src, 'ast>,
         context: &'ctx SemanticContext<'ctx, 'src>,
     ) {
         let current_class_id = type_analysis
@@ -98,15 +97,15 @@ where
                         type_system,
                         type_analysis,
                         current_class_id,
-                        current_class,
-                        current_method,
+                        current_class: Rc::clone(&current_class),
+                        current_method: Rc::clone(&current_method),
                         local_scope: Scoped::new(),
                     };
 
                     for param in &current_method.params {
                         checker
                             .local_scope
-                            .define(param.name, VarDef::Param(&param))
+                            .define(param.name, VarDef::Param(Rc::clone(param)))
                             .expect("no double params allowed");
                     }
 
@@ -158,7 +157,7 @@ where
                 let _ = self.type_expr(expr);
             }
             Return(expr_opt) => {
-                let return_ty = &self.current_method.return_ty;
+                let return_ty = &Rc::clone(&self.current_method).return_ty;
 
                 match (expr_opt, return_ty) {
                     (None, CheckedType::Void) => {}
@@ -213,7 +212,7 @@ where
     fn type_expr(
         &mut self,
         expr: &'ast Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<ExprInfo<'src, 'ast, 'ts>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ast>, CouldNotDetermineType> {
         let t = self.type_expr_internal(expr);
 
         if let Ok(ref t) = t {
@@ -225,7 +224,7 @@ where
     fn type_expr_internal(
         &mut self,
         expr: &'ast Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<ExprInfo<'src, 'ast, 'ts>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ast>, CouldNotDetermineType> {
         use crate::ast::Expr::*;
         match &expr.data {
             Binary(op, lhs, rhs) => self.check_binary_expr(expr.span, *op, lhs, rhs),
@@ -281,7 +280,7 @@ where
                     e
                 })?;
                 // IMPROVEMENT check args if type or class_def already fails
-                self.check_method_invocation(name, target_class_def, args)
+                self.check_method_invocation(name, &target_class_def, args)
             }
             ThisMethodInvocation(name, args) => {
                 // e.g. "name(arg1, arg2);"
@@ -294,7 +293,7 @@ where
                     );
                 }
                 // assume the user wanted to call the method on an object
-                self.check_method_invocation(name, &self.current_class, args)
+                self.check_method_invocation(name, &Rc::clone(&self.current_class), args)
             }
             ArrayAccess(target_expr, idx_expr) => {
                 self.check_type(idx_expr, &CheckedType::Int);
@@ -329,7 +328,7 @@ where
                 } else {
                     Ok(ExprInfo::new(
                         CheckedType::TypeRef(self.current_class_id),
-                        RefInfo::This(self.current_class),
+                        RefInfo::This(Rc::clone(&self.current_class)),
                     ))
                 }
             }
@@ -369,7 +368,7 @@ where
         op: ast::BinaryOp,
         lhs: &'ast Spanned<'src, ast::Expr<'src>>,
         rhs: &'ast Spanned<'src, ast::Expr<'src>>,
-    ) -> Result<ExprInfo<'src, 'ast, 'ts>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ast>, CouldNotDetermineType> {
         use crate::ast::BinaryOp::*;
         match op {
             Assign => {
@@ -459,9 +458,9 @@ where
     fn check_method_invocation(
         &mut self,
         method_name: &Spanned<'src, Symbol<'src>>,
-        target_class_def: &'ts ClassDef<'src, 'ast>,
+        target_class_def: &ClassDef<'src, 'ast>,
         args: &'ast [Spanned<'src, ast::Expr<'src>>],
-    ) -> Result<ExprInfo<'src, 'ast, 'ts>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ast>, CouldNotDetermineType> {
         let method = match target_class_def.method(method_name.data) {
             Some(method) => method,
             None => {
@@ -509,7 +508,7 @@ where
     fn resolve_to_class_def(
         &mut self,
         ty: &CheckedType<'src>,
-    ) -> Result<&'ts ClassDef<'src, 'ast>, CouldNotDetermineType> {
+    ) -> Result<Rc<ClassDef<'src, 'ast>>, CouldNotDetermineType> {
         match ty {
             CheckedType::TypeRef(id) => Ok(self.type_system.class(*id)),
             _ => Err(CouldNotDetermineType),
@@ -520,7 +519,7 @@ where
     fn check_var(
         &mut self,
         var_name: &Spanned<'src, Symbol<'src>>,
-    ) -> Result<ExprInfo<'src, 'ast, 'ts>, CouldNotDetermineType> {
+    ) -> Result<ExprInfo<'src, 'ast>, CouldNotDetermineType> {
         match self.local_scope.visible_definition(var_name.data) {
             // local variable or param
             Some(VarDef::Local { ty, name }) => Ok(ExprInfo {
@@ -539,7 +538,7 @@ where
 
                 Ok(ExprInfo {
                     ty: param_def.ty.clone(),
-                    ref_info: Some(RefInfo::Param(param_def)),
+                    ref_info: Some(RefInfo::Param(Rc::clone(param_def))),
                 })
             }
             None => Err(CouldNotDetermineType),

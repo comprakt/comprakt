@@ -2,6 +2,7 @@ use crate::strtab::Symbol;
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt,
+    rc::Rc,
 };
 
 #[derive(Debug)]
@@ -11,7 +12,7 @@ pub struct ClassAlreadyDeclared;
 
 #[derive(Debug, Default)]
 pub struct TypeSystem<'src, 'ast> {
-    pub defined_classes: HashMap<Symbol<'src>, ClassDef<'src, 'ast>>,
+    pub defined_classes: HashMap<Symbol<'src>, Rc<ClassDef<'src, 'ast>>>,
 }
 
 impl<'src, 'ast> TypeSystem<'src, 'ast> {
@@ -27,7 +28,7 @@ impl<'src, 'ast> TypeSystem<'src, 'ast> {
             Entry::Occupied(_) => Err(ClassAlreadyDeclared),
             Entry::Vacant(e) => {
                 let id = ClassDefId { id: class_def.name };
-                e.insert(class_def);
+                e.insert(Rc::new(class_def));
                 Ok(id)
             }
         }
@@ -36,33 +37,35 @@ impl<'src, 'ast> TypeSystem<'src, 'ast> {
     pub fn class_mut(&mut self, id: ClassDefId<'src>) -> &mut ClassDef<'src, 'ast> {
         self.defined_classes
             .get_mut(&id.id)
+            .and_then(Rc::get_mut)
             .expect("Ids always point to existing classes")
     }
 
-    pub fn class(&self, id: ClassDefId<'src>) -> &ClassDef<'src, 'ast> {
+    pub fn class(&self, id: ClassDefId<'src>) -> Rc<ClassDef<'src, 'ast>> {
         self.defined_classes
             .get(&id.id)
+            .map(Rc::clone)
             .expect("Ids always point to existing classes")
     }
 
     pub fn lookup_class_mut(&mut self, name: Symbol<'src>) -> Option<&mut ClassDef<'src, 'ast>> {
-        self.defined_classes.get_mut(&name)
+        self.defined_classes.get_mut(&name).and_then(Rc::get_mut)
     }
 
     pub fn lookup_class(
         &self,
         name: Symbol<'src>,
-    ) -> Option<(&ClassDef<'src, 'ast>, ClassDefId<'src>)> {
+    ) -> Option<(Rc<ClassDef<'src, 'ast>>, ClassDefId<'src>)> {
         match self.defined_classes.get(&name) {
             Some(class) => {
                 let id = ClassDefId { id: name };
-                Some((class, id))
+                Some((Rc::clone(class), id))
             }
             None => None,
         }
     }
 
-    pub fn defined_classes(&self) -> &HashMap<Symbol<'_>, ClassDef<'_, '_>> {
+    pub fn defined_classes(&self) -> &HashMap<Symbol<'_>, Rc<ClassDef<'_, '_>>> {
         &self.defined_classes
     }
 }
@@ -100,8 +103,8 @@ pub struct ClassDef<'src, 'ast> {
     // tracks how many redefinitions there are
     redefinitions: usize,
     pub name: Symbol<'src>,
-    fields: HashMap<Symbol<'src>, ClassFieldDef<'src>>,
-    methods: HashMap<Symbol<'src>, ClassMethodDef<'src, 'ast>>,
+    fields: HashMap<Symbol<'src>, Rc<ClassFieldDef<'src>>>,
+    methods: HashMap<Symbol<'src>, Rc<ClassMethodDef<'src, 'ast>>>,
 }
 
 impl<'src, 'ast> ClassDef<'src, 'ast> {
@@ -122,33 +125,33 @@ impl<'src, 'ast> ClassDef<'src, 'ast> {
     pub fn add_field(&mut self, field: ClassFieldDef<'src>) -> Result<(), ()> {
         match self.fields.entry(field.name) {
             Entry::Occupied(_) => return Err(()),
-            Entry::Vacant(e) => e.insert(field),
+            Entry::Vacant(e) => e.insert(Rc::new(field)),
         };
         Ok(())
     }
 
-    pub fn field(&self, name: Symbol<'src>) -> Option<&ClassFieldDef<'src>> {
-        self.fields.get(&name)
+    pub fn field(&self, name: Symbol<'src>) -> Option<Rc<ClassFieldDef<'src>>> {
+        self.fields.get(&name).map(Rc::clone)
     }
 
-    pub fn iter_fields(&self) -> impl Iterator<Item = &ClassFieldDef<'src>> {
-        self.fields.iter().map(|(_, c)| c)
+    pub fn iter_fields<'a>(&'a self) -> impl Iterator<Item = Rc<ClassFieldDef<'src>>> + 'a {
+        self.fields.iter().map(|(_, c)| Rc::clone(c))
     }
 
-    pub fn iter_methods(&self) -> impl Iterator<Item = &ClassMethodDef<'src, 'ast>> {
-        self.methods.iter().map(|(_, c)| c)
+    pub fn iter_methods<'a>(&'a self) -> impl Iterator<Item = Rc<ClassMethodDef<'src, 'ast>>> + 'a {
+        self.methods.iter().map(|(_, c)| Rc::clone(c))
     }
 
     pub fn add_method(&mut self, method: ClassMethodDef<'src, 'ast>) -> Result<(), ()> {
         match self.methods.entry(method.name) {
             Entry::Occupied(_) => return Err(()),
-            Entry::Vacant(e) => e.insert(method),
+            Entry::Vacant(e) => e.insert(Rc::new(method)),
         };
         Ok(())
     }
 
-    pub fn method(&self, name: Symbol<'src>) -> Option<&ClassMethodDef<'src, 'ast>> {
-        self.methods.get(&name)
+    pub fn method(&self, name: Symbol<'src>) -> Option<Rc<ClassMethodDef<'src, 'ast>>> {
+        self.methods.get(&name).map(Rc::clone)
     }
 }
 
@@ -171,7 +174,7 @@ pub struct ClassMethodDef<'src, 'ast> {
     pub name: Symbol<'src>,
     pub body: ClassMethodBody<'src, 'ast>,
     /// params does not include `this` for non-static / non-main methods
-    pub params: Vec<MethodParamDef<'src>>,
+    pub params: Vec<Rc<MethodParamDef<'src>>>,
     pub return_ty: CheckedType<'src>,
     pub is_static: bool,
     pub is_main: bool,
@@ -190,7 +193,7 @@ impl<'src, 'ast> ClassMethodDef<'src, 'ast> {
             name,
             body,
             return_ty,
-            params,
+            params: params.into_iter().map(Rc::new).collect(),
             is_main: is_static,
         }
     }

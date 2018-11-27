@@ -50,7 +50,7 @@ struct GeneratorClass<'src, 'ast> {
 
 struct GeneratorField<'src, 'ast> {
     class: Weak<RefCell<GeneratorClass<'src, 'ast>>>,
-    def: &'src ClassFieldDef<'src>,
+    def: Rc<ClassFieldDef<'src>>,
     /// `entity` stores a ref to `_name_store`, hence keep `_name_store` alive
     /// in this struct
     _name_store: CString,
@@ -60,7 +60,7 @@ struct GeneratorField<'src, 'ast> {
 struct GeneratorMethod<'src, 'ast> {
     class: Weak<RefCell<GeneratorClass<'src, 'ast>>>,
     body: ClassMethodBody<'src, 'ast>,
-    def: &'src ClassMethodDef<'src, 'ast>,
+    def: Rc<ClassMethodDef<'src, 'ast>>,
     entity: Entity,
     /// `entity` stores a ref to `_name_store`, hence keep `_name_store` alive
     /// in this struct
@@ -97,7 +97,7 @@ impl<'src, 'ast> FirmGenerator<'src, 'ast> {
                             this_param + method.def.params.len() + local_var_def_visitor.count;
                         let graph = Graph::function_with_entity(method.entity, param_count);
                         let mut method_body_gen =
-                            MethodBodyGenerator::new(graph, method.def, &runtime);
+                            MethodBodyGenerator::new(graph, Rc::clone(&method.def), &runtime);
                         method_body_gen.gen_method(body);
                         unsafe {
                             irg_finalize_cons(graph.into());
@@ -202,7 +202,7 @@ impl<'src, 'ast> FirmGenerator<'src, 'ast> {
                         .push(Rc::new(RefCell::new(GeneratorMethod {
                             class: Rc::downgrade(&gclass),
                             _name_store: method_name,
-                            def: method,
+                            def: Rc::clone(&method),
                             entity: method_entity.into(),
                             graph: None,
                             body: method.body,
@@ -367,7 +367,7 @@ impl Runtime {
 
 struct MethodBodyGenerator<'ir, 'src, 'ast> {
     graph: Graph,
-    method_def: &'ir ClassMethodDef<'src, 'ast>,
+    method_def: Rc<ClassMethodDef<'src, 'ast>>,
     local_vars: HashMap<Symbol<'src>, (usize, mode::Type)>,
     num_vars: usize,
     runtime: &'ir Runtime,
@@ -376,7 +376,7 @@ struct MethodBodyGenerator<'ir, 'src, 'ast> {
 impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     fn new(
         graph: Graph,
-        method_def: &'ir ClassMethodDef<'src, 'ast>,
+        method_def: Rc<ClassMethodDef<'src, 'ast>>,
         runtime: &'ir Runtime,
     ) -> Self {
         let mut se1f = MethodBodyGenerator {
@@ -389,10 +389,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
         let args = graph.args_node();
 
-        if !method_def.is_static {
+        if !se1f.method_def.is_static {
             // TODO `this`-ptr graph.set_value(0, &args.project(unsafe { mode::P }, 0));
             se1f.num_vars += 1;
 
+            let method_def = Rc::clone(&se1f.method_def);
             for (i, p) in method_def.params.iter().enumerate() {
                 let mode = get_firm_mode(&p.ty).expect("args mustn't have void type");
                 graph.set_value(se1f.new_local_var(p.name, mode), &args.project(mode, i + 1));

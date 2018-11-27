@@ -12,12 +12,12 @@ use super::{
     type_analysis::TypeAnalysis, type_system::*,
 };
 
-pub fn check<'ast, 'src, 'ts>(
+pub fn check<'ast, 'src>(
     strtab: &'_ mut StringTable<'src>,
     ast: &'ast ast::AST<'src>,
     type_system: &'ts mut TypeSystem<'src, 'ast>,
     context: &Context<'src>,
-) -> TypeAnalysis<'src, 'ast, 'ts> {
+) -> TypeAnalysis<'src, 'ast> {
     let mut sem_context = SemanticContext::new(context);
 
     match ast {
@@ -72,7 +72,7 @@ impl<'ctx, 'src> SemanticContext<'ctx, 'src> {
 fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
     strtab: &mut StringTable<'src>,
     type_system: &mut TypeSystem<'src, 'ast>,
-    type_analysis: &'ana mut TypeAnalysis<'src, 'ast, '_>,
+    type_analysis: &'ana mut TypeAnalysis<'src, 'ast>,
     builtin_types: &BuiltinTypes<'src>,
     context: &SemanticContext<'ctx, 'src>,
     program: &'ast ast::Program<'src>,
