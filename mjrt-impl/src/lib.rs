@@ -19,7 +19,7 @@ macro_rules! mjrt_runtimeexception {
             let bt = Backtrace::new();
             println!("{}\n{:?}", $description, bt);
         }
-    }
+    };
 }
 
 mjrt_runtimeexception!(mjrt_dumpstack, "dumpstack");
@@ -48,9 +48,10 @@ pub extern "C" fn mjrt_system_out_println(num: MjInt) {
 }
 
 #[no_mangle]
-// TODO: this should write a byte. But what's a byte in MiniJava?
 pub extern "C" fn mjrt_system_out_write(num: MjInt) {
-    print!("{}", num);
+    unsafe {
+        libc::putchar(num as c_int);
+    }
 }
 
 #[no_mangle]
