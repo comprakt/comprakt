@@ -1,3 +1,20 @@
+//! Lowers the output of the semantic analysis phase (AST, Type System, Type
+//! Analysis), into Firm for code generation.
+//!
+//!
+//! # Generated Labels
+//!
+//! A dot (`.`) is a valid character in an ASM label, but not in MiniJava. This
+//! is why it's used as a separator. As properties and methods live in their
+//! own namespaces, methods have the additional segment `.F.`.
+//!
+//! # Unused Struct Properties
+//!
+//! While building the firm graph, identifiers are created for Firm entities
+//! using CString, which heap-allocates. However, firm only contains raw
+//! pointers to the CString instances, hence the CString must be kept around
+//! for the lifetime of the graph. Otherwise rust would de allocate the CString
+//! to early!
 pub mod runtime;
 
 pub use self::runtime::Runtime;
@@ -45,32 +62,26 @@ use std::{
 };
 
 struct GeneratorClass<'src, 'ast> {
+    _name: CString,
     def: &'src ClassDef<'src, 'ast>,
     entity: Entity,
-    /// `entity` stores a ref to `_name_store`, hence keep `_name_store` alive
-    /// in this struct
-    _name_store: CString,
     fields: Vec<Rc<RefCell<GeneratorField<'src, 'ast>>>>,
     methods: Vec<Rc<RefCell<GeneratorMethod<'src, 'ast>>>>,
 }
 
 struct GeneratorField<'src, 'ast> {
+    _name: CString,
     class: Weak<RefCell<GeneratorClass<'src, 'ast>>>,
     def: Rc<ClassFieldDef<'src>>,
-    /// `entity` stores a ref to `_name_store`, hence keep `_name_store` alive
-    /// in this struct
-    _name_store: CString,
     entity: Entity,
 }
 
 struct GeneratorMethod<'src, 'ast> {
+    _name: CString,
     class: Weak<RefCell<GeneratorClass<'src, 'ast>>>,
     body: ClassMethodBody<'src, 'ast>,
     def: Rc<ClassMethodDef<'src, 'ast>>,
     entity: Entity,
-    /// `entity` stores a ref to `_name_store`, hence keep `_name_store` alive
-    /// in this struct
-    _name_store: CString,
     graph: Option<Graph>,
 }
 
@@ -154,7 +165,7 @@ impl<'src, 'ast> FirmGenerator<'src, 'ast> {
 
                 let gclass = Rc::new(RefCell::new(GeneratorClass {
                     def: class,
-                    _name_store: class_name,
+                    _name: class_name,
                     entity: class_entity,
                     fields: Vec::new(),
                     methods: Vec::new(),
@@ -177,7 +188,7 @@ impl<'src, 'ast> FirmGenerator<'src, 'ast> {
                         .fields
                         .push(Rc::new(RefCell::new(GeneratorField {
                             class: Rc::downgrade(&gclass),
-                            _name_store: field_name,
+                            _name: field_name,
                             def: field,
                             entity: field_entity.into(),
                         })));
@@ -214,7 +225,7 @@ impl<'src, 'ast> FirmGenerator<'src, 'ast> {
                         .methods
                         .push(Rc::new(RefCell::new(GeneratorMethod {
                             class: Rc::downgrade(&gclass),
-                            _name_store: method_name,
+                            _name: method_name,
                             def: Rc::clone(&method),
                             entity: method_entity.into(),
                             graph: None,
