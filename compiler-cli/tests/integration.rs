@@ -55,7 +55,7 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
         CompilerPhase::Parser => &["--parsetest"],
         CompilerPhase::Ast => &["--print-ast"],
         CompilerPhase::Semantic => &["--check"],
-        CompilerPhase::Assembly => &["--lower", "--emit-asm", "-"],
+        CompilerPhase::Assembly => &["--compile-firm"],
         CompilerPhase::Binary { output } => {
             return vec![
                 OsString::from("--compile"),

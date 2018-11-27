@@ -109,7 +109,7 @@ pub enum CliCommand {
         path: PathBuf,
     },
     /// Output x86-assembler or the firm graph in various stages
-    #[structopt(name = "--lower")]
+    #[structopt(name = "--compile-firm")]
     Lower(LoweringOptions),
 
     /// Output an executable
@@ -140,15 +140,17 @@ pub struct LoweringOptions {
         parse(from_os_str)
     )]
     pub dump_lowered_firm_graph: Option<PathBuf>,
-    /// Write generated assembler code to the given file.
-    #[structopt(long = "--emit-asm", short = "-a", parse(from_os_str))]
-    pub dump_assembler: Option<PathBuf>,
+    /// Write generated assembly code to the given file. Defaults to
+    /// stdout
+    #[structopt(long = "--output", short = "-o", parse(from_os_str))]
+    pub output: Option<PathBuf>,
 }
 
 impl Into<firm::Options> for LoweringOptions {
     fn into(self) -> firm::Options {
         firm::Options {
-            dump_assembler: self.dump_assembler,
+            // TODO: remove stringly typed api "-" for stdout
+            dump_assembler: Some(self.output.unwrap_or_else(|| PathBuf::from("-"))),
             dump_lowered_firm_graph: self.dump_lowered_firm_graph,
             dump_firm_graph: self.dump_firm_graph,
         }
