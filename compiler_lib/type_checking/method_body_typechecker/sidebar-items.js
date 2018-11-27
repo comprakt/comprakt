@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["RefInfo",""],["VarDef",""]],"struct":[["CouldNotDetermineType",""],["ExprInfo",""],["MethodBodyTypeChecker",""]]});
