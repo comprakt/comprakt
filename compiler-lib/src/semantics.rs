@@ -3,7 +3,7 @@ use crate::{
     ast,
     context::Context,
     strtab::{self, Symbol},
-    type_checking::type_system::TypeSystem,
+    type_checking::{self, type_analysis::TypeAnalysis, type_system::TypeSystem},
     visitor::NodeKind,
 };
 use failure::Fail;
@@ -143,7 +143,7 @@ pub fn check<'a, 'f>(
     strtab: &mut strtab::StringTable<'f>,
     ast: &'a ast::AST<'f>,
     context: &Context<'f>,
-) -> Result<TypeSystem<'f, 'a>, ()> {
+) -> Result<(TypeSystem<'f, 'a>, TypeAnalysis<'f, 'a>), ()> {
     let mut first_pass_visitor = ClassesAndMembersVisitor::new(context);
     first_pass_visitor.do_visit(&NodeKind::from(ast));
 
@@ -159,13 +159,11 @@ pub fn check<'a, 'f>(
     if context.diagnostics.errored() {
         return Err(());
     }
-    use crate::type_checking::{self, type_system::TypeSystem};
-    let mut type_system = TypeSystem::default();
-    type_checking::check(strtab, &ast, &mut type_system, &context);
+    let res = type_checking::check(strtab, &ast, &context);
     if context.diagnostics.errored() {
         return Err(());
     }
-    Ok(type_system)
+    Ok(res)
 }
 
 struct ClassesAndMembersVisitor<'f, 'cx> {

@@ -2,9 +2,12 @@ use crate::{
     asciifile::Spanned,
     ast,
     strtab::Symbol,
-    type_checking::type_system::{
-        BuiltinMethodBody, CheckedType, ClassDef, ClassFieldDef, ClassMethodBody, ClassMethodDef,
-        TypeSystem,
+    type_checking::{
+        type_analysis::TypeAnalysis,
+        type_system::{
+            BuiltinMethodBody, CheckedType, ClassDef, ClassFieldDef, ClassMethodBody,
+            ClassMethodDef, TypeSystem,
+        },
     },
     visitor::NodeKind,
 };
@@ -69,7 +72,10 @@ struct GeneratorMethod<'src, 'ast> {
 }
 
 impl<'src, 'ast> FirmGenerator<'src, 'ast> {
-    fn gen(type_system: &'src TypeSystem<'src, 'ast>) -> Self {
+    fn gen(
+        type_system: &'src TypeSystem<'src, 'ast>,
+        type_analysis: &TypeAnalysis<'src, 'ast>,
+    ) -> Self {
         let runtime = Runtime::new();
         let classes = Self::build_entities(type_system);
         // TODO glue classes and runtime functions together here!
@@ -96,8 +102,12 @@ impl<'src, 'ast> FirmGenerator<'src, 'ast> {
                         let param_count =
                             this_param + method.def.params.len() + local_var_def_visitor.count;
                         let graph = Graph::function_with_entity(method.entity, param_count);
-                        let mut method_body_gen =
-                            MethodBodyGenerator::new(graph, Rc::clone(&method.def), &runtime);
+                        let mut method_body_gen = MethodBodyGenerator::new(
+                            graph,
+                            Rc::clone(&method.def),
+                            type_analysis,
+                            &runtime,
+                        );
                         method_body_gen.gen_method(body);
                         unsafe {
                             irg_finalize_cons(graph.into());
@@ -371,12 +381,14 @@ struct MethodBodyGenerator<'ir, 'src, 'ast> {
     local_vars: HashMap<Symbol<'src>, (usize, mode::Type)>,
     num_vars: usize,
     runtime: &'ir Runtime,
+    type_analysis: &'ir TypeAnalysis<'src, 'ast>,
 }
 
 impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     fn new(
         graph: Graph,
         method_def: Rc<ClassMethodDef<'src, 'ast>>,
+        type_analysis: &'ir TypeAnalysis<'src, 'ast>,
         runtime: &'ir Runtime,
     ) -> Self {
         let mut se1f = MethodBodyGenerator {
@@ -385,6 +397,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             num_vars: 0,
             method_def,
             runtime,
+            type_analysis,
         };
 
         let args = graph.args_node();
@@ -662,10 +675,14 @@ unsafe fn setup() {
     set_optimize(0);
 }
 
-pub unsafe fn build(opts: &Options, type_system: &TypeSystem<'_, '_>) {
+pub unsafe fn build(
+    opts: &Options,
+    type_system: &TypeSystem<'_, '_>,
+    type_analysis: &TypeAnalysis<'_, '_>,
+) {
     setup();
 
-    let gen = FirmGenerator::gen(type_system);
+    let gen = FirmGenerator::gen(type_system, type_analysis);
 
     lower_highlevel();
     be_lower_for_target();

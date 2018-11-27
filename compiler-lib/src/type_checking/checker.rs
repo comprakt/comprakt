@@ -15,39 +15,36 @@ use super::{
 pub fn check<'ast, 'src>(
     strtab: &'_ mut StringTable<'src>,
     ast: &'ast ast::AST<'src>,
-    type_system: &'ts mut TypeSystem<'src, 'ast>,
     context: &Context<'src>,
-) -> TypeAnalysis<'src, 'ast> {
+) -> (TypeSystem<'src, 'ast>, TypeAnalysis<'src, 'ast>) {
     let mut sem_context = SemanticContext::new(context);
 
-    match ast {
-        ast::AST::Empty => TypeAnalysis::new(),
-        ast::AST::Program(program) => {
-            let mut type_analysis = TypeAnalysis::new();
+    let mut type_system = TypeSystem::default();
+    let mut type_analysis = TypeAnalysis::new();
 
-            let builtin_types = BuiltinTypes::add_to(type_system, strtab, &mut sem_context);
+    if let ast::AST::Program(program) = ast {
+        let builtin_types = BuiltinTypes::add_to(&mut type_system, strtab, &mut sem_context);
 
-            add_types_from_ast(
-                strtab,
-                type_system,
+        add_types_from_ast(
+            strtab,
+            &mut type_system,
+            &mut type_analysis,
+            &builtin_types,
+            &sem_context,
+            program,
+        );
+
+        for class_decl in &program.classes {
+            MethodBodyTypeChecker::check_methods(
+                &class_decl,
+                &type_system,
                 &mut type_analysis,
-                &builtin_types,
                 &sem_context,
-                program,
             );
-
-            for class_decl in &program.classes {
-                MethodBodyTypeChecker::check_methods(
-                    &class_decl,
-                    type_system,
-                    &mut type_analysis,
-                    &sem_context,
-                );
-            }
-
-            type_analysis
         }
     }
+
+    (type_system, type_analysis)
 }
 
 pub struct SemanticContext<'ctx, 'src> {

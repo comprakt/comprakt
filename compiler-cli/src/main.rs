@@ -269,13 +269,11 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
         }
     };
 
-    let type_system = match crate::semantics::check(&mut strtab, &ast, &context) {
-        Ok(type_system) => type_system,
-        Err(()) => {
+    let (type_system, type_analysis) = crate::semantics::check(&mut strtab, &ast, &context)
+        .unwrap_or_else(|()| {
             context.diagnostics.write_statistics();
-            exit(1)
-        }
-    };
+            exit(1);
+        });
 
     let temp_dir = tempdir()?;
     let out_dir = temp_dir.path().to_path_buf();
@@ -285,7 +283,7 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
     let mut firm_options = firm::Options::default();
     firm_options.dump_assembler = Some(user_assembly.clone());
 
-    unsafe { firm::build(&firm_options, &type_system) };
+    unsafe { firm::build(&firm_options, &type_system, &type_analysis) };
 
     // get runtime library
     let runtime_path = out_dir.join("mjrt.a");
@@ -352,15 +350,13 @@ fn cmd_lower(path: &PathBuf, opts: &firm::Options) -> Result<(), Error> {
         }
     };
 
-    let type_system = match crate::semantics::check(&mut strtab, &ast, &context) {
-        Ok(type_system) => type_system,
-        Err(()) => {
+    let (type_system, type_analysis) = crate::semantics::check(&mut strtab, &ast, &context)
+        .unwrap_or_else(|()| {
             context.diagnostics.write_statistics();
             exit(1);
-        }
-    };
+        });
 
-    unsafe { firm::build(opts, &type_system) };
+    unsafe { firm::build(opts, &type_system, &type_analysis) };
     Ok(())
 }
 

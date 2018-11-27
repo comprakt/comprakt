@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash};
 
 use super::{method_body_type_checker::*, type_system::*};
 
-#[derive(Eq)]
+#[derive(Eq, Debug)]
 pub struct RefEquality<'a, T>(&'a T);
 
 impl<'a, T> std::hash::Hash for RefEquality<'a, T> {
@@ -21,7 +21,7 @@ impl<'a, 'b, T> PartialEq<RefEquality<'b, T>> for RefEquality<'a, T> {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct TypeAnalysis<'src, 'ast> {
     class_types: HashMap<RefEquality<'ast, ast::ClassDeclaration<'src>>, ClassDefId<'src>>,
     expr_info: HashMap<RefEquality<'ast, ast::Expr<'src>>, ExprInfo<'src, 'ast>>,
