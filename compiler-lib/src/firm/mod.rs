@@ -55,27 +55,27 @@ pub struct ProgramGenerator<'src, 'ast> {
 }
 
 pub struct Program<'src, 'ast> {
-    _classes: Vec<Rc<RefCell<GeneratorClass<'src, 'ast>>>>,
+    _classes: Vec<Rc<RefCell<Class<'src, 'ast>>>>,
 }
 
-struct GeneratorClass<'src, 'ast> {
+struct Class<'src, 'ast> {
     _name: CString,
     def: &'src ClassDef<'src, 'ast>,
     entity: Entity,
-    fields: Vec<Rc<RefCell<GeneratorField<'src, 'ast>>>>,
-    methods: Vec<Rc<RefCell<GeneratorMethod<'src, 'ast>>>>,
+    fields: Vec<Rc<RefCell<Field<'src, 'ast>>>>,
+    methods: Vec<Rc<RefCell<Method<'src, 'ast>>>>,
 }
 
-struct GeneratorField<'src, 'ast> {
+struct Field<'src, 'ast> {
     _name: CString,
-    class: Weak<RefCell<GeneratorClass<'src, 'ast>>>,
+    class: Weak<RefCell<Class<'src, 'ast>>>,
     def: Rc<ClassFieldDef<'src>>,
     entity: Entity,
 }
 
-struct GeneratorMethod<'src, 'ast> {
+struct Method<'src, 'ast> {
     _name: CString,
-    class: Weak<RefCell<GeneratorClass<'src, 'ast>>>,
+    class: Weak<RefCell<Class<'src, 'ast>>>,
     body: ClassMethodBody<'src, 'ast>,
     def: Rc<ClassMethodDef<'src, 'ast>>,
     entity: Entity,
@@ -112,7 +112,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
         Program { _classes: classes }
     }
 
-    fn generate_method_body(&self, method: &GeneratorMethod<'_, '_>) -> Graph {
+    fn generate_method_body(&self, method: &Method<'_, '_>) -> Graph {
         match method.body {
             ClassMethodBody::Builtin(builtin) => {
                 self.runtime.graph_from_builtin_method_body(builtin)
@@ -156,7 +156,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
         Some(ty)
     }
 
-    fn build_entities(&self) -> Vec<Rc<RefCell<GeneratorClass<'src, 'ast>>>> {
+    fn build_entities(&self) -> Vec<Rc<RefCell<Class<'src, 'ast>>>> {
         let mut classes = Vec::new();
         // Define classes
         for class in self.type_system.defined_classes.values() {
@@ -168,7 +168,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                 let class_type = new_type_class(class_name_id);
                 let class_entity = Entity::new_global(&class_name, class_type.into());
 
-                let gclass = Rc::new(RefCell::new(GeneratorClass {
+                let gclass = Rc::new(RefCell::new(Class {
                     def: class,
                     _name: class_name,
                     entity: class_entity,
@@ -188,15 +188,12 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                         field_type.into(),
                     );
 
-                    gclass
-                        .borrow_mut()
-                        .fields
-                        .push(Rc::new(RefCell::new(GeneratorField {
-                            class: Rc::downgrade(&gclass),
-                            _name: field_name,
-                            def: field,
-                            entity: field_entity.into(),
-                        })));
+                    gclass.borrow_mut().fields.push(Rc::new(RefCell::new(Field {
+                        class: Rc::downgrade(&gclass),
+                        _name: field_name,
+                        def: field,
+                        entity: field_entity.into(),
+                    })));
                 }
 
                 for method in class.iter_methods() {
@@ -228,7 +225,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                     gclass
                         .borrow_mut()
                         .methods
-                        .push(Rc::new(RefCell::new(GeneratorMethod {
+                        .push(Rc::new(RefCell::new(Method {
                             class: Rc::downgrade(&gclass),
                             _name: method_name,
                             def: Rc::clone(&method),
