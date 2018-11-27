@@ -1,6 +1,4 @@
 [[package]]
-<<<<<<< HEAD
-=======
 name = "backtrace"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -52,7 +50,6 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> firm: abstraction for runtime functions
 name = "libc"
 version = "0.2.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -61,14 +58,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "mjrt-impl"
 version = "0.1.0"
 dependencies = [
-<<<<<<< HEAD
- "libc 0.2.44 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[metadata]
-"checksum libc 0.2.44 (registry+https://github.com/rust-lang/crates.io-index)" = "10923947f84a519a45c8fefb7dd1b3e8c08747993381adee176d7a82b4195311"
-=======
  "backtrace 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.44 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -97,4 +88,3 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum rustc-demangle 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)" = "bcfe5b13211b4d78e5c2cadfebd7769197d95c639c35a50057eb4c05de811395"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
 "checksum winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2d315eee3b34aca4797b2da6b13ed88266e6d612562a0c46390af8299fc699bc"
->>>>>>> firm: abstraction for runtime functions
