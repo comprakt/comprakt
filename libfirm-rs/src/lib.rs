@@ -16,6 +16,12 @@ impl Into<*mut ir_type> for Ty {
     }
 }
 
+impl Into<*const ir_type> for Ty {
+    fn into(self) -> *const ir_type {
+        self.0
+    }
+}
+
 impl From<*mut ir_type> for Ty {
     fn from(primitive: *mut ir_type) -> Ty {
         Ty(primitive)

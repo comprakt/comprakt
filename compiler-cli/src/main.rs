@@ -140,6 +140,13 @@ pub struct LoweringOptions {
         short = "-l",
         parse(from_os_str)
     )]
+    pub dump_class_layouts: Option<PathBuf>,
+    /// Dump class layouts
+    #[structopt(
+        long = "--emit-class-layouts",
+        short = "-c",
+        parse(from_os_str)
+    )]
     pub dump_lowered_firm_graph: Option<PathBuf>,
     /// Write generated assembly code to the given file. Defaults to
     /// stdout
@@ -157,6 +164,7 @@ impl Into<firm::Options> for LoweringOptions {
             }),
             dump_lowered_firm_graph: self.dump_lowered_firm_graph,
             dump_firm_graph: self.dump_firm_graph,
+            dump_class_layouts: self.dump_class_layouts,
         }
     }
 }

@@ -44,7 +44,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                 method.borrow_mut().graph = Some(matured_graph);
             }
         }
-        Program { _classes: classes }
+        Program { classes }
     }
 
     fn generate_method_body(&self, method: &Method<'_, '_>) -> Graph {
@@ -172,6 +172,8 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                             body: method.body,
                         })));
                 }
+
+                default_layout_compound_type(class_type);
 
                 classes.push(gclass);
             }

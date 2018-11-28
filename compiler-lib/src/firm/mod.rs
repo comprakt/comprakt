@@ -45,15 +45,16 @@ use std::{
 pub struct Options {
     pub dump_firm_graph: Option<PathBuf>,
     pub dump_lowered_firm_graph: Option<PathBuf>,
+    pub dump_class_layouts: Option<PathBuf>,
     pub dump_assembler: Option<OutputSpecification>,
 }
 
 pub struct Program<'src, 'ast> {
-    _classes: Vec<Rc<RefCell<Class<'src, 'ast>>>>,
+    classes: Vec<Rc<RefCell<Class<'src, 'ast>>>>,
 }
 
 struct Class<'src, 'ast> {
-    _name: CString,
+    name: CString,
     def: &'src ClassDef<'src, 'ast>,
     entity: Entity,
     fields: Vec<Rc<RefCell<Field<'src, 'ast>>>>,
@@ -100,6 +101,23 @@ pub unsafe fn build(
 
     let generator = ProgramGenerator::new(type_system, type_analysis);
     let program = generator.generate();
+
+    if let Some(dir) = &opts.dump_class_layouts {
+        for class in &program.classes {
+            dump_type_to_file(
+                libc::fopen(
+                    dir.join(class.borrow().name.to_str().unwrap())
+                        .with_extension("layout")
+                        .to_str()
+                        .and_then(|s| CString::new(s).ok())
+                        .unwrap()
+                        .as_ptr() as *mut i8,
+                    CString::new("w").unwrap().as_ptr() as *mut i8,
+                ) as *mut libfirm_rs::bindings::_IO_FILE,
+                class.borrow().entity.ty().into(),
+            );
+        }
+    }
 
     lower_highlevel();
     be_lower_for_target();
