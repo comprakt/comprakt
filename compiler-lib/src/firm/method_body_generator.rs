@@ -201,9 +201,34 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let val = unsafe { new_tarval_from_long(literal.parse().unwrap(), mode::Is) };
                 self.graph.new_const(val).as_value_node()
             }
+            NegInt(literal) => {
+                let val = unsafe {
+                    new_tarval_from_long(
+                        literal.parse::<i64>().map_or_else(|_| -2147483648, |v| -v),
+                        mode::Is,
+                    )
+                };
+                self.graph.new_const(val).as_value_node()
+            }
+            Boolean(value) => {
+                let val = unsafe { new_tarval_from_long(if *value { 1 } else { 0 }, mode::Bu) };
+                self.graph.new_const(val).as_value_node()
+            }
             Var(name) => {
                 let (slot, mode) = self.local_var(**name);
                 self.graph.value(slot, mode).as_value_node()
+            }
+            Binary(ast::BinaryOp::Div, lhs, rhs) => {
+                let lhs = self.gen_expr(lhs);
+                let rhs = self.gen_expr(rhs);
+                let mem = self.graph.cur_store();
+                log::debug!("pre new_div");
+                let div = self.graph.cur_block().new_div(mem, &lhs, &rhs, 0);
+                self.graph.set_store(div.project_mem());
+                log::debug!("pre project_res");
+                let res = div.project_res();
+                log::debug!("pre as_value_node");
+                res.as_value_node()
             }
             Binary(_op, _expr_left, _expr_right) => unimplemented!(),
             Unary(_op, _expr) => unimplemented!(),
@@ -211,8 +236,6 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             FieldAccess(_expr, _symbol) => unimplemented!(),
             ArrayAccess(_expr, _index_expr) => unimplemented!(),
             Null => unimplemented!(),
-            Boolean(_val) => unimplemented!(),
-            NegInt(_literal) => unimplemented!(),
             ThisMethodInvocation(_symbol, _argument_list) => unimplemented!(),
             This => unimplemented!(),
             NewObject(_symbol) => unimplemented!(),

@@ -88,7 +88,6 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
             CheckedType::Int => PrimitiveType::i32(),
             CheckedType::Void => return None,
             CheckedType::TypeRef(_) => PrimitiveType::ptr(),
-
             CheckedType::Array(checked_type) => Self::ty_from_checked_type(checked_type)
                 .expect("Arrays are never of type `void`")
                 .pointer(), // TODO safe array type?

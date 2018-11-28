@@ -290,6 +290,23 @@ pub trait ValueNode {
     fn as_value_node(&self) -> *mut ir_node;
 }
 
+pub trait UnsignedIntegerNode {
+    fn as_uint_node(&self) -> *mut ir_node;
+}
+
+/// FIXME: remove this blanket impl
+impl UnsignedIntegerNode for *mut ir_node {
+    fn as_uint_node(&self) -> *mut ir_node {
+        if cfg!(debug_assertions) {
+            unsafe {
+                let selfmode = get_irn_mode(*self);
+                debug_assert_eq!(selfmode, mode::Iu);
+            }
+        }
+        *self
+    }
+}
+
 /// FIXME: remove this blanket impl because it allows invalid node types as
 /// CmpOperand
 impl<N> CmpOperand for N
@@ -351,6 +368,90 @@ impl Block {
     /// parameter.
     pub fn new_add<A: ALUOperand, B: ALUOperand>(self, left: &A, right: &B) -> ALUOpNode {
         unsafe { new_r_Add(self.0, left.as_alu_operand(), right.as_alu_operand()) }.into()
+    }
+
+    pub fn new_sub<A: ALUOperand, B: ALUOperand>(self, left: &A, right: &B) -> ALUOpNode {
+        unsafe { new_r_Sub(self.0, left.as_alu_operand(), right.as_alu_operand()) }.into()
+    }
+
+    pub fn new_mul<A: ALUOperand, B: ALUOperand>(self, left: &A, right: &B) -> ALUOpNode {
+        unsafe { new_r_Mul(self.0, left.as_alu_operand(), right.as_alu_operand()) }.into()
+    }
+
+    pub fn new_div<A: ALUOperand, B: ALUOperand>(
+        self,
+        mem: MemoryState,
+        left: &A,
+        right: &B,
+        pinned: i32,
+    ) -> Div {
+        unsafe {
+            new_r_Div(
+                self.0,
+                mem.into(),
+                left.as_alu_operand(),
+                right.as_alu_operand(),
+                pinned,
+            )
+        }
+        .into()
+    }
+
+    //    pub fn new_div_remainderless<A: ALUOperand, B: ALUOperand>(self, mem:
+    // MemoryState, left: &A, right: &B) -> DivRemainderlessNode {
+    //        unsafe { new_r_DivRL(self.0, left.as_alu_operand(),
+    // right.as_alu_operand()) }.into()    }
+
+    pub fn new_minus<A: ALUOperand>(self, operand: &A) -> ALUOpNode {
+        unsafe { new_r_Minus(self.0, operand.as_alu_operand()) }.into()
+    }
+
+    /// unsigned shift left
+    pub fn new_shl<A: ALUOperand, S: UnsignedIntegerNode>(
+        self,
+        operand: &A,
+        shift_amount: &S,
+    ) -> ALUOpNode {
+        unsafe {
+            new_r_Shl(
+                self.0,
+                operand.as_alu_operand(),
+                shift_amount.as_uint_node(),
+            )
+        }
+        .into()
+    }
+
+    /// unsigned shift right
+    pub fn new_shr<A: ALUOperand, S: UnsignedIntegerNode>(
+        self,
+        operand: &A,
+        shift_amount: &S,
+    ) -> ALUOpNode {
+        unsafe {
+            new_r_Shr(
+                self.0,
+                operand.as_alu_operand(),
+                shift_amount.as_uint_node(),
+            )
+        }
+        .into()
+    }
+
+    /// signed shift right
+    pub fn new_shrs<A: ALUOperand, S: UnsignedIntegerNode>(
+        self,
+        operand: &A,
+        shift_amount: &S,
+    ) -> ALUOpNode {
+        unsafe {
+            new_r_Shrs(
+                self.0,
+                operand.as_alu_operand(),
+                shift_amount.as_uint_node(),
+            )
+        }
+        .into()
     }
 
     /// `flags` specifies alignment, volatility and pin state. See libfirm docs.
@@ -568,6 +669,31 @@ where
 pub struct ALUOpNode(*mut ir_node);
 
 impl ValueNode for ALUOpNode {
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Div(*mut ir_node);
+
+impl Div {
+    pub fn project_mem(self) -> MemoryState {
+        unsafe { new_r_Proj(self.0, mode::M, pn_Div::M) }.into()
+    }
+    pub fn project_res(self) -> DivResult {
+        unsafe {
+            new_r_Proj(self.0, mode::Is, pn_Div::Res)
+        }
+        .into()
+    }
+}
+
+/// DivResult always has mode::Is, since we only use mode::Is as input operand.
+#[derive(Clone, Copy, Into, From)]
+pub struct DivResult(*mut ir_node);
+
+impl ValueNode for DivResult {
     fn as_value_node(&self) -> *mut ir_node {
         self.0
     }

@@ -11,6 +11,7 @@
 #![feature(nll)]
 #![feature(core_intrinsics)]
 #![feature(custom_attribute)]
+#![feature(result_map_or_else)]
 #[macro_use]
 extern crate derive_more;
 
