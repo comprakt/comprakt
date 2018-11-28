@@ -701,10 +701,7 @@ impl Div {
         unsafe { new_r_Proj(self.0, mode::M, pn_Div::M) }.into()
     }
     pub fn project_res(self) -> DivResult {
-        unsafe {
-            new_r_Proj(self.0, mode::Is, pn_Div::Res)
-        }
-        .into()
+        unsafe { new_r_Proj(self.0, mode::Is, pn_Div::Res) }.into()
     }
 }
 
@@ -726,10 +723,7 @@ impl Mod {
         unsafe { new_r_Proj(self.0, mode::M, pn_Mod::M) }.into()
     }
     pub fn project_res(self) -> ModResult {
-        unsafe {
-            new_r_Proj(self.0, mode::Is, pn_Mod::Res)
-        }
-        .into()
+        unsafe { new_r_Proj(self.0, mode::Is, pn_Mod::Res) }.into()
     }
 }
 
@@ -742,7 +736,6 @@ impl ValueNode for ModResult {
         self.0
     }
 }
-
 
 #[derive(Clone, Copy, Into, From)]
 pub struct MemoryState(*mut ir_node);

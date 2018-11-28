@@ -87,107 +87,124 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         use self::ast::Stmt::*;
         match &**stmt {
             Block(block) => self.gen_block(block),
-            If(cond, then_arm, else_arm) => {
-                let prev_block = self.graph.cur_block();
-
-                // TODO Do we really need an additional header_block? Can't we just put the
-                // new_cond in the prev_block?
-                let incoming_jmp = prev_block.new_jmp();
-                let header_block = self.graph.new_imm_block(&incoming_jmp);
-
-                prev_block.mature(); // This block is done now
-                unsafe { self.graph.set_cur_block(header_block) };
-
-                // We evaluate the condition
-                let cond = header_block.new_cond(&self.gen_cond_expr(cond));
-
-                // If its true, we take the then_arm
-                let then_block = self.graph.new_imm_block(&cond.project_true());
-                {
-                    unsafe { self.graph.set_cur_block(then_block) };
-                    self.gen_stmt(&**then_arm);
-                }
-
-                // If its false, we take the else_arm
-                // We generate an else_block in any case, when there is no `else`, it's empty
-                let else_block = self.graph.new_imm_block(&cond.project_false());
-                if let Some(else_arm) = else_arm {
-                    unsafe { self.graph.set_cur_block(else_block) };
-                    self.gen_stmt(&**else_arm);
-                }
-
-                header_block.mature();
-
-                let from_then_jmp = then_block.new_jmp();
-                let from_else_jmp = else_block.new_jmp();
-
-                // Now we close the if-diamond
-                let next_block = self.graph.new_imm_block(&from_then_jmp);
-                next_block.add_pred(&from_else_jmp);
-                unsafe { self.graph.set_cur_block(next_block) };
-
-                // Those blocks are finished now
-                then_block.mature();
-                else_block.mature();
-            }
-
-            While(cond, body) => {
-                // TODO DRY beginning nearly the same as If-case
-                let prev_block = self.graph.cur_block();
-
-                let incoming_jmp = prev_block.new_jmp();
-                let header_block = self.graph.new_imm_block(&incoming_jmp);
-
-                prev_block.mature(); // This block is done now
-                unsafe { self.graph.set_cur_block(header_block) };
-
-                // We evaluate the condition
-                let cond = header_block.new_cond(&self.gen_cond_expr(cond));
-
-                // Run body if cond is true
-                let body_block = self.graph.new_imm_block(&cond.project_true());
-                {
-                    unsafe { self.graph.set_cur_block(body_block) };
-                    self.gen_stmt(&**body);
-
-                    // We jump back to the condition-check
-                    header_block.add_pred(&body_block.new_jmp());
-                }
-
-                // Leave loop if cond is false
-                let next_block = self.graph.new_imm_block(&cond.project_false());
-                unsafe { self.graph.set_cur_block(next_block) };
-
-                header_block.mature();
-                body_block.mature();
-            }
-
             Expression(expr) => {
                 self.gen_expr(expr);
             }
-
-            Return(res_expr) => {
-                let mem = self.graph.cur_store();
-                let res = res_expr.as_ref().map(|res_expr| self.gen_expr(&*res_expr));
-
-                let ret = self.graph.cur_block().new_return(mem, res);
-
-                self.graph.end_block().add_pred(&ret);
-            }
-
-            LocalVariableDeclaration(_ty, name, init_expr) => {
-                // TODO here we need hennings type_analysis, because _ty is not a CheckedType.
-                // For now, just assume i32
-                //let mode = get_firm_mode(_ty).expect(&format!("var '{}' is void", name));
-                let mode = unsafe { mode::Is };
-                let var_slot = self.new_local_var(**name, mode);
-                if let Some(init_expr) = init_expr {
-                    self.graph.set_value(var_slot, &self.gen_expr(init_expr));
-                }
-            }
-
+            If(cond, then_arm, else_arm) => self.gen_if(cond, then_arm, else_arm),
+            While(cond, body) => self.gen_while(cond, body),
+            Return(res_expr) => self.gen_return(res_expr),
+            LocalVariableDeclaration(ty, name, init_expr) => self.gen_var_decl(ty, name, init_expr),
             Empty => (),
         }
+    }
+
+    fn gen_var_decl(
+        &mut self,
+        ty: &Spanned<'src, ast::Type<'src>>,
+        name: &Spanned<'src, Symbol<'src>>,
+        init_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>,
+    ) {
+        // TODO here we need hennings type_analysis, because _ty is not a CheckedType.
+        // For now, just assume i32
+        //let mode = get_firm_mode(_ty).expect(&format!("var '{}' is void", name));
+        let mode = unsafe { mode::Is };
+        let var_slot = self.new_local_var(**name, mode);
+        if let Some(init_expr) = init_expr {
+            self.graph.set_value(var_slot, &self.gen_expr(init_expr));
+        }
+    }
+
+    fn gen_while(
+        &mut self,
+        cond: &Box<Spanned<'src, ast::Expr<'src>>>,
+        body: &Box<Spanned<'src, ast::Stmt<'src>>>,
+    ) {
+        // TODO DRY beginning nearly the same as If-case
+        let prev_block = self.graph.cur_block();
+
+        let incoming_jmp = prev_block.new_jmp();
+        let header_block = self.graph.new_imm_block(&incoming_jmp);
+
+        prev_block.mature(); // This block is done now
+        unsafe { self.graph.set_cur_block(header_block) };
+
+        // We evaluate the condition
+        let cond = header_block.new_cond(&self.gen_cond_expr(cond));
+
+        // Run body if cond is true
+        let body_block = self.graph.new_imm_block(&cond.project_true());
+        {
+            unsafe { self.graph.set_cur_block(body_block) };
+            self.gen_stmt(&**body);
+
+            // We jump back to the condition-check
+            header_block.add_pred(&body_block.new_jmp());
+        }
+
+        // Leave loop if cond is false
+        let next_block = self.graph.new_imm_block(&cond.project_false());
+        unsafe { self.graph.set_cur_block(next_block) };
+
+        header_block.mature();
+        body_block.mature();
+    }
+
+    fn gen_if(
+        &mut self,
+        cond: &Box<Spanned<'src, ast::Expr<'src>>>,
+        then_arm: &Box<Spanned<'src, ast::Stmt<'src>>>,
+        else_arm: &Option<Box<Spanned<'src, ast::Stmt<'src>>>>,
+    ) {
+        let prev_block = self.graph.cur_block();
+
+        // TODO Do we really need an additional header_block? Can't we just put the
+        // new_cond in the prev_block?
+        let incoming_jmp = prev_block.new_jmp();
+        let header_block = self.graph.new_imm_block(&incoming_jmp);
+
+        prev_block.mature(); // This block is done now
+        unsafe { self.graph.set_cur_block(header_block) };
+
+        // We evaluate the condition
+        let cond = header_block.new_cond(&self.gen_cond_expr(cond));
+
+        // If its true, we take the then_arm
+        let then_block = self.graph.new_imm_block(&cond.project_true());
+        {
+            unsafe { self.graph.set_cur_block(then_block) };
+            self.gen_stmt(&**then_arm);
+        }
+
+        // If its false, we take the else_arm
+        // We generate an else_block in any case, when there is no `else`, it's empty
+        let else_block = self.graph.new_imm_block(&cond.project_false());
+        if let Some(else_arm) = else_arm {
+            unsafe { self.graph.set_cur_block(else_block) };
+            self.gen_stmt(&**else_arm);
+        }
+
+        header_block.mature();
+
+        let from_then_jmp = then_block.new_jmp();
+        let from_else_jmp = else_block.new_jmp();
+
+        // Now we close the if-diamond
+        let next_block = self.graph.new_imm_block(&from_then_jmp);
+        next_block.add_pred(&from_else_jmp);
+        unsafe { self.graph.set_cur_block(next_block) };
+
+        // Those blocks are finished now
+        then_block.mature();
+        else_block.mature();
+    }
+
+    fn gen_return(&mut self, res_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>) {
+        let mem = self.graph.cur_store();
+        let res = res_expr.as_ref().map(|res_expr| self.gen_expr(&*res_expr));
+
+        let ret = self.graph.cur_block().new_return(mem, res);
+
+        self.graph.end_block().add_pred(&ret);
     }
 
     /// Return a node that evaluates the given expression
