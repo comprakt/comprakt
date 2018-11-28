@@ -34,7 +34,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
 
         // TODO glue classes and runtime functions together here!
         for class in &classes {
-            let class = class.borrow_mut();
+            let class = class.borrow();
             log::debug!("generate methods for class {:?}", class.def.name);
             for method in &class.methods {
                 log::debug!("generate method body for {:?}", method.borrow().def.name);

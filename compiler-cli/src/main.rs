@@ -38,6 +38,7 @@ use env_logger;
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{
+    env,
     fs::File,
     io::{self, Write},
     path::PathBuf,
@@ -131,27 +132,19 @@ pub struct LoweringOptions {
     /// A MiniJava input file
     #[structopt(name = "FILE", parse(from_os_str))]
     pub path: PathBuf,
-    /// Output the matured unlowered firm graph as VCG file
-    #[structopt(
-        long = "--emit-firm-graphs",
-        short = "-g",
-        parse(from_os_str)
-    )]
-    pub dump_firm_graph: Option<PathBuf>,
-    /// Output the matured lowered firm graph as VCG file
-    #[structopt(
-        long = "--emit-lowered-firm-graphs",
-        short = "-l",
-        parse(from_os_str)
-    )]
-    pub dump_lowered_firm_graph: Option<PathBuf>,
-    /// Output class layouts
-    #[structopt(
-        long = "--emit-class-layouts",
-        short = "-c",
-        parse(from_os_str)
-    )]
-    pub dump_class_layouts: Option<PathBuf>,
+
+    /// Folder to dump graphs to
+    #[structopt(long = "--emit-to", default_value = ".", parse(from_os_str))]
+    pub dump_folder: PathBuf,
+
+    /// Output the matured unlowered firm graphs as VCG files to the dump_folder
+    #[structopt(long = "--emit-firm-graph", short = "-g")]
+    pub dump_firm_graph: bool,
+
+    /// Dump class layouts in text form to dump_folder
+    #[structopt(long = "--emit-class-layouts", short = "-c")]
+    pub dump_class_layouts: bool,
+
     /// Write generated assembly code to the given file. Defaults to
     /// stdout
     #[structopt(long = "--output", short = "-o", parse(from_os_str))]
@@ -166,7 +159,7 @@ impl Into<firm::Options> for LoweringOptions {
                 None => OutputSpecification::Stdout,
                 Some(path) => OutputSpecification::File(path),
             }),
-            dump_lowered_firm_graph: self.dump_lowered_firm_graph,
+            dump_folder: self.dump_folder,
             dump_firm_graph: self.dump_firm_graph,
             dump_class_layouts: self.dump_class_layouts,
         }
@@ -299,6 +292,7 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
 
     // lower user code to assembler
     let mut firm_options = firm::Options::default();
+    firm_options.dump_folder = env::current_dir().unwrap();
     firm_options.dump_assembler = Some(OutputSpecification::File(user_assembly.clone()));
 
     unsafe { firm::build(&firm_options, &type_system, &type_analysis) };

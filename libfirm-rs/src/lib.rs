@@ -239,6 +239,11 @@ impl Graph {
     pub fn slots(self) -> i32 {
         unsafe { get_irg_n_locs(self.irg) }
     }
+
+    pub fn dump(self, suffix: &str) {
+        let suffix = CString::new(suffix).unwrap();
+        unsafe { dump_ir_graph(self.irg, suffix.as_ptr()) }
+    }
 }
 
 impl Into<*mut ir_graph> for Graph {
@@ -759,6 +764,7 @@ impl Load {
     pub fn project_mem(self) -> *mut ir_node {
         unsafe { new_r_Proj(self.0, mode::M, pn_Load::M) }
     }
+
     pub fn project_res(self, mode: mode::Type) -> LoadValue {
         unsafe { new_r_Proj(self.0, mode, pn_Load::Res) }.into()
     }

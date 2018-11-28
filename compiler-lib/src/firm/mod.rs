@@ -36,6 +36,7 @@ use libfirm_rs::{bindings::*, *};
 use std::{
     cell::RefCell,
     ffi::{CStr, CString},
+    fs,
     path::PathBuf,
     rc::{Rc, Weak},
 };
@@ -43,9 +44,9 @@ use std::{
 /// Enable or disable behaviour during the lowering phase
 #[derive(Debug, Clone, Default)]
 pub struct Options {
-    pub dump_firm_graph: Option<PathBuf>,
-    pub dump_lowered_firm_graph: Option<PathBuf>,
-    pub dump_class_layouts: Option<PathBuf>,
+    pub dump_folder: PathBuf,
+    pub dump_firm_graph: bool,
+    pub dump_class_layouts: bool,
     pub dump_assembler: Option<OutputSpecification>,
 }
 
@@ -101,13 +102,23 @@ pub unsafe fn build(
 
     let generator = ProgramGenerator::new(type_system, type_analysis);
     let program = generator.generate();
+    if !opts.dump_folder.exists() {
+        fs::create_dir_all(&opts.dump_folder).expect("Failed to create output directory");
+    }
+    ir_set_dump_path(opts.dump_folder.to_str().unwrap().as_ptr() as *const i8);
 
-    if let Some(dir) = &opts.dump_class_layouts {
+    if opts.dump_firm_graph {
+        let suffix = CString::new("high-level").unwrap();
+        dump_all_ir_graphs(suffix.as_ptr());
+    }
+
+    if opts.dump_class_layouts {
         for class in &program.classes {
             #[allow(clippy::cast_ptr_alignment)]
             dump_type_to_file(
                 libc::fopen(
-                    dir.join(class.borrow().name.to_str().unwrap())
+                    opts.dump_folder
+                        .join(class.borrow().name.to_str().unwrap())
                         .with_extension("layout")
                         .to_str()
                         .and_then(|s| CString::new(s).ok())
