@@ -39,7 +39,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
             for method in &class.methods {
                 log::debug!("generate method body for {:?}", method.borrow().def.name);
 
-                let matured_graph = self.generate_method_body(&method.borrow());
+                let matured_graph = self.generate_method_body(&method.borrow(), &classes);
                 // TODO assert matured
                 method.borrow_mut().graph = Some(matured_graph);
             }
@@ -47,7 +47,11 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
         Program { classes }
     }
 
-    fn generate_method_body(&self, method: &Method<'_, '_>) -> Graph {
+    fn generate_method_body(
+        &self,
+        method: &Method<'src, 'ast>,
+        classes: &[Rc<RefCell<Class<'src, 'ast>>>],
+    ) -> Graph {
         match method.body {
             ClassMethodBody::Builtin(builtin) => {
                 self.runtime.graph_from_builtin_method_body(builtin)
@@ -63,6 +67,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                 let graph = Graph::function_with_entity(method.entity, param_count);
                 let mut method_body_gen = MethodBodyGenerator::new(
                     graph,
+                    classes,
                     Rc::clone(&method.def),
                     &self.type_analysis,
                     &self.runtime,
@@ -108,7 +113,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
 
                 let gclass = Rc::new(RefCell::new(Class {
                     def: class,
-                    _name: class_name,
+                    name: class_name,
                     entity: class_entity,
                     fields: Vec::new(),
                     methods: Vec::new(),

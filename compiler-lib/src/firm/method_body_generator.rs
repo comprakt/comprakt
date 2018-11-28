@@ -1,4 +1,4 @@
-use super::Runtime;
+use super::{Class, Runtime};
 use crate::{
     asciifile::Spanned,
     ast,
@@ -9,10 +9,11 @@ use crate::{
     },
 };
 use libfirm_rs::{bindings::*, *};
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     graph: Graph,
+    classes: &'ir [Rc<RefCell<Class<'src, 'ast>>>],
     method_def: Rc<ClassMethodDef<'src, 'ast>>,
     local_vars: HashMap<Symbol<'src>, (usize, mode::Type)>,
     num_vars: usize,
@@ -21,14 +22,16 @@ pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
 }
 
 impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
-    pub fn new(
+    pub(super) fn new(
         graph: Graph,
+        classes: &'ir [Rc<RefCell<Class<'src, 'ast>>>],
         method_def: Rc<ClassMethodDef<'src, 'ast>>,
         type_analysis: &'ir TypeAnalysis<'src, 'ast>,
         runtime: &'ir Runtime,
     ) -> Self {
         Self {
             graph,
+            classes,
             local_vars: HashMap::new(),
             num_vars: 0,
             method_def,
