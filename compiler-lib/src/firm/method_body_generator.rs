@@ -218,54 +218,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let (slot, mode) = self.local_var(**name);
                 self.graph.value(slot, mode).as_value_node()
             }
-            Binary(op, lhs, rhs) => {
-                let lhs = self.gen_expr(lhs);
-                let rhs = self.gen_expr(rhs);
-                match op {
-                    BinaryOp::Add => {
-                        let add = self.graph.cur_block().new_add(&lhs, &rhs);
-                        add.as_value_node()
-                    }
-                    BinaryOp::Sub => {
-                        let sub = self.graph.cur_block().new_sub(&lhs, &rhs);
-                        sub.as_value_node()
-                    }
-                    BinaryOp::Mul => {
-                        let mul = self.graph.cur_block().new_mul(&lhs, &rhs);
-                        mul.as_value_node()
-
-                    }
-                    BinaryOp::Div => {
-                        let mem = self.graph.cur_store();
-                        log::debug!("pre new_div");
-                        let div = self.graph.cur_block().new_div(mem, &lhs, &rhs, 0);
-                        self.graph.set_store(div.project_mem());
-                        log::debug!("pre project_res");
-                        let res = div.project_res();
-                        log::debug!("pre as_value_node");
-                        res.as_value_node()
-                    }
-                    BinaryOp::Mod => {
-                        let mem = self.graph.cur_store();
-                        log::debug!("pre new_mod");
-                        let mod_node = self.graph.cur_block().new_mod(mem, &lhs, &rhs, 0);
-                        self.graph.set_store(mod_node.project_mem());
-                        log::debug!("pre project_res");
-                        let res = mod_node.project_res();
-                        log::debug!("pre as_value_node");
-                        res.as_value_node()
-                    }
-                    BinaryOp::LogicalOr => unimplemented!(),
-                    BinaryOp::LogicalAnd => unimplemented!(),
-                    BinaryOp::Assign => unimplemented!(),
-                    BinaryOp::Equals => unimplemented!(),
-                    BinaryOp::NotEquals => unimplemented!(),
-                    BinaryOp::LessThan => unimplemented!(),
-                    BinaryOp::GreaterThan => unimplemented!(),
-                    BinaryOp::LessEquals => unimplemented!(),
-                    BinaryOp::GreaterEquals => unimplemented!(),
-                }
-            }
+            Binary(op, lhs, rhs) => self.gen_binary_expr(op, lhs, rhs),
             Unary(ast::UnaryOp::Neg, expr) => {
                 let expr = self.gen_expr(expr);
                 log::debug!("pre new_neg");
@@ -281,6 +234,59 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             This => unimplemented!(),
             NewObject(_symbol) => unimplemented!(),
             NewArray(_basic_type, _expr, _dimension) => unimplemented!(),
+        }
+    }
+
+    fn gen_binary_expr(
+        &mut self,
+        op: &BinaryOp,
+        lhs: &Box<Spanned<'src, ast::Expr<'src>>>,
+        rhs: &Box<Spanned<'src, ast::Expr<'src>>>,
+    ) -> *mut ir_node {
+        let lhs = self.gen_expr(lhs);
+        let rhs = self.gen_expr(rhs);
+        match op {
+            BinaryOp::Add => {
+                let add = self.graph.cur_block().new_add(&lhs, &rhs);
+                add.as_value_node()
+            }
+            BinaryOp::Sub => {
+                let sub = self.graph.cur_block().new_sub(&lhs, &rhs);
+                sub.as_value_node()
+            }
+            BinaryOp::Mul => {
+                let mul = self.graph.cur_block().new_mul(&lhs, &rhs);
+                mul.as_value_node()
+            }
+            BinaryOp::Div => {
+                let mem = self.graph.cur_store();
+                log::debug!("pre new_div");
+                let div = self.graph.cur_block().new_div(mem, &lhs, &rhs, 0);
+                self.graph.set_store(div.project_mem());
+                log::debug!("pre project_res");
+                let res = div.project_res();
+                log::debug!("pre as_value_node");
+                res.as_value_node()
+            }
+            BinaryOp::Mod => {
+                let mem = self.graph.cur_store();
+                log::debug!("pre new_mod");
+                let mod_node = self.graph.cur_block().new_mod(mem, &lhs, &rhs, 0);
+                self.graph.set_store(mod_node.project_mem());
+                log::debug!("pre project_res");
+                let res = mod_node.project_res();
+                log::debug!("pre as_value_node");
+                res.as_value_node()
+            }
+            BinaryOp::LogicalOr => unimplemented!(),
+            BinaryOp::LogicalAnd => unimplemented!(),
+            BinaryOp::Assign => unimplemented!(),
+            BinaryOp::Equals => unimplemented!(),
+            BinaryOp::NotEquals => unimplemented!(),
+            BinaryOp::LessThan => unimplemented!(),
+            BinaryOp::GreaterThan => unimplemented!(),
+            BinaryOp::LessEquals => unimplemented!(),
+            BinaryOp::GreaterEquals => unimplemented!(),
         }
     }
 
