@@ -552,7 +552,20 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let (slot, mode) = self.local_var(**name);
                 self.graph.value(slot, mode).as_value_node()
             }
-
+            Binary(ast::BinaryOp::Div, lhs, rhs) => {
+                let lhs = self.gen_expr(lhs);
+                let rhs = self.gen_expr(rhs);
+                let mem = self.graph.cur_store();
+                log::debug!("pre new_div");
+                let div = self.graph.cur_block().new_div(mem, &lhs, &rhs, 0);
+                self.graph.set_store(div.project_mem());
+                log::debug!("pre project_res");
+                let res = div.project_res();
+                log::debug!("pre project_div");
+                let res_div = res.project_div();
+                log::debug!("pre as_value_node");
+                res_div.as_value_node()
+            }
             _ => unimplemented!(),
         }
     }
