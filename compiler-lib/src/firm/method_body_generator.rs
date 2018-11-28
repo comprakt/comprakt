@@ -243,7 +243,13 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 res.as_value_node()
             }
             Binary(_op, _expr_left, _expr_right) => unimplemented!(),
-            Unary(_op, _expr) => unimplemented!(),
+            Unary(ast::UnaryOp::Neg, expr) => {
+                let expr = self.gen_expr(expr);
+                log::debug!("pre new_neg");
+                let neg = self.graph.cur_block().new_minus(&expr);
+                neg.as_value_node()
+            }
+            Unary(_, _expr) => unimplemented!(),
             MethodInvocation(_expr, _symbol, _argument_list) => unimplemented!(),
             FieldAccess(_expr, _symbol) => unimplemented!(),
             ArrayAccess(_expr, _index_expr) => unimplemented!(),
