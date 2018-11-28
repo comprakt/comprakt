@@ -131,10 +131,10 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                     );
 
                     gclass.borrow_mut().fields.push(Rc::new(RefCell::new(Field {
-                        class: Rc::downgrade(&gclass),
+                        _class: Rc::downgrade(&gclass),
                         _name: field_name,
-                        def: field,
-                        entity: field_entity.into(),
+                        _def: field,
+                        _entity: field_entity.into(),
                     })));
                 }
 
@@ -168,7 +168,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                         .borrow_mut()
                         .methods
                         .push(Rc::new(RefCell::new(Method {
-                            class: Rc::downgrade(&gclass),
+                            _class: Rc::downgrade(&gclass),
                             _name: method_name,
                             def: Rc::clone(&method),
                             entity: method_entity.into(),

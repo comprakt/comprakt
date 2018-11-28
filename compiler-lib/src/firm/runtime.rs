@@ -7,12 +7,12 @@ pub struct Runtime {
     system_out_write: Entity,
     system_out_flush: Entity,
     system_in_read: Entity,
-    new: Entity,
+    _new: Entity,
 
-    dumpstack: Entity,
-    null_usage: Entity,
-    array_out_of_bounds: Entity,
-    div_by_zero: Entity,
+    _dumpstack: Entity,
+    _null_usage: Entity,
+    _array_out_of_bounds: Entity,
+    _div_by_zero: Entity,
 }
 
 impl Default for Runtime {
@@ -94,11 +94,11 @@ impl Runtime {
             system_out_write,
             system_out_flush,
             system_in_read,
-            new,
-            dumpstack,
-            div_by_zero,
-            null_usage,
-            array_out_of_bounds,
+            _new: new,
+            _dumpstack: dumpstack,
+            _div_by_zero: div_by_zero,
+            _null_usage: null_usage,
+            _array_out_of_bounds: array_out_of_bounds,
         }
     }
 

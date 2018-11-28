@@ -63,14 +63,14 @@ struct Class<'src, 'ast> {
 
 struct Field<'src, 'ast> {
     _name: CString,
-    class: Weak<RefCell<Class<'src, 'ast>>>,
-    def: Rc<ClassFieldDef<'src>>,
-    entity: Entity,
+    _class: Weak<RefCell<Class<'src, 'ast>>>,
+    _def: Rc<ClassFieldDef<'src>>,
+    _entity: Entity,
 }
 
 struct Method<'src, 'ast> {
     _name: CString,
-    class: Weak<RefCell<Class<'src, 'ast>>>,
+    _class: Weak<RefCell<Class<'src, 'ast>>>,
     body: ClassMethodBody<'src, 'ast>,
     def: Rc<ClassMethodDef<'src, 'ast>>,
     entity: Entity,
@@ -104,6 +104,7 @@ pub unsafe fn build(
 
     if let Some(dir) = &opts.dump_class_layouts {
         for class in &program.classes {
+            #[allow(clippy::cast_ptr_alignment)]
             dump_type_to_file(
                 libc::fopen(
                     dir.join(class.borrow().name.to_str().unwrap())
@@ -112,7 +113,7 @@ pub unsafe fn build(
                         .and_then(|s| CString::new(s).ok())
                         .unwrap()
                         .as_ptr() as *mut i8,
-                    CString::new("w").unwrap().as_ptr() as *mut i8,
+                    CStr::from_bytes_with_nul(b"w\0").unwrap().as_ptr() as *mut i8,
                 ) as *mut libfirm_rs::bindings::_IO_FILE,
                 class.borrow().entity.ty().into(),
             );

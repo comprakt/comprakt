@@ -13,12 +13,12 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     graph: Graph,
-    classes: &'ir [Rc<RefCell<Class<'src, 'ast>>>],
+    _classes: &'ir [Rc<RefCell<Class<'src, 'ast>>>],
     method_def: Rc<ClassMethodDef<'src, 'ast>>,
     local_vars: HashMap<Symbol<'src>, (usize, mode::Type)>,
     num_vars: usize,
-    runtime: &'ir Runtime,
-    type_analysis: &'ir TypeAnalysis<'src, 'ast>,
+    _runtime: &'ir Runtime,
+    _type_analysis: &'ir TypeAnalysis<'src, 'ast>,
 }
 
 impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
@@ -31,12 +31,12 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     ) -> Self {
         Self {
             graph,
-            classes,
+            _classes: classes,
             local_vars: HashMap::new(),
             num_vars: 0,
             method_def,
-            runtime,
-            type_analysis,
+            _runtime: runtime,
+            _type_analysis: type_analysis,
         }
         .gen_args()
     }
@@ -100,7 +100,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_var_decl(
         &mut self,
-        ty: &Spanned<'src, ast::Type<'src>>,
+        _ty: &Spanned<'src, ast::Type<'src>>,
         name: &Spanned<'src, Symbol<'src>>,
         init_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>,
     ) {
@@ -116,8 +116,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_while(
         &mut self,
-        cond: &Box<Spanned<'src, ast::Expr<'src>>>,
-        body: &Box<Spanned<'src, ast::Stmt<'src>>>,
+        cond: &Spanned<'src, ast::Expr<'src>>,
+        body: &Spanned<'src, ast::Stmt<'src>>,
     ) {
         // TODO DRY beginning nearly the same as If-case
         let prev_block = self.graph.cur_block();
@@ -135,7 +135,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let body_block = self.graph.new_imm_block(&cond.project_true());
         {
             unsafe { self.graph.set_cur_block(body_block) };
-            self.gen_stmt(&**body);
+            self.gen_stmt(&*body);
 
             // We jump back to the condition-check
             header_block.add_pred(&body_block.new_jmp());
@@ -151,8 +151,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_if(
         &mut self,
-        cond: &Box<Spanned<'src, ast::Expr<'src>>>,
-        then_arm: &Box<Spanned<'src, ast::Stmt<'src>>>,
+        cond: &Spanned<'src, ast::Expr<'src>>,
+        then_arm: &Spanned<'src, ast::Stmt<'src>>,
         else_arm: &Option<Box<Spanned<'src, ast::Stmt<'src>>>>,
     ) {
         let prev_block = self.graph.cur_block();
@@ -172,7 +172,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let then_block = self.graph.new_imm_block(&cond.project_true());
         {
             unsafe { self.graph.set_cur_block(then_block) };
-            self.gen_stmt(&**then_arm);
+            self.gen_stmt(&*then_arm);
         }
 
         // If its false, we take the else_arm
@@ -221,7 +221,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             NegInt(literal) => {
                 let val = unsafe {
                     new_tarval_from_long(
-                        literal.parse::<i64>().map_or_else(|_| -2147483648, |v| -v),
+                        literal
+                            .parse::<i64>()
+                            .map_or_else(|_| -2_147_483_648, |v| -v),
                         mode::Is,
                     )
                 };
@@ -235,7 +237,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let (slot, mode) = self.local_var(**name);
                 self.graph.value(slot, mode).as_value_node()
             }
-            Binary(op, lhs, rhs) => self.gen_binary_expr(op, lhs, rhs),
+            Binary(op, lhs, rhs) => self.gen_binary_expr(*op, lhs, rhs),
             Unary(ast::UnaryOp::Neg, expr) => {
                 let expr = self.gen_expr(expr);
                 log::debug!("pre new_neg");
@@ -256,9 +258,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_binary_expr(
         &mut self,
-        op: &BinaryOp,
-        lhs: &Box<Spanned<'src, ast::Expr<'src>>>,
-        rhs: &Box<Spanned<'src, ast::Expr<'src>>>,
+        op: BinaryOp,
+        lhs: &Spanned<'src, ast::Expr<'src>>,
+        rhs: &Spanned<'src, ast::Expr<'src>>,
     ) -> *mut ir_node {
         let lhs = self.gen_expr(lhs);
         let rhs = self.gen_expr(rhs);
