@@ -12,3 +12,6 @@
 
 # ignore tentative files
 *.tentative
+
+# ignore assembly tests by default
+assembly/
