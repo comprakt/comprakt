@@ -27,33 +27,33 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         type_analysis: &'ir TypeAnalysis<'src, 'ast>,
         runtime: &'ir Runtime,
     ) -> Self {
-        let mut se1f = MethodBodyGenerator {
+        Self {
             graph,
             local_vars: HashMap::new(),
             num_vars: 0,
             method_def,
             runtime,
             type_analysis,
-        };
+        }
+        .gen_args()
+    }
 
-        let args = graph.args_node();
+    fn gen_args(mut self) -> Self {
+        let args = self.graph.args_node();
 
-        if !se1f.method_def.is_static {
+        if !self.method_def.is_static {
             // TODO `this`-ptr graph.set_value(0, &args.project(unsafe { mode::P }, 0));
-            se1f.num_vars += 1;
+            self.num_vars += 1;
 
-            let method_def = Rc::clone(&se1f.method_def);
+            let method_def = Rc::clone(&self.method_def);
             for (i, p) in method_def.params.iter().enumerate() {
                 let mode = get_firm_mode(&p.ty);
-                graph.set_value(se1f.new_local_var(p.name, mode), &args.project(mode, i + 1));
+                self.graph
+                    .set_value(self.new_local_var(p.name, mode), &args.project(mode, i + 1));
             }
         }
 
-        // TODO remove
-        //unsafe { keep_alive(graph.start_block().into()) };
-        //unsafe { keep_alive(graph.end_block().into()) };
-
-        se1f
+        self
     }
 
     /// Generate IR for a method body
