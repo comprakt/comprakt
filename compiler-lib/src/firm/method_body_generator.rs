@@ -13,11 +13,11 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     graph: Graph,
-    _classes: &'ir [Rc<RefCell<Class<'src, 'ast>>>],
+    classes: &'ir [Rc<RefCell<Class<'src, 'ast>>>],
     method_def: Rc<ClassMethodDef<'src, 'ast>>,
     local_vars: HashMap<Symbol<'src>, (usize, mode::Type)>,
     num_vars: usize,
-    _runtime: &'ir Runtime,
+    runtime: &'ir Runtime,
     _type_analysis: &'ir TypeAnalysis<'src, 'ast>,
 }
 
@@ -31,11 +31,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     ) -> Self {
         Self {
             graph,
-            _classes: classes,
+            classes,
             local_vars: HashMap::new(),
             num_vars: 0,
             method_def,
-            _runtime: runtime,
+            runtime,
             _type_analysis: type_analysis,
         }
         .gen_args()
@@ -247,7 +247,32 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             Null => unimplemented!(),
             ThisMethodInvocation(_symbol, _argument_list) => unimplemented!(),
             This => unimplemented!(),
-            NewObject(_symbol) => unimplemented!(),
+            NewObject(ty_name) => {
+                // TODO classes should be hash map for efficient lookup
+                let class = self
+                    .classes
+                    .iter()
+                    .find(|class| class.borrow().def.name == **ty_name)
+                    .expect("creating non-existing class");
+
+                let size = unsafe {
+                    self.graph.new_const(new_tarval_from_long(
+                        i64::from(class.borrow().entity.ty().size()),
+                        mode::Iu,
+                    ))
+                };
+
+                let call = self.graph.cur_block().new_call(
+                    self.graph.cur_store(),
+                    self.graph.new_addr(self.runtime.new),
+                    &[size.as_value_node()],
+                );
+                self.graph.set_store(call.project_mem());
+
+                call.project_result_tuple()
+                    .project(unsafe { mode::P }, 0)
+                    .as_value_node()
+            }
             NewArray(_basic_type, _expr, _dimension) => unimplemented!(),
         }
     }

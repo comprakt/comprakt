@@ -1,6 +1,6 @@
 //! This is the runtime automatically linked into
 //! the compiled mini java file
-use libc::c_int;
+use libc::{c_int, c_void};
 use std::io::{stdin, stdout, Read, Write};
 
 extern "C" {
@@ -28,8 +28,8 @@ mjrt_runtimeexception!(mjrt_null_usage, "reference is null");
 mjrt_runtimeexception!(mjrt_array_out_of_bounds, "array access out of bounds");
 
 #[no_mangle]
-pub extern "C" fn mjrt_new() {
-    unimplemented!()
+pub extern "C" fn mjrt_new(size: u64) -> *mut c_void {
+    unsafe { libc::calloc(size as usize, 1) }
 }
 
 #[no_mangle]

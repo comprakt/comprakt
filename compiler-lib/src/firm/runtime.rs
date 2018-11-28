@@ -3,16 +3,16 @@ use libfirm_rs::{bindings::*, *};
 use std::ffi::CString;
 
 pub struct Runtime {
-    system_out_println: Entity,
-    system_out_write: Entity,
-    system_out_flush: Entity,
-    system_in_read: Entity,
-    _new: Entity,
+    pub system_out_println: Entity,
+    pub system_out_write: Entity,
+    pub system_out_flush: Entity,
+    pub system_in_read: Entity,
+    pub new: Entity,
 
-    _dumpstack: Entity,
-    _null_usage: Entity,
-    _array_out_of_bounds: Entity,
-    _div_by_zero: Entity,
+    pub dumpstack: Entity,
+    pub null_usage: Entity,
+    pub array_out_of_bounds: Entity,
+    pub div_by_zero: Entity,
 }
 
 impl Default for Runtime {
@@ -63,9 +63,13 @@ impl Runtime {
         };
 
         let new = {
-            let it = PrimitiveType::i32();
+            let loc = PrimitiveType::ptr();
+            let size = PrimitiveType::u32();
             let mut t = FunctionType::new();
-            t.set_res(it);
+
+            t.add_param(size);
+            t.set_res(loc);
+
             let t = t.build(false);
             let id = CString::new("mjrt_new").unwrap();
             Entity::new_global(&id, t)
@@ -94,11 +98,11 @@ impl Runtime {
             system_out_write,
             system_out_flush,
             system_in_read,
-            _new: new,
-            _dumpstack: dumpstack,
-            _div_by_zero: div_by_zero,
-            _null_usage: null_usage,
-            _array_out_of_bounds: array_out_of_bounds,
+            new,
+            dumpstack,
+            div_by_zero,
+            null_usage,
+            array_out_of_bounds,
         }
     }
 

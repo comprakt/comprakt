@@ -32,6 +32,14 @@ impl Ty {
     pub fn pointer(self) -> Ty {
         unsafe { new_type_pointer(self.into()) }.into()
     }
+
+    pub fn size(self) -> u32 {
+        unsafe { get_type_size(self.into()) }
+    }
+
+    pub fn alignment(self) -> u32 {
+        unsafe { get_type_alignment(self.into()) }
+    }
 }
 
 pub struct PrimitiveType;
@@ -42,6 +50,10 @@ impl PrimitiveType {
     }
     pub fn i32() -> Ty {
         unsafe { new_type_primitive(mode::Is) }.into()
+    }
+    /// Not part of MiniJava, but useful for malloc RT-function
+    pub fn u32() -> Ty {
+        unsafe { new_type_primitive(mode::Iu) }.into()
     }
     pub fn bool() -> Ty {
         unsafe { new_type_primitive(mode::Bu) }.into()
