@@ -6,7 +6,8 @@
 //!
 //! A dot (`.`) is a valid character in an ASM label, but not in MiniJava. This
 //! is why it's used as a separator. As properties and methods live in their
-//! own namespaces, methods have the additional segment `.F.`.
+//! own namespaces, fields have the additional segment `.F.`, methods have the
+//! additional segment `.M.`.
 //!
 //! # Unused Struct Properties
 //!

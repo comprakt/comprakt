@@ -276,19 +276,3 @@ fn get_firm_mode(ty: &CheckedType<'_>) -> mode::Type {
         CheckedType::Void | CheckedType::UnknownType(_) => unreachable!(),
     }
 }
-
-fn get_firm_type(ty: &CheckedType<'_>) -> Option<Ty> {
-    match ty {
-        CheckedType::Int => Some(PrimitiveType::i32()),
-        CheckedType::Boolean => Some(PrimitiveType::bool()),
-        CheckedType::TypeRef(name) => Some(ClassType::new_class_type(name.as_str())),
-        CheckedType::Array(checked_type) => Some(
-            get_firm_type(checked_type)
-                .expect("Arrays are never of type `void` or `null`")
-                .pointer(),
-        ),
-        // Not possible
-        // TODO: use unreachable as soon as this is no longer "unused"!
-        CheckedType::Void | CheckedType::Null | CheckedType::UnknownType(_) => None,
-    }
-}

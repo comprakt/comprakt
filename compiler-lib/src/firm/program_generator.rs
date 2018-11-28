@@ -78,15 +78,18 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
 
     /// `None` indicates that the given type is not convertible, which
     /// is not necessarily an error (e.g. `void`)
-    fn ty_from_checked_type(ct: &CheckedType<'src>) -> Option<Ty> {
+    fn ty_from_checked_type(ct: &CheckedType<'_>) -> Option<Ty> {
         let ty = match ct {
             CheckedType::Int => PrimitiveType::i32(),
             CheckedType::Void => return None,
             CheckedType::TypeRef(_) => PrimitiveType::ptr(),
-            CheckedType::Array(_) => PrimitiveType::ptr(), // TODO safe array type?
-            CheckedType::Boolean => unimplemented!(),
-            CheckedType::Null => unimplemented!(),
-            CheckedType::UnknownType(_) => unimplemented!(),
+
+            CheckedType::Array(checked_type) => Self::ty_from_checked_type(checked_type)
+                .expect("Arrays are never of type `void`")
+                .pointer(), // TODO safe array type?
+            CheckedType::Boolean => PrimitiveType::bool(),
+            CheckedType::Null => unreachable!(),
+            CheckedType::UnknownType(_) => unreachable!(),
         };
         Some(ty)
     }
