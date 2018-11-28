@@ -397,6 +397,25 @@ impl Block {
         .into()
     }
 
+    pub fn new_mod<A: ALUOperand, B: ALUOperand>(
+        self,
+        mem: MemoryState,
+        left: &A,
+        right: &B,
+        pinned: i32,
+    ) -> Mod {
+        unsafe {
+            new_r_Mod(
+                self.0,
+                mem.into(),
+                left.as_alu_operand(),
+                right.as_alu_operand(),
+                pinned,
+            )
+        }
+        .into()
+    }
+
     //    pub fn new_div_remainderless<A: ALUOperand, B: ALUOperand>(self, mem:
     // MemoryState, left: &A, right: &B) -> DivRemainderlessNode {
     //        unsafe { new_r_DivRL(self.0, left.as_alu_operand(),
@@ -698,6 +717,32 @@ impl ValueNode for DivResult {
         self.0
     }
 }
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Mod(*mut ir_node);
+
+impl Mod {
+    pub fn project_mem(self) -> MemoryState {
+        unsafe { new_r_Proj(self.0, mode::M, pn_Mod::M) }.into()
+    }
+    pub fn project_res(self) -> ModResult {
+        unsafe {
+            new_r_Proj(self.0, mode::Is, pn_Mod::Res)
+        }
+        .into()
+    }
+}
+
+/// DivResult always has mode::Is, since we only use mode::Is as input operand.
+#[derive(Clone, Copy, Into, From)]
+pub struct ModResult(*mut ir_node);
+
+impl ValueNode for ModResult {
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
 
 #[derive(Clone, Copy, Into, From)]
 pub struct MemoryState(*mut ir_node);

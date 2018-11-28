@@ -230,6 +230,18 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 log::debug!("pre as_value_node");
                 res.as_value_node()
             }
+            Binary(ast::BinaryOp::Mod, lhs, rhs) => {
+                let lhs = self.gen_expr(lhs);
+                let rhs = self.gen_expr(rhs);
+                let mem = self.graph.cur_store();
+                log::debug!("pre new_mod");
+                let mod_node = self.graph.cur_block().new_mod(mem, &lhs, &rhs, 0);
+                self.graph.set_store(mod_node.project_mem());
+                log::debug!("pre project_res");
+                let res = mod_node.project_res();
+                log::debug!("pre as_value_node");
+                res.as_value_node()
+            }
             Binary(_op, _expr_left, _expr_right) => unimplemented!(),
             Unary(_op, _expr) => unimplemented!(),
             MethodInvocation(_expr, _symbol, _argument_list) => unimplemented!(),
