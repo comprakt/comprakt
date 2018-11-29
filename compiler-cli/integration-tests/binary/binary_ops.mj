@@ -1,0 +1,26 @@
+class A {
+    public static void main(String[] args) {
+        System.out.println(2 - 1); // 1
+        System.out.println(4 / 2); // 2
+        System.out.println(1 + 2); // 3
+        System.out.println(2 * 2); // 4
+        System.out.println(11 % 6); // 5
+
+        if (false || true) { System.out.println(6); }
+        if (true || false) { System.out.println(7); }
+        if (true && false) { } else { System.out.println(8); }
+        if (true && true) { System.out.println(9); }
+        if (1 == 1) { System.out.println(10); }
+        if (1 == 2) { } else { System.out.println(11); }
+        if (1 != 2) { System.out.println(12); }
+        if (1 != 1) { } else { System.out.println(13); }
+        if (1 < 2) { System.out.println(14); }
+        if (1 < 1) { } else { System.out.println(15); }
+        if (2 > 1) { System.out.println(16); }
+        if (1 > 1) { } else { System.out.println(17); }
+        if (1 <= 1) { System.out.println(18); }
+        if (2 <= 1) { } else { System.out.println(19); }
+        if (1 >= 1) { System.out.println(20); }
+        if (1 >= 2) { } else { System.out.println(21); }
+    }
+}
