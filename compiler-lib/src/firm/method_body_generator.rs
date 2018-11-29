@@ -60,7 +60,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     }
 
     /// Generate IR for a method body
-    pub fn gen_method(&mut self, body: &Spanned<'src, ast::Block<'src>>) {
+    pub fn gen_method(&mut self, body: &ast::Block<'src>) {
         unsafe { self.graph.set_cur_block(self.graph.start_block()) };
         self.gen_block(body);
 
@@ -76,16 +76,16 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     }
 
     /// Generate IR for a whole block
-    fn gen_block(&mut self, block: &Spanned<'src, ast::Block<'src>>) {
+    fn gen_block(&mut self, block: &ast::Block<'src>) {
         for stmt in &block.statements {
             self.gen_stmt(&stmt);
         }
     }
 
     /// Generate IR for a single statement
-    fn gen_stmt(&mut self, stmt: &Spanned<'src, ast::Stmt<'src>>) {
+    fn gen_stmt(&mut self, stmt: &ast::Stmt<'src>) {
         use self::ast::Stmt::*;
-        match &**stmt {
+        match &stmt {
             Block(block) => self.gen_block(block),
             Expression(expr) => {
                 self.gen_expr(expr);
@@ -100,25 +100,21 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_var_decl(
         &mut self,
-        _ty: &Spanned<'src, ast::Type<'src>>,
-        name: &Spanned<'src, Symbol<'src>>,
+        _ty: &ast::Type<'src>,
+        name: &Symbol<'src>,
         init_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>,
     ) {
         // TODO here we need hennings type_analysis, because _ty is not a CheckedType.
         // For now, just assume i32
         //let mode = get_firm_mode(_ty).expect(&format!("var '{}' is void", name));
         let mode = unsafe { mode::Is };
-        let var_slot = self.new_local_var(**name, mode);
+        let var_slot = self.new_local_var(*name, mode);
         if let Some(init_expr) = init_expr {
             self.graph.set_value(var_slot, &self.gen_expr(init_expr));
         }
     }
 
-    fn gen_while(
-        &mut self,
-        cond: &Spanned<'src, ast::Expr<'src>>,
-        body: &Spanned<'src, ast::Stmt<'src>>,
-    ) {
+    fn gen_while(&mut self, cond: &ast::Expr<'src>, body: &ast::Stmt<'src>) {
         // TODO DRY beginning nearly the same as If-case
         let prev_block = self.graph.cur_block();
 
@@ -151,8 +147,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_if(
         &mut self,
-        cond: &Spanned<'src, ast::Expr<'src>>,
-        then_arm: &Spanned<'src, ast::Stmt<'src>>,
+        cond: &ast::Expr<'src>,
+        then_arm: &ast::Stmt<'src>,
         else_arm: &Option<Box<Spanned<'src, ast::Stmt<'src>>>>,
     ) {
         let prev_block = self.graph.cur_block();
@@ -211,9 +207,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     ///
     /// TODO non-raw-ptr abstraction for ret type; Box<dyn ValueNode> might
     /// work, but unnecessary box
-    fn gen_expr(&mut self, expr: &Spanned<'src, ast::Expr<'src>>) -> *mut ir_node {
+    fn gen_expr(&mut self, expr: &ast::Expr<'src>) -> *mut ir_node {
         use self::ast::Expr::*;
-        match &**expr {
+        match &expr {
             Int(literal) => {
                 let val = unsafe { new_tarval_from_long(literal.parse().unwrap(), mode::Is) };
                 self.graph.new_const(val).as_value_node()
@@ -259,8 +255,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     fn gen_binary_expr(
         &mut self,
         op: BinaryOp,
-        lhs: &Spanned<'src, ast::Expr<'src>>,
-        rhs: &Spanned<'src, ast::Expr<'src>>,
+        lhs: &ast::Expr<'src>,
+        rhs: &ast::Expr<'src>,
     ) -> *mut ir_node {
         let lhs = self.gen_expr(lhs);
         let rhs = self.gen_expr(rhs);
@@ -311,9 +307,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     /// Assume an expression can be evaluated as a boolean and generate a
     /// `Selector` for it
-    fn gen_cond_expr(&mut self, expr: &Spanned<'src, ast::Expr<'src>>) -> Selector {
+    fn gen_cond_expr(&mut self, expr: &ast::Expr<'src>) -> Selector {
         use self::ast::Expr::*;
-        match &**expr {
+        match &expr {
             Var(name) => {
                 let (slot, mode) = self.local_var(**name);
                 let val = self.graph.value(slot, mode);
