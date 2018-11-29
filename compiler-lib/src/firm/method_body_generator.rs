@@ -61,7 +61,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     /// Generate IR for a method body
     pub fn gen_method(&mut self, body: &ast::Block<'src>) {
-        unsafe { self.graph.set_cur_block(self.graph.start_block()) };
+        self.graph.set_cur_block(self.graph.start_block());
         self.gen_block(body);
 
         // Void functions have an implicit return in the end
@@ -130,7 +130,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let header_block = self.graph.new_imm_block(&incoming_jmp);
 
         prev_block.mature(); // This block is done now
-        unsafe { self.graph.set_cur_block(header_block) };
+        self.graph.set_cur_block(header_block);
 
         // We evaluate the condition
         let cond = header_block.new_cond(&self.gen_cond_expr(cond));
@@ -138,7 +138,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         // Run body if cond is true
         let body_block = self.graph.new_imm_block(&cond.project_true());
         {
-            unsafe { self.graph.set_cur_block(body_block) };
+            self.graph.set_cur_block(body_block);
             self.gen_stmt(&*body);
 
             // We jump back to the condition-check
@@ -147,7 +147,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
         // Leave loop if cond is false
         let next_block = self.graph.new_imm_block(&cond.project_false());
-        unsafe { self.graph.set_cur_block(next_block) };
+        self.graph.set_cur_block(next_block);
 
         header_block.mature();
         body_block.mature();
@@ -167,7 +167,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let header_block = self.graph.new_imm_block(&incoming_jmp);
 
         prev_block.mature(); // This block is done now
-        unsafe { self.graph.set_cur_block(header_block) };
+        self.graph.set_cur_block(header_block);
 
         // We evaluate the condition
         let cond = header_block.new_cond(&self.gen_cond_expr(cond));
@@ -175,7 +175,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         // If its true, we take the then_arm
         let then_block = self.graph.new_imm_block(&cond.project_true());
         {
-            unsafe { self.graph.set_cur_block(then_block) };
+            self.graph.set_cur_block(then_block);
             self.gen_stmt(&*then_arm);
         }
 
@@ -183,7 +183,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         // We generate an else_block in any case, when there is no `else`, it's empty
         let else_block = self.graph.new_imm_block(&cond.project_false());
         if let Some(else_arm) = else_arm {
-            unsafe { self.graph.set_cur_block(else_block) };
+            self.graph.set_cur_block(else_block);
             self.gen_stmt(&**else_arm);
         }
 
@@ -195,7 +195,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         // Now we close the if-diamond
         let next_block = self.graph.new_imm_block(&from_then_jmp);
         next_block.add_pred(&from_else_jmp);
-        unsafe { self.graph.set_cur_block(next_block) };
+        self.graph.set_cur_block(next_block);
 
         // Those blocks are finished now
         then_block.mature();
@@ -439,7 +439,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 };
                 let phi_block = Block::from(phi_block);
                 phi_block.mature();
-                unsafe { self.graph.set_cur_block(phi_block) };
+                self.graph.set_cur_block(phi_block);
                 phi
             }
             BinaryOp::NotEquals => unimplemented!(),

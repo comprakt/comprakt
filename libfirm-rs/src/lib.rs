@@ -246,9 +246,8 @@ impl Graph {
         unsafe { get_r_cur_block(self.irg) }.into()
     }
 
-    // TODO
-    pub unsafe fn set_cur_block(self, blk: Block) {
-        set_r_cur_block(self.irg, blk.into())
+    pub fn set_cur_block(self, blk: Block) {
+        unsafe { set_r_cur_block(self.irg, blk.into()) }
     }
 
     pub fn new_addr(self, e: Entity) -> Addr {
