@@ -1,0 +1,12 @@
+class A {
+
+    public int loopy_1() {
+        int i = 3;
+        while (i < 5) { return i; }
+    }
+
+    public static void main(String[] args) {
+        System.out.println((new A()).loopy_1());
+    }
+}
+
