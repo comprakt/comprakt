@@ -31,6 +31,7 @@ use crate::{
         type_system::{ClassDef, ClassFieldDef, ClassMethodBody, ClassMethodDef, TypeSystem},
     },
     OutputSpecification,
+    strtab::Symbol,
 };
 use libfirm_rs::{bindings::*, *};
 use std::{
@@ -39,6 +40,7 @@ use std::{
     fs,
     path::PathBuf,
     rc::{Rc, Weak},
+    collections::HashMap,
 };
 
 /// Enable or disable behaviour during the lowering phase
@@ -51,7 +53,7 @@ pub struct Options {
 }
 
 pub struct Program<'src, 'ast> {
-    classes: Vec<Rc<RefCell<Class<'src, 'ast>>>>,
+    classes: HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
 }
 
 struct Class<'src, 'ast> {
@@ -113,7 +115,7 @@ pub unsafe fn build(
     }
 
     if opts.dump_class_layouts {
-        for class in &program.classes {
+        for class in program.classes.values() {
             #[allow(clippy::cast_ptr_alignment)]
             dump_type_to_file(
                 libc::fopen(

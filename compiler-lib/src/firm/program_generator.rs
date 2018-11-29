@@ -1,6 +1,7 @@
 use super::{Class, Field, Method, MethodBodyGenerator, Program, Runtime};
 use crate::{
     ast,
+    strtab::Symbol,
     type_checking::{
         type_analysis::TypeAnalysis,
         type_system::{CheckedType, ClassMethodBody, TypeSystem},
@@ -9,7 +10,7 @@ use crate::{
 };
 use libfirm_rs::{bindings::*, *};
 use log;
-use std::{cell::RefCell, ffi::CString, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, ffi::CString, rc::Rc};
 
 pub struct ProgramGenerator<'src, 'ast> {
     runtime: Runtime,
@@ -33,7 +34,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
         let classes = self.build_entities();
 
         // TODO glue classes and runtime functions together here!
-        for class in &classes {
+        for class in classes.values() {
             let class = class.borrow();
             log::debug!("generate methods for class {:?}", class.def.name);
             for method in &class.methods {
@@ -50,7 +51,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
     fn generate_method_body(
         &self,
         method: &Method<'src, 'ast>,
-        classes: &[Rc<RefCell<Class<'src, 'ast>>>],
+        classes: &HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
     ) -> Graph {
         match method.body {
             ClassMethodBody::Builtin(builtin) => {
@@ -98,8 +99,8 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
         Some(ty)
     }
 
-    fn build_entities(&self) -> Vec<Rc<RefCell<Class<'src, 'ast>>>> {
-        let mut classes = Vec::new();
+    fn build_entities(&self) -> HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>> {
+        let mut classes = HashMap::new();
         // Define classes
         for class in self.type_system.defined_classes.values() {
             unsafe {
@@ -179,7 +180,9 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
 
                 default_layout_compound_type(class_type);
 
-                classes.push(gclass);
+                classes
+                    .insert(class.name, gclass)
+                    .expect("Every class name should be unique after type checking");
             }
         }
 
