@@ -1,0 +1,19 @@
+class A {
+    public B get_object() {
+        return new B();
+    }
+    
+    public static void main(String[] args) {
+    	A a = new A();
+        int res = (a.get_object()).get_number();
+        System.out.println(res);
+    }
+}
+
+class B {
+
+    public int get_number() {
+        return 99;
+    }
+
+}

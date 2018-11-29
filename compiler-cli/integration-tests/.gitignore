@@ -13,5 +13,8 @@
 # ignore tentative files
 *.tentative
 
+# ignore default binary file
+*.out
+
 # ignore assembly tests by default
 assembly/

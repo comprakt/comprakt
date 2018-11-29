@@ -1,0 +1,35 @@
+class A {
+    public boolean side_effect() {
+        System.out.write(70); // 
+        System.out.write(10); // newline
+        return false;
+    }
+
+    public static void main(String[] args) {
+    	A a = new A();
+        if (true || a.side_effect()) {
+            System.out.write(79); // O
+            System.out.write(75); // K
+            System.out.write(10); // newline
+        }
+
+        if (false && a.side_effect()) {
+        } else {
+            System.out.write(79); // O
+            System.out.write(75); // K
+            System.out.write(10); // newline
+        }
+
+        if (!(false && a.side_effect())) {
+            System.out.write(79); // O
+            System.out.write(75); // K
+            System.out.write(10); // newline
+        }
+
+        if ((true || a.side_effect()) && true) {
+            System.out.write(79); // O
+            System.out.write(75); // K
+            System.out.write(10); // newline
+        }
+    }
+}

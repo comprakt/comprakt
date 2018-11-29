@@ -1,0 +1,2 @@
+thread 'main' panicked at 'not yet implemented', compiler-lib/src/firm/method_body_generator.rs:207:65
+note: Run with `RUST_BACKTRACE=1` for a backtrace.
