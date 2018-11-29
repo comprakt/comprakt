@@ -98,7 +98,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                     def: class,
                     name: class_name,
                     entity: class_entity,
-                    fields: Vec::new(),
+                    fields: HashMap::new(),
                     methods: HashMap::new(),
                 }));
 
@@ -114,11 +114,11 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                         field_type.into(),
                     );
 
-                    gclass.borrow_mut().fields.push(Rc::new(RefCell::new(Field {
+                    gclass.borrow_mut().fields.insert(field.name, Rc::new(RefCell::new(Field {
                         _class: Rc::downgrade(&gclass),
                         _name: field_name,
-                        _def: field,
-                        _entity: field_entity.into(),
+                        def: field,
+                        entity: field_entity.into(),
                     })));
                 }
 

@@ -62,15 +62,15 @@ struct Class<'src, 'ast> {
     name: CString,
     def: &'src ClassDef<'src, 'ast>,
     entity: Entity,
-    fields: Vec<Rc<RefCell<Field<'src, 'ast>>>>,
+    pub fields: HashMap<Symbol<'src>, Rc<RefCell<Field<'src, 'ast>>>>,
     methods: HashMap<Symbol<'src>, Rc<RefCell<Method<'src, 'ast>>>>,
 }
 
 struct Field<'src, 'ast> {
     _name: CString,
     _class: Weak<RefCell<Class<'src, 'ast>>>,
-    _def: Rc<ClassFieldDef<'src>>,
-    _entity: Entity,
+    def: Rc<ClassFieldDef<'src>>,
+    entity: Entity,
 }
 
 struct Method<'src, 'ast> {

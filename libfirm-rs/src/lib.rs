@@ -170,6 +170,13 @@ impl Addr {
     }
 }
 
+impl AsPointer for Addr {
+    fn as_pointer(&self) -> *mut ir_node {
+        self.0
+    }
+
+}
+
 #[derive(Clone, Copy)]
 pub struct Graph {
     irg: *mut ir_graph,

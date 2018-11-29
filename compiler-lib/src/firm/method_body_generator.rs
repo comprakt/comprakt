@@ -288,8 +288,35 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     }
                 }
             }
-
-            FieldAccess(_expr, _symbol) => unimplemented!(),
+            FieldAccess(expr, symbol) => {
+                self.gen_expr(expr);
+                match self.type_analysis.expr_info(expr).ty {
+                    CheckedType::TypeRef(pre_expr_ty) => {
+                        let class = self
+                            .classes
+                            .get(&pre_expr_ty.id())
+                            .expect("Class has to be registered")
+                            .borrow();
+                        let field = class
+                            .fields
+                            .get(symbol)
+                            .expect("Field must exist in class after type checking")
+                            .borrow();
+                        let field_addr = self.graph.new_addr(field.entity);
+                        let mode = get_firm_mode(&field.def.ty);
+                        let load = self.graph.cur_block().new_load(
+                            self.graph.cur_store(),
+                            &field_addr,
+                            mode,
+                            field.entity.ty(),
+                            ir_cons_flags::None,
+                        );
+                        load.project_mem();
+                        load.project_res(mode).as_value_node()
+                    }
+                    _ => panic!("Only classes have fields"),
+                }
+            }
             ArrayAccess(_expr, _index_expr) => unimplemented!(),
             Null => unimplemented!(),
             ThisMethodInvocation(_symbol, _argument_list) => unimplemented!(),
