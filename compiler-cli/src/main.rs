@@ -140,14 +140,14 @@ pub struct LoweringOptions {
         short = "-l",
         parse(from_os_str)
     )]
-    pub dump_class_layouts: Option<PathBuf>,
-    /// Dump class layouts
+    pub dump_lowered_firm_graph: Option<PathBuf>,
+    /// Output class layouts
     #[structopt(
         long = "--emit-class-layouts",
         short = "-c",
         parse(from_os_str)
     )]
-    pub dump_lowered_firm_graph: Option<PathBuf>,
+    pub dump_class_layouts: Option<PathBuf>,
     /// Write generated assembly code to the given file. Defaults to
     /// stdout
     #[structopt(long = "--output", short = "-o", parse(from_os_str))]
