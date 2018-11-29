@@ -100,14 +100,22 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_var_decl(
         &mut self,
-        _ty: &ast::Type<'src>,
+        ty: &ast::Type<'src>,
         name: &Symbol<'src>,
         init_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>,
     ) {
-        // TODO here we need hennings type_analysis, because _ty is not a CheckedType.
-        // For now, just assume i32
-        //let mode = get_firm_mode(_ty).expect(&format!("var '{}' is void", name));
-        let mode = unsafe { mode::Is };
+        let mode = unsafe {
+            match &ty.basic.data {
+                ast::BasicType::Int => mode::Is,
+                ast::BasicType::Boolean => mode::Bu,
+                ast::BasicType::Custom(_) => mode::P,
+                ast::BasicType::Void => panic!("type analysis should prohibit void local var"),
+                ast::BasicType::MainParam => {
+                    panic!("type analysis should prohbiit MainParam local var")
+                }
+            }
+        };
+
         let var_slot = self.new_local_var(*name, mode);
         if let Some(init_expr) = init_expr {
             self.graph.set_value(var_slot, &self.gen_expr(init_expr));
