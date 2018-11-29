@@ -180,9 +180,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
 
                 default_layout_compound_type(class_type);
 
-                classes
-                    .insert(class.name, gclass)
-                    .expect("Every class name should be unique after type checking");
+                classes.insert(class.name, gclass);
             }
         }
 

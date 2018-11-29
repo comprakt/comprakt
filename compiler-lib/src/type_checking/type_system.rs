@@ -96,6 +96,10 @@ impl<'src> ClassDefId<'src> {
     pub fn as_str(&self) -> &str {
         self.id.as_str()
     }
+
+    pub fn id(&self) -> Symbol<'src> {
+        self.id
+    }
 }
 
 #[derive(Debug)]
