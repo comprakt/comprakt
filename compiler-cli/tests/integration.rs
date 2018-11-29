@@ -269,9 +269,9 @@ fn assert_output(output: &Output, file: &TestFiles) {
 
 #[allow(dead_code)]
 fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
-    let output = compiler_call(phase, &file.input)
-        .output()
-        .expect("failed to call compiler under test");
+    let mut call = compiler_call(phase, &file.input);
+    println!("Executing: {:?}", call);
+    let output = call.output().expect("failed to call compiler under test");
 
     assert_output(&output, &file);
 }

@@ -66,16 +66,10 @@ pub fn gen_binary_integration_tests(_args: TokenStream) -> TokenStream {
             #[test]
             fn #function_name() {
                 let input = PathBuf::from(#path_str);
-                // we are explicitly not writing the binary into a temporary
-                // directory or file to make debugging assertion failures easier.
-                let mut binary_dir = input.clone();
-                binary_dir.pop(); // remove file name
-
-                let mut binary = binary_dir.clone();
-                binary.push(input.file_stem().unwrap());
+                let mut binary_path = input.with_extension("out");
 
                 assert_compiler_phase(CompilerCall::RawCompiler(CompilerPhase::Binary {
-                    output: binary_dir
+                    output: binary_path.clone()
                 }), &TestFiles {
                     stderr: with_extension(&input, ".stderr"),
                     stdout: with_extension(&input, ".stdout"),
@@ -85,14 +79,14 @@ pub fn gen_binary_integration_tests(_args: TokenStream) -> TokenStream {
                 });
 
                 // reaching this line means the compiler assertions were correct
-                let mut cmd = std::process::Command::new(&binary);
+                let mut cmd = std::process::Command::new(&binary_path);
                 let output = cmd.output().expect("failed to invoke generated binary");
 
                 assert_output(&output, &TestFiles {
-                    stderr: with_extension(&binary, "stderr"),
-                    stdout: with_extension(&binary, "stdout"),
-                    exitcode: with_extension(&binary, "exitcode"),
-                    input: binary,
+                    stderr: with_extension(&binary_path, "stderr"),
+                    stdout: with_extension(&binary_path, "stdout"),
+                    exitcode: with_extension(&binary_path, "exitcode"),
+                    input: binary_path.clone(),
                     generate_tentatives: true
                 });
             }
