@@ -303,7 +303,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                             .expect("Field must exist in class after type checking")
                             .borrow();
                         let field_addr = self.graph.new_addr(field.entity);
-                        let mode = get_firm_mode(&field.def.ty);
+                        let mode = get_firm_mode(&field.def.ty)
+                            .expect("Type `void` is not a valid field type");
                         let load = self.graph.cur_block().new_load(
                             self.graph.cur_store(),
                             &field_addr,
