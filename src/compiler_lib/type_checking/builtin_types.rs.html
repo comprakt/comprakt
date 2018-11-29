@@ -93,6 +93,9 @@
 <span id="93">93</span>
 <span id="94">94</span>
 <span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
+<span id="98">98</span>
 </pre><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">strtab</span>::<span class="ident">StringTable</span>;
 
@@ -112,6 +115,7 @@
 
         <span class="kw">let</span> <span class="ident">reader_class_id</span> <span class="op">=</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reader_class_def</span> <span class="op">=</span> <span class="ident">ClassDef</span>::<span class="ident">new</span>(<span class="ident">strtab</span>.<span class="ident">intern</span>(<span class="string">&quot;$Reader&quot;</span>));
+            <span class="ident">reader_class_def</span>.<span class="ident">comparable</span> <span class="op">=</span> <span class="bool-val">false</span>;
             <span class="ident">reader_class_def</span>
                 .<span class="ident">add_method</span>(<span class="ident">ClassMethodDef</span> {
                     <span class="ident">name</span>: <span class="ident">strtab</span>.<span class="ident">intern</span>(<span class="string">&quot;read&quot;</span>),
@@ -128,6 +132,7 @@
             <span class="kw">let</span> <span class="ident">arg_sym</span> <span class="op">=</span> <span class="ident">strtab</span>.<span class="ident">intern</span>(<span class="string">&quot;data&quot;</span>);
 
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writer_class_def</span> <span class="op">=</span> <span class="ident">ClassDef</span>::<span class="ident">new</span>(<span class="ident">strtab</span>.<span class="ident">intern</span>(<span class="string">&quot;$Writer&quot;</span>));
+            <span class="ident">writer_class_def</span>.<span class="ident">comparable</span> <span class="op">=</span> <span class="bool-val">false</span>;
             <span class="ident">writer_class_def</span>
                 .<span class="ident">add_method</span>(<span class="ident">ClassMethodDef</span> {
                     <span class="ident">name</span>: <span class="ident">strtab</span>.<span class="ident">intern</span>(<span class="string">&quot;println&quot;</span>),
@@ -160,6 +165,7 @@
 
         <span class="kw">let</span> <span class="ident">system_class_id</span> <span class="op">=</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">system_class_def</span> <span class="op">=</span> <span class="ident">ClassDef</span>::<span class="ident">new</span>(<span class="ident">strtab</span>.<span class="ident">intern</span>(<span class="string">&quot;$System&quot;</span>));
+            <span class="ident">system_class_def</span>.<span class="ident">comparable</span> <span class="op">=</span> <span class="bool-val">false</span>;
             <span class="ident">system_class_def</span>
                 .<span class="ident">add_field</span>(<span class="ident">ClassFieldDef</span> {
                     <span class="ident">name</span>: <span class="ident">strtab</span>.<span class="ident">intern</span>(<span class="string">&quot;in&quot;</span>),
