@@ -38,7 +38,6 @@ use env_logger;
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{
-    env,
     fs::File,
     io::{self, Write},
     path::PathBuf,
@@ -66,6 +65,9 @@ pub enum CliError {
     Ascii { path: PathBuf },
     #[fail(display = "cannot copy input file {:?} to stdout", input)]
     Echo { input: PathBuf },
+    // TODO: this whole linking shenanigans should be part of compiler-lib
+    #[fail(display = "failed to link runtime using `cc`")]
+    LinkingFailed,
 }
 
 /// An in memory representation of command-line flags passed to the
@@ -110,20 +112,15 @@ pub enum CliCommand {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
-    /// Output x86-assembler or the firm graph in various stages
+    /// Output x86-assembler and optionally the firm graph in various stages.
+    /// Defaults to writing to standard out.
     #[structopt(name = "--emit-asm")]
     Lower(LoweringOptions),
 
-    /// Output an executable
-    #[structopt(name = "--compile")]
-    Compile {
-        /// the location of the input MiniJava file
-        #[structopt(name = "FILE", parse(from_os_str))]
-        input: PathBuf,
-        /// the location of the generated executable file
-        #[structopt(long = "--output", short = "-o", parse(from_os_str))]
-        output: Option<PathBuf>,
-    },
+    /// Output an executable. Defaults to 'a.out' in the current working
+    /// directory.
+    #[structopt(name = "--compile-firm")]
+    CompileFirm(LoweringOptions),
 }
 
 /// Command-line options for the [`CliCommand::Lower`] (`--lower`) call
@@ -145,8 +142,7 @@ pub struct LoweringOptions {
     #[structopt(long = "--emit-class-layouts", short = "-c")]
     pub dump_class_layouts: bool,
 
-    /// Write generated assembly code to the given file. Defaults to
-    /// stdout
+    /// Write primary output artifact to the given file or directory.
     #[structopt(long = "--output", short = "-o", parse(from_os_str))]
     pub output: Option<PathBuf>,
 }
@@ -154,7 +150,6 @@ pub struct LoweringOptions {
 impl Into<firm::Options> for LoweringOptions {
     fn into(self) -> firm::Options {
         firm::Options {
-            // TODO: remove stringly typed api "-" for stdout
             dump_assembler: Some(match self.output {
                 None => OutputSpecification::Stdout,
                 Some(path) => OutputSpecification::File(path),
@@ -187,7 +182,7 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path),
         CliCommand::Lower(options) => cmd_lower(&options.path, &options.clone().into()),
-        CliCommand::Compile { input, output } => cmd_compile(input, output),
+        CliCommand::CompileFirm(options) => cmd_compile_firm(options),
     }
 }
 
@@ -250,7 +245,10 @@ macro_rules! setup_io {
     };
 }
 
-fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
+const DEFAULT_BINARY_FILENAME: &str = "a.out";
+
+fn cmd_compile_firm(options: &LoweringOptions) -> Result<(), Error> {
+    let input = &options.path;
     setup_io!(let context = input);
     let mut strtab = StringTable::new();
     let lexer = Lexer::new(&mut strtab, &context);
@@ -287,48 +285,51 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
         });
 
     let temp_dir = tempdir()?;
-    let out_dir = temp_dir.path().to_path_buf();
-    let user_assembly = out_dir.join("a.s");
+    let compilation_dir = temp_dir.path().to_path_buf();
+    let user_assembly = compilation_dir.join("a.s");
 
-    // lower user code to assembler
-    let mut firm_options = firm::Options::default();
-    firm_options.dump_folder = env::current_dir().unwrap();
-    firm_options.dump_assembler = Some(OutputSpecification::File(user_assembly.clone()));
+    let mut lowering_options: compiler_lib::firm::Options = (options.clone()).into();
+    lowering_options.dump_assembler = Some(OutputSpecification::File(user_assembly.clone()));
 
-    unsafe { firm::build(&firm_options, &type_system, &type_analysis) };
+    unsafe { firm::build(&lowering_options, &type_system, &type_analysis) };
 
     // get runtime library
-    let runtime_path = out_dir.join("mjrt.a");
+    let runtime_path = compilation_dir.join("mjrt.a");
     {
         let mut file = File::create(&runtime_path)?;
         file.write_all(mjrt::STATIC_LIB)?;
     }
 
-    // TODO: this should be smarted and check wether output
-    // contains a file stem.
-    let out_name = input.file_stem().unwrap();
-
-    let out_path = if let Some(out_dir) = output {
-        out_dir.join(out_name)
-    } else {
-        PathBuf::new().join(out_name)
+    let binary_path = match &options.output {
+        Some(dir) if dir.is_dir() => dir.join(DEFAULT_BINARY_FILENAME),
+        Some(file) => file.clone(),
+        None => PathBuf::from(DEFAULT_BINARY_FILENAME),
     };
 
     // link runtime static library with user's code
     let linker_status = Command::new("cc")
         .arg("-o")
-        .arg(&out_path)
+        .arg(&binary_path)
         .args(mjrt::LINKER_FLAGS)
         .arg(&user_assembly)
         .arg(&runtime_path)
         .args(mjrt::LINKER_LIBS)
-        .status()?;
+        .status()
+        .context(CliError::LinkingFailed)?;
 
-    let linker_failure_action = std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP");
+    if std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP").is_ok() {
+        // `into_path(.)` has the side effect "Persist the temporary directory to disk"
+        let path = temp_dir.into_path();
+        eprintln!(
+            "Temporary compilation directory was persisted to {:?}",
+            path
+        );
+    }
 
-    match (linker_status.success(), linker_failure_action) {
-        (true, _) | (false, Err(_)) => Ok(()),
-        (false, Ok(_)) => std::process::exit(1),
+    if !linker_status.success() {
+        Err(CliError::LinkingFailed.into())
+    } else {
+        Ok(())
     }
 }
 
