@@ -115,7 +115,7 @@ pub enum CliCommand {
     /// Output x86-assembler and optionally the firm graph in various stages.
     /// Defaults to writing to standard out.
     #[structopt(name = "--emit-asm")]
-    Lower(LoweringOptions),
+    EmitAsm(LoweringOptions),
 
     /// Output an executable. Defaults to 'a.out' in the current working
     /// directory.
@@ -123,7 +123,8 @@ pub enum CliCommand {
     CompileFirm(LoweringOptions),
 }
 
-/// Command-line options for the [`CliCommand::Lower`] (`--lower`) call
+/// Command-line options for the [`CliCommand::CompileFirm`] and
+/// [`CliCommand::EmitAsm`] calls
 #[derive(StructOpt, Debug, Clone, Default)]
 pub struct LoweringOptions {
     /// A MiniJava input file
@@ -181,7 +182,7 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path),
-        CliCommand::Lower(options) => cmd_lower(&options.path, &options.clone().into()),
+        CliCommand::EmitAsm(options) => cmd_emit_asm(options),
         CliCommand::CompileFirm(options) => cmd_compile_firm(options),
     }
 }
@@ -333,8 +334,9 @@ fn cmd_compile_firm(options: &LoweringOptions) -> Result<(), Error> {
     }
 }
 
-fn cmd_lower(path: &PathBuf, opts: &firm::Options) -> Result<(), Error> {
-    setup_io!(let context = path);
+fn cmd_emit_asm(opts: &LoweringOptions) -> Result<(), Error> {
+    let input = &opts.path;
+    setup_io!(let context = input);
     let mut strtab = StringTable::new();
     let lexer = Lexer::new(&mut strtab, &context);
 
@@ -369,7 +371,8 @@ fn cmd_lower(path: &PathBuf, opts: &firm::Options) -> Result<(), Error> {
             exit(1);
         });
 
-    unsafe { firm::build(opts, &type_system, &type_analysis) };
+    let firm_options = opts.clone().into();
+    unsafe { firm::build(&firm_options, &type_system, &type_analysis) };
     Ok(())
 }
 
