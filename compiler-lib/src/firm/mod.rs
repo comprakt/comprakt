@@ -201,7 +201,6 @@ fn get_firm_mode(ty: &CheckedType<'_>) -> Option<mode::Type> {
         CheckedType::TypeRef(_) | CheckedType::Array(_) | CheckedType::Null => {
             Some(unsafe { mode::P })
         }
-        // MUST NOT be void or unknown type after semantic analysis phase.
         CheckedType::Void | CheckedType::UnknownType(_) => None,
     }
 }

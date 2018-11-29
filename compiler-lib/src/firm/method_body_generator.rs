@@ -211,6 +211,31 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         self.graph.end_block().add_pred(&ret);
     }
 
+    fn gen_static_fn_call(
+        &mut self,
+        func: Entity,
+        return_type: Option<mode::Type>,
+        args: &[*mut ir_node],
+    ) -> *mut ir_node {
+        let call = self.graph.cur_block().new_call(
+            self.graph.cur_store(),
+            self.graph.new_addr(func),
+            &args,
+        );
+
+        self.graph.set_store(call.project_mem());
+
+        match return_type {
+            Some(mode) => call.project_result_tuple().project(mode, 0).as_value_node(),
+            None => {
+                // TODO: we are fucked here! this is possible (e.g. function returns void).
+                // But we cannot satisfy the return type of gen_expr!!! Requires refactor
+                // nullptr is an arbitrary value
+                ptr::null_mut()
+            }
+        }
+    }
+
     /// Return a node that evaluates the given expression
     ///
     /// TODO non-raw-ptr abstraction for ret type; Box<dyn ValueNode> might
@@ -250,10 +275,68 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             }
             Unary(_, _expr) => unimplemented!(),
             MethodInvocation(object, method, argument_list) => {
-                let class_id = match self.type_analysis.expr_info(object).ty {
-                    CheckedType::TypeRef(class_ref) => class_ref.id(),
+                log::debug!(
+                    "gen method invocation for object={:?}, method={:?}",
+                    object.span.as_str(),
+                    method.span.as_str()
+                );
+
+                let object_expr_info = self.type_analysis.expr_info(object);
+
+                let class_id = match object_expr_info.ty {
+                    CheckedType::TypeRef(class_def) => class_def.id(),
                     _ => panic!("method invocations can only be done on type references"),
                 };
+
+                let mut args = vec![];
+
+                for arg in argument_list.iter() {
+                    args.push(self.gen_expr(arg));
+                }
+
+                // we only have one global variable: 'System'. Since implementing
+                // global variables just to support this single type seems unnecessary,
+                // we just check if a method invocation targets the runtime dollar types (which
+                // are singletons, and can therefore be statically dispatched.)
+                match class_id.as_str() {
+                    // TODO: symbol vergleich, kein string vergleich ;)
+                    "$Writer" => {
+                        return match method.data.as_str() {
+                            // TODO: symbol vergleich, kein string vergleich ;)
+                            "println" => self.gen_static_fn_call(
+                                self.runtime.system_out_println,
+                                None,
+                                &args,
+                            ),
+                            "write" => {
+                                self.gen_static_fn_call(self.runtime.system_out_write, None, &args)
+                            }
+                            "flush" => {
+                                self.gen_static_fn_call(self.runtime.system_out_flush, None, &args)
+                            }
+                            method_name => {
+                                panic!("unknown runtime function System.out.{}", method_name)
+                            }
+                        };
+                    }
+                    "$Reader" => {
+                        return match method.data.as_str() {
+                            // TODO: symbol vergleich, kein string vergleich ;)
+                            "read" => self.gen_static_fn_call(
+                                self.runtime.system_in_read,
+                                get_firm_mode(&CheckedType::Int),
+                                &args,
+                            ),
+                            method_name => {
+                                panic!("unknown runtime function System.in.{}", method_name)
+                            }
+                        };
+                    }
+                    _ => (),
+                }
+
+                // at this point, we known that the invocation is targeting a user defined
+                // class and method.
 
                 let class = self
                     .classes
@@ -264,37 +347,17 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let method = class
                     .methods
                     .get(&method)
-                    .expect("invocation of unknown method");
+                    .expect("invocation of unknown method")
+                    .borrow();
 
                 // object could be any expression that has to be
                 // evaluated, e.g. (this.get_object()).foo()
                 let this = self.gen_expr(object);
+                args.insert(0, this);
 
-                let mut args = vec![this];
+                let return_type = get_firm_mode(&method.def.return_ty);
 
-                for arg in argument_list.iter() {
-                    args.push(self.gen_expr(arg));
-                }
-
-                let call = self.graph.cur_block().new_call(
-                    self.graph.cur_store(),
-                    self.graph.new_addr(method.borrow().entity),
-                    &args,
-                );
-
-                self.graph.set_store(call.project_mem());
-
-                let return_type = &method.borrow().def.return_ty;
-
-                match get_firm_mode(&return_type) {
-                    Some(mode) => call.project_result_tuple().project(mode, 0).as_value_node(),
-                    None => {
-                        // TODO: we are fucked here! this is possible (e.g. function returns void).
-                        // But we cannot satisfy the return type of gen_expr!!! Requires refactor
-                        // nullptr is an arbitrary value
-                        ptr::null_mut()
-                    }
-                }
+                self.gen_static_fn_call(method.entity, return_type, &args)
             }
             FieldAccess(expr, symbol) => {
                 self.gen_expr(expr);
@@ -496,6 +559,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     /// Get name and mode of previously allocated local var
     fn local_var(&mut self, name: Symbol<'src>) -> (usize, mode::Type) {
-        *self.local_vars.get(&name).expect("undefined variable")
+        match self.local_vars.get(&name) {
+            Some(local) => *local,
+            None => panic!("undefined variable '{}'", name),
+        }
     }
 }
