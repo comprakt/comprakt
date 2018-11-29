@@ -1,10 +1,10 @@
-use super::{Class, Field, Method, MethodBodyGenerator, Program, Runtime};
+use super::{ty_from_checked_type, Class, Field, Method, MethodBodyGenerator, Program, Runtime};
 use crate::{
     ast,
     strtab::Symbol,
     type_checking::{
         type_analysis::TypeAnalysis,
-        type_system::{CheckedType, ClassMethodBody, TypeSystem},
+        type_system::{ClassMethodBody, TypeSystem},
     },
     visitor::NodeKind,
 };
@@ -37,7 +37,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
         for class in classes.values() {
             let class = class.borrow();
             log::debug!("generate methods for class {:?}", class.def.name);
-            for method in &class.methods {
+            for method in class.methods.values() {
                 log::debug!("generate method body for {:?}", method.borrow().def.name);
 
                 let matured_graph = self.generate_method_body(&method.borrow(), &classes);
@@ -82,23 +82,6 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
         }
     }
 
-    /// `None` indicates that the given type is not convertible, which
-    /// is not necessarily an error (e.g. `void`)
-    fn ty_from_checked_type(ct: &CheckedType<'_>) -> Option<Ty> {
-        let ty = match ct {
-            CheckedType::Int => PrimitiveType::i32(),
-            CheckedType::Void => return None,
-            CheckedType::TypeRef(_) => PrimitiveType::ptr(),
-            CheckedType::Array(checked_type) => Self::ty_from_checked_type(checked_type)
-                .expect("Arrays are never of type `void`")
-                .pointer(), // TODO safe array type?
-            CheckedType::Boolean => PrimitiveType::bool(),
-            CheckedType::Null => unreachable!(),
-            CheckedType::UnknownType(_) => unreachable!(),
-        };
-        Some(ty)
-    }
-
     fn build_entities(&self) -> HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>> {
         let mut classes = HashMap::new();
         // Define classes
@@ -116,12 +99,12 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                     name: class_name,
                     entity: class_entity,
                     fields: Vec::new(),
-                    methods: Vec::new(),
+                    methods: HashMap::new(),
                 }));
 
                 for field in class.iter_fields() {
                     log::debug!("\tgen field {:?}", field.name.as_str());
-                    let field_type = Self::ty_from_checked_type(&field.ty)
+                    let field_type = ty_from_checked_type(&field.ty)
                         .expect("field type must be convertible to a Firm type");
                     let field_name =
                         CString::new(format!("{}.F.{}", class_name_str, field.name)).unwrap();
@@ -143,13 +126,16 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                     log::debug!("\tgen method{:?}", method.name.as_str());
                     assert!(!method.is_static || (method.is_static && method.is_main));
                     let mut method_type = FunctionType::new();
-                    // TODO `this` param?
+
+                    // add this parameter
+                    method_type.add_param(PrimitiveType::ptr());
+
                     for param in &method.params {
-                        let param_type = Self::ty_from_checked_type(&param.ty)
+                        let param_type = ty_from_checked_type(&param.ty)
                             .expect("parameter must be convertible to a Firm type");
                         method_type.add_param(param_type);
                     }
-                    if let Some(return_ty) = Self::ty_from_checked_type(&method.return_ty) {
+                    if let Some(return_ty) = ty_from_checked_type(&method.return_ty) {
                         method_type.set_res(return_ty);
                     }
                     let method_type = method_type.build(!method.is_main);
@@ -165,17 +151,17 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                         method_type.into(),
                     );
 
-                    gclass
-                        .borrow_mut()
-                        .methods
-                        .push(Rc::new(RefCell::new(Method {
+                    gclass.borrow_mut().methods.insert(
+                        method.name,
+                        Rc::new(RefCell::new(Method {
                             _class: Rc::downgrade(&gclass),
                             _name: method_name,
                             def: Rc::clone(&method),
                             entity: method_entity.into(),
                             graph: None,
                             body: method.body,
-                        })));
+                        })),
+                    );
                 }
 
                 default_layout_compound_type(class_type);

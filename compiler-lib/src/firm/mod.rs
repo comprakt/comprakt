@@ -26,21 +26,23 @@ pub use self::{
 };
 
 use crate::{
+    strtab::Symbol,
     type_checking::{
         type_analysis::TypeAnalysis,
-        type_system::{ClassDef, ClassFieldDef, ClassMethodBody, ClassMethodDef, TypeSystem},
+        type_system::{
+            CheckedType, ClassDef, ClassFieldDef, ClassMethodBody, ClassMethodDef, TypeSystem,
+        },
     },
     OutputSpecification,
-    strtab::Symbol,
 };
 use libfirm_rs::{bindings::*, *};
 use std::{
     cell::RefCell,
+    collections::HashMap,
     ffi::{CStr, CString},
     fs,
     path::PathBuf,
     rc::{Rc, Weak},
-    collections::HashMap,
 };
 
 /// Enable or disable behaviour during the lowering phase
@@ -61,7 +63,7 @@ struct Class<'src, 'ast> {
     def: &'src ClassDef<'src, 'ast>,
     entity: Entity,
     fields: Vec<Rc<RefCell<Field<'src, 'ast>>>>,
-    methods: Vec<Rc<RefCell<Method<'src, 'ast>>>>,
+    methods: HashMap<Symbol<'src>, Rc<RefCell<Method<'src, 'ast>>>>,
 }
 
 struct Field<'src, 'ast> {
@@ -173,4 +175,33 @@ pub unsafe fn build(
     drop(program);
 
     ir_finish();
+}
+
+/// `None` indicates that the given type is not convertible, which
+/// is not necessarily an error (e.g. `void`)
+fn ty_from_checked_type(ct: &CheckedType<'_>) -> Option<Ty> {
+    let ty = match ct {
+        CheckedType::Int => PrimitiveType::i32(),
+        CheckedType::Void => return None,
+        CheckedType::TypeRef(_) => PrimitiveType::ptr(),
+        CheckedType::Array(checked_type) => ty_from_checked_type(checked_type)
+            .expect("Arrays are never of type `void`")
+            .pointer(), // TODO safe array type?
+        CheckedType::Boolean => PrimitiveType::bool(),
+        CheckedType::Null => unreachable!(),
+        CheckedType::UnknownType(_) => unreachable!(),
+    };
+    Some(ty)
+}
+
+fn get_firm_mode(ty: &CheckedType<'_>) -> Option<mode::Type> {
+    match ty {
+        CheckedType::Int => Some(unsafe { mode::Is }),
+        CheckedType::Boolean => Some(unsafe { mode::Bu }),
+        CheckedType::TypeRef(_) | CheckedType::Array(_) | CheckedType::Null => {
+            Some(unsafe { mode::P })
+        }
+        // MUST NOT be void or unknown type after semantic analysis phase.
+        CheckedType::Void | CheckedType::UnknownType(_) => None,
+    }
 }

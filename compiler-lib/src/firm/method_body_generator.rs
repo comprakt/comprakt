@@ -1,4 +1,4 @@
-use super::{Class, Runtime};
+use super::{get_firm_mode, Class, Runtime};
 use crate::{
     asciifile::Spanned,
     ast::{self, BinaryOp},
@@ -9,7 +9,7 @@ use crate::{
     },
 };
 use libfirm_rs::{bindings::*, *};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, ptr, rc::Rc};
 
 pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     graph: Graph,
@@ -18,7 +18,7 @@ pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     local_vars: HashMap<Symbol<'src>, (usize, mode::Type)>,
     num_vars: usize,
     runtime: &'ir Runtime,
-    _type_analysis: &'ir TypeAnalysis<'src, 'ast>,
+    type_analysis: &'ir TypeAnalysis<'src, 'ast>,
 }
 
 impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
@@ -36,7 +36,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             num_vars: 0,
             method_def,
             runtime,
-            _type_analysis: type_analysis,
+            type_analysis,
         }
         .gen_args()
     }
@@ -50,7 +50,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
             let method_def = Rc::clone(&self.method_def);
             for (i, p) in method_def.params.iter().enumerate() {
-                let mode = get_firm_mode(&p.ty);
+                let mode = get_firm_mode(&p.ty).expect("parmeter cannot be void");
                 self.graph
                     .set_value(self.new_local_var(p.name, mode), &args.project(mode, i + 1));
             }
@@ -241,7 +241,54 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 neg.as_value_node()
             }
             Unary(_, _expr) => unimplemented!(),
-            MethodInvocation(_expr, _symbol, _argument_list) => unimplemented!(),
+            MethodInvocation(object, method, argument_list) => {
+                let class_id = match self.type_analysis.expr_info(object).ty {
+                    CheckedType::TypeRef(class_ref) => class_ref.id(),
+                    _ => panic!("method invocations can only be done on type references"),
+                };
+
+                let class = self
+                    .classes
+                    .get(&class_id)
+                    .expect("method invocation on inexistent class")
+                    .borrow();
+
+                let method = class
+                    .methods
+                    .get(&method)
+                    .expect("invocation of unknown method");
+
+                // object could be any expression that has to be
+                // evaluated, e.g. (this.get_object()).foo()
+                let this = self.gen_expr(object);
+
+                let mut args = vec![this];
+
+                for arg in argument_list.iter() {
+                    args.push(self.gen_expr(arg));
+                }
+
+                let call = self.graph.cur_block().new_call(
+                    self.graph.cur_store(),
+                    self.graph.new_addr(method.borrow().entity),
+                    &args,
+                );
+
+                self.graph.set_store(call.project_mem());
+
+                let return_type = &method.borrow().def.return_ty;
+
+                match get_firm_mode(&return_type) {
+                    Some(mode) => call.project_result_tuple().project(mode, 0).as_value_node(),
+                    None => {
+                        // TODO: we are fucked here! this is possible (e.g. function returns void).
+                        // But we cannot satisfy the return type of gen_expr!!! Requires refactor
+                        // nullptr is an arbitrary value
+                        ptr::null_mut()
+                    }
+                }
+            }
+
             FieldAccess(_expr, _symbol) => unimplemented!(),
             ArrayAccess(_expr, _index_expr) => unimplemented!(),
             Null => unimplemented!(),
@@ -266,6 +313,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     self.graph.new_addr(self.runtime.new),
                     &[size.as_value_node()],
                 );
+
                 self.graph.set_store(call.project_mem());
 
                 call.project_result_tuple()
@@ -376,15 +424,5 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     /// Get name and mode of previously allocated local var
     fn local_var(&mut self, name: Symbol<'src>) -> (usize, mode::Type) {
         *self.local_vars.get(&name).expect("undefined variable")
-    }
-}
-
-fn get_firm_mode(ty: &CheckedType<'_>) -> mode::Type {
-    match ty {
-        CheckedType::Int => unsafe { mode::Is },
-        CheckedType::Boolean => unsafe { mode::Bu },
-        CheckedType::TypeRef(_) | CheckedType::Array(_) | CheckedType::Null => unsafe { mode::P },
-        // MUST NOT be void or unknown type after semantic analysis phase.
-        CheckedType::Void | CheckedType::UnknownType(_) => unreachable!(),
     }
 }
