@@ -384,7 +384,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             BinaryOp::Div => {
                 let mem = self.graph.cur_store();
                 log::debug!("pre new_div");
-                let div = self.graph.cur_block().new_div(mem, &lhs, &rhs, op_pin_state::Pinned as i32);
+                let div =
+                    self.graph
+                        .cur_block()
+                        .new_div(mem, &lhs, &rhs, op_pin_state::Pinned as i32);
                 self.graph.set_store(div.project_mem());
                 log::debug!("pre project_res");
                 let res = div.project_res();
@@ -394,7 +397,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             BinaryOp::Mod => {
                 let mem = self.graph.cur_store();
                 log::debug!("pre new_mod");
-                let mod_node = self.graph.cur_block().new_mod(mem, &lhs, &rhs, op_pin_state::Pinned as i32);
+                let mod_node =
+                    self.graph
+                        .cur_block()
+                        .new_mod(mem, &lhs, &rhs, op_pin_state::Pinned as i32);
                 self.graph.set_store(mod_node.project_mem());
                 log::debug!("pre project_res");
                 let res = mod_node.project_res();
@@ -404,7 +410,38 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             BinaryOp::LogicalOr => unimplemented!(),
             BinaryOp::LogicalAnd => unimplemented!(),
             BinaryOp::Assign => unimplemented!(),
-            BinaryOp::Equals => unimplemented!(),
+            BinaryOp::Equals => {
+                let cmp = self
+                    .graph
+                    .cur_block()
+                    .new_cmp(&lhs, &rhs, ir_relation::Equal);
+                let cond = self.graph.cur_block().new_cond(&cmp);
+                let t = cond.project_true();
+                let f = cond.project_false();
+                let zero = self
+                    .graph
+                    .new_const(unsafe { new_tarval_from_long(0, mode::Bu) });
+                let one = self
+                    .graph
+                    .new_const(unsafe { new_tarval_from_long(1, mode::Bu) });
+
+                let phi_block = unsafe {
+                    let phi_block = new_r_immBlock(self.graph.into());
+                    add_immBlock_pred(phi_block, f.into());
+                    add_immBlock_pred(phi_block, t.into());
+                    phi_block
+                };
+                let phi = unsafe {
+                    let inputs = [zero.into(), one.into()];
+                    let phi = new_r_Phi(phi_block, 2, inputs.as_ptr(), mode::Bu);
+                    //keep_alive(phi_block);
+                    phi
+                };
+                let phi_block = Block::from(phi_block);
+                phi_block.mature();
+                unsafe { self.graph.set_cur_block(phi_block) };
+                phi
+            }
             BinaryOp::NotEquals => unimplemented!(),
             BinaryOp::LessThan => unimplemented!(),
             BinaryOp::GreaterThan => unimplemented!(),
