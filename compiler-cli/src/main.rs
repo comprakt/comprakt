@@ -110,7 +110,7 @@ pub enum CliCommand {
         path: PathBuf,
     },
     /// Output x86-assembler or the firm graph in various stages
-    #[structopt(name = "--compile-firm")]
+    #[structopt(name = "--emit-asm")]
     Lower(LoweringOptions),
 
     /// Output an executable
@@ -132,11 +132,15 @@ pub struct LoweringOptions {
     #[structopt(name = "FILE", parse(from_os_str))]
     pub path: PathBuf,
     /// Output the matured unlowered firm graph as VCG file
-    #[structopt(long = "--emit-firm-graph", short = "-g", parse(from_os_str))]
+    #[structopt(
+        long = "--emit-firm-graphs",
+        short = "-g",
+        parse(from_os_str)
+    )]
     pub dump_firm_graph: Option<PathBuf>,
     /// Output the matured lowered firm graph as VCG file
     #[structopt(
-        long = "--emit-lowered-firm-graph",
+        long = "--emit-lowered-firm-graphs",
         short = "-l",
         parse(from_os_str)
     )]
