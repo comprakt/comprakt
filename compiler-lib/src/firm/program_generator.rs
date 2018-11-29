@@ -114,12 +114,15 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                         field_type.into(),
                     );
 
-                    gclass.borrow_mut().fields.insert(field.name, Rc::new(RefCell::new(Field {
-                        _class: Rc::downgrade(&gclass),
-                        _name: field_name,
-                        def: field,
-                        entity: field_entity.into(),
-                    })));
+                    gclass.borrow_mut().fields.insert(
+                        field.name,
+                        Rc::new(RefCell::new(Field {
+                            _class: Rc::downgrade(&gclass),
+                            _name: field_name,
+                            def: field,
+                            entity: field_entity.into(),
+                        })),
+                    );
                 }
 
                 for method in class.iter_methods() {

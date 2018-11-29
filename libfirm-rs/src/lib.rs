@@ -174,7 +174,6 @@ impl AsPointer for Addr {
     fn as_pointer(&self) -> *mut ir_node {
         self.0
     }
-
 }
 
 #[derive(Clone, Copy)]
