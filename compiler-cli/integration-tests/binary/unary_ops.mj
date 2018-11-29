@@ -1,0 +1,10 @@
+class A {
+    public static void main(String[] args) {
+        int x = 4;
+        System.out.println(-x);
+
+        if (!false) { System.out.println(-3); }
+        if (!true) { } else { System.out.println(-2); }
+        if (!!!true) { } else { System.out.println(-1); }
+    }
+}
