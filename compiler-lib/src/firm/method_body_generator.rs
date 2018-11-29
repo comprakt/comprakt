@@ -384,7 +384,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             BinaryOp::Div => {
                 let mem = self.graph.cur_store();
                 log::debug!("pre new_div");
-                let div = self.graph.cur_block().new_div(mem, &lhs, &rhs, 0);
+                let div = self.graph.cur_block().new_div(mem, &lhs, &rhs, op_pin_state::Pinned as i32);
                 self.graph.set_store(div.project_mem());
                 log::debug!("pre project_res");
                 let res = div.project_res();
@@ -394,7 +394,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             BinaryOp::Mod => {
                 let mem = self.graph.cur_store();
                 log::debug!("pre new_mod");
-                let mod_node = self.graph.cur_block().new_mod(mem, &lhs, &rhs, 0);
+                let mod_node = self.graph.cur_block().new_mod(mem, &lhs, &rhs, op_pin_state::Pinned as i32);
                 self.graph.set_store(mod_node.project_mem());
                 log::debug!("pre project_res");
                 let res = mod_node.project_res();
