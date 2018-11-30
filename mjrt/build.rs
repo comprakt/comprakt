@@ -28,15 +28,24 @@ fn main() {
         impl_crate_dir
     );
 
+
+    println!("cargo:rerun-if-env-changed=PROFILE");
+    let (profile, profile_args) = if std::env::var("PROFILE") == Ok("release".to_string()) {
+        ("release", &["--release"][..])
+    } else {
+        ("debug", &[][..])
+    };
+
     Command::new(env!("CARGO"))
         .current_dir(impl_crate_dir.clone())
         .arg("build")
+        .args(profile_args)
         .status()
         .expect("could not build mjrt/src");
 
     let static_lib_path = impl_crate_dir
         .join("target")
-        .join("debug")
+        .join(profile)
         .join("libmjrt_impl.a");
     debug_assert!(
         static_lib_path.exists(),
