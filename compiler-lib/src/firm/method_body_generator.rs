@@ -11,6 +11,7 @@ use crate::{
 };
 use libfirm_rs::{bindings::*, *};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use strum_macros::EnumDiscriminants;
 
 pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     graph: Graph,
@@ -287,12 +288,15 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 {
                     RefInfo::Var(_) | RefInfo::Param(_) => {
                         let (slot, mode) = self.local_var(**name);
-                        Value(self.graph.value(slot, mode).as_value_node())
+                        Assignable(LValue::Var {
+                            slot_idx: slot,
+                            mode,
+                        })
                     }
                     RefInfo::Field(_) => {
                         // this pointer is in slot 0
                         let pre_ptr = unsafe { new_r_Proj(self.this(), mode::P, 0) };
-                        Value(self.gen_field(pre_ptr, self.class_name(), **name))
+                        Assignable(self.gen_field(pre_ptr, self.class_name(), **name))
                     }
                     _ => unreachable!("Variable access expr is always var, param or field"),
                 }
@@ -310,8 +314,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 use self::ExprResult::*;
                 match expr {
                     Void => panic!("type system should not allow !void"),
-                    Value(n) => {
-                        // booleans are mode::Bu, hence XOR does the job.
+                    Assignable(_) | Value(_) => {
+                        let n = match expr {
+                            Assignable(lvalue) => lvalue.gen_eval(self.graph),
+                            Value(n) => n,
+                            _ => unreachable!(),
+                        };
+
+                        // booleansare mode::Bu, hence XOR does the job.
                         // could also use mode::Bi and -1 for true:
                         // => could use Neg / Not, but would rely on 2's complement
                         let bu1 = unsafe {
@@ -440,25 +450,21 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 self.gen_static_fn_call(method.entity, return_type, &args)
             }
             FieldAccess(object, field) => {
-                let object_ir_node = self.gen_expr(object);
-                match self.type_analysis.expr_info(object).ty {
-                    CheckedType::TypeRef(object_type) => {
-                        let object_ptr = object_ir_node.enforce_value(self.graph);
-                        Value(self.gen_field(object_ptr, object_type.id(), **field))
-                    }
+                let object_type = match self.type_analysis.expr_info(object).ty {
+                    CheckedType::TypeRef(object_type) => object_type,
                     _ => panic!("Only classes have fields"),
-                }
+                };
+
+                let object_ptr = self.gen_expr(object).enforce_value(self.graph);
+
+                Assignable(self.gen_field(object_ptr, object_type.id(), **field))
             }
 
             ArrayAccess(target_expr, idx_expr) => {
                 let elt_type = ty_from_checked_type(&self.type_analysis.expr_info(expr).ty)
                     .expect("array element type must have firm equivalent");
 
-                Value(
-                    self.gen_array_access(target_expr, idx_expr)
-                        .gen_load(self.graph, elt_type)
-                        .as_value_node(),
-                )
+                Assignable(self.gen_array_access(target_expr, idx_expr, elt_type))
             }
 
             Null => Value(self.gen_const(0, unsafe { mode::P }).as_value_node()),
@@ -523,7 +529,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         &mut self,
         target_expr: &ast::Expr<'src>,
         idx_expr: &ast::Expr<'src>,
-    ) -> Sel {
+        elt_type: Ty,
+    ) -> LValue {
         let array_type = &self.type_analysis.expr_info(target_expr).ty;
         let firm_array_type =
             ty_from_checked_type(array_type).expect("array type must have firm equivalent");
@@ -531,9 +538,13 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let target_expr = self.gen_expr(target_expr).enforce_value(self.graph);
         let idx_expr = self.gen_expr(idx_expr).enforce_value(self.graph);
 
-        self.graph
-            .cur_block()
-            .new_sel(&target_expr, &idx_expr, firm_array_type)
+        LValue::Array {
+            sel: self
+                .graph
+                .cur_block()
+                .new_sel(&target_expr, &idx_expr, firm_array_type),
+            elt_type,
+        }
     }
 
     fn gen_field(
@@ -541,7 +552,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         ptr: *mut ir_node,
         class_name: Symbol<'src>,
         field_name: Symbol<'src>,
-    ) -> *mut ir_node {
+    ) -> LValue {
         let class = self
             .classes
             .get(&class_name)
@@ -552,17 +563,13 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             .get(&field_name)
             .expect("Field must exist in class after type checking")
             .borrow();
-        let member = self.graph.cur_block().new_member(&ptr, field.entity);
         let mode = get_firm_mode(&field.def.ty).expect("Type `void` is not a valid field type");
-        let load = self.graph.cur_block().new_load(
-            self.graph.cur_store(),
-            &member.ptr(),
-            mode,
-            field.entity.ty(),
-            ir_cons_flags::None,
-        );
-        self.graph.set_store(load.project_mem());
-        load.project_res(mode).as_value_node()
+
+        LValue::Field {
+            object: ptr,
+            field_entity: field.entity,
+            field_mode: mode,
+        }
     }
 
     fn gen_binary_expr(
@@ -703,7 +710,13 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     fls: false_out,
                 })
             }
-            BinaryOp::Assign => unimplemented!(),
+
+            BinaryOp::Assign => Value(
+                self.gen_expr(lhs)
+                    .expect_lvalue()
+                    .gen_assign(self.graph, &self.gen_expr(rhs).enforce_value(self.graph)),
+            ),
+
             BinaryOp::Equals => relation!(lhs, rhs, ir_relation::Equal),
             BinaryOp::NotEquals => relation!(lhs, rhs, ir_relation::LessGreater),
             BinaryOp::LessThan => relation!(lhs, rhs, ir_relation::Less),
@@ -739,6 +752,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 }
 
 /// Result of `MethodBodyGenerator::gen_expr`
+#[derive(EnumDiscriminants)]
 enum ExprResult {
     /// No Result (e.g. call of void method)
     Void,
@@ -748,6 +762,9 @@ enum ExprResult {
     /// Result is two mode::X nodes (i.e. control flow) that can be branched on
     /// (e.g. result of short-circuiting binary expr, `||`, `==`, `&&`, ...)
     Cond(CondProjection),
+
+    /// An assignable lvalue, such as parameter / local var or array acces
+    Assignable(LValue),
 }
 
 struct CondProjection {
@@ -789,6 +806,7 @@ impl ExprResult {
                 let cond = graph.cur_block().new_cond(&sel);
                 CondProjection::from(cond)
             }
+            Assignable(lval) => Value(lval.gen_eval(graph)).enforce_cond(graph),
             Cond(cp) => cp,
         }
     }
@@ -800,6 +818,7 @@ impl ExprResult {
         match self {
             Void => panic!("Tried to get result value of void expr"),
             Value(val) => val,
+            Assignable(lval) => lval.gen_eval(graph),
             Cond(cp) => {
                 let CondProjection { tr, fls } = cp;
                 let zero = graph.new_const(unsafe { new_tarval_from_long(0, mode::Bu) });
@@ -819,6 +838,98 @@ impl ExprResult {
                 phi_block.mature();
                 graph.set_cur_block(phi_block);
                 phi
+            }
+        }
+    }
+
+    /// Assert that self is an lvalue and return it
+    fn expect_lvalue(self) -> LValue {
+        use self::ExprResult::*;
+        match self {
+            Assignable(lvalue) => lvalue,
+            _ => panic!("cannot assign to {:?}", ExprResultDiscriminants::from(self)),
+        }
+    }
+}
+
+/// An assignable (or evaluatable) lvalue
+/// The Idea is, that upon encountering a possible lvalue
+/// when looking at an expression in `gen_expr`, we defer the decision
+/// on wether to treat it as a simple value or treating it as a location.
+/// Then, upon encountering an assignment, we still have the information
+/// needed to assign to the location described by the LHS.
+enum LValue {
+    // Local variable. This includes parameters
+    Var {
+        slot_idx: usize,
+        mode: mode::Type,
+    },
+    // Array access
+    Array {
+        sel: Sel,
+        elt_type: Ty,
+    },
+    // Class field access
+    Field {
+        object: *mut ir_node,
+        field_mode: mode::Type,
+        field_entity: Entity,
+    },
+}
+
+impl LValue {
+    /// Evaluate the lvalue just as if it were handled as a normal expression
+    fn gen_eval(self, graph: Graph) -> *mut ir_node {
+        use self::LValue::*;
+        match self {
+            Var { slot_idx, mode } => graph.value(slot_idx, mode).as_value_node(),
+            Array { sel, elt_type } => sel.gen_load(graph, elt_type).as_value_node(),
+            Field {
+                object,
+                field_mode,
+                field_entity,
+            } => {
+                let member = graph.cur_block().new_member(&object, field_entity);
+                let load = graph.cur_block().new_load(
+                    graph.cur_store(),
+                    &member,
+                    field_mode,
+                    field_entity.ty(),
+                    ir_cons_flags::None,
+                );
+                graph.set_store(load.project_mem());
+                load.project_res(field_mode).as_value_node()
+            }
+        }
+    }
+
+    /// Store the given value at the location described by this lvalue
+    fn gen_assign<V: ValueNode>(self, graph: Graph, value: &V) -> *mut ir_node {
+        use self::LValue::*;
+        match self {
+            Var { slot_idx, mode } => {
+                graph.set_value(slot_idx, value);
+                graph.value(slot_idx, mode).as_value_node()
+            }
+            Array { sel, elt_type } => {
+                sel.gen_store(graph, value);
+                sel.gen_load(graph, elt_type).as_value_node()
+            }
+            Field {
+                object,
+                field_entity,
+                ..
+            } => {
+                let member = graph.cur_block().new_member(&object, field_entity);
+                let store = graph.cur_block().new_store(
+                    graph.cur_store(),
+                    &member,
+                    value,
+                    field_entity.ty(),
+                    ir_cons_flags::None,
+                );
+                graph.set_store(store.project_mem());
+                value.as_value_node()
             }
         }
     }

@@ -37,6 +37,10 @@ impl Ty {
         unsafe { new_type_array(self.into(), 0) }.into()
     }
 
+    pub fn element_type(self) -> Ty {
+        unsafe { get_array_element_type(self.into()) }.into()
+    }
+
     pub fn size(self) -> u32 {
         unsafe { get_type_size(self.into()) }
     }
@@ -524,9 +528,9 @@ impl Into<*mut ir_node> for Block {
 #[derive(Clone, Copy, Into, From)]
 pub struct Member(*mut ir_node);
 
-impl Member {
-    pub fn ptr(self) -> *mut ir_node {
-        unsafe { get_Member_ptr(self.0) }
+impl AsPointer for Member {
+    fn as_pointer(&self) -> *mut ir_node {
+        (*self).into()
     }
 }
 
@@ -686,6 +690,10 @@ impl AsIndex for *mut ir_node {
 pub struct Sel(*mut ir_node);
 
 impl Sel {
+    pub fn array_type(self) -> Ty {
+        unsafe { get_Sel_type(self.0) }.into()
+    }
+
     pub fn gen_load(self, graph: Graph, elt_type: Ty) -> LoadValue {
         let load = graph.cur_block().new_load(
             graph.cur_store(),
@@ -697,6 +705,20 @@ impl Sel {
         graph.set_store(load.project_mem());
 
         load.project_res(elt_type.mode())
+    }
+
+    pub fn gen_store<V: ValueNode>(self, graph: Graph, value: &V) {
+        let elt_type = self.array_type().element_type();
+
+        let store = graph.cur_block().new_store(
+            graph.cur_store(),
+            &self,
+            value,
+            elt_type,
+            ir_cons_flags::None,
+        );
+
+        graph.set_store(store.project_mem());
     }
 }
 
@@ -850,9 +872,8 @@ pub struct Store(*mut ir_node);
 pub struct StoreValue(*mut ir_node);
 
 impl Store {
-    /// TODO can ret type be `MemoryState` ?
-    pub fn project_mem(self) -> *mut ir_node {
-        unsafe { new_r_Proj(self.0, mode::M, pn_Store::M) }
+    pub fn project_mem(self) -> MemoryState {
+        unsafe { new_r_Proj(self.0, mode::M, pn_Store::M) }.into()
     }
 }
 
