@@ -108,6 +108,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         name: &Symbol<'src>,
         init_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>,
     ) {
+        // TODO: move mode conversion to its own function
         let mode = unsafe {
             match &ty.basic.data {
                 ast::BasicType::Int => mode::Is,
@@ -123,7 +124,18 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let var_slot = self.new_local_var(*name, mode);
         if let Some(init_expr) = init_expr {
             self.graph.set_value(var_slot, &self.gen_expr(init_expr));
+        } else {
+            self.graph.set_value(var_slot, &self.gen_zero(mode));
         }
+    }
+
+    fn gen_zero(&mut self, mode: mode::Type) -> libfirm_rs::Const {
+        self.gen_const(0, mode)
+    }
+
+    fn gen_const(&mut self, value: i64, mode: mode::Type) -> libfirm_rs::Const {
+        self.graph
+            .new_const(unsafe { new_tarval_from_long(value, mode) })
     }
 
     fn gen_while(&mut self, cond: &ast::Expr<'src>, body: &ast::Stmt<'src>) {
@@ -248,23 +260,19 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         use self::ast::Expr::*;
         match &expr {
             Int(literal) => {
-                let val = unsafe { new_tarval_from_long(literal.parse().unwrap(), mode::Is) };
-                self.graph.new_const(val).as_value_node()
+                let val = literal.parse().unwrap();
+                self.gen_const(val, unsafe { mode::Is }).as_value_node()
             }
             NegInt(literal) => {
-                let val = unsafe {
-                    new_tarval_from_long(
-                        literal
-                            .parse::<i64>()
-                            .map_or_else(|_| -2_147_483_648, |v| -v),
-                        mode::Is,
-                    )
-                };
-                self.graph.new_const(val).as_value_node()
+                let val = literal
+                    .parse::<i32>()
+                    .map_or_else(|_| -2_147_483_648, |v| -v);
+                self.gen_const(val as i64, unsafe { mode::Is })
+                    .as_value_node()
             }
             Boolean(value) => {
-                let val = unsafe { new_tarval_from_long(if *value { 1 } else { 0 }, mode::Bu) };
-                self.graph.new_const(val).as_value_node()
+                let as_bit = if *value { 1 } else { 0 };
+                self.gen_const(as_bit, unsafe { mode::Bu }).as_value_node()
             }
             Var(name) => {
                 if let Some(ref_info) = &self.type_analysis.expr_info(expr).ref_info {
@@ -403,17 +411,12 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .get(ty_name)
                     .expect("creating non-existing class");
 
-                let size = unsafe {
-                    self.graph.new_const(new_tarval_from_long(
-                        i64::from(class.borrow().entity.ty().size()),
-                        mode::Iu,
-                    ))
-                };
+                let size = i64::from(class.borrow().entity.ty().size());
 
                 let call = self.graph.cur_block().new_call(
                     self.graph.cur_store(),
                     self.graph.new_addr(self.runtime.new),
-                    &[size.as_value_node()],
+                    &[self.gen_const(size, unsafe { mode::Iu }).as_value_node()],
                 );
 
                 self.graph.set_store(call.project_mem());
@@ -513,12 +516,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let cond = self.graph.cur_block().new_cond(&cmp);
                 let t = cond.project_true();
                 let f = cond.project_false();
-                let zero = self
-                    .graph
-                    .new_const(unsafe { new_tarval_from_long(0, mode::Bu) });
-                let one = self
-                    .graph
-                    .new_const(unsafe { new_tarval_from_long(1, mode::Bu) });
+                let zero = self.gen_zero(unsafe { mode::Bu });
+                let one = self.gen_const(1, unsafe { mode::Bu });
 
                 let phi_block = unsafe {
                     let phi_block = new_r_immBlock(self.graph.into());
@@ -552,9 +551,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let (slot, mode) = self.local_var(**name);
                 let val = self.graph.value(slot, mode);
 
-                let zero = self
-                    .graph
-                    .new_const(unsafe { new_tarval_from_long(0, mode) });
+                let zero = self.gen_zero(mode);
 
                 // cond is true iff. val != 0
                 self.graph
