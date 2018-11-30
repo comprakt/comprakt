@@ -365,9 +365,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 self.gen_static_fn_call(method.entity, return_type, &args)
             }
             FieldAccess(expr, symbol) => {
-                self.gen_expr(expr);
+                let pre_expr = self.gen_expr(expr);
                 match self.type_analysis.expr_info(expr).ty {
                     CheckedType::TypeRef(pre_expr_ty) => {
+                        let pre_ptr = unsafe{ new_r_Proj(pre_expr, mode::P, 0) };
                         let class = self
                             .classes
                             .get(&pre_expr_ty.id())
@@ -378,17 +379,17 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                             .get(symbol)
                             .expect("Field must exist in class after type checking")
                             .borrow();
-                        let field_addr = self.graph.new_addr(field.entity);
+                        let member = self.graph.cur_block().new_member(pre_ptr, field.entity);
                         let mode = get_firm_mode(&field.def.ty)
                             .expect("Type `void` is not a valid field type");
                         let load = self.graph.cur_block().new_load(
                             self.graph.cur_store(),
-                            &field_addr,
+                            &member.ptr(),
                             mode,
                             field.entity.ty(),
                             ir_cons_flags::None,
                         );
-                        load.project_mem();
+                        self.graph.set_store(load.project_mem());
                         load.project_res(mode).as_value_node()
                     }
                     _ => panic!("Only classes have fields"),
@@ -397,7 +398,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             ArrayAccess(_expr, _index_expr) => unimplemented!(),
             Null => unimplemented!(),
             ThisMethodInvocation(_symbol, _argument_list) => unimplemented!(),
-            This => unimplemented!(),
+            This => {
+                self.this()
+            }
             NewObject(ty_name) => {
                 // TODO classes should be hash map for efficient lookup
                 let class = self
@@ -568,5 +571,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             Some(local) => *local,
             None => panic!("undefined variable '{}'", name),
         }
+    }
+
+    fn this(&self) -> *mut ir_node {
+        self.graph.value(0, mode::P).as_value_node()
     }
 }

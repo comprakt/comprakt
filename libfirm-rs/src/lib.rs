@@ -282,81 +282,6 @@ impl Block {
     pub fn mature(self) {
         unsafe { mature_immBlock(self.0) }
     }
-}
-
-impl From<*mut ir_node> for Block {
-    fn from(n: *mut ir_node) -> Block {
-        Block(n)
-    }
-}
-
-impl Into<*mut ir_node> for Block {
-    fn into(self) -> *mut ir_node {
-        self.0
-    }
-}
-
-pub trait AsPred {
-    fn as_pred(&self) -> Pred;
-}
-
-pub trait AsSelector {
-    fn as_selector(&self) -> Selector;
-}
-
-pub trait CmpOperand {
-    fn as_cmp_operand(&self) -> *mut ir_node;
-}
-
-pub trait ValueNode {
-    fn as_value_node(&self) -> *mut ir_node;
-}
-
-pub trait UnsignedIntegerNode {
-    fn as_uint_node(&self) -> *mut ir_node;
-}
-
-/// FIXME: remove this blanket impl
-impl UnsignedIntegerNode for *mut ir_node {
-    fn as_uint_node(&self) -> *mut ir_node {
-        if cfg!(debug_assertions) {
-            unsafe {
-                let selfmode = get_irn_mode(*self);
-                debug_assert_eq!(selfmode, mode::Iu);
-            }
-        }
-        *self
-    }
-}
-
-/// FIXME: remove this blanket impl because it allows invalid node types as
-/// CmpOperand
-impl<N> CmpOperand for N
-where
-    N: Into<*mut ir_node> + Copy,
-{
-    fn as_cmp_operand(&self) -> *mut ir_node {
-        (*self).into()
-    }
-}
-
-/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
-/// Predi
-impl AsPred for *mut ir_node {
-    fn as_pred(&self) -> Pred {
-        Pred(*self)
-    }
-}
-
-/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
-/// ValueNode
-impl ValueNode for *mut ir_node {
-    fn as_value_node(&self) -> *mut ir_node {
-        *self
-    }
-}
-
-impl Block {
     pub fn new_jmp(self) -> Jmp {
         unsafe { new_r_Jmp(self.0) }.into()
     }
@@ -561,6 +486,91 @@ impl Block {
             )
         }
         .into()
+    }
+
+    pub fn new_member<P: AsPointer>(self, ptr: P, entity: Entity) -> Member {
+        unsafe { new_r_Member(self.0, ptr.as_pointer(), entity.into()) }.into()
+    }
+}
+
+impl From<*mut ir_node> for Block {
+    fn from(n: *mut ir_node) -> Block {
+        Block(n)
+    }
+}
+
+impl Into<*mut ir_node> for Block {
+    fn into(self) -> *mut ir_node {
+        self.0
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Member(*mut ir_node);
+
+impl Member {
+    pub fn ptr(&self) -> *mut ir_node {
+        unsafe { get_Member_ptr(self.0) }
+    }
+}
+
+pub trait AsPred {
+    fn as_pred(&self) -> Pred;
+}
+
+pub trait AsSelector {
+    fn as_selector(&self) -> Selector;
+}
+
+pub trait CmpOperand {
+    fn as_cmp_operand(&self) -> *mut ir_node;
+}
+
+pub trait ValueNode {
+    fn as_value_node(&self) -> *mut ir_node;
+}
+
+pub trait UnsignedIntegerNode {
+    fn as_uint_node(&self) -> *mut ir_node;
+}
+
+/// FIXME: remove this blanket impl
+impl UnsignedIntegerNode for *mut ir_node {
+    fn as_uint_node(&self) -> *mut ir_node {
+        if cfg!(debug_assertions) {
+            unsafe {
+                let selfmode = get_irn_mode(*self);
+                debug_assert_eq!(selfmode, mode::Iu);
+            }
+        }
+        *self
+    }
+}
+
+/// FIXME: remove this blanket impl because it allows invalid node types as
+/// CmpOperand
+impl<N> CmpOperand for N
+where
+    N: Into<*mut ir_node> + Copy,
+{
+    fn as_cmp_operand(&self) -> *mut ir_node {
+        (*self).into()
+    }
+}
+
+/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
+/// Predi
+impl AsPred for *mut ir_node {
+    fn as_pred(&self) -> Pred {
+        Pred(*self)
+    }
+}
+
+/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
+/// ValueNode
+impl ValueNode for *mut ir_node {
+    fn as_value_node(&self) -> *mut ir_node {
+        *self
     }
 }
 
@@ -778,8 +788,8 @@ impl ValueNode for LoadValue {
 
 impl Load {
     /// TODO can ret type be `MemoryState` ?
-    pub fn project_mem(self) -> *mut ir_node {
-        unsafe { new_r_Proj(self.0, mode::M, pn_Load::M) }
+    pub fn project_mem(self) -> MemoryState {
+        unsafe { new_r_Proj(self.0, mode::M, pn_Load::M) }.into()
     }
 
     pub fn project_res(self, mode: mode::Type) -> LoadValue {
