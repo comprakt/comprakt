@@ -17,7 +17,7 @@ class A {
         	System.out.println(0);
         }
         
-        if (b.c.a == null) {
+        if (b.c == null) {
             System.out.println(0);
         } else {
             System.out.println(1);
