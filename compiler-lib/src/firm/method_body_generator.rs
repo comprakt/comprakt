@@ -261,7 +261,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         use self::{ast::Expr::*, ExprResult::*};
         match &expr {
             Int(literal) => {
-                let val = literal.parse().unwrap();
+                let val = literal.parse().expect("Integer literal has to be valid");
                 Value(self.gen_const(val, unsafe { mode::Is }).as_value_node())
             }
             NegInt(literal) => {
@@ -269,7 +269,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .parse::<i32>()
                     .map_or_else(|_| -2_147_483_648, |v| -v);
                 Value(
-                    self.gen_const(val as i64, unsafe { mode::Is })
+                    self.gen_const(i64::from(val), unsafe { mode::Is })
                         .as_value_node(),
                 )
             }
@@ -278,21 +278,23 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 Value(self.gen_const(as_bit, unsafe { mode::Bu }).as_value_node())
             }
             Var(name) => {
-                if let Some(ref_info) = &self.type_analysis.expr_info(expr).ref_info {
-                    match ref_info {
-                        RefInfo::Var(_) | RefInfo::Param(_) => {
-                            let (slot, mode) = self.local_var(**name);
-                            Value(self.graph.value(slot, mode).as_value_node())
-                        }
-                        RefInfo::Field(_) => {
-                            // this pointer is in slot 0
-                            let pre_ptr = unsafe { new_r_Proj(self.this(), mode::P, 0) };
-                            Value(self.gen_field(pre_ptr, self.class_name, **name))
-                        }
-                        _ => unreachable!(),
+                match self
+                    .type_analysis
+                    .expr_info(expr)
+                    .ref_info
+                    .as_ref()
+                    .expect("Variable access expr is always a ref")
+                {
+                    RefInfo::Var(_) | RefInfo::Param(_) => {
+                        let (slot, mode) = self.local_var(**name);
+                        Value(self.graph.value(slot, mode).as_value_node())
                     }
-                } else {
-                    unreachable!();
+                    RefInfo::Field(_) => {
+                        // this pointer is in slot 0
+                        let pre_ptr = unsafe { new_r_Proj(self.this(), mode::P, 0) };
+                        Value(self.gen_field(pre_ptr, self.class_name, **name))
+                    }
+                    _ => unreachable!("Variable access expr is always var, param or field"),
                 }
             }
             Binary(op, lhs, rhs) => self.gen_binary_expr(*op, lhs, rhs),
