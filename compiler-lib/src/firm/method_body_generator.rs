@@ -288,12 +288,6 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     _ => panic!("method invocations can only be done on type references"),
                 };
 
-                let mut args = vec![];
-
-                for arg in argument_list.iter() {
-                    args.push(self.gen_expr(arg));
-                }
-
                 // we only have one global variable: 'System'. Since implementing
                 // global variables just to support this single type seems unnecessary,
                 // we just check if a method invocation targets the runtime dollar types (which
@@ -301,6 +295,12 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 match class_id.as_str() {
                     // TODO: symbol vergleich, kein string vergleich ;)
                     "$Writer" => {
+                        let mut args = vec![];
+
+                        for arg in argument_list.iter() {
+                            args.push(self.gen_expr(arg));
+                        }
+
                         return match method.data.as_str() {
                             // TODO: symbol vergleich, kein string vergleich ;)
                             "println" => self.gen_static_fn_call(
@@ -325,7 +325,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                             "read" => self.gen_static_fn_call(
                                 self.runtime.system_in_read,
                                 get_firm_mode(&CheckedType::Int),
-                                &args,
+                                &[],
                             ),
                             method_name => {
                                 panic!("unknown runtime function System.in.{}", method_name)
@@ -353,7 +353,12 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 // object could be any expression that has to be
                 // evaluated, e.g. (this.get_object()).foo()
                 let this = self.gen_expr(object);
-                args.insert(0, this);
+
+                let mut args = vec![this];
+
+                for arg in argument_list.iter() {
+                    args.push(self.gen_expr(arg));
+                }
 
                 let return_type = get_firm_mode(&method.def.return_ty);
 
