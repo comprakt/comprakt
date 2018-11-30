@@ -44,6 +44,10 @@ impl Ty {
     pub fn alignment(self) -> u32 {
         unsafe { get_type_alignment(self.into()) }
     }
+
+    pub fn mode(self) -> mode::Type {
+        unsafe { get_type_mode(self.into()) }
+    }
 }
 
 pub struct PrimitiveType;
@@ -676,6 +680,21 @@ impl AsIndex for *mut ir_node {
 /// Sel is an `ir_node` representing the result of a by-index selection.
 #[derive(Clone, Copy, Into, From)]
 pub struct Sel(*mut ir_node);
+
+impl Sel {
+    pub fn gen_load(self, graph: Graph, elt_type: Ty) -> LoadValue {
+        let load = graph.cur_block().new_load(
+            graph.cur_store(),
+            &self,
+            elt_type.mode(),
+            elt_type,
+            ir_cons_flags::None,
+        );
+        graph.set_store(load.project_mem());
+
+        load.project_res(elt_type.mode())
+    }
+}
 
 impl AsPointer for Sel {
     fn as_pointer(&self) -> *mut ir_node {

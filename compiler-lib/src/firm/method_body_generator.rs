@@ -1,4 +1,4 @@
-use super::{get_firm_mode, size_of, Class, Runtime};
+use super::{get_firm_mode, size_of, ty_from_checked_type, Class, Runtime};
 use crate::{
     asciifile::Spanned,
     ast::{self, BinaryOp},
@@ -431,8 +431,20 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     _ => panic!("Only classes have fields"),
                 }
             }
-            ArrayAccess(_expr, _index_expr) => unimplemented!(),
+
+            ArrayAccess(target_expr, idx_expr) => {
+                let elt_type = ty_from_checked_type(&self.type_analysis.expr_info(expr).ty)
+                    .expect("array element type must have firm equivalent");
+
+                Value(
+                    self.gen_array_access(target_expr, idx_expr)
+                        .gen_load(self.graph, elt_type)
+                        .as_value_node(),
+                )
+            }
+
             Null => Value(self.gen_const(0, unsafe { mode::P }).as_value_node()),
+
             NewObject(ty_name) => {
                 // TODO classes should be hash map for efficient lookup
                 let class = self
@@ -488,6 +500,23 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 )
             }
         }
+    }
+
+    fn gen_array_access(
+        &mut self,
+        target_expr: &ast::Expr<'src>,
+        idx_expr: &ast::Expr<'src>,
+    ) -> Sel {
+        let array_type = &self.type_analysis.expr_info(target_expr).ty;
+        let firm_array_type =
+            ty_from_checked_type(array_type).expect("array type must have firm equivalent");
+
+        let target_expr = self.gen_expr(target_expr).enforce_value(self.graph);
+        let idx_expr = self.gen_expr(idx_expr).enforce_value(self.graph);
+
+        self.graph
+            .cur_block()
+            .new_sel(&target_expr, &idx_expr, firm_array_type)
     }
 
     fn gen_field(
