@@ -39,7 +39,15 @@ pub extern "C" fn mjrt_new(size: i32) -> *mut c_void {
     } else if size == 0 {
         0 as *mut c_void
     } else {
-        unsafe { libc::calloc(size as usize, 1) }
+        unsafe {
+            let ptr = libc::calloc(size as usize, 1);
+            if cfg!(feature = "checked_new") {
+                if ptr == std::ptr::null_mut() {
+                    panic!("allocation failed");
+                }
+            }
+            ptr
+        }
     }
 }
 
