@@ -152,10 +152,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         self.graph.set_cur_block(header_block);
 
         // We evaluate the condition
-        let cond = header_block.new_cond(&self.gen_expr(cond).enforce_selector(self.graph));
+        let CondProjection { tr, fls } = &self.gen_expr(cond).enforce_cond(self.graph);
 
         // Run body if cond is true
-        let body_block = self.graph.new_imm_block(&cond.project_true());
+        let body_block = self.graph.new_imm_block(tr);
         {
             self.graph.set_cur_block(body_block);
             self.gen_stmt(&*body);
@@ -165,7 +165,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         }
 
         // Leave loop if cond is false
-        let next_block = self.graph.new_imm_block(&cond.project_false());
+        let next_block = self.graph.new_imm_block(fls);
         self.graph.set_cur_block(next_block);
 
         header_block.mature();
@@ -189,10 +189,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         self.graph.set_cur_block(header_block);
 
         // We evaluate the condition
-        let cond = header_block.new_cond(&self.gen_expr(cond).enforce_selector(self.graph));
+        let CondProjection { tr, fls } = &self.gen_expr(cond).enforce_cond(self.graph);
 
         // If its true, we take the then_arm
-        let then_block = self.graph.new_imm_block(&cond.project_true());
+        let then_block = self.graph.new_imm_block(tr);
         {
             self.graph.set_cur_block(then_block);
             self.gen_stmt(&*then_arm);
@@ -200,7 +200,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
         // If its false, we take the else_arm
         // We generate an else_block in any case, when there is no `else`, it's empty
-        let else_block = self.graph.new_imm_block(&cond.project_false());
+        let else_block = self.graph.new_imm_block(fls);
         if let Some(else_arm) = else_arm {
             self.graph.set_cur_block(else_block);
             self.gen_stmt(&**else_arm);
@@ -567,7 +567,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             ($lhs: ident, $rhs: ident, $relation: expr) => {{
                 enforce!(value, $lhs, $rhs);
                 let cmp = self.graph.cur_block().new_cmp(&$lhs, &$rhs, $relation);
-                Selector(cmp.as_selector())
+                let cond = self.graph.cur_block().new_cond(&cmp);
+                Cond(cond.into())
             }};
         }
 
@@ -642,54 +643,68 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
 /// Result of `MethodBodyGenerator::gen_expr`
 enum ExprResult {
-    /// No Result (i.e. call of void method)
+    /// No Result (e.g. call of void method)
     Void,
-    /// Result is a single value (i.e. method call, variable, integer
+    /// Result is a single value (e.g. method call, variable, integer
     /// arithmetic)
     Value(*mut ir_node),
-    /// Result is control flow that can be branched on (i.e. result of
-    /// short-circuiting binary expr, `||`, `==`, `&&`, ...)
-    Selector(Selector),
+    /// Result is two mode::X nodes (i.e. control flow) that can be branched on
+    /// (e.g. result of short-circuiting binary expr, `||`, `==`, `&&`, ...)
+    Cond(CondProjection),
+}
+
+struct CondProjection {
+    tr: Jmp,
+    fls: Jmp,
+}
+
+impl From<Cond> for CondProjection {
+    fn from(cond: Cond) -> CondProjection {
+        CondProjection {
+            tr: cond.project_true(),
+            fls: cond.project_false(),
+        }
+    }
 }
 
 impl ExprResult {
-    /// Enforce that the result is selector. If self is a boolean `Value`,
+    /// Enforce that the result is variant Cond. If self is a boolean `Value`,
     /// convert it to a selector that projects the two cases. If it is a
     /// non-boolean value, libfirm will complain.
-    fn enforce_selector(self, graph: Graph) -> Selector {
+    fn enforce_cond(self, graph: Graph) -> CondProjection {
         use self::ExprResult::*;
         match self {
             Void => panic!("Tried to branch on result of void expr"),
             Value(val) => {
                 let one = graph.new_const(unsafe { new_tarval_from_long(1, mode::Bu) });
 
-                graph
+                let sel = graph
                     .cur_block()
                     .new_cmp(&val, &one, ir_relation::Equal)
-                    .as_selector()
+                    .as_selector();
+                let cond = graph.cur_block().new_cond(&sel);
+                CondProjection::from(cond)
             }
-            Selector(sel) => sel,
+            Cond(cp) => cp,
         }
     }
 
-    /// Enforce that the result is a single value. If self is a `Selector`,
+    /// Enforce that the result is a single value. If self is a `Cond`,
     /// convert it to boolean value
     fn enforce_value(self, graph: Graph) -> *mut ir_node {
         use self::ExprResult::*;
         match self {
             Void => panic!("Tried to get result value of void expr"),
             Value(val) => val,
-            Selector(sel) => {
-                let cond = graph.cur_block().new_cond(&sel);
-                let t = cond.project_true();
-                let f = cond.project_false();
+            Cond(cp) => {
+                let CondProjection { tr, fls } = cp;
                 let zero = graph.new_const(unsafe { new_tarval_from_long(0, mode::Bu) });
                 let one = graph.new_const(unsafe { new_tarval_from_long(1, mode::Bu) });
 
                 let phi_block = unsafe {
                     let phi_block = new_r_immBlock(graph.into());
-                    add_immBlock_pred(phi_block, f.into());
-                    add_immBlock_pred(phi_block, t.into());
+                    add_immBlock_pred(phi_block, fls.into());
+                    add_immBlock_pred(phi_block, tr.into());
                     phi_block
                 };
                 let phi = unsafe {
