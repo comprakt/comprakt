@@ -491,6 +491,10 @@ impl Block {
     pub fn new_member<P: AsPointer>(self, ptr: &P, entity: Entity) -> Member {
         unsafe { new_r_Member(self.0, ptr.as_pointer(), entity.into()) }.into()
     }
+
+    pub fn new_bitcast(self, node: *mut ir_node, target_mode: mode::Type) -> Bitcast {
+        unsafe { new_r_Bitcast(self.0, node, target_mode) }.into()
+    }
 }
 
 impl From<*mut ir_node> for Block {
@@ -685,6 +689,9 @@ pub struct Return(*mut ir_node);
 #[derive(Clone, Copy, Into, From)]
 pub struct LocalVar(*mut ir_node);
 
+#[derive(Clone, Copy, Into, From)]
+pub struct Bitcast(*mut ir_node);
+
 impl AsPred for Return {
     fn as_pred(&self) -> Pred {
         Pred(self.0)
@@ -692,6 +699,12 @@ impl AsPred for Return {
 }
 
 impl ValueNode for Const {
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
+impl ValueNode for Bitcast {
     fn as_value_node(&self) -> *mut ir_node {
         self.0
     }
@@ -721,6 +734,12 @@ pub struct ALUOpNode(*mut ir_node);
 
 impl ValueNode for ALUOpNode {
     fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
+impl Projectable for ALUOpNode {
+    fn ir_node(&self) -> *mut ir_node {
         self.0
     }
 }
