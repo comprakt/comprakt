@@ -535,6 +535,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             };
         }
 
+        macro_rules! relation {
+            ($lhs: ident, $rhs: ident, $relation: expr) => {{
+                enforce!(value, $lhs, $rhs);
+                let cmp = self.graph.cur_block().new_cmp(&$lhs, &$rhs, $relation);
+                Selector(cmp.as_selector())
+            }};
+        }
+
         use self::ExprResult::*;
         match op {
             BinaryOp::Add => {
@@ -583,19 +591,12 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             BinaryOp::LogicalOr => unimplemented!(),
             BinaryOp::LogicalAnd => unimplemented!(),
             BinaryOp::Assign => unimplemented!(),
-            BinaryOp::Equals => {
-                enforce!(value, lhs, rhs);
-                let cmp = self
-                    .graph
-                    .cur_block()
-                    .new_cmp(&lhs, &rhs, ir_relation::Equal);
-                Selector(cmp.as_selector())
-            }
-            BinaryOp::NotEquals => unimplemented!(),
-            BinaryOp::LessThan => unimplemented!(),
-            BinaryOp::GreaterThan => unimplemented!(),
-            BinaryOp::LessEquals => unimplemented!(),
-            BinaryOp::GreaterEquals => unimplemented!(),
+            BinaryOp::Equals => relation!(lhs, rhs, ir_relation::Equal),
+            BinaryOp::NotEquals => relation!(lhs, rhs, ir_relation::LessGreater),
+            BinaryOp::LessThan => relation!(lhs, rhs, ir_relation::Less),
+            BinaryOp::GreaterThan => relation!(lhs, rhs, ir_relation::Greater),
+            BinaryOp::LessEquals => relation!(lhs, rhs, ir_relation::LessEqual),
+            BinaryOp::GreaterEquals => relation!(lhs, rhs, ir_relation::GreaterEqual),
         }
     }
 
