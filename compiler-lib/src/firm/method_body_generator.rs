@@ -432,7 +432,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 }
             }
             ArrayAccess(_expr, _index_expr) => unimplemented!(),
-            Null => unimplemented!(),
+            Null => Value(self.gen_const(0, unsafe { mode::P }).as_value_node()),
             NewObject(ty_name) => {
                 // TODO classes should be hash map for efficient lookup
                 let class = self
