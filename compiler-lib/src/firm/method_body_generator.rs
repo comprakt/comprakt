@@ -13,8 +13,8 @@ use libfirm_rs::{bindings::*, *};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
-    class_name: Symbol<'src>,
     graph: Graph,
+    class: &'ir Class<'src, 'ast>,
     classes: &'ir HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
     method_def: Rc<ClassMethodDef<'src, 'ast>>,
     local_vars: HashMap<Symbol<'src>, (usize, mode::Type)>,
@@ -25,16 +25,16 @@ pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
 
 impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     pub(super) fn new(
-        class_name: Symbol<'src>,
         graph: Graph,
+        class: &'ir Class<'src, 'ast>,
         classes: &'ir HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
         method_def: Rc<ClassMethodDef<'src, 'ast>>,
         type_analysis: &'ir TypeAnalysis<'src, 'ast>,
         runtime: &'ir Runtime,
     ) -> Self {
         Self {
-            class_name,
             graph,
+            class,
             classes,
             local_vars: HashMap::new(),
             num_vars: 0,
@@ -292,7 +292,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     RefInfo::Field(_) => {
                         // this pointer is in slot 0
                         let pre_ptr = unsafe { new_r_Proj(self.this(), mode::P, 0) };
-                        Value(self.gen_field(pre_ptr, self.class_name, **name))
+                        Value(self.gen_field(pre_ptr, self.class_name(), **name))
                     }
                     _ => unreachable!("Variable access expr is always var, param or field"),
                 }
@@ -305,6 +305,32 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 Value(neg.as_value_node())
             }
             Unary(_, _expr) => unimplemented!(),
+            This => Value(self.this()),
+            ThisMethodInvocation(method, argument_list) => {
+                let method = self
+                    .class
+                    .methods
+                    .get(&method)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "invocation of unknown method {} on class {} using implicit `this`",
+                            method,
+                            self.class_name()
+                        )
+                    })
+                    .borrow();
+
+                let this = self.this();
+                let mut args = vec![this];
+
+                for arg in argument_list.iter() {
+                    args.push(self.gen_expr(arg).enforce_value(self.graph));
+                }
+
+                let return_type = get_firm_mode(&method.def.return_ty);
+
+                self.gen_static_fn_call(method.entity, return_type, &args)
+            }
             MethodInvocation(object, method, argument_list) => {
                 log::debug!(
                     "gen method invocation for object={:?}, method={:?}",
@@ -395,20 +421,18 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
                 self.gen_static_fn_call(method.entity, return_type, &args)
             }
-            FieldAccess(expr, symbol) => {
-                let pre_expr = self.gen_expr(expr);
-                match self.type_analysis.expr_info(expr).ty {
-                    CheckedType::TypeRef(pre_expr_ty) => {
-                        let pre_ptr = pre_expr.enforce_value(self.graph);
-                        Value(self.gen_field(pre_ptr, pre_expr_ty.id(), **symbol))
+            FieldAccess(object, field) => {
+                let object_ir_node = self.gen_expr(object);
+                match self.type_analysis.expr_info(object).ty {
+                    CheckedType::TypeRef(object_type) => {
+                        let object_ptr = object_ir_node.enforce_value(self.graph);
+                        Value(self.gen_field(object_ptr, object_type.id(), **field))
                     }
                     _ => panic!("Only classes have fields"),
                 }
             }
             ArrayAccess(_expr, _index_expr) => unimplemented!(),
             Null => unimplemented!(),
-            ThisMethodInvocation(_symbol, _argument_list) => unimplemented!(),
-            This => Value(self.this()),
             NewObject(ty_name) => {
                 // TODO classes should be hash map for efficient lookup
                 let class = self
@@ -563,6 +587,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn this(&self) -> *mut ir_node {
         self.graph.value(0, unsafe { mode::P }).as_value_node()
+    }
+
+    fn class_name(&self) -> Symbol<'src> {
+        self.class.def.name
     }
 }
 

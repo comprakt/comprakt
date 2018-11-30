@@ -40,8 +40,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
             for method in class.methods.values() {
                 log::debug!("generate method body for {:?}", method.borrow().def.name);
 
-                let matured_graph =
-                    self.generate_method_body(class.def.name, &method.borrow(), &classes);
+                let matured_graph = self.generate_method_body(&method.borrow(), &class, &classes);
                 // TODO assert matured
                 method.borrow_mut().graph = Some(matured_graph);
             }
@@ -51,8 +50,8 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
 
     fn generate_method_body(
         &self,
-        class_name: Symbol<'src>,
         method: &Method<'src, 'ast>,
+        own_class: &Class<'src, 'ast>,
         classes: &HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
     ) -> Graph {
         match method.body {
@@ -69,8 +68,8 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                     this_param + method.def.params.len() + local_var_def_visitor.count;
                 let graph = Graph::function_with_entity(method.entity, param_count);
                 let mut method_body_gen = MethodBodyGenerator::new(
-                    class_name,
                     graph,
+                    own_class,
                     classes,
                     Rc::clone(&method.def),
                     &self.type_analysis,
