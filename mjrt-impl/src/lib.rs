@@ -36,18 +36,26 @@ mjrt_runtimeexception!(
 pub extern "C" fn mjrt_new(size: i32) -> *mut c_void {
     if size < 0 {
         mjrt_negative_allocation()
-    } else if size == 0 {
-        0 as *mut c_void
+    }
+    let size = if size > 0 {
+        size
     } else {
-        unsafe {
-            let ptr = libc::calloc(size as usize, 1);
-            if cfg!(feature = "checked_new") {
-                if ptr == std::ptr::null_mut() {
-                    panic!("allocation failed");
-                }
+        // calloc might return NULL if called with size = 0.
+        // We cannot let this happen since mjrt_new is used for
+        // MiniJava `new`, which must work for 0-sized classes.
+        // This means specifically that a `==` comparison of two
+        // objects of the same class must return false, which does
+        // not work if we return NULL here
+        1
+    };
+    unsafe {
+        let ptr = libc::calloc(size as usize, 1);
+        if cfg!(feature = "checked_new") {
+            if ptr == std::ptr::null_mut() {
+                panic!("allocation failed");
             }
-            ptr
         }
+        ptr
     }
 }
 

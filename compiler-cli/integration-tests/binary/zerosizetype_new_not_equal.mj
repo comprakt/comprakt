@@ -1,0 +1,18 @@
+class ZeroSized {}
+class A {
+    public static void main(String[] args) {
+        ZeroSized x = new ZeroSized();
+        if (x == null) {
+            System.out.println(10);
+        }
+        ZeroSized y = new ZeroSized();
+        if (y == null) {
+            System.out.println(20);
+        }
+        if (x == y) {
+            System.out.println(666);
+        } else {
+            System.out.println(1);
+        }
+    }
+}
