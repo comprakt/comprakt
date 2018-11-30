@@ -131,7 +131,9 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                     let mut method_type = FunctionType::new();
 
                     // add this parameter
-                    method_type.add_param(PrimitiveType::ptr());
+                    if !method.is_main {
+                        method_type.add_param(PrimitiveType::ptr());
+                    }
 
                     for param in &method.params {
                         let param_type = ty_from_checked_type(&param.ty)
