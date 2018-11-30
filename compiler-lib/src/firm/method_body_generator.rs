@@ -304,7 +304,25 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let neg = self.graph.cur_block().new_minus(&expr);
                 Value(neg.as_value_node())
             }
-            Unary(_, _expr) => unimplemented!(),
+            Unary(ast::UnaryOp::Not, expr) => {
+                log::debug!("unary op");
+                let expr = self.gen_expr(expr);
+                use self::ExprResult::*;
+                match expr {
+                    Void => panic!("type system should not allow !void"),
+                    Value(n) => {
+                        // booleans are mode::Bu, hence XOR does the job.
+                        // could also use mode::Bi and -1 for true:
+                        // => could use Neg / Not, but would rely on 2's complement
+                        let bu1 = unsafe {
+                            assert_eq!(get_irn_mode(n), mode::Bu);
+                            self.graph.new_const(new_tarval_from_long(1, mode::Bu))
+                        };
+                        Value(self.graph.cur_block().new_xor(&n, &bu1).into())
+                    }
+                    Cond(proj) => Cond(proj.flip()),
+                }
+            }
             This => Value(self.this()),
             ThisMethodInvocation(method, argument_list) => {
                 let method = self
@@ -553,11 +571,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         lhs: &ast::Expr<'src>,
         rhs: &ast::Expr<'src>,
     ) -> ExprResult {
-        let lhs = self.gen_expr(lhs);
-        let rhs = self.gen_expr(rhs);
-
         macro_rules! enforce {
             (value, $lhs: ident, $rhs: ident) => {
+                let lhs = self.gen_expr(lhs);
+                let rhs = self.gen_expr(rhs);
                 let $lhs = lhs.enforce_value(self.graph);
                 let $rhs = rhs.enforce_value(self.graph);
             };
@@ -604,8 +621,88 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             BinaryOp::Mul => arithemtic_op!(lhs, rhs, new_mul),
             BinaryOp::Div => arithemtic_op_with_exception!(lhs, rhs, new_div),
             BinaryOp::Mod => arithemtic_op_with_exception!(lhs, rhs, new_mod),
-            BinaryOp::LogicalOr => unimplemented!(),
-            BinaryOp::LogicalAnd => unimplemented!(),
+            BinaryOp::LogicalOr => {
+                let lhs = self.gen_expr(lhs);
+                let CondProjection {
+                    tr: lhs_tr,
+                    fls: lhs_fls,
+                } = lhs.enforce_cond(self.graph);
+                self.graph.cur_block().mature();
+
+                let false_block = self.graph.new_imm_block(&lhs_fls);
+                self.graph.set_cur_block(false_block);
+                let rhs = self.gen_expr(rhs);
+                let CondProjection {
+                    tr: rhs_tr,
+                    fls: rhs_fls,
+                } = rhs.enforce_cond(self.graph);
+                false_block.mature();
+
+                // FIXME: we're constructing an empty block here because we are only
+                // allowed to return a CondProjection with one X node for true and false,
+                // whereas libfirm would allow us to just add multiple predecessors
+                // to the target node (2 true X projections in this case)
+
+                let both_true_block = self.graph.new_imm_block(&lhs_tr);
+                self.graph.set_cur_block(both_true_block);
+                both_true_block.add_pred(&rhs_tr);
+                let true_out = both_true_block.new_jmp();
+                both_true_block.mature();
+
+                // TODO check if this is necessary, if and while do a similar thing
+                // the previous block is done, give a new block to outer exprs
+                // The idea is that the outer expr may expect to have a cur block...
+                let successor_block = unsafe {
+                    Block::from(new_r_immBlock(self.graph.into())) // FIXME API
+                };
+                self.graph.set_cur_block(successor_block);
+
+                Cond(CondProjection {
+                    tr: true_out,
+                    fls: rhs_fls,
+                })
+            }
+            BinaryOp::LogicalAnd => {
+                let lhs = self.gen_expr(lhs);
+                let CondProjection {
+                    tr: lhs_tr,
+                    fls: lhs_fls,
+                } = lhs.enforce_cond(self.graph);
+                self.graph.cur_block().mature();
+
+                let lhs_true_block = self.graph.new_imm_block(&lhs_tr);
+                self.graph.set_cur_block(lhs_true_block);
+                let rhs = self.gen_expr(rhs);
+                let CondProjection {
+                    tr: rhs_tr,
+                    fls: rhs_fls,
+                } = rhs.enforce_cond(self.graph);
+                lhs_true_block.mature();
+
+                // FIXME: we're constructing an empty block here because we are only
+                // allowed to return a CondProjection with one X node for true and false,
+                // whereas libfirm would allow us to just add multiple predecessors
+                // to the target node (2 true X projections in this case)
+
+                let any_false_block = self.graph.new_imm_block(&lhs_fls);
+                self.graph.set_cur_block(any_false_block);
+                any_false_block.add_pred(&rhs_fls);
+                let false_out = any_false_block.new_jmp();
+                any_false_block.mature();
+
+                // TODO check if this is necessary, if and while do a similar thing
+                // the previous block is done, give a new block to outer exprs
+                // The idea is that the outer expr may expect to have a cur block...
+                let successor_block = unsafe {
+                    Block::from(new_r_immBlock(self.graph.into())) // FIXME API
+                };
+                self.graph.set_cur_block(successor_block);
+
+                Cond(CondProjection {
+                    tr: rhs_tr,
+                    fls: false_out,
+                })
+            }
             BinaryOp::Assign => unimplemented!(),
             BinaryOp::Equals => relation!(lhs, rhs, ir_relation::Equal),
             BinaryOp::NotEquals => relation!(lhs, rhs, ir_relation::LessGreater),
@@ -656,6 +753,13 @@ enum ExprResult {
 struct CondProjection {
     tr: Jmp,
     fls: Jmp,
+}
+
+impl CondProjection {
+    fn flip(self) -> CondProjection {
+        let CondProjection { tr, fls } = self;
+        CondProjection { tr: fls, fls: tr }
+    }
 }
 
 impl From<Cond> for CondProjection {

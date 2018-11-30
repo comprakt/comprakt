@@ -380,6 +380,10 @@ impl Block {
         unsafe { new_r_Minus(self.0, operand.as_alu_operand()) }.into()
     }
 
+    pub fn new_xor<A: ALUOperand, B: ALUOperand>(self, left: &A, right: &B) -> ALUOpNode {
+        unsafe { new_r_Eor(self.0, left.as_alu_operand(), right.as_alu_operand()) }.into()
+    }
+
     /// unsigned shift left
     pub fn new_shl<A: ALUOperand, S: UnsignedIntegerNode>(
         self,

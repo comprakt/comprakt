@@ -1,0 +1,37 @@
+class A {
+    public boolean s() {
+        System.out.write(83); /* S */
+        System.out.write(10); /* newline*/
+        return true;
+    }
+
+    public static void main(String[] args) {
+    	A a = new A();
+        if (true && a.s()) { /* a.s() is evaluated */
+            System.out.write(79); /* O*/
+            System.out.write(75); /* K*/
+            System.out.write(10); /* newline*/
+        }
+        if (false && a.s()) { /* a.s() is shortcircuited */
+            System.out.write(79); /* O*/
+            System.out.write(75); /* K*/
+            System.out.write(10); /* newline*/
+        }
+        if (a.s() && false && a.s()) { /* first is a.s() evaluated, second shorted */
+            System.out.write(79); /* O*/
+            System.out.write(75); /* K*/
+            System.out.write(10); /* newline*/
+        }
+        if (!(true && a.s())) {   /* a.s() is evaluated */
+            System.out.write(79); /* O*/
+            System.out.write(75); /* K*/
+            System.out.write(10); /* newline*/
+        }
+        if (!(false && a.s())) {   /* a.s() is shorted */
+            System.out.write(79); /* O*/
+            System.out.write(75); /* K*/
+            System.out.write(10); /* newline*/
+        }
+
+    }
+}

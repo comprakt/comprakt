@@ -1,35 +1,34 @@
 class A {
-    public boolean side_effect() {
-        System.out.write(70); // 
-        System.out.write(10); // newline
+    public boolean s() {
+        System.out.write(83); /* S */
+        System.out.write(10); /* newline */
         return false;
     }
 
     public static void main(String[] args) {
     	A a = new A();
-        if (true || a.side_effect()) {
-            System.out.write(79); // O
-            System.out.write(75); // K
-            System.out.write(10); // newline
+        if (a.s() || (true && a.s())) {      /* both a.s() evaluated  */
+            System.out.write(79); /* O */
+            System.out.write(75); /* K */
+            System.out.write(10); /* newline */
         }
 
-        if (false && a.side_effect()) {
-        } else {
-            System.out.write(79); // O
-            System.out.write(75); // K
-            System.out.write(10); // newline
+        if (false && a.s()) {     /* a.s() is shorted */
+            System.out.write(79); /* O */
+            System.out.write(75); /* K */
+            System.out.write(10); /* newline */
         }
 
-        if (!(false && a.side_effect())) {
-            System.out.write(79); // O
-            System.out.write(75); // K
-            System.out.write(10); // newline
+        if (a.s() || !(false && a.s())) {  /* first is evaluated, second a.s() is shorted */
+            System.out.write(79); /* O */
+            System.out.write(75); /* K */
+            System.out.write(10); /* newline */
         }
 
-        if ((true || a.side_effect()) && true) {
-            System.out.write(79); // O
-            System.out.write(75); // K
-            System.out.write(10); // newline
+        if ((true || a.s()) && true) { /* a.s() is shorted */
+            System.out.write(79); /* O */
+            System.out.write(75); /* K */
+            System.out.write(10); /* newline */
         }
     }
 }

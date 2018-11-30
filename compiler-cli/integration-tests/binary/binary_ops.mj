@@ -6,10 +6,10 @@ class A {
         System.out.println(2 * 2); /* 4 */
         System.out.println(11 % 6); /* 5 */
 
-        /* if (false || true) { System.out.println(6); } */
-        /* if (true || false) { System.out.println(7); } */
-        /* if (true && false) { } else { System.out.println(8); } */
-        /* if (true && true) { System.out.println(9); } */
+        if (false || true) { System.out.println(6); }
+        if (true || false) { System.out.println(7); }
+        if (true && false) { } else { System.out.println(8); }
+        if (true && true) { System.out.println(9); }
         if (1 == 1) { System.out.println(10); }
         if (1 == 2) { } else { System.out.println(11); }
         if (1 != 2) { System.out.println(12); } 
