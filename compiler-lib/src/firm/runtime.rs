@@ -64,7 +64,7 @@ impl Runtime {
 
         let new = {
             let loc = PrimitiveType::ptr();
-            let size = PrimitiveType::u32();
+            let size = PrimitiveType::i32();
             let mut t = FunctionType::new();
 
             t.add_param(size);

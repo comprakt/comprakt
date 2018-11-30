@@ -445,7 +445,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let call = self.graph.cur_block().new_call(
                     self.graph.cur_store(),
                     self.graph.new_addr(self.runtime.new),
-                    &[self.gen_const(size, unsafe { mode::Iu }).as_value_node()],
+                    &[self.gen_const(size, unsafe { mode::Is }).as_value_node()],
                 );
 
                 self.graph.set_store(call.project_mem());
