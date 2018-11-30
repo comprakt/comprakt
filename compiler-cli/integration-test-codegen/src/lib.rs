@@ -83,9 +83,9 @@ pub fn gen_binary_integration_tests(_args: TokenStream) -> TokenStream {
                 let output = cmd.output().expect("failed to invoke generated binary");
 
                 assert_output(&output, &TestFiles {
-                    stderr: with_extension(&binary_path, "stderr"),
-                    stdout: with_extension(&binary_path, "stdout"),
-                    exitcode: with_extension(&binary_path, "exitcode"),
+                    stderr: with_extension(&binary_path, ".stderr"),
+                    stdout: with_extension(&binary_path, ".stdout"),
+                    exitcode: with_extension(&binary_path, ".exitcode"),
                     input: binary_path.clone(),
                     generate_tentatives: true
                 });
