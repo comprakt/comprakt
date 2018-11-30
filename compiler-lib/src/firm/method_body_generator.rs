@@ -543,51 +543,38 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             }};
         }
 
+        macro_rules! arithemtic_op_with_exception {
+            ($lhs: ident, $rhs: ident, $op: ident) => {{
+                enforce!(value, $lhs, $rhs);
+                let mem = self.graph.cur_store();
+                log::debug!("pre {}", stringify!($op));
+                let op = self
+                    .graph
+                    .cur_block()
+                    .$op(mem, &$lhs, &$rhs, op_pin_state::Pinned as i32);
+                self.graph.set_store(op.project_mem());
+                log::debug!("pre project res {}", stringify!($op));
+                let res = op.project_res();
+                log::debug!("pre as_value_node {}", stringify!($op));
+                Value(res.as_value_node())
+            }};
+        }
+
+        macro_rules! arithemtic_op {
+            ($lhs: ident, $rhs: ident, $op: ident) => {{
+                enforce!(value, $lhs, $rhs);
+                let op = self.graph.cur_block().$op(&$lhs, &$rhs);
+                Value(op.as_value_node())
+            }};
+        }
+
         use self::ExprResult::*;
         match op {
-            BinaryOp::Add => {
-                enforce!(value, lhs, rhs);
-                let add = self.graph.cur_block().new_add(&lhs, &rhs);
-                Value(add.as_value_node())
-            }
-            BinaryOp::Sub => {
-                enforce!(value, lhs, rhs);
-                let sub = self.graph.cur_block().new_sub(&lhs, &rhs);
-                Value(sub.as_value_node())
-            }
-            BinaryOp::Mul => {
-                enforce!(value, lhs, rhs);
-                let mul = self.graph.cur_block().new_mul(&lhs, &rhs);
-                Value(mul.as_value_node())
-            }
-            BinaryOp::Div => {
-                enforce!(value, lhs, rhs);
-                let mem = self.graph.cur_store();
-                log::debug!("pre new_div");
-                let div =
-                    self.graph
-                        .cur_block()
-                        .new_div(mem, &lhs, &rhs, op_pin_state::Pinned as i32);
-                self.graph.set_store(div.project_mem());
-                log::debug!("pre project_res");
-                let res = div.project_res();
-                log::debug!("pre as_value_node");
-                Value(res.as_value_node())
-            }
-            BinaryOp::Mod => {
-                enforce!(value, lhs, rhs);
-                let mem = self.graph.cur_store();
-                log::debug!("pre new_mod");
-                let mod_node =
-                    self.graph
-                        .cur_block()
-                        .new_mod(mem, &lhs, &rhs, op_pin_state::Pinned as i32);
-                self.graph.set_store(mod_node.project_mem());
-                log::debug!("pre project_res");
-                let res = mod_node.project_res();
-                log::debug!("pre as_value_node");
-                Value(res.as_value_node())
-            }
+            BinaryOp::Add => arithemtic_op!(lhs, rhs, new_add),
+            BinaryOp::Sub => arithemtic_op!(lhs, rhs, new_sub),
+            BinaryOp::Mul => arithemtic_op!(lhs, rhs, new_mul),
+            BinaryOp::Div => arithemtic_op_with_exception!(lhs, rhs, new_div),
+            BinaryOp::Mod => arithemtic_op_with_exception!(lhs, rhs, new_mod),
             BinaryOp::LogicalOr => unimplemented!(),
             BinaryOp::LogicalAnd => unimplemented!(),
             BinaryOp::Assign => unimplemented!(),
