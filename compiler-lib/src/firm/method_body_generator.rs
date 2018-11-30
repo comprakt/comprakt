@@ -4,6 +4,7 @@ use crate::{
     ast::{self, BinaryOp},
     strtab::Symbol,
     type_checking::{
+        method_body_type_checker::RefInfo,
         type_analysis::TypeAnalysis,
         type_system::{CheckedType, ClassMethodDef},
     },
@@ -12,6 +13,7 @@ use libfirm_rs::{bindings::*, *};
 use std::{cell::RefCell, collections::HashMap, ptr, rc::Rc};
 
 pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
+    class_name: Symbol<'src>,
     graph: Graph,
     classes: &'ir HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
     method_def: Rc<ClassMethodDef<'src, 'ast>>,
@@ -23,6 +25,7 @@ pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
 
 impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     pub(super) fn new(
+        class_name: Symbol<'src>,
         graph: Graph,
         classes: &'ir HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
         method_def: Rc<ClassMethodDef<'src, 'ast>>,
@@ -30,6 +33,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         runtime: &'ir Runtime,
     ) -> Self {
         Self {
+            class_name,
             graph,
             classes,
             local_vars: HashMap::new(),
@@ -263,8 +267,22 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 self.graph.new_const(val).as_value_node()
             }
             Var(name) => {
-                let (slot, mode) = self.local_var(**name);
-                self.graph.value(slot, mode).as_value_node()
+                if let Some(ref_info) = &self.type_analysis.expr_info(expr).ref_info {
+                    match ref_info {
+                        RefInfo::Var(_) | RefInfo::Param(_) => {
+                            let (slot, mode) = self.local_var(**name);
+                            self.graph.value(slot, mode).as_value_node()
+                        }
+                        RefInfo::Field(_) => {
+                            // this pointer is in slot 0
+                            let pre_ptr = unsafe { new_r_Proj(self.this(), mode::P, 0) };
+                            self.gen_field(pre_ptr, self.class_name, **name)
+                        }
+                        _ => unreachable!(),
+                    }
+                } else {
+                    unreachable!();
+                }
             }
             Binary(op, lhs, rhs) => self.gen_binary_expr(*op, lhs, rhs),
             Unary(ast::UnaryOp::Neg, expr) => {
@@ -368,29 +386,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let pre_expr = self.gen_expr(expr);
                 match self.type_analysis.expr_info(expr).ty {
                     CheckedType::TypeRef(pre_expr_ty) => {
-                        let pre_ptr = unsafe{ new_r_Proj(pre_expr, mode::P, 0) };
-                        let class = self
-                            .classes
-                            .get(&pre_expr_ty.id())
-                            .expect("Class has to be registered")
-                            .borrow();
-                        let field = class
-                            .fields
-                            .get(symbol)
-                            .expect("Field must exist in class after type checking")
-                            .borrow();
-                        let member = self.graph.cur_block().new_member(pre_ptr, field.entity);
-                        let mode = get_firm_mode(&field.def.ty)
-                            .expect("Type `void` is not a valid field type");
-                        let load = self.graph.cur_block().new_load(
-                            self.graph.cur_store(),
-                            &member.ptr(),
-                            mode,
-                            field.entity.ty(),
-                            ir_cons_flags::None,
-                        );
-                        self.graph.set_store(load.project_mem());
-                        load.project_res(mode).as_value_node()
+                        let pre_ptr = unsafe { new_r_Proj(pre_expr, mode::P, 0) };
+                        self.gen_field(pre_ptr, pre_expr_ty.id(), **symbol)
                     }
                     _ => panic!("Only classes have fields"),
                 }
@@ -398,9 +395,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             ArrayAccess(_expr, _index_expr) => unimplemented!(),
             Null => unimplemented!(),
             ThisMethodInvocation(_symbol, _argument_list) => unimplemented!(),
-            This => {
-                self.this()
-            }
+            This => self.this(),
             NewObject(ty_name) => {
                 // TODO classes should be hash map for efficient lookup
                 let class = self
@@ -429,6 +424,35 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             }
             NewArray(_basic_type, _expr, _dimension) => unimplemented!(),
         }
+    }
+
+    fn gen_field(
+        &mut self,
+        ptr: *mut ir_node,
+        class_name: Symbol<'src>,
+        field_name: Symbol<'src>,
+    ) -> *mut ir_node {
+        let class = self
+            .classes
+            .get(&class_name)
+            .expect("Class has to be registered")
+            .borrow();
+        let field = class
+            .fields
+            .get(&field_name)
+            .expect("Field must exist in class after type checking")
+            .borrow();
+        let member = self.graph.cur_block().new_member(&ptr, field.entity);
+        let mode = get_firm_mode(&field.def.ty).expect("Type `void` is not a valid field type");
+        let load = self.graph.cur_block().new_load(
+            self.graph.cur_store(),
+            &member.ptr(),
+            mode,
+            field.entity.ty(),
+            ir_cons_flags::None,
+        );
+        self.graph.set_store(load.project_mem());
+        load.project_res(mode).as_value_node()
     }
 
     fn gen_binary_expr(
@@ -504,9 +528,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 };
                 let phi = unsafe {
                     let inputs = [zero.into(), one.into()];
-                    let phi = new_r_Phi(phi_block, 2, inputs.as_ptr(), mode::Bu);
-                    //keep_alive(phi_block);
-                    phi
+                    new_r_Phi(phi_block, 2, inputs.as_ptr(), mode::Bu)
                 };
                 let phi_block = Block::from(phi_block);
                 phi_block.mature();
@@ -574,6 +596,6 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     }
 
     fn this(&self) -> *mut ir_node {
-        self.graph.value(0, mode::P).as_value_node()
+        self.graph.value(0, unsafe { mode::P }).as_value_node()
     }
 }

@@ -488,7 +488,7 @@ impl Block {
         .into()
     }
 
-    pub fn new_member<P: AsPointer>(self, ptr: P, entity: Entity) -> Member {
+    pub fn new_member<P: AsPointer>(self, ptr: &P, entity: Entity) -> Member {
         unsafe { new_r_Member(self.0, ptr.as_pointer(), entity.into()) }.into()
     }
 }
@@ -509,7 +509,7 @@ impl Into<*mut ir_node> for Block {
 pub struct Member(*mut ir_node);
 
 impl Member {
-    pub fn ptr(&self) -> *mut ir_node {
+    pub fn ptr(self) -> *mut ir_node {
         unsafe { get_Member_ptr(self.0) }
     }
 }

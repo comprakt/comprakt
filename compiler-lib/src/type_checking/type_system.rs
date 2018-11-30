@@ -175,6 +175,7 @@ pub enum ClassMethodBody<'src, 'ast> {
 
 #[derive(Debug)]
 pub struct ClassMethodDef<'src, 'ast> {
+    /// Name of the method
     pub name: Symbol<'src>,
     pub body: ClassMethodBody<'src, 'ast>,
     /// params does not include `this` for non-static / non-main methods
@@ -217,6 +218,7 @@ impl<'src> MethodParamDef<'src> {
 
 #[derive(Debug)]
 pub struct ClassFieldDef<'src> {
+    /// Name of the field
     pub name: Symbol<'src>,
     pub ty: CheckedType<'src>,
     pub can_write: bool,
