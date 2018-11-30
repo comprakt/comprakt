@@ -72,6 +72,11 @@ env UPDATE_REFERENCES=true cargo test --test integration
 In case for binary tests, run it another time to regenerate the reference files
 for the generated binaries.
 
+If the compiler crashes during firm graph generation, VCG files are generated
+in the `/compiler-cli/.tmpIR/` folder. (But note that if you are testing the
+compiler directly by using `cargo run` instead of `cargo test`, VCG files are
+generated in `.tmpIR/` in the root of the repository.)
+
 
 ## Tools
 
