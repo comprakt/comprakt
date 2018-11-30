@@ -11,3 +11,6 @@
 
 # ycomp graph files
 *.vcg
+
+# VCG files are generated in this folder on abort
+.tmpIR/
