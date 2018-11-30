@@ -248,6 +248,13 @@ impl<'src> CheckedType<'src> {
         }
     }
 
+    pub fn inner_type(&self) -> Option<&CheckedType<'src>> {
+        match self {
+            CheckedType::Array(ty) => Some(&*ty),
+            _ => None,
+        }
+    }
+
     pub fn is_nullable(&self) -> bool {
         match self {
             CheckedType::TypeRef(_) => true,

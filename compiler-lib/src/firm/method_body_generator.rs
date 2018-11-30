@@ -1,4 +1,4 @@
-use super::{get_firm_mode, Class, Runtime};
+use super::{get_firm_mode, size_of, Class, Runtime};
 use crate::{
     asciifile::Spanned,
     ast::{self, BinaryOp},
@@ -456,7 +456,37 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                         .as_value_node(),
                 )
             }
-            NewArray(_basic_type, _expr, _dimension) => unimplemented!(),
+            NewArray(_, num_expr, _) => {
+                let new_array_type = &self
+                    .type_analysis
+                    .expr_info(expr)
+                    .ty
+                    .inner_type()
+                    .expect("type of array must have inner type");
+
+                let num_elts = self.gen_expr(num_expr).enforce_value(self.graph);
+                let elt_size = self.gen_const(
+                    size_of(new_array_type)
+                        .map(i64::from)
+                        .expect("cannot allocate array of unsized type"),
+                    unsafe { mode::Is },
+                );
+
+                let alloc_size = self.graph.cur_block().new_mul(&num_elts, &elt_size);
+
+                let call = self.graph.cur_block().new_call(
+                    self.graph.cur_store(),
+                    self.graph.new_addr(self.runtime.new),
+                    &[alloc_size.as_value_node()],
+                );
+                self.graph.set_store(call.project_mem());
+
+                Value(
+                    call.project_result_tuple()
+                        .project(unsafe { mode::P }, 0)
+                        .as_value_node(),
+                )
+            }
         }
     }
 
