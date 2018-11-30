@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use libfirm_rs::{bindings::*, *};
-use std::{cell::RefCell, collections::HashMap, ptr, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     class_name: Symbol<'src>,
@@ -123,7 +123,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
         let var_slot = self.new_local_var(*name, mode);
         if let Some(init_expr) = init_expr {
-            self.graph.set_value(var_slot, &self.gen_expr(init_expr));
+            self.graph.set_value(
+                var_slot,
+                &self.gen_expr(init_expr).enforce_value(self.graph),
+            );
         } else {
             self.graph.set_value(var_slot, &self.gen_zero(mode));
         }
@@ -149,7 +152,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         self.graph.set_cur_block(header_block);
 
         // We evaluate the condition
-        let cond = header_block.new_cond(&self.gen_cond_expr(cond));
+        let cond = header_block.new_cond(&self.gen_expr(cond).enforce_selector(self.graph));
 
         // Run body if cond is true
         let body_block = self.graph.new_imm_block(&cond.project_true());
@@ -186,7 +189,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         self.graph.set_cur_block(header_block);
 
         // We evaluate the condition
-        let cond = header_block.new_cond(&self.gen_cond_expr(cond));
+        let cond = header_block.new_cond(&self.gen_expr(cond).enforce_selector(self.graph));
 
         // If its true, we take the then_arm
         let then_block = self.graph.new_imm_block(&cond.project_true());
@@ -220,7 +223,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_return(&mut self, res_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>) {
         let mem = self.graph.cur_store();
-        let res = res_expr.as_ref().map(|res_expr| self.gen_expr(&*res_expr));
+        let res = res_expr
+            .as_ref()
+            .map(|res_expr| self.gen_expr(&*res_expr).enforce_value(self.graph));
 
         let ret = self.graph.cur_block().new_return(mem, res);
 
@@ -232,7 +237,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         func: Entity,
         return_type: Option<mode::Type>,
         args: &[*mut ir_node],
-    ) -> *mut ir_node {
+    ) -> ExprResult {
         let call = self.graph.cur_block().new_call(
             self.graph.cur_store(),
             self.graph.new_addr(func),
@@ -241,14 +246,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
         self.graph.set_store(call.project_mem());
 
+        use self::ExprResult::*;
         match return_type {
-            Some(mode) => call.project_result_tuple().project(mode, 0).as_value_node(),
-            None => {
-                // TODO: we are fucked here! this is possible (e.g. function returns void).
-                // But we cannot satisfy the return type of gen_expr!!! Requires refactor
-                // nullptr is an arbitrary value
-                ptr::null_mut()
-            }
+            Some(mode) => Value(call.project_result_tuple().project(mode, 0).as_value_node()),
+            None => Void,
         }
     }
 
@@ -256,35 +257,37 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     ///
     /// TODO non-raw-ptr abstraction for ret type; Box<dyn ValueNode> might
     /// work, but unnecessary box
-    fn gen_expr(&mut self, expr: &ast::Expr<'src>) -> *mut ir_node {
-        use self::ast::Expr::*;
+    fn gen_expr(&mut self, expr: &ast::Expr<'src>) -> ExprResult {
+        use self::{ast::Expr::*, ExprResult::*};
         match &expr {
             Int(literal) => {
                 let val = literal.parse().unwrap();
-                self.gen_const(val, unsafe { mode::Is }).as_value_node()
+                Value(self.gen_const(val, unsafe { mode::Is }).as_value_node())
             }
             NegInt(literal) => {
                 let val = literal
                     .parse::<i32>()
                     .map_or_else(|_| -2_147_483_648, |v| -v);
-                self.gen_const(val as i64, unsafe { mode::Is })
-                    .as_value_node()
+                Value(
+                    self.gen_const(val as i64, unsafe { mode::Is })
+                        .as_value_node(),
+                )
             }
             Boolean(value) => {
                 let as_bit = if *value { 1 } else { 0 };
-                self.gen_const(as_bit, unsafe { mode::Bu }).as_value_node()
+                Value(self.gen_const(as_bit, unsafe { mode::Bu }).as_value_node())
             }
             Var(name) => {
                 if let Some(ref_info) = &self.type_analysis.expr_info(expr).ref_info {
                     match ref_info {
                         RefInfo::Var(_) | RefInfo::Param(_) => {
                             let (slot, mode) = self.local_var(**name);
-                            self.graph.value(slot, mode).as_value_node()
+                            Value(self.graph.value(slot, mode).as_value_node())
                         }
                         RefInfo::Field(_) => {
                             // this pointer is in slot 0
                             let pre_ptr = unsafe { new_r_Proj(self.this(), mode::P, 0) };
-                            self.gen_field(pre_ptr, self.class_name, **name)
+                            Value(self.gen_field(pre_ptr, self.class_name, **name))
                         }
                         _ => unreachable!(),
                     }
@@ -294,10 +297,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             }
             Binary(op, lhs, rhs) => self.gen_binary_expr(*op, lhs, rhs),
             Unary(ast::UnaryOp::Neg, expr) => {
-                let expr = self.gen_expr(expr);
+                let expr = self.gen_expr(expr).enforce_value(self.graph);
                 log::debug!("pre new_neg");
                 let neg = self.graph.cur_block().new_minus(&expr);
-                neg.as_value_node()
+                Value(neg.as_value_node())
             }
             Unary(_, _expr) => unimplemented!(),
             MethodInvocation(object, method, argument_list) => {
@@ -324,7 +327,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                         let mut args = vec![];
 
                         for arg in argument_list.iter() {
-                            args.push(self.gen_expr(arg));
+                            args.push(self.gen_expr(arg).enforce_value(self.graph));
                         }
 
                         return match method.data.as_str() {
@@ -378,12 +381,12 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
                 // object could be any expression that has to be
                 // evaluated, e.g. (this.get_object()).foo()
-                let this = self.gen_expr(object);
+                let this = self.gen_expr(object).enforce_value(self.graph);
 
                 let mut args = vec![this];
 
                 for arg in argument_list.iter() {
-                    args.push(self.gen_expr(arg));
+                    args.push(self.gen_expr(arg).enforce_value(self.graph));
                 }
 
                 let return_type = get_firm_mode(&method.def.return_ty);
@@ -394,8 +397,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let pre_expr = self.gen_expr(expr);
                 match self.type_analysis.expr_info(expr).ty {
                     CheckedType::TypeRef(pre_expr_ty) => {
-                        let pre_ptr = unsafe { new_r_Proj(pre_expr, mode::P, 0) };
-                        self.gen_field(pre_ptr, pre_expr_ty.id(), **symbol)
+                        let pre_ptr = pre_expr.enforce_value(self.graph);
+                        Value(self.gen_field(pre_ptr, pre_expr_ty.id(), **symbol))
                     }
                     _ => panic!("Only classes have fields"),
                 }
@@ -403,7 +406,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             ArrayAccess(_expr, _index_expr) => unimplemented!(),
             Null => unimplemented!(),
             ThisMethodInvocation(_symbol, _argument_list) => unimplemented!(),
-            This => self.this(),
+            This => Value(self.this()),
             NewObject(ty_name) => {
                 // TODO classes should be hash map for efficient lookup
                 let class = self
@@ -421,9 +424,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
                 self.graph.set_store(call.project_mem());
 
-                call.project_result_tuple()
-                    .project(unsafe { mode::P }, 0)
-                    .as_value_node()
+                Value(
+                    call.project_result_tuple()
+                        .project(unsafe { mode::P }, 0)
+                        .as_value_node(),
+                )
             }
             NewArray(_basic_type, _expr, _dimension) => unimplemented!(),
         }
@@ -463,23 +468,36 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         op: BinaryOp,
         lhs: &ast::Expr<'src>,
         rhs: &ast::Expr<'src>,
-    ) -> *mut ir_node {
+    ) -> ExprResult {
         let lhs = self.gen_expr(lhs);
         let rhs = self.gen_expr(rhs);
+
+        macro_rules! enforce {
+            (value, $lhs: ident, $rhs: ident) => {
+                let $lhs = lhs.enforce_value(self.graph);
+                let $rhs = rhs.enforce_value(self.graph);
+            };
+        }
+
+        use self::ExprResult::*;
         match op {
             BinaryOp::Add => {
+                enforce!(value, lhs, rhs);
                 let add = self.graph.cur_block().new_add(&lhs, &rhs);
-                add.as_value_node()
+                Value(add.as_value_node())
             }
             BinaryOp::Sub => {
+                enforce!(value, lhs, rhs);
                 let sub = self.graph.cur_block().new_sub(&lhs, &rhs);
-                sub.as_value_node()
+                Value(sub.as_value_node())
             }
             BinaryOp::Mul => {
+                enforce!(value, lhs, rhs);
                 let mul = self.graph.cur_block().new_mul(&lhs, &rhs);
-                mul.as_value_node()
+                Value(mul.as_value_node())
             }
             BinaryOp::Div => {
+                enforce!(value, lhs, rhs);
                 let mem = self.graph.cur_store();
                 log::debug!("pre new_div");
                 let div =
@@ -490,9 +508,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 log::debug!("pre project_res");
                 let res = div.project_res();
                 log::debug!("pre as_value_node");
-                res.as_value_node()
+                Value(res.as_value_node())
             }
             BinaryOp::Mod => {
+                enforce!(value, lhs, rhs);
                 let mem = self.graph.cur_store();
                 log::debug!("pre new_mod");
                 let mod_node =
@@ -503,76 +522,24 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 log::debug!("pre project_res");
                 let res = mod_node.project_res();
                 log::debug!("pre as_value_node");
-                res.as_value_node()
+                Value(res.as_value_node())
             }
             BinaryOp::LogicalOr => unimplemented!(),
             BinaryOp::LogicalAnd => unimplemented!(),
             BinaryOp::Assign => unimplemented!(),
             BinaryOp::Equals => {
+                enforce!(value, lhs, rhs);
                 let cmp = self
                     .graph
                     .cur_block()
                     .new_cmp(&lhs, &rhs, ir_relation::Equal);
-                let cond = self.graph.cur_block().new_cond(&cmp);
-                let t = cond.project_true();
-                let f = cond.project_false();
-                let zero = self.gen_zero(unsafe { mode::Bu });
-                let one = self.gen_const(1, unsafe { mode::Bu });
-
-                let phi_block = unsafe {
-                    let phi_block = new_r_immBlock(self.graph.into());
-                    add_immBlock_pred(phi_block, f.into());
-                    add_immBlock_pred(phi_block, t.into());
-                    phi_block
-                };
-                let phi = unsafe {
-                    let inputs = [zero.into(), one.into()];
-                    new_r_Phi(phi_block, 2, inputs.as_ptr(), mode::Bu)
-                };
-                let phi_block = Block::from(phi_block);
-                phi_block.mature();
-                self.graph.set_cur_block(phi_block);
-                phi
+                Selector(cmp.as_selector())
             }
             BinaryOp::NotEquals => unimplemented!(),
             BinaryOp::LessThan => unimplemented!(),
             BinaryOp::GreaterThan => unimplemented!(),
             BinaryOp::LessEquals => unimplemented!(),
             BinaryOp::GreaterEquals => unimplemented!(),
-        }
-    }
-
-    /// Assume an expression can be evaluated as a boolean and generate a
-    /// `Selector` for it
-    fn gen_cond_expr(&mut self, expr: &ast::Expr<'src>) -> Selector {
-        use self::ast::Expr::*;
-        match &expr {
-            Var(name) => {
-                let (slot, mode) = self.local_var(**name);
-                let val = self.graph.value(slot, mode);
-
-                let zero = self.gen_zero(mode);
-
-                // cond is true iff. val != 0
-                self.graph
-                    .cur_block()
-                    // TODO ir_relation::NotEqual does not exist. Need ALU-neg?
-                    .new_cmp(&val, &zero, ir_relation::Greater)
-                    .as_selector()
-            }
-            Int(_literal) => unimplemented!(),
-            Binary(_op, _expr_left, _expr_right) => unimplemented!(),
-            Unary(_op, _expr) => unimplemented!(),
-            MethodInvocation(_expr, _symbol, _argument_list) => unimplemented!(),
-            FieldAccess(_expr, _symbol) => unimplemented!(),
-            ArrayAccess(_expr, _index_expr) => unimplemented!(),
-            Null => unimplemented!(),
-            Boolean(_val) => unimplemented!(),
-            NegInt(_literal) => unimplemented!(),
-            ThisMethodInvocation(_symbol, _argument_list) => unimplemented!(),
-            This => unimplemented!(),
-            NewObject(_symbol) => unimplemented!(),
-            NewArray(_basic_type, _expr, _dimension) => unimplemented!(),
         }
     }
 
@@ -594,5 +561,70 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn this(&self) -> *mut ir_node {
         self.graph.value(0, unsafe { mode::P }).as_value_node()
+    }
+}
+
+/// Result of `MethodBodyGenerator::gen_expr`
+enum ExprResult {
+    /// No Result (i.e. call of void method)
+    Void,
+    /// Result is a single value (i.e. method call, variable, integer
+    /// arithmetic)
+    Value(*mut ir_node),
+    /// Result is control flow that can be branched on (i.e. result of
+    /// short-circuiting binary expr, `||`, `==`, `&&`, ...)
+    Selector(Selector),
+}
+
+impl ExprResult {
+    /// Enforce that the result is selector. If self is a boolean `Value`,
+    /// convert it to a selector that projects the two cases. If it is a
+    /// non-boolean value, libfirm will complain.
+    fn enforce_selector(self, graph: Graph) -> Selector {
+        use self::ExprResult::*;
+        match self {
+            Void => panic!("Tried to branch on result of void expr"),
+            Value(val) => {
+                let one = graph.new_const(unsafe { new_tarval_from_long(1, mode::Bu) });
+
+                graph
+                    .cur_block()
+                    .new_cmp(&val, &one, ir_relation::Equal)
+                    .as_selector()
+            }
+            Selector(sel) => sel,
+        }
+    }
+
+    /// Enforce that the result is a single value. If self is a `Selector`,
+    /// convert it to boolean value
+    fn enforce_value(self, graph: Graph) -> *mut ir_node {
+        use self::ExprResult::*;
+        match self {
+            Void => panic!("Tried to get result value of void expr"),
+            Value(val) => val,
+            Selector(sel) => {
+                let cond = graph.cur_block().new_cond(&sel);
+                let t = cond.project_true();
+                let f = cond.project_false();
+                let zero = graph.new_const(unsafe { new_tarval_from_long(0, mode::Bu) });
+                let one = graph.new_const(unsafe { new_tarval_from_long(1, mode::Bu) });
+
+                let phi_block = unsafe {
+                    let phi_block = new_r_immBlock(graph.into());
+                    add_immBlock_pred(phi_block, f.into());
+                    add_immBlock_pred(phi_block, t.into());
+                    phi_block
+                };
+                let phi = unsafe {
+                    let inputs = [zero.into(), one.into()];
+                    new_r_Phi(phi_block, 2, inputs.as_ptr(), mode::Bu)
+                };
+                let phi_block = Block::from(phi_block);
+                phi_block.mature();
+                graph.set_cur_block(phi_block);
+                phi
+            }
+        }
     }
 }
