@@ -12,6 +12,17 @@ fn main() {
             .contains("mjrt-impl")
     );
 
+    // approximate inputs (.rs files) of mjrt_impl crate
+    // TODO research whether we can get this from cargo metadata
+    for dep in walkdir::WalkDir::new(&impl_crate_dir) {
+        let p = dep.unwrap();
+        match p.path().extension().map(|osstr| osstr.to_str().unwrap()) {
+            Some("rs") | Some("toml") | Some("lock") => {
+                println!("cargo:rerun-if-changed={}", p.path().display());
+            }
+            _ => continue,
+        }
+    }
     println!(
         "invoking cargo build in mjrt-impl crate at {:?}",
         impl_crate_dir

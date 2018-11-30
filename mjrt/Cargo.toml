@@ -8,6 +8,7 @@ build = "build.rs"
 [build-dependencies]
 mjrt-impl = { path = "../mjrt-impl" }
 glob = "0.2"
+walkdir = "2"
 
 [lib]
 path = "lib.rs"
