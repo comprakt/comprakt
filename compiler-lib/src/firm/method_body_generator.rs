@@ -278,6 +278,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 Value(self.gen_const(as_bit, unsafe { mode::Bu }).as_value_node())
             }
             Var(name) => {
+                // TODO: deduplicate with BinaryOp::Assign, grep vor "variable access expr is"
                 match self
                     .type_analysis
                     .expr_info(expr)
@@ -522,11 +523,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     fn gen_binary_expr(
         &mut self,
         op: BinaryOp,
-        lhs: &ast::Expr<'src>,
-        rhs: &ast::Expr<'src>,
+        lhs_expr: &ast::Expr<'src>,
+        rhs_expr: &ast::Expr<'src>,
     ) -> ExprResult {
-        let lhs = self.gen_expr(lhs);
-        let rhs = self.gen_expr(rhs);
+        let lhs = self.gen_expr(lhs_expr);
+        let rhs = self.gen_expr(rhs_expr);
 
         macro_rules! enforce {
             (value, $lhs: ident, $rhs: ident) => {
@@ -577,7 +578,37 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             BinaryOp::Mod => arithemtic_op_with_exception!(lhs, rhs, new_mod),
             BinaryOp::LogicalOr => unimplemented!(),
             BinaryOp::LogicalAnd => unimplemented!(),
-            BinaryOp::Assign => unimplemented!(),
+            BinaryOp::Assign => {
+                // TODO: deduplicate with
+                match self
+                    .type_analysis
+                    .expr_info(&lhs_expr)
+                    .ref_info
+                    .as_ref()
+                    .expect("Variable access expr is always a ref")
+                {
+                    RefInfo::Var(name) => {
+                        let (slot, mode) = self.local_var(*name);
+                        let rhs_value = self.gen_expr(&rhs_expr).enforce_value(self.graph);
+                        self.graph.set_value(slot, &rhs_value);
+                        Value(self.graph.value(slot, mode).as_value_node())
+                    }
+                    RefInfo::Param(def) => {
+                        // TODO: deduplicate with RefInfo::Var
+                        let (slot, mode) = self.local_var(def.name);
+                        let rhs_value = self.gen_expr(&rhs_expr).enforce_value(self.graph);
+                        self.graph.set_value(slot, &rhs_value);
+                        Value(self.graph.value(slot, mode).as_value_node())
+                    }
+                    RefInfo::Field(_def) => {
+                        unimplemented!()
+                    }
+                    RefInfo::ArrayAccess => {
+                        unimplemented!()
+                    }
+                    _ => unreachable!("Left-hand-side of assignment MUST always be a variable, parameter, field, or array index"),
+                }
+            }
             BinaryOp::Equals => relation!(lhs, rhs, ir_relation::Equal),
             BinaryOp::NotEquals => relation!(lhs, rhs, ir_relation::LessGreater),
             BinaryOp::LessThan => relation!(lhs, rhs, ir_relation::Less),
