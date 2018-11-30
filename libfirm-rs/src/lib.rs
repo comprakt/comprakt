@@ -33,6 +33,10 @@ impl Ty {
         unsafe { new_type_pointer(self.into()) }.into()
     }
 
+    pub fn array(self) -> Ty {
+        unsafe { new_type_array(self.into(), 0) }.into()
+    }
+
     pub fn size(self) -> u32 {
         unsafe { get_type_size(self.into()) }
     }
