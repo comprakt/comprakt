@@ -26,7 +26,7 @@ pub use self::{
 };
 
 use crate::{
-    strtab::Symbol,
+    strtab::{StringTable, Symbol},
     type_checking::{
         type_analysis::TypeAnalysis,
         type_system::{
@@ -97,14 +97,15 @@ unsafe fn setup() {
     set_optimize(0);
 }
 
-pub unsafe fn build(
+pub unsafe fn build<'src, 'ast>(
     opts: &Options,
-    type_system: &TypeSystem<'_, '_>,
-    type_analysis: &TypeAnalysis<'_, '_>,
+    type_system: &'src TypeSystem<'src, 'ast>,
+    type_analysis: &'src TypeAnalysis<'src, 'ast>,
+    strtab: &'src mut StringTable<'src>,
 ) {
     setup();
 
-    let generator = ProgramGenerator::new(type_system, type_analysis);
+    let generator = ProgramGenerator::new(type_system, type_analysis, strtab);
     let program = generator.generate();
     if !opts.dump_folder.exists() {
         fs::create_dir_all(&opts.dump_folder).expect("Failed to create output directory");

@@ -292,7 +292,7 @@ fn cmd_compile_firm(options: &LoweringOptions) -> Result<(), Error> {
     let mut lowering_options: compiler_lib::firm::Options = (options.clone()).into();
     lowering_options.dump_assembler = Some(OutputSpecification::File(user_assembly.clone()));
 
-    unsafe { firm::build(&lowering_options, &type_system, &type_analysis) };
+    unsafe { firm::build(&lowering_options, &type_system, &type_analysis, &mut strtab) };
 
     // get runtime library
     let runtime_path = compilation_dir.join("mjrt.a");
@@ -372,7 +372,7 @@ fn cmd_emit_asm(opts: &LoweringOptions) -> Result<(), Error> {
         });
 
     let firm_options = opts.clone().into();
-    unsafe { firm::build(&firm_options, &type_system, &type_analysis) };
+    unsafe { firm::build(&firm_options, &type_system, &type_analysis, &mut strtab) };
     Ok(())
 }
 

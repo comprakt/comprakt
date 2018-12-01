@@ -1,7 +1,7 @@
 use super::{ty_from_checked_type, Class, Field, Method, MethodBodyGenerator, Program, Runtime};
 use crate::{
     ast,
-    strtab::Symbol,
+    strtab::{StringTable, Symbol},
     type_checking::{
         type_analysis::TypeAnalysis,
         type_system::{ClassMethodBody, TypeSystem},
@@ -16,21 +16,24 @@ pub struct ProgramGenerator<'src, 'ast> {
     runtime: Runtime,
     type_system: &'src TypeSystem<'src, 'ast>,
     type_analysis: &'src TypeAnalysis<'src, 'ast>,
+    strtab: &'src mut StringTable<'src>,
 }
 
 impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
     pub fn new(
         type_system: &'src TypeSystem<'src, 'ast>,
         type_analysis: &'src TypeAnalysis<'src, 'ast>,
+        strtab: &'src mut StringTable<'src>,
     ) -> Self {
         Self {
             runtime: Runtime::new(),
             type_system,
             type_analysis,
+            strtab,
         }
     }
 
-    pub fn generate(self) -> Program<'src, 'ast> {
+    pub fn generate(mut self) -> Program<'src, 'ast> {
         let classes = self.build_entities();
 
         // TODO glue classes and runtime functions together here!
@@ -49,7 +52,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
     }
 
     fn generate_method_body(
-        &self,
+        &mut self,
         method: &Method<'src, 'ast>,
         own_class: &Class<'src, 'ast>,
         classes: &HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
@@ -74,6 +77,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                     Rc::clone(&method.def),
                     &self.type_analysis,
                     &self.runtime,
+                    &mut self.strtab,
                 );
                 method_body_gen.gen_method(body);
                 unsafe {
