@@ -92,93 +92,92 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
         let mut classes = HashMap::new();
         // Define classes
         for class in self.type_system.defined_classes.values() {
-            unsafe {
-                log::debug!("gen class {:?}", class.name.as_str());
-                let class_name_str = class.name.as_str();
-                let class_name = CString::new(class_name_str).unwrap();
-                let class_name_id = new_id_from_str(class_name.as_ptr());
-                let class_type = new_type_class(class_name_id);
-                let class_entity = Entity::new_global(&class_name, class_type.into());
+            log::debug!("gen class {:?}", class.name.as_str());
+            let class_name_str = class.name.as_str();
+            let class_name = CString::new(class_name_str).unwrap();
+            let class_type = Ty::new_class(&class_name);
+            let class_entity = Entity::new_global(&class_name, class_type);
 
-                let gclass = Rc::new(RefCell::new(Class {
-                    def: class,
-                    name: class_name,
-                    entity: class_entity,
-                    fields: HashMap::new(),
-                    methods: HashMap::new(),
-                }));
+            let gclass = Rc::new(RefCell::new(Class {
+                def: class,
+                name: class_name,
+                entity: class_entity,
+                fields: HashMap::new(),
+                methods: HashMap::new(),
+            }));
 
-                for field in class.iter_fields() {
-                    log::debug!("\tgen field {:?}", field.name.as_str());
-                    let field_type = ty_from_checked_type(&field.ty)
-                        .expect("field type must be convertible to a Firm type");
-                    let field_name =
-                        CString::new(format!("{}.F.{}", class_name_str, field.name)).unwrap();
-                    let field_entity = new_entity(
-                        class_type,
-                        field_name.as_ptr() as *mut i8,
-                        field_type.into(),
-                    );
+            for field in class.iter_fields() {
+                log::debug!("\tgen field {:?}", field.name.as_str());
+                let field_type = ty_from_checked_type(&field.ty)
+                    .expect("field type must be convertible to a Firm type");
+                let field_name =
+                    CString::new(format!("{}.F.{}", class_name_str, field.name)).unwrap();
+                let field_entity = class_type.new_subentity(&field_name, field_type);
 
-                    gclass.borrow_mut().fields.insert(
-                        field.name,
-                        Rc::new(RefCell::new(Field {
-                            _class: Rc::downgrade(&gclass),
-                            _name: field_name,
-                            def: field,
-                            entity: field_entity.into(),
-                        })),
-                    );
-                }
-
-                for method in class.iter_methods() {
-                    log::debug!("\tgen method{:?}", method.name.as_str());
-                    assert!(!method.is_static || (method.is_static && method.is_main));
-                    let mut method_type = FunctionType::new();
-
-                    // add this parameter
-                    if !method.is_main {
-                        method_type.add_param(PrimitiveType::ptr());
-                    }
-
-                    for param in &method.params {
-                        let param_type = ty_from_checked_type(&param.ty)
-                            .expect("parameter must be convertible to a Firm type");
-                        method_type.add_param(param_type);
-                    }
-                    if let Some(return_ty) = ty_from_checked_type(&method.return_ty) {
-                        method_type.set_res(return_ty);
-                    }
-                    let method_type = method_type.build(!method.is_main);
-
-                    let method_name = if method.is_main {
-                        CString::new("mj_main").unwrap()
-                    } else {
-                        CString::new(format!("{}.M.{}", class_name_str, method.name)).unwrap()
-                    };
-                    let method_entity = new_entity(
-                        class_type,
-                        method_name.as_ptr() as *mut i8,
-                        method_type.into(),
-                    );
-
-                    gclass.borrow_mut().methods.insert(
-                        method.name,
-                        Rc::new(RefCell::new(Method {
-                            _class: Rc::downgrade(&gclass),
-                            _name: method_name,
-                            def: Rc::clone(&method),
-                            entity: method_entity.into(),
-                            graph: None,
-                            body: method.body,
-                        })),
-                    );
-                }
-
-                default_layout_compound_type(class_type);
-
-                classes.insert(class.name, gclass);
+                gclass.borrow_mut().fields.insert(
+                    field.name,
+                    Rc::new(RefCell::new(Field {
+                        _class: Rc::downgrade(&gclass),
+                        _name: field_name,
+                        def: field,
+                        entity: field_entity,
+                    })),
+                );
             }
+
+            for method in class.iter_methods() {
+                log::debug!("\tgen method{:?}", method.name.as_str());
+                assert!(!method.is_static || (method.is_static && method.is_main));
+                let mut method_type = FunctionType::new();
+
+                // add this parameter
+                if !method.is_main {
+                    method_type.add_param(PrimitiveType::ptr());
+                }
+
+                for param in &method.params {
+                    let param_type = ty_from_checked_type(&param.ty)
+                        .expect("parameter must be convertible to a Firm type");
+                    method_type.add_param(param_type);
+                }
+                if let Some(return_ty) = ty_from_checked_type(&method.return_ty) {
+                    method_type.set_res(return_ty);
+                }
+                let method_type = method_type.build(!method.is_main);
+
+                let (method_entity, method_name) = if method.is_main {
+                    let method_name = CString::new("mj_main").unwrap();
+                    (
+                        // We don't want the main method as a method of this class, (problems with
+                        // layouting the class type) so put it in the global type
+                        Entity::new_global(&method_name, method_type),
+                        method_name,
+                    )
+                } else {
+                    let method_name =
+                        CString::new(format!("{}.M.{}", class_name_str, method.name)).unwrap();
+                    (
+                        class_type.new_subentity(&method_name, method_type),
+                        method_name,
+                    )
+                };
+
+                gclass.borrow_mut().methods.insert(
+                    method.name,
+                    Rc::new(RefCell::new(Method {
+                        _class: Rc::downgrade(&gclass),
+                        _name: method_name,
+                        def: Rc::clone(&method),
+                        entity: method_entity,
+                        graph: None,
+                        body: method.body,
+                    })),
+                );
+            }
+
+            class_type.layout_default();
+
+            classes.insert(class.name, gclass);
         }
 
         classes

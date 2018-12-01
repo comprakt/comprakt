@@ -37,6 +37,14 @@ impl Ty {
         unsafe { new_type_array(self.into(), 0) }.into()
     }
 
+    pub fn new_class(name: &CStr) -> Ty {
+        unsafe { new_type_class(new_id_from_str(name.as_ptr())) }.into()
+    }
+
+    pub fn new_subentity(self, name: &CStr, sub_ty: Ty) -> Entity {
+        unsafe { new_entity(self.into(), name.as_ptr() as *mut i8, sub_ty.into()) }.into()
+    }
+
     pub fn element_type(self) -> Ty {
         unsafe { get_array_element_type(self.into()) }.into()
     }
@@ -55,6 +63,10 @@ impl Ty {
 
     pub fn mode(self) -> mode::Type {
         unsafe { get_type_mode(self.into()) }
+    }
+
+    pub fn layout_default(self) {
+        unsafe { default_layout_compound_type(self.into()) };
     }
 }
 
