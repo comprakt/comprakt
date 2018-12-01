@@ -1,0 +1,69 @@
+class A {
+    public int val;
+
+}
+
+class Main {
+    public static void main(String[] args) { new Main().test(); }
+
+    public void printInt(int i) {
+        System.out.println(i);
+    }
+
+    public void printBool(boolean b) {
+        if (b) { System.out.println(1); }
+        else { System.out.println(0); }
+    }
+
+    public void test() {
+        /* ints are passed by value */
+        int x = 10; printInt(x);
+        setInt(x); printInt(x);
+
+        /* bools are passed by value */
+        boolean b = false; printBool(b);
+        setBool(b); printBool(b);
+
+        A a = new A();
+        
+        /* class-refs are passed by value */
+        a.val = 10; printInt(a.val);
+        setClass(a); printInt(a.val);
+
+        /* classes are passed by reference */
+        a.val = 10; printInt(a.val);
+        setField(a); printInt(a.val);
+
+        int[] arr = new int[2];
+
+        /* array-refs are passed by value */
+        arr[0] = 100; arr[1] = 101; printInt(arr[0]); printInt(arr[1]);
+        setArray(arr); printInt(arr[0]); printInt(arr[1]);
+
+        /* arrays are passed by reference */
+        arr[0] = 100; arr[1] = 101; printInt(arr[0]); printInt(arr[1]);
+        setArrayItem(arr); printInt(arr[0]); printInt(arr[1]);
+    }
+
+    public void setInt(int x) { x = 1337; }
+
+    public void setBool(boolean b) { b = true; }
+
+    public void setArray(int[] arr) {
+        arr = new int[1];
+        arr[0] = 1337;
+    }
+
+    public void setArrayItem(int[] arr) {
+        arr[0] = 11;
+    }
+
+    public void setClass(A a) {
+        a = new A();
+        a.val = 1337;
+    }
+
+    public void setField(A a) {
+        a.val = 11;
+    }
+}
