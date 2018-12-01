@@ -109,6 +109,7 @@ pub struct ClassDef<'src, 'ast> {
     pub name: Symbol<'src>,
     fields: HashMap<Symbol<'src>, Rc<ClassFieldDef<'src>>>,
     methods: HashMap<Symbol<'src>, Rc<ClassMethodDef<'src, 'ast>>>,
+    pub comparable: bool,
 }
 
 impl<'src, 'ast> ClassDef<'src, 'ast> {
@@ -118,6 +119,7 @@ impl<'src, 'ast> ClassDef<'src, 'ast> {
             name,
             fields: HashMap::new(),
             methods: HashMap::new(),
+            comparable: true,
         }
     }
 
@@ -255,21 +257,31 @@ impl<'src> CheckedType<'src> {
         }
     }
 
-    pub fn is_nullable(&self) -> bool {
+    pub fn is_assignable_from(
+        &self,
+        other: &CheckedType<'src>,
+        ts: &'_ TypeSystem<'src, '_>,
+    ) -> bool {
+        use self::CheckedType::*;
+
         match self {
-            CheckedType::TypeRef(_) => true,
-            CheckedType::UnknownType(_) => true,
-            CheckedType::Array(_) => true,
-            CheckedType::Null => true,
-            _ => false,
+            // dont generate errors for unknown types as they are invalid anyways
+            UnknownType(_) => true,
+            Int | Boolean => self == other,
+            // nothing is assignable to null or void, not even expressions of type void or null.
+            // This does not really matter though as void is not an inhibited type.
+            // However, to improve error messages, we allow assigning void to void.
+            Null | Void => self == other,
+            Array(item_ty) => match other {
+                Null => true,
+                Array(other_item_ty) => item_ty.is_assignable_from(other_item_ty, ts),
+                _ => false,
+            },
+            TypeRef(class_id) => {
+                let class_def = ts.class(*class_id);
+                class_def.comparable && (self == other || *other == Null)
+            }
         }
-    }
-    pub fn is_assignable_from(&self, other: &CheckedType<'src>) -> bool {
-        // FIXME there must be a better way
-        (match other {
-            CheckedType::Null => self.is_nullable(),
-            _ => false,
-        }) || self == other
     }
 }
 

@@ -17,6 +17,7 @@ impl<'src, 'ast> BuiltinTypes<'src> {
 
         let reader_class_id = {
             let mut reader_class_def = ClassDef::new(strtab.intern("$Reader"));
+            reader_class_def.comparable = false;
             reader_class_def
                 .add_method(ClassMethodDef {
                     name: strtab.intern("read"),
@@ -34,6 +35,7 @@ impl<'src, 'ast> BuiltinTypes<'src> {
             let arg_sym = strtab.intern("data");
 
             let mut writer_class_def = ClassDef::new(strtab.intern("$Writer"));
+            writer_class_def.comparable = false;
             writer_class_def
                 .add_method(ClassMethodDef {
                     name: strtab.intern("println"),
@@ -69,6 +71,7 @@ impl<'src, 'ast> BuiltinTypes<'src> {
 
         let system_class_id = {
             let mut system_class_def = ClassDef::new(strtab.intern("$System"));
+            system_class_def.comparable = false;
             system_class_def
                 .add_field(ClassFieldDef {
                     name: strtab.intern("in"),
