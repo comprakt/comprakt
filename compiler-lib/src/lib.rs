@@ -28,10 +28,10 @@ pub mod parser;
 pub mod visitor;
 pub mod firm;
 pub mod print;
+mod ref_eq;
 pub mod semantics;
 mod spantracker;
 pub mod strtab;
 pub mod symtab;
 pub mod type_checking;
-
 pub use self::utils::OutputSpecification;
