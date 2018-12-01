@@ -1,0 +1,37 @@
+/* This test ensures space for variable length
+   arrays is correctly allocated in members. So
+   in the example below, setting values on a
+   should not change the values in b and c. */
+class A {
+    public int b;
+    public int[] a;
+    public int c;
+    public static void main(String[] args) {
+        A bla = new A();
+        bla.b = 1;
+        bla.c = 1;
+        
+        if (bla.a == null) {
+            System.out.println(1);
+        } else {
+            System.out.println(0);
+        }
+
+        bla.a = new int[4];
+        bla.a[0] = 10;
+        bla.a[1] = 11;
+        bla.a[2] = 12;
+        bla.a[3] = 13;
+
+        System.out.println(bla.b);
+        System.out.println(bla.c);
+        bla.b = 1;
+        bla.c = 1;
+        System.out.println(bla.b);
+        System.out.println(bla.c);
+        System.out.println(bla.a[0]);
+        System.out.println(bla.a[1]);
+        System.out.println(bla.a[2]);
+        System.out.println(bla.a[3]);
+    }
+}
