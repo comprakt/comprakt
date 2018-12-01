@@ -2,7 +2,7 @@ use super::{get_firm_mode, size_of, ty_from_checked_type, Class, Runtime};
 use crate::{
     asciifile::Spanned,
     ast::{self, BinaryOp},
-    strtab::Symbol,
+    strtab::{StringTable, Symbol},
     type_checking::{
         method_body_type_checker::RefInfo,
         type_analysis::TypeAnalysis,
@@ -22,6 +22,7 @@ pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     num_vars: usize,
     runtime: &'ir Runtime,
     type_analysis: &'ir TypeAnalysis<'src, 'ast>,
+    strtab: &'ir mut StringTable<'src>,
 }
 
 impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
@@ -32,6 +33,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         method_def: Rc<ClassMethodDef<'src, 'ast>>,
         type_analysis: &'ir TypeAnalysis<'src, 'ast>,
         runtime: &'ir Runtime,
+        strtab: &'ir mut StringTable<'src>,
     ) -> Self {
         Self {
             graph,
@@ -42,6 +44,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             method_def,
             runtime,
             type_analysis,
+            strtab,
         }
         .gen_args()
     }
@@ -50,8 +53,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let args = self.graph.args_node();
 
         if !self.method_def.is_static {
-            // TODO `this`-ptr graph.set_value(0, &args.project(unsafe { mode::P }, 0));
-            self.num_vars += 1;
+            let mode_ptr = unsafe { mode::P };
+            let this_symbol = self.strtab.intern("this");
+            let this_var = self.new_local_var(this_symbol, mode_ptr);
+            self.graph.set_value(this_var, &args.project(mode_ptr, 0));
 
             let method_def = Rc::clone(&self.method_def);
             for (i, p) in method_def.params.iter().enumerate() {
@@ -287,6 +292,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .expect("Variable access expr is always a ref")
                 {
                     RefInfo::Var(_) | RefInfo::Param(_) => {
+                        log::debug!("gen assignable for var or param {}", **name);
                         let (slot, mode) = self.local_var(**name);
                         Assignable(LValue::Var {
                             slot_idx: slot,
@@ -294,9 +300,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                         })
                     }
                     RefInfo::Field(_) => {
-                        // this pointer is in slot 0
-                        let pre_ptr = unsafe { new_r_Proj(self.this(), mode::P, 0) };
-                        Assignable(self.gen_field(pre_ptr, self.class_name(), **name))
+                        log::debug!("gen assignable for field {}", **name);
+                        let this = self.this().as_value_node();
+                        Assignable(self.gen_field(this, self.class_name(), **name))
                     }
                     _ => unreachable!("Variable access expr is always var, param or field"),
                 }
@@ -763,7 +769,7 @@ enum ExprResult {
     /// (e.g. result of short-circuiting binary expr, `||`, `==`, `&&`, ...)
     Cond(CondProjection),
 
-    /// An assignable lvalue, such as parameter / local var or array acces
+    /// An assignable lvalue, such as parameter / local var or array access
     Assignable(LValue),
 }
 
