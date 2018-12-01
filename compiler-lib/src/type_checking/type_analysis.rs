@@ -1,7 +1,8 @@
-use crate::ast;
+use super::type_system::*;
+use crate::{ast, strtab::Symbol};
 use std::{collections::HashMap, hash::Hash};
 
-use super::{method_body_type_checker::*, type_system::*};
+use std::rc::Rc;
 
 #[derive(Eq, Debug)]
 pub struct RefEquality<'a, T>(&'a T);
@@ -25,6 +26,8 @@ impl<'a, 'b, T> PartialEq<RefEquality<'b, T>> for RefEquality<'a, T> {
 pub struct TypeAnalysis<'src, 'ast> {
     class_types: HashMap<RefEquality<'ast, ast::ClassDeclaration<'src>>, ClassDefId<'src>>,
     expr_info: HashMap<RefEquality<'ast, ast::Expr<'src>>, ExprInfo<'src, 'ast>>,
+    /* for all LocalVariableDeclarations */
+    local_val_defs: HashMap<RefEquality<'ast, ast::Stmt<'src>>, Rc<LocalVarDef<'src>>>,
 }
 
 impl<'src, 'ast, 'ts> TypeAnalysis<'src, 'ast> {
@@ -42,6 +45,25 @@ impl<'src, 'ast, 'ts> TypeAnalysis<'src, 'ast> {
         self.expr_info.insert(RefEquality(expr), expr_info);
     }
 
+    pub fn set_local_var_def(
+        &mut self,
+        local_var_def_stmt: &'ast ast::Stmt<'src>,
+        var_def: Rc<LocalVarDef<'src>>,
+    ) {
+        self.local_val_defs
+            .insert(RefEquality(local_var_def_stmt), var_def);
+    }
+
+    pub fn local_var_def(
+        &mut self,
+        local_var_def_stmt: &'ast ast::Stmt<'src>,
+    ) -> Option<Rc<LocalVarDef<'src>>> {
+        match self.local_val_defs.get(&RefEquality(local_var_def_stmt)) {
+            Some(var_def) => Some(Rc::clone(var_def)),
+            None => None,
+        }
+    }
+
     pub fn decl_set_class_id(
         &mut self,
         class_decl: &'ast ast::ClassDeclaration<'src>,
@@ -56,4 +78,46 @@ impl<'src, 'ast, 'ts> TypeAnalysis<'src, 'ast> {
     ) -> Option<ClassDefId<'src>> {
         self.class_types.get(&RefEquality(class_decl)).cloned()
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct LocalVarDef<'src> {
+    pub name: Symbol<'src>,
+    pub ty: CheckedType<'src>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExprInfo<'src, 'ast> {
+    pub ty: CheckedType<'src>,
+    pub ref_info: Option<RefInfo<'src, 'ast>>,
+}
+
+impl<'src, 'ast> ExprInfo<'src, 'ast> {
+    pub fn new(ty: CheckedType<'src>, ref_info: RefInfo<'src, 'ast>) -> Self {
+        ExprInfo {
+            ty,
+            ref_info: Some(ref_info),
+        }
+    }
+}
+
+impl<'src, 'ast, 'ts> From<CheckedType<'src>> for ExprInfo<'src, 'ast> {
+    fn from(item: CheckedType<'src>) -> ExprInfo<'src, 'ast> {
+        ExprInfo {
+            ty: item,
+            ref_info: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum RefInfo<'src, 'ast> {
+    GlobalVar(Symbol<'src>),
+    Var(Rc<LocalVarDef<'src>>),
+    Param(Rc<MethodParamDef<'src>>),
+    Field(Rc<ClassFieldDef<'src>>),
+    Method(Rc<ClassMethodDef<'src, 'ast>>),
+    // impossible in minijava: Class(Rc<ClassDef<'src, 'ast>),
+    This(Rc<ClassDef<'src, 'ast>>),
+    ArrayAccess,
 }
