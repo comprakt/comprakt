@@ -6,6 +6,8 @@
 
 # Unignore all with extensions
 !*.*
+# ... except for backup files
+*~
 
 # Unignore all dirs
 !*/
