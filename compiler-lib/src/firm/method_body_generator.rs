@@ -545,10 +545,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let idx_expr = self.gen_expr(idx_expr).enforce_value(self.graph);
 
         LValue::Array {
-            sel: self
-                .graph
-                .cur_block()
-                .new_sel(&target_expr, &idx_expr, firm_array_type),
+            sel: self.graph.cur_block().new_sel(
+                &target_expr,
+                &idx_expr,
+                firm_array_type.points_to(),
+            ),
             elt_type,
         }
     }

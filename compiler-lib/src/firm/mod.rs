@@ -187,7 +187,8 @@ fn ty_from_checked_type(ct: &CheckedType<'_>) -> Option<Ty> {
         CheckedType::TypeRef(_) => PrimitiveType::ptr(),
         CheckedType::Array(checked_type) => ty_from_checked_type(checked_type)
             .expect("Arrays are never of type `void`")
-            .array(),
+            .array()
+            .pointer(),
         CheckedType::Boolean => PrimitiveType::bool(),
         CheckedType::Null => unreachable!(),
         CheckedType::UnknownType(_) => unreachable!(),

@@ -41,6 +41,10 @@ impl Ty {
         unsafe { get_array_element_type(self.into()) }.into()
     }
 
+    pub fn points_to(self) -> Ty {
+        unsafe { get_pointer_points_to_type(self.into()) }.into()
+    }
+
     pub fn size(self) -> u32 {
         unsafe { get_type_size(self.into()) }
     }
