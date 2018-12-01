@@ -4,7 +4,8 @@ use crate::{
     ast::{self, BinaryOp},
     strtab::Symbol,
     type_checking::{
-        type_analysis::{RefInfo, TypeAnalysis},
+        method_body_type_checker::RefInfo,
+        type_analysis::TypeAnalysis,
         type_system::{CheckedType, ClassMethodDef},
     },
 };

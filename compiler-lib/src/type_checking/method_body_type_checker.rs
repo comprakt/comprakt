@@ -9,9 +9,49 @@ use crate::{
 
 use std::rc::Rc;
 
+#[derive(Debug, Clone)]
+pub struct ExprInfo<'src, 'ast> {
+    pub ty: CheckedType<'src>,
+    pub ref_info: Option<RefInfo<'src, 'ast>>,
+}
+
+impl<'src, 'ast> ExprInfo<'src, 'ast> {
+    pub fn new(ty: CheckedType<'src>, ref_info: RefInfo<'src, 'ast>) -> Self {
+        ExprInfo {
+            ty,
+            ref_info: Some(ref_info),
+        }
+    }
+}
+
+impl<'src, 'ast, 'ts> From<CheckedType<'src>> for ExprInfo<'src, 'ast> {
+    fn from(item: CheckedType<'src>) -> ExprInfo<'src, 'ast> {
+        ExprInfo {
+            ty: item,
+            ref_info: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum RefInfo<'src, 'ast> {
+    GlobalVar(Symbol<'src>),
+    Var(Symbol<'src>),
+    Param(Rc<MethodParamDef<'src>>),
+    Field(Rc<ClassFieldDef<'src>>),
+    Method(Rc<ClassMethodDef<'src, 'ast>>),
+    // impossible in minijava: Class(Rc<ClassDef<'src, 'ast>),
+    This(Rc<ClassDef<'src, 'ast>>),
+    ArrayAccess,
+}
+
 #[derive(Clone)]
-pub enum Var<'src> {
-    Local(Rc<LocalVarDef<'src>>),
+pub enum VarDef<'src> {
+    Local {
+        #[allow(dead_code)]
+        name: Symbol<'src>,
+        ty: CheckedType<'src>,
+    },
     Param(Rc<MethodParamDef<'src>>),
 }
 
@@ -22,8 +62,7 @@ pub struct MethodBodyTypeChecker<'ctx, 'src, 'ast, 'ts, 'ana> {
     pub current_class: Rc<ClassDef<'src, 'ast>>,
     pub current_method: Rc<ClassMethodDef<'src, 'ast>>,
     pub type_analysis: &'ana mut TypeAnalysis<'src, 'ast>,
-    pub local_scope: Scoped<Symbol<'src>, Var<'src>>,
-    // IMPROVEMENT local_var_defs: Vec<Rc<LocalVarDef>>,
+    pub local_scope: Scoped<Symbol<'src>, VarDef<'src>>,
 }
 
 #[derive(Debug)]
@@ -66,7 +105,7 @@ where
                     for param in &current_method.params {
                         checker
                             .local_scope
-                            .define(param.name, Var::Param(Rc::clone(param)))
+                            .define(param.name, VarDef::Param(Rc::clone(param)))
                             .expect("no double params allowed");
                     }
 
@@ -145,15 +184,14 @@ where
                     self.type_system,
                     VoidIs::Forbidden,
                 );
-                let var_def = Rc::new(LocalVarDef {
-                    name: name.data,
-                    ty: def_ty.clone(),
-                });
-                self.type_analysis
-                    .set_local_var_def(&stmt.data, Rc::clone(&var_def));
-                // IMPROVEMENT self.local_var_defs.push(Rc::clone(&var_def));
                 self.local_scope
-                    .define(name.data, Var::Local(var_def))
+                    .define(
+                        name.data,
+                        VarDef::Local {
+                            name: name.data,
+                            ty: def_ty.clone(),
+                        },
+                    )
                     .unwrap_or_else(|_| {
                         self.context.report_error(
                             &name.span,
@@ -484,11 +522,11 @@ where
     ) -> Result<ExprInfo<'src, 'ast>, CouldNotDetermineType> {
         match self.local_scope.visible_definition(var_name.data) {
             // local variable or param
-            Some(Var::Local(local_def)) => Ok(ExprInfo {
-                ty: local_def.ty.clone(),
-                ref_info: Some(RefInfo::Var(Rc::clone(local_def))),
+            Some(VarDef::Local { ty, name }) => Ok(ExprInfo {
+                ty: ty.clone(),
+                ref_info: Some(RefInfo::Var(*name)),
             }),
-            Some(Var::Param(param_def)) => {
+            Some(VarDef::Param(param_def)) => {
                 if self.current_method.is_main {
                     self.context.report_error(
                         &var_name.span,
