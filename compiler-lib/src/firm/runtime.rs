@@ -107,6 +107,7 @@ impl Runtime {
     }
 
     pub fn graph_from_builtin_method_body(&self, mb: BuiltinMethodBody) -> Graph {
+        // ENHANCEMENT: @hediet: dedup builtin type definitions
         let (rt_entity, slot_count, has_int_arg, returns_value) = match mb {
             BuiltinMethodBody::SystemOutPrintln => (self.system_out_println, 2, true, false),
             BuiltinMethodBody::SystemOutWrite => (self.system_out_write, 2, true, false),

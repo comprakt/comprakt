@@ -5,7 +5,7 @@ use crate::{
     strtab::{StringTable, Symbol},
     type_checking::{
         type_analysis::{RefInfo, TypeAnalysis},
-        type_system::{CheckedType, ClassMethodDef},
+        type_system::{BuiltinMethodBody, CheckedType, ClassMethodBody, ClassMethodDef},
     },
 };
 use libfirm_rs::{bindings::*, *};
@@ -412,62 +412,47 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     method.span.as_str()
                 );
 
-                let object_expr_info = self.type_analysis.expr_info(object);
+                let method_invocation_expr_info = self.type_analysis.expr_info(expr);
 
-                let class_id = match object_expr_info.ty {
-                    CheckedType::TypeRef(class_def) => class_def.id(),
-                    _ => panic!("method invocations can only be done on type references"),
+                let class_method_def = match &method_invocation_expr_info.ref_info {
+                    Some(RefInfo::Method(class_method_def)) => class_method_def,
+                    _ => panic!("type analysis inconsistent"),
                 };
 
-                // we only have one global variable: 'System'. Since implementing
-                // global variables just to support this single type seems unnecessary,
-                // we just check if a method invocation targets the runtime dollar types (which
-                // are singletons, and can therefore be statically dispatched.)
-                match class_id.as_str() {
-                    // TODO: symbol vergleich, kein string vergleich ;)
-                    "$Writer" => {
-                        let mut args = vec![];
+                if let ClassMethodBody::Builtin(builtin) = &class_method_def.body {
+                    let mut args = vec![];
 
-                        for arg in argument_list.iter() {
-                            args.push(self.gen_expr(arg).enforce_value(self.graph));
+                    for arg in argument_list.iter() {
+                        args.push(self.gen_expr(arg).enforce_value(self.graph));
+                    }
+
+                    // ENHANCEMENT: @hediet: dedup builtin type definitions
+                    return match builtin {
+                        BuiltinMethodBody::SystemOutPrintln => {
+                            self.gen_static_fn_call(self.runtime.system_out_println, None, &args)
                         }
-
-                        return match method.data.as_str() {
-                            // TODO: symbol vergleich, kein string vergleich ;)
-                            "println" => self.gen_static_fn_call(
-                                self.runtime.system_out_println,
-                                None,
-                                &args,
-                            ),
-                            "write" => {
-                                self.gen_static_fn_call(self.runtime.system_out_write, None, &args)
-                            }
-                            "flush" => {
-                                self.gen_static_fn_call(self.runtime.system_out_flush, None, &args)
-                            }
-                            method_name => {
-                                panic!("unknown runtime function System.out.{}", method_name)
-                            }
-                        };
-                    }
-                    "$Reader" => {
-                        return match method.data.as_str() {
-                            // TODO: symbol vergleich, kein string vergleich ;)
-                            "read" => self.gen_static_fn_call(
-                                self.runtime.system_in_read,
-                                get_firm_mode(&CheckedType::Int),
-                                &[],
-                            ),
-                            method_name => {
-                                panic!("unknown runtime function System.in.{}", method_name)
-                            }
-                        };
-                    }
-                    _ => (),
+                        BuiltinMethodBody::SystemOutWrite => {
+                            self.gen_static_fn_call(self.runtime.system_out_write, None, &args)
+                        }
+                        BuiltinMethodBody::SystemOutFlush => {
+                            self.gen_static_fn_call(self.runtime.system_out_flush, None, &args)
+                        }
+                        BuiltinMethodBody::SystemInRead => self.gen_static_fn_call(
+                            self.runtime.system_in_read,
+                            get_firm_mode(&CheckedType::Int),
+                            &args,
+                        ),
+                    };
                 }
 
                 // at this point, we known that the invocation is targeting a user defined
                 // class and method.
+
+                let object_expr_info = self.type_analysis.expr_info(object);
+                let class_id = match object_expr_info.ty {
+                    CheckedType::TypeRef(class_def) => class_def.id(),
+                    _ => panic!("method invocations can only be done on type references"),
+                };
 
                 let class = self
                     .classes

@@ -34,6 +34,7 @@ impl<'src, 'ast> BuiltinTypes<'src> {
         let writer_class_id = {
             let arg_sym = strtab.intern("data");
 
+            // ENHANCEMENT: @hediet: dedup builtin type definitions
             let mut writer_class_def = ClassDef::new(strtab.intern("$Writer"));
             writer_class_def.comparable = false;
             writer_class_def
