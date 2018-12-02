@@ -17,6 +17,6 @@ class Foo {
         Foo f = new Foo();
         f.test_assignment_of_param(3);
 
-        /* TODO: assignment to fields */
+        f.b = 4;
     }
 }
