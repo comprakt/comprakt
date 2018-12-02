@@ -175,12 +175,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let CondProjection { tr, fls } = &self.gen_expr(cond).enforce_cond(self.graph);
 
         // Run body if cond is true
-        let body_block = self.graph.new_imm_block(tr);
-        self.graph.set_cur_block(body_block);
+        self.graph.set_cur_block(self.graph.new_imm_block(tr));
         let body_jumps = self.gen_stmt(&*body);
+        let body_block = self.graph.cur_block();
 
         if !body_jumps.jumps() {
-            let body_block = self.graph.cur_block();
             // We jump back to the condition-check
             header_block.add_pred(&body_block.new_jmp());
         }
