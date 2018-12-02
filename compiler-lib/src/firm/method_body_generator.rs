@@ -146,7 +146,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         if let Some(init_expr) = init_expr {
             self.graph.set_value(
                 var_slot,
-                &self.gen_expr(init_expr).enforce_value(self.graph),
+                &self
+                    .gen_expr(init_expr)
+                    .enforce_value(self.graph)
+                    .mature_entry(),
             );
         } else {
             self.graph.set_value(var_slot, &self.gen_zero(mode));
@@ -171,25 +174,24 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         // We evaluate the condition
         self.graph
             .set_cur_block(self.graph.new_imm_block(&incoming_jmp));
-        let CondProjection { tr, fls } = &self.gen_expr(cond).enforce_cond(self.graph);
-        let header_block = self.graph.cur_block();
+        let CondProjection { entry, tr, fls } = self.gen_expr(cond).enforce_cond(self.graph);
 
         // Run body if cond is true
-        self.graph.set_cur_block(self.graph.new_imm_block(tr));
+        self.graph.set_cur_block(self.graph.new_imm_block(&tr));
         let body_jumps = self.gen_stmt(&*body);
         let body_block = self.graph.cur_block();
 
         if !body_jumps.jumps() {
             // We jump back to the condition-check
-            header_block.add_pred(&body_block.new_jmp());
+            entry.add_pred(&body_block.new_jmp());
         }
 
         // Leave loop if cond is false
-        let next_block = self.graph.new_imm_block(fls);
+        let next_block = self.graph.new_imm_block(&fls);
         self.graph.set_cur_block(next_block);
 
         body_block.mature();
-        header_block.mature();
+        entry.mature();
 
         LastBlockJumps::No
     }
@@ -203,7 +205,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let prev_block = self.graph.cur_block();
 
         // We evaluate the condition
-        let CondProjection { tr, fls } = &self.gen_expr(cond).enforce_cond(self.graph);
+        let CondProjection { entry, tr, fls } = &self.gen_expr(cond).enforce_cond(self.graph);
+        entry.mature();
 
         // If its true, we take the then_arm
         self.graph.set_cur_block(self.graph.new_imm_block(tr));
@@ -224,6 +227,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         prev_block.mature();
 
         use self::LastBlockJumps::*;
+        log::debug!("if arms jump: {:?}", (then_block_jumps, else_block_jumps));
         match (then_block_jumps, else_block_jumps) {
             (No, No) => {
                 let next_block = self.graph.new_unreachable_block();
@@ -266,9 +270,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         res_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>,
     ) -> LastBlockJumps {
         let mem = self.graph.cur_store();
-        let res = res_expr
-            .as_ref()
-            .map(|res_expr| self.gen_expr(&*res_expr).enforce_value(self.graph));
+        let res = res_expr.as_ref().map(|res_expr| {
+            self.gen_expr(&*res_expr)
+                .enforce_value(self.graph)
+                .mature_entry()
+        });
 
         let ret = self.graph.cur_block().new_return(mem, res);
 
@@ -293,7 +299,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
         use self::ExprResult::*;
         match return_type {
-            Some(mode) => Value(call.project_result_tuple().project(mode, 0).as_value_node()),
+            Some(mode) => Value(ValueComputation::simple(
+                &call.project_result_tuple().project(mode, 0),
+            )),
             None => Void,
         }
     }
@@ -307,20 +315,23 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         match &expr {
             Int(literal) => {
                 let val = literal.parse().expect("Integer literal has to be valid");
-                Value(self.gen_const(val, unsafe { mode::Is }).as_value_node())
+                Value(ValueComputation::simple(
+                    &self.gen_const(val, unsafe { mode::Is }),
+                ))
             }
             NegInt(literal) => {
                 let val = literal
                     .parse::<i32>()
                     .map_or_else(|_| -2_147_483_648, |v| -v);
-                Value(
-                    self.gen_const(i64::from(val), unsafe { mode::Is })
-                        .as_value_node(),
-                )
+                Value(ValueComputation::simple(
+                    &self.gen_const(i64::from(val), unsafe { mode::Is }),
+                ))
             }
             Boolean(value) => {
                 let as_bit = if *value { 1 } else { 0 };
-                Value(self.gen_const(as_bit, unsafe { mode::Bu }).as_value_node())
+                Value(ValueComputation::simple(
+                    &self.gen_const(as_bit, unsafe { mode::Bu }),
+                ))
             }
             Var(name) => {
                 match self
@@ -348,10 +359,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             }
             Binary(op, lhs, rhs) => self.gen_binary_expr(*op, lhs, rhs),
             Unary(ast::UnaryOp::Neg, expr) => {
-                let expr = self.gen_expr(expr).enforce_value(self.graph);
+                let expr = self.gen_expr(expr).enforce_value(self.graph).mature_entry();
                 log::debug!("pre new_neg");
                 let neg = self.graph.cur_block().new_minus(&expr);
-                Value(neg.as_value_node())
+                Value(ValueComputation::simple(&neg))
             }
             Unary(ast::UnaryOp::Not, expr) => {
                 log::debug!("unary op");
@@ -364,7 +375,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                             Assignable(lvalue) => lvalue.gen_eval(self.graph),
                             Value(n) => n,
                             _ => unreachable!(),
-                        };
+                        }
+                        .mature_entry();
 
                         // booleansare mode::Bu, hence XOR does the job.
                         // could also use mode::Bi and -1 for true:
@@ -373,12 +385,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                             assert_eq!(get_irn_mode(n), mode::Bu);
                             self.graph.new_const(new_tarval_from_long(1, mode::Bu))
                         };
-                        Value(self.graph.cur_block().new_xor(&n, &bu1).into())
+                        Value(ValueComputation::simple(
+                            &self.graph.cur_block().new_xor(&n, &bu1),
+                        ))
                     }
                     Cond(proj) => Cond(proj.flip()),
                 }
             }
-            This => Value(self.this()),
+            This => Value(ValueComputation::simple(&self.this())),
             ThisMethodInvocation(method, argument_list) => {
                 let method = self
                     .class
@@ -397,7 +411,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let mut args = vec![this];
 
                 for arg in argument_list.iter() {
-                    args.push(self.gen_expr(arg).enforce_value(self.graph));
+                    args.push(self.gen_expr(arg).enforce_value(self.graph).mature_entry());
                 }
 
                 let return_type = get_firm_mode(&method.def.return_ty);
@@ -422,7 +436,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     let mut args = vec![];
 
                     for arg in argument_list.iter() {
-                        args.push(self.gen_expr(arg).enforce_value(self.graph));
+                        args.push(self.gen_expr(arg).enforce_value(self.graph).mature_entry());
                     }
 
                     // ENHANCEMENT: @hediet: dedup builtin type definitions
@@ -467,12 +481,15 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
                 // object could be any expression that has to be
                 // evaluated, e.g. (this.get_object()).foo()
-                let this = self.gen_expr(object).enforce_value(self.graph);
+                let this = self
+                    .gen_expr(object)
+                    .enforce_value(self.graph)
+                    .mature_entry();
 
                 let mut args = vec![this];
 
                 for arg in argument_list.iter() {
-                    args.push(self.gen_expr(arg).enforce_value(self.graph));
+                    args.push(self.gen_expr(arg).enforce_value(self.graph).mature_entry());
                 }
 
                 let return_type = get_firm_mode(&method.def.return_ty);
@@ -485,7 +502,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     _ => panic!("Only classes have fields"),
                 };
 
-                let object_ptr = self.gen_expr(object).enforce_value(self.graph);
+                let object_ptr = self
+                    .gen_expr(object)
+                    .enforce_value(self.graph)
+                    .mature_entry();
 
                 Assignable(self.gen_field(object_ptr, object_type.id(), **field))
             }
@@ -497,7 +517,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 Assignable(self.gen_array_access(target_expr, idx_expr, elt_type))
             }
 
-            Null => Value(self.gen_const(0, unsafe { mode::P }).as_value_node()),
+            Null => Value(ValueComputation::simple(
+                &self.gen_const(0, unsafe { mode::P }),
+            )),
 
             NewObject(ty_name) => {
                 let class = self
@@ -515,11 +537,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
                 self.graph.set_store(call.project_mem());
 
-                Value(
-                    call.project_result_tuple()
-                        .project(unsafe { mode::P }, 0)
-                        .as_value_node(),
-                )
+                Value(ValueComputation::simple(
+                    &call.project_result_tuple().project(unsafe { mode::P }, 0),
+                ))
             }
             NewArray(_, num_expr, _) => {
                 let new_array_type = &self
@@ -529,7 +549,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .inner_type()
                     .expect("type of array must have inner type");
 
-                let num_elts = self.gen_expr(num_expr).enforce_value(self.graph);
+                let num_elts = self
+                    .gen_expr(num_expr)
+                    .enforce_value(self.graph)
+                    .mature_entry();
                 let elt_size = self.gen_const(
                     size_of(new_array_type)
                         .map(i64::from)
@@ -546,11 +569,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 );
                 self.graph.set_store(call.project_mem());
 
-                Value(
-                    call.project_result_tuple()
-                        .project(unsafe { mode::P }, 0)
-                        .as_value_node(),
-                )
+                Value(ValueComputation::simple(
+                    &call.project_result_tuple().project(unsafe { mode::P }, 0),
+                ))
             }
         }
     }
@@ -565,8 +586,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let firm_array_type =
             ty_from_checked_type(array_type).expect("array type must have firm equivalent");
 
-        let target_expr = self.gen_expr(target_expr).enforce_value(self.graph);
-        let idx_expr = self.gen_expr(idx_expr).enforce_value(self.graph);
+        let target_expr = self
+            .gen_expr(target_expr)
+            .enforce_value(self.graph)
+            .mature_entry();
+        let idx_expr = self
+            .gen_expr(idx_expr)
+            .enforce_value(self.graph)
+            .mature_entry();
 
         LValue::Array {
             sel: self.graph.cur_block().new_sel(
@@ -612,18 +639,26 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         macro_rules! enforce {
             (value, $lhs: ident, $rhs: ident) => {
                 let lhs = self.gen_expr(lhs);
-                let $lhs = lhs.enforce_value(self.graph);
+                let $lhs = lhs.enforce_value(self.graph).mature_entry();
                 let rhs = self.gen_expr(rhs);
-                let $rhs = rhs.enforce_value(self.graph);
+                let $rhs = rhs.enforce_value(self.graph).mature_entry();
             };
         }
 
         macro_rules! relation {
             ($lhs: ident, $rhs: ident, $relation: expr) => {{
-                enforce!(value, $lhs, $rhs);
-                let cmp = self.graph.cur_block().new_cmp(&$lhs, &$rhs, $relation);
+                let lhs = self.gen_expr($lhs);
+                let lhs = lhs.enforce_value(self.graph);
+                let (entry, lhs) = match lhs {
+                    self::ValueComputation::InCurBlock(node) => (self.graph.cur_block(), node),
+                    self::ValueComputation::Complex { entry, node } => (entry, node),
+                };
+                let rhs = self.gen_expr($rhs);
+                let rhs = rhs.enforce_value(self.graph).mature_entry();
+
+                let cmp = self.graph.cur_block().new_cmp(&lhs, &rhs, $relation);
                 let cond = self.graph.cur_block().new_cond(&cmp);
-                Cond(cond.into())
+                Cond(CondProjection::new(entry, cond))
             }};
         }
 
@@ -640,7 +675,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 log::debug!("pre project res {}", stringify!($op));
                 let res = op.project_res();
                 log::debug!("pre as_value_node {}", stringify!($op));
-                Value(res.as_value_node())
+                Value(ValueComputation::simple(&res))
             }};
         }
 
@@ -648,7 +683,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             ($lhs: ident, $rhs: ident, $op: ident) => {{
                 enforce!(value, $lhs, $rhs);
                 let op = self.graph.cur_block().$op(&$lhs, &$rhs);
-                Value(op.as_value_node())
+                Value(ValueComputation::simple(&op))
             }};
         }
 
@@ -662,15 +697,17 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             BinaryOp::LogicalOr => {
                 let lhs = self.gen_expr(lhs);
                 let CondProjection {
+                    entry: lhs_entry,
                     tr: lhs_tr,
                     fls: lhs_fls,
                 } = lhs.enforce_cond(self.graph);
-                self.graph.cur_block().mature();
+                // do not mature lhs_entry because we return it in CondProjection
 
                 let false_block = self.graph.new_imm_block(&lhs_fls);
                 self.graph.set_cur_block(false_block);
                 let rhs = self.gen_expr(rhs);
                 let CondProjection {
+                    entry: _,
                     tr: rhs_tr,
                     fls: rhs_fls,
                 } = rhs.enforce_cond(self.graph);
@@ -686,16 +723,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 both_true_block.add_pred(&rhs_tr);
                 let true_out = both_true_block.new_jmp();
                 both_true_block.mature();
-
-                // TODO check if this is necessary, if and while do a similar thing
-                // the previous block is done, give a new block to outer exprs
-                // The idea is that the outer expr may expect to have a cur block...
-                let successor_block = unsafe {
-                    Block::from(new_r_immBlock(self.graph.into())) // FIXME API
-                };
-                self.graph.set_cur_block(successor_block);
+                // above mature is ok because the caller doesn't even know both_true_block
 
                 Cond(CondProjection {
+                    entry: lhs_entry,
                     tr: true_out,
                     fls: rhs_fls,
                 })
@@ -703,19 +734,21 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             BinaryOp::LogicalAnd => {
                 let lhs = self.gen_expr(lhs);
                 let CondProjection {
+                    entry: lhs_entry,
                     tr: lhs_tr,
                     fls: lhs_fls,
                 } = lhs.enforce_cond(self.graph);
-                self.graph.cur_block().mature();
+                // do not mature lhs_entry because we return it in CondProjection
 
                 let lhs_true_block = self.graph.new_imm_block(&lhs_tr);
                 self.graph.set_cur_block(lhs_true_block);
                 let rhs = self.gen_expr(rhs);
                 let CondProjection {
+                    entry: _,
                     tr: rhs_tr,
                     fls: rhs_fls,
                 } = rhs.enforce_cond(self.graph);
-                lhs_true_block.mature();
+                self.graph.cur_block().mature();
 
                 // FIXME: we're constructing an empty block here because we are only
                 // allowed to return a CondProjection with one X node for true and false,
@@ -727,27 +760,21 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 any_false_block.add_pred(&rhs_fls);
                 let false_out = any_false_block.new_jmp();
                 any_false_block.mature();
-
-                // TODO check if this is necessary, if and while do a similar thing
-                // the previous block is done, give a new block to outer exprs
-                // The idea is that the outer expr may expect to have a cur block...
-                let successor_block = unsafe {
-                    Block::from(new_r_immBlock(self.graph.into())) // FIXME API
-                };
-                self.graph.set_cur_block(successor_block);
+                // above mature is ok because the caller doesn't even know any_false_block
 
                 Cond(CondProjection {
+                    entry: lhs_entry,
                     tr: rhs_tr,
                     fls: false_out,
                 })
             }
 
-            BinaryOp::Assign => Value(
-                self.gen_expr(lhs)
-                    .expect_lvalue()
-                    .gen_assign(self.graph, &self.gen_expr(rhs).enforce_value(self.graph)),
-            ),
-
+            BinaryOp::Assign => Value(ValueComputation::simple(
+                &self.gen_expr(lhs).expect_lvalue().gen_assign(
+                    self.graph,
+                    &self.gen_expr(rhs).enforce_value(self.graph).mature_entry(),
+                ),
+            )),
             BinaryOp::Equals => relation!(lhs, rhs, ir_relation::Equal),
             BinaryOp::NotEquals => relation!(lhs, rhs, ir_relation::LessGreater),
             BinaryOp::LessThan => relation!(lhs, rhs, ir_relation::Less),
@@ -789,7 +816,7 @@ enum ExprResult {
     Void,
     /// Result is a single value (e.g. method call, variable, integer
     /// arithmetic)
-    Value(*mut ir_node),
+    Value(ValueComputation),
     /// Result is two mode::X nodes (i.e. control flow) that can be branched on
     /// (e.g. result of short-circuiting binary expr, `||`, `==`, `&&`, ...)
     Cond(CondProjection),
@@ -798,23 +825,54 @@ enum ExprResult {
     Assignable(LValue),
 }
 
+/// An If-diamond
 struct CondProjection {
+    /// Jump into this block to eval the condition
+    entry: Block,
+    /// This is the true exec flow ([`mode::X`] node) of the cond
     tr: Jmp,
+    /// This is the false exec flow ([`mode::X`] node) of the cond
     fls: Jmp,
 }
 
 impl CondProjection {
+    fn new(entry: Block, cond: Cond) -> Self {
+        CondProjection {
+            entry,
+            tr: cond.project_true(),
+            fls: cond.project_false(),
+        }
+    }
+
     fn flip(self) -> CondProjection {
-        let CondProjection { tr, fls } = self;
-        CondProjection { tr: fls, fls: tr }
+        let CondProjection { entry, tr, fls } = self;
+        CondProjection {
+            entry,
+            tr: fls,
+            fls: tr,
+        }
     }
 }
 
-impl From<Cond> for CondProjection {
-    fn from(cond: Cond) -> CondProjection {
-        CondProjection {
-            tr: cond.project_true(),
-            fls: cond.project_false(),
+#[derive(Clone, Copy)]
+enum ValueComputation {
+    InCurBlock(*mut ir_node),
+    Complex { entry: Block, node: *mut ir_node },
+}
+
+impl ValueComputation {
+    fn simple<N: ValueNode>(value_node: &N) -> ValueComputation {
+        ValueComputation::InCurBlock(value_node.as_value_node())
+    }
+
+    fn mature_entry(self) -> *mut ir_node {
+        use self::ValueComputation::*;
+        match self {
+            InCurBlock(n) => n,
+            Complex { entry, node } => {
+                entry.mature();
+                node
+            }
         }
     }
 }
@@ -830,12 +888,18 @@ impl ExprResult {
             Value(val) => {
                 let one = graph.new_const(unsafe { new_tarval_from_long(1, mode::Bu) });
 
+                let (entry, val_node) = match val {
+                    ValueComputation::InCurBlock(n) => (graph.cur_block(), n),
+                    ValueComputation::Complex { entry, node } => (entry, node),
+                };
+
                 let sel = graph
                     .cur_block()
-                    .new_cmp(&val, &one, ir_relation::Equal)
+                    .new_cmp(&val_node, &one, ir_relation::Equal)
                     .as_selector();
                 let cond = graph.cur_block().new_cond(&sel);
-                CondProjection::from(cond)
+
+                CondProjection::new(entry, cond)
             }
             Assignable(lval) => Value(lval.gen_eval(graph)).enforce_cond(graph),
             Cond(cp) => cp,
@@ -844,14 +908,15 @@ impl ExprResult {
 
     /// Enforce that the result is a single value. If self is a `Cond`,
     /// convert it to boolean value
-    fn enforce_value(self, graph: Graph) -> *mut ir_node {
+    fn enforce_value(self, graph: Graph) -> ValueComputation {
         use self::ExprResult::*;
         match self {
             Void => panic!("Tried to get result value of void expr"),
             Value(val) => val,
             Assignable(lval) => lval.gen_eval(graph),
             Cond(cp) => {
-                let CondProjection { tr, fls } = cp;
+                let CondProjection { entry, tr, fls } = cp;
+
                 let zero = graph.new_const(unsafe { new_tarval_from_long(0, mode::Bu) });
                 let one = graph.new_const(unsafe { new_tarval_from_long(1, mode::Bu) });
 
@@ -868,7 +933,7 @@ impl ExprResult {
                 let phi_block = Block::from(phi_block);
                 phi_block.mature();
                 graph.set_cur_block(phi_block);
-                phi
+                ValueComputation::Complex { entry, node: phi }
             }
         }
     }
@@ -910,9 +975,9 @@ enum LValue {
 
 impl LValue {
     /// Evaluate the lvalue just as if it were handled as a normal expression
-    fn gen_eval(self, graph: Graph) -> *mut ir_node {
+    fn gen_eval(self, graph: Graph) -> ValueComputation {
         use self::LValue::*;
-        match self {
+        ValueComputation::InCurBlock(match self {
             Var { slot_idx, mode } => graph.value(slot_idx, mode).as_value_node(),
             Array { sel, elt_type } => sel.gen_load(graph, elt_type).as_value_node(),
             Field {
@@ -931,7 +996,7 @@ impl LValue {
                 graph.set_store(load.project_mem());
                 load.project_res(field_mode).as_value_node()
             }
-        }
+        })
     }
 
     /// Store the given value at the location described by this lvalue
