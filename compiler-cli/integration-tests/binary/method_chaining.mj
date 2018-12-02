@@ -1,0 +1,36 @@
+class Builder {
+    public int x;
+    public int y;
+    public int z;
+
+    public Builder with_x(int val) {
+        x = val;
+        return this;
+    }
+
+    public Builder with_y(int val) {
+        y = val;
+        return this;
+    }
+
+    public Builder with_z(int val) {
+        z = val;
+        return this;
+    }
+
+    public void finish() {
+        System.out.println(x);
+        System.out.println(y);
+        System.out.println(z);
+    }
+}
+
+class Foo {
+    public static void main(String[] args) {
+        new Builder()
+            .with_x(42)
+            .with_y(33)
+            .with_z(11)
+            .finish();
+    }
+}
