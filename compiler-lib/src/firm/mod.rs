@@ -110,7 +110,9 @@ pub unsafe fn build<'src, 'ast>(
     if !opts.dump_folder.exists() {
         fs::create_dir_all(&opts.dump_folder).expect("Failed to create output directory");
     }
-    ir_set_dump_path(opts.dump_folder.to_str().unwrap().as_ptr() as *const i8);
+
+    let dump_folder_cstr = CString::new(opts.dump_folder.to_string_lossy().as_bytes()).unwrap();
+    ir_set_dump_path(dump_folder_cstr.as_ptr());
 
     if opts.dump_firm_graph {
         let suffix = CString::new("high-level").unwrap();
