@@ -1,0 +1,8 @@
+class Cat {
+    public static void main(String[] args) {
+        int c;
+        while((c = System.in.read()) != -1) {
+            System.out.write(c);
+        }
+    }
+}

@@ -80,6 +80,13 @@ pub fn gen_binary_integration_tests(_args: TokenStream) -> TokenStream {
 
                 // reaching this line means the compiler assertions were correct
                 let mut cmd = std::process::Command::new(&binary_path);
+
+                let mut stdin_path = with_extension(&binary_path, ".stdin");
+                if stdin_path.is_file() {
+                    let stdin = File::open(&stdin_path).expect("failed to open stdin reference file");
+                    cmd.stdin(stdin);
+                }
+
                 let output = cmd.output().expect("failed to invoke generated binary");
 
                 assert_output(&output, &TestFiles {
