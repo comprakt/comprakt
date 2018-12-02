@@ -1,0 +1,22 @@
+class Foo {
+    public int b;
+
+    public void test_assignment_of_param(int c) {
+        System.out.println(c);
+        c = 4;
+        System.out.println(c);
+    }
+
+    public static void main(String[] args) {
+        /* test assignment of local var */
+        int a = 1;
+        System.out.println(a);
+        a = 2;
+        System.out.println(a);
+
+        Foo f = new Foo();
+        f.test_assignment_of_param(3);
+
+        f.b = 4;
+    }
+}

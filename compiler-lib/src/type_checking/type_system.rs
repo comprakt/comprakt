@@ -2,6 +2,7 @@ use crate::strtab::Symbol;
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt,
+    rc::Rc,
 };
 
 #[derive(Debug)]
@@ -10,56 +11,61 @@ pub struct ClassDoesNotExist;
 pub struct ClassAlreadyDeclared;
 
 #[derive(Debug, Default)]
-pub struct TypeSystem<'src> {
-    defined_classes: HashMap<Symbol<'src>, ClassDef<'src>>,
+pub struct TypeSystem<'src, 'ast> {
+    pub defined_classes: HashMap<Symbol<'src>, Rc<ClassDef<'src, 'ast>>>,
 }
 
-impl<'src> TypeSystem<'src> {
+impl<'src, 'ast> TypeSystem<'src, 'ast> {
     pub fn is_type_defined(&self, name: Symbol<'src>) -> bool {
         self.defined_classes.contains_key(&name)
     }
 
     pub fn add_class_def<'a>(
         &'a mut self,
-        class_def: ClassDef<'src>,
+        class_def: ClassDef<'src, 'ast>,
     ) -> Result<ClassDefId<'src>, ClassAlreadyDeclared> {
         match self.defined_classes.entry(class_def.name) {
             Entry::Occupied(_) => Err(ClassAlreadyDeclared),
             Entry::Vacant(e) => {
                 let id = ClassDefId { id: class_def.name };
-                e.insert(class_def);
+                e.insert(Rc::new(class_def));
                 Ok(id)
             }
         }
     }
 
-    pub fn class_mut(&mut self, id: ClassDefId<'src>) -> &mut ClassDef<'src> {
+    pub fn class_mut(&mut self, id: ClassDefId<'src>) -> &mut ClassDef<'src, 'ast> {
         self.defined_classes
             .get_mut(&id.id)
+            .and_then(Rc::get_mut)
             .expect("Ids always point to existing classes")
     }
 
-    pub fn class(&self, id: ClassDefId<'src>) -> &ClassDef<'src> {
+    pub fn class(&self, id: ClassDefId<'src>) -> Rc<ClassDef<'src, 'ast>> {
         self.defined_classes
             .get(&id.id)
+            .map(Rc::clone)
             .expect("Ids always point to existing classes")
     }
 
-    pub fn lookup_class_mut(&mut self, name: Symbol<'src>) -> Option<&mut ClassDef<'src>> {
-        self.defined_classes.get_mut(&name)
+    pub fn lookup_class_mut(&mut self, name: Symbol<'src>) -> Option<&mut ClassDef<'src, 'ast>> {
+        self.defined_classes.get_mut(&name).and_then(Rc::get_mut)
     }
 
-    pub fn lookup_class(&self, name: Symbol<'src>) -> Option<(&ClassDef<'src>, ClassDefId<'src>)> {
+    pub fn lookup_class(
+        &self,
+        name: Symbol<'src>,
+    ) -> Option<(Rc<ClassDef<'src, 'ast>>, ClassDefId<'src>)> {
         match self.defined_classes.get(&name) {
             Some(class) => {
                 let id = ClassDefId { id: name };
-                Some((class, id))
+                Some((Rc::clone(class), id))
             }
             None => None,
         }
     }
 
-    pub fn defined_classes(&self) -> &HashMap<Symbol<'_>, ClassDef<'_>> {
+    pub fn defined_classes(&self) -> &HashMap<Symbol<'_>, Rc<ClassDef<'_, '_>>> {
         &self.defined_classes
     }
 }
@@ -90,20 +96,24 @@ impl<'src> ClassDefId<'src> {
     pub fn as_str(&self) -> &str {
         self.id.as_str()
     }
+
+    pub fn id(&self) -> Symbol<'src> {
+        self.id
+    }
 }
 
 #[derive(Debug)]
-pub struct ClassDef<'src> {
+pub struct ClassDef<'src, 'ast> {
     // tracks how many redefinitions there are
     redefinitions: usize,
     pub name: Symbol<'src>,
-    fields: HashMap<Symbol<'src>, ClassFieldDef<'src>>,
-    methods: HashMap<Symbol<'src>, ClassMethodDef<'src>>,
+    fields: HashMap<Symbol<'src>, Rc<ClassFieldDef<'src>>>,
+    methods: HashMap<Symbol<'src>, Rc<ClassMethodDef<'src, 'ast>>>,
     pub comparable: bool,
 }
 
-impl<'src> ClassDef<'src> {
-    pub fn new(name: Symbol<'src>) -> ClassDef<'src> {
+impl<'src, 'ast> ClassDef<'src, 'ast> {
+    pub fn new(name: Symbol<'src>) -> ClassDef<'src, 'ast> {
         ClassDef {
             redefinitions: 0,
             name,
@@ -121,49 +131,76 @@ impl<'src> ClassDef<'src> {
     pub fn add_field(&mut self, field: ClassFieldDef<'src>) -> Result<(), ()> {
         match self.fields.entry(field.name) {
             Entry::Occupied(_) => return Err(()),
-            Entry::Vacant(e) => e.insert(field),
+            Entry::Vacant(e) => e.insert(Rc::new(field)),
         };
         Ok(())
     }
 
-    pub fn field(&self, name: Symbol<'src>) -> Option<&ClassFieldDef<'src>> {
-        self.fields.get(&name)
+    pub fn field(&self, name: Symbol<'src>) -> Option<Rc<ClassFieldDef<'src>>> {
+        self.fields.get(&name).map(Rc::clone)
     }
 
-    pub fn add_method(&mut self, method: ClassMethodDef<'src>) -> Result<(), ()> {
+    pub fn iter_fields<'a>(&'a self) -> impl Iterator<Item = Rc<ClassFieldDef<'src>>> + 'a {
+        self.fields.iter().map(|(_, c)| Rc::clone(c))
+    }
+
+    pub fn iter_methods<'a>(&'a self) -> impl Iterator<Item = Rc<ClassMethodDef<'src, 'ast>>> + 'a {
+        self.methods.iter().map(|(_, c)| Rc::clone(c))
+    }
+
+    pub fn add_method(&mut self, method: ClassMethodDef<'src, 'ast>) -> Result<(), ()> {
         match self.methods.entry(method.name) {
             Entry::Occupied(_) => return Err(()),
-            Entry::Vacant(e) => e.insert(method),
+            Entry::Vacant(e) => e.insert(Rc::new(method)),
         };
         Ok(())
     }
 
-    pub fn method(&self, name: Symbol<'src>) -> Option<&ClassMethodDef<'src>> {
-        self.methods.get(&name)
+    pub fn method(&self, name: Symbol<'src>) -> Option<Rc<ClassMethodDef<'src, 'ast>>> {
+        self.methods.get(&name).map(Rc::clone)
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum BuiltinMethodBody {
+    SystemOutPrintln,
+    SystemOutWrite,
+    SystemOutFlush,
+    SystemInRead,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ClassMethodBody<'src, 'ast> {
+    Builtin(BuiltinMethodBody),
+    AST(&'ast crate::asciifile::spanned::Spanned<'src, crate::ast::Block<'src>>),
+}
+
 #[derive(Debug)]
-pub struct ClassMethodDef<'src> {
+pub struct ClassMethodDef<'src, 'ast> {
+    /// Name of the method
     pub name: Symbol<'src>,
-    pub params: Vec<MethodParamDef<'src>>,
+    pub body: ClassMethodBody<'src, 'ast>,
+    /// params does not include `this` for non-static / non-main methods
+    pub params: Vec<Rc<MethodParamDef<'src>>>,
     pub return_ty: CheckedType<'src>,
     pub is_static: bool,
     pub is_main: bool,
 }
 
-impl<'src> ClassMethodDef<'src> {
+impl<'src, 'ast> ClassMethodDef<'src, 'ast> {
     pub fn new(
         name: Symbol<'src>,
+        body: ClassMethodBody<'src, 'ast>,
         params: Vec<MethodParamDef<'src>>,
         return_ty: CheckedType<'src>,
         is_static: bool,
-    ) -> ClassMethodDef<'src> {
+    ) -> ClassMethodDef<'src, 'ast> {
         ClassMethodDef {
             is_static,
             name,
+            body,
             return_ty,
-            params,
+            params: params.into_iter().map(Rc::new).collect(),
             is_main: is_static,
         }
     }
@@ -183,6 +220,7 @@ impl<'src> MethodParamDef<'src> {
 
 #[derive(Debug)]
 pub struct ClassFieldDef<'src> {
+    /// Name of the field
     pub name: Symbol<'src>,
     pub ty: CheckedType<'src>,
     pub can_write: bool,
@@ -212,8 +250,20 @@ impl<'src> CheckedType<'src> {
         }
     }
 
-    pub fn is_assignable_from(&self, other: &CheckedType<'src>, ts: &'_ TypeSystem<'src>) -> bool {
+    pub fn inner_type(&self) -> Option<&CheckedType<'src>> {
+        match self {
+            CheckedType::Array(ty) => Some(&*ty),
+            _ => None,
+        }
+    }
+
+    pub fn is_assignable_from(
+        &self,
+        other: &CheckedType<'src>,
+        ts: &'_ TypeSystem<'src, '_>,
+    ) -> bool {
         use self::CheckedType::*;
+
         match self {
             // dont generate errors for unknown types as they are invalid anyways
             UnknownType(_) => true,

@@ -32,7 +32,9 @@ use compiler_lib::{
     print::{self, lextest},
     semantics,
     strtab::StringTable,
+    OutputSpecification,
 };
+use env_logger;
 use failure::{Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{
@@ -63,6 +65,9 @@ pub enum CliError {
     Ascii { path: PathBuf },
     #[fail(display = "cannot copy input file {:?} to stdout", input)]
     Echo { input: PathBuf },
+    // TODO: this whole linking shenanigans should be part of compiler-lib
+    #[fail(display = "failed to link runtime using `cc`")]
+    LinkingFailed,
 }
 
 /// An in memory representation of command-line flags passed to the
@@ -107,54 +112,59 @@ pub enum CliCommand {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
-    /// Output x86-assembler or the firm graph in various stages
-    #[structopt(name = "--lower")]
-    Lower(LoweringOptions),
+    /// Output x86-assembler and optionally the firm graph in various stages.
+    /// Defaults to writing to standard out.
+    #[structopt(name = "--emit-asm")]
+    EmitAsm(LoweringOptions),
 
-    /// Output an executable
-    #[structopt(name = "--compile")]
-    Compile {
-        /// the location of the input MiniJava file
-        #[structopt(name = "FILE", parse(from_os_str))]
-        input: PathBuf,
-        /// the location of the generated executable file
-        #[structopt(long = "--output", short = "-o", parse(from_os_str))]
-        output: Option<PathBuf>,
-    },
+    /// Output an executable. Defaults to 'a.out' in the current working
+    /// directory.
+    #[structopt(name = "--compile-firm")]
+    CompileFirm(LoweringOptions),
 }
 
-/// Command-line options for the [`CliCommand::Lower`] (`--lower`) call
+/// Command-line options for the [`CliCommand::CompileFirm`] and
+/// [`CliCommand::EmitAsm`] calls
 #[derive(StructOpt, Debug, Clone, Default)]
 pub struct LoweringOptions {
     /// A MiniJava input file
     #[structopt(name = "FILE", parse(from_os_str))]
     pub path: PathBuf,
-    /// Output the matured unlowered firm graph as VCG file
-    #[structopt(long = "--emit-firm-graph", short = "-g", parse(from_os_str))]
-    pub dump_firm_graph: Option<PathBuf>,
-    /// Output the matured lowered firm graph as VCG file
-    #[structopt(
-        long = "--emit-lowered-firm-graph",
-        short = "-l",
-        parse(from_os_str)
-    )]
-    pub dump_lowered_firm_graph: Option<PathBuf>,
-    /// Write generated assembler code to the given file.
-    #[structopt(long = "--emit-asm", short = "-a", parse(from_os_str))]
-    pub dump_assembler: Option<PathBuf>,
+
+    /// Folder to dump graphs to
+    #[structopt(long = "--emit-to", default_value = ".", parse(from_os_str))]
+    pub dump_folder: PathBuf,
+
+    /// Output the matured unlowered firm graphs as VCG files to the dump_folder
+    #[structopt(long = "--emit-firm-graph", short = "-g")]
+    pub dump_firm_graph: bool,
+
+    /// Dump class layouts in text form to dump_folder
+    #[structopt(long = "--emit-class-layouts", short = "-c")]
+    pub dump_class_layouts: bool,
+
+    /// Write primary output artifact to the given file or directory.
+    #[structopt(long = "--output", short = "-o", parse(from_os_str))]
+    pub output: Option<PathBuf>,
 }
 
 impl Into<firm::Options> for LoweringOptions {
     fn into(self) -> firm::Options {
         firm::Options {
-            dump_assembler: self.dump_assembler,
-            dump_lowered_firm_graph: self.dump_lowered_firm_graph,
+            dump_assembler: Some(match self.output {
+                None => OutputSpecification::Stdout,
+                Some(path) => OutputSpecification::File(path),
+            }),
+            dump_folder: self.dump_folder,
             dump_firm_graph: self.dump_firm_graph,
+            dump_class_layouts: self.dump_class_layouts,
         }
     }
 }
 
 fn main() {
+    env_logger::init();
+
     let cmd = CliCommand::from_args();
 
     if let Err(msg) = run_compiler(&cmd) {
@@ -172,8 +182,8 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path),
-        CliCommand::Lower(options) => cmd_lower(&options.path, &options.clone().into()),
-        CliCommand::Compile { input, output } => cmd_compile(input, output),
+        CliCommand::EmitAsm(options) => cmd_emit_asm(options),
+        CliCommand::CompileFirm(options) => cmd_compile_firm(options),
     }
 }
 
@@ -236,7 +246,10 @@ macro_rules! setup_io {
     };
 }
 
-fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
+const DEFAULT_BINARY_FILENAME: &str = "a.out";
+
+fn cmd_compile_firm(options: &LoweringOptions) -> Result<(), Error> {
+    let input = &options.path;
     setup_io!(let context = input);
     let mut strtab = StringTable::new();
     let lexer = Lexer::new(&mut strtab, &context);
@@ -266,55 +279,64 @@ fn cmd_compile(input: &PathBuf, output: &Option<PathBuf>) -> Result<(), Error> {
         }
     };
 
-    let type_system = match crate::semantics::check(&mut strtab, &ast, &context) {
-        Ok(type_system) => type_system,
-        Err(()) => {
+    let (type_system, type_analysis) = crate::semantics::check(&mut strtab, &ast, &context)
+        .unwrap_or_else(|()| {
             context.diagnostics.write_statistics();
-            exit(1)
-        }
-    };
+            exit(1);
+        });
 
     let temp_dir = tempdir()?;
-    let out_dir = temp_dir.path().to_path_buf();
-    let user_assembly = out_dir.join("a.s");
+    let compilation_dir = temp_dir.path().to_path_buf();
+    let user_assembly = compilation_dir.join("a.s");
 
-    // lower user code to assembler
-    let mut firm_options = firm::Options::default();
-    firm_options.dump_assembler = Some(user_assembly.clone());
+    let mut lowering_options: compiler_lib::firm::Options = (options.clone()).into();
+    lowering_options.dump_assembler = Some(OutputSpecification::File(user_assembly.clone()));
 
-    unsafe { firm::build(&firm_options, &ast, &type_system) };
+    unsafe { firm::build(&lowering_options, &type_system, &type_analysis, &mut strtab) };
 
     // get runtime library
-    let runtime_path = out_dir.join("mjrt.a");
+    let runtime_path = compilation_dir.join("mjrt.a");
     {
         let mut file = File::create(&runtime_path)?;
         file.write_all(mjrt::STATIC_LIB)?;
     }
 
-    // TODO: this should be smarted and check wether output
-    // contains a file stem.
-    let out_name = input.file_stem().unwrap();
-
-    let out_path = if let Some(out_dir) = output {
-        out_dir.join(out_name)
-    } else {
-        PathBuf::new().join(out_name)
+    let binary_path = match &options.output {
+        Some(dir) if dir.is_dir() => dir.join(DEFAULT_BINARY_FILENAME),
+        Some(file) => file.clone(),
+        None => PathBuf::from(DEFAULT_BINARY_FILENAME),
     };
 
-    // compile runtime and link it with user's code
-    Command::new("cc")
+    // link runtime static library with user's code
+    let linker_status = Command::new("cc")
         .arg("-o")
-        .arg(&out_path)
+        .arg(&binary_path)
         .args(mjrt::LINKER_FLAGS)
         .arg(&user_assembly)
         .arg(&runtime_path)
         .args(mjrt::LINKER_LIBS)
-        .status()?;
-    Ok(())
+        .status()
+        .context(CliError::LinkingFailed)?;
+
+    if std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP").is_ok() {
+        // `into_path(.)` has the side effect "Persist the temporary directory to disk"
+        let path = temp_dir.into_path();
+        eprintln!(
+            "Temporary compilation directory was persisted to {:?}",
+            path
+        );
+    }
+
+    if !linker_status.success() {
+        Err(CliError::LinkingFailed.into())
+    } else {
+        Ok(())
+    }
 }
 
-fn cmd_lower(path: &PathBuf, opts: &firm::Options) -> Result<(), Error> {
-    setup_io!(let context = path);
+fn cmd_emit_asm(opts: &LoweringOptions) -> Result<(), Error> {
+    let input = &opts.path;
+    setup_io!(let context = input);
     let mut strtab = StringTable::new();
     let lexer = Lexer::new(&mut strtab, &context);
 
@@ -343,15 +365,14 @@ fn cmd_lower(path: &PathBuf, opts: &firm::Options) -> Result<(), Error> {
         }
     };
 
-    let type_system = match crate::semantics::check(&mut strtab, &ast, &context) {
-        Ok(type_system) => type_system,
-        Err(()) => {
+    let (type_system, type_analysis) = crate::semantics::check(&mut strtab, &ast, &context)
+        .unwrap_or_else(|()| {
             context.diagnostics.write_statistics();
             exit(1);
-        }
-    };
+        });
 
-    unsafe { firm::build(opts, &ast, &type_system) };
+    let firm_options = opts.clone().into();
+    unsafe { firm::build(&firm_options, &type_system, &type_analysis, &mut strtab) };
     Ok(())
 }
 

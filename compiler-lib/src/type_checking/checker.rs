@@ -12,42 +12,39 @@ use super::{
     type_analysis::TypeAnalysis, type_system::*,
 };
 
-pub fn check<'ast, 'src, 'ts>(
+pub fn check<'ast, 'src>(
     strtab: &'_ mut StringTable<'src>,
     ast: &'ast ast::AST<'src>,
-    type_system: &'ts mut TypeSystem<'src>,
     context: &Context<'src>,
-) -> TypeAnalysis<'src, 'ast, 'ts> {
+) -> (TypeSystem<'src, 'ast>, TypeAnalysis<'src, 'ast>) {
     let mut sem_context = SemanticContext::new(context);
 
-    match ast {
-        ast::AST::Empty => TypeAnalysis::new(),
-        ast::AST::Program(program) => {
-            let mut type_analysis = TypeAnalysis::new();
+    let mut type_system = TypeSystem::default();
+    let mut type_analysis = TypeAnalysis::new();
 
-            let builtin_types = BuiltinTypes::add_to(type_system, strtab, &mut sem_context);
+    if let ast::AST::Program(program) = ast {
+        let builtin_types = BuiltinTypes::add_to(&mut type_system, strtab, &mut sem_context);
 
-            add_types_from_ast(
-                strtab,
-                type_system,
+        add_types_from_ast(
+            strtab,
+            &mut type_system,
+            &mut type_analysis,
+            &builtin_types,
+            &sem_context,
+            program,
+        );
+
+        for class_decl in &program.classes {
+            MethodBodyTypeChecker::check_methods(
+                &class_decl,
+                &type_system,
                 &mut type_analysis,
-                &builtin_types,
                 &sem_context,
-                program,
             );
-
-            for class_decl in &program.classes {
-                MethodBodyTypeChecker::check_methods(
-                    &class_decl,
-                    type_system,
-                    &mut type_analysis,
-                    &sem_context,
-                );
-            }
-
-            type_analysis
         }
     }
+
+    (type_system, type_analysis)
 }
 
 pub struct SemanticContext<'ctx, 'src> {
@@ -68,10 +65,11 @@ impl<'ctx, 'src> SemanticContext<'ctx, 'src> {
     }
 }
 
+// FIXME: simplify lifetimes by merging 'src and 'ast
 fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
     strtab: &mut StringTable<'src>,
-    type_system: &mut TypeSystem<'src>,
-    type_analysis: &'ana mut TypeAnalysis<'src, 'ast, '_>,
+    type_system: &mut TypeSystem<'src, 'ast>,
+    type_analysis: &'ana mut TypeAnalysis<'src, 'ast>,
     builtin_types: &BuiltinTypes<'src>,
     context: &SemanticContext<'ctx, 'src>,
     program: &'ast ast::Program<'src>,
@@ -135,7 +133,7 @@ fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
                             )
                         });
                 }
-                Method(_, params, _) | MainMethod(params, _) => {
+                Method(_, params, block) | MainMethod(params, block) => {
                     let (is_static, is_main, return_ty) = match &member.kind {
                         Field(_) => panic!("impossible"),
                         Method(return_ty, _, _) => (
@@ -188,6 +186,7 @@ fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
                         .class_mut(class_def_id)
                         .add_method(ClassMethodDef::new(
                             member.name,
+                            ClassMethodBody::AST(block),
                             checked_params,
                             return_ty,
                             is_static,
@@ -216,7 +215,7 @@ pub enum VoidIs {
 pub fn checked_type_from_basic_ty<'src, 'ast>(
     basic_ty: &'ast Spanned<'src, ast::BasicType<'src>>,
     context: &SemanticContext<'_, 'src>,
-    type_system: &TypeSystem<'src>,
+    type_system: &TypeSystem<'src, 'ast>,
     void_handling: VoidIs,
 ) -> CheckedType<'src> {
     use self::ast::BasicType::*;
@@ -250,7 +249,7 @@ pub fn checked_type_from_basic_ty<'src, 'ast>(
 pub fn checked_type_from_ty<'src, 'ast>(
     ty: &'ast ast::Type<'src>,
     context: &SemanticContext<'_, 'src>,
-    type_system: &TypeSystem<'src>,
+    type_system: &TypeSystem<'src, 'ast>,
     void_handling: VoidIs,
 ) -> CheckedType<'src> {
     let void_handling = if ty.array_depth > 0 {

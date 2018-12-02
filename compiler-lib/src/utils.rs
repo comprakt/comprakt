@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 macro_rules! matches {
     ($expression: expr, $( $pattern: pat )|*) => {{
         match $expression {
@@ -25,6 +27,12 @@ expression: `{:?}`"#,
             }
         }
     }};
+}
+
+#[derive(Debug, Clone)]
+pub enum OutputSpecification {
+    Stdout,
+    File(PathBuf),
 }
 
 /// Like [`std::iter::Peekable`], but can peek further ahead (needed e.g. for

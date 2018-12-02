@@ -30,6 +30,54 @@ Additionally, make sure the following build dependencies of *libFirm* are instal
 
 More detailed Rust install instructions can be found at [rust-lang.org](https://www.rust-lang.org/en-US/install.html).
 
+## Debugging and Testing
+
+To run all unit and integration tests, run:
+
+```
+cargo test
+```
+
+To run only regression and integration tests, execute:
+
+```
+cargo test --test integration
+```
+
+To run only a specific kind of integration tests, e.g. binary tests, that run all compiler stages and the generated executable itself, execute:
+
+```
+cargo test --test integration binary::
+```
+
+To run only a specific integration test, e.g. the one that you are currently trying to fix:
+
+```
+cargo test --test integration binary::can_print
+```
+
+If you add a integration test file, through a shortcoming of the default rust
+test runner, you might have to recompile parts of the crate:
+
+```
+cargo clean -p compiler-cli
+```
+
+If your patch changes a lot of reference files for stderr/stdout/exitcodes, you can automatically regenerate the references by running:
+
+```
+env UPDATE_REFERENCES=true cargo test --test integration
+```
+
+In case for binary tests, run it another time to regenerate the reference files
+for the generated binaries.
+
+If the compiler crashes during firm graph generation, VCG files are generated
+in the `/compiler-cli/.tmpIR/` folder. (But note that if you are testing the
+compiler directly by using `cargo run` instead of `cargo test`, VCG files are
+generated in `.tmpIR/` in the root of the repository.)
+
+
 ## Tools
 
 We use the tools [`rustfmt`](https://github.com/rust-lang-nursery/rustfmt)

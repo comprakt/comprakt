@@ -55,10 +55,10 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
         CompilerPhase::Parser => &["--parsetest"],
         CompilerPhase::Ast => &["--print-ast"],
         CompilerPhase::Semantic => &["--check"],
-        CompilerPhase::Assembly => &["--lower", "--emit-asm", "-"],
+        CompilerPhase::Assembly => &["--emit-asm"],
         CompilerPhase::Binary { output } => {
             return vec![
-                OsString::from("--compile"),
+                OsString::from("--compile-firm"),
                 OsString::from("-o"),
                 output.as_os_str().to_os_string(),
             ]
@@ -243,7 +243,8 @@ fn assert_output(output: &Output, file: &TestFiles) {
         .status
         .code()
         .map(|code| code.to_string())
-        .unwrap_or_else(|| "terminated by signal".to_string());
+        .unwrap_or_else(|| "terminated by signal (or crashed)".to_string());
+
     let exitcode_result = load_reference(file.generate_tentatives, &file.exitcode, &exitcode)
         .and_then(|reference| {
             assert_changeset(
@@ -268,9 +269,9 @@ fn assert_output(output: &Output, file: &TestFiles) {
 
 #[allow(dead_code)]
 fn assert_compiler_phase(phase: CompilerCall, file: &TestFiles) {
-    let output = compiler_call(phase, &file.input)
-        .output()
-        .expect("failed to call compiler under test");
+    let mut call = compiler_call(phase, &file.input);
+    println!("Executing: {:?}", call);
+    let output = call.output().expect("failed to call compiler under test");
 
     assert_output(&output, &file);
 }

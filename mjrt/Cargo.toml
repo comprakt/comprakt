@@ -6,8 +6,19 @@ edition = "2018"
 build = "build.rs"
 
 [build-dependencies]
+# mjrt-impl features are set by build.rs
 mjrt-impl = { path = "../mjrt-impl" }
 glob = "0.2"
+walkdir = "2"
 
 [lib]
 path = "lib.rs"
+
+[features]
+# All features here are exact dupes of mjrt-impl.
+# The build.rs passes them via cargo build --features
+
+# Do not enable any performance-degrading features by default
+# at this level. This is done by compiler-cli features.
+default = [ ]
+checked_new = [ ]

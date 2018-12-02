@@ -1,0 +1,13 @@
+class A {
+
+    public static void main(String[] args) {
+        int x = 0;
+        boolean a = false;
+    	while(a) { x = 1; }
+        System.out.println(x);
+
+    	while(x < 5) { x = x + 1; }
+        System.out.println(x);
+    }
+}
+

@@ -1,0 +1,13 @@
+class Foo {
+    public int i;
+
+    public Foo setI(int i) {
+        this.i = i;
+        return this;
+    }
+
+    public static void main(String[] args) {
+        Foo e = new Foo();
+        System.out.println(e.setI(3).i / e.setI(4).i);
+    }
+}

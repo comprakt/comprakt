@@ -1,0 +1,31 @@
+class A {
+    public int a;
+    
+    public void print_as() {
+        System.out.println(a);
+        System.out.println(this.a);
+    }
+
+    public static void main(String[] args) {
+    	A a = new A();
+    	a.print_as();
+        B b = new B();
+        
+        if (b.b) { 
+        	System.out.println(1);
+        } else {
+        	System.out.println(0);
+        }
+        
+        if (b.c == null) {
+            System.out.println(0);
+        } else {
+            System.out.println(1);
+        }
+    }
+}
+
+class B {
+    public boolean b;
+    public A c;
+}

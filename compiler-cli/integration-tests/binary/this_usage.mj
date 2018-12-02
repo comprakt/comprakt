@@ -1,0 +1,15 @@
+class T {
+    public int x;
+    public void printx() {
+        System.out.println(x);
+        System.out.println(this.x);
+    }
+}
+
+class Main {
+    public static void main(String[] args) {
+        T t = new T();
+        t.x = 23;
+        t.printx();
+    }
+}

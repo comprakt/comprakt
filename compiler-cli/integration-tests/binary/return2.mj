@@ -1,0 +1,13 @@
+class A {
+    public static void main(String[] args) {
+        return;
+        return;
+    }
+
+    public void oh() {
+        return;
+    }
+
+    public void wow() {
+    }
+}

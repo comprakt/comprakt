@@ -5,13 +5,19 @@ pub use libfirm_rs_bindings as bindings;
 extern crate derive_more;
 
 use libfirm_rs_bindings::*;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 
 #[derive(Clone, Copy)]
 pub struct Ty(*mut ir_type);
 
 impl Into<*mut ir_type> for Ty {
     fn into(self) -> *mut ir_type {
+        self.0
+    }
+}
+
+impl Into<*const ir_type> for Ty {
+    fn into(self) -> *const ir_type {
         self.0
     }
 }
@@ -26,6 +32,30 @@ impl Ty {
     pub fn pointer(self) -> Ty {
         unsafe { new_type_pointer(self.into()) }.into()
     }
+
+    pub fn array(self) -> Ty {
+        unsafe { new_type_array(self.into(), 0) }.into()
+    }
+
+    pub fn element_type(self) -> Ty {
+        unsafe { get_array_element_type(self.into()) }.into()
+    }
+
+    pub fn points_to(self) -> Ty {
+        unsafe { get_pointer_points_to_type(self.into()) }.into()
+    }
+
+    pub fn size(self) -> u32 {
+        unsafe { get_type_size(self.into()) }
+    }
+
+    pub fn alignment(self) -> u32 {
+        unsafe { get_type_alignment(self.into()) }
+    }
+
+    pub fn mode(self) -> mode::Type {
+        unsafe { get_type_mode(self.into()) }
+    }
 }
 
 pub struct PrimitiveType;
@@ -37,8 +67,15 @@ impl PrimitiveType {
     pub fn i32() -> Ty {
         unsafe { new_type_primitive(mode::Is) }.into()
     }
+    /// Not part of MiniJava, but useful for malloc RT-function
+    pub fn u32() -> Ty {
+        unsafe { new_type_primitive(mode::Iu) }.into()
+    }
     pub fn bool() -> Ty {
         unsafe { new_type_primitive(mode::Bu) }.into()
+    }
+    pub fn ptr() -> Ty {
+        unsafe { new_type_primitive(mode::P) }.into()
     }
 }
 
@@ -86,16 +123,16 @@ impl FunctionType {
     pub fn set_res(&mut self, res: Ty) {
         self.result = Some(res);
     }
-    pub fn build(self, is_main: bool) -> Ty {
+    pub fn build(self, is_this_call: bool) -> Ty {
         let ft = unsafe {
             new_type_method(
                 self.params.len(),
                 if self.result.is_some() { 1 } else { 0 },
                 false.into(), // variadic
-                if is_main {
-                    cc_cdecl_set
-                } else {
+                if is_this_call {
                     calling_convention::ThisCall
+                } else {
+                    cc_cdecl_set
                 },
                 mtp_additional_properties::NoProperty,
             )
@@ -110,6 +147,51 @@ impl FunctionType {
     }
 }
 
+#[derive(Clone, Copy, From, Into)]
+pub struct Entity(*mut ir_entity);
+
+impl Entity {
+    pub fn new_global(id: &CStr, ty: Ty) -> Entity {
+        unsafe {
+            let global_type: *mut ir_type = get_glob_type();
+            let name: *mut ident = new_id_from_str(id.as_ptr());
+            new_entity(global_type, name, ty.into())
+        }
+        .into()
+    }
+    pub fn ty(self) -> Ty {
+        unsafe { get_entity_type(self.0) }.into()
+    }
+    pub fn ident(self) -> Ident {
+        unsafe { get_entity_ident(self.0) }.into()
+    }
+    pub fn name(&self) -> &CStr {
+        unsafe { CStr::from_ptr(get_entity_name(self.0)) }
+    }
+    pub fn ld_name(&self) -> &CStr {
+        unsafe { CStr::from_ptr(get_entity_ld_name(self.0)) }
+    }
+}
+
+#[derive(Clone, Copy, From, Into)]
+pub struct Ident(*mut ident);
+
+/// An `ir_node` that is the result of `new_Addr`
+#[derive(Clone, Copy, From, Into)]
+pub struct Addr(*mut ir_node);
+
+impl Addr {
+    pub fn entity(self) -> Entity {
+        unsafe { get_Address_entity(self.0) }.into()
+    }
+}
+
+impl AsPointer for Addr {
+    fn as_pointer(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct Graph {
     irg: *mut ir_graph,
@@ -121,11 +203,13 @@ impl Graph {
     /// must be mangled to avoid collisions with other classes' functions.
     pub fn function(mangled_name: &str, function_type: Ty, num_slots: usize) -> Graph {
         let mangled_name = CString::new(mangled_name).expect("CString::new failed");
+        let entity = Entity::new_global(&mangled_name, function_type);
+        Self::function_with_entity(entity, num_slots)
+    }
+
+    pub fn function_with_entity(entity: Entity, num_slots: usize) -> Graph {
         unsafe {
-            let global_type: *mut ir_type = get_glob_type();
-            let name: *mut ident = new_id_from_str(mangled_name.as_ptr());
-            let entity = new_entity(global_type, name, function_type.into());
-            let irg = new_ir_graph(entity, num_slots as i32);
+            let irg = new_ir_graph(entity.into(), num_slots as i32);
             Graph { irg }
         }
     }
@@ -147,8 +231,8 @@ impl Graph {
     }
 
     /// TODO: have `get_value_$mode::??` for each `mode::??`
-    pub fn value(self, slot_idx: usize, mode: mode::Type) -> *mut ir_node {
-        unsafe { get_r_value(self.irg, slot_idx as i32, mode) }
+    pub fn value(self, slot_idx: usize, mode: mode::Type) -> LocalVar {
+        unsafe { get_r_value(self.irg, slot_idx as i32, mode) }.into()
     }
 
     pub fn args_node(self) -> GraphArgs {
@@ -161,12 +245,41 @@ impl Graph {
         block
     }
 
+    pub fn new_unreachable_block(self) -> Block {
+        Block(unsafe { new_r_immBlock(self.irg) })
+    }
+
     pub fn new_const(self, tarval: *mut ir_tarval) -> Const {
         unsafe { new_r_Const(self.irg, tarval) }.into()
     }
 
     pub fn cur_store(self) -> MemoryState {
         unsafe { get_r_store(self.irg) }.into()
+    }
+
+    pub fn set_store(self, s: MemoryState) {
+        unsafe { set_r_store(self.irg, s.into()) }
+    }
+
+    pub fn cur_block(self) -> Block {
+        unsafe { get_r_cur_block(self.irg) }.into()
+    }
+
+    pub fn set_cur_block(self, blk: Block) {
+        unsafe { set_r_cur_block(self.irg, blk.into()) }
+    }
+
+    pub fn new_addr(self, e: Entity) -> Addr {
+        unsafe { new_r_Address(self.irg, e.into()) }.into()
+    }
+
+    pub fn slots(self) -> i32 {
+        unsafe { get_irg_n_locs(self.irg) }
+    }
+
+    pub fn dump(self, suffix: &str) {
+        let suffix = CString::new(suffix).unwrap();
+        unsafe { dump_ir_graph(self.irg, suffix.as_ptr()) }
     }
 }
 
@@ -185,62 +298,10 @@ impl Into<*const ir_graph> for Graph {
 #[derive(Clone, Copy)]
 pub struct Block(*mut ir_node);
 
-impl From<*mut ir_node> for Block {
-    fn from(n: *mut ir_node) -> Block {
-        Block(n)
-    }
-}
-
-impl Into<*mut ir_node> for Block {
-    fn into(self) -> *mut ir_node {
-        self.0
-    }
-}
-
-pub trait AsPred {
-    fn as_pred(&self) -> Pred;
-}
-
-pub trait AsSelector {
-    fn as_selector(&self) -> Selector;
-}
-
-pub trait CmpOperand {
-    fn as_cmp_operand(&self) -> *mut ir_node;
-}
-
-pub trait ValueNode {
-    fn as_value_node(&self) -> *mut ir_node;
-}
-
-/// FIXME: remove this blanket impl because it allows invalid node types as
-/// CmpOperand
-impl<N> CmpOperand for N
-where
-    N: Into<*mut ir_node> + Copy,
-{
-    fn as_cmp_operand(&self) -> *mut ir_node {
-        (*self).into()
-    }
-}
-
-/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
-/// Predi
-impl AsPred for *mut ir_node {
-    fn as_pred(&self) -> Pred {
-        Pred(*self)
-    }
-}
-
-/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
-/// ValueNode
-impl ValueNode for *mut ir_node {
-    fn as_value_node(&self) -> *mut ir_node {
-        *self
-    }
-}
-
 impl Block {
+    pub fn mature(self) {
+        unsafe { mature_immBlock(self.0) }
+    }
     pub fn new_jmp(self) -> Jmp {
         unsafe { new_r_Jmp(self.0) }.into()
     }
@@ -274,6 +335,113 @@ impl Block {
     /// parameter.
     pub fn new_add<A: ALUOperand, B: ALUOperand>(self, left: &A, right: &B) -> ALUOpNode {
         unsafe { new_r_Add(self.0, left.as_alu_operand(), right.as_alu_operand()) }.into()
+    }
+
+    pub fn new_sub<A: ALUOperand, B: ALUOperand>(self, left: &A, right: &B) -> ALUOpNode {
+        unsafe { new_r_Sub(self.0, left.as_alu_operand(), right.as_alu_operand()) }.into()
+    }
+
+    pub fn new_mul<A: ALUOperand, B: ALUOperand>(self, left: &A, right: &B) -> ALUOpNode {
+        unsafe { new_r_Mul(self.0, left.as_alu_operand(), right.as_alu_operand()) }.into()
+    }
+
+    pub fn new_div<A: ALUOperand, B: ALUOperand>(
+        self,
+        mem: MemoryState,
+        left: &A,
+        right: &B,
+        pinned: i32,
+    ) -> Div {
+        unsafe {
+            new_r_Div(
+                self.0,
+                mem.into(),
+                left.as_alu_operand(),
+                right.as_alu_operand(),
+                pinned,
+            )
+        }
+        .into()
+    }
+
+    pub fn new_mod<A: ALUOperand, B: ALUOperand>(
+        self,
+        mem: MemoryState,
+        left: &A,
+        right: &B,
+        pinned: i32,
+    ) -> Mod {
+        unsafe {
+            new_r_Mod(
+                self.0,
+                mem.into(),
+                left.as_alu_operand(),
+                right.as_alu_operand(),
+                pinned,
+            )
+        }
+        .into()
+    }
+
+    //    pub fn new_div_remainderless<A: ALUOperand, B: ALUOperand>(self, mem:
+    // MemoryState, left: &A, right: &B) -> DivRemainderlessNode {
+    //        unsafe { new_r_DivRL(self.0, left.as_alu_operand(),
+    // right.as_alu_operand()) }.into()    }
+
+    pub fn new_minus<A: ALUOperand>(self, operand: &A) -> ALUOpNode {
+        unsafe { new_r_Minus(self.0, operand.as_alu_operand()) }.into()
+    }
+
+    pub fn new_xor<A: ALUOperand, B: ALUOperand>(self, left: &A, right: &B) -> ALUOpNode {
+        unsafe { new_r_Eor(self.0, left.as_alu_operand(), right.as_alu_operand()) }.into()
+    }
+
+    /// unsigned shift left
+    pub fn new_shl<A: ALUOperand, S: UnsignedIntegerNode>(
+        self,
+        operand: &A,
+        shift_amount: &S,
+    ) -> ALUOpNode {
+        unsafe {
+            new_r_Shl(
+                self.0,
+                operand.as_alu_operand(),
+                shift_amount.as_uint_node(),
+            )
+        }
+        .into()
+    }
+
+    /// unsigned shift right
+    pub fn new_shr<A: ALUOperand, S: UnsignedIntegerNode>(
+        self,
+        operand: &A,
+        shift_amount: &S,
+    ) -> ALUOpNode {
+        unsafe {
+            new_r_Shr(
+                self.0,
+                operand.as_alu_operand(),
+                shift_amount.as_uint_node(),
+            )
+        }
+        .into()
+    }
+
+    /// signed shift right
+    pub fn new_shrs<A: ALUOperand, S: UnsignedIntegerNode>(
+        self,
+        operand: &A,
+        shift_amount: &S,
+    ) -> ALUOpNode {
+        unsafe {
+            new_r_Shrs(
+                self.0,
+                operand.as_alu_operand(),
+                shift_amount.as_uint_node(),
+            )
+        }
+        .into()
     }
 
     /// `flags` specifies alignment, volatility and pin state. See libfirm docs.
@@ -327,6 +495,111 @@ impl Block {
         };
         unsafe { new_r_Return(self.0, mem.into(), arity, inputs.as_ptr()) }.into()
     }
+
+    /// Use `Call.project_mem()` to get the memory state after the function call
+    /// and set the graph's current memory state to that state.
+    pub fn new_call(self, mem: MemoryState, func_addr: Addr, inputs: &[*mut ir_node]) -> Call {
+        unsafe {
+            new_r_Call(
+                self.0,
+                mem.into(),
+                func_addr.into(),
+                inputs.len() as i32,
+                inputs.as_ptr(),
+                func_addr.entity().ty().into(),
+            )
+        }
+        .into()
+    }
+
+    pub fn new_member<P: AsPointer>(self, ptr: &P, entity: Entity) -> Member {
+        unsafe { new_r_Member(self.0, ptr.as_pointer(), entity.into()) }.into()
+    }
+
+    pub fn new_bitcast(self, node: *mut ir_node, target_mode: mode::Type) -> Bitcast {
+        unsafe { new_r_Bitcast(self.0, node, target_mode) }.into()
+    }
+}
+
+impl From<*mut ir_node> for Block {
+    fn from(n: *mut ir_node) -> Block {
+        Block(n)
+    }
+}
+
+impl Into<*mut ir_node> for Block {
+    fn into(self) -> *mut ir_node {
+        self.0
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Member(*mut ir_node);
+
+impl AsPointer for Member {
+    fn as_pointer(&self) -> *mut ir_node {
+        (*self).into()
+    }
+}
+
+pub trait AsPred {
+    fn as_pred(&self) -> Pred;
+}
+
+pub trait AsSelector {
+    fn as_selector(&self) -> Selector;
+}
+
+pub trait CmpOperand {
+    fn as_cmp_operand(&self) -> *mut ir_node;
+}
+
+pub trait ValueNode {
+    fn as_value_node(&self) -> *mut ir_node;
+}
+
+pub trait UnsignedIntegerNode {
+    fn as_uint_node(&self) -> *mut ir_node;
+}
+
+/// FIXME: remove this blanket impl
+impl UnsignedIntegerNode for *mut ir_node {
+    fn as_uint_node(&self) -> *mut ir_node {
+        if cfg!(debug_assertions) {
+            unsafe {
+                let selfmode = get_irn_mode(*self);
+                debug_assert_eq!(selfmode, mode::Iu);
+            }
+        }
+        *self
+    }
+}
+
+/// FIXME: remove this blanket impl because it allows invalid node types as
+/// CmpOperand
+impl<N> CmpOperand for N
+where
+    N: Into<*mut ir_node> + Copy,
+{
+    fn as_cmp_operand(&self) -> *mut ir_node {
+        (*self).into()
+    }
+}
+
+/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
+/// Predi
+impl AsPred for *mut ir_node {
+    fn as_pred(&self) -> Pred {
+        Pred(*self)
+    }
+}
+
+/// FIXME: remove this quasi-blanket impl because it allows invalid nodes as
+/// ValueNode
+impl ValueNode for *mut ir_node {
+    fn as_value_node(&self) -> *mut ir_node {
+        *self
+    }
 }
 
 #[derive(Clone, Copy, Into, From)]
@@ -362,6 +635,12 @@ pub struct Cmp(*mut ir_node);
 impl AsSelector for Cmp {
     fn as_selector(&self) -> Selector {
         Selector(self.0)
+    }
+}
+
+impl AsSelector for Selector {
+    fn as_selector(&self) -> Selector {
+        *self
     }
 }
 
@@ -418,6 +697,39 @@ impl AsIndex for *mut ir_node {
 #[derive(Clone, Copy, Into, From)]
 pub struct Sel(*mut ir_node);
 
+impl Sel {
+    pub fn array_type(self) -> Ty {
+        unsafe { get_Sel_type(self.0) }.into()
+    }
+
+    pub fn gen_load(self, graph: Graph, elt_type: Ty) -> LoadValue {
+        let load = graph.cur_block().new_load(
+            graph.cur_store(),
+            &self,
+            elt_type.mode(),
+            elt_type,
+            ir_cons_flags::None,
+        );
+        graph.set_store(load.project_mem());
+
+        load.project_res(elt_type.mode())
+    }
+
+    pub fn gen_store<V: ValueNode>(self, graph: Graph, value: &V) {
+        let elt_type = self.array_type().element_type();
+
+        let store = graph.cur_block().new_store(
+            graph.cur_store(),
+            &self,
+            value,
+            elt_type,
+            ir_cons_flags::None,
+        );
+
+        graph.set_store(store.project_mem());
+    }
+}
+
 impl AsPointer for Sel {
     fn as_pointer(&self) -> *mut ir_node {
         self.0
@@ -431,6 +743,12 @@ pub struct Const(*mut ir_node);
 #[derive(Clone, Copy, Into, From)]
 pub struct Return(*mut ir_node);
 
+#[derive(Clone, Copy, Into, From)]
+pub struct LocalVar(*mut ir_node);
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Bitcast(*mut ir_node);
+
 impl AsPred for Return {
     fn as_pred(&self) -> Pred {
         Pred(self.0)
@@ -438,6 +756,18 @@ impl AsPred for Return {
 }
 
 impl ValueNode for Const {
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
+impl ValueNode for Bitcast {
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
+impl ValueNode for LocalVar {
     fn as_value_node(&self) -> *mut ir_node {
         self.0
     }
@@ -465,6 +795,56 @@ impl ValueNode for ALUOpNode {
     }
 }
 
+impl Projectable for ALUOpNode {
+    fn ir_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Div(*mut ir_node);
+
+impl Div {
+    pub fn project_mem(self) -> MemoryState {
+        unsafe { new_r_Proj(self.0, mode::M, pn_Div::M) }.into()
+    }
+    pub fn project_res(self) -> DivResult {
+        unsafe { new_r_Proj(self.0, mode::Is, pn_Div::Res) }.into()
+    }
+}
+
+/// DivResult always has mode::Is, since we only use mode::Is as input operand.
+#[derive(Clone, Copy, Into, From)]
+pub struct DivResult(*mut ir_node);
+
+impl ValueNode for DivResult {
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
+#[derive(Clone, Copy, Into, From)]
+pub struct Mod(*mut ir_node);
+
+impl Mod {
+    pub fn project_mem(self) -> MemoryState {
+        unsafe { new_r_Proj(self.0, mode::M, pn_Mod::M) }.into()
+    }
+    pub fn project_res(self) -> ModResult {
+        unsafe { new_r_Proj(self.0, mode::Is, pn_Mod::Res) }.into()
+    }
+}
+
+/// DivResult always has mode::Is, since we only use mode::Is as input operand.
+#[derive(Clone, Copy, Into, From)]
+pub struct ModResult(*mut ir_node);
+
+impl ValueNode for ModResult {
+    fn as_value_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
 #[derive(Clone, Copy, Into, From)]
 pub struct MemoryState(*mut ir_node);
 
@@ -484,9 +864,10 @@ impl ValueNode for LoadValue {
 
 impl Load {
     /// TODO can ret type be `MemoryState` ?
-    pub fn project_mem(self) -> *mut ir_node {
-        unsafe { new_r_Proj(self.0, mode::M, pn_Load::M) }
+    pub fn project_mem(self) -> MemoryState {
+        unsafe { new_r_Proj(self.0, mode::M, pn_Load::M) }.into()
     }
+
     pub fn project_res(self, mode: mode::Type) -> LoadValue {
         unsafe { new_r_Proj(self.0, mode, pn_Load::Res) }.into()
     }
@@ -499,9 +880,33 @@ pub struct Store(*mut ir_node);
 pub struct StoreValue(*mut ir_node);
 
 impl Store {
-    /// TODO can ret type be `MemoryState` ?
-    pub fn project_mem(self) -> *mut ir_node {
-        unsafe { new_r_Proj(self.0, mode::M, pn_Store::M) }
+    pub fn project_mem(self) -> MemoryState {
+        unsafe { new_r_Proj(self.0, mode::M, pn_Store::M) }.into()
+    }
+}
+
+/// An ir_node resulting from `new_Call`
+#[derive(Clone, Copy, Into, From)]
+pub struct Call(*mut ir_node);
+
+#[derive(Clone, Copy, Into, From)]
+pub struct CallResultTuple(*mut ir_node);
+
+impl Projectable for CallResultTuple {
+    fn ir_node(&self) -> *mut ir_node {
+        self.0
+    }
+}
+
+impl Call {
+    pub fn project_mem(self) -> MemoryState {
+        unsafe { new_r_Proj(self.0, mode::M, pn_Call::M) }.into()
+    }
+    pub fn project_result_tuple(self) -> CallResultTuple {
+        unsafe {
+            let result_node = new_r_Proj(self.0, mode::T, pn_Call::TResult);
+            CallResultTuple(result_node)
+        }
     }
 }
 

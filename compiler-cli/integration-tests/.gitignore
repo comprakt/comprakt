@@ -6,9 +6,17 @@
 
 # Unignore all with extensions
 !*.*
+# ... except for backup files
+*~
 
 # Unignore all dirs
 !*/
 
 # ignore tentative files
 *.tentative
+
+# ignore default binary file
+*.out
+
+# ignore assembly tests by default
+assembly/

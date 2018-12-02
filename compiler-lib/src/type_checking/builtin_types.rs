@@ -1,4 +1,5 @@
 use crate::strtab::StringTable;
+use std::rc::Rc;
 
 use super::{checker::SemanticContext, type_system::*};
 
@@ -6,9 +7,9 @@ pub struct BuiltinTypes<'src> {
     pub string: CheckedType<'src>,
 }
 
-impl<'src> BuiltinTypes<'src> {
+impl<'src, 'ast> BuiltinTypes<'src> {
     pub fn add_to<'ts>(
-        type_system: &'ts mut TypeSystem<'src>,
+        type_system: &'ts mut TypeSystem<'src, 'ast>,
         strtab: &'_ mut StringTable<'src>,
         context: &'_ mut SemanticContext<'_, 'src>,
     ) -> BuiltinTypes<'src> {
@@ -20,6 +21,7 @@ impl<'src> BuiltinTypes<'src> {
             reader_class_def
                 .add_method(ClassMethodDef {
                     name: strtab.intern("read"),
+                    body: ClassMethodBody::Builtin(BuiltinMethodBody::SystemInRead),
                     params: vec![],
                     return_ty: int_ty.clone(),
                     is_static: false,
@@ -32,12 +34,14 @@ impl<'src> BuiltinTypes<'src> {
         let writer_class_id = {
             let arg_sym = strtab.intern("data");
 
+            // ENHANCEMENT: @hediet: dedup builtin type definitions
             let mut writer_class_def = ClassDef::new(strtab.intern("$Writer"));
             writer_class_def.comparable = false;
             writer_class_def
                 .add_method(ClassMethodDef {
                     name: strtab.intern("println"),
-                    params: vec![MethodParamDef::new(arg_sym, int_ty.clone())],
+                    body: ClassMethodBody::Builtin(BuiltinMethodBody::SystemOutPrintln),
+                    params: vec![Rc::new(MethodParamDef::new(arg_sym, int_ty.clone()))],
                     return_ty: CheckedType::Void,
                     is_static: false,
                     is_main: false,
@@ -46,7 +50,8 @@ impl<'src> BuiltinTypes<'src> {
             writer_class_def
                 .add_method(ClassMethodDef {
                     name: strtab.intern("write"),
-                    params: vec![MethodParamDef::new(arg_sym, int_ty.clone())],
+                    body: ClassMethodBody::Builtin(BuiltinMethodBody::SystemOutWrite),
+                    params: vec![Rc::new(MethodParamDef::new(arg_sym, int_ty.clone()))],
                     return_ty: CheckedType::Void,
                     is_static: false,
                     is_main: false,
@@ -55,6 +60,7 @@ impl<'src> BuiltinTypes<'src> {
             writer_class_def
                 .add_method(ClassMethodDef {
                     name: strtab.intern("flush"),
+                    body: ClassMethodBody::Builtin(BuiltinMethodBody::SystemOutFlush),
                     params: vec![],
                     return_ty: CheckedType::Void,
                     is_static: false,

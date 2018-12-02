@@ -5,6 +5,13 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+// Shadow's the C stdlib's abort symbol, giving us the ability
+// to get a backtrace with env var RUST_BACKTRACE=1
+#[no_mangle]
+pub extern "C" fn abort() {
+    debug_assert!(false, "libc abort() called, see stderr above");
+}
+
 /// A little more idiomatic access to the mode_* statics.
 #[rustfmt::skip]
 pub mod mode {

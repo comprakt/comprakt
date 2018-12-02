@@ -1,0 +1,25 @@
+class A {
+    public int get_91() {
+        return 91;
+    }
+
+    public int get_94() {
+        return 94;
+    }
+
+    public int make_explicit_this_invocation() {
+        /* This generates a `MethodInvocation` internally */
+        return this.get_91();
+    }
+
+    public int make_implicit_this_invocation() {
+        /* This generates a `ThisMethodInvocation` internally */
+        return get_94();
+    }
+    
+    public static void main(String[] args) {
+    	A a = new A();
+        System.out.println(a.make_explicit_this_invocation());
+        System.out.println(a.make_implicit_this_invocation());
+    }
+}

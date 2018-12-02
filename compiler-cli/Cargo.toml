@@ -14,6 +14,8 @@ authors = [
 edition = "2018"
 license = "MIT OR Apache-2.0"
 
+# NOTE: --features does not work with cargo run with this feature
+#       see https://github.com/rust-lang/cargo/issues/5015
 default-run = "compiler-cli"
 
 [dependencies]
@@ -26,6 +28,7 @@ compiler-lib = { path = "../compiler-lib" }
 inspect-ast = { path = "../inspect-ast" }
 tempfile = "3.0"
 mjrt = { path = "../mjrt" }
+env_logger = "0.6"
 
 [dev-dependencies]
 integration_test_codegen = { path = "integration-test-codegen" }
@@ -34,3 +37,9 @@ serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 lazy_static = "1.2.0"
+
+
+[features]
+# Enable all UB-safe-making features by default.
+default = [ "checked_new" ]
+checked_new = [ "mjrt/checked_new" ]

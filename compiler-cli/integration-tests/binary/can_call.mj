@@ -1,0 +1,11 @@
+class Foo {
+    public int ret_int() {
+        return 48;
+    }
+
+    public static void main(String[] args) {
+        Foo a = new Foo();
+        int b = a.ret_int();
+        System.out.println(b);
+    }
+}

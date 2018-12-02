@@ -1,0 +1,17 @@
+class A {
+    public static void main(String[] args) {
+        int b = 4;
+    	int[] a = new int[4];
+        a[0] = 10;
+        a[1] = 11;
+        a[2] = 12;
+        a[3] = 13;
+        int c = 8;
+        System.out.println(b);
+        System.out.println(c);
+        System.out.println(a[0]);
+        System.out.println(a[1]);
+        System.out.println(a[2]);
+        System.out.println(a[3]);
+    }
+}

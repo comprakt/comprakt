@@ -1,0 +1,13 @@
+class A {
+    public A a;
+
+    public static void main(String[] args) {
+    	A a = new A();
+        int i = 0;
+        while (i < 10) {
+            a = a.a = new A();
+            i = i + 1;
+            System.out.println(i);
+        }
+    }
+}

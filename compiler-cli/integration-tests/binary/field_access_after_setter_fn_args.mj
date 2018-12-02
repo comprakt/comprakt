@@ -1,0 +1,17 @@
+class Foo {
+    public int i;
+
+    public Foo setI(int i) {
+        this.i = i;
+        return this;
+    }
+
+    public static void main(String[] args) {
+        Foo foo = new Foo();
+        System.out.println(foo.test(foo.setI(3).i, foo.setI(4).i));
+    }
+
+    public int test(int a, int b) {
+        return a + b;
+    }
+}
