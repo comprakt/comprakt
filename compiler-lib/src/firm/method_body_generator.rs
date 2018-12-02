@@ -166,13 +166,13 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let prev_block = self.graph.cur_block();
 
         let incoming_jmp = prev_block.new_jmp();
-        let header_block = self.graph.new_imm_block(&incoming_jmp);
-
         prev_block.mature(); // This block is done now
-        self.graph.set_cur_block(header_block);
 
         // We evaluate the condition
+        self.graph
+            .set_cur_block(self.graph.new_imm_block(&incoming_jmp));
         let CondProjection { tr, fls } = &self.gen_expr(cond).enforce_cond(self.graph);
+        let header_block = self.graph.cur_block();
 
         // Run body if cond is true
         self.graph.set_cur_block(self.graph.new_imm_block(tr));
