@@ -102,31 +102,24 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             If(cond, then_arm, else_arm) => self.gen_if(cond, then_arm, else_arm),
             While(cond, body) => self.gen_while(cond, body),
             Return(res_expr) => self.gen_return(res_expr),
-            LocalVariableDeclaration(ty, name, init_expr) => self.gen_var_decl(ty, name, init_expr),
+            LocalVariableDeclaration(_ty, _name, init_expr) => self.gen_var_decl(stmt, init_expr),
             Empty => (),
         }
     }
 
     fn gen_var_decl(
         &mut self,
-        ty: &ast::Type<'src>,
-        name: &Symbol<'src>,
+        stmt: &ast::Stmt<'src>,
         init_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>,
     ) {
-        // TODO: move mode conversion to its own function
-        let mode = unsafe {
-            match &ty.basic.data {
-                ast::BasicType::Int => mode::Is,
-                ast::BasicType::Boolean => mode::Bu,
-                ast::BasicType::Custom(_) => mode::P,
-                ast::BasicType::Void => panic!("type analysis should prohibit void local var"),
-                ast::BasicType::MainParam => {
-                    panic!("type analysis should prohbiit MainParam local var")
-                }
-            }
-        };
+        let local_var_def = self
+            .type_analysis
+            .local_var_def(stmt)
+            .expect("Was set by type_analysis. Stmt is local var def.");
 
-        let var_slot = self.new_local_var(*name, mode);
+        let mode = get_firm_mode(&local_var_def.ty).expect("parmeter cannot be void");
+
+        let var_slot = self.new_local_var(local_var_def.name, mode);
         if let Some(init_expr) = init_expr {
             self.graph.set_value(
                 var_slot,
