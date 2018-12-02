@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/structopt-derive-0.2.12/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/structopt-derive-0.2.13/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -441,6 +441,63 @@
 <span id="441">441</span>
 <span id="442">442</span>
 <span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
 </pre><pre class="rust ">
 <span class="comment">// Copyright 2018 Guillaume Pinot (@TeXitoi) &lt;texitoi@texitoi.eu&gt;</span>
 <span class="comment">//</span>
@@ -458,15 +515,29 @@
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">syn</span>;
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">quote</span>;
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">heck</span>;
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">proc_macro2</span>;
 
 <span class="kw">mod</span> <span class="ident">attrs</span>;
 
-<span class="kw">use</span> <span class="ident">attrs</span>::{<span class="ident">Attrs</span>, <span class="ident">Kind</span>, <span class="ident">Parser</span>, <span class="ident">Ty</span>};
+<span class="kw">use</span> <span class="ident">attrs</span>::{<span class="ident">Attrs</span>, <span class="ident">CasingStyle</span>, <span class="ident">Kind</span>, <span class="ident">Parser</span>, <span class="ident">Ty</span>};
 <span class="kw">use</span> <span class="ident">proc_macro2</span>::{<span class="ident">Span</span>, <span class="ident">TokenStream</span>};
 <span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">punctuated</span>::<span class="ident">Punctuated</span>;
 <span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">token</span>::<span class="ident">Comma</span>;
 <span class="kw">use</span> <span class="ident">syn</span>::<span class="kw-2">*</span>;
+
+<span class="doccomment">/// Default casing style for generated arguments.</span>
+<span class="kw">const</span> <span class="ident">DEFAULT_CASING</span>: <span class="ident">CasingStyle</span> <span class="op">=</span> <span class="ident">CasingStyle</span>::<span class="ident">Verbatim</span>;
+
+<span class="doccomment">/// Output for the gen_xxx() methods were we need more than a simple stream of tokens.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// The output of a generation method is not only the stream of new tokens but also the attribute</span>
+<span class="doccomment">/// information of the current element. These attribute information may contain valuable information</span>
+<span class="doccomment">/// for any kind of child arguments.</span>
+<span class="kw">struct</span> <span class="ident">GenOutput</span> {
+    <span class="ident">tokens</span>: <span class="ident">TokenStream</span>,
+    <span class="ident">attrs</span>: <span class="ident">Attrs</span>,
+}
 
 <span class="doccomment">/// Generates the `StructOpt` impl.</span>
 <span class="attribute">#[<span class="ident">proc_macro_derive</span>(<span class="ident">StructOpt</span>, <span class="ident">attributes</span>(<span class="ident">structopt</span>))]</span>
@@ -504,11 +575,15 @@
 
 <span class="doccomment">/// Generate a block of code to add arguments/subcommands corresponding to</span>
 <span class="doccomment">/// the `fields` to an app.</span>
-<span class="kw">fn</span> <span class="ident">gen_augmentation</span>(<span class="ident">fields</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Field</span>, <span class="ident">Comma</span><span class="op">&gt;</span>, <span class="ident">app_var</span>: <span class="kw-2">&amp;</span><span class="ident">Ident</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">fn</span> <span class="ident">gen_augmentation</span>(
+    <span class="ident">fields</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Field</span>, <span class="ident">Comma</span><span class="op">&gt;</span>,
+    <span class="ident">app_var</span>: <span class="kw-2">&amp;</span><span class="ident">Ident</span>,
+    <span class="ident">parent_attribute</span>: <span class="kw-2">&amp;</span><span class="ident">Attrs</span>,
+) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">subcmds</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">fields</span>
         .<span class="ident">iter</span>()
         .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">field</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_field</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>);
+            <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_field</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>, <span class="ident">parent_attribute</span>.<span class="ident">casing</span>());
             <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Kind</span>::<span class="ident">Subcommand</span>(<span class="ident">ty</span>) <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">kind</span>() {
                 <span class="kw">let</span> <span class="ident">subcmd_type</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">ty</span>, <span class="ident">sub_type</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">ty</span>)) {
                     (<span class="ident">Ty</span>::<span class="prelude-ty">Option</span>, <span class="prelude-val">Some</span>(<span class="ident">sub_type</span>)) <span class="op">=&gt;</span> <span class="ident">sub_type</span>,
@@ -539,7 +614,7 @@
     );
 
     <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">fields</span>.<span class="ident">iter</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">field</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_field</span>(<span class="ident">field</span>);
+        <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_field</span>(<span class="ident">field</span>, <span class="ident">parent_attribute</span>.<span class="ident">casing</span>());
         <span class="kw">match</span> <span class="ident">attrs</span>.<span class="ident">kind</span>() {
             <span class="ident">Kind</span>::<span class="ident">Subcommand</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
             <span class="ident">Kind</span>::<span class="ident">FlattenStruct</span> <span class="op">=&gt;</span> {
@@ -586,7 +661,8 @@
                     }
                 };
                 <span class="kw">let</span> <span class="ident">methods</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">methods</span>();
-                <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">name</span>();
+                <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">cased_name</span>();
+
                 <span class="prelude-val">Some</span>(<span class="macro">quote</span><span class="macro">!</span>{
                     <span class="kw">let</span> #<span class="ident">app_var</span> <span class="op">=</span> #<span class="ident">app_var</span>.<span class="ident">arg</span>(
                         ::<span class="ident">structopt</span>::<span class="ident">clap</span>::<span class="ident">Arg</span>::<span class="ident">with_name</span>(#<span class="ident">name</span>)
@@ -605,9 +681,9 @@
     }}
 }
 
-<span class="kw">fn</span> <span class="ident">gen_constructor</span>(<span class="ident">fields</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Field</span>, <span class="ident">Comma</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">fn</span> <span class="ident">gen_constructor</span>(<span class="ident">fields</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Field</span>, <span class="ident">Comma</span><span class="op">&gt;</span>, <span class="ident">parent_attribute</span>: <span class="kw-2">&amp;</span><span class="ident">Attrs</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">fields</span> <span class="op">=</span> <span class="ident">fields</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">field</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_field</span>(<span class="ident">field</span>);
+        <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_field</span>(<span class="ident">field</span>, <span class="ident">parent_attribute</span>.<span class="ident">casing</span>());
         <span class="kw">let</span> <span class="ident">field_name</span> <span class="op">=</span> <span class="ident">field</span>.<span class="ident">ident</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>();
         <span class="kw">match</span> <span class="ident">attrs</span>.<span class="ident">kind</span>() {
             <span class="ident">Kind</span>::<span class="ident">Subcommand</span>(<span class="ident">ty</span>) <span class="op">=&gt;</span> {
@@ -641,7 +717,7 @@
                 };
 
                 <span class="kw">let</span> <span class="ident">occurences</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">parser</span>().<span class="number">0</span> <span class="op">==</span> <span class="ident">Parser</span>::<span class="ident">FromOccurrences</span>;
-                <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">name</span>();
+                <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">cased_name</span>();
                 <span class="kw">let</span> <span class="ident">field_value</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">ty</span> {
                     <span class="ident">Ty</span>::<span class="ident">Bool</span> <span class="op">=&gt;</span> <span class="macro">quote</span><span class="macro">!</span>(<span class="ident">matches</span>.<span class="ident">is_present</span>(#<span class="ident">name</span>)),
                     <span class="ident">Ty</span>::<span class="prelude-ty">Option</span> <span class="op">=&gt;</span> <span class="macro">quote</span><span class="macro">!</span> {
@@ -674,8 +750,12 @@
     }}
 }
 
-<span class="kw">fn</span> <span class="ident">gen_from_clap</span>(<span class="ident">struct_name</span>: <span class="kw-2">&amp;</span><span class="ident">Ident</span>, <span class="ident">fields</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Field</span>, <span class="ident">Comma</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="kw">let</span> <span class="ident">field_block</span> <span class="op">=</span> <span class="ident">gen_constructor</span>(<span class="ident">fields</span>);
+<span class="kw">fn</span> <span class="ident">gen_from_clap</span>(
+    <span class="ident">struct_name</span>: <span class="kw-2">&amp;</span><span class="ident">Ident</span>,
+    <span class="ident">fields</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Field</span>, <span class="ident">Comma</span><span class="op">&gt;</span>,
+    <span class="ident">parent_attribute</span>: <span class="kw-2">&amp;</span><span class="ident">Attrs</span>,
+) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
+    <span class="kw">let</span> <span class="ident">field_block</span> <span class="op">=</span> <span class="ident">gen_constructor</span>(<span class="ident">fields</span>, <span class="ident">parent_attribute</span>);
 
     <span class="macro">quote</span><span class="macro">!</span> {
         <span class="kw">fn</span> <span class="ident">from_clap</span>(<span class="ident">matches</span>: <span class="kw-2">&amp;</span>::<span class="ident">structopt</span>::<span class="ident">clap</span>::<span class="ident">ArgMatches</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
@@ -684,29 +764,42 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">gen_clap</span>(<span class="ident">attrs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Attribute</span>]) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">fn</span> <span class="ident">gen_clap</span>(<span class="ident">attrs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Attribute</span>]) <span class="op">-&gt;</span> <span class="ident">GenOutput</span> {
     <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">env</span>::<span class="ident">var</span>(<span class="string">&quot;CARGO_PKG_NAME&quot;</span>)
         .<span class="ident">ok</span>()
         .<span class="ident">unwrap_or_else</span>(<span class="ident">String</span>::<span class="ident">default</span>);
-    <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_struct</span>(<span class="ident">attrs</span>, <span class="ident">name</span>);
-    <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">name</span>();
-    <span class="kw">let</span> <span class="ident">methods</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">methods</span>();
-    <span class="macro">quote</span><span class="macro">!</span>(::<span class="ident">structopt</span>::<span class="ident">clap</span>::<span class="ident">App</span>::<span class="ident">new</span>(#<span class="ident">name</span>)#<span class="ident">methods</span>)
+
+    <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_struct</span>(<span class="ident">attrs</span>, <span class="ident">name</span>, <span class="ident">DEFAULT_CASING</span>);
+    <span class="kw">let</span> <span class="ident">tokens</span> <span class="op">=</span> {
+        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">cased_name</span>();
+        <span class="kw">let</span> <span class="ident">methods</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">methods</span>();
+
+        <span class="macro">quote</span><span class="macro">!</span>(::<span class="ident">structopt</span>::<span class="ident">clap</span>::<span class="ident">App</span>::<span class="ident">new</span>(#<span class="ident">name</span>)#<span class="ident">methods</span>)
+    };
+
+    <span class="ident">GenOutput</span> { <span class="ident">tokens</span>, <span class="ident">attrs</span> }
 }
 
-<span class="kw">fn</span> <span class="ident">gen_clap_struct</span>(<span class="ident">struct_attrs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Attribute</span>]) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="kw">let</span> <span class="ident">gen</span> <span class="op">=</span> <span class="ident">gen_clap</span>(<span class="ident">struct_attrs</span>);
-    <span class="macro">quote</span><span class="macro">!</span> {
+<span class="kw">fn</span> <span class="ident">gen_clap_struct</span>(<span class="ident">struct_attrs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Attribute</span>]) <span class="op">-&gt;</span> <span class="ident">GenOutput</span> {
+    <span class="kw">let</span> <span class="ident">initial_clap_app_gen</span> <span class="op">=</span> <span class="ident">gen_clap</span>(<span class="ident">struct_attrs</span>);
+    <span class="kw">let</span> <span class="ident">clap_tokens</span> <span class="op">=</span> <span class="ident">initial_clap_app_gen</span>.<span class="ident">tokens</span>;
+
+    <span class="kw">let</span> <span class="ident">augmented_tokens</span> <span class="op">=</span> <span class="macro">quote</span><span class="macro">!</span> {
         <span class="kw">fn</span> <span class="ident">clap</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>() <span class="op">-&gt;</span> ::<span class="ident">structopt</span>::<span class="ident">clap</span>::<span class="ident">App</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">app</span> <span class="op">=</span> #<span class="ident">gen</span>;
+            <span class="kw">let</span> <span class="ident">app</span> <span class="op">=</span> #<span class="ident">clap_tokens</span>;
             <span class="self">Self</span>::<span class="ident">augment_clap</span>(<span class="ident">app</span>)
         }
+    };
+
+    <span class="ident">GenOutput</span> {
+        <span class="ident">tokens</span>: <span class="ident">augmented_tokens</span>,
+        <span class="ident">attrs</span>: <span class="ident">initial_clap_app_gen</span>.<span class="ident">attrs</span>,
     }
 }
 
-<span class="kw">fn</span> <span class="ident">gen_augment_clap</span>(<span class="ident">fields</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Field</span>, <span class="ident">Comma</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">fn</span> <span class="ident">gen_augment_clap</span>(<span class="ident">fields</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Field</span>, <span class="ident">Comma</span><span class="op">&gt;</span>, <span class="ident">parent_attribute</span>: <span class="kw-2">&amp;</span><span class="ident">Attrs</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">app_var</span> <span class="op">=</span> <span class="ident">Ident</span>::<span class="ident">new</span>(<span class="string">&quot;app&quot;</span>, <span class="ident">Span</span>::<span class="ident">call_site</span>());
-    <span class="kw">let</span> <span class="ident">augmentation</span> <span class="op">=</span> <span class="ident">gen_augmentation</span>(<span class="ident">fields</span>, <span class="kw-2">&amp;</span><span class="ident">app_var</span>);
+    <span class="kw">let</span> <span class="ident">augmentation</span> <span class="op">=</span> <span class="ident">gen_augmentation</span>(<span class="ident">fields</span>, <span class="kw-2">&amp;</span><span class="ident">app_var</span>, <span class="ident">parent_attribute</span>);
     <span class="macro">quote</span><span class="macro">!</span> {
         <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">augment_clap</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
             #<span class="ident">app_var</span>: ::<span class="ident">structopt</span>::<span class="ident">clap</span>::<span class="ident">App</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>
@@ -716,26 +809,36 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">gen_clap_enum</span>(<span class="ident">enum_attrs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Attribute</span>]) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="kw">let</span> <span class="ident">gen</span> <span class="op">=</span> <span class="ident">gen_clap</span>(<span class="ident">enum_attrs</span>);
-    <span class="macro">quote</span><span class="macro">!</span> {
+<span class="kw">fn</span> <span class="ident">gen_clap_enum</span>(<span class="ident">enum_attrs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Attribute</span>]) <span class="op">-&gt;</span> <span class="ident">GenOutput</span> {
+    <span class="kw">let</span> <span class="ident">initial_clap_app_gen</span> <span class="op">=</span> <span class="ident">gen_clap</span>(<span class="ident">enum_attrs</span>);
+    <span class="kw">let</span> <span class="ident">clap_tokens</span> <span class="op">=</span> <span class="ident">initial_clap_app_gen</span>.<span class="ident">tokens</span>;
+
+    <span class="kw">let</span> <span class="ident">tokens</span> <span class="op">=</span> <span class="macro">quote</span><span class="macro">!</span> {
         <span class="kw">fn</span> <span class="ident">clap</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>() <span class="op">-&gt;</span> ::<span class="ident">structopt</span>::<span class="ident">clap</span>::<span class="ident">App</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">app</span> <span class="op">=</span> #<span class="ident">gen</span>
+            <span class="kw">let</span> <span class="ident">app</span> <span class="op">=</span> #<span class="ident">clap_tokens</span>
                 .<span class="ident">setting</span>(::<span class="ident">structopt</span>::<span class="ident">clap</span>::<span class="ident">AppSettings</span>::<span class="ident">SubcommandRequiredElseHelp</span>);
             <span class="self">Self</span>::<span class="ident">augment_clap</span>(<span class="ident">app</span>)
         }
+    };
+
+    <span class="ident">GenOutput</span> {
+        <span class="ident">tokens</span>,
+        <span class="ident">attrs</span>: <span class="ident">initial_clap_app_gen</span>.<span class="ident">attrs</span>,
     }
 }
 
-<span class="kw">fn</span> <span class="ident">gen_augment_clap_enum</span>(<span class="ident">variants</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Variant</span>, <span class="ident">Comma</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">fn</span> <span class="ident">gen_augment_clap_enum</span>(
+    <span class="ident">variants</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Variant</span>, <span class="ident">Comma</span><span class="op">&gt;</span>,
+    <span class="ident">parent_attribute</span>: <span class="kw-2">&amp;</span><span class="ident">Attrs</span>,
+) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
     <span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">Fields</span>::<span class="kw-2">*</span>;
 
     <span class="kw">let</span> <span class="ident">subcommands</span> <span class="op">=</span> <span class="ident">variants</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">variant</span><span class="op">|</span> {
         <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">variant</span>.<span class="ident">ident</span>.<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_struct</span>(<span class="kw-2">&amp;</span><span class="ident">variant</span>.<span class="ident">attrs</span>, <span class="ident">name</span>);
+        <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_struct</span>(<span class="kw-2">&amp;</span><span class="ident">variant</span>.<span class="ident">attrs</span>, <span class="ident">name</span>, <span class="ident">parent_attribute</span>.<span class="ident">casing</span>());
         <span class="kw">let</span> <span class="ident">app_var</span> <span class="op">=</span> <span class="ident">Ident</span>::<span class="ident">new</span>(<span class="string">&quot;subcommand&quot;</span>, <span class="ident">Span</span>::<span class="ident">call_site</span>());
         <span class="kw">let</span> <span class="ident">arg_block</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">variant</span>.<span class="ident">fields</span> {
-            <span class="ident">Named</span>(<span class="kw-2">ref</span> <span class="ident">fields</span>) <span class="op">=&gt;</span> <span class="ident">gen_augmentation</span>(<span class="kw-2">&amp;</span><span class="ident">fields</span>.<span class="ident">named</span>, <span class="kw-2">&amp;</span><span class="ident">app_var</span>),
+            <span class="ident">Named</span>(<span class="kw-2">ref</span> <span class="ident">fields</span>) <span class="op">=&gt;</span> <span class="ident">gen_augmentation</span>(<span class="kw-2">&amp;</span><span class="ident">fields</span>.<span class="ident">named</span>, <span class="kw-2">&amp;</span><span class="ident">app_var</span>, <span class="kw-2">&amp;</span><span class="ident">attrs</span>),
             <span class="ident">Unit</span> <span class="op">=&gt;</span> <span class="macro">quote</span><span class="macro">!</span>( #<span class="ident">app_var</span> ),
             <span class="ident">Unnamed</span>(<span class="ident">FieldsUnnamed</span> { <span class="kw-2">ref</span> <span class="ident">unnamed</span>, .. }) <span class="kw">if</span> <span class="ident">unnamed</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">unnamed</span>[<span class="number">0</span>];
@@ -755,7 +858,7 @@
             <span class="ident">Unnamed</span>(..) <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;{}: tuple enum are not supported&quot;</span>, <span class="ident">variant</span>.<span class="ident">ident</span>),
         };
 
-        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">name</span>();
+        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">cased_name</span>();
         <span class="kw">let</span> <span class="ident">from_attrs</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">methods</span>();
         <span class="macro">quote</span><span class="macro">!</span> {
             .<span class="ident">subcommand</span>({
@@ -784,15 +887,23 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">gen_from_subcommand</span>(<span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">Ident</span>, <span class="ident">variants</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Variant</span>, <span class="ident">Comma</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
+<span class="kw">fn</span> <span class="ident">gen_from_subcommand</span>(
+    <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">Ident</span>,
+    <span class="ident">variants</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Variant</span>, <span class="ident">Comma</span><span class="op">&gt;</span>,
+    <span class="ident">parent_attribute</span>: <span class="kw-2">&amp;</span><span class="ident">Attrs</span>,
+) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
     <span class="kw">use</span> <span class="ident">syn</span>::<span class="ident">Fields</span>::<span class="kw-2">*</span>;
 
     <span class="kw">let</span> <span class="ident">match_arms</span> <span class="op">=</span> <span class="ident">variants</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">variant</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_struct</span>(<span class="kw-2">&amp;</span><span class="ident">variant</span>.<span class="ident">attrs</span>, <span class="ident">variant</span>.<span class="ident">ident</span>.<span class="ident">to_string</span>());
-        <span class="kw">let</span> <span class="ident">sub_name</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">name</span>();
+        <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">Attrs</span>::<span class="ident">from_struct</span>(
+            <span class="kw-2">&amp;</span><span class="ident">variant</span>.<span class="ident">attrs</span>,
+            <span class="ident">variant</span>.<span class="ident">ident</span>.<span class="ident">to_string</span>(),
+            <span class="ident">parent_attribute</span>.<span class="ident">casing</span>(),
+        );
+        <span class="kw">let</span> <span class="ident">sub_name</span> <span class="op">=</span> <span class="ident">attrs</span>.<span class="ident">cased_name</span>();
         <span class="kw">let</span> <span class="ident">variant_name</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">variant</span>.<span class="ident">ident</span>;
         <span class="kw">let</span> <span class="ident">constructor_block</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">variant</span>.<span class="ident">fields</span> {
-            <span class="ident">Named</span>(<span class="kw-2">ref</span> <span class="ident">fields</span>) <span class="op">=&gt;</span> <span class="ident">gen_constructor</span>(<span class="kw-2">&amp;</span><span class="ident">fields</span>.<span class="ident">named</span>),
+            <span class="ident">Named</span>(<span class="kw-2">ref</span> <span class="ident">fields</span>) <span class="op">=&gt;</span> <span class="ident">gen_constructor</span>(<span class="kw-2">&amp;</span><span class="ident">fields</span>.<span class="ident">named</span>, <span class="kw-2">&amp;</span><span class="ident">attrs</span>),
             <span class="ident">Unit</span> <span class="op">=&gt;</span> <span class="macro">quote</span><span class="macro">!</span>(),
             <span class="ident">Unnamed</span>(<span class="kw-2">ref</span> <span class="ident">fields</span>) <span class="kw">if</span> <span class="ident">fields</span>.<span class="ident">unnamed</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fields</span>.<span class="ident">unnamed</span>[<span class="number">0</span>];
@@ -824,14 +935,15 @@
     <span class="ident">fields</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Field</span>, <span class="ident">Comma</span><span class="op">&gt;</span>,
     <span class="ident">attrs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Attribute</span>],
 ) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="kw">let</span> <span class="ident">clap</span> <span class="op">=</span> <span class="ident">gen_clap_struct</span>(<span class="ident">attrs</span>);
-    <span class="kw">let</span> <span class="ident">augment_clap</span> <span class="op">=</span> <span class="ident">gen_augment_clap</span>(<span class="ident">fields</span>);
-    <span class="kw">let</span> <span class="ident">from_clap</span> <span class="op">=</span> <span class="ident">gen_from_clap</span>(<span class="ident">name</span>, <span class="ident">fields</span>);
+    <span class="kw">let</span> <span class="ident">basic_clap_app_gen</span> <span class="op">=</span> <span class="ident">gen_clap_struct</span>(<span class="ident">attrs</span>);
+    <span class="kw">let</span> <span class="ident">augment_clap</span> <span class="op">=</span> <span class="ident">gen_augment_clap</span>(<span class="ident">fields</span>, <span class="kw-2">&amp;</span><span class="ident">basic_clap_app_gen</span>.<span class="ident">attrs</span>);
+    <span class="kw">let</span> <span class="ident">from_clap</span> <span class="op">=</span> <span class="ident">gen_from_clap</span>(<span class="ident">name</span>, <span class="ident">fields</span>, <span class="kw-2">&amp;</span><span class="ident">basic_clap_app_gen</span>.<span class="ident">attrs</span>);
 
+    <span class="kw">let</span> <span class="ident">clap_tokens</span> <span class="op">=</span> <span class="ident">basic_clap_app_gen</span>.<span class="ident">tokens</span>;
     <span class="macro">quote</span><span class="macro">!</span> {
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_variables</span>)]</span>
         <span class="kw">impl</span> ::<span class="ident">structopt</span>::<span class="ident">StructOpt</span> <span class="kw">for</span> #<span class="ident">name</span> {
-            #<span class="ident">clap</span>
+            #<span class="ident">clap_tokens</span>
             #<span class="ident">from_clap</span>
         }
 
@@ -849,14 +961,16 @@
     <span class="ident">variants</span>: <span class="kw-2">&amp;</span><span class="ident">Punctuated</span><span class="op">&lt;</span><span class="ident">Variant</span>, <span class="ident">Comma</span><span class="op">&gt;</span>,
     <span class="ident">attrs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Attribute</span>],
 ) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
-    <span class="kw">let</span> <span class="ident">clap</span> <span class="op">=</span> <span class="ident">gen_clap_enum</span>(<span class="ident">attrs</span>);
-    <span class="kw">let</span> <span class="ident">augment_clap</span> <span class="op">=</span> <span class="ident">gen_augment_clap_enum</span>(<span class="ident">variants</span>);
-    <span class="kw">let</span> <span class="ident">from_clap</span> <span class="op">=</span> <span class="ident">gen_from_clap_enum</span>(<span class="ident">name</span>);
-    <span class="kw">let</span> <span class="ident">from_subcommand</span> <span class="op">=</span> <span class="ident">gen_from_subcommand</span>(<span class="ident">name</span>, <span class="ident">variants</span>);
+    <span class="kw">let</span> <span class="ident">basic_clap_app_gen</span> <span class="op">=</span> <span class="ident">gen_clap_enum</span>(<span class="ident">attrs</span>);
 
+    <span class="kw">let</span> <span class="ident">augment_clap</span> <span class="op">=</span> <span class="ident">gen_augment_clap_enum</span>(<span class="ident">variants</span>, <span class="kw-2">&amp;</span><span class="ident">basic_clap_app_gen</span>.<span class="ident">attrs</span>);
+    <span class="kw">let</span> <span class="ident">from_clap</span> <span class="op">=</span> <span class="ident">gen_from_clap_enum</span>(<span class="ident">name</span>);
+    <span class="kw">let</span> <span class="ident">from_subcommand</span> <span class="op">=</span> <span class="ident">gen_from_subcommand</span>(<span class="ident">name</span>, <span class="ident">variants</span>, <span class="kw-2">&amp;</span><span class="ident">basic_clap_app_gen</span>.<span class="ident">attrs</span>);
+
+    <span class="kw">let</span> <span class="ident">clap_tokens</span> <span class="op">=</span> <span class="ident">basic_clap_app_gen</span>.<span class="ident">tokens</span>;
     <span class="macro">quote</span><span class="macro">!</span> {
         <span class="kw">impl</span> ::<span class="ident">structopt</span>::<span class="ident">StructOpt</span> <span class="kw">for</span> #<span class="ident">name</span> {
-            #<span class="ident">clap</span>
+            #<span class="ident">clap_tokens</span>
             #<span class="ident">from_clap</span>
         }
 

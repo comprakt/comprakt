@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/rand-0.5.5/src/rngs/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><link rel="shortcut icon" href="https://www.rust-lang.org/favicon.ico"></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../rand/index.html'><img src='https://www.rust-lang.org/logos/rust-logo-128x128-blk.png' alt='logo' width='100'></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/rand-0.6.1/src/rngs/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><link rel="shortcut icon" href="https://www.rust-lang.org/favicon.ico"></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../rand/index.html'><img src='https://www.rust-lang.org/logos/rust-logo-128x128-blk.png' alt='logo' width='100'></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -215,11 +215,8 @@
 <span id="215">215</span>
 <span id="216">216</span>
 <span id="217">217</span>
-<span id="218">218</span>
 </pre><pre class="rust ">
-<span class="comment">// Copyright 2018 The Rust Project Developers. See the COPYRIGHT</span>
-<span class="comment">// file at the top-level directory of this distribution and at</span>
-<span class="comment">// https://rust-lang.org/COPYRIGHT.</span>
+<span class="comment">// Copyright 2018 Developers of the Rand project.</span>
 <span class="comment">//</span>
 <span class="comment">// Licensed under the Apache License, Version 2.0 &lt;LICENSE-APACHE or</span>
 <span class="comment">// https://www.apache.org/licenses/LICENSE-2.0&gt; or the MIT license</span>
@@ -234,6 +231,7 @@
 <span class="doccomment">//! - [`EntropyRng`], [`OsRng`] and [`JitterRng`] as entropy sources</span>
 <span class="doccomment">//! - [`mock::StepRng`] as a simple counter for tests</span>
 <span class="doccomment">//! - [`adapter::ReadRng`] to read from a file/stream</span>
+<span class="doccomment">//! - [`adapter::ReseedingRng`] to reseed a PRNG on clone / process fork etc.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Background — Random number generators (RNGs)</span>
 <span class="doccomment">//!</span>
@@ -268,9 +266,6 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! - [`SmallRng`] is a PRNG chosen for low memory usage, high performance and</span>
 <span class="doccomment">//!   good statistical quality.</span>
-<span class="doccomment">//!   The current algorithm (plain Xorshift) unfortunately performs</span>
-<span class="doccomment">//!   poorly in statistical quality test suites (TestU01 and PractRand) and will</span>
-<span class="doccomment">//!   be replaced in the next major release.</span>
 <span class="doccomment">//! - [`StdRng`] is a CSPRNG chosen for good performance and trust of security</span>
 <span class="doccomment">//!   (based on reviews, maturity and usage). The current algorithm is HC-128,</span>
 <span class="doccomment">//!   which is one of the recommendations by ECRYPT&#39;s eSTREAM project.</span>
@@ -380,12 +375,13 @@
 <span class="doccomment">//! [`thread_rng`]: ../fn.thread_rng.html</span>
 <span class="doccomment">//! [`mock::StepRng`]: mock/struct.StepRng.html</span>
 <span class="doccomment">//! [`adapter::ReadRng`]: adapter/struct.ReadRng.html</span>
-<span class="doccomment">//! [`ChaChaRng`]: ../prng/chacha/struct.ChaChaRng.html</span>
+<span class="doccomment">//! [`adapter::ReseedingRng`]: adapter/struct.ReseedingRng.html</span>
+<span class="doccomment">//! [`ChaChaRng`]: ../../rand_chacha/struct.ChaChaRng.html</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">adapter</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span><span class="op">=</span><span class="string">&quot;std&quot;</span>)]</span> <span class="kw">mod</span> <span class="ident">entropy</span>;
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span> <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">jitter</span>;
+<span class="kw">mod</span> <span class="ident">jitter</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">mock</span>;   <span class="comment">// Public so we don&#39;t export `StepRng` directly, making it a bit</span>
                 <span class="comment">// more clear it is intended for testing.</span>
 <span class="kw">mod</span> <span class="ident">small</span>;
@@ -414,7 +410,8 @@
               <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;redox&quot;</span>,
               <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;fuchsia&quot;</span>,
               <span class="ident">windows</span>,
-              <span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;stdweb&quot;</span>)
+              <span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;stdweb&quot;</span>),
+              <span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasm-bindgen&quot;</span>),
 )))]</span>
 <span class="kw">mod</span> <span class="ident">os</span>;
 
@@ -432,7 +429,8 @@
               <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;redox&quot;</span>,
               <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;fuchsia&quot;</span>,
               <span class="ident">windows</span>,
-              <span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;stdweb&quot;</span>)
+              <span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;stdweb&quot;</span>),
+              <span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasm-bindgen&quot;</span>),
 )))]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">os</span>::<span class="ident">OsRng</span>;
 </pre>

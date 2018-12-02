@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `structopt` crate."><meta name="keywords" content="rust, rustlang, rust-lang, structopt"><title>structopt - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Crate structopt</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all structopt's items</p></a><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#traits">Traits</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'structopt', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/structopt/lib.rs.html#9-445' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>structopt</a></span></h1><div class='docblock'><p>This crate defines the <code>StructOpt</code> trait and its custom derrive.</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `structopt` crate."><meta name="keywords" content="rust, rustlang, rust-lang, structopt"><title>structopt - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Crate structopt</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all structopt's items</p></a><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#traits">Traits</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'structopt', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/structopt/lib.rs.html#9-500' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>structopt</a></span></h1><div class='docblock'><p>This crate defines the <code>StructOpt</code> trait and its custom derrive.</p>
 <h2 id="features" class="section-header"><a href="#features">Features</a></h2>
 <p>If you want to disable all the <code>clap</code> features (colors,
 suggestions, ..) add <code>default-features = false</code> to the <code>structopt</code>
@@ -74,9 +74,9 @@ wrapping them in <code>raw()</code>, e.g. to activate colored help text:</p>
 <p>Then, each field of the struct not marked as a subcommand corresponds
 to a <code>clap::Arg</code>. As with the struct attributes, every method of
 <code>clap::Arg</code> in the form of <code>fn function_name(self, &amp;str)</code> can be used
-through specifying it as an attribute.
-The <code>name</code> attribute can be used to customize the
-<code>Arg::with_name()</code> call (defaults to the field name).
+through specifying it as an attribute. The <code>name</code> attribute can be used
+to customize the <code>Arg::with_name()</code> call (defaults to the field name in
+kebab-case).
 For functions that do not take a <code>&amp;str</code> as argument, the attribute can be
 wrapped in <code>raw()</code>, e. g. <code>raw(aliases = r#&quot;&amp;[&quot;alias&quot;]&quot;#, next_line_help = &quot;true&quot;)</code>.</p>
 <p>The type of the field gives the kind of argument:</p>
@@ -103,6 +103,55 @@ the <a href="#custom-string-parsers">same titled section</a> below.</p>
     .<span class="ident">long</span>(<span class="string">&quot;speed&quot;</span>)
     .<span class="ident">help</span>(<span class="string">&quot;Set speed&quot;</span>)
     .<span class="ident">default_value</span>(<span class="string">&quot;42&quot;</span>);</pre>
+<h2 id="specifying-argument-types" class="section-header"><a href="#specifying-argument-types">Specifying argument types</a></h2>
+<p>There are three types of arguments that can be supplied to each
+(sub-)command:</p>
+<ul>
+<li>short (e.g. <code>-h</code>),</li>
+<li>long  (e.g. <code>--help</code>)</li>
+<li>and positional.</li>
+</ul>
+<p>Like clap, structopt defaults to creation positional arguments.</p>
+<p>If you want to generate a long argument you can either specify <code>long</code>
+to get a long flag generated by converting  the field name to
+<code>kebab-case</code> or <code>long = $NAME</code>. For short arguments <code>short</code> will use
+the first letter of the field name but equivalent to the long option
+its also possible to use a custom letter through <code>short = $LETTER</code>.</p>
+<p>If an argument is renamed using <code>name = $NAME</code> any following call to
+<code>short</code> or <code>long</code> will use the new name.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">macro_use</span>]</span>
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">structopt</span>;
+
+<span class="kw">use</span> <span class="ident">structopt</span>::<span class="ident">StructOpt</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>)]</span>
+<span class="kw">struct</span> <span class="ident">Opt</span> {
+    <span class="doccomment">/// This option can be specified with something like `--foo-option</span>
+    <span class="doccomment">/// value` or `--foo-option=value`</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>)]</span>
+    <span class="ident">foo_option</span>: <span class="ident">String</span>,
+
+    <span class="doccomment">/// This option can be specified with something like `-b value` (but</span>
+    <span class="doccomment">/// not `--bar-option value`).</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span>)]</span>
+    <span class="ident">bar_option</span>: <span class="ident">String</span>,
+
+    <span class="doccomment">/// This option can be specified either `--baz value` or `-z value`.</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;z&quot;</span>, <span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;baz&quot;</span>)]</span>
+    <span class="ident">baz_option</span>: <span class="ident">String</span>,
+
+    <span class="doccomment">/// This option can be specified either by `--custom value` or</span>
+    <span class="doccomment">/// `-c value`.</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;custom&quot;</span>, <span class="ident">long</span>, <span class="ident">short</span>)]</span>
+    <span class="ident">custom_option</span>: <span class="ident">String</span>,
+
+    <span class="doccomment">/// This option is positional, meaning it is the first unadorned string</span>
+    <span class="doccomment">/// you provide (multiple others could follow).</span>
+    <span class="ident">my_positional</span>: <span class="ident">String</span>,
+}
+</pre>
 <h2 id="help-messages" class="section-header"><a href="#help-messages">Help messages</a></h2>
 <p>Help messages for the whole binary or individual arguments can be
 specified using the <code>about</code> attribute on the struct and the <code>help</code>

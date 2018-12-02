@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["build",""]],"struct":[["FirmGenerator",""],["Options",""]]});
+initSidebarItems({"fn":[["build",""]],"mod":[["method_body_generator",""],["program_generator",""],["runtime",""]],"struct":[["Options","Enable or disable behaviour during the lowering phase"],["Program",""]]});

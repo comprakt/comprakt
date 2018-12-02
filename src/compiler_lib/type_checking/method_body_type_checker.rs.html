@@ -560,42 +560,6 @@
 <span id="560">560</span>
 <span id="561">561</span>
 <span id="562">562</span>
-<span id="563">563</span>
-<span id="564">564</span>
-<span id="565">565</span>
-<span id="566">566</span>
-<span id="567">567</span>
-<span id="568">568</span>
-<span id="569">569</span>
-<span id="570">570</span>
-<span id="571">571</span>
-<span id="572">572</span>
-<span id="573">573</span>
-<span id="574">574</span>
-<span id="575">575</span>
-<span id="576">576</span>
-<span id="577">577</span>
-<span id="578">578</span>
-<span id="579">579</span>
-<span id="580">580</span>
-<span id="581">581</span>
-<span id="582">582</span>
-<span id="583">583</span>
-<span id="584">584</span>
-<span id="585">585</span>
-<span id="586">586</span>
-<span id="587">587</span>
-<span id="588">588</span>
-<span id="589">589</span>
-<span id="590">590</span>
-<span id="591">591</span>
-<span id="592">592</span>
-<span id="593">593</span>
-<span id="594">594</span>
-<span id="595">595</span>
-<span id="596">596</span>
-<span id="597">597</span>
-<span id="598">598</span>
 </pre><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">checker</span>::<span class="kw-2">*</span>, <span class="ident">type_analysis</span>::<span class="kw-2">*</span>, <span class="ident">type_system</span>::<span class="kw-2">*</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -606,60 +570,23 @@
     <span class="ident">symtab</span>::<span class="kw-2">*</span>,
 };
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">ty</span>: <span class="ident">CheckedType</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">ref_info</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RefInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;&gt;</span>,
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span> <span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">ty</span>: <span class="ident">CheckedType</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">ref_info</span>: <span class="ident">RefInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span> {
-        <span class="ident">ExprInfo</span> {
-            <span class="ident">ty</span>,
-            <span class="ident">ref_info</span>: <span class="prelude-val">Some</span>(<span class="ident">ref_info</span>),
-        }
-    }
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">CheckedType</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span> <span class="kw">for</span> <span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">item</span>: <span class="ident">CheckedType</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span> {
-        <span class="ident">ExprInfo</span> {
-            <span class="ident">ty</span>: <span class="ident">item</span>,
-            <span class="ident">ref_info</span>: <span class="prelude-val">None</span>,
-        }
-    }
-}
-
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">RefInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span> {
-    <span class="ident">GlobalVar</span>(<span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>),
-    <span class="ident">Var</span>(<span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>),
-    <span class="ident">Param</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">MethodParamDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>),
-    <span class="ident">Field</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">ClassFieldDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>),
-    <span class="ident">Method</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">ClassMethodDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>),
-    <span class="comment">// impossible in minijava: Class(&amp;&#39;ts ClassDef&lt;&#39;src&gt;),</span>
-    <span class="ident">This</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>),
-    <span class="ident">ArrayAccess</span>,
-}
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">rc</span>::<span class="ident">Rc</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">VarDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span> {
-    <span class="ident">Local</span> {
-        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-        <span class="ident">name</span>: <span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-        <span class="ident">ty</span>: <span class="ident">CheckedType</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    },
-    <span class="ident">Param</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">MethodParamDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>),
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Var</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span> {
+    <span class="ident">Local</span>(<span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">LocalVarDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>),
+    <span class="ident">Param</span>(<span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">MethodParamDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>),
 }
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MethodBodyTypeChecker</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span>, <span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span>, <span class="lifetime">&#39;ts</span>, <span class="lifetime">&#39;ana</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx</span> <span class="ident">SemanticContext</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span>, <span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">current_class_id</span>: <span class="ident">ClassDefId</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">current_class</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">current_method</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">ClassMethodDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">type_analysis</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ana</span> <span class="kw-2">mut</span> <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">local_scope</span>: <span class="ident">Scoped</span><span class="op">&lt;</span><span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">VarDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">current_class</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">current_method</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassMethodDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">type_analysis</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ana</span> <span class="kw-2">mut</span> <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">local_scope</span>: <span class="ident">Scoped</span><span class="op">&lt;</span><span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">Var</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
+    <span class="comment">// IMPROVEMENT local_var_defs: Vec&lt;Rc&lt;LocalVarDef&gt;&gt;,</span>
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
@@ -671,8 +598,8 @@
 {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">check_methods</span>(
         <span class="ident">class_decl</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast</span> <span class="ident">ast</span>::<span class="ident">ClassDeclaration</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-        <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-        <span class="ident">type_analysis</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ana</span> <span class="kw-2">mut</span> <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span>,
+        <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
+        <span class="ident">type_analysis</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ana</span> <span class="kw-2">mut</span> <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
         <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx</span> <span class="ident">SemanticContext</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span>, <span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
     ) {
         <span class="kw">let</span> <span class="ident">current_class_id</span> <span class="op">=</span> <span class="ident">type_analysis</span>
@@ -694,15 +621,15 @@
                         <span class="ident">type_system</span>,
                         <span class="ident">type_analysis</span>,
                         <span class="ident">current_class_id</span>,
-                        <span class="ident">current_class</span>,
-                        <span class="ident">current_method</span>,
+                        <span class="ident">current_class</span>: <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">current_class</span>),
+                        <span class="ident">current_method</span>: <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">current_method</span>),
                         <span class="ident">local_scope</span>: <span class="ident">Scoped</span>::<span class="ident">new</span>(),
                     };
 
                     <span class="kw">for</span> <span class="ident">param</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">current_method</span>.<span class="ident">params</span> {
                         <span class="ident">checker</span>
                             .<span class="ident">local_scope</span>
-                            .<span class="ident">define</span>(<span class="ident">param</span>.<span class="ident">name</span>, <span class="ident">VarDef</span>::<span class="ident">Param</span>(<span class="kw-2">&amp;</span><span class="ident">param</span>))
+                            .<span class="ident">define</span>(<span class="ident">param</span>.<span class="ident">name</span>, <span class="ident">Var</span>::<span class="ident">Param</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">param</span>)))
                             .<span class="ident">expect</span>(<span class="string">&quot;no double params allowed&quot;</span>);
                     }
 
@@ -754,7 +681,7 @@
                 <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">type_expr</span>(<span class="ident">expr</span>);
             }
             <span class="ident">Return</span>(<span class="ident">expr_opt</span>) <span class="op">=&gt;</span> {
-                <span class="kw">let</span> <span class="ident">return_ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">current_method</span>.<span class="ident">return_ty</span>;
+                <span class="kw">let</span> <span class="ident">return_ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">current_method</span>).<span class="ident">return_ty</span>;
 
                 <span class="kw">match</span> (<span class="ident">expr_opt</span>, <span class="ident">return_ty</span>) {
                     (<span class="prelude-val">None</span>, <span class="ident">CheckedType</span>::<span class="ident">Void</span>) <span class="op">=&gt;</span> {}
@@ -781,14 +708,15 @@
                     <span class="self">self</span>.<span class="ident">type_system</span>,
                     <span class="ident">VoidIs</span>::<span class="ident">Forbidden</span>,
                 );
+                <span class="kw">let</span> <span class="ident">var_def</span> <span class="op">=</span> <span class="ident">Rc</span>::<span class="ident">new</span>(<span class="ident">LocalVarDef</span> {
+                    <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">data</span>,
+                    <span class="ident">ty</span>: <span class="ident">def_ty</span>.<span class="ident">clone</span>(),
+                });
+                <span class="self">self</span>.<span class="ident">type_analysis</span>
+                    .<span class="ident">set_local_var_def</span>(<span class="kw-2">&amp;</span><span class="ident">stmt</span>.<span class="ident">data</span>, <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">var_def</span>));
+                <span class="comment">// IMPROVEMENT self.local_var_defs.push(Rc::clone(&amp;var_def));</span>
                 <span class="self">self</span>.<span class="ident">local_scope</span>
-                    .<span class="ident">define</span>(
-                        <span class="ident">name</span>.<span class="ident">data</span>,
-                        <span class="ident">VarDef</span>::<span class="ident">Local</span> {
-                            <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">data</span>,
-                            <span class="ident">ty</span>: <span class="ident">def_ty</span>.<span class="ident">clone</span>(),
-                        },
-                    )
+                    .<span class="ident">define</span>(<span class="ident">name</span>.<span class="ident">data</span>, <span class="ident">Var</span>::<span class="ident">Local</span>(<span class="ident">var_def</span>))
                     .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
                         <span class="self">self</span>.<span class="ident">context</span>.<span class="ident">report_error</span>(
                             <span class="kw-2">&amp;</span><span class="ident">name</span>.<span class="ident">span</span>,
@@ -809,7 +737,7 @@
     <span class="kw">fn</span> <span class="ident">type_expr</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">expr</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast</span> <span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="ident">ast</span>::<span class="ident">Expr</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">type_expr_internal</span>(<span class="ident">expr</span>);
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">ref</span> <span class="ident">t</span>) <span class="op">=</span> <span class="ident">t</span> {
@@ -821,7 +749,7 @@
     <span class="kw">fn</span> <span class="ident">type_expr_internal</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">expr</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast</span> <span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="ident">ast</span>::<span class="ident">Expr</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ast</span>::<span class="ident">Expr</span>::<span class="kw-2">*</span>;
         <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">expr</span>.<span class="ident">data</span> {
             <span class="ident">Binary</span>(<span class="ident">op</span>, <span class="ident">lhs</span>, <span class="ident">rhs</span>) <span class="op">=&gt;</span> <span class="self">self</span>.<span class="ident">check_binary_expr</span>(<span class="ident">expr</span>.<span class="ident">span</span>, <span class="kw-2">*</span><span class="ident">op</span>, <span class="ident">lhs</span>, <span class="ident">rhs</span>),
@@ -877,7 +805,7 @@
                     <span class="ident">e</span>
                 })<span class="question-mark">?</span>;
                 <span class="comment">// IMPROVEMENT check args if type or class_def already fails</span>
-                <span class="self">self</span>.<span class="ident">check_method_invocation</span>(<span class="ident">name</span>, <span class="ident">target_class_def</span>, <span class="ident">args</span>)
+                <span class="self">self</span>.<span class="ident">check_method_invocation</span>(<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">target_class_def</span>, <span class="ident">args</span>)
             }
             <span class="ident">ThisMethodInvocation</span>(<span class="ident">name</span>, <span class="ident">args</span>) <span class="op">=&gt;</span> {
                 <span class="comment">// e.g. &quot;name(arg1, arg2);&quot;</span>
@@ -890,7 +818,7 @@
                     );
                 }
                 <span class="comment">// assume the user wanted to call the method on an object</span>
-                <span class="self">self</span>.<span class="ident">check_method_invocation</span>(<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">current_class</span>, <span class="ident">args</span>)
+                <span class="self">self</span>.<span class="ident">check_method_invocation</span>(<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">current_class</span>), <span class="ident">args</span>)
             }
             <span class="ident">ArrayAccess</span>(<span class="ident">target_expr</span>, <span class="ident">idx_expr</span>) <span class="op">=&gt;</span> {
                 <span class="self">self</span>.<span class="ident">check_type</span>(<span class="ident">idx_expr</span>, <span class="kw-2">&amp;</span><span class="ident">CheckedType</span>::<span class="ident">Int</span>);
@@ -925,7 +853,7 @@
                 } <span class="kw">else</span> {
                     <span class="prelude-val">Ok</span>(<span class="ident">ExprInfo</span>::<span class="ident">new</span>(
                         <span class="ident">CheckedType</span>::<span class="ident">TypeRef</span>(<span class="self">self</span>.<span class="ident">current_class_id</span>),
-                        <span class="ident">RefInfo</span>::<span class="ident">This</span>(<span class="self">self</span>.<span class="ident">current_class</span>),
+                        <span class="ident">RefInfo</span>::<span class="ident">This</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">current_class</span>)),
                     ))
                 }
             }
@@ -965,7 +893,7 @@
         <span class="ident">op</span>: <span class="ident">ast</span>::<span class="ident">BinaryOp</span>,
         <span class="ident">lhs</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast</span> <span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="ident">ast</span>::<span class="ident">Expr</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
         <span class="ident">rhs</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast</span> <span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="ident">ast</span>::<span class="ident">Expr</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ast</span>::<span class="ident">BinaryOp</span>::<span class="kw-2">*</span>;
         <span class="kw">match</span> <span class="ident">op</span> {
             <span class="ident">Assign</span> <span class="op">=&gt;</span> {
@@ -1055,9 +983,9 @@
     <span class="kw">fn</span> <span class="ident">check_method_invocation</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">method_name</span>: <span class="kw-2">&amp;</span><span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
-        <span class="ident">target_class_def</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
+        <span class="ident">target_class_def</span>: <span class="kw-2">&amp;</span><span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
         <span class="ident">args</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast</span> [<span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="ident">ast</span>::<span class="ident">Expr</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>],
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">method</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">target_class_def</span>.<span class="ident">method</span>(<span class="ident">method_name</span>.<span class="ident">data</span>) {
             <span class="prelude-val">Some</span>(<span class="ident">method</span>) <span class="op">=&gt;</span> <span class="ident">method</span>,
             <span class="prelude-val">None</span> <span class="op">=&gt;</span> {
@@ -1105,7 +1033,7 @@
     <span class="kw">fn</span> <span class="ident">resolve_to_class_def</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">CheckedType</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">ty</span> {
             <span class="ident">CheckedType</span>::<span class="ident">TypeRef</span>(<span class="ident">id</span>) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">type_system</span>.<span class="ident">class</span>(<span class="kw-2">*</span><span class="ident">id</span>)),
             <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">CouldNotDetermineType</span>),
@@ -1116,14 +1044,14 @@
     <span class="kw">fn</span> <span class="ident">check_var</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">var_name</span>: <span class="kw-2">&amp;</span><span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExprInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>, <span class="ident">CouldNotDetermineType</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span>.<span class="ident">local_scope</span>.<span class="ident">visible_definition</span>(<span class="ident">var_name</span>.<span class="ident">data</span>) {
             <span class="comment">// local variable or param</span>
-            <span class="prelude-val">Some</span>(<span class="ident">VarDef</span>::<span class="ident">Local</span> { <span class="ident">ty</span>, <span class="ident">name</span> }) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">ExprInfo</span> {
-                <span class="ident">ty</span>: <span class="ident">ty</span>.<span class="ident">clone</span>(),
-                <span class="ident">ref_info</span>: <span class="prelude-val">Some</span>(<span class="ident">RefInfo</span>::<span class="ident">Var</span>(<span class="kw-2">*</span><span class="ident">name</span>)),
+            <span class="prelude-val">Some</span>(<span class="ident">Var</span>::<span class="ident">Local</span>(<span class="ident">local_def</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">ExprInfo</span> {
+                <span class="ident">ty</span>: <span class="ident">local_def</span>.<span class="ident">ty</span>.<span class="ident">clone</span>(),
+                <span class="ident">ref_info</span>: <span class="prelude-val">Some</span>(<span class="ident">RefInfo</span>::<span class="ident">Var</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">local_def</span>))),
             }),
-            <span class="prelude-val">Some</span>(<span class="ident">VarDef</span>::<span class="ident">Param</span>(<span class="ident">param_def</span>)) <span class="op">=&gt;</span> {
+            <span class="prelude-val">Some</span>(<span class="ident">Var</span>::<span class="ident">Param</span>(<span class="ident">param_def</span>)) <span class="op">=&gt;</span> {
                 <span class="kw">if</span> <span class="self">self</span>.<span class="ident">current_method</span>.<span class="ident">is_main</span> {
                     <span class="self">self</span>.<span class="ident">context</span>.<span class="ident">report_error</span>(
                         <span class="kw-2">&amp;</span><span class="ident">var_name</span>.<span class="ident">span</span>,
@@ -1135,7 +1063,7 @@
 
                 <span class="prelude-val">Ok</span>(<span class="ident">ExprInfo</span> {
                     <span class="ident">ty</span>: <span class="ident">param_def</span>.<span class="ident">ty</span>.<span class="ident">clone</span>(),
-                    <span class="ident">ref_info</span>: <span class="prelude-val">Some</span>(<span class="ident">RefInfo</span>::<span class="ident">Param</span>(<span class="ident">param_def</span>)),
+                    <span class="ident">ref_info</span>: <span class="prelude-val">Some</span>(<span class="ident">RefInfo</span>::<span class="ident">Param</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">param_def</span>))),
                 })
             }
             <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">CouldNotDetermineType</span>),

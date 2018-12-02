@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["RefEquality",""],["TypeAnalysis",""]]});
+initSidebarItems({"enum":[["RefInfo",""]],"struct":[["ExprInfo",""],["LocalVarDef",""],["TypeAnalysis",""]]});

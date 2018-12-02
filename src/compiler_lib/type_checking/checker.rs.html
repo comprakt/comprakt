@@ -266,7 +266,6 @@
 <span id="266">266</span>
 <span id="267">267</span>
 <span id="268">268</span>
-<span id="269">269</span>
 </pre><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">asciifile</span>::{<span class="ident">Span</span>, <span class="ident">Spanned</span>},
@@ -282,42 +281,39 @@
     <span class="ident">type_analysis</span>::<span class="ident">TypeAnalysis</span>, <span class="ident">type_system</span>::<span class="kw-2">*</span>,
 };
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">check</span><span class="op">&lt;</span><span class="lifetime">&#39;ast</span>, <span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span>(
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">check</span><span class="op">&lt;</span><span class="lifetime">&#39;ast</span>, <span class="lifetime">&#39;src</span><span class="op">&gt;</span>(
     <span class="ident">strtab</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="kw-2">mut</span> <span class="ident">StringTable</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
     <span class="ident">ast</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast</span> <span class="ident">ast</span>::<span class="ident">AST</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ts</span> <span class="kw-2">mut</span> <span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-) <span class="op">-&gt;</span> <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span>, <span class="lifetime">&#39;ts</span><span class="op">&gt;</span> {
+) <span class="op">-&gt;</span> (<span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>, <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sem_context</span> <span class="op">=</span> <span class="ident">SemanticContext</span>::<span class="ident">new</span>(<span class="ident">context</span>);
 
-    <span class="kw">match</span> <span class="ident">ast</span> {
-        <span class="ident">ast</span>::<span class="ident">AST</span>::<span class="ident">Empty</span> <span class="op">=&gt;</span> <span class="ident">TypeAnalysis</span>::<span class="ident">new</span>(),
-        <span class="ident">ast</span>::<span class="ident">AST</span>::<span class="ident">Program</span>(<span class="ident">program</span>) <span class="op">=&gt;</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">type_analysis</span> <span class="op">=</span> <span class="ident">TypeAnalysis</span>::<span class="ident">new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">type_system</span> <span class="op">=</span> <span class="ident">TypeSystem</span>::<span class="ident">default</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">type_analysis</span> <span class="op">=</span> <span class="ident">TypeAnalysis</span>::<span class="ident">new</span>();
 
-            <span class="kw">let</span> <span class="ident">builtin_types</span> <span class="op">=</span> <span class="ident">BuiltinTypes</span>::<span class="ident">add_to</span>(<span class="ident">type_system</span>, <span class="ident">strtab</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">sem_context</span>);
+    <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ast</span>::<span class="ident">AST</span>::<span class="ident">Program</span>(<span class="ident">program</span>) <span class="op">=</span> <span class="ident">ast</span> {
+        <span class="kw">let</span> <span class="ident">builtin_types</span> <span class="op">=</span> <span class="ident">BuiltinTypes</span>::<span class="ident">add_to</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">type_system</span>, <span class="ident">strtab</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">sem_context</span>);
 
-            <span class="ident">add_types_from_ast</span>(
-                <span class="ident">strtab</span>,
-                <span class="ident">type_system</span>,
+        <span class="ident">add_types_from_ast</span>(
+            <span class="ident">strtab</span>,
+            <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">type_system</span>,
+            <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">type_analysis</span>,
+            <span class="kw-2">&amp;</span><span class="ident">builtin_types</span>,
+            <span class="kw-2">&amp;</span><span class="ident">sem_context</span>,
+            <span class="ident">program</span>,
+        );
+
+        <span class="kw">for</span> <span class="ident">class_decl</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">program</span>.<span class="ident">classes</span> {
+            <span class="ident">MethodBodyTypeChecker</span>::<span class="ident">check_methods</span>(
+                <span class="kw-2">&amp;</span><span class="ident">class_decl</span>,
+                <span class="kw-2">&amp;</span><span class="ident">type_system</span>,
                 <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">type_analysis</span>,
-                <span class="kw-2">&amp;</span><span class="ident">builtin_types</span>,
                 <span class="kw-2">&amp;</span><span class="ident">sem_context</span>,
-                <span class="ident">program</span>,
             );
-
-            <span class="kw">for</span> <span class="ident">class_decl</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">program</span>.<span class="ident">classes</span> {
-                <span class="ident">MethodBodyTypeChecker</span>::<span class="ident">check_methods</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">class_decl</span>,
-                    <span class="ident">type_system</span>,
-                    <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">type_analysis</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">sem_context</span>,
-                );
-            }
-
-            <span class="ident">type_analysis</span>
         }
     }
+
+    (<span class="ident">type_system</span>, <span class="ident">type_analysis</span>)
 }
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SemanticContext</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span>, <span class="lifetime">&#39;src</span><span class="op">&gt;</span> {
@@ -338,10 +334,11 @@
     }
 }
 
+<span class="comment">// FIXME: simplify lifetimes by merging &#39;src and &#39;ast</span>
 <span class="kw">fn</span> <span class="ident">add_types_from_ast</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span>, <span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span>, <span class="lifetime">&#39;ana</span><span class="op">&gt;</span>(
     <span class="ident">strtab</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">StringTable</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    <span class="ident">type_analysis</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ana</span> <span class="kw-2">mut</span> <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+    <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
+    <span class="ident">type_analysis</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ana</span> <span class="kw-2">mut</span> <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
     <span class="ident">builtin_types</span>: <span class="kw-2">&amp;</span><span class="ident">BuiltinTypes</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">SemanticContext</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span>, <span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
     <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast</span> <span class="ident">ast</span>::<span class="ident">Program</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
@@ -405,7 +402,7 @@
                             )
                         });
                 }
-                <span class="ident">Method</span>(<span class="kw">_</span>, <span class="ident">params</span>, <span class="kw">_</span>) <span class="op">|</span> <span class="ident">MainMethod</span>(<span class="ident">params</span>, <span class="kw">_</span>) <span class="op">=&gt;</span> {
+                <span class="ident">Method</span>(<span class="kw">_</span>, <span class="ident">params</span>, <span class="ident">block</span>) <span class="op">|</span> <span class="ident">MainMethod</span>(<span class="ident">params</span>, <span class="ident">block</span>) <span class="op">=&gt;</span> {
                     <span class="kw">let</span> (<span class="ident">is_static</span>, <span class="ident">is_main</span>, <span class="ident">return_ty</span>) <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">member</span>.<span class="ident">kind</span> {
                         <span class="ident">Field</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;impossible&quot;</span>),
                         <span class="ident">Method</span>(<span class="ident">return_ty</span>, <span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=&gt;</span> (
@@ -458,6 +455,7 @@
                         .<span class="ident">class_mut</span>(<span class="ident">class_def_id</span>)
                         .<span class="ident">add_method</span>(<span class="ident">ClassMethodDef</span>::<span class="ident">new</span>(
                             <span class="ident">member</span>.<span class="ident">name</span>,
+                            <span class="ident">ClassMethodBody</span>::<span class="ident">AST</span>(<span class="ident">block</span>),
                             <span class="ident">checked_params</span>,
                             <span class="ident">return_ty</span>,
                             <span class="ident">is_static</span>,
@@ -486,7 +484,7 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">checked_type_from_basic_ty</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>(
     <span class="ident">basic_ty</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast</span> <span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="ident">ast</span>::<span class="ident">BasicType</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">SemanticContext</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
+    <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
     <span class="ident">void_handling</span>: <span class="ident">VoidIs</span>,
 ) <span class="op">-&gt;</span> <span class="ident">CheckedType</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span> {
     <span class="kw">use</span> <span class="self">self</span>::<span class="ident">ast</span>::<span class="ident">BasicType</span>::<span class="kw-2">*</span>;
@@ -520,7 +518,7 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">checked_type_from_ty</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>(
     <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast</span> <span class="ident">ast</span>::<span class="ident">Type</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">SemanticContext</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-    <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
+    <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
     <span class="ident">void_handling</span>: <span class="ident">VoidIs</span>,
 ) <span class="op">-&gt;</span> <span class="ident">CheckedType</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">void_handling</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">ty</span>.<span class="ident">array_depth</span> <span class="op">&gt;</span> <span class="number">0</span> {

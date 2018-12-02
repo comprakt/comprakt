@@ -88,6 +88,13 @@
 <span id="88">88</span>
 <span id="89">89</span>
 <span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
 </pre><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">all</span>)]</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">non_upper_case_globals</span>)]</span>
@@ -95,6 +102,13 @@
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
 
 <span class="macro">include</span><span class="macro">!</span>(<span class="macro">concat</span><span class="macro">!</span>(<span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/bindings.rs&quot;</span>));
+
+<span class="comment">// Shadow&#39;s the C stdlib&#39;s abort symbol, giving us the ability</span>
+<span class="comment">// to get a backtrace with env var RUST_BACKTRACE=1</span>
+<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">abort</span>() {
+    <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="bool-val">false</span>, <span class="string">&quot;libc abort() called, see stderr above&quot;</span>);
+}
 
 <span class="doccomment">/// A little more idiomatic access to the mode_* statics.</span>
 <span class="attribute">#[<span class="ident">rustfmt</span>::<span class="ident">skip</span>]</span>

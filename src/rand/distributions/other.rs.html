@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/rand-0.5.5/src/distributions/other.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>other.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><link rel="shortcut icon" href="https://www.rust-lang.org/favicon.ico"></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../rand/index.html'><img src='https://www.rust-lang.org/logos/rust-logo-128x128-blk.png' alt='logo' width='100'></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/rand-0.6.1/src/distributions/other.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>other.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><link rel="shortcut icon" href="https://www.rust-lang.org/favicon.ico"></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../rand/index.html'><img src='https://www.rust-lang.org/logos/rust-logo-128x128-blk.png' alt='logo' width='100'></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -213,10 +213,12 @@
 <span id="213">213</span>
 <span id="214">214</span>
 <span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
 </pre><pre class="rust ">
-<span class="comment">// Copyright 2017 The Rust Project Developers. See the COPYRIGHT</span>
-<span class="comment">// file at the top-level directory of this distribution and at</span>
-<span class="comment">// https://rust-lang.org/COPYRIGHT.</span>
+<span class="comment">// Copyright 2018 Developers of the Rand project.</span>
 <span class="comment">//</span>
 <span class="comment">// Licensed under the Apache License, Version 2.0 &lt;LICENSE-APACHE or</span>
 <span class="comment">// https://www.apache.org/licenses/LICENSE-2.0&gt; or the MIT license</span>
@@ -260,15 +262,21 @@
 <span class="kw">impl</span> <span class="ident">Distribution</span><span class="op">&lt;</span><span class="ident">char</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Standard</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">fn</span> <span class="ident">sample</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">R</span>) <span class="op">-&gt;</span> <span class="ident">char</span> {
-        <span class="kw">let</span> <span class="ident">range</span> <span class="op">=</span> <span class="ident">Uniform</span>::<span class="ident">new</span>(<span class="number">0u32</span>, <span class="number">0x11_0000</span>);
-        <span class="kw">loop</span> {
-            <span class="kw">match</span> <span class="ident">char</span>::<span class="ident">from_u32</span>(<span class="ident">range</span>.<span class="ident">sample</span>(<span class="ident">rng</span>)) {
-                <span class="prelude-val">Some</span>(<span class="ident">c</span>) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="ident">c</span>,
-                <span class="comment">// About 0.2% of numbers in the range 0..0x110000 are invalid</span>
-                <span class="comment">// codepoints (surrogates).</span>
-                <span class="prelude-val">None</span> <span class="op">=&gt;</span> {}
-            }
+        <span class="comment">// A valid `char` is either in the interval `[0, 0xD800)` or</span>
+        <span class="comment">// `(0xDFFF, 0x11_0000)`. All `char`s must therefore be in</span>
+        <span class="comment">// `[0, 0x11_0000)` but not in the &quot;gap&quot; `[0xD800, 0xDFFF]` which is</span>
+        <span class="comment">// reserved for surrogates. This is the size of that gap.</span>
+        <span class="kw">const</span> <span class="ident">GAP_SIZE</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xDFFF</span> <span class="op">-</span> <span class="number">0xD800</span> <span class="op">+</span> <span class="number">1</span>;
+
+        <span class="comment">// Uniform::new(0, 0x11_0000 - GAP_SIZE) can also be used but it</span>
+        <span class="comment">// seemed slower.</span>
+        <span class="kw">let</span> <span class="ident">range</span> <span class="op">=</span> <span class="ident">Uniform</span>::<span class="ident">new</span>(<span class="ident">GAP_SIZE</span>, <span class="number">0x11_0000</span>);
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">n</span> <span class="op">=</span> <span class="ident">range</span>.<span class="ident">sample</span>(<span class="ident">rng</span>);
+        <span class="kw">if</span> <span class="ident">n</span> <span class="op">&lt;=</span> <span class="number">0xDFFF</span> {
+            <span class="ident">n</span> <span class="op">-=</span> <span class="ident">GAP_SIZE</span>;
         }
+        <span class="kw">unsafe</span> { <span class="ident">char</span>::<span class="ident">from_u32_unchecked</span>(<span class="ident">n</span>) }
     }
 }
 

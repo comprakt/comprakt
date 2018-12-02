@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/rand-0.5.5/src/rngs/os.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>os.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><link rel="shortcut icon" href="https://www.rust-lang.org/favicon.ico"></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../rand/index.html'><img src='https://www.rust-lang.org/logos/rust-logo-128x128-blk.png' alt='logo' width='100'></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/rand-0.6.1/src/rngs/os.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>os.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><link rel="shortcut icon" href="https://www.rust-lang.org/favicon.ico"></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../rand/index.html'><img src='https://www.rust-lang.org/logos/rust-logo-128x128-blk.png' alt='logo' width='100'></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
 <span id="4">   4</span>
@@ -1184,10 +1184,98 @@
 <span id="1184">1184</span>
 <span id="1185">1185</span>
 <span id="1186">1186</span>
+<span id="1187">1187</span>
+<span id="1188">1188</span>
+<span id="1189">1189</span>
+<span id="1190">1190</span>
+<span id="1191">1191</span>
+<span id="1192">1192</span>
+<span id="1193">1193</span>
+<span id="1194">1194</span>
+<span id="1195">1195</span>
+<span id="1196">1196</span>
+<span id="1197">1197</span>
+<span id="1198">1198</span>
+<span id="1199">1199</span>
+<span id="1200">1200</span>
+<span id="1201">1201</span>
+<span id="1202">1202</span>
+<span id="1203">1203</span>
+<span id="1204">1204</span>
+<span id="1205">1205</span>
+<span id="1206">1206</span>
+<span id="1207">1207</span>
+<span id="1208">1208</span>
+<span id="1209">1209</span>
+<span id="1210">1210</span>
+<span id="1211">1211</span>
+<span id="1212">1212</span>
+<span id="1213">1213</span>
+<span id="1214">1214</span>
+<span id="1215">1215</span>
+<span id="1216">1216</span>
+<span id="1217">1217</span>
+<span id="1218">1218</span>
+<span id="1219">1219</span>
+<span id="1220">1220</span>
+<span id="1221">1221</span>
+<span id="1222">1222</span>
+<span id="1223">1223</span>
+<span id="1224">1224</span>
+<span id="1225">1225</span>
+<span id="1226">1226</span>
+<span id="1227">1227</span>
+<span id="1228">1228</span>
+<span id="1229">1229</span>
+<span id="1230">1230</span>
+<span id="1231">1231</span>
+<span id="1232">1232</span>
+<span id="1233">1233</span>
+<span id="1234">1234</span>
+<span id="1235">1235</span>
+<span id="1236">1236</span>
+<span id="1237">1237</span>
+<span id="1238">1238</span>
+<span id="1239">1239</span>
+<span id="1240">1240</span>
+<span id="1241">1241</span>
+<span id="1242">1242</span>
+<span id="1243">1243</span>
+<span id="1244">1244</span>
+<span id="1245">1245</span>
+<span id="1246">1246</span>
+<span id="1247">1247</span>
+<span id="1248">1248</span>
+<span id="1249">1249</span>
+<span id="1250">1250</span>
+<span id="1251">1251</span>
+<span id="1252">1252</span>
+<span id="1253">1253</span>
+<span id="1254">1254</span>
+<span id="1255">1255</span>
+<span id="1256">1256</span>
+<span id="1257">1257</span>
+<span id="1258">1258</span>
+<span id="1259">1259</span>
+<span id="1260">1260</span>
+<span id="1261">1261</span>
+<span id="1262">1262</span>
+<span id="1263">1263</span>
+<span id="1264">1264</span>
+<span id="1265">1265</span>
+<span id="1266">1266</span>
+<span id="1267">1267</span>
+<span id="1268">1268</span>
+<span id="1269">1269</span>
+<span id="1270">1270</span>
+<span id="1271">1271</span>
+<span id="1272">1272</span>
+<span id="1273">1273</span>
+<span id="1274">1274</span>
+<span id="1275">1275</span>
 </pre><pre class="rust ">
-<span class="comment">// Copyright 2013-2015 The Rust Project Developers. See the COPYRIGHT</span>
-<span class="comment">// file at the top-level directory of this distribution and at</span>
-<span class="comment">// https://rust-lang.org/COPYRIGHT.</span>
+<span class="comment">// Copyright 2018 Developers of the Rand project.</span>
+<span class="comment">// Copyright 2013-2015 The Rust Project Developers.</span>
 <span class="comment">//</span>
 <span class="comment">// Licensed under the Apache License, Version 2.0 &lt;LICENSE-APACHE or</span>
 <span class="comment">// https://www.apache.org/licenses/LICENSE-2.0&gt; or the MIT license</span>
@@ -1243,12 +1331,10 @@
 <span class="doccomment">/// The three Emscripten targets `asmjs-unknown-emscripten`,</span>
 <span class="doccomment">/// `wasm32-unknown-emscripten` and `wasm32-experimental-emscripten` use</span>
 <span class="doccomment">/// Emscripten&#39;s emulation of `/dev/random` on web browsers and Node.js.</span>
-<span class="doccomment">/// Unfortunately it falls back to the insecure `Math.random()` if a browser</span>
-<span class="doccomment">/// doesn&#39;t support [`Crypto.getRandomValues`][12].</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// The bare Wasm target `wasm32-unknown-unknown` tries to call the javascript</span>
-<span class="doccomment">/// methods directly, using `stdweb` in combination with `cargo-web`.</span>
-<span class="doccomment">/// `wasm-bindgen` is not yet supported.</span>
+<span class="doccomment">/// methods directly, using either `stdweb` in combination with `cargo-web` or</span>
+<span class="doccomment">/// `wasm-bindgen` depending on what features are activated for this crate.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ## Early boot</span>
 <span class="doccomment">///</span>
@@ -1595,27 +1681,32 @@
     <span class="kw">const</span> <span class="ident">NR_GETRANDOM</span>: <span class="ident">libc</span>::<span class="ident">c_long</span> <span class="op">=</span> <span class="number">349</span>;
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;powerpc&quot;</span>)]</span>
     <span class="kw">const</span> <span class="ident">NR_GETRANDOM</span>: <span class="ident">libc</span>::<span class="ident">c_long</span> <span class="op">=</span> <span class="number">359</span>;
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;powerpc64&quot;</span>)]</span>
+    <span class="kw">const</span> <span class="ident">NR_GETRANDOM</span>: <span class="ident">libc</span>::<span class="ident">c_long</span> <span class="op">=</span> <span class="number">359</span>;
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;mips&quot;</span>)]</span> <span class="comment">// old ABI</span>
     <span class="kw">const</span> <span class="ident">NR_GETRANDOM</span>: <span class="ident">libc</span>::<span class="ident">c_long</span> <span class="op">=</span> <span class="number">4353</span>;
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;mips64&quot;</span>)]</span>
     <span class="kw">const</span> <span class="ident">NR_GETRANDOM</span>: <span class="ident">libc</span>::<span class="ident">c_long</span> <span class="op">=</span> <span class="number">5313</span>;
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;sparc&quot;</span>)]</span>
+    <span class="kw">const</span> <span class="ident">NR_GETRANDOM</span>: <span class="ident">libc</span>::<span class="ident">c_long</span> <span class="op">=</span> <span class="number">347</span>;
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;sparc64&quot;</span>)]</span>
+    <span class="kw">const</span> <span class="ident">NR_GETRANDOM</span>: <span class="ident">libc</span>::<span class="ident">c_long</span> <span class="op">=</span> <span class="number">347</span>;
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86&quot;</span>,
                   <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;arm&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>,
                   <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;s390x&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;powerpc&quot;</span>,
-                  <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;mips&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;mips64&quot;</span>)))]</span>
+                  <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;powerpc64&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;mips&quot;</span>,
+                  <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;mips64&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;sparc&quot;</span>,
+                  <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;sparc64&quot;</span>)))]</span>
     <span class="kw">const</span> <span class="ident">NR_GETRANDOM</span>: <span class="ident">libc</span>::<span class="ident">c_long</span> <span class="op">=</span> <span class="number">0</span>;
 
     <span class="kw">fn</span> <span class="ident">getrandom</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>], <span class="ident">blocking</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="ident">libc</span>::<span class="ident">c_long</span> {
-        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-            <span class="kw">fn</span> <span class="ident">syscall</span>(<span class="ident">number</span>: <span class="ident">libc</span>::<span class="ident">c_long</span>, ...) <span class="op">-&gt;</span> <span class="ident">libc</span>::<span class="ident">c_long</span>;
-        }
         <span class="kw">const</span> <span class="ident">GRND_NONBLOCK</span>: <span class="ident">libc</span>::<span class="ident">c_uint</span> <span class="op">=</span> <span class="number">0x0001</span>;
 
         <span class="kw">if</span> <span class="ident">NR_GETRANDOM</span> <span class="op">==</span> <span class="number">0</span> { <span class="kw">return</span> <span class="op">-</span><span class="number">1</span> };
 
         <span class="kw">unsafe</span> {
-            <span class="ident">syscall</span>(<span class="ident">NR_GETRANDOM</span>, <span class="ident">buf</span>.<span class="ident">as_mut_ptr</span>(), <span class="ident">buf</span>.<span class="ident">len</span>(),
-                    <span class="kw">if</span> <span class="ident">blocking</span> { <span class="number">0</span> } <span class="kw">else</span> { <span class="ident">GRND_NONBLOCK</span> })
+            <span class="ident">libc</span>::<span class="ident">syscall</span>(<span class="ident">NR_GETRANDOM</span>, <span class="ident">buf</span>.<span class="ident">as_mut_ptr</span>(), <span class="ident">buf</span>.<span class="ident">len</span>(),
+                          <span class="kw">if</span> <span class="ident">blocking</span> { <span class="number">0</span> } <span class="kw">else</span> { <span class="ident">GRND_NONBLOCK</span> })
         }
     }
 
@@ -2150,7 +2241,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
 <span class="kw">mod</span> <span class="ident">imp</span> {
     <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">winapi</span>;
-    
+
     <span class="kw">use</span> {<span class="ident">Error</span>, <span class="ident">ErrorKind</span>};
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">OsRngImpl</span>;
 
@@ -2289,11 +2380,98 @@
     }
 }
 
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>,
+          <span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;emscripten&quot;</span>),
+          <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;stdweb&quot;</span>),
+          <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasm-bindgen&quot;</span>))]</span>
+<span class="kw">mod</span> <span class="ident">imp</span> {
+    <span class="kw">use</span> <span class="ident">__wbg_shims</span>::<span class="kw-2">*</span>;
+
+    <span class="kw">use</span> {<span class="ident">Error</span>, <span class="ident">ErrorKind</span>};
+    <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">OsRngImpl</span>;
+
+    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">OsRng</span> {
+        <span class="ident">Node</span>(<span class="ident">NodeCrypto</span>),
+        <span class="ident">Browser</span>(<span class="ident">BrowserCrypto</span>),
+    }
+
+    <span class="kw">impl</span> <span class="ident">OsRngImpl</span> <span class="kw">for</span> <span class="ident">OsRng</span> {
+        <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">OsRng</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+            <span class="comment">// First up we need to detect if we&#39;re running in node.js or a</span>
+            <span class="comment">// browser. To do this we get ahold of the `this` object (in a bit</span>
+            <span class="comment">// of a roundabout fashion).</span>
+            <span class="comment">//</span>
+            <span class="comment">// Once we have `this` we look at its `self` property, which is</span>
+            <span class="comment">// only defined on the web (either a main window or web worker).</span>
+            <span class="kw">let</span> <span class="ident">this</span> <span class="op">=</span> <span class="ident">Function</span>::<span class="ident">new</span>(<span class="string">&quot;return this&quot;</span>).<span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="ident">JsValue</span>::<span class="ident">undefined</span>());
+            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">this</span> <span class="op">!=</span> <span class="ident">JsValue</span>::<span class="ident">undefined</span>());
+            <span class="kw">let</span> <span class="ident">this</span> <span class="op">=</span> <span class="ident">This</span>::<span class="ident">from</span>(<span class="ident">this</span>);
+            <span class="kw">let</span> <span class="ident">is_browser</span> <span class="op">=</span> <span class="ident">this</span>.<span class="ident">self_</span>() <span class="op">!=</span> <span class="ident">JsValue</span>::<span class="ident">undefined</span>();
+
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">is_browser</span> {
+                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">OsRng</span>::<span class="ident">Node</span>(<span class="ident">node_require</span>(<span class="string">&quot;crypto&quot;</span>)))
+            }
+
+            <span class="comment">// If `self` is defined then we&#39;re in a browser somehow (main window</span>
+            <span class="comment">// or web worker). Here we want to try to use</span>
+            <span class="comment">// `crypto.getRandomValues`, but if `crypto` isn&#39;t defined we assume</span>
+            <span class="comment">// we&#39;re in an older web browser and the OS RNG isn&#39;t available.</span>
+            <span class="kw">let</span> <span class="ident">crypto</span> <span class="op">=</span> <span class="ident">this</span>.<span class="ident">crypto</span>();
+            <span class="kw">if</span> <span class="ident">crypto</span>.<span class="ident">is_undefined</span>() {
+                <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="string">&quot;self.crypto is undefined&quot;</span>;
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">ErrorKind</span>::<span class="ident">Unavailable</span>, <span class="ident">msg</span>))
+            }
+
+            <span class="comment">// Test if `crypto.getRandomValues` is undefined as well</span>
+            <span class="kw">let</span> <span class="ident">crypto</span>: <span class="ident">BrowserCrypto</span> <span class="op">=</span> <span class="ident">crypto</span>.<span class="ident">into</span>();
+            <span class="kw">if</span> <span class="ident">crypto</span>.<span class="ident">get_random_values_fn</span>().<span class="ident">is_undefined</span>() {
+                <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="string">&quot;crypto.getRandomValues is undefined&quot;</span>;
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">ErrorKind</span>::<span class="ident">Unavailable</span>, <span class="ident">msg</span>))
+            }
+
+            <span class="comment">// Ok! `self.crypto.getRandomValues` is a defined value, so let&#39;s</span>
+            <span class="comment">// assume we can do browser crypto.</span>
+            <span class="prelude-val">Ok</span>(<span class="ident">OsRng</span>::<span class="ident">Browser</span>(<span class="ident">crypto</span>))
+        }
+
+        <span class="kw">fn</span> <span class="ident">fill_chunk</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">dest</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+            <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
+                <span class="ident">OsRng</span>::<span class="ident">Node</span>(<span class="kw-2">ref</span> <span class="ident">n</span>) <span class="op">=&gt;</span> <span class="ident">n</span>.<span class="ident">random_fill_sync</span>(<span class="ident">dest</span>),
+                <span class="ident">OsRng</span>::<span class="ident">Browser</span>(<span class="kw-2">ref</span> <span class="ident">n</span>) <span class="op">=&gt;</span> <span class="ident">n</span>.<span class="ident">get_random_values</span>(<span class="ident">dest</span>),
+            }
+            <span class="prelude-val">Ok</span>(())
+        }
+
+        <span class="kw">fn</span> <span class="ident">max_chunk_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
+            <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
+                <span class="ident">OsRng</span>::<span class="ident">Node</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">usize</span>::<span class="ident">max_value</span>(),
+                <span class="ident">OsRng</span>::<span class="ident">Browser</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {
+                    <span class="comment">// see https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues</span>
+                    <span class="comment">//</span>
+                    <span class="comment">// where it says:</span>
+                    <span class="comment">//</span>
+                    <span class="comment">// &gt; A QuotaExceededError DOMException is thrown if the</span>
+                    <span class="comment">// &gt; requested length is greater than 65536 bytes.</span>
+                    <span class="number">65536</span>
+                }
+            }
+        }
+
+        <span class="kw">fn</span> <span class="ident">method_str</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
+            <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
+                <span class="ident">OsRng</span>::<span class="ident">Node</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="string">&quot;crypto.randomFillSync&quot;</span>,
+                <span class="ident">OsRng</span>::<span class="ident">Browser</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="string">&quot;crypto.getRandomValues&quot;</span>,
+            }
+        }
+    }
+}
+
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="ident">RngCore</span>;
-    <span class="kw">use</span> <span class="ident">OsRng</span>;
+    <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">OsRng</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_os_rng</span>() {

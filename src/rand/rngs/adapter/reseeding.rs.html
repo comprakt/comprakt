@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/rand-0.5.5/src/rngs/adapter/reseeding.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reseeding.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script src="../../../../storage.js"></script><link rel="shortcut icon" href="https://www.rust-lang.org/favicon.ico"></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../../rand/index.html'><img src='https://www.rust-lang.org/logos/rust-logo-128x128-blk.png' alt='logo' width='100'></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/rand-0.6.1/src/rngs/adapter/reseeding.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>reseeding.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script src="../../../../storage.js"></script><link rel="shortcut icon" href="https://www.rust-lang.org/favicon.ico"></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../../rand/index.html'><img src='https://www.rust-lang.org/logos/rust-logo-128x128-blk.png' alt='logo' width='100'></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -258,10 +258,119 @@
 <span id="258">258</span>
 <span id="259">259</span>
 <span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
 </pre><pre class="rust ">
-<span class="comment">// Copyright 2013 The Rust Project Developers. See the COPYRIGHT</span>
-<span class="comment">// file at the top-level directory of this distribution and at</span>
-<span class="comment">// https://rust-lang.org/COPYRIGHT.</span>
+<span class="comment">// Copyright 2018 Developers of the Rand project.</span>
+<span class="comment">// Copyright 2013 The Rust Project Developers.</span>
 <span class="comment">//</span>
 <span class="comment">// Licensed under the Apache License, Version 2.0 &lt;LICENSE-APACHE or</span>
 <span class="comment">// https://www.apache.org/licenses/LICENSE-2.0&gt; or the MIT license</span>
@@ -277,44 +386,75 @@
 <span class="kw">use</span> <span class="ident">rand_core</span>::{<span class="ident">RngCore</span>, <span class="ident">CryptoRng</span>, <span class="ident">SeedableRng</span>, <span class="ident">Error</span>, <span class="ident">ErrorKind</span>};
 <span class="kw">use</span> <span class="ident">rand_core</span>::<span class="ident">block</span>::{<span class="ident">BlockRngCore</span>, <span class="ident">BlockRng</span>};
 
-<span class="doccomment">/// A wrapper around any PRNG which reseeds the underlying PRNG after it has</span>
-<span class="doccomment">/// generated a certain number of random bytes.</span>
+<span class="doccomment">/// A wrapper around any PRNG that implements [`BlockRngCore`], that adds the</span>
+<span class="doccomment">/// ability to reseed it.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// When the RNG gets cloned, the clone is reseeded on first use.</span>
+<span class="doccomment">/// `ReseedingRng` reseeds the underlying PRNG in the following cases:</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Reseeding is never strictly *necessary*. Cryptographic PRNGs don&#39;t have a</span>
-<span class="doccomment">/// limited number of bytes they can output, or at least not a limit reachable</span>
-<span class="doccomment">/// in any practical way. There is no such thing as &#39;running out of entropy&#39;.</span>
+<span class="doccomment">/// - On a manual call to [`reseed()`].</span>
+<span class="doccomment">/// - After `clone()`, the clone will be reseeded on first use.</span>
+<span class="doccomment">/// - After a process is forked, the RNG in the child process is reseeded within</span>
+<span class="doccomment">///   the next few generated values, depending on the block size of the</span>
+<span class="doccomment">///   underlying PRNG. For [`ChaChaCore`] and [`Hc128Core`] this is a maximum of</span>
+<span class="doccomment">///   15 `u32` values before reseeding.</span>
+<span class="doccomment">/// - After the PRNG has generated a configurable number of random bytes.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Some small non-cryptographic PRNGs can have very small periods, for</span>
-<span class="doccomment">/// example less than 2&lt;sup&gt;64&lt;/sup&gt;. Would reseeding help to ensure that you do</span>
-<span class="doccomment">/// not wrap around at the end of the period? A period of 2&lt;sup&gt;64&lt;/sup&gt; still</span>
-<span class="doccomment">/// takes several centuries of CPU-years on current hardware. Reseeding will</span>
-<span class="doccomment">/// actually make things worse, because the reseeded PRNG will just continue</span>
-<span class="doccomment">/// somewhere else *in the same period*, with a high chance of overlapping with</span>
-<span class="doccomment">/// previously used parts of it.</span>
+<span class="doccomment">/// # When should reseeding after a fixed number of generated bytes be used?</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// # When should you use `ReseedingRng`?</span>
+<span class="doccomment">/// Reseeding after a fixed number of generated bytes is never strictly</span>
+<span class="doccomment">/// *necessary*. Cryptographic PRNGs don&#39;t have a limited number of bytes they</span>
+<span class="doccomment">/// can output, or at least not a limit reachable in any practical way. There is</span>
+<span class="doccomment">/// no such thing as &#39;running out of entropy&#39;.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// - Reseeding can be seen as some form of &#39;security in depth&#39;. Even if in the</span>
-<span class="doccomment">///   future a cryptographic weakness is found in the CSPRNG being used,</span>
-<span class="doccomment">///   occasionally reseeding should make exploiting it much more difficult or</span>
-<span class="doccomment">///   even impossible.</span>
-<span class="doccomment">/// - It can be used as a poor man&#39;s cryptography (not recommended, just use a</span>
-<span class="doccomment">///   good CSPRNG). Previous implementations of `thread_rng` for example used</span>
-<span class="doccomment">///   `ReseedingRng` with the ISAAC RNG. That algorithm, although apparently</span>
-<span class="doccomment">///   strong and with no known attack, does not come with any proof of security</span>
-<span class="doccomment">///   and does not meet the current standards for a cryptographically secure</span>
-<span class="doccomment">///   PRNG. By reseeding it frequently (every 32 kiB) it seems safe to assume</span>
-<span class="doccomment">///   there is no attack that can operate on the tiny window between reseeds.</span>
+<span class="doccomment">/// Occasionally reseeding can be seen as some form of &#39;security in depth&#39;. Even</span>
+<span class="doccomment">/// if in the future a cryptographic weakness is found in the CSPRNG being used,</span>
+<span class="doccomment">/// or a flaw in the implementation, occasionally reseeding should make</span>
+<span class="doccomment">/// exploiting it much more difficult or even impossible.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Use [`ReseedingRng::new`] with a `threshold` of `0` to disable reseeding</span>
+<span class="doccomment">/// after a fixed number of generated bytes.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Error handling</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Although extremely unlikely, reseeding the wrapped PRNG can fail.</span>
-<span class="doccomment">/// `ReseedingRng` will never panic but try to handle the error intelligently</span>
-<span class="doccomment">/// through some combination of retrying and delaying reseeding until later.</span>
+<span class="doccomment">/// Although unlikely, reseeding the wrapped PRNG can fail. `ReseedingRng` will</span>
+<span class="doccomment">/// never panic but try to handle the error intelligently through some</span>
+<span class="doccomment">/// combination of retrying and delaying reseeding until later.</span>
 <span class="doccomment">/// If handling the source error fails `ReseedingRng` will continue generating</span>
 <span class="doccomment">/// data from the wrapped PRNG without reseeding.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Manually calling [`reseed()`] will not have this retry or delay logic, but</span>
+<span class="doccomment">/// reports the error.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Example</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">/// # extern crate rand;</span>
+<span class="doccomment">/// # extern crate rand_chacha;</span>
+<span class="doccomment">/// # fn main() {</span>
+<span class="doccomment">/// use rand::prelude::*;</span>
+<span class="doccomment">/// use rand_chacha::ChaChaCore; // Internal part of ChaChaRng that</span>
+<span class="doccomment">///                              // implements BlockRngCore</span>
+<span class="doccomment">/// use rand::rngs::OsRng;</span>
+<span class="doccomment">/// use rand::rngs::adapter::ReseedingRng;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// let prng = ChaChaCore::from_entropy();</span>
+<span class="comment">// FIXME: it is better to use EntropyRng as reseeder, but that doesn&#39;t implement</span>
+<span class="comment">// clone yet.</span>
+<span class="doccomment">/// let reseeder = OsRng::new().unwrap();</span>
+<span class="doccomment">/// let mut reseeding_rng = ReseedingRng::new(prng, 0, reseeder);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// println!(&quot;{}&quot;, reseeding_rng.gen::&lt;u64&gt;());</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// let mut cloned_rng = reseeding_rng.clone();</span>
+<span class="doccomment">/// assert!(reseeding_rng.gen::&lt;u64&gt;() != cloned_rng.gen::&lt;u64&gt;());</span>
+<span class="doccomment">/// # }</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// [`ChaChaCore`]: ../../../rand_chacha/struct.ChaChaCore.html</span>
+<span class="doccomment">/// [`Hc128Core`]: ../../../rand_hc/struct.Hc128Core.html</span>
+<span class="doccomment">/// [`BlockRngCore`]: ../../../rand_core/block/trait.BlockRngCore.html</span>
+<span class="doccomment">/// [`ReseedingRng::new`]: struct.ReseedingRng.html#method.new</span>
+<span class="doccomment">/// [`reseed()`]: struct.ReseedingRng.html#method.reseed</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ReseedingRng</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">Rsdr</span><span class="op">&gt;</span>(<span class="ident">BlockRng</span><span class="op">&lt;</span><span class="ident">ReseedingCore</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">Rsdr</span><span class="op">&gt;&gt;</span>)
 <span class="kw">where</span> <span class="ident">R</span>: <span class="ident">BlockRngCore</span> <span class="op">+</span> <span class="ident">SeedableRng</span>,
@@ -324,13 +464,12 @@
 <span class="kw">where</span> <span class="ident">R</span>: <span class="ident">BlockRngCore</span> <span class="op">+</span> <span class="ident">SeedableRng</span>,
       <span class="ident">Rsdr</span>: <span class="ident">RngCore</span>
 {
-    <span class="doccomment">/// Create a new `ReseedingRng` with the given parameters.</span>
+    <span class="doccomment">/// Create a new `ReseedingRng` from an existing PRNG, combined with a RNG</span>
+    <span class="doccomment">/// to use as reseeder.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// # Arguments</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// * `rng`: the random number generator to use.</span>
-    <span class="doccomment">/// * `threshold`: the number of generated bytes after which to reseed the RNG.</span>
-    <span class="doccomment">/// * `reseeder`: the RNG to use for reseeding.</span>
+    <span class="doccomment">/// `threshold` sets the number of generated bytes after which to reseed the</span>
+    <span class="doccomment">/// PRNG. Set it to zero to never reseed based on the number of generated</span>
+    <span class="doccomment">/// values.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">rng</span>: <span class="ident">R</span>, <span class="ident">threshold</span>: <span class="ident">u64</span>, <span class="ident">reseeder</span>: <span class="ident">Rsdr</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">ReseedingRng</span>(<span class="ident">BlockRng</span>::<span class="ident">new</span>(<span class="ident">ReseedingCore</span>::<span class="ident">new</span>(<span class="ident">rng</span>, <span class="ident">threshold</span>, <span class="ident">reseeder</span>)))
     }
@@ -387,6 +526,7 @@
     <span class="ident">reseeder</span>: <span class="ident">Rsdr</span>,
     <span class="ident">threshold</span>: <span class="ident">i64</span>,
     <span class="ident">bytes_until_reseed</span>: <span class="ident">i64</span>,
+    <span class="ident">fork_counter</span>: <span class="ident">usize</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">Rsdr</span><span class="op">&gt;</span> <span class="ident">BlockRngCore</span> <span class="kw">for</span> <span class="ident">ReseedingCore</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">Rsdr</span><span class="op">&gt;</span>
@@ -397,11 +537,13 @@
     <span class="kw">type</span> <span class="ident">Results</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">R</span> <span class="kw">as</span> <span class="ident">BlockRngCore</span><span class="op">&gt;</span>::<span class="ident">Results</span>;
 
     <span class="kw">fn</span> <span class="ident">generate</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">results</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span>::<span class="ident">Results</span>) {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">bytes_until_reseed</span> <span class="op">&lt;=</span> <span class="number">0</span> {
-            <span class="comment">// We get better performance by not calling only `auto_reseed` here</span>
+        <span class="kw">let</span> <span class="ident">global_fork_counter</span> <span class="op">=</span> <span class="ident">fork</span>::<span class="ident">get_fork_counter</span>();
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">bytes_until_reseed</span> <span class="op">&lt;=</span> <span class="number">0</span> <span class="op">||</span>
+           <span class="self">self</span>.<span class="ident">is_forked</span>(<span class="ident">global_fork_counter</span>) {
+            <span class="comment">// We get better performance by not calling only `reseed` here</span>
             <span class="comment">// and continuing with the rest of the function, but by directly</span>
             <span class="comment">// returning from a non-inlined function.</span>
-            <span class="kw">return</span> <span class="self">self</span>.<span class="ident">reseed_and_generate</span>(<span class="ident">results</span>);
+            <span class="kw">return</span> <span class="self">self</span>.<span class="ident">reseed_and_generate</span>(<span class="ident">results</span>, <span class="ident">global_fork_counter</span>);
         }
         <span class="kw">let</span> <span class="ident">num_bytes</span> <span class="op">=</span> <span class="ident">results</span>.<span class="ident">as_ref</span>().<span class="ident">len</span>() <span class="op">*</span> <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Item</span><span class="op">&gt;</span>();
         <span class="self">self</span>.<span class="ident">bytes_until_reseed</span> <span class="op">-=</span> <span class="ident">num_bytes</span> <span class="kw">as</span> <span class="ident">i64</span>;
@@ -413,20 +555,26 @@
 <span class="kw">where</span> <span class="ident">R</span>: <span class="ident">BlockRngCore</span> <span class="op">+</span> <span class="ident">SeedableRng</span>,
       <span class="ident">Rsdr</span>: <span class="ident">RngCore</span>
 {
-    <span class="doccomment">/// Create a new `ReseedingCore` with the given parameters.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Arguments</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// * `rng`: the random number generator to use.</span>
-    <span class="doccomment">/// * `threshold`: the number of generated bytes after which to reseed the RNG.</span>
-    <span class="doccomment">/// * `reseeder`: the RNG to use for reseeding.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">rng</span>: <span class="ident">R</span>, <span class="ident">threshold</span>: <span class="ident">u64</span>, <span class="ident">reseeder</span>: <span class="ident">Rsdr</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">threshold</span> <span class="op">&lt;=</span> ::<span class="ident">core</span>::<span class="ident">i64</span>::<span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
+    <span class="doccomment">/// Create a new `ReseedingCore`.</span>
+    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">rng</span>: <span class="ident">R</span>, <span class="ident">threshold</span>: <span class="ident">u64</span>, <span class="ident">reseeder</span>: <span class="ident">Rsdr</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="kw">use</span> ::<span class="ident">core</span>::<span class="ident">i64</span>::<span class="ident">MAX</span>;
+        <span class="ident">fork</span>::<span class="ident">register_fork_handler</span>();
+
+        <span class="comment">// Because generating more values than `i64::MAX` takes centuries on</span>
+        <span class="comment">// current hardware, we just clamp to that value.</span>
+        <span class="comment">// Also we set a threshold of 0, which indicates no limit, to that</span>
+        <span class="comment">// value.</span>
+        <span class="kw">let</span> <span class="ident">threshold</span> <span class="op">=</span>
+            <span class="kw">if</span> <span class="ident">threshold</span> <span class="op">==</span> <span class="number">0</span> { <span class="ident">MAX</span> }
+            <span class="kw">else</span> <span class="kw">if</span> <span class="ident">threshold</span> <span class="op">&lt;=</span> <span class="ident">MAX</span> <span class="kw">as</span> <span class="ident">u64</span> { <span class="ident">threshold</span> <span class="kw">as</span> <span class="ident">i64</span> }
+            <span class="kw">else</span> { <span class="ident">MAX</span> };
+
         <span class="ident">ReseedingCore</span> {
             <span class="ident">inner</span>: <span class="ident">rng</span>,
             <span class="ident">reseeder</span>,
             <span class="ident">threshold</span>: <span class="ident">threshold</span> <span class="kw">as</span> <span class="ident">i64</span>,
             <span class="ident">bytes_until_reseed</span>: <span class="ident">threshold</span> <span class="kw">as</span> <span class="ident">i64</span>,
+            <span class="ident">fork_counter</span>: <span class="number">0</span>,
         }
     }
 
@@ -438,26 +586,48 @@
         })
     }
 
+    <span class="kw">fn</span> <span class="ident">is_forked</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">global_fork_counter</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="comment">// In theory, on 32-bit platforms, it is possible for</span>
+        <span class="comment">// `global_fork_counter` to wrap around after ~4e9 forks.</span>
+        <span class="comment">//</span>
+        <span class="comment">// This check will detect a fork in the normal case where</span>
+        <span class="comment">// `fork_counter &lt; global_fork_counter`, and also when the difference</span>
+        <span class="comment">// between both is greater than `isize::MAX` (wrapped around).</span>
+        <span class="comment">//</span>
+        <span class="comment">// It will still fail to detect a fork if there have been more than</span>
+        <span class="comment">// `isize::MAX` forks, without any reseed in between. Seems unlikely</span>
+        <span class="comment">// enough.</span>
+        (<span class="self">self</span>.<span class="ident">fork_counter</span>.<span class="ident">wrapping_sub</span>(<span class="ident">global_fork_counter</span>) <span class="kw">as</span> <span class="ident">isize</span>) <span class="op">&lt;</span> <span class="number">0</span>
+    }
+
     <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
     <span class="kw">fn</span> <span class="ident">reseed_and_generate</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-                           <span class="ident">results</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="op">&lt;</span><span class="self">Self</span> <span class="kw">as</span> <span class="ident">BlockRngCore</span><span class="op">&gt;</span>::<span class="ident">Results</span>)
+                           <span class="ident">results</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="op">&lt;</span><span class="self">Self</span> <span class="kw">as</span> <span class="ident">BlockRngCore</span><span class="op">&gt;</span>::<span class="ident">Results</span>,
+                           <span class="ident">global_fork_counter</span>: <span class="ident">usize</span>)
     {
-        <span class="macro">trace</span><span class="macro">!</span>(<span class="string">&quot;Reseeding RNG after {} generated bytes&quot;</span>,
-               <span class="self">self</span>.<span class="ident">threshold</span> <span class="op">-</span> <span class="self">self</span>.<span class="ident">bytes_until_reseed</span>);
-        <span class="kw">let</span> <span class="ident">threshold</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">reseed</span>()  {
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_forked</span>(<span class="ident">global_fork_counter</span>) {
+            <span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;Fork detected, reseeding RNG&quot;</span>);
+        } <span class="kw">else</span> {
+            <span class="macro">trace</span><span class="macro">!</span>(<span class="string">&quot;Reseeding RNG (periodic reseed)&quot;</span>);
+        }
+
+        <span class="kw">let</span> <span class="ident">num_bytes</span> <span class="op">=</span>
+            <span class="ident">results</span>.<span class="ident">as_ref</span>().<span class="ident">len</span>() <span class="op">*</span> <span class="ident">size_of</span>::<span class="op">&lt;&lt;</span><span class="ident">R</span> <span class="kw">as</span> <span class="ident">BlockRngCore</span><span class="op">&gt;</span>::<span class="ident">Item</span><span class="op">&gt;</span>();
+
+        <span class="kw">let</span> <span class="ident">threshold</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">reseed</span>() {
             <span class="kw">let</span> <span class="ident">delay</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">e</span>.<span class="ident">kind</span> {
-                <span class="ident">ErrorKind</span>::<span class="ident">Transient</span> <span class="op">=&gt;</span> <span class="number">0</span>,
+                <span class="ident">ErrorKind</span>::<span class="ident">Transient</span> <span class="op">=&gt;</span> <span class="ident">num_bytes</span> <span class="kw">as</span> <span class="ident">i64</span>,
                 <span class="ident">kind</span> @ <span class="kw">_</span> <span class="kw">if</span> <span class="ident">kind</span>.<span class="ident">should_retry</span>() <span class="op">=&gt;</span> <span class="self">self</span>.<span class="ident">threshold</span> <span class="op">&gt;&gt;</span> <span class="number">8</span>,
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="self">self</span>.<span class="ident">threshold</span>,
             };
             <span class="macro">warn</span><span class="macro">!</span>(<span class="string">&quot;Reseeding RNG delayed reseeding by {} bytes due to \
-                    error from source: {}&quot;</span>, <span class="ident">delay</span>, <span class="ident">e</span>);
+                   error from source: {}&quot;</span>, <span class="ident">delay</span>, <span class="ident">e</span>);
             <span class="ident">delay</span>
         } <span class="kw">else</span> {
+            <span class="self">self</span>.<span class="ident">fork_counter</span> <span class="op">=</span> <span class="ident">global_fork_counter</span>;
             <span class="self">self</span>.<span class="ident">threshold</span>
         };
-        
-        <span class="kw">let</span> <span class="ident">num_bytes</span> <span class="op">=</span> <span class="ident">results</span>.<span class="ident">as_ref</span>().<span class="ident">len</span>() <span class="op">*</span> <span class="ident">size_of</span>::<span class="op">&lt;&lt;</span><span class="ident">R</span> <span class="kw">as</span> <span class="ident">BlockRngCore</span><span class="op">&gt;</span>::<span class="ident">Item</span><span class="op">&gt;</span>();
+
         <span class="self">self</span>.<span class="ident">bytes_until_reseed</span> <span class="op">=</span> <span class="ident">threshold</span> <span class="op">-</span> <span class="ident">num_bytes</span> <span class="kw">as</span> <span class="ident">i64</span>;
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">generate</span>(<span class="ident">results</span>);
     }
@@ -473,6 +643,7 @@
             <span class="ident">reseeder</span>: <span class="self">self</span>.<span class="ident">reseeder</span>.<span class="ident">clone</span>(),
             <span class="ident">threshold</span>: <span class="self">self</span>.<span class="ident">threshold</span>,
             <span class="ident">bytes_until_reseed</span>: <span class="number">0</span>, <span class="comment">// reseed clone on first use</span>
+            <span class="ident">fork_counter</span>: <span class="self">self</span>.<span class="ident">fork_counter</span>,
         }
     }
 }
@@ -481,10 +652,59 @@
 <span class="kw">where</span> <span class="ident">R</span>: <span class="ident">BlockRngCore</span> <span class="op">+</span> <span class="ident">SeedableRng</span> <span class="op">+</span> <span class="ident">CryptoRng</span>,
       <span class="ident">Rsdr</span>: <span class="ident">RngCore</span> <span class="op">+</span> <span class="ident">CryptoRng</span> {}
 
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span><span class="op">=</span><span class="string">&quot;std&quot;</span>, <span class="ident">unix</span>, <span class="ident">not</span>(<span class="ident">target_os</span><span class="op">=</span><span class="string">&quot;emscripten&quot;</span>)))]</span>
+<span class="kw">mod</span> <span class="ident">fork</span> {
+    <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">libc</span>;
+
+    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">atomic</span>::{<span class="ident">AtomicUsize</span>, <span class="ident">ATOMIC_USIZE_INIT</span>, <span class="ident">Ordering</span>};
+    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">atomic</span>::{<span class="ident">AtomicBool</span>, <span class="ident">ATOMIC_BOOL_INIT</span>};
+
+    <span class="comment">// Fork protection</span>
+    <span class="comment">//</span>
+    <span class="comment">// We implement fork protection on Unix using `pthread_atfork`.</span>
+    <span class="comment">// When the process is forked, we increment `RESEEDING_RNG_FORK_COUNTER`.</span>
+    <span class="comment">// Every `ReseedingRng` stores the last known value of the static in</span>
+    <span class="comment">// `fork_counter`. If the cached `fork_counter` is less than</span>
+    <span class="comment">// `RESEEDING_RNG_FORK_COUNTER`, it is time to reseed this RNG.</span>
+    <span class="comment">//</span>
+    <span class="comment">// If reseeding fails, we don&#39;t deal with this by setting a delay, but just</span>
+    <span class="comment">// don&#39;t update `fork_counter`, so a reseed is attempted as soon as</span>
+    <span class="comment">// possible.</span>
+
+    <span class="kw">static</span> <span class="ident">RESEEDING_RNG_FORK_COUNTER</span>: <span class="ident">AtomicUsize</span> <span class="op">=</span> <span class="ident">ATOMIC_USIZE_INIT</span>;
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_fork_counter</span>() <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="ident">RESEEDING_RNG_FORK_COUNTER</span>.<span class="ident">load</span>(<span class="ident">Ordering</span>::<span class="ident">Relaxed</span>)
+    }
+
+    <span class="kw">static</span> <span class="ident">FORK_HANDLER_REGISTERED</span>: <span class="ident">AtomicBool</span> <span class="op">=</span> <span class="ident">ATOMIC_BOOL_INIT</span>;
+
+    <span class="kw">extern</span> <span class="kw">fn</span> <span class="ident">fork_handler</span>() {
+        <span class="comment">// Note: fetch_add is defined to wrap on overflow</span>
+        <span class="comment">// (which is what we want).</span>
+        <span class="ident">RESEEDING_RNG_FORK_COUNTER</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">Relaxed</span>);
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">register_fork_handler</span>() {
+        <span class="kw">if</span> <span class="ident">FORK_HANDLER_REGISTERED</span>.<span class="ident">load</span>(<span class="ident">Ordering</span>::<span class="ident">Relaxed</span>) <span class="op">==</span> <span class="bool-val">false</span> {
+            <span class="kw">unsafe</span> { <span class="ident">libc</span>::<span class="ident">pthread_atfork</span>(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="ident">fork_handler</span>)) };
+            <span class="ident">FORK_HANDLER_REGISTERED</span>.<span class="ident">store</span>(<span class="bool-val">true</span>, <span class="ident">Ordering</span>::<span class="ident">Relaxed</span>);
+        }
+    }
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">all</span>(<span class="ident">feature</span><span class="op">=</span><span class="string">&quot;std&quot;</span>, <span class="ident">unix</span>, <span class="ident">not</span>(<span class="ident">target_os</span><span class="op">=</span><span class="string">&quot;emscripten&quot;</span>))))]</span>
+<span class="kw">mod</span> <span class="ident">fork</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_fork_counter</span>() <span class="op">-&gt;</span> <span class="ident">usize</span> { <span class="number">0</span> }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">register_fork_handler</span>() {}
+}
+
+
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> {<span class="ident">Rng</span>, <span class="ident">SeedableRng</span>};
-    <span class="kw">use</span> <span class="ident">prng</span>::<span class="ident">chacha</span>::<span class="ident">ChaChaCore</span>;
+    <span class="kw">use</span> <span class="ident">rand_chacha</span>::<span class="ident">ChaChaCore</span>;
     <span class="kw">use</span> <span class="ident">rngs</span>::<span class="ident">mock</span>::<span class="ident">StepRng</span>;
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">ReseedingRng</span>;
 
