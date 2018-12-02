@@ -83,7 +83,7 @@ pub fn gen_binary_integration_tests(_args: TokenStream) -> TokenStream {
 
                 let mut stdin_path = with_extension(&binary_path, ".stdin");
                 if stdin_path.is_file() {
-                    let stdin = File::open(&stdin_path).expect("failed to open stdin reference file");
+                    let stdin = File::open(&stdin_path).expect("failed to open stdin file");
                     cmd.stdin(stdin);
                 }
 
