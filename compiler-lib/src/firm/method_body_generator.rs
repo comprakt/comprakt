@@ -154,13 +154,12 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
         // Run body if cond is true
         let body_block = self.graph.new_imm_block(tr);
-        {
-            self.graph.set_cur_block(body_block);
-            self.gen_stmt(&*body);
+        self.graph.set_cur_block(body_block);
+        self.gen_stmt(&*body);
+        let body_block = self.graph.cur_block();
 
-            // We jump back to the condition-check
-            header_block.add_pred(&body_block.new_jmp());
-        }
+        // We jump back to the condition-check
+        header_block.add_pred(&body_block.new_jmp());
 
         // Leave loop if cond is false
         let next_block = self.graph.new_imm_block(fls);
@@ -191,10 +190,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
         // If its true, we take the then_arm
         let then_block = self.graph.new_imm_block(tr);
-        {
-            self.graph.set_cur_block(then_block);
-            self.gen_stmt(&*then_arm);
-        }
+        self.graph.set_cur_block(then_block);
+        self.gen_stmt(&*then_arm);
+        let then_block = self.graph.cur_block();
 
         // If its false, we take the else_arm
         // We generate an else_block in any case, when there is no `else`, it's empty
@@ -203,6 +201,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             self.graph.set_cur_block(else_block);
             self.gen_stmt(&**else_arm);
         }
+        let else_block = self.graph.cur_block();
 
         header_block.mature();
 
