@@ -1,7 +1,11 @@
 //! This is the runtime automatically linked into
 //! the compiled mini java file
 use libc::{c_int, c_void};
-use std::io::{stdin, stdout, Read, Write};
+use libc_extra::unix::stdio::stdout;
+use std::{
+    ffi::CStr,
+    io::{stdin, Read},
+};
 
 extern "C" {
     // this is the static main function of the minijava
@@ -71,7 +75,9 @@ pub extern "C" fn mjrt_system_in_read() -> MjInt {
 
 #[no_mangle]
 pub extern "C" fn mjrt_system_out_println(num: MjInt) {
-    println!("{}", num);
+    unsafe {
+        libc::printf(CStr::from_bytes_with_nul_unchecked(b"%d\n\0").as_ptr(), num);
+    }
 }
 
 #[no_mangle]
@@ -83,7 +89,9 @@ pub extern "C" fn mjrt_system_out_write(num: MjInt) {
 
 #[no_mangle]
 pub extern "C" fn mjrt_system_out_flush() {
-    stdout().flush().ok();
+    unsafe {
+        libc::fflush(stdout as *mut libc::FILE);
+    }
 }
 
 #[cfg(not(test))]

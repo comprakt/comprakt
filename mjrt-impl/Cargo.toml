@@ -9,6 +9,7 @@ crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 libc = "0.2"
+libc-extra = "0.3"
 backtrace = "0.2"
 
 [features]
