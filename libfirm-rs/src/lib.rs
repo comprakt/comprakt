@@ -245,6 +245,10 @@ impl Graph {
         block
     }
 
+    pub fn new_unreachable_block(self) -> Block {
+        Block(unsafe { new_r_immBlock(self.irg) })
+    }
+
     pub fn new_const(self, tarval: *mut ir_tarval) -> Const {
         unsafe { new_r_Const(self.irg, tarval) }.into()
     }

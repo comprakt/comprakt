@@ -24,6 +24,22 @@ pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     strtab: &'ir mut StringTable<'src>,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum LastBlockJumps {
+    Yes,
+    No,
+}
+
+impl LastBlockJumps {
+    fn jumps(self) -> bool {
+        use self::LastBlockJumps::*;
+        match self {
+            Yes => true,
+            No => false,
+        }
+    }
+}
+
 impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     pub(super) fn new(
         graph: Graph,
@@ -71,10 +87,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     /// Generate IR for a method body
     pub fn gen_method(&mut self, body: &ast::Block<'src>) {
         self.graph.set_cur_block(self.graph.start_block());
-        self.gen_block(body);
+        let block_returns = self.gen_block(body);
 
-        // Void functions have an implicit return in the end
-        if self.method_def.return_ty == CheckedType::Void {
+        if !block_returns.jumps() {
             let mem = self.graph.cur_store();
             let ret = self.graph.cur_block().new_return(mem, None);
             self.graph.end_block().add_pred(&ret);
@@ -85,25 +100,33 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     }
 
     /// Generate IR for a whole block
-    fn gen_block(&mut self, block: &ast::Block<'src>) {
+    fn gen_block(&mut self, block: &ast::Block<'src>) -> LastBlockJumps {
         for stmt in &block.statements {
-            self.gen_stmt(&stmt);
+            if self.gen_stmt(&stmt).jumps() {
+                return LastBlockJumps::Yes;
+            }
         }
+
+        LastBlockJumps::No
     }
 
     /// Generate IR for a single statement
-    fn gen_stmt(&mut self, stmt: &ast::Stmt<'src>) {
+    fn gen_stmt(&mut self, stmt: &ast::Stmt<'src>) -> LastBlockJumps {
         use self::ast::Stmt::*;
         match &stmt {
             Block(block) => self.gen_block(block),
             Expression(expr) => {
                 self.gen_expr(expr);
+                LastBlockJumps::No
             }
             If(cond, then_arm, else_arm) => self.gen_if(cond, then_arm, else_arm),
             While(cond, body) => self.gen_while(cond, body),
             Return(res_expr) => self.gen_return(res_expr),
-            LocalVariableDeclaration(_ty, _name, init_expr) => self.gen_var_decl(stmt, init_expr),
-            Empty => (),
+            LocalVariableDeclaration(_ty, _name, init_expr) => {
+                self.gen_var_decl(stmt, init_expr);
+                LastBlockJumps::No
+            }
+            Empty => LastBlockJumps::No,
         }
     }
 
@@ -139,8 +162,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             .new_const(unsafe { new_tarval_from_long(value, mode) })
     }
 
-    fn gen_while(&mut self, cond: &ast::Expr<'src>, body: &ast::Stmt<'src>) {
-        // TODO DRY beginning nearly the same as If-case
+    fn gen_while(&mut self, cond: &ast::Expr<'src>, body: &ast::Stmt<'src>) -> LastBlockJumps {
         let prev_block = self.graph.cur_block();
 
         let incoming_jmp = prev_block.new_jmp();
@@ -155,18 +177,22 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         // Run body if cond is true
         let body_block = self.graph.new_imm_block(tr);
         self.graph.set_cur_block(body_block);
-        self.gen_stmt(&*body);
-        let body_block = self.graph.cur_block();
+        let body_jumps = self.gen_stmt(&*body);
 
-        // We jump back to the condition-check
-        header_block.add_pred(&body_block.new_jmp());
+        if !body_jumps.jumps() {
+            let body_block = self.graph.cur_block();
+            // We jump back to the condition-check
+            header_block.add_pred(&body_block.new_jmp());
+        }
 
         // Leave loop if cond is false
         let next_block = self.graph.new_imm_block(fls);
         self.graph.set_cur_block(next_block);
 
-        header_block.mature();
         body_block.mature();
+        header_block.mature();
+
+        LastBlockJumps::No
     }
 
     fn gen_if(
@@ -174,51 +200,72 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         cond: &ast::Expr<'src>,
         then_arm: &ast::Stmt<'src>,
         else_arm: &Option<Box<Spanned<'src, ast::Stmt<'src>>>>,
-    ) {
+    ) -> LastBlockJumps {
         let prev_block = self.graph.cur_block();
-
-        // TODO Do we really need an additional header_block? Can't we just put the
-        // new_cond in the prev_block?
-        let incoming_jmp = prev_block.new_jmp();
-        let header_block = self.graph.new_imm_block(&incoming_jmp);
-
-        prev_block.mature(); // This block is done now
-        self.graph.set_cur_block(header_block);
 
         // We evaluate the condition
         let CondProjection { tr, fls } = &self.gen_expr(cond).enforce_cond(self.graph);
 
         // If its true, we take the then_arm
-        let then_block = self.graph.new_imm_block(tr);
-        self.graph.set_cur_block(then_block);
-        self.gen_stmt(&*then_arm);
+        self.graph.set_cur_block(self.graph.new_imm_block(tr));
+        let then_block_jumps = self.gen_stmt(&*then_arm);
         let then_block = self.graph.cur_block();
 
         // If its false, we take the else_arm
-        // We generate an else_block in any case, when there is no `else`, it's empty
         let else_block = self.graph.new_imm_block(fls);
-        if let Some(else_arm) = else_arm {
-            self.graph.set_cur_block(else_block);
-            self.gen_stmt(&**else_arm);
-        }
+        self.graph.set_cur_block(else_block);
+        let else_block_jumps = if let Some(else_arm) = else_arm {
+            self.gen_stmt(&**else_arm)
+        } else {
+            LastBlockJumps::No
+        };
+
         let else_block = self.graph.cur_block();
 
-        header_block.mature();
+        prev_block.mature();
 
-        let from_then_jmp = then_block.new_jmp();
-        let from_else_jmp = else_block.new_jmp();
+        use self::LastBlockJumps::*;
+        match (then_block_jumps, else_block_jumps) {
+            (No, No) => {
+                let next_block = self.graph.new_unreachable_block();
 
-        // Now we close the if-diamond
-        let next_block = self.graph.new_imm_block(&from_then_jmp);
-        next_block.add_pred(&from_else_jmp);
-        self.graph.set_cur_block(next_block);
+                // Now we close the if-diamond
+                next_block.add_pred(&then_block.new_jmp());
+                next_block.add_pred(&else_block.new_jmp());
 
-        // Those blocks are finished now
-        then_block.mature();
-        else_block.mature();
+                self.graph.set_cur_block(next_block);
+                // Those blocks are finished now
+                then_block.mature();
+                else_block.mature();
+
+                LastBlockJumps::No
+            }
+
+            (No, Yes) => {
+                else_block.mature();
+                self.graph.set_cur_block(then_block);
+                LastBlockJumps::No
+            }
+
+            (Yes, No) => {
+                then_block.mature();
+                self.graph.set_cur_block(else_block);
+                LastBlockJumps::No
+            }
+
+            (Yes, Yes) => {
+                // Those blocks are finished now
+                then_block.mature();
+                else_block.mature();
+                LastBlockJumps::Yes
+            }
+        }
     }
 
-    fn gen_return(&mut self, res_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>) {
+    fn gen_return(
+        &mut self,
+        res_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>,
+    ) -> LastBlockJumps {
         let mem = self.graph.cur_store();
         let res = res_expr
             .as_ref()
@@ -227,6 +274,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let ret = self.graph.cur_block().new_return(mem, res);
 
         self.graph.end_block().add_pred(&ret);
+
+        LastBlockJumps::Yes
     }
 
     fn gen_static_fn_call(
