@@ -580,8 +580,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         macro_rules! enforce {
             (value, $lhs: ident, $rhs: ident) => {
                 let lhs = self.gen_expr(lhs);
-                let rhs = self.gen_expr(rhs);
                 let $lhs = lhs.enforce_value(self.graph);
+                let rhs = self.gen_expr(rhs);
                 let $rhs = rhs.enforce_value(self.graph);
             };
         }
