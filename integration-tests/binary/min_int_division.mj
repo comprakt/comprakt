@@ -1,0 +1,12 @@
+class Main {
+    public static void main(String[] args) {
+        int min_int = -2147483648;
+        System.out.println(min_int / -1);
+        System.out.println(min_int / -2);
+        System.out.println(min_int % -1);
+        System.out.println(min_int % -2);
+
+        System.out.println(-1 / min_int);
+        System.out.println(-1 % min_int);
+    }
+}
