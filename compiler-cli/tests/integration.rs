@@ -26,7 +26,10 @@ use std::{
     path::PathBuf,
     process::{Command, Output},
     sync::Mutex,
+    time::Duration,
 };
+
+const DEFAULT_TIMEOUT_SECONDS: u64 = 3;
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -383,3 +386,4 @@ gen_semantic_integration_tests!();
 gen_ast_inspector_tests!();
 gen_assembly_integration_tests!();
 gen_binary_integration_tests!();
+gen_timeout_integration_tests!();
