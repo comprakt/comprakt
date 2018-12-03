@@ -186,11 +186,13 @@ fn ty_from_checked_type(ct: &CheckedType<'_>) -> Option<Ty> {
     let ty = match ct {
         CheckedType::Int => PrimitiveType::i32(),
         CheckedType::Void => return None,
+        // TODO Should be `class_ty.pointer_to()`, but constructing class definitions is difficult
+        // then, because of recursive type definitions and use use-beforce-declare class definitions
         CheckedType::TypeRef(_) => PrimitiveType::ptr(),
         CheckedType::Array(checked_type) => ty_from_checked_type(checked_type)
             .expect("Arrays are never of type `void`")
-            .array()
-            .pointer(),
+            .array_of()
+            .pointer_to(),
         CheckedType::Boolean => PrimitiveType::bool(),
         CheckedType::Null => unreachable!(),
         CheckedType::UnknownType(_) => unreachable!(),

@@ -29,11 +29,11 @@ impl From<*mut ir_type> for Ty {
 }
 
 impl Ty {
-    pub fn pointer(self) -> Ty {
+    pub fn pointer_to(self) -> Ty {
         unsafe { new_type_pointer(self.into()) }.into()
     }
 
-    pub fn array(self) -> Ty {
+    pub fn array_of(self) -> Ty {
         unsafe { new_type_array(self.into(), 0) }.into()
     }
 
