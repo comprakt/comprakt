@@ -109,7 +109,7 @@ $(document).ready(function(){initNavTree('a00179.html','');});
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:gacbb834e54de0475e924289cbc9726b71"><td class="memItemLeft" align="right" valign="top"><a class="el" href="a00174.html#ga5b364a10caee62083a7247148e510de8">ir_type</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00179.html#gacbb834e54de0475e924289cbc9726b71">new_type_array</a> (<a class="el" href="a00174.html#ga5b364a10caee62083a7247148e510de8">ir_type</a> *element_type, unsigned n_elements)</td></tr>
-<tr class="memdesc:gacbb834e54de0475e924289cbc9726b71"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new type array with the given number of elements.  <a href="#gacbb834e54de0475e924289cbc9726b71">More...</a><br/></td></tr>
+<tr class="memdesc:gacbb834e54de0475e924289cbc9726b71"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new array type with <code>n_elements</code> of type <code>element_type</code>.  <a href="#gacbb834e54de0475e924289cbc9726b71">More...</a><br/></td></tr>
 <tr class="separator:gacbb834e54de0475e924289cbc9726b71"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga0caa00181e32d08ccce6e3cd8353c814"><td class="memItemLeft" align="right" valign="top">unsigned&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00179.html#ga0caa00181e32d08ccce6e3cd8353c814">get_array_size</a> (const <a class="el" href="a00174.html#ga5b364a10caee62083a7247148e510de8">ir_type</a> *array)</td></tr>
 <tr class="memdesc:ga0caa00181e32d08ccce6e3cd8353c814"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the size (number of elements) of an array.  <a href="#ga0caa00181e32d08ccce6e3cd8353c814">More...</a><br/></td></tr>
@@ -124,8 +124,8 @@ Functions</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <p>The array type represents linear arrangement of objects of the same type. </p>
 <ul>
-<li>*size: number of elements in the array.</li>
-<li>*element_type: The type of the array elements. </li>
+<li>size: The number of elements in the array.</li>
+<li>element_type: The type of the array elements. </li>
 </ul>
 <h2 class="groupheader">Function Documentation</h2>
 <a class="anchor" id="gaefe3a3dcc53edd273a762040f2f2831f"></a>
@@ -206,7 +206,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Create a new type array with the given number of elements. </p>
+<p>Create a new array type with <code>n_elements</code> of type <code>element_type</code>. </p>
 <p>0 elements designates an array of unknown length. </p>
 
 </div>
@@ -216,7 +216,7 @@ Functions</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun Dec 2 2018 19:12:34 for libFirm by
+    <li class="footer">Generated on Mon Dec 3 2018 20:36:42 for libFirm by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.6 </li>
   </ul>

@@ -134,7 +134,7 @@ Functions</h2></td></tr>
 <tr class="memdesc:gaa23494f080bea097da2c65ad9d11abcb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets a prefix filter for output functions.  <a href="#gaa23494f080bea097da2c65ad9d11abcb">More...</a><br/></td></tr>
 <tr class="separator:gaa23494f080bea097da2c65ad9d11abcb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga6f9be8fef31b1525a3bb7f4c9f6ed531"><td class="memItemLeft" align="right" valign="top">const char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00149.html#ga6f9be8fef31b1525a3bb7f4c9f6ed531">ir_get_dump_filter</a> (void)</td></tr>
-<tr class="memdesc:ga6f9be8fef31b1525a3bb7f4c9f6ed531"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the prefix filter set with <a class="el" href="a00149.html#gaa23494f080bea097da2c65ad9d11abcb" title="Sets a prefix filter for output functions. ">ir_set_dump_filter</a>.  <a href="#ga6f9be8fef31b1525a3bb7f4c9f6ed531">More...</a><br/></td></tr>
+<tr class="memdesc:ga6f9be8fef31b1525a3bb7f4c9f6ed531"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the substring filter set with <a class="el" href="a00149.html#gaa23494f080bea097da2c65ad9d11abcb" title="Sets a prefix filter for output functions. ">ir_set_dump_filter</a>.  <a href="#ga6f9be8fef31b1525a3bb7f4c9f6ed531">More...</a><br/></td></tr>
 <tr class="separator:ga6f9be8fef31b1525a3bb7f4c9f6ed531"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
@@ -318,7 +318,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Returns the prefix filter set with <a class="el" href="a00149.html#gaa23494f080bea097da2c65ad9d11abcb" title="Sets a prefix filter for output functions. ">ir_set_dump_filter</a>. </p>
+<p>Returns the substring filter set with <a class="el" href="a00149.html#gaa23494f080bea097da2c65ad9d11abcb" title="Sets a prefix filter for output functions. ">ir_set_dump_filter</a>. </p>
 
 </div>
 </div>
@@ -337,7 +337,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Sets a prefix filter for output functions. </p>
-<p>All graph dumpers check this name. If the name is != "" and not a prefix of the graph to be dumped, the dumper does not dump the graph.</p>
+<p>All graph dumpers check this name. If the name is != "" and not a substring of the graph to be dumped, the dumper does not dump the graph.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">name</td><td>The prefix of the name of the method entity to be dumped. </td></tr>
@@ -370,7 +370,7 @@ Functions</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun Dec 2 2018 19:12:34 for libFirm by
+    <li class="footer">Generated on Mon Dec 3 2018 20:36:42 for libFirm by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.6 </li>
   </ul>

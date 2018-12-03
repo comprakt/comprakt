@@ -121,6 +121,7 @@ Modules</h2></td></tr>
 <tr class="memitem:a00182"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00182.html">Code</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a00184"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00184.html">Compound</a></td></tr>
+<tr class="memdesc:a00184"><td class="mdescLeft">&#160;</td><td class="mdescRight">These functions are common to classes, structs and unions, collectively known as "compound types". <br/></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a00185"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00185.html">Frame</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -209,7 +210,7 @@ Functions</h2></td></tr>
 <tr class="memdesc:ga2b0b65fe6c45895268a224c9b8f85854"><td class="mdescLeft">&#160;</td><td class="mdescRight">Subclass check for pointers to classes.  <a href="#ga2b0b65fe6c45895268a224c9b8f85854">More...</a><br/></td></tr>
 <tr class="separator:ga2b0b65fe6c45895268a224c9b8f85854"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga04904040f3a16a740150af3bc1f3b0bb"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00174.html#ga04904040f3a16a740150af3bc1f3b0bb">is_overwritten_by</a> (<a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *high, <a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *low)</td></tr>
-<tr class="memdesc:ga04904040f3a16a740150af3bc1f3b0bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if high is (transitive) overwritten by low.  <a href="#ga04904040f3a16a740150af3bc1f3b0bb">More...</a><br/></td></tr>
+<tr class="memdesc:ga04904040f3a16a740150af3bc1f3b0bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if high is (transitively) overwritten by low.  <a href="#ga04904040f3a16a740150af3bc1f3b0bb">More...</a><br/></td></tr>
 <tr class="separator:ga04904040f3a16a740150af3bc1f3b0bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga9f3926ad411cd320f2154c8089c508a0"><td class="memItemLeft" align="right" valign="top"><a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00174.html#ga9f3926ad411cd320f2154c8089c508a0">resolve_ent_polymorphy</a> (<a class="el" href="a00174.html#ga5b364a10caee62083a7247148e510de8">ir_type</a> *dynamic_class, <a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *static_ent)</td></tr>
 <tr class="memdesc:ga9f3926ad411cd320f2154c8089c508a0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Resolve polymorphism in the inheritance relation.  <a href="#ga9f3926ad411cd320f2154c8089c508a0">More...</a><br/></td></tr>
@@ -257,7 +258,7 @@ Functions</h2></td></tr>
 <tr class="memdesc:gac357442f3d4c844cce8202d25238d21b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns next entity in a overwrites iteration started by <a class="el" href="a00174.html#gab275dd104b947f651d166ab83df3327e" title="Start iteration over all transitive overwritten entities, overwritten by entity ent. ">get_entity_trans_overwrites_first()</a>  <a href="#gac357442f3d4c844cce8202d25238d21b">More...</a><br/></td></tr>
 <tr class="separator:gac357442f3d4c844cce8202d25238d21b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga918f8d8af4c396f85a78eecd557b1219"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00174.html#ga918f8d8af4c396f85a78eecd557b1219">check_type</a> (const <a class="el" href="a00174.html#ga5b364a10caee62083a7247148e510de8">ir_type</a> *tp)</td></tr>
-<tr class="memdesc:ga918f8d8af4c396f85a78eecd557b1219"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks a type.  <a href="#ga918f8d8af4c396f85a78eecd557b1219">More...</a><br/></td></tr>
+<tr class="memdesc:ga918f8d8af4c396f85a78eecd557b1219"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks a type for memory corruption, dangling pointers and consistency.  <a href="#ga918f8d8af4c396f85a78eecd557b1219">More...</a><br/></td></tr>
 <tr class="separator:ga918f8d8af4c396f85a78eecd557b1219"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga644579129332f5be6c17ac058f12b7f7"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00174.html#ga644579129332f5be6c17ac058f12b7f7">tr_verify</a> (void)</td></tr>
 <tr class="memdesc:ga644579129332f5be6c17ac058f12b7f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Walks the type information and performs a set of sanity checks.  <a href="#ga644579129332f5be6c17ac058f12b7f7">More...</a><br/></td></tr>
@@ -368,7 +369,7 @@ Functions</h2></td></tr>
 <p>Returns true if high is superclass of low. </p>
 <p>Low is a subclass of high if low == high or if low is a subclass of a subclass of high. I.e, we search in all subtypes of high for low. @@ this can be implemented more efficient if we know the set of all subclasses of high. </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l00744">744</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l00746">746</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -397,9 +398,9 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Superclass check for pointers to classes. </p>
-<p>Dereferences at both types the same amount of pointer types (as many as possible). If the remaining types are both class types and superclasses, returns true, else false. Can also be called with two class types. </p>
+<p>Dereferences both types the same number of times (as much as possible). If the remaining types are both class types and superclasses, returns true, else false. Can also be called with two class types. </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l00752">752</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l00753">753</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -447,7 +448,7 @@ Functions</h2></td></tr>
 </td></tr>
 </table>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l00785">785</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l00786">786</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -473,7 +474,7 @@ Functions</h2></td></tr>
 </td></tr>
 </table>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l00890">890</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l00891">891</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -526,7 +527,7 @@ Functions</h2></td></tr>
 </td></tr>
 </table>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l00702">702</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l00703">703</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -545,7 +546,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Checks a type. </p>
+<p>Checks a type for memory corruption, dangling pointers and consistency. </p>
 <dl class="section return"><dt>Returns</dt><dd>non-zero if no errors were found </dd></dl>
 
 </div>
@@ -1144,7 +1145,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Returns true if high is (transitive) overwritten by low. </p>
+<p>Returns true if high is (transitively) overwritten by low. </p>
 <p>Returns false if high == low. </p>
 
 </div>
@@ -1203,7 +1204,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Subclass check for pointers to classes. </p>
-<p>Dereferences at both types the same amount of pointer types (as many as possible). If the remaining types are both class types and subclasses, returns true, else false. Can also be called with two class types. </p>
+<p>Dereferences both types the same number of times (as much as possible). If the remaining types are both class types and subclasses, returns true, else false. Can also be called with two class types. </p>
+<dl class="section see"><dt>See Also</dt><dd><a class="el" href="a00174.html#gac7c09b19601ec011eccd16fff2338b78" title="Returns true if low is subclass of high. ">is_SubClass_of()</a> </dd></dl>
 
 </div>
 </div>
@@ -1513,7 +1515,7 @@ Functions</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun Dec 2 2018 19:12:34 for libFirm by
+    <li class="footer">Generated on Mon Dec 3 2018 20:36:42 for libFirm by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.6 </li>
   </ul>

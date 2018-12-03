@@ -107,7 +107,7 @@ $(document).ready(function(){initNavTree('a00007.html','');});
 </div><!--header-->
 <div class="contents">
 
-<p>An entity is the representation of program known objects in Firm.  
+<p>An entity is the Firm representation of an object known to the program.  
 <a href="#details">More...</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="groups"></a>
@@ -141,7 +141,7 @@ Enumerations</h2></td></tr>
 &#160;&#160;<a class="el" href="a00007.html#gga2bdc29f7ee582796465273d98519ae43a6ecde675521cb7dcf01e4dec43669d02">ir_visibility_private</a>
 <br/>
  }</td></tr>
-<tr class="memdesc:ga2bdc29f7ee582796465273d98519ae43"><td class="mdescLeft">&#160;</td><td class="mdescRight">Visibility classed for entities.  <a href="a00007.html#ga2bdc29f7ee582796465273d98519ae43">More...</a><br/></td></tr>
+<tr class="memdesc:ga2bdc29f7ee582796465273d98519ae43"><td class="mdescLeft">&#160;</td><td class="mdescRight">Visibility classes for entities.  <a href="a00007.html#ga2bdc29f7ee582796465273d98519ae43">More...</a><br/></td></tr>
 <tr class="separator:ga2bdc29f7ee582796465273d98519ae43"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gad802e783d5bff4598a0504e4ea7379aa"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00007.html#gad802e783d5bff4598a0504e4ea7379aa">ir_linkage</a> { <br/>
 &#160;&#160;<a class="el" href="a00007.html#ggad802e783d5bff4598a0504e4ea7379aaa643edaa5dbe07cbd6bc361c99cfa24c5">IR_LINKAGE_DEFAULT</a> = 0, 
@@ -197,7 +197,7 @@ Functions</h2></td></tr>
 <tr class="memdesc:ga5919416f782f8f8e8a6a4a6eabd25b08"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a new entity aliasing another entity.  <a href="#ga5919416f782f8f8e8a6a4a6eabd25b08">More...</a><br/></td></tr>
 <tr class="separator:ga5919416f782f8f8e8a6a4a6eabd25b08"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga3049296892d9a03a435d8a9899c52709"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00007.html#ga3049296892d9a03a435d8a9899c52709">set_entity_alias</a> (<a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *alias, <a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *aliased)</td></tr>
-<tr class="memdesc:ga3049296892d9a03a435d8a9899c52709"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the entity an alias entity aliases.  <a href="#ga3049296892d9a03a435d8a9899c52709">More...</a><br/></td></tr>
+<tr class="memdesc:ga3049296892d9a03a435d8a9899c52709"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the aliased entity of an alias entity.  <a href="#ga3049296892d9a03a435d8a9899c52709">More...</a><br/></td></tr>
 <tr class="separator:ga3049296892d9a03a435d8a9899c52709"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gad61b16d1068ea22129aa696661f20edd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00007.html#gad61b16d1068ea22129aa696661f20edd">get_entity_alias</a> (const <a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *alias)</td></tr>
 <tr class="memdesc:gad61b16d1068ea22129aa696661f20edd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the entity aliased by an alias entity.  <a href="#gad61b16d1068ea22129aa696661f20edd">More...</a><br/></td></tr>
@@ -338,16 +338,16 @@ Functions</h2></td></tr>
 <tr class="memdesc:ga0452a4f5b4aafbe46e4d1781363f338c"><td class="mdescLeft">&#160;</td><td class="mdescRight">returns true if a given entity is a parameter_entity representing the address of a function parameter  <a href="#ga0452a4f5b4aafbe46e4d1781363f338c">More...</a><br/></td></tr>
 <tr class="separator:ga0452a4f5b4aafbe46e4d1781363f338c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gac001b0724c074fdb6951effb17bf0392"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00007.html#gac001b0724c074fdb6951effb17bf0392">get_entity_parameter_number</a> (const <a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *entity)</td></tr>
-<tr class="memdesc:gac001b0724c074fdb6951effb17bf0392"><td class="mdescLeft">&#160;</td><td class="mdescRight">returns number of parameter a parameter entitiy represents  <a href="#gac001b0724c074fdb6951effb17bf0392">More...</a><br/></td></tr>
+<tr class="memdesc:gac001b0724c074fdb6951effb17bf0392"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the parameter number of the parameter which <code>entity</code> represents.  <a href="#gac001b0724c074fdb6951effb17bf0392">More...</a><br/></td></tr>
 <tr class="separator:gac001b0724c074fdb6951effb17bf0392"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gaefbfc0494225d6ae2e96e17ed75601a5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00007.html#gaefbfc0494225d6ae2e96e17ed75601a5">set_entity_parameter_number</a> (<a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *entity, size_t n)</td></tr>
-<tr class="memdesc:gaefbfc0494225d6ae2e96e17ed75601a5"><td class="mdescLeft">&#160;</td><td class="mdescRight">set number of parameter an entity represents  <a href="#gaefbfc0494225d6ae2e96e17ed75601a5">More...</a><br/></td></tr>
+<tr class="memdesc:gaefbfc0494225d6ae2e96e17ed75601a5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the parameter number of the parameter which <code>entity</code> represents.  <a href="#gaefbfc0494225d6ae2e96e17ed75601a5">More...</a><br/></td></tr>
 <tr class="separator:gaefbfc0494225d6ae2e96e17ed75601a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga81adee24de4264fb5b8d70512ae89251"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00007.html#ga81adee24de4264fb5b8d70512ae89251">set_entity_initializer</a> (<a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *entity, <a class="el" href="a00173.html#ga674ca576abe09e7f48dae78921692ad1">ir_initializer_t</a> *initializer)</td></tr>
-<tr class="memdesc:ga81adee24de4264fb5b8d70512ae89251"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the new style initializers of an entity.  <a href="#ga81adee24de4264fb5b8d70512ae89251">More...</a><br/></td></tr>
+<tr class="memdesc:ga81adee24de4264fb5b8d70512ae89251"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the initializer of an entity.  <a href="#ga81adee24de4264fb5b8d70512ae89251">More...</a><br/></td></tr>
 <tr class="separator:ga81adee24de4264fb5b8d70512ae89251"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga584d14d18d5bd9433cbbcc151c3fdd66"><td class="memItemLeft" align="right" valign="top"><a class="el" href="a00173.html#ga674ca576abe09e7f48dae78921692ad1">ir_initializer_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00007.html#ga584d14d18d5bd9433cbbcc151c3fdd66">get_entity_initializer</a> (const <a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *entity)</td></tr>
-<tr class="memdesc:ga584d14d18d5bd9433cbbcc151c3fdd66"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the new style initializers of an entity.  <a href="#ga584d14d18d5bd9433cbbcc151c3fdd66">More...</a><br/></td></tr>
+<tr class="memdesc:ga584d14d18d5bd9433cbbcc151c3fdd66"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the initializer of an entity.  <a href="#ga584d14d18d5bd9433cbbcc151c3fdd66">More...</a><br/></td></tr>
 <tr class="separator:ga584d14d18d5bd9433cbbcc151c3fdd66"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga6449afa4b6e2942cc3ba2866961c1e27"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00007.html#ga6449afa4b6e2942cc3ba2866961c1e27">add_entity_overwrites</a> (<a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *ent, <a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *overwritten)</td></tr>
 <tr class="memdesc:ga6449afa4b6e2942cc3ba2866961c1e27"><td class="mdescLeft">&#160;</td><td class="mdescRight">Adds entity <code>ent</code> to the list of entities that overwrite <code>overwritten</code>.  <a href="#ga6449afa4b6e2942cc3ba2866961c1e27">More...</a><br/></td></tr>
@@ -392,7 +392,7 @@ Functions</h2></td></tr>
 <tr class="memdesc:gaac6ecc6698a2026f8279a5a51dbcce59"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the entity is an alias entity.  <a href="#gaac6ecc6698a2026f8279a5a51dbcce59">More...</a><br/></td></tr>
 <tr class="separator:gaac6ecc6698a2026f8279a5a51dbcce59"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gaed16251082d064773cd973702e3cb34c"><td class="memItemLeft" align="right" valign="top">long&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00007.html#gaed16251082d064773cd973702e3cb34c">get_entity_nr</a> (const <a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *ent)</td></tr>
-<tr class="memdesc:gaed16251082d064773cd973702e3cb34c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Outputs a unique number for this entity if libfirm is compiled for debugging, (configure with &ndash;enable-debug) else returns the address of the type cast to long.  <a href="#gaed16251082d064773cd973702e3cb34c">More...</a><br/></td></tr>
+<tr class="memdesc:gaed16251082d064773cd973702e3cb34c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Outputs a unique number for this entity.  <a href="#gaed16251082d064773cd973702e3cb34c">More...</a><br/></td></tr>
 <tr class="separator:gaed16251082d064773cd973702e3cb34c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga1ebad195c51f9bffed465fcc4fb7b47c"><td class="memItemLeft" align="right" valign="top">ir_visited_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00007.html#ga1ebad195c51f9bffed465fcc4fb7b47c">get_entity_visited</a> (const <a class="el" href="a00007.html#ga432640a14055ee444ef07800073673de">ir_entity</a> *ent)</td></tr>
 <tr class="memdesc:ga1ebad195c51f9bffed465fcc4fb7b47c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the entities visited counter.  <a href="#ga1ebad195c51f9bffed465fcc4fb7b47c">More...</a><br/></td></tr>
@@ -429,10 +429,10 @@ Functions</h2></td></tr>
 <tr class="separator:gab799101d031f9f508364ca7fce9d6720"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<p>An entity is the representation of program known objects in Firm. </p>
-<p>The primary concept of entities is to represent members of complex types, i.e., fields and methods of classes. As not all programming language model all variables and methods as members of some class, the concept of entities is extended to cover also local and global variables, and arbitrary procedures.</p>
-<p>An entity always specifies the type of the object it represents and the type of the object it is a part of, the owner of the entity. Originally this is the type of the class of which the entity is a member. The owner of local variables is the procedure they are defined in. The owner of global variables and procedures visible in the whole program is a universally defined class type "GlobalType". The owner of procedures defined in the scope of an other procedure is the enclosing procedure.</p>
-<p>The type ir_entity is an abstract data type to represent program entities. If contains the following attributes:</p>
+<p>An entity is the Firm representation of an object known to the program. </p>
+<p>The primary concept of entities is to represent members of complex types, i.e., fields and methods of classes. As not all programming languages model all variables and methods as members of some class, the concept of entities is extended to cover also local and global variables, and arbitrary procedures.</p>
+<p>An entity always specifies the type of the object it represents and the type of the object it is a part of, the "owner" of the entity. Originally this is the type of the class of which the entity is a member. The owner of local variables is the procedure they are defined in. The owner of global variables and procedures visible in the whole program is a universally defined class type "GlobalType". The owner of procedures defined in the scope of an other procedure is the enclosing procedure.</p>
+<p>The type ir_entity is an abstract data type to represent program entities. It contains the following attributes:</p>
 <ul>
 <li>owner: A compound type this entity is a part of.</li>
 <li>type: The type of this entity.</li>
@@ -447,7 +447,7 @@ Functions</h2></td></tr>
 <li>visited: visited flag. Master flag is type_visited.</li>
 </ul>
 <p>These fields can only be accessed via access functions.</p>
-<p>Overwrites is a field that specifies that an access to the overwritten entity in the supertype must use this entity. It's a list as with multiple inheritance several entities can be overwritten. This field is mostly useful for method entities. If a Sel node selects an entity that is overwritten by other entities it must return a pointer to the entity of the dynamic type of the pointer that is passed to it. Lowering of the Sel node must assure this. Overwrittenby is the inverse of overwrites. Both add routines add both relations, they only differ in the order of arguments. </p>
+<p>Overwrites is a field that specifies that an access to the overwritten entity in the supertype must use this entity. It's a list as with multiple inheritance several entities can be overwritten. This field is mostly useful for method entities. If a Sel node selects an entity that is overwritten by other entities it must return a pointer to the entity of the dynamic type of the pointer that is passed to it. Lowering of the Sel node must assure this. Overwrittenby is the inverse of overwrites. Both <a class="el" href="a00007.html#ga6449afa4b6e2942cc3ba2866961c1e27" title="Adds entity ent to the list of entities that overwrite overwritten. ">add_entity_overwrites()</a> and add_entity_overwrittenby() update both lists, they only differ in the order of arguments. </p>
 
 
 <h3><a class="anchor" id="unknown_entity"></a>The Unknown entity</h3><div class="textblock">This entity is an auxiliary entity dedicated to support analyses.The unknown entity represents that there could be an entity, but it is not known. This entity can be used to initialize fields before an analysis (not known yet) or to represent the top of a lattice (could not be determined). There exists exactly one unknown entity. This entity has as type the unknown type and its owner is the dummy type. It is allocated when initializing the entity module. </div><h2 class="groupheader">Macro Definition Documentation</h2>
@@ -462,9 +462,9 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Sepcial parameter number which can be used for parameter entities to indicate the first non-declared parameter in a procedure with variable arguments. </p>
-<p>We assumes that all additional parameters for variable parameters are on the stack. Starting from this address you can walk the stack to find all other parameters. </p>
+<p>Starting from this address you can walk the stack to find further parameters. </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l00470">470</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l00474">474</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -480,7 +480,7 @@ Functions</h2></td></tr>
 
 <p>A reserved value for "not yet set". </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l00412">412</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l00417">417</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -534,7 +534,7 @@ Functions</h2></td></tr>
 </td></tr>
 </table>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l00428">428</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l00433">433</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -582,7 +582,7 @@ Functions</h2></td></tr>
 </td></tr>
 </table>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l00119">119</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l00120">120</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -596,7 +596,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Visibility classed for entities. </p>
+<p>Visibility classes for entities. </p>
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><em><a class="anchor" id="gga2bdc29f7ee582796465273d98519ae43a35c841f81d9d00f9b8b30831a3199f50"></a>ir_visibility_external</em>&#160;</td><td class="fielddoc">
 <p>The entity is visible across compilation units. </p>
@@ -620,7 +620,7 @@ Functions</h2></td></tr>
 </td></tr>
 </table>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l00079">79</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l00080">80</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -759,7 +759,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Create a new entity with attributes copied from an existing entity. </p>
-<p>Does not copy the overwrites/overwritte_by, visited an dusage fields, sets a new name and inserts the entity into <code>owner</code>. </p>
+<p>Does not copy the overwrites, overwritten_by, visited and usage fields, sets a new name and inserts the entity into <code>owner</code>. </p>
 
 </div>
 </div>
@@ -834,7 +834,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Returns 1 if the entity is visible outside the current compilation unit or to unknown callers (like asm statements). </p>
-<p>(The entity might still be accessible indirectly through pointers) This is a convenience function and does the same as get_entity_visibility(entity) != ir_visibility_local || (get_entity_linkage(entity) &amp; IR_LINKAGE_HIDDEN_USER) </p>
+<p>If invisible, the entity might still be accessible indirectly through pointers. This is a convenience function and does the same as get_entity_visibility(entity) != ir_visibility_local || (get_entity_linkage(entity) &amp; IR_LINKAGE_HIDDEN_USER) </p>
 
 </div>
 </div>
@@ -1078,7 +1078,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Returns the new style initializers of an entity. </p>
+<p>Returns the initializer of an entity. </p>
 
 </div>
 </div>
@@ -1097,7 +1097,7 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Return the method graph of a method entity. </p>
-<dl class="section warning"><dt>Warning</dt><dd>If it is a weak symbol, then this is not necessarily the final code bound to the entity. If you are writing an analysis use <a class="el" href="a00007.html#ga78adc17885bb59f7c9c697ee2cb433ef" title="Return the method graph the method entity points to after linking. ">get_entity_linktime_irg()</a>! </dd></dl>
+<dl class="section warning"><dt>Warning</dt><dd>If the entity has IR_LINKAGE_WEAK, then this is not necessarily the final code bound to the entity. If you are writing an analysis use <a class="el" href="a00007.html#ga78adc17885bb59f7c9c697ee2cb433ef" title="Return the method graph the method entity points to after linking. ">get_entity_linktime_irg()</a>! </dd></dl>
 
 </div>
 </div>
@@ -1279,7 +1279,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Outputs a unique number for this entity if libfirm is compiled for debugging, (configure with &ndash;enable-debug) else returns the address of the type cast to long. </p>
+<p>Outputs a unique number for this entity. </p>
 
 </div>
 </div>
@@ -1298,7 +1298,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Returns the offset of an entity (in a compound) in bytes. </p>
-<p>Only set if layout = fixed. </p>
+<p>Only set if the layout of the entity's owner has been fixed. </p>
+<dl class="section see"><dt>See Also</dt><dd><a class="el" href="a00174.html#gabd95acf52505f518c1f2c3c84edfe4f9" title="Returns the type layout state of a type. ">get_type_state()</a> </dd></dl>
 
 </div>
 </div>
@@ -1446,7 +1447,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>returns number of parameter a parameter entitiy represents </p>
+<p>Returns the parameter number of the parameter which <code>entity</code> represents. </p>
 
 </div>
 </div>
@@ -1754,7 +1755,7 @@ Functions</h2></td></tr>
     <tr><td class="paramname">owner</td><td>owning type (must be a global segment) </td></tr>
     <tr><td class="paramname">name</td><td>name of the entity </td></tr>
     <tr><td class="paramname">alias</td><td>entity that is aliased </td></tr>
-    <tr><td class="paramname">type</td><td>type of the aliased entity, should but need not be the same type as the one of the aliased entity </td></tr>
+    <tr><td class="paramname">type</td><td>type of the aliasing entity, should but need not be the same type as the one of the aliased entity </td></tr>
     <tr><td class="paramname">visibility</td><td>visibility of the entity </td></tr>
   </table>
   </dd>
@@ -1875,7 +1876,8 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Creates a new entity corresponding to a function parameter. </p>
-<p>This must be created on an irgs frame_type </p>
+<p>The owner must be an ir_graph's frame_type. </p>
+<dl class="section see"><dt>See Also</dt><dd><a class="el" href="a00154.html#ga76ba06f8149979d731dca300cd17a147" title="Returns the frame type of an IR graph. ">get_irg_frame_type()</a> </dd></dl>
 
 </div>
 </div>
@@ -2015,7 +2017,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Sets the entity an alias entity aliases. </p>
+<p>Sets the aliased entity of an alias entity. </p>
 
 </div>
 </div>
@@ -2226,7 +2228,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Sets the new style initializers of an entity. </p>
+<p>Sets the initializer of an entity. </p>
 
 </div>
 </div>
@@ -2491,7 +2493,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>set number of parameter an entity represents </p>
+<p>Sets the parameter number of the parameter which <code>entity</code> represents. </p>
 
 </div>
 </div>
@@ -2669,7 +2671,7 @@ Functions</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun Dec 2 2018 19:12:34 for libFirm by
+    <li class="footer">Generated on Mon Dec 3 2018 20:36:42 for libFirm by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.6 </li>
   </ul>

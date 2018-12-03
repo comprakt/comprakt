@@ -103,6 +103,9 @@ $(document).ready(function(){initNavTree('a00184.html','');});
 <div class="title">Compound<div class="ingroups"><a class="el" href="a00174.html">Type System</a></div></div>  </div>
 </div><!--header-->
 <div class="contents">
+
+<p>These functions are common to classes, structs and unions, collectively known as "compound types".  
+<a href="#details">More...</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="groups"></a>
 Modules</h2></td></tr>
@@ -137,13 +140,15 @@ Functions</h2></td></tr>
 <tr class="memdesc:ga9c8473ccaa0ca15254b450f7cbb9ad42"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove a member from a compound type.  <a href="#ga9c8473ccaa0ca15254b450f7cbb9ad42">More...</a><br/></td></tr>
 <tr class="separator:ga9c8473ccaa0ca15254b450f7cbb9ad42"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga38c05fc3d617681cb8dbdbd1445d37ff"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00184.html#ga38c05fc3d617681cb8dbdbd1445d37ff">default_layout_compound_type</a> (<a class="el" href="a00174.html#ga5b364a10caee62083a7247148e510de8">ir_type</a> *tp)</td></tr>
-<tr class="memdesc:ga38c05fc3d617681cb8dbdbd1445d37ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">layout members of a struct/union or class type in a default way.  <a href="#ga38c05fc3d617681cb8dbdbd1445d37ff">More...</a><br/></td></tr>
+<tr class="memdesc:ga38c05fc3d617681cb8dbdbd1445d37ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">Layout members of a compound type in the default way (as determined by the target ABI).  <a href="#ga38c05fc3d617681cb8dbdbd1445d37ff">More...</a><br/></td></tr>
 <tr class="separator:ga38c05fc3d617681cb8dbdbd1445d37ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga7d9424607b4c78997869f113b388439c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00184.html#ga7d9424607b4c78997869f113b388439c">is_compound_type</a> (const <a class="el" href="a00174.html#ga5b364a10caee62083a7247148e510de8">ir_type</a> *tp)</td></tr>
 <tr class="memdesc:ga7d9424607b4c78997869f113b388439c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks whether a type is a compound type.  <a href="#ga7d9424607b4c78997869f113b388439c">More...</a><br/></td></tr>
 <tr class="separator:ga7d9424607b4c78997869f113b388439c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<p>These functions are common to classes, structs and unions, collectively known as "compound types". </p>
+<p>Note that there is no function to add a member to a compound type. Instead, create an entity with the compound type as its owner or use <a class="el" href="a00007.html#ga60fe21498cbf6a7123b6729df2e29414" title="Sets the owner field in entity to owner. ">set_entity_owner()</a> to make it a member of the compound type. </p>
 <h2 class="groupheader">Function Documentation</h2>
 <a class="anchor" id="ga38c05fc3d617681cb8dbdbd1445d37ff"></a>
 <div class="memitem">
@@ -159,7 +164,8 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>layout members of a struct/union or class type in a default way. </p>
+<p>Layout members of a compound type in the default way (as determined by the target ABI). </p>
+<p>The compound type may not contain bitfield members, in which case it must be laid out by hand. </p>
 
 </div>
 </div>
@@ -347,7 +353,7 @@ Functions</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun Dec 2 2018 19:12:34 for libFirm by
+    <li class="footer">Generated on Mon Dec 3 2018 20:36:42 for libFirm by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.6 </li>
   </ul>

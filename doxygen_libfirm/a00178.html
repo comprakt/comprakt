@@ -219,11 +219,11 @@ Functions</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <p>A method type represents a method, function or procedure type. </p>
-<p>It contains a list of the parameter and result types, as these are part of the type description. These lists should not be changed by a optimization, as a change creates a new method type. Therefore optimizations should allocated new method types. The set_ routines are only for construction by a frontend.</p>
+<p>It contains a list of the parameter and result types, as these are part of the type description. These lists should not be changed by an optimization, as a change creates a new method type. Therefore optimizations should allocate new method types. <a class="el" href="a00178.html#gac48a1fedbce748976d2653894c54b365" title="Sets the type of the parameter at position pos of a method. ">set_method_param_type()</a> and <a class="el" href="a00178.html#ga9683b397242ac24d7ca226095121a23f" title="Sets the type of the result at position pos of a method. ">set_method_res_type()</a> are only for construction by a frontend.</p>
 <ul>
 <li>n_params: Number of parameters to the procedure. A procedure in FIRM has only call by value parameters.</li>
 <li>param_type: A list with the types of parameters. This list is ordered. The nth type in this list corresponds to the nth element in the parameter tuple that is a result of the start node. (See <a class="el" href="a00095_source.html" title="Various irnode constructors. ">ircons.h</a> for more information.)</li>
-<li>value_param_ents A list of entities (whose owner is a struct private to the method type) that represent parameters passed by value.</li>
+<li>value_param_ents: A list of entities (whose owner is a struct private to the method type) that represent parameters passed by value.</li>
 <li>n_res: The number of results of the method. In general, procedures have zero results, functions one.</li>
 <li>res_type: A list with the types of parameters. This list is ordered. The nth type in this list corresponds to the nth input to Return nodes. (See <a class="el" href="a00095_source.html" title="Various irnode constructors. ">ircons.h</a> for more information.) </li>
 </ul>
@@ -238,7 +238,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01251">1251</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01248">1248</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -254,7 +254,7 @@ Functions</h2></td></tr>
 
 <p>cdecl calling convention </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01254">1254</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01251">1251</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -270,7 +270,7 @@ Functions</h2></td></tr>
 
 <p>fastcall calling convention </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01258">1258</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01255">1255</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -286,7 +286,7 @@ Functions</h2></td></tr>
 
 <p>stdcall calling convention </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01256">1256</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01253">1253</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -306,7 +306,7 @@ Functions</h2></td></tr>
 
 <p>check for the CDECL calling convention </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01263">1263</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01260">1260</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -326,7 +326,7 @@ Functions</h2></td></tr>
 
 <p>check for the FASTCALL calling convention </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01273">1273</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01270">1270</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -346,7 +346,7 @@ Functions</h2></td></tr>
 
 <p>check for the STDCALL calling convention </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01268">1268</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01265">1265</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -366,7 +366,7 @@ Functions</h2></td></tr>
 
 <p>Sets the CDECL convention bits. </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01278">1278</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01275">1275</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -386,7 +386,7 @@ Functions</h2></td></tr>
 
 <p>Sets the FASTCALL convention bits. </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01288">1288</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01285">1285</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -406,7 +406,7 @@ Functions</h2></td></tr>
 
 <p>Sets the STDCALL convention bits. </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01283">1283</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01280">1280</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -449,7 +449,7 @@ Functions</h2></td></tr>
 </td></tr>
 </table>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01232">1232</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01229">1229</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -758,7 +758,7 @@ Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-<p>The arrays for the parameter and result types are not initialized by the constructor. </p>
+<p>The arrays for the parameter and result types are not populated by the constructor. </p>
 
 </div>
 </div>
@@ -836,7 +836,7 @@ Functions</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun Dec 2 2018 19:12:34 for libFirm by
+    <li class="footer">Generated on Mon Dec 3 2018 20:36:42 for libFirm by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.6 </li>
   </ul>

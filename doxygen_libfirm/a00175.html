@@ -169,12 +169,12 @@ Functions</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <p>If the type opcode is set to type_class the type represents class types. </p>
-<p>A list of fields and methods is associated with a class. Further a class can inherit from and bequest to other classes.</p>
+<p>A list of fields and methods is associated with a class. Furthermore, a class can inherit from and bequest to other classes.</p>
 <p>The following attributes are private to this type kind:</p>
 <ul>
-<li>member: All entities belonging to this class. This are method entities which have type_method or fields that can have any of the following type kinds: type_class, type_struct, type_union, type_array, type_pointer, type_primitive.</li>
+<li>member: All entities belonging to this class. These are method entities which have type kind type_method or fields that can have any of the following type kinds: type_class, type_struct, type_union, type_array, type_pointer, type_primitive.</li>
 </ul>
-<p>The following two are dynamic lists that can be grown with an "add_" function, but not shrinked:</p>
+<p>The following two are dynamic lists that can be grown with <a class="el" href="a00175.html#ga2541732fe5640c33edafc277445d59ea" title="Adds subtype as subtype to clss. ">add_class_subtype()</a> and <a class="el" href="a00175.html#ga275a1da3ff3e0148c5bc2cce34c7afad" title="Adds supertype as supertype to class. ">add_class_supertype()</a> respectively but not shrunk (<a class="el" href="a00175.html#gafa72439e7b0e447fbe9df1fc365ad589" title="Finds subtype in the list of subtypes and removes it. ">remove_class_subtype()</a> and <a class="el" href="a00175.html#gae2ae92945510e5a8dd83819e3a9cf248" title="Finds supertype in the list of supertypes and removes it. ">remove_class_supertype()</a> will not free memory):</p>
 <ul>
 <li>subtypes: A list of direct subclasses.</li>
 <li>supertypes: A list of direct superclasses. </li>
@@ -193,7 +193,7 @@ Functions</h2></td></tr>
 <p>Special index returned when <a class="el" href="a00175.html#ga2fef6347e7c1448a1811596d21ae939d" title="Returns index of mem in clss, INVALID_MEMBER_INDEX if not contained. ">get_class_member_index()</a> cannot find a member. </p>
 <p>This index is never used for actual members. </p>
 
-<p>Definition at line <a class="el" href="a00124_source.html#l01027">1027</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
+<p>Definition at line <a class="el" href="a00124_source.html#l01029">1029</a> of file <a class="el" href="a00124_source.html">typerep.h</a>.</p>
 
 </div>
 </div>
@@ -647,7 +647,7 @@ Functions</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun Dec 2 2018 19:12:34 for libFirm by
+    <li class="footer">Generated on Mon Dec 3 2018 20:36:42 for libFirm by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.6 </li>
   </ul>

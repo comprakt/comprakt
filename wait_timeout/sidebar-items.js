@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ExitStatus","Exit status from a child process."]],"trait":[["ChildExt","Extension methods for the standard `std::process::Child` type."]]});
