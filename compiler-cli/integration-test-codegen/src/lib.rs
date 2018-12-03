@@ -57,6 +57,58 @@ pub fn gen_assembly_integration_tests(_args: TokenStream) -> TokenStream {
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
+pub fn gen_timeout_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests("timeout", "", |test_name, mj_file| {
+        let function_name = Ident::new(&test_name, Span::call_site());
+        let path_str = mj_file.to_str().unwrap();
+
+        quote! {
+            #[test]
+            fn #function_name() {
+                use wait_timeout::ChildExt;
+                let input = PathBuf::from(#path_str);
+                let mut binary_path = input.with_extension("out");
+
+                assert_compiler_phase(CompilerCall::RawCompiler(CompilerPhase::Binary {
+                    output: binary_path.clone()
+                }), &TestFiles {
+                    stderr: with_extension(&input, ".stderr"),
+                    stdout: with_extension(&input, ".stdout"),
+                    exitcode: with_extension(&input, ".exitcode"),
+                    input: input,
+                    generate_tentatives: true
+                });
+
+                // reaching this line means the compiler assertions were correct
+                let mut cmd = std::process::Command::new(&binary_path);
+
+                let mut stdin_path = with_extension(&binary_path, ".stdin");
+                if stdin_path.is_file() {
+                    let stdin = File::open(&stdin_path).expect("failed to open stdin file");
+                    cmd.stdin(stdin);
+                }
+
+                let mut child = cmd.spawn().expect("failed to invoke generated binary");
+
+                let timeout = Duration::from_secs(DEFAULT_TIMEOUT_SECONDS);
+                let status_code = match child.wait_timeout(timeout).unwrap() {
+                    Some(status) => {
+                        panic!("Expected test to timeout, but it returned \
+                                early with exit code: {:?}", status.code());
+                    },
+                    None => {
+                        // child hasn't exited yet, kill it
+                        child.kill().unwrap();
+                        child.wait().unwrap().code()
+                    }
+                };
+            }
+        }
+    })
+}
+
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
 pub fn gen_binary_integration_tests(_args: TokenStream) -> TokenStream {
     gen_integration_tests("binary", "", |test_name, mj_file| {
         let function_name = Ident::new(&test_name, Span::call_site());
