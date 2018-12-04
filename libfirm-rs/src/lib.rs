@@ -7,6 +7,9 @@ extern crate derive_more;
 use libfirm_rs_bindings::*;
 use std::ffi::{CStr, CString};
 
+pub mod nodes;
+pub mod nodes_gen;
+
 #[derive(Clone, Copy)]
 pub struct Ty(*mut ir_type);
 
