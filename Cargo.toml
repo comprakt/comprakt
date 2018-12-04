@@ -6,6 +6,8 @@ members = [
     "libfirm-rs-bindings",
     "libfirm-rs",
     "mjrt",
+    "runner-integration-tests",
+    "codegen-integration-tests"
 ]
 exclude = [
     "mjrt-impl",

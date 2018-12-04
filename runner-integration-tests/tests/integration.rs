@@ -49,8 +49,6 @@ enum CompilerCall {
     AstInspector,
 }
 
-const ROOT_DIR: &str = env!("CARGO_MANIFEST_DIR");
-
 /// Arguments that should be given to the compiler under test
 fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
     let args: &[&str] = match phase {
@@ -80,7 +78,7 @@ fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
                     Command::new(path)
                 })
                 .unwrap_or_else(|_| {
-                    let binary = main_binary();
+                    let binary = project_binary(Some("compiler-cli"));
                     println!("Test run using the default compiler binary at {:?}", binary);
                     Command::new(binary)
                 });
@@ -109,7 +107,7 @@ fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
 }
 
 fn normalize_stderr(stderr: &str) -> String {
-    stderr.replace(ROOT_DIR, "{ROOT}")
+    stderr.replace(&*ROOT_DIR, "{ROOT}")
 }
 
 fn with_extension(path: &PathBuf, extension: &str) -> PathBuf {
@@ -304,13 +302,19 @@ struct CompilerArtifact {
 lazy_static::lazy_static! {
     static ref BIN_PATH_CACHE: Mutex<HashMap<Option<&'static str>, PathBuf>> =
             { Mutex::new(HashMap::new()) };
+    static ref ROOT_DIR: String = {
+        let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        // walk from the `runner-integration-tests` crate to the
+        // virtual workspace one directory above
+        dir.pop();
+        dir.to_str().expect("test root dir path not valid utf-8").to_owned()
+    };
 }
 
-fn main_binary() -> PathBuf {
-    project_binary(None)
-}
-
-/// Build and get the main binary
+/// Build and get the a binary project of a workspace crate
+///
+/// Passing `None` will return the main binary of the method invoking
+/// crate. **Not** the main binary of the virtual workspace.
 fn project_binary(subproject: Option<&'static str>) -> PathBuf {
     let mut cache = BIN_PATH_CACHE.lock().unwrap();
 
