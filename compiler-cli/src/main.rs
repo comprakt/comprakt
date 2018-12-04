@@ -28,6 +28,7 @@ use compiler_lib::{
     context::Context,
     firm,
     lexer::{Lexer, TokenKind},
+    optimization::Optimization,
     parser::Parser,
     print::{self, lextest},
     semantics,
@@ -70,8 +71,7 @@ pub enum CliError {
     LinkingFailed,
 }
 
-/// An in memory representation of command-line flags passed to the
-/// executable
+/// Cli interface for the comprakt MiniJava compiler library
 #[derive(StructOpt)]
 #[structopt(name = "comprakt")]
 pub enum CliCommand {
@@ -146,6 +146,14 @@ pub struct LoweringOptions {
     /// Write primary output artifact to the given file or directory.
     #[structopt(long = "--output", short = "-o", parse(from_os_str))]
     pub output: Option<PathBuf>,
+
+    /// A list of optimizations to apply.
+    #[structopt(
+        long = "--optimizations",
+        short = "-O",
+        raw(use_delimiter = "true")
+    )]
+    pub optimizations: Vec<Optimization>,
 }
 
 impl Into<firm::Options> for LoweringOptions {
@@ -158,6 +166,7 @@ impl Into<firm::Options> for LoweringOptions {
             dump_folder: self.dump_folder,
             dump_firm_graph: self.dump_firm_graph,
             dump_class_layouts: self.dump_class_layouts,
+            optimizations: self.optimizations,
         }
     }
 }

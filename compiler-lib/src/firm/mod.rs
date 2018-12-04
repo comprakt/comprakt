@@ -26,6 +26,7 @@ pub use self::{
 };
 
 use crate::{
+    optimization::Optimization,
     strtab::{StringTable, Symbol},
     type_checking::{
         type_analysis::TypeAnalysis,
@@ -52,6 +53,7 @@ pub struct Options {
     pub dump_firm_graph: bool,
     pub dump_class_layouts: bool,
     pub dump_assembler: Option<OutputSpecification>,
+    pub optimizations: Vec<Optimization>,
 }
 
 pub struct Program<'src, 'ast> {
@@ -137,6 +139,8 @@ pub unsafe fn build<'src, 'ast>(
             );
         }
     }
+
+    println!("Optimizations: {:#?}", opts.optimizations);
 
     lower_highlevel();
     be_lower_for_target();
