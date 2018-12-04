@@ -500,15 +500,78 @@ impl NodeFactory {
 pub struct ASMNode(*const ir_node);
 
 impl ASMNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_ASM_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_ASM_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_ASM_mem(self.0, ir_node)
     }
+
+    /// Gets number of constraints.
+    pub fn n_constraints(&self) -> Node {
+        let ir_node = bindings::get_ASM_n_constraints(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets number of constraints.
+    pub fn set_n_constraints(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_ASM_n_constraints(self.0, ir_node)
+    }
+
+    /// Gets constraints.
+    pub fn constraints(&self) -> Node {
+        let ir_node = bindings::get_ASM_constraints(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets constraints.
+    pub fn set_constraints(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_ASM_constraints(self.0, ir_node)
+    }
+
+    /// Gets number of clobbered registers/memory.
+    pub fn n_clobbers(&self) -> Node {
+        let ir_node = bindings::get_ASM_n_clobbers(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets number of clobbered registers/memory.
+    pub fn set_n_clobbers(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_ASM_n_clobbers(self.0, ir_node)
+    }
+
+    /// Gets list of clobbered registers/memory.
+    pub fn clobbers(&self) -> Node {
+        let ir_node = bindings::get_ASM_clobbers(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets list of clobbered registers/memory.
+    pub fn set_clobbers(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_ASM_clobbers(self.0, ir_node)
+    }
+
+    /// Gets assembler text.
+    pub fn text(&self) -> Node {
+        let ir_node = bindings::get_ASM_text(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets assembler text.
+    pub fn set_text(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_ASM_text(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for ASMNode {
     fn into(self) -> Node {
@@ -527,24 +590,30 @@ impl Into<*const ir_node> for ASMNode {
 pub struct AddNode(*const ir_node);
 
 impl AddNode {
-    /// Gets the first operand.
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Add_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Add_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Add_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Add_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Add_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Add_right(self.0, ir_node)
     }
+
 }
 impl Into<Node> for AddNode {
     fn into(self) -> Node {
@@ -600,24 +669,42 @@ impl Into<*const ir_node> for AlignNode {
 pub struct AllocNode(*const ir_node);
 
 impl AllocNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_Alloc_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_Alloc_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Alloc_mem(self.0, ir_node)
     }
-    /// Gets the size of the block in bytes.
+
+    /// Gets size of the block in bytes.
     pub fn size(&self) -> Node {
         let ir_node = bindings::get_Alloc_size(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the size of the block in bytes.
+
+    /// Sets size of the block in bytes.
     pub fn set_size(&self, node: &'_ Node) {
-        bindings::set_Alloc_size(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Alloc_size(self.0, ir_node)
     }
+
+    /// Gets alignment of the memory block (must be a power of 2).
+    pub fn alignment(&self) -> Node {
+        let ir_node = bindings::get_Alloc_alignment(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets alignment of the memory block (must be a power of 2).
+    pub fn set_alignment(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Alloc_alignment(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for AllocNode {
     fn into(self) -> Node {
@@ -641,78 +728,102 @@ impl Into<*const ir_node> for AllocNode {
 pub struct AnchorNode(*const ir_node);
 
 impl AnchorNode {
-    /// Gets the block the end node belongs to.
+    /// Gets block the end node belongs to.
     pub fn end_block(&self) -> Node {
         let ir_node = bindings::get_Anchor_end_block(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the block the end node belongs to.
+
+    /// Sets block the end node belongs to.
     pub fn set_end_block(&self, node: &'_ Node) {
-        bindings::set_Anchor_end_block(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Anchor_end_block(self.0, ir_node)
     }
-    /// Gets the block the start node belongs to.
+
+    /// Gets block the start node belongs to.
     pub fn start_block(&self) -> Node {
         let ir_node = bindings::get_Anchor_start_block(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the block the start node belongs to.
+
+    /// Sets block the start node belongs to.
     pub fn set_start_block(&self, node: &'_ Node) {
-        bindings::set_Anchor_start_block(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Anchor_start_block(self.0, ir_node)
     }
-    /// Gets the end node of this ir_graph.
+
+    /// Gets end node of this ir_graph.
     pub fn end(&self) -> Node {
         let ir_node = bindings::get_Anchor_end(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the end node of this ir_graph.
+
+    /// Sets end node of this ir_graph.
     pub fn set_end(&self, node: &'_ Node) {
-        bindings::set_Anchor_end(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Anchor_end(self.0, ir_node)
     }
-    /// Gets the start node of this ir_graph.
+
+    /// Gets start node of this ir_graph.
     pub fn start(&self) -> Node {
         let ir_node = bindings::get_Anchor_start(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the start node of this ir_graph.
+
+    /// Sets start node of this ir_graph.
     pub fn set_start(&self, node: &'_ Node) {
-        bindings::set_Anchor_start(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Anchor_start(self.0, ir_node)
     }
-    /// Gets the frame of this ir_graph.
+
+    /// Gets frame of this ir_graph.
     pub fn frame(&self) -> Node {
         let ir_node = bindings::get_Anchor_frame(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the frame of this ir_graph.
+
+    /// Sets frame of this ir_graph.
     pub fn set_frame(&self, node: &'_ Node) {
-        bindings::set_Anchor_frame(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Anchor_frame(self.0, ir_node)
     }
-    /// Gets the initial memory of this ir_graph.
+
+    /// Gets initial memory of this ir_graph.
     pub fn initial_mem(&self) -> Node {
         let ir_node = bindings::get_Anchor_initial_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the initial memory of this ir_graph.
+
+    /// Sets initial memory of this ir_graph.
     pub fn set_initial_mem(&self, node: &'_ Node) {
-        bindings::set_Anchor_initial_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Anchor_initial_mem(self.0, ir_node)
     }
-    /// Gets the argument proj of the start node.
+
+    /// Gets argument proj of the start node.
     pub fn args(&self) -> Node {
         let ir_node = bindings::get_Anchor_args(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the argument proj of the start node.
+
+    /// Sets argument proj of the start node.
     pub fn set_args(&self, node: &'_ Node) {
-        bindings::set_Anchor_args(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Anchor_args(self.0, ir_node)
     }
-    /// Gets the the only NoMem node of this ir_graph.
+
+    /// Gets the only NoMem node of this ir_graph.
     pub fn no_mem(&self) -> Node {
         let ir_node = bindings::get_Anchor_no_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the the only NoMem node of this ir_graph.
+
+    /// Sets the only NoMem node of this ir_graph.
     pub fn set_no_mem(&self, node: &'_ Node) {
-        bindings::set_Anchor_no_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Anchor_no_mem(self.0, ir_node)
     }
+
 }
 impl Into<Node> for AnchorNode {
     fn into(self) -> Node {
@@ -731,24 +842,30 @@ impl Into<*const ir_node> for AnchorNode {
 pub struct AndNode(*const ir_node);
 
 impl AndNode {
-    /// Gets the first operand.
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_And_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_And_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_And_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_And_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_And_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_And_right(self.0, ir_node)
     }
+
 }
 impl Into<Node> for AndNode {
     fn into(self) -> Node {
@@ -805,15 +922,18 @@ impl Into<*const ir_node> for BadNode {
 pub struct BitcastNode(*const ir_node);
 
 impl BitcastNode {
-    /// Gets the operand.
+    /// Gets operand.
     pub fn op(&self) -> Node {
         let ir_node = bindings::get_Bitcast_op(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the operand.
+
+    /// Sets operand.
     pub fn set_op(&self, node: &'_ Node) {
-        bindings::set_Bitcast_op(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Bitcast_op(self.0, ir_node)
     }
+
 }
 impl Into<Node> for BitcastNode {
     fn into(self) -> Node {
@@ -832,6 +952,18 @@ impl Into<*const ir_node> for BitcastNode {
 pub struct BlockNode(*const ir_node);
 
 impl BlockNode {
+    /// Gets entity representing this block.
+    pub fn entity(&self) -> Node {
+        let ir_node = bindings::get_Block_entity(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets entity representing this block.
+    pub fn set_entity(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Block_entity(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for BlockNode {
     fn into(self) -> Node {
@@ -850,15 +982,42 @@ impl Into<*const ir_node> for BlockNode {
 pub struct BuiltinNode(*const ir_node);
 
 impl BuiltinNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_Builtin_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_Builtin_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Builtin_mem(self.0, ir_node)
     }
+
+    /// Gets kind of builtin.
+    pub fn kind(&self) -> Node {
+        let ir_node = bindings::get_Builtin_kind(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets kind of builtin.
+    pub fn set_kind(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Builtin_kind(self.0, ir_node)
+    }
+
+    /// Gets method type for the builtin call.
+    pub fn ty(&self) -> Node {
+        let ir_node = bindings::get_Builtin_type(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets method type for the builtin call.
+    pub fn set_type(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Builtin_type(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for BuiltinNode {
     fn into(self) -> Node {
@@ -880,24 +1039,42 @@ impl Into<*const ir_node> for BuiltinNode {
 pub struct CallNode(*const ir_node);
 
 impl CallNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_Call_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_Call_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Call_mem(self.0, ir_node)
     }
-    /// Gets the pointer to called code.
+
+    /// Gets pointer to called code.
     pub fn ptr(&self) -> Node {
         let ir_node = bindings::get_Call_ptr(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the pointer to called code.
+
+    /// Sets pointer to called code.
     pub fn set_ptr(&self, node: &'_ Node) {
-        bindings::set_Call_ptr(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Call_ptr(self.0, ir_node)
     }
+
+    /// Gets type of the call (usually type of the called procedure).
+    pub fn ty(&self) -> Node {
+        let ir_node = bindings::get_Call_type(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets type of the call (usually type of the called procedure).
+    pub fn set_type(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Call_type(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for CallNode {
     fn into(self) -> Node {
@@ -917,24 +1094,42 @@ impl Into<*const ir_node> for CallNode {
 pub struct CmpNode(*const ir_node);
 
 impl CmpNode {
-    /// Gets the first operand.
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Cmp_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Cmp_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Cmp_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Cmp_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Cmp_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Cmp_right(self.0, ir_node)
     }
+
+    /// Gets Comparison relation.
+    pub fn relation(&self) -> Node {
+        let ir_node = bindings::get_Cmp_relation(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets Comparison relation.
+    pub fn set_relation(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Cmp_relation(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for CmpNode {
     fn into(self) -> Node {
@@ -953,15 +1148,30 @@ impl Into<*const ir_node> for CmpNode {
 pub struct CondNode(*const ir_node);
 
 impl CondNode {
-    /// Gets the condition parameter.
+    /// Gets condition parameter.
     pub fn selector(&self) -> Node {
         let ir_node = bindings::get_Cond_selector(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the condition parameter.
+
+    /// Sets condition parameter.
     pub fn set_selector(&self, node: &'_ Node) {
-        bindings::set_Cond_selector(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Cond_selector(self.0, ir_node)
     }
+
+    /// Gets can indicate the most likely jump.
+    pub fn jmp_pred(&self) -> Node {
+        let ir_node = bindings::get_Cond_jmp_pred(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets can indicate the most likely jump.
+    pub fn set_jmp_pred(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Cond_jmp_pred(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for CondNode {
     fn into(self) -> Node {
@@ -988,24 +1198,42 @@ impl Into<*const ir_node> for CondNode {
 pub struct ConfirmNode(*const ir_node);
 
 impl ConfirmNode {
-    /// Gets the value to express a constraint for.
+    /// Gets value to express a constraint for.
     pub fn value(&self) -> Node {
         let ir_node = bindings::get_Confirm_value(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the value to express a constraint for.
+
+    /// Sets value to express a constraint for.
     pub fn set_value(&self, node: &'_ Node) {
-        bindings::set_Confirm_value(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Confirm_value(self.0, ir_node)
     }
-    /// Gets the value to compare against.
+
+    /// Gets value to compare against.
     pub fn bound(&self) -> Node {
         let ir_node = bindings::get_Confirm_bound(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the value to compare against.
+
+    /// Sets value to compare against.
     pub fn set_bound(&self, node: &'_ Node) {
-        bindings::set_Confirm_bound(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Confirm_bound(self.0, ir_node)
     }
+
+    /// Gets relation of value to bound.
+    pub fn relation(&self) -> Node {
+        let ir_node = bindings::get_Confirm_relation(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets relation of value to bound.
+    pub fn set_relation(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Confirm_relation(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for ConfirmNode {
     fn into(self) -> Node {
@@ -1024,6 +1252,18 @@ impl Into<*const ir_node> for ConfirmNode {
 pub struct ConstNode(*const ir_node);
 
 impl ConstNode {
+    /// Gets constant value (a tarval object).
+    pub fn tarval(&self) -> Node {
+        let ir_node = bindings::get_Const_tarval(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets constant value (a tarval object).
+    pub fn set_tarval(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Const_tarval(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for ConstNode {
     fn into(self) -> Node {
@@ -1042,15 +1282,18 @@ impl Into<*const ir_node> for ConstNode {
 pub struct ConvNode(*const ir_node);
 
 impl ConvNode {
-    /// Gets the operand.
+    /// Gets operand.
     pub fn op(&self) -> Node {
         let ir_node = bindings::get_Conv_op(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the operand.
+
+    /// Sets operand.
     pub fn set_op(&self, node: &'_ Node) {
-        bindings::set_Conv_op(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Conv_op(self.0, ir_node)
     }
+
 }
 impl Into<Node> for ConvNode {
     fn into(self) -> Node {
@@ -1069,33 +1312,66 @@ impl Into<*const ir_node> for ConvNode {
 pub struct CopyBNode(*const ir_node);
 
 impl CopyBNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_CopyB_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_CopyB_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_CopyB_mem(self.0, ir_node)
     }
-    /// Gets the destination address.
+
+    /// Gets destination address.
     pub fn dst(&self) -> Node {
         let ir_node = bindings::get_CopyB_dst(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the destination address.
+
+    /// Sets destination address.
     pub fn set_dst(&self, node: &'_ Node) {
-        bindings::set_CopyB_dst(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_CopyB_dst(self.0, ir_node)
     }
-    /// Gets the source address.
+
+    /// Gets source address.
     pub fn src(&self) -> Node {
         let ir_node = bindings::get_CopyB_src(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the source address.
+
+    /// Sets source address.
     pub fn set_src(&self, node: &'_ Node) {
-        bindings::set_CopyB_src(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_CopyB_src(self.0, ir_node)
     }
+
+    /// Gets type of copied data.
+    pub fn ty(&self) -> Node {
+        let ir_node = bindings::get_CopyB_type(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets type of copied data.
+    pub fn set_type(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_CopyB_type(self.0, ir_node)
+    }
+
+    /// Gets volatile CopyB nodes have a visible side-effect and may not be optimized.
+    pub fn volatility(&self) -> Node {
+        let ir_node = bindings::get_CopyB_volatility(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets volatile CopyB nodes have a visible side-effect and may not be optimized.
+    pub fn set_volatility(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_CopyB_volatility(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for CopyBNode {
     fn into(self) -> Node {
@@ -1133,33 +1409,66 @@ impl Into<*const ir_node> for DeletedNode {
 pub struct DivNode(*const ir_node);
 
 impl DivNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_Div_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_Div_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Div_mem(self.0, ir_node)
     }
-    /// Gets the first operand.
+
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Div_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Div_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Div_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Div_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Div_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Div_right(self.0, ir_node)
     }
+
+    /// Gets mode of the result value.
+    pub fn resmode(&self) -> Node {
+        let ir_node = bindings::get_Div_resmode(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets mode of the result value.
+    pub fn set_resmode(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Div_resmode(self.0, ir_node)
+    }
+
+    /// Gets Set when division remainder is known to be zero.
+    pub fn no_remainder(&self) -> Node {
+        let ir_node = bindings::get_Div_no_remainder(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets Set when division remainder is known to be zero.
+    pub fn set_no_remainder(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Div_no_remainder(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for DivNode {
     fn into(self) -> Node {
@@ -1219,24 +1528,30 @@ impl Into<*const ir_node> for EndNode {
 pub struct EorNode(*const ir_node);
 
 impl EorNode {
-    /// Gets the first operand.
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Eor_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Eor_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Eor_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Eor_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Eor_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Eor_right(self.0, ir_node)
     }
+
 }
 impl Into<Node> for EorNode {
     fn into(self) -> Node {
@@ -1255,24 +1570,30 @@ impl Into<*const ir_node> for EorNode {
 pub struct FreeNode(*const ir_node);
 
 impl FreeNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_Free_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_Free_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Free_mem(self.0, ir_node)
     }
-    /// Gets the pointer to the object to free.
+
+    /// Gets pointer to the object to free.
     pub fn ptr(&self) -> Node {
         let ir_node = bindings::get_Free_ptr(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the pointer to the object to free.
+
+    /// Sets pointer to the object to free.
     pub fn set_ptr(&self, node: &'_ Node) {
-        bindings::set_Free_ptr(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Free_ptr(self.0, ir_node)
     }
+
 }
 impl Into<Node> for FreeNode {
     fn into(self) -> Node {
@@ -1293,15 +1614,18 @@ impl Into<*const ir_node> for FreeNode {
 pub struct IJmpNode(*const ir_node);
 
 impl IJmpNode {
-    /// Gets the target address of the jump.
+    /// Gets target address of the jump.
     pub fn target(&self) -> Node {
         let ir_node = bindings::get_IJmp_target(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the target address of the jump.
+
+    /// Sets target address of the jump.
     pub fn set_target(&self, node: &'_ Node) {
-        bindings::set_IJmp_target(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_IJmp_target(self.0, ir_node)
     }
+
 }
 impl Into<Node> for IJmpNode {
     fn into(self) -> Node {
@@ -1323,15 +1647,18 @@ impl Into<*const ir_node> for IJmpNode {
 pub struct IdNode(*const ir_node);
 
 impl IdNode {
-    /// Gets the the value which is returned unchanged.
+    /// Gets the value which is returned unchanged.
     pub fn pred(&self) -> Node {
         let ir_node = bindings::get_Id_pred(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the the value which is returned unchanged.
+
+    /// Sets the value which is returned unchanged.
     pub fn set_pred(&self, node: &'_ Node) {
-        bindings::set_Id_pred(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Id_pred(self.0, ir_node)
     }
+
 }
 impl Into<Node> for IdNode {
     fn into(self) -> Node {
@@ -1368,24 +1695,78 @@ impl Into<*const ir_node> for JmpNode {
 pub struct LoadNode(*const ir_node);
 
 impl LoadNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_Load_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_Load_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Load_mem(self.0, ir_node)
     }
-    /// Gets the address to load from.
+
+    /// Gets address to load from.
     pub fn ptr(&self) -> Node {
         let ir_node = bindings::get_Load_ptr(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the address to load from.
+
+    /// Sets address to load from.
     pub fn set_ptr(&self, node: &'_ Node) {
-        bindings::set_Load_ptr(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Load_ptr(self.0, ir_node)
     }
+
+    /// Gets mode of the value to be loaded.
+    pub fn mode(&self) -> Node {
+        let ir_node = bindings::get_Load_mode(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets mode of the value to be loaded.
+    pub fn set_mode(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Load_mode(self.0, ir_node)
+    }
+
+    /// Gets The type of the object which is stored at ptr (need not match with mode).
+    pub fn ty(&self) -> Node {
+        let ir_node = bindings::get_Load_type(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets The type of the object which is stored at ptr (need not match with mode).
+    pub fn set_type(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Load_type(self.0, ir_node)
+    }
+
+    /// Gets volatile loads are a visible side-effect and may not be optimized.
+    pub fn volatility(&self) -> Node {
+        let ir_node = bindings::get_Load_volatility(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets volatile loads are a visible side-effect and may not be optimized.
+    pub fn set_volatility(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Load_volatility(self.0, ir_node)
+    }
+
+    /// Gets pointers to unaligned loads don't need to respect the load-mode/type alignments.
+    pub fn unaligned(&self) -> Node {
+        let ir_node = bindings::get_Load_unaligned(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets pointers to unaligned loads don't need to respect the load-mode/type alignments.
+    pub fn set_unaligned(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Load_unaligned(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for LoadNode {
     fn into(self) -> Node {
@@ -1407,15 +1788,30 @@ impl Into<*const ir_node> for LoadNode {
 pub struct MemberNode(*const ir_node);
 
 impl MemberNode {
-    /// Gets the pointer to object to select from.
+    /// Gets pointer to object to select from.
     pub fn ptr(&self) -> Node {
         let ir_node = bindings::get_Member_ptr(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the pointer to object to select from.
+
+    /// Sets pointer to object to select from.
     pub fn set_ptr(&self, node: &'_ Node) {
-        bindings::set_Member_ptr(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Member_ptr(self.0, ir_node)
     }
+
+    /// Gets entity which is selected.
+    pub fn entity(&self) -> Node {
+        let ir_node = bindings::get_Member_entity(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets entity which is selected.
+    pub fn set_entity(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Member_entity(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for MemberNode {
     fn into(self) -> Node {
@@ -1434,15 +1830,18 @@ impl Into<*const ir_node> for MemberNode {
 pub struct MinusNode(*const ir_node);
 
 impl MinusNode {
-    /// Gets the operand.
+    /// Gets operand.
     pub fn op(&self) -> Node {
         let ir_node = bindings::get_Minus_op(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the operand.
+
+    /// Sets operand.
     pub fn set_op(&self, node: &'_ Node) {
-        bindings::set_Minus_op(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Minus_op(self.0, ir_node)
     }
+
 }
 impl Into<Node> for MinusNode {
     fn into(self) -> Node {
@@ -1468,33 +1867,54 @@ impl Into<*const ir_node> for MinusNode {
 pub struct ModNode(*const ir_node);
 
 impl ModNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_Mod_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_Mod_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Mod_mem(self.0, ir_node)
     }
-    /// Gets the first operand.
+
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Mod_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Mod_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Mod_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Mod_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Mod_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Mod_right(self.0, ir_node)
     }
+
+    /// Gets mode of the result.
+    pub fn resmode(&self) -> Node {
+        let ir_node = bindings::get_Mod_resmode(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets mode of the result.
+    pub fn set_resmode(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Mod_resmode(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for ModNode {
     fn into(self) -> Node {
@@ -1513,24 +1933,30 @@ impl Into<*const ir_node> for ModNode {
 pub struct MulNode(*const ir_node);
 
 impl MulNode {
-    /// Gets the first operand.
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Mul_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Mul_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Mul_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Mul_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Mul_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Mul_right(self.0, ir_node)
     }
+
 }
 impl Into<Node> for MulNode {
     fn into(self) -> Node {
@@ -1550,24 +1976,30 @@ impl Into<*const ir_node> for MulNode {
 pub struct MulhNode(*const ir_node);
 
 impl MulhNode {
-    /// Gets the first operand.
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Mulh_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Mulh_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Mulh_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Mulh_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Mulh_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Mulh_right(self.0, ir_node)
     }
+
 }
 impl Into<Node> for MulhNode {
     fn into(self) -> Node {
@@ -1587,33 +2019,42 @@ impl Into<*const ir_node> for MulhNode {
 pub struct MuxNode(*const ir_node);
 
 impl MuxNode {
-    /// Gets the value making the output selection.
+    /// Gets value making the output selection.
     pub fn sel(&self) -> Node {
         let ir_node = bindings::get_Mux_sel(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the value making the output selection.
+
+    /// Sets value making the output selection.
     pub fn set_sel(&self, node: &'_ Node) {
-        bindings::set_Mux_sel(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Mux_sel(self.0, ir_node)
     }
-    /// Gets the selected if sel input is false.
+
+    /// Gets selected if sel input is false.
     pub fn false(&self) -> Node {
         let ir_node = bindings::get_Mux_false(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the selected if sel input is false.
+
+    /// Sets selected if sel input is false.
     pub fn set_false(&self, node: &'_ Node) {
-        bindings::set_Mux_false(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Mux_false(self.0, ir_node)
     }
-    /// Gets the selected if sel input is true.
+
+    /// Gets selected if sel input is true.
     pub fn true(&self) -> Node {
         let ir_node = bindings::get_Mux_true(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the selected if sel input is true.
+
+    /// Sets selected if sel input is true.
     pub fn set_true(&self, node: &'_ Node) {
-        bindings::set_Mux_true(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Mux_true(self.0, ir_node)
     }
+
 }
 impl Into<Node> for MuxNode {
     fn into(self) -> Node {
@@ -1650,15 +2091,18 @@ impl Into<*const ir_node> for NoMemNode {
 pub struct NotNode(*const ir_node);
 
 impl NotNode {
-    /// Gets the operand.
+    /// Gets operand.
     pub fn op(&self) -> Node {
         let ir_node = bindings::get_Not_op(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the operand.
+
+    /// Sets operand.
     pub fn set_op(&self, node: &'_ Node) {
-        bindings::set_Not_op(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Not_op(self.0, ir_node)
     }
+
 }
 impl Into<Node> for NotNode {
     fn into(self) -> Node {
@@ -1695,24 +2139,30 @@ impl Into<*const ir_node> for OffsetNode {
 pub struct OrNode(*const ir_node);
 
 impl OrNode {
-    /// Gets the first operand.
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Or_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Or_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Or_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Or_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Or_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Or_right(self.0, ir_node)
     }
+
 }
 impl Into<Node> for OrNode {
     fn into(self) -> Node {
@@ -1733,6 +2183,18 @@ impl Into<*const ir_node> for OrNode {
 pub struct PhiNode(*const ir_node);
 
 impl PhiNode {
+    /// Gets whether Phi represents the observable effect of a (possibly) nonterminating loop.
+    pub fn loop(&self) -> Node {
+        let ir_node = bindings::get_Phi_loop(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets whether Phi represents the observable effect of a (possibly) nonterminating loop.
+    pub fn set_loop(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Phi_loop(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for PhiNode {
     fn into(self) -> Node {
@@ -1753,15 +2215,18 @@ impl Into<*const ir_node> for PhiNode {
 pub struct PinNode(*const ir_node);
 
 impl PinNode {
-    /// Gets the value which is pinned.
+    /// Gets value which is pinned.
     pub fn op(&self) -> Node {
         let ir_node = bindings::get_Pin_op(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the value which is pinned.
+
+    /// Sets value which is pinned.
     pub fn set_op(&self, node: &'_ Node) {
-        bindings::set_Pin_op(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Pin_op(self.0, ir_node)
     }
+
 }
 impl Into<Node> for PinNode {
     fn into(self) -> Node {
@@ -1780,15 +2245,30 @@ impl Into<*const ir_node> for PinNode {
 pub struct ProjNode(*const ir_node);
 
 impl ProjNode {
-    /// Gets the the tuple value from which a part is extracted.
+    /// Gets the tuple value from which a part is extracted.
     pub fn pred(&self) -> Node {
         let ir_node = bindings::get_Proj_pred(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the the tuple value from which a part is extracted.
+
+    /// Sets the tuple value from which a part is extracted.
     pub fn set_pred(&self, node: &'_ Node) {
-        bindings::set_Proj_pred(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Proj_pred(self.0, ir_node)
     }
+
+    /// Gets number of tuple component to be extracted.
+    pub fn num(&self) -> Node {
+        let ir_node = bindings::get_Proj_num(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets number of tuple component to be extracted.
+    pub fn set_num(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Proj_num(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for ProjNode {
     fn into(self) -> Node {
@@ -1809,24 +2289,30 @@ impl Into<*const ir_node> for ProjNode {
 pub struct RaiseNode(*const ir_node);
 
 impl RaiseNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_Raise_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_Raise_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Raise_mem(self.0, ir_node)
     }
-    /// Gets the pointer to exception object to be thrown.
+
+    /// Gets pointer to exception object to be thrown.
     pub fn exo_ptr(&self) -> Node {
         let ir_node = bindings::get_Raise_exo_ptr(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the pointer to exception object to be thrown.
+
+    /// Sets pointer to exception object to be thrown.
     pub fn set_exo_ptr(&self, node: &'_ Node) {
-        bindings::set_Raise_exo_ptr(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Raise_exo_ptr(self.0, ir_node)
     }
+
 }
 impl Into<Node> for RaiseNode {
     fn into(self) -> Node {
@@ -1846,15 +2332,18 @@ impl Into<*const ir_node> for RaiseNode {
 pub struct ReturnNode(*const ir_node);
 
 impl ReturnNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_Return_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_Return_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Return_mem(self.0, ir_node)
     }
+
 }
 impl Into<Node> for ReturnNode {
     fn into(self) -> Node {
@@ -1876,24 +2365,42 @@ impl Into<*const ir_node> for ReturnNode {
 pub struct SelNode(*const ir_node);
 
 impl SelNode {
-    /// Gets the pointer to array to select from.
+    /// Gets pointer to array to select from.
     pub fn ptr(&self) -> Node {
         let ir_node = bindings::get_Sel_ptr(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the pointer to array to select from.
+
+    /// Sets pointer to array to select from.
     pub fn set_ptr(&self, node: &'_ Node) {
-        bindings::set_Sel_ptr(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Sel_ptr(self.0, ir_node)
     }
-    /// Gets the index to select.
+
+    /// Gets index to select.
     pub fn index(&self) -> Node {
         let ir_node = bindings::get_Sel_index(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the index to select.
+
+    /// Sets index to select.
     pub fn set_index(&self, node: &'_ Node) {
-        bindings::set_Sel_index(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Sel_index(self.0, ir_node)
     }
+
+    /// Gets array type.
+    pub fn ty(&self) -> Node {
+        let ir_node = bindings::get_Sel_type(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets array type.
+    pub fn set_type(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Sel_type(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for SelNode {
     fn into(self) -> Node {
@@ -1916,24 +2423,30 @@ impl Into<*const ir_node> for SelNode {
 pub struct ShlNode(*const ir_node);
 
 impl ShlNode {
-    /// Gets the first operand.
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Shl_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Shl_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Shl_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Shl_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Shl_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Shl_right(self.0, ir_node)
     }
+
 }
 impl Into<Node> for ShlNode {
     fn into(self) -> Node {
@@ -1956,24 +2469,30 @@ impl Into<*const ir_node> for ShlNode {
 pub struct ShrNode(*const ir_node);
 
 impl ShrNode {
-    /// Gets the first operand.
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Shr_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Shr_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Shr_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Shr_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Shr_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Shr_right(self.0, ir_node)
     }
+
 }
 impl Into<Node> for ShrNode {
     fn into(self) -> Node {
@@ -1997,24 +2516,30 @@ impl Into<*const ir_node> for ShrNode {
 pub struct ShrsNode(*const ir_node);
 
 impl ShrsNode {
-    /// Gets the first operand.
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Shrs_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Shrs_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Shrs_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Shrs_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Shrs_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Shrs_right(self.0, ir_node)
     }
+
 }
 impl Into<Node> for ShrsNode {
     fn into(self) -> Node {
@@ -2069,33 +2594,78 @@ impl Into<*const ir_node> for StartNode {
 pub struct StoreNode(*const ir_node);
 
 impl StoreNode {
-    /// Gets the memory dependency.
+    /// Gets memory dependency.
     pub fn mem(&self) -> Node {
         let ir_node = bindings::get_Store_mem(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the memory dependency.
+
+    /// Sets memory dependency.
     pub fn set_mem(&self, node: &'_ Node) {
-        bindings::set_Store_mem(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Store_mem(self.0, ir_node)
     }
-    /// Gets the address to store to.
+
+    /// Gets address to store to.
     pub fn ptr(&self) -> Node {
         let ir_node = bindings::get_Store_ptr(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the address to store to.
+
+    /// Sets address to store to.
     pub fn set_ptr(&self, node: &'_ Node) {
-        bindings::set_Store_ptr(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Store_ptr(self.0, ir_node)
     }
-    /// Gets the value to store.
+
+    /// Gets value to store.
     pub fn value(&self) -> Node {
         let ir_node = bindings::get_Store_value(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the value to store.
+
+    /// Sets value to store.
     pub fn set_value(&self, node: &'_ Node) {
-        bindings::set_Store_value(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Store_value(self.0, ir_node)
     }
+
+    /// Gets The type of the object which is stored at ptr (need not match with value's type).
+    pub fn ty(&self) -> Node {
+        let ir_node = bindings::get_Store_type(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets The type of the object which is stored at ptr (need not match with value's type).
+    pub fn set_type(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Store_type(self.0, ir_node)
+    }
+
+    /// Gets volatile stores are a visible side-effect and may not be optimized.
+    pub fn volatility(&self) -> Node {
+        let ir_node = bindings::get_Store_volatility(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets volatile stores are a visible side-effect and may not be optimized.
+    pub fn set_volatility(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Store_volatility(self.0, ir_node)
+    }
+
+    /// Gets pointers to unaligned stores don't need to respect the load-mode/type alignments.
+    pub fn unaligned(&self) -> Node {
+        let ir_node = bindings::get_Store_unaligned(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets pointers to unaligned stores don't need to respect the load-mode/type alignments.
+    pub fn set_unaligned(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Store_unaligned(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for StoreNode {
     fn into(self) -> Node {
@@ -2114,24 +2684,30 @@ impl Into<*const ir_node> for StoreNode {
 pub struct SubNode(*const ir_node);
 
 impl SubNode {
-    /// Gets the first operand.
+    /// Gets first operand.
     pub fn left(&self) -> Node {
         let ir_node = bindings::get_Sub_left(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the first operand.
+
+    /// Sets first operand.
     pub fn set_left(&self, node: &'_ Node) {
-        bindings::set_Sub_left(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Sub_left(self.0, ir_node)
     }
-    /// Gets the second operand.
+
+    /// Gets second operand.
     pub fn right(&self) -> Node {
         let ir_node = bindings::get_Sub_right(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the second operand.
+
+    /// Sets second operand.
     pub fn set_right(&self, node: &'_ Node) {
-        bindings::set_Sub_right(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Sub_right(self.0, ir_node)
     }
+
 }
 impl Into<Node> for SubNode {
     fn into(self) -> Node {
@@ -2153,15 +2729,42 @@ impl Into<*const ir_node> for SubNode {
 pub struct SwitchNode(*const ir_node);
 
 impl SwitchNode {
-    /// Gets the input selector.
+    /// Gets input selector.
     pub fn selector(&self) -> Node {
         let ir_node = bindings::get_Switch_selector(self.0);
         NodeFactory::node(ir_node)
     }
-    /// Sets the input selector.
+
+    /// Sets input selector.
     pub fn set_selector(&self, node: &'_ Node) {
-        bindings::set_Switch_selector(self.0, node.0)
+        let ir_node = node.into()
+        bindings::set_Switch_selector(self.0, ir_node)
     }
+
+    /// Gets number of outputs (including pn_Switch_default).
+    pub fn n_outs(&self) -> Node {
+        let ir_node = bindings::get_Switch_n_outs(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets number of outputs (including pn_Switch_default).
+    pub fn set_n_outs(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Switch_n_outs(self.0, ir_node)
+    }
+
+    /// Gets table describing mapping from input values to Proj numbers.
+    pub fn table(&self) -> Node {
+        let ir_node = bindings::get_Switch_table(self.0);
+        NodeFactory::node(ir_node)
+    }
+
+    /// Sets table describing mapping from input values to Proj numbers.
+    pub fn set_table(&self, node: &'_ Node) {
+        let ir_node = node.into()
+        bindings::set_Switch_table(self.0, ir_node)
+    }
+
 }
 impl Into<Node> for SwitchNode {
     fn into(self) -> Node {
