@@ -328,7 +328,7 @@ for (const node of nodes) {
 
 function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") {
     if (!node.hasConstructor) { return; }
-    const params = new Array<string>();
+    const params = new Array<{ name: string, type: string, doc: string }>();
     const args = new Array<string>();
     if (context === "block") {
         if (node.needsBlock) {
@@ -338,7 +338,7 @@ function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") 
     }
     else if (context === "graph") {
         if (node.needsBlock) {
-            params.push(`block: &'_ Block`);
+            params.push({ name: `block`, type: `&'_ Block`, doc: `The block.` });
             args.push(nodeType.unwrap(`block`));
         }
         else if (node.usesGraph) {
@@ -350,7 +350,7 @@ function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") 
     let nextIsArray = false;
     for (const arg of node.args) {
         if (nextIsArray) {
-            params.push(`${arg.argName}: Vec<Node>`);
+            params.push({ name: arg.argName, type: `Vec<Node>`, doc: arg.comment });
             statements.push(`let ${arg.argName}: Vec<*mut bindings::ir_node> = ${arg.argName}.iter().map(|v| ${nodeType.unwrap(`v`)}).collect();`);
             args.push(`${arg.argName}.len() as i32`, `${arg.argName}.as_ptr()`);
             nextIsArray = false;
@@ -358,16 +358,22 @@ function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") 
             nextIsArray = true;
         }
         else {
-            params.push(`${arg.argName}: ${arg.type.rustInName}`);
+            params.push({ name: arg.argName, type: arg.type.rustInName, doc: arg.comment });
             args.push(arg.type.unwrap(arg.argName));
         }
     }
 
-    w.indent(`pub fn ${node.new_name}(&self, ${params.join(", ")}) -> ${node.structName} {`);
+    w.line(`/// Creates a new ${node.name}-node.`);
+    for (const param of params) {
+        w.line(`/// * \`${param.name}\` ${param.doc}`);
+    }
+    const paramsStr = params.map(p => `${p.name}: ${p.type}`).join(", ");
+    w.indent(`pub fn ${node.new_name}(&self, ${paramsStr}) -> ${node.structName} {`);
     for (const line of statements) { w.line(line); }
     w.line(`let ir_node = unsafe { bindings::new_r_${node.name}(${args.join(", ")}) };`);
     w.line(`${node.structName}::new(ir_node)`);
     w.unindent(`}`);
+    w.line();
 }
 
 // graph node construction functions
