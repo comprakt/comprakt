@@ -1,0 +1,13 @@
+class Test {
+    public static void main(String[] args) {
+        Test t = new Test();
+        int divisor = 0;
+        int i = 1 / (divisor * t.loseBig());
+    }
+
+    public int loseBig() {
+        System.out.println(42);
+        System.out.flush();
+        return 42;
+    }
+}
