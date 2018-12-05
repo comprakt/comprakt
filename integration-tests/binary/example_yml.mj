@@ -1,0 +1,28 @@
+---
+# These are the defaults for the compiler output in binary tests:
+#
+# compiler_stderr:
+#   is: ''
+# compiler_stdout:
+#   is: ''
+# compiler_exitcode:
+#   is: 0
+
+# the outputs and inputs of the generated binary.
+stderr:
+  is: ''
+stdout:
+  is: 'abcd'
+stdin:
+  is: 'abcd'
+exitcode:
+  is: 0
+---
+class Cat {
+    public static void main(String[] args) {
+        int c;
+        while((c = System.in.read()) != -1) {
+            System.out.write(c);
+        }
+    }
+}

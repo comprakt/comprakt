@@ -40,31 +40,104 @@ pub enum DataError {
 
 /// Reference output for stderr, stdout or exit code. This expected output may
 /// already be available (because it was read from a yaml file) or saved into a
-/// file.
-#[derive(Debug, Deserialize, Serialize)]
+/// a lazy loaded file.
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ReferenceData {
     pub stderr: ExpectedData,
     pub stdout: ExpectedData,
     pub exitcode: ExpectedData,
 }
 
-impl ReferenceData {
-    pub fn all_from_own_file(base: &PathBuf) -> Self {
-        Self {
-            stderr: ExpectedData::InFile(add_extension(base, "stderr")),
-            stdout: ExpectedData::InFile(add_extension(base, "stdout")),
-            exitcode: ExpectedData::InFile(add_extension(base, "exitcode")),
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct OptionalReferenceData {
+    pub stderr: Option<ExpectedData>,
+    pub stdout: Option<ExpectedData>,
+    pub exitcode: Option<ExpectedData>,
+}
+
+pub trait IntoReferenceData {
+    fn into_reference_data(self, base: &PathBuf) -> ReferenceData;
+}
+
+pub trait FromReferencesPath<T> {
+    fn from_reference_path(base: &PathBuf) -> T;
+}
+
+impl FromReferencesPath<OptionalReferenceData> for OptionalReferenceData {
+    fn from_reference_path(base: &PathBuf) -> Self {
+        Self::all_from_own_file(base)
+    }
+}
+
+impl FromReferencesPath<ReferenceData> for ReferenceData {
+    fn from_reference_path(base: &PathBuf) -> Self {
+        Self::all_from_own_file(base)
+    }
+}
+
+impl IntoReferenceData for ReferenceData {
+    fn into_reference_data(self, _base: &PathBuf) -> ReferenceData {
+        self
+    }
+}
+
+impl IntoReferenceData for OptionalReferenceData {
+    fn into_reference_data(self, base: &PathBuf) -> ReferenceData {
+        ReferenceData {
+            stderr: self
+                .stderr
+                .unwrap_or_else(|| default_reference_stderr(base)),
+            stdout: self
+                .stdout
+                .unwrap_or_else(|| default_reference_stdout(base)),
+            exitcode: self
+                .exitcode
+                .unwrap_or_else(|| default_reference_exitcode(base)),
         }
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+pub fn default_reference_stderr(base: &PathBuf) -> ExpectedData {
+    ExpectedData::InFile(add_extension(base, "stderr"))
+}
+
+pub fn default_reference_stdout(base: &PathBuf) -> ExpectedData {
+    ExpectedData::InFile(add_extension(base, "stdout"))
+}
+
+pub fn default_reference_exitcode(base: &PathBuf) -> ExpectedData {
+    ExpectedData::InFile(add_extension(base, "exitcode"))
+}
+
+impl OptionalReferenceData {
+    pub fn all_from_own_file(base: &PathBuf) -> Self {
+        Self {
+            stderr: Some(default_reference_stderr(base)),
+            stdout: Some(default_reference_stdout(base)),
+            exitcode: Some(default_reference_exitcode(base)),
+        }
+    }
+}
+
+impl ReferenceData {
+    pub fn all_from_own_file(base: &PathBuf) -> Self {
+        Self {
+            stderr: default_reference_stderr(base),
+            stdout: default_reference_stdout(base),
+            exitcode: default_reference_exitcode(base),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum ExpectedData {
+    #[serde(rename = "file")]
     InFile(PathBuf),
+    #[serde(rename = "is")]
     Inline(String),
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum InputData {
     WasStripped(String),
     NotStripped(PathBuf, String),
@@ -72,13 +145,13 @@ pub enum InputData {
 }
 
 /// data given to a test function
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TestData<T> {
     pub input: InputData,
     pub reference: T,
 }
 
-pub fn get_files<T: Into<ReferenceData> + From<ReferenceData> + DeserializeOwned>(
+pub fn get_files<T: FromReferencesPath<T> + DeserializeOwned>(
     path_input: &PathBuf,
     path_references: &PathBuf,
 ) -> Result<TestData<T>, Error> {
@@ -86,10 +159,10 @@ pub fn get_files<T: Into<ReferenceData> + From<ReferenceData> + DeserializeOwned
         utf8_data
     } else {
         // we do not support yaml in front of non UTF-8 files.
-        // Assume separate files
+        // Use default
         return Ok(TestData {
             input: InputData::NotLoaded(path_input.clone()),
-            reference: ReferenceData::all_from_own_file(path_references).into(),
+            reference: T::from_reference_path(path_references),
         });
     };
     let input_file = yaml::FrontMatter::new(&input);
@@ -122,13 +195,13 @@ pub fn get_files<T: Into<ReferenceData> + From<ReferenceData> + DeserializeOwned
         });
     }
 
-    // 3.) Expect the data to be available as separate files
+    // 3.) Set some default, e.g. expect the data to be available as separate files
     Ok(TestData {
         input: InputData::NotStripped(
             path_input.clone(),
             input_file.without_front_matter().to_string(),
         ),
-        reference: ReferenceData::all_from_own_file(path_references).into(),
+        reference: T::from_reference_path(path_references),
     })
 }
 

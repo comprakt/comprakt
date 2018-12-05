@@ -1,3 +1,7 @@
+---
+stdin:
+    file: cat.out.stdin
+---
 class Cat {
     public static void main(String[] args) {
         int c;
