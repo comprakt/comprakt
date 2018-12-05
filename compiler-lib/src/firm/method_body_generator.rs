@@ -810,7 +810,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 }
 
 /// Result of `MethodBodyGenerator::gen_expr`
-#[derive(EnumDiscriminants)]
+#[derive(Debug, EnumDiscriminants)]
 enum ExprResult {
     /// No Result (e.g. call of void method)
     Void,
@@ -826,6 +826,7 @@ enum ExprResult {
 }
 
 /// An If-diamond
+#[derive(Debug)]
 struct CondProjection {
     /// Jump into this block to eval the condition
     entry: Block,
@@ -854,7 +855,7 @@ impl CondProjection {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum ValueComputation {
     InCurBlock(*mut ir_node),
     Complex { entry: Block, node: *mut ir_node },
@@ -954,6 +955,7 @@ impl ExprResult {
 /// on wether to treat it as a simple value or treating it as a location.
 /// Then, upon encountering an assignment, we still have the information
 /// needed to assign to the location described by the LHS.
+#[derive(Debug)]
 enum LValue {
     // Local variable. This includes parameters
     Var {

@@ -7,7 +7,7 @@ extern crate derive_more;
 use libfirm_rs_bindings::*;
 use std::ffi::{CStr, CString};
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Ty(*mut ir_type);
 
 impl Into<*mut ir_type> for Ty {
@@ -159,7 +159,7 @@ impl FunctionType {
     }
 }
 
-#[derive(Clone, Copy, From, Into)]
+#[derive(Debug, Clone, Copy, From, Into)]
 pub struct Entity(*mut ir_entity);
 
 impl Entity {
@@ -307,7 +307,7 @@ impl Into<*const ir_graph> for Graph {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Block(*mut ir_node);
 
 impl Block {
@@ -614,7 +614,7 @@ impl ValueNode for *mut ir_node {
     }
 }
 
-#[derive(Clone, Copy, Into, From)]
+#[derive(Debug, Clone, Copy, Into, From)]
 pub struct Jmp(*mut ir_node);
 
 #[derive(Clone, Copy, Into)]
@@ -706,7 +706,7 @@ impl AsIndex for *mut ir_node {
 }
 
 /// Sel is an `ir_node` representing the result of a by-index selection.
-#[derive(Clone, Copy, Into, From)]
+#[derive(Debug, Clone, Copy, Into, From)]
 pub struct Sel(*mut ir_node);
 
 impl Sel {
