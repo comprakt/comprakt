@@ -10,6 +10,7 @@ use std::ffi::{CStr, CString};
 pub mod nodes;
 pub mod nodes_gen;
 pub mod other;
+pub mod types;
 
 #[derive(Clone, Copy)]
 pub struct Ty(*mut ir_type);
