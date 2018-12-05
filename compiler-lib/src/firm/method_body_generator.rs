@@ -302,7 +302,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             Some(mode) => Value(ValueComputation::simple(
                 &call.project_result_tuple().project(mode, 0),
             )),
-            None => Void,
+            None => {
+                // TODO is this problematic?
+                unsafe { keep_alive(call.into()) };
+                Void
+            }
         }
     }
 
