@@ -12,6 +12,8 @@ interface NodeAttr {
     comment: string,
 }
 
+type NodeArg = NodeAttr;
+
 interface Node {
     name: string,
     structName: string,
@@ -21,18 +23,28 @@ interface Node {
     attrs?: NodeAttr[];
     doc: string,
     mode: string,
-    arguments: any[],
+    arguments: NodeArg[],
+    usesGraph?: boolean,
+    // I don't really now what `block` is for
+    block: string,
+    constructor: boolean,
 }
 type Data = Node[];
 
 class NodeImpl {
     public readonly name: string;
     public readonly doc: string;
-    public readonly attrOrInputs: ReadonlyArray<NodeAttrOrInputImpl>;
+    public readonly attrOrInputs: ReadonlyArray<NodeMemberImpl>;
+    public readonly args: ReadonlyArray<NodeArgImpl>;
+    public readonly usesGraph: boolean;
+    public readonly block: boolean;
+    public readonly hasConstructor: boolean;
 
+    public get needsBlock() { return !this.block; }
     public get structName() { return this.name; }
     public get variantName() { return this.name; }
-    public get create_name() { return `create_${this.name.toLowerCase()}` }
+    public get create_name() { return `create_${this.name.toLowerCase()}`; }
+    public get new_name() { return `new_${this.name.toLowerCase()}`; }
 
     constructor(node: Node) {
         this.name = node.name;
@@ -42,6 +54,10 @@ class NodeImpl {
             .concat(
                 node.attrs ? node.attrs.map(a => new NodeAttrImpl(a)) : []
             );
+        this.usesGraph = !!node.usesGraph;
+        this.args = node.arguments.map(input => new NodeArgImpl(input));
+        this.block = !!node.block;
+        this.hasConstructor = node.constructor;
     }
 }
 
@@ -50,15 +66,16 @@ function escapeRustKeywords(ident: string) {
     if (ident === "true") return "true_";
     if (ident === "false") return "false_";
     if (ident === "loop") return "loop_";
-    if (ident === "false") return "false_";
+    if (ident === "in") return "in_";
     return ident;
 }
 
-abstract class NodeAttrOrInputImpl {
+abstract class NodeMemberImpl {
     public readonly name: string;
     public readonly type: TypeDef;
     public readonly comment: string;
 
+    public get argName(): string { return escapeRustKeywords(this.name); }
     public get getterName(): string { return escapeRustKeywords(this.name); }
     // for symmetry
     public get setterName(): string { return `set_${escapeRustKeywords(this.name)}`; }
@@ -70,17 +87,24 @@ abstract class NodeAttrOrInputImpl {
     }
 }
 
-class NodeAttrImpl extends NodeAttrOrInputImpl {
+class NodeAttrImpl extends NodeMemberImpl {
     constructor(attr: NodeAttr) {
         super(attr.name, lookupType(attr.type), attr.comment);
     }
 }
 
-class NodeInputImpl extends NodeAttrOrInputImpl {
+class NodeInputImpl extends NodeMemberImpl {
     constructor(attr: NodeIn) {
         super(attr.name, nodeType, attr.comment);
     }
 }
+
+class NodeArgImpl extends NodeMemberImpl {
+    constructor(attr: NodeArg) {
+        super(attr.name, lookupType(attr.type), attr.comment);
+    }
+}
+
 
 interface TypeDef {
     wrap(expr: string): string,
@@ -111,9 +135,12 @@ function rawType(name: string): TypeDef {
     });
 }
 
+const notFoundTypes = new Array<string>();
+
 function lookupType(typeName: string) {
+    typeName = typeName.replace(/ /g, "");
     const types: { [key: string]: TypeDef } = {
-        "ir_node *": nodeType,
+        "ir_node*": nodeType,
         "int": ({
             wrap: (expr: string) => `${expr}`,
             unwrap: (expr: string) => expr,
@@ -146,10 +173,11 @@ function lookupType(typeName: string) {
         "ir_asm_constraint*": rawPointerType("ir_asm_constraint"),
         "ident*": rawPointerType("ident"),
         "ident**": rawType("*mut *mut bindings::ident"),
+        "ir_node*const*": rawType("NodeList")
     };
     const type = types[typeName];
     if (!type) {
-        throw new Error(`Type "${typeName}" does not exist.`);
+        notFoundTypes.push(typeName);
     }
     return type;
 }
@@ -162,6 +190,9 @@ const nodes = nodesJson.map(n => {
     return new NodeImpl(n);
 }).filter(n => n !== null);
 
+if (notFoundTypes.length > 0) {
+    throw new Error(`Types ${notFoundTypes.map(t => `"${t}"`).join(", ")} do not exist.`);
+}
 
 const w = new CodeMaker();
 w.openFile("nodes_gen.rs");
@@ -169,6 +200,7 @@ w.openFile("nodes_gen.rs");
 w.line("use libfirm_rs_bindings as bindings;");
 w.line("use std::collections::HashMap;");
 w.line("use super::nodes::NodeTrait;");
+w.line("use super::other::Graph;");
 w.line();
 
 // generate Node enum
@@ -246,6 +278,17 @@ for (const node of nodes) {
 
     w.indent(`impl ${node.structName} {`);
     {
+        // new function
+        w.indent(`pub(crate) fn new(ir_node: ${ir_node_type}) -> Self {`);
+        {
+            w.indent(`if unsafe { bindings::is_${node.name}(ir_node) } == 0 {`);
+            w.line(`panic!("given ir_node is not a ${node.name}");`);
+            w.unindent(`}`);
+            w.line(`${node.structName}(ir_node)`);
+            w.unindent(`}`);
+        }
+        w.line();
+
         // getter and setter for input nodes and attributes
         for (const input of node.attrOrInputs) {
             if (input.comment) { w.line(`/// Gets ${input.comment}.`); }
@@ -283,6 +326,68 @@ for (const node of nodes) {
     w.line();
 }
 
+function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") {
+    if (!node.hasConstructor) { return; }
+    const params = new Array<string>();
+    const args = new Array<string>();
+    if (context === "block") {
+        if (node.needsBlock) {
+            args.push(`self.0`);
+        }
+        else { return; }
+    }
+    else if (context === "graph") {
+        if (node.needsBlock) {
+            params.push(`block: &'_ Block`);
+            args.push(nodeType.unwrap(`block`));
+        }
+        else if (node.usesGraph) {
+            args.push(`self.irg`);
+        }
+    }
+
+    let statements = new Array<string>();
+    let nextIsArray = false;
+    for (const arg of node.args) {
+        if (nextIsArray) {
+            params.push(`${arg.argName}: Vec<Node>`);
+            statements.push(`let ${arg.argName}: Vec<*mut bindings::ir_node> = ${arg.argName}.iter().map(|v| ${nodeType.unwrap(`v`)}).collect();`);
+            args.push(`${arg.argName}.len() as i32`, `${arg.argName}.as_ptr()`);
+            nextIsArray = false;
+        } else if (arg.name === "arity") {
+            nextIsArray = true;
+        }
+        else {
+            params.push(`${arg.argName}: ${arg.type.rustInName}`);
+            args.push(arg.type.unwrap(arg.argName));
+        }
+    }
+
+    w.indent(`pub fn ${node.new_name}(&self, ${params.join(", ")}) -> ${node.structName} {`);
+    for (const line of statements) { w.line(line); }
+    w.line(`let ir_node = unsafe { bindings::new_r_${node.name}(${args.join(", ")}) };`);
+    w.line(`${node.structName}::new(ir_node)`);
+    w.unindent(`}`);
+}
+
+// graph node construction functions
+w.indent(`impl Graph {`);
+{
+    for (const node of nodes) {
+        generateConstructionFunction(node, "graph");
+    }
+}
+w.unindent("}");
+w.line();
+
+w.indent(`impl Block {`);
+{
+    for (const node of nodes) {
+        generateConstructionFunction(node, "block");
+    }
+}
+w.unindent("}");
+w.line();
 
 w.closeFile("nodes_gen.rs");
 w.save("../src/");

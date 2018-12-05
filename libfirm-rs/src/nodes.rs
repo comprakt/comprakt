@@ -1,5 +1,5 @@
-use libfirm_rs_bindings as bindings;
 use crate::nodes_gen::{Block, Node, NodeFactory};
+use libfirm_rs_bindings as bindings;
 
 impl Block {
 
@@ -13,7 +13,7 @@ pub trait NodeTrait {
         let block_ir_node = unsafe { bindings::get_nodes_block(self.internal_ir_node()) };
         match NodeFactory::node(block_ir_node) {
             Node::Block(block) => block,
-            _ => panic!("Expected block.")
+            _ => panic!("Expected block."),
         }
     }
 
