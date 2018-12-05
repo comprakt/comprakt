@@ -1,4 +1,4 @@
-use super::{get_firm_mode, size_of, ty_from_checked_type, Class, Runtime};
+use super::{get_firm_mode, ty_from_checked_type, Class, Runtime};
 use crate::{
     asciifile::Spanned,
     ast::{self, BinaryOp},
@@ -546,26 +546,32 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 ))
             }
             NewArray(_, num_expr, _) => {
-                let new_array_type = &self
-                    .type_analysis
-                    .expr_info(expr)
-                    .ty
-                    .inner_type()
-                    .expect("type of array must have inner type");
+                let checked_array_type = &self.type_analysis.expr_info(expr).ty;
+                let array_type = ty_from_checked_type(checked_array_type)
+                    .expect("array type must have firm equivalent")
+                    .points_to();
+                let elt_type = ty_from_checked_type(
+                    checked_array_type
+                        .inner_type()
+                        .expect("type of array must have inner type"),
+                )
+                .expect("array element type must have firm equivalent");
+                let len_entity = array_type.struct_member(0);
 
                 let num_elts = self
                     .gen_expr(num_expr)
                     .enforce_value(self.graph)
                     .mature_entry();
-                let elt_size = self.gen_const(
-                    size_of(new_array_type)
-                        .map(i64::from)
-                        .expect("cannot allocate array of unsized type"),
-                    unsafe { mode::Is },
-                );
+                let elt_size = self.gen_const(i64::from(elt_type.size()), unsafe { mode::Is });
+                let len_size =
+                    self.gen_const(i64::from(len_entity.ty().size()), unsafe { mode::Is });
 
-                let alloc_size = self.graph.cur_block().new_mul(&num_elts, &elt_size);
+                // We have num_elts * elt_size bytes of data ...
+                let data_size = self.graph.cur_block().new_mul(&num_elts, &elt_size);
+                // ... but we need to allocate a bit more space to store the length (num_elts)
+                let alloc_size = self.graph.cur_block().new_add(&len_size, &data_size);
 
+                // Let's allocate some space
                 let call = self.graph.cur_block().new_call(
                     self.graph.cur_store(),
                     self.graph.new_addr(self.runtime.new),
@@ -573,9 +579,24 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 );
                 self.graph.set_store(call.project_mem());
 
-                Value(ValueComputation::simple(
-                    &call.project_result_tuple().project(unsafe { mode::P }, 0),
-                ))
+                // This is the pointer to our array structure (consisting of len+data)
+                let ptr = call
+                    .project_result_tuple()
+                    .project(unsafe { mode::P }, 0)
+                    .as_value_node();
+
+                // Now we store the num_elts in the len member
+                let len = self.graph.cur_block().new_member(&ptr, len_entity);
+                let store_len = self.graph.cur_block().new_store(
+                    self.graph.cur_store(),
+                    &len,
+                    &num_elts,
+                    len_entity.ty(),
+                    ir_cons_flags::None,
+                );
+                self.graph.set_store(store_len.project_mem());
+
+                Value(ValueComputation::simple(&ptr))
             }
         }
     }
@@ -587,8 +608,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         elt_type: Ty,
     ) -> LValue {
         let array_type = &self.type_analysis.expr_info(target_expr).ty;
-        let firm_array_type =
+        let array_pointer_type =
             ty_from_checked_type(array_type).expect("array type must have firm equivalent");
+        let bounded_array_type = array_pointer_type.points_to();
 
         let target_expr = self
             .gen_expr(target_expr)
@@ -599,12 +621,48 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             .enforce_value(self.graph)
             .mature_entry();
 
+        let len_entity = bounded_array_type.struct_member(0);
+        let data_entity = bounded_array_type.struct_member(1);
+        let len_ptr = self.graph.cur_block().new_member(&target_expr, len_entity);
+        let array = self.graph.cur_block().new_member(&target_expr, data_entity);
+
+        let load_len = self.graph.cur_block().new_load(
+            self.graph.cur_store(),
+            &len_ptr,
+            len_entity.ty().mode(),
+            len_entity.ty(),
+            ir_cons_flags::None,
+        );
+        self.graph.set_store(load_len.project_mem());
+        let len = load_len.project_res(len_entity.ty().mode());
+
+        let bounds_cmp = self
+            .graph
+            .cur_block()
+            .new_cmp(&idx_expr, &len, ir_relation::Less);
+
+        let bounds_cond = self.graph.cur_block().new_cond(&bounds_cmp.as_selector());
+
+        let err_proj = bounds_cond.project_false();
+        let err_block = self.graph.new_imm_block(&err_proj);
+
+        self.graph.cur_block().mature();
+        self.graph.set_cur_block(err_block);
+
+        // TODO pass array size and actual index
+        let res = self.gen_static_fn_call(self.runtime.array_out_of_bounds, None, &[]);
+        assert_matches!(res, ExprResult::Void);
+        unsafe { keep_alive(err_block.into()) };
+
+        err_block.mature();
+
+        let access_proj = bounds_cond.project_true();
+        let access_block = self.graph.new_imm_block(&access_proj);
+
+        self.graph.set_cur_block(access_block);
+
         LValue::Array {
-            sel: self.graph.cur_block().new_sel(
-                &target_expr,
-                &idx_expr,
-                firm_array_type.points_to(),
-            ),
+            sel: access_block.new_sel(&array, &idx_expr, data_entity.ty()),
             elt_type,
         }
     }

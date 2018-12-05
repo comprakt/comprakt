@@ -41,6 +41,10 @@ impl Ty {
         unsafe { new_type_class(new_id_from_str(name.as_ptr())) }.into()
     }
 
+    pub fn new_anon_struct(tag: &CStr) -> Ty {
+        unsafe { new_type_struct(id_unique(tag.as_ptr())) }.into()
+    }
+
     pub fn new_subentity(self, name: &CStr, sub_ty: Ty) -> Entity {
         unsafe { new_entity(self.into(), name.as_ptr() as *mut i8, sub_ty.into()) }.into()
     }
@@ -67,6 +71,10 @@ impl Ty {
 
     pub fn layout_default(self) {
         unsafe { default_layout_compound_type(self.into()) };
+    }
+
+    pub fn struct_member(self, pos: usize) -> Entity {
+        unsafe { get_struct_member(self.0, pos) }.into()
     }
 }
 
@@ -171,6 +179,16 @@ impl Entity {
         }
         .into()
     }
+
+    pub fn new_anon(id: &CStr, ty: Ty) -> Entity {
+        unsafe {
+            let global_type: *mut ir_type = get_glob_type();
+            let name: *mut ident = id_unique(id.as_ptr());
+            new_entity(global_type, name, ty.into())
+        }
+        .into()
+    }
+
     pub fn ty(self) -> Ty {
         unsafe { get_entity_type(self.0) }.into()
     }

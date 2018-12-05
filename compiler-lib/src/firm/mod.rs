@@ -35,6 +35,8 @@ use crate::{
     },
     OutputSpecification,
 };
+
+use c_str_macro::c_str;
 use libfirm_rs::{bindings::*, *};
 use std::{
     cell::RefCell,
@@ -181,7 +183,15 @@ pub unsafe fn build<'src, 'ast>(
 }
 
 /// `None` indicates that the given type is not convertible, which
-/// is not necessarily an error (e.g. `void`)
+/// is not necessarily an error (e.g. `void`).
+///
+/// `TypeRef`s are raw pointers, and an `Array(T)` is represented as pointers
+/// to sth like this: ```
+/// struct $Array<T> {
+///   len: i32,
+///   data: T[],
+/// }
+/// ```
 fn ty_from_checked_type(ct: &CheckedType<'_>) -> Option<Ty> {
     let ty = match ct {
         CheckedType::Int => PrimitiveType::i32(),
@@ -189,10 +199,21 @@ fn ty_from_checked_type(ct: &CheckedType<'_>) -> Option<Ty> {
         // TODO Should be `class_ty.pointer_to()`, but constructing class definitions is difficult
         // then, because of recursive type definitions and use use-beforce-declare class definitions
         CheckedType::TypeRef(_) => PrimitiveType::ptr(),
-        CheckedType::Array(checked_type) => ty_from_checked_type(checked_type)
-            .expect("Arrays are never of type `void`")
-            .array_of()
-            .pointer_to(),
+        CheckedType::Array(checked_type) => {
+            let array_ptr = ty_from_checked_type(checked_type)
+                .expect("Arrays are never of type `void`")
+                .array_of();
+
+            // TODO This is a shitty "generic" array, in theory we need only a unique type
+            // definition inner type
+            let safe_array = Ty::new_anon_struct(c_str!("$Array"));
+            safe_array.new_subentity(c_str!("len"), PrimitiveType::i32());
+            safe_array.new_subentity(c_str!("data"), array_ptr);
+
+            safe_array.layout_default();
+
+            safe_array.pointer_to()
+        }
         CheckedType::Boolean => PrimitiveType::bool(),
         CheckedType::Null => unreachable!(),
         CheckedType::UnknownType(_) => unreachable!(),
@@ -209,8 +230,4 @@ fn get_firm_mode(ty: &CheckedType<'_>) -> Option<mode::Type> {
         }
         CheckedType::Void | CheckedType::UnknownType(_) => None,
     }
-}
-
-fn size_of(ty: &CheckedType<'_>) -> Option<u32> {
-    get_firm_mode(ty).map(|mode| unsafe { get_mode_size_bytes(mode) })
 }
