@@ -19,6 +19,7 @@ strum = "0.11.0"
 strum_macros = "0.11.0"
 itertools = "0.7"
 libfirm-rs = { path = "../libfirm-rs" }
+c_str_macro = "1.0"
 # we need libc to open files for libfirm
 libc = "0.2"
 log = "0.4"
