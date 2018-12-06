@@ -568,8 +568,12 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
                 // We have num_elts * elt_size bytes of data ...
                 let data_size = self.graph.cur_block().new_mul(&num_elts, &elt_size);
-                // ... but we need to allocate a bit more space to store the length (num_elts)
-                let alloc_size = self.graph.cur_block().new_add(&len_size, &data_size);
+                let alloc_size = if cfg!(feature = "array_bounds_checks") {
+                    // ... but we need to allocate a bit more space to store the length (num_elts)
+                    self.graph.cur_block().new_add(&len_size, &data_size)
+                } else {
+                    data_size
+                };
 
                 // Let's allocate some space
                 let call = self.graph.cur_block().new_call(
@@ -585,16 +589,18 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .project(unsafe { mode::P }, 0)
                     .as_value_node();
 
-                // Now we store the num_elts in the len member
-                let len = self.graph.cur_block().new_member(&ptr, len_entity);
-                let store_len = self.graph.cur_block().new_store(
-                    self.graph.cur_store(),
-                    &len,
-                    &num_elts,
-                    len_entity.ty(),
-                    ir_cons_flags::None,
-                );
-                self.graph.set_store(store_len.project_mem());
+                if cfg!(feature = "array_bounds_checks") {
+                    // Now we store the num_elts in the len member
+                    let len = self.graph.cur_block().new_member(&ptr, len_entity);
+                    let store_len = self.graph.cur_block().new_store(
+                        self.graph.cur_store(),
+                        &len,
+                        &num_elts,
+                        len_entity.ty(),
+                        ir_cons_flags::None,
+                    );
+                    self.graph.set_store(store_len.project_mem());
+                }
 
                 Value(ValueComputation::simple(&ptr))
             }
@@ -621,48 +627,58 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             .enforce_value(self.graph)
             .mature_entry();
 
-        let len_entity = bounded_array_type.struct_member(0);
-        let data_entity = bounded_array_type.struct_member(1);
-        let len_ptr = self.graph.cur_block().new_member(&target_expr, len_entity);
+        let data_entity =
+            bounded_array_type.struct_member(if cfg!(feature = "array_bounds_checks") {
+                1
+            } else {
+                0
+            });
         let array = self.graph.cur_block().new_member(&target_expr, data_entity);
 
-        let load_len = self.graph.cur_block().new_load(
-            self.graph.cur_store(),
-            &len_ptr,
-            len_entity.ty().mode(),
-            len_entity.ty(),
-            ir_cons_flags::None,
-        );
-        self.graph.set_store(load_len.project_mem());
-        let len = load_len.project_res(len_entity.ty().mode());
+        if cfg!(feature = "array_bounds_checks") {
+            let len_entity = bounded_array_type.struct_member(0);
+            let len_ptr = self.graph.cur_block().new_member(&target_expr, len_entity);
+            let load_len = self.graph.cur_block().new_load(
+                self.graph.cur_store(),
+                &len_ptr,
+                len_entity.ty().mode(),
+                len_entity.ty(),
+                ir_cons_flags::None,
+            );
+            self.graph.set_store(load_len.project_mem());
+            let len = load_len.project_res(len_entity.ty().mode());
 
-        let bounds_cmp = self
-            .graph
-            .cur_block()
-            .new_cmp(&idx_expr, &len, ir_relation::Less);
+            let bounds_cmp = self
+                .graph
+                .cur_block()
+                .new_cmp(&idx_expr, &len, ir_relation::Less);
 
-        let bounds_cond = self.graph.cur_block().new_cond(&bounds_cmp.as_selector());
+            let bounds_cond = self.graph.cur_block().new_cond(&bounds_cmp.as_selector());
 
-        let err_proj = bounds_cond.project_false();
-        let err_block = self.graph.new_imm_block(&err_proj);
+            let err_proj = bounds_cond.project_false();
+            let err_block = self.graph.new_imm_block(&err_proj);
 
-        self.graph.cur_block().mature();
-        self.graph.set_cur_block(err_block);
+            self.graph.cur_block().mature();
+            self.graph.set_cur_block(err_block);
 
-        // TODO pass array size and actual index
-        let res = self.gen_static_fn_call(self.runtime.array_out_of_bounds, None, &[]);
-        assert_matches!(res, ExprResult::Void);
-        unsafe { keep_alive(err_block.into()) };
+            // TODO pass array size and actual index
+            let res = self.gen_static_fn_call(self.runtime.array_out_of_bounds, None, &[]);
+            assert_matches!(res, ExprResult::Void);
+            unsafe { keep_alive(err_block.into()) };
 
-        err_block.mature();
+            err_block.mature();
 
-        let access_proj = bounds_cond.project_true();
-        let access_block = self.graph.new_imm_block(&access_proj);
+            let access_proj = bounds_cond.project_true();
+            let access_block = self.graph.new_imm_block(&access_proj);
 
-        self.graph.set_cur_block(access_block);
+            self.graph.set_cur_block(access_block);
+        }
 
         LValue::Array {
-            sel: access_block.new_sel(&array, &idx_expr, data_entity.ty()),
+            sel: self
+                .graph
+                .cur_block()
+                .new_sel(&array, &idx_expr, data_entity.ty()),
             elt_type,
         }
     }

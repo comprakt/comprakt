@@ -200,18 +200,20 @@ fn ty_from_checked_type(ct: &CheckedType<'_>) -> Option<Ty> {
         // then, because of recursive type definitions and use use-beforce-declare class definitions
         CheckedType::TypeRef(_) => PrimitiveType::ptr(),
         CheckedType::Array(checked_type) => {
-            let array_ptr = ty_from_checked_type(checked_type)
+            let array_data = ty_from_checked_type(checked_type)
                 .expect("Arrays are never of type `void`")
                 .array_of();
 
             // TODO This is a shitty "generic" array, in theory we need only a unique type
-            // definition inner type
+            // definition for each inner type
             let safe_array = Ty::new_anon_struct(c_str!("$Array"));
+
+            #[cfg(feature = "array_bounds_checks")]
             safe_array.new_subentity(c_str!("len"), PrimitiveType::i32());
-            safe_array.new_subentity(c_str!("data"), array_ptr);
+
+            safe_array.new_subentity(c_str!("data"), array_data);
 
             safe_array.layout_default();
-
             safe_array.pointer_to()
         }
         CheckedType::Boolean => PrimitiveType::bool(),

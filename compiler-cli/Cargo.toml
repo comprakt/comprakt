@@ -41,5 +41,7 @@ lazy_static = "1.2.0"
 
 [features]
 # Enable all UB-safe-making features by default.
-default = [ "checked_new" ]
+default = ["safe"]
+safe = [ "checked_new", "array_bounds_checks" ]
 checked_new = [ "mjrt/checked_new" ]
+array_bounds_checks = [ "compiler-lib/array_bounds_checks"]
