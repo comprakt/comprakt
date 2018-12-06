@@ -14,9 +14,16 @@
 
 # ignore tentative files
 *.tentative
+*.actual
 
 # ignore default binary file
 *.out
+
+# ignore assembly
+*.S
+
+# ignore yaml stripped mini java files
+*.stripped
 
 # ignore assembly tests by default
 assembly/

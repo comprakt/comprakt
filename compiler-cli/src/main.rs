@@ -28,6 +28,7 @@ use compiler_lib::{
     context::Context,
     firm,
     lexer::{Lexer, TokenKind},
+    optimization::Optimization,
     parser::Parser,
     print::{self, lextest},
     semantics,
@@ -42,6 +43,7 @@ use std::{
     io::{self, Write},
     path::PathBuf,
     process::{exit, Command},
+    str::FromStr,
 };
 use structopt::StructOpt;
 use tempfile::tempdir;
@@ -68,10 +70,11 @@ pub enum CliError {
     // TODO: this whole linking shenanigans should be part of compiler-lib
     #[fail(display = "failed to link runtime using `cc`")]
     LinkingFailed,
+    #[fail(display = "could not parse optimization flags")]
+    InvalidOptimizationFlag,
 }
 
-/// An in memory representation of command-line flags passed to the
-/// executable
+/// Cli interface for the comprakt MiniJava compiler library
 #[derive(StructOpt)]
 #[structopt(name = "comprakt")]
 pub enum CliCommand {
@@ -115,22 +118,17 @@ pub enum CliCommand {
     /// Output x86-assembler and optionally the firm graph in various stages.
     /// Defaults to writing to standard out.
     #[structopt(name = "--emit-asm")]
-    EmitAsm(LoweringOptions),
+    EmitAsm(AsmLoweringOptions),
 
     /// Output an executable. Defaults to 'a.out' in the current working
     /// directory.
     #[structopt(name = "--compile-firm")]
-    CompileFirm(LoweringOptions),
+    CompileFirm(BinaryLoweringOptions),
 }
 
-/// Command-line options for the [`CliCommand::CompileFirm`] and
-/// [`CliCommand::EmitAsm`] calls
+/// Command-line options for the [`CliCommand::EmitAsm`] calls
 #[derive(StructOpt, Debug, Clone, Default)]
-pub struct LoweringOptions {
-    /// A MiniJava input file
-    #[structopt(name = "FILE", parse(from_os_str))]
-    pub path: PathBuf,
-
+pub struct AsmLoweringOptions {
     /// Folder to dump graphs to
     #[structopt(long = "--emit-to", default_value = ".", parse(from_os_str))]
     pub dump_folder: PathBuf,
@@ -146,9 +144,17 @@ pub struct LoweringOptions {
     /// Write primary output artifact to the given file or directory.
     #[structopt(long = "--output", short = "-o", parse(from_os_str))]
     pub output: Option<PathBuf>,
+
+    /// A list of optimizations to apply.
+    #[structopt(long = "--optimizations", short = "-O")]
+    pub optimizations: OptimizationList,
+
+    /// A MiniJava input file
+    #[structopt(name = "FILE", parse(from_os_str))]
+    pub path: PathBuf,
 }
 
-impl Into<firm::Options> for LoweringOptions {
+impl Into<firm::Options> for AsmLoweringOptions {
     fn into(self) -> firm::Options {
         firm::Options {
             dump_assembler: Some(match self.output {
@@ -158,6 +164,92 @@ impl Into<firm::Options> for LoweringOptions {
             dump_folder: self.dump_folder,
             dump_firm_graph: self.dump_firm_graph,
             dump_class_layouts: self.dump_class_layouts,
+            optimizations: self.optimizations.0,
+        }
+    }
+}
+
+/// Command-line options for the [`CliCommand::CompileFirm`]
+#[derive(StructOpt, Debug, Clone, Default)]
+pub struct BinaryLoweringOptions {
+    /// Folder to dump graphs to
+    #[structopt(long = "--emit-to", default_value = ".", parse(from_os_str))]
+    pub dump_folder: PathBuf,
+
+    /// Output the matured unlowered firm graphs as VCG files to the dump_folder
+    #[structopt(long = "--emit-firm-graph", short = "-g")]
+    pub dump_firm_graph: bool,
+
+    /// Dump class layouts in text form to dump_folder
+    #[structopt(long = "--emit-class-layouts", short = "-c")]
+    pub dump_class_layouts: bool,
+
+    /// Write assembly for user code
+    #[structopt(long = "--emit-asm", short = "-a", parse(from_os_str))]
+    pub dump_assembly: Option<PathBuf>,
+
+    /// Write binary to the given file or directory
+    #[structopt(long = "--output", short = "-o", parse(from_os_str))]
+    pub output: Option<PathBuf>,
+
+    /// A list of optimizations to apply
+    #[structopt(long = "--optimizations", short = "-O", default_value = "")]
+    pub optimizations: OptimizationList,
+
+    /// A MiniJava input file
+    #[structopt(name = "FILE", parse(from_os_str))]
+    pub path: PathBuf,
+}
+
+// this newtype is required because StructOpt cannot deal with comma-separated
+// values and positional values in combination.
+#[derive(Debug, Clone, Default)]
+pub struct OptimizationList(Vec<Optimization>);
+
+impl FromStr for OptimizationList {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let flags: Result<Vec<Optimization>, _> = s
+            .split(',')
+            .filter_map(|opt| {
+                if opt == "" {
+                    None
+                } else {
+                    Some(Optimization::from_str(opt))
+                }
+            })
+            .collect();
+
+        Ok(OptimizationList(
+            flags.context(CliError::InvalidOptimizationFlag)?,
+        ))
+    }
+}
+
+use std::fmt;
+impl fmt::Display for OptimizationList {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        )
+    }
+}
+
+impl Into<firm::Options> for BinaryLoweringOptions {
+    fn into(self) -> firm::Options {
+        firm::Options {
+            dump_assembler: self.dump_assembly.map(OutputSpecification::File),
+            dump_folder: self.dump_folder,
+            dump_firm_graph: self.dump_firm_graph,
+            dump_class_layouts: self.dump_class_layouts,
+            optimizations: self.optimizations.0,
         }
     }
 }
@@ -248,7 +340,7 @@ macro_rules! setup_io {
 
 const DEFAULT_BINARY_FILENAME: &str = "a.out";
 
-fn cmd_compile_firm(options: &LoweringOptions) -> Result<(), Error> {
+fn cmd_compile_firm(options: &BinaryLoweringOptions) -> Result<(), Error> {
     let input = &options.path;
     setup_io!(let context = input);
     let mut strtab = StringTable::new();
@@ -287,7 +379,12 @@ fn cmd_compile_firm(options: &LoweringOptions) -> Result<(), Error> {
 
     let temp_dir = tempdir()?;
     let compilation_dir = temp_dir.path().to_path_buf();
-    let user_assembly = compilation_dir.join("a.s");
+
+    let user_assembly = if let Some(ref path) = options.dump_assembly {
+        path.clone()
+    } else {
+        compilation_dir.join("a.s")
+    };
 
     let mut lowering_options: compiler_lib::firm::Options = (options.clone()).into();
     lowering_options.dump_assembler = Some(OutputSpecification::File(user_assembly.clone()));
@@ -334,7 +431,7 @@ fn cmd_compile_firm(options: &LoweringOptions) -> Result<(), Error> {
     }
 }
 
-fn cmd_emit_asm(opts: &LoweringOptions) -> Result<(), Error> {
+fn cmd_emit_asm(opts: &AsmLoweringOptions) -> Result<(), Error> {
     let input = &opts.path;
     setup_io!(let context = input);
     let mut strtab = StringTable::new();

@@ -22,6 +22,8 @@ libfirm-rs = { path = "../libfirm-rs" }
 # we need libc to open files for libfirm
 libc = "0.2"
 log = "0.4"
+serde = "1.0"
+serde_derive = "1.0"
 
 [dev-dependencies]
 mjtest = { path = "../mjtest-rs" }
