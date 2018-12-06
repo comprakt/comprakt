@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["StripError",""]],"fn":[["strip_front_matter",""]],"struct":[["Opts","Small utility that strips yaml front matter from a multi-part file."]]});

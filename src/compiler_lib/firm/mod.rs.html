@@ -212,6 +212,11 @@
 <span id="212">212</span>
 <span id="213">213</span>
 <span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Lowers the output of the semantic analysis phase (AST, Type System, Type</span>
 <span class="doccomment">//! Analysis), into Firm for code generation.</span>
@@ -241,6 +246,7 @@
 };
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">optimization</span>::<span class="ident">Optimization</span>,
     <span class="ident">strtab</span>::{<span class="ident">StringTable</span>, <span class="ident">Symbol</span>},
     <span class="ident">type_checking</span>::{
         <span class="ident">type_analysis</span>::<span class="ident">TypeAnalysis</span>,
@@ -267,6 +273,7 @@
     <span class="kw">pub</span> <span class="ident">dump_firm_graph</span>: <span class="ident">bool</span>,
     <span class="kw">pub</span> <span class="ident">dump_class_layouts</span>: <span class="ident">bool</span>,
     <span class="kw">pub</span> <span class="ident">dump_assembler</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">OutputSpecification</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">optimizations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Optimization</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Program</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
@@ -352,6 +359,9 @@
             );
         }
     }
+
+    <span class="comment">// TODO: run optimizations here</span>
+    <span class="comment">//println!(&quot;Optimizations: {:#?}&quot;, opts.optimizations);</span>
 
     <span class="ident">lower_highlevel</span>();
     <span class="ident">be_lower_for_target</span>();

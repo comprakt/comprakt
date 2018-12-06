@@ -521,6 +521,103 @@
 <span id="521">521</span>
 <span id="522">522</span>
 <span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! A command-line interface for the [`compiler_lib`]. If you are using</span>
 <span class="doccomment">//! this crate programatically, you probably want to call it as follows:</span>
@@ -552,6 +649,7 @@
     <span class="ident">context</span>::<span class="ident">Context</span>,
     <span class="ident">firm</span>,
     <span class="ident">lexer</span>::{<span class="ident">Lexer</span>, <span class="ident">TokenKind</span>},
+    <span class="ident">optimization</span>::<span class="ident">Optimization</span>,
     <span class="ident">parser</span>::<span class="ident">Parser</span>,
     <span class="ident">print</span>::{<span class="self">self</span>, <span class="ident">lextest</span>},
     <span class="ident">semantics</span>,
@@ -566,6 +664,7 @@
     <span class="ident">io</span>::{<span class="self">self</span>, <span class="ident">Write</span>},
     <span class="ident">path</span>::<span class="ident">PathBuf</span>,
     <span class="ident">process</span>::{<span class="ident">exit</span>, <span class="ident">Command</span>},
+    <span class="ident">str</span>::<span class="ident">FromStr</span>,
 };
 <span class="kw">use</span> <span class="ident">structopt</span>::<span class="ident">StructOpt</span>;
 <span class="kw">use</span> <span class="ident">tempfile</span>::<span class="ident">tempdir</span>;
@@ -592,10 +691,11 @@
     <span class="comment">// TODO: this whole linking shenanigans should be part of compiler-lib</span>
     <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;failed to link runtime using `cc`&quot;</span>)]</span>
     <span class="ident">LinkingFailed</span>,
+    <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;could not parse optimization flags&quot;</span>)]</span>
+    <span class="ident">InvalidOptimizationFlag</span>,
 }
 
-<span class="doccomment">/// An in memory representation of command-line flags passed to the</span>
-<span class="doccomment">/// executable</span>
+<span class="doccomment">/// Cli interface for the comprakt MiniJava compiler library</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>)]</span>
 <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;comprakt&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CliCommand</span> {
@@ -639,22 +739,17 @@
     <span class="doccomment">/// Output x86-assembler and optionally the firm graph in various stages.</span>
     <span class="doccomment">/// Defaults to writing to standard out.</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;--emit-asm&quot;</span>)]</span>
-    <span class="ident">EmitAsm</span>(<span class="ident">LoweringOptions</span>),
+    <span class="ident">EmitAsm</span>(<span class="ident">AsmLoweringOptions</span>),
 
     <span class="doccomment">/// Output an executable. Defaults to &#39;a.out&#39; in the current working</span>
     <span class="doccomment">/// directory.</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;--compile-firm&quot;</span>)]</span>
-    <span class="ident">CompileFirm</span>(<span class="ident">LoweringOptions</span>),
+    <span class="ident">CompileFirm</span>(<span class="ident">BinaryLoweringOptions</span>),
 }
 
-<span class="doccomment">/// Command-line options for the [`CliCommand::CompileFirm`] and</span>
-<span class="doccomment">/// [`CliCommand::EmitAsm`] calls</span>
+<span class="doccomment">/// Command-line options for the [`CliCommand::EmitAsm`] calls</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LoweringOptions</span> {
-    <span class="doccomment">/// A MiniJava input file</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
-    <span class="kw">pub</span> <span class="ident">path</span>: <span class="ident">PathBuf</span>,
-
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">AsmLoweringOptions</span> {
     <span class="doccomment">/// Folder to dump graphs to</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--emit-to&quot;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;.&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="kw">pub</span> <span class="ident">dump_folder</span>: <span class="ident">PathBuf</span>,
@@ -670,9 +765,17 @@
     <span class="doccomment">/// Write primary output artifact to the given file or directory.</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--output&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-o&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="kw">pub</span> <span class="ident">output</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// A list of optimizations to apply.</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--optimizations&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-O&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">optimizations</span>: <span class="ident">OptimizationList</span>,
+
+    <span class="doccomment">/// A MiniJava input file</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="kw">pub</span> <span class="ident">path</span>: <span class="ident">PathBuf</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">firm</span>::<span class="ident">Options</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">LoweringOptions</span> {
+<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">firm</span>::<span class="ident">Options</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AsmLoweringOptions</span> {
     <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">firm</span>::<span class="ident">Options</span> {
         <span class="ident">firm</span>::<span class="ident">Options</span> {
             <span class="ident">dump_assembler</span>: <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="self">self</span>.<span class="ident">output</span> {
@@ -682,6 +785,92 @@
             <span class="ident">dump_folder</span>: <span class="self">self</span>.<span class="ident">dump_folder</span>,
             <span class="ident">dump_firm_graph</span>: <span class="self">self</span>.<span class="ident">dump_firm_graph</span>,
             <span class="ident">dump_class_layouts</span>: <span class="self">self</span>.<span class="ident">dump_class_layouts</span>,
+            <span class="ident">optimizations</span>: <span class="self">self</span>.<span class="ident">optimizations</span>.<span class="number">0</span>,
+        }
+    }
+}
+
+<span class="doccomment">/// Command-line options for the [`CliCommand::CompileFirm`]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BinaryLoweringOptions</span> {
+    <span class="doccomment">/// Folder to dump graphs to</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--emit-to&quot;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;.&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="kw">pub</span> <span class="ident">dump_folder</span>: <span class="ident">PathBuf</span>,
+
+    <span class="doccomment">/// Output the matured unlowered firm graphs as VCG files to the dump_folder</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--emit-firm-graph&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-g&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">dump_firm_graph</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Dump class layouts in text form to dump_folder</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--emit-class-layouts&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-c&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">dump_class_layouts</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Write assembly for user code</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--emit-asm&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-a&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="kw">pub</span> <span class="ident">dump_assembly</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// Write binary to the given file or directory</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--output&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-o&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="kw">pub</span> <span class="ident">output</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// A list of optimizations to apply</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--optimizations&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-O&quot;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">optimizations</span>: <span class="ident">OptimizationList</span>,
+
+    <span class="doccomment">/// A MiniJava input file</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="kw">pub</span> <span class="ident">path</span>: <span class="ident">PathBuf</span>,
+}
+
+<span class="comment">// this newtype is required because StructOpt cannot deal with comma-separated</span>
+<span class="comment">// values and positional values in combination.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">OptimizationList</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Optimization</span><span class="op">&gt;</span>);
+
+<span class="kw">impl</span> <span class="ident">FromStr</span> <span class="kw">for</span> <span class="ident">OptimizationList</span> {
+    <span class="kw">type</span> <span class="prelude-val">Err</span> <span class="op">=</span> <span class="ident">Error</span>;
+
+    <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span>::<span class="prelude-val">Err</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">flags</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Optimization</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">s</span>
+            .<span class="ident">split</span>(<span class="string">&#39;,&#39;</span>)
+            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">opt</span><span class="op">|</span> {
+                <span class="kw">if</span> <span class="ident">opt</span> <span class="op">==</span> <span class="string">&quot;&quot;</span> {
+                    <span class="prelude-val">None</span>
+                } <span class="kw">else</span> {
+                    <span class="prelude-val">Some</span>(<span class="ident">Optimization</span>::<span class="ident">from_str</span>(<span class="ident">opt</span>))
+                }
+            })
+            .<span class="ident">collect</span>();
+
+        <span class="prelude-val">Ok</span>(<span class="ident">OptimizationList</span>(
+            <span class="ident">flags</span>.<span class="ident">context</span>(<span class="ident">CliError</span>::<span class="ident">InvalidOptimizationFlag</span>)<span class="question-mark">?</span>,
+        ))
+    }
+}
+
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
+<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">OptimizationList</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="macro">write</span><span class="macro">!</span>(
+            <span class="ident">f</span>,
+            <span class="string">&quot;{}&quot;</span>,
+            <span class="self">self</span>.<span class="number">0</span>
+                .<span class="ident">iter</span>()
+                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">to_string</span>())
+                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>()
+                .<span class="ident">join</span>(<span class="string">&quot;,&quot;</span>)
+        )
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">firm</span>::<span class="ident">Options</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">BinaryLoweringOptions</span> {
+    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">firm</span>::<span class="ident">Options</span> {
+        <span class="ident">firm</span>::<span class="ident">Options</span> {
+            <span class="ident">dump_assembler</span>: <span class="self">self</span>.<span class="ident">dump_assembly</span>.<span class="ident">map</span>(<span class="ident">OutputSpecification</span>::<span class="ident">File</span>),
+            <span class="ident">dump_folder</span>: <span class="self">self</span>.<span class="ident">dump_folder</span>,
+            <span class="ident">dump_firm_graph</span>: <span class="self">self</span>.<span class="ident">dump_firm_graph</span>,
+            <span class="ident">dump_class_layouts</span>: <span class="self">self</span>.<span class="ident">dump_class_layouts</span>,
+            <span class="ident">optimizations</span>: <span class="self">self</span>.<span class="ident">optimizations</span>.<span class="number">0</span>,
         }
     }
 }
@@ -772,7 +961,7 @@
 
 <span class="kw">const</span> <span class="ident">DEFAULT_BINARY_FILENAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;a.out&quot;</span>;
 
-<span class="kw">fn</span> <span class="ident">cmd_compile_firm</span>(<span class="ident">options</span>: <span class="kw-2">&amp;</span><span class="ident">LoweringOptions</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">cmd_compile_firm</span>(<span class="ident">options</span>: <span class="kw-2">&amp;</span><span class="ident">BinaryLoweringOptions</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">options</span>.<span class="ident">path</span>;
     <span class="macro">setup_io</span><span class="macro">!</span>(<span class="kw">let</span> <span class="ident">context</span> <span class="op">=</span> <span class="ident">input</span>);
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">strtab</span> <span class="op">=</span> <span class="ident">StringTable</span>::<span class="ident">new</span>();
@@ -811,7 +1000,12 @@
 
     <span class="kw">let</span> <span class="ident">temp_dir</span> <span class="op">=</span> <span class="ident">tempdir</span>()<span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">compilation_dir</span> <span class="op">=</span> <span class="ident">temp_dir</span>.<span class="ident">path</span>().<span class="ident">to_path_buf</span>();
-    <span class="kw">let</span> <span class="ident">user_assembly</span> <span class="op">=</span> <span class="ident">compilation_dir</span>.<span class="ident">join</span>(<span class="string">&quot;a.s&quot;</span>);
+
+    <span class="kw">let</span> <span class="ident">user_assembly</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">path</span>) <span class="op">=</span> <span class="ident">options</span>.<span class="ident">dump_assembly</span> {
+        <span class="ident">path</span>.<span class="ident">clone</span>()
+    } <span class="kw">else</span> {
+        <span class="ident">compilation_dir</span>.<span class="ident">join</span>(<span class="string">&quot;a.s&quot;</span>)
+    };
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">lowering_options</span>: <span class="ident">compiler_lib</span>::<span class="ident">firm</span>::<span class="ident">Options</span> <span class="op">=</span> (<span class="ident">options</span>.<span class="ident">clone</span>()).<span class="ident">into</span>();
     <span class="ident">lowering_options</span>.<span class="ident">dump_assembler</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">OutputSpecification</span>::<span class="ident">File</span>(<span class="ident">user_assembly</span>.<span class="ident">clone</span>()));
@@ -858,7 +1052,7 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">cmd_emit_asm</span>(<span class="ident">opts</span>: <span class="kw-2">&amp;</span><span class="ident">LoweringOptions</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">cmd_emit_asm</span>(<span class="ident">opts</span>: <span class="kw-2">&amp;</span><span class="ident">AsmLoweringOptions</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">opts</span>.<span class="ident">path</span>;
     <span class="macro">setup_io</span><span class="macro">!</span>(<span class="kw">let</span> <span class="ident">context</span> <span class="op">=</span> <span class="ident">input</span>);
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">strtab</span> <span class="op">=</span> <span class="ident">StringTable</span>::<span class="ident">new</span>();
