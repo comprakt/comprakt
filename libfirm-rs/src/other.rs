@@ -5,9 +5,27 @@ use std::{
     mem,
 };
 
+impl From<crate::Graph> for Graph {
+    fn from(graph: crate::Graph) -> Graph {
+        Graph { irg: graph.irg }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct Graph {
     pub(super) irg: *mut bindings::ir_graph,
+}
+
+impl Into<*mut bindings::ir_graph> for Graph {
+    fn into(self) -> *mut bindings::ir_graph {
+        self.irg
+    }
+}
+
+impl Into<*const bindings::ir_graph> for Graph {
+    fn into(self) -> *const bindings::ir_graph {
+        self.irg as *const _
+    }
 }
 
 impl Graph {

@@ -224,7 +224,7 @@ w.line();
 
 // generate Node enum
 {
-    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq)]");
+    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]");
     w.indent("pub enum Node {");
     for (const node of nodes) {
         if (node.isProj) {
@@ -250,7 +250,7 @@ w.line();
 
 // generate Proj enum
 {
-    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq)]");
+    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]");
     w.indent("pub enum ProjKind {");
     for (const node of nodes) {
         for (const out of node.outs) {
@@ -345,7 +345,7 @@ for (const node of nodes) {
             w.line(`/// ${line.trim()}`);
         }
     }
-    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq)]");
+    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]");
     w.line(`pub struct ${node.structName}(${ir_node_type});`);
     w.line();
 

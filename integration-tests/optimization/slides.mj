@@ -1,0 +1,25 @@
+---
+optimizations: [ConstantFolding]
+expect: change
+stdout:
+    is: "1\n"
+---
+
+class Simple {
+
+  public int optimizeMe() {
+    int x = 1;
+    
+    while(false) {
+       x = 2 - x;
+    }
+
+    return x;
+  }
+
+  public static void main(String[] args) {
+    Simple baby = new Simple();
+    int bobby_brown = baby.optimizeMe();
+    System.out.println(bobby_brown);
+  }
+}

@@ -1,5 +1,6 @@
 use crate::nodes_gen::{Block, Node, NodeFactory};
 use libfirm_rs_bindings as bindings;
+use std::hash::{Hash, Hasher};
 
 impl Block {
 
@@ -43,6 +44,14 @@ pub trait NodeTrait {
     // TODO implement methods from
     // https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java
 }
+
+impl Hash for Node {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.internal_ir_node().hash(state);
+    }
+}
+
+// TODO: derive Eq here, current is incorrect
 
 pub struct ReverseEdgeIterator {
     node: *mut bindings::ir_node,

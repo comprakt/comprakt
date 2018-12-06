@@ -26,7 +26,7 @@ pub use self::{
 };
 
 use crate::{
-    optimization::Optimization,
+    optimization::{self, Optimization},
     strtab::{StringTable, Symbol},
     type_checking::{
         type_analysis::TypeAnalysis,
@@ -57,31 +57,31 @@ pub struct Options {
 }
 
 pub struct Program<'src, 'ast> {
-    classes: HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
+    pub classes: HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
 }
 
-struct Class<'src, 'ast> {
-    name: CString,
-    def: &'src ClassDef<'src, 'ast>,
-    entity: Entity,
+pub struct Class<'src, 'ast> {
+    pub name: CString,
+    pub def: &'src ClassDef<'src, 'ast>,
+    pub entity: Entity,
     pub fields: HashMap<Symbol<'src>, Rc<RefCell<Field<'src, 'ast>>>>,
-    methods: HashMap<Symbol<'src>, Rc<RefCell<Method<'src, 'ast>>>>,
+    pub methods: HashMap<Symbol<'src>, Rc<RefCell<Method<'src, 'ast>>>>,
 }
 
-struct Field<'src, 'ast> {
-    _name: CString,
-    _class: Weak<RefCell<Class<'src, 'ast>>>,
-    def: Rc<ClassFieldDef<'src>>,
-    entity: Entity,
+pub struct Field<'src, 'ast> {
+    pub _name: CString,
+    pub _class: Weak<RefCell<Class<'src, 'ast>>>,
+    pub def: Rc<ClassFieldDef<'src>>,
+    pub entity: Entity,
 }
 
-struct Method<'src, 'ast> {
-    _name: CString,
-    _class: Weak<RefCell<Class<'src, 'ast>>>,
-    body: ClassMethodBody<'src, 'ast>,
-    def: Rc<ClassMethodDef<'src, 'ast>>,
-    entity: Entity,
-    graph: Option<Graph>,
+pub struct Method<'src, 'ast> {
+    pub _name: CString,
+    pub _class: Weak<RefCell<Class<'src, 'ast>>>,
+    pub body: ClassMethodBody<'src, 'ast>,
+    pub def: Rc<ClassMethodDef<'src, 'ast>>,
+    pub entity: Entity,
+    pub graph: Option<Graph>,
 }
 
 unsafe fn setup() {
@@ -140,8 +140,7 @@ pub unsafe fn build<'src, 'ast>(
         }
     }
 
-    // TODO: run optimizations here
-    //println!("Optimizations: {:#?}", opts.optimizations);
+    optimization::run_all(&program, &opts.optimizations);
 
     lower_highlevel();
     be_lower_for_target();
