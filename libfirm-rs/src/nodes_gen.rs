@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::nodes::NodeTrait;
 use super::other::Graph;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Node {
     Add(Add),
     Address(Address),
@@ -44,7 +44,7 @@ pub enum Node {
     Or(Or),
     Phi(Phi),
     Pin(Pin),
-    Proj(Proj),
+    Proj(Proj, ProjKind),
     Raise(Raise),
     Return(Return),
     Sel(Sel),
@@ -103,7 +103,7 @@ impl NodeTrait for Node {
             Node::Or(node) => node.internal_ir_node(),
             Node::Phi(node) => node.internal_ir_node(),
             Node::Pin(node) => node.internal_ir_node(),
-            Node::Proj(node) => node.internal_ir_node(),
+            Node::Proj(node, _) => node.internal_ir_node(),
             Node::Raise(node) => node.internal_ir_node(),
             Node::Return(node) => node.internal_ir_node(),
             Node::Sel(node) => node.internal_ir_node(),
@@ -122,6 +122,72 @@ impl NodeTrait for Node {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum ProjKind {
+    /// memory result
+    Alloc_M(Alloc),
+    /// pointer to newly allocated memory
+    Alloc_Res(Alloc),
+    /// memory result
+    Builtin_M(Builtin),
+    /// memory result
+    Call_M(Call),
+    /// tuple containing all results
+    Call_TResult(Call),
+    /// control flow when no exception occurs
+    Call_XRegular(Call),
+    /// control flow when exception occurred
+    Call_XExcept(Call),
+    /// control flow if operand is "false"
+    Cond_False(Cond),
+    /// control flow if operand is "true"
+    Cond_True(Cond),
+    /// memory result
+    Div_M(Div),
+    /// result of computation
+    Div_Res(Div),
+    /// control flow when no exception occurs
+    Div_XRegular(Div),
+    /// control flow when exception occurred
+    Div_XExcept(Div),
+    /// memory result
+    Load_M(Load),
+    /// result of load operation
+    Load_Res(Load),
+    /// control flow when no exception occurs
+    Load_XRegular(Load),
+    /// control flow when exception occurred
+    Load_XExcept(Load),
+    /// memory result
+    Mod_M(Mod),
+    /// result of computation
+    Mod_Res(Mod),
+    /// control flow when no exception occurs
+    Mod_XRegular(Mod),
+    /// control flow when exception occurred
+    Mod_XExcept(Mod),
+    /// memory result
+    Raise_M(Raise),
+    /// control flow to exception handler
+    Raise_X(Raise),
+    /// initial memory
+    Start_M(Start),
+    /// frame base pointer
+    Start_PFrameBase(Start),
+    /// function arguments
+    Start_TArgs(Start),
+    Start_TArgs_Arg(/* arg_idx */ u32, /* pred_pred */ Start, /* pred */ Proj),
+    /// memory result
+    Store_M(Store),
+    /// control flow when no exception occurs
+    Store_XRegular(Store),
+    /// control flow when exception occurred
+    Store_XExcept(Store),
+    /// control flow if no other case matches
+    Switch_Default(Switch),
+    Other,
+}
+
 type NodeFactoryFn = fn(*mut bindings::ir_node) -> Node;
 pub struct NodeFactory(HashMap<u32, NodeFactoryFn>);
 impl NodeFactory {
@@ -129,167 +195,113 @@ impl NodeFactory {
         let mut map = HashMap::<u32, NodeFactoryFn>::new();
         unsafe {
             let op = bindings::get_op_Add();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_add);
+            map.insert(bindings::get_op_code(op), Self::create_add);
             let op = bindings::get_op_Address();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_address);
+            map.insert(bindings::get_op_code(op), Self::create_address);
             let op = bindings::get_op_Align();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_align);
+            map.insert(bindings::get_op_code(op), Self::create_align);
             let op = bindings::get_op_Alloc();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_alloc);
+            map.insert(bindings::get_op_code(op), Self::create_alloc);
             let op = bindings::get_op_Anchor();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_anchor);
+            map.insert(bindings::get_op_code(op), Self::create_anchor);
             let op = bindings::get_op_And();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_and);
+            map.insert(bindings::get_op_code(op), Self::create_and);
             let op = bindings::get_op_Bad();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_bad);
+            map.insert(bindings::get_op_code(op), Self::create_bad);
             let op = bindings::get_op_Bitcast();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_bitcast);
+            map.insert(bindings::get_op_code(op), Self::create_bitcast);
             let op = bindings::get_op_Block();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_block);
+            map.insert(bindings::get_op_code(op), Self::create_block);
             let op = bindings::get_op_Builtin();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_builtin);
+            map.insert(bindings::get_op_code(op), Self::create_builtin);
             let op = bindings::get_op_Call();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_call);
+            map.insert(bindings::get_op_code(op), Self::create_call);
             let op = bindings::get_op_Cmp();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_cmp);
+            map.insert(bindings::get_op_code(op), Self::create_cmp);
             let op = bindings::get_op_Cond();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_cond);
+            map.insert(bindings::get_op_code(op), Self::create_cond);
             let op = bindings::get_op_Confirm();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_confirm);
+            map.insert(bindings::get_op_code(op), Self::create_confirm);
             let op = bindings::get_op_Const();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_const);
+            map.insert(bindings::get_op_code(op), Self::create_const);
             let op = bindings::get_op_Conv();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_conv);
+            map.insert(bindings::get_op_code(op), Self::create_conv);
             let op = bindings::get_op_CopyB();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_copyb);
+            map.insert(bindings::get_op_code(op), Self::create_copyb);
             let op = bindings::get_op_Deleted();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_deleted);
+            map.insert(bindings::get_op_code(op), Self::create_deleted);
             let op = bindings::get_op_Div();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_div);
+            map.insert(bindings::get_op_code(op), Self::create_div);
             let op = bindings::get_op_Dummy();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_dummy);
+            map.insert(bindings::get_op_code(op), Self::create_dummy);
             let op = bindings::get_op_End();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_end);
+            map.insert(bindings::get_op_code(op), Self::create_end);
             let op = bindings::get_op_Eor();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_eor);
+            map.insert(bindings::get_op_code(op), Self::create_eor);
             let op = bindings::get_op_Free();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_free);
+            map.insert(bindings::get_op_code(op), Self::create_free);
             let op = bindings::get_op_IJmp();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_ijmp);
+            map.insert(bindings::get_op_code(op), Self::create_ijmp);
             let op = bindings::get_op_Id();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_id);
+            map.insert(bindings::get_op_code(op), Self::create_id);
             let op = bindings::get_op_Jmp();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_jmp);
+            map.insert(bindings::get_op_code(op), Self::create_jmp);
             let op = bindings::get_op_Load();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_load);
+            map.insert(bindings::get_op_code(op), Self::create_load);
             let op = bindings::get_op_Member();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_member);
+            map.insert(bindings::get_op_code(op), Self::create_member);
             let op = bindings::get_op_Minus();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_minus);
+            map.insert(bindings::get_op_code(op), Self::create_minus);
             let op = bindings::get_op_Mod();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_mod);
+            map.insert(bindings::get_op_code(op), Self::create_mod);
             let op = bindings::get_op_Mul();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_mul);
+            map.insert(bindings::get_op_code(op), Self::create_mul);
             let op = bindings::get_op_Mulh();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_mulh);
+            map.insert(bindings::get_op_code(op), Self::create_mulh);
             let op = bindings::get_op_Mux();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_mux);
+            map.insert(bindings::get_op_code(op), Self::create_mux);
             let op = bindings::get_op_NoMem();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_nomem);
+            map.insert(bindings::get_op_code(op), Self::create_nomem);
             let op = bindings::get_op_Not();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_not);
+            map.insert(bindings::get_op_code(op), Self::create_not);
             let op = bindings::get_op_Offset();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_offset);
+            map.insert(bindings::get_op_code(op), Self::create_offset);
             let op = bindings::get_op_Or();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_or);
+            map.insert(bindings::get_op_code(op), Self::create_or);
             let op = bindings::get_op_Phi();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_phi);
+            map.insert(bindings::get_op_code(op), Self::create_phi);
             let op = bindings::get_op_Pin();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_pin);
+            map.insert(bindings::get_op_code(op), Self::create_pin);
             let op = bindings::get_op_Proj();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_proj);
+            map.insert(bindings::get_op_code(op), Self::create_proj);
             let op = bindings::get_op_Raise();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_raise);
+            map.insert(bindings::get_op_code(op), Self::create_raise);
             let op = bindings::get_op_Return();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_return);
+            map.insert(bindings::get_op_code(op), Self::create_return);
             let op = bindings::get_op_Sel();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_sel);
+            map.insert(bindings::get_op_code(op), Self::create_sel);
             let op = bindings::get_op_Shl();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_shl);
+            map.insert(bindings::get_op_code(op), Self::create_shl);
             let op = bindings::get_op_Shr();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_shr);
+            map.insert(bindings::get_op_code(op), Self::create_shr);
             let op = bindings::get_op_Shrs();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_shrs);
+            map.insert(bindings::get_op_code(op), Self::create_shrs);
             let op = bindings::get_op_Size();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_size);
+            map.insert(bindings::get_op_code(op), Self::create_size);
             let op = bindings::get_op_Start();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_start);
+            map.insert(bindings::get_op_code(op), Self::create_start);
             let op = bindings::get_op_Store();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_store);
+            map.insert(bindings::get_op_code(op), Self::create_store);
             let op = bindings::get_op_Sub();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_sub);
+            map.insert(bindings::get_op_code(op), Self::create_sub);
             let op = bindings::get_op_Switch();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_switch);
+            map.insert(bindings::get_op_code(op), Self::create_switch);
             let op = bindings::get_op_Sync();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_sync);
+            map.insert(bindings::get_op_code(op), Self::create_sync);
             let op = bindings::get_op_Tuple();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_tuple);
+            map.insert(bindings::get_op_code(op), Self::create_tuple);
             let op = bindings::get_op_Unknown();
-            let op_code = bindings::get_op_code(op);
-            map.insert(op_code, Self::create_unknown);
+            map.insert(bindings::get_op_code(op), Self::create_unknown);
         }
         NodeFactory(map)
     }
@@ -302,6 +314,88 @@ impl NodeFactory {
         let op_code = unsafe { bindings::get_irn_opcode(ir_node) };
         let f = self.0.get(&op_code).unwrap();
         f(ir_node)
+    }
+
+    pub fn proj_kind(proj: Proj) -> ProjKind {
+        let pred = proj.pred();
+        match pred {
+            Node::Alloc(node) => 
+               match proj.num() {
+                    0 => ProjKind::Alloc_M(node),
+                    1 => ProjKind::Alloc_Res(node),
+                    _ => ProjKind::Other,
+               },
+            Node::Builtin(node) => 
+               match proj.num() {
+                    0 => ProjKind::Builtin_M(node),
+                    _ => ProjKind::Other,
+               },
+            Node::Call(node) => 
+               match proj.num() {
+                    0 => ProjKind::Call_M(node),
+                    1 => ProjKind::Call_TResult(node),
+                    2 => ProjKind::Call_XRegular(node),
+                    3 => ProjKind::Call_XExcept(node),
+                    _ => ProjKind::Other,
+               },
+            Node::Cond(node) => 
+               match proj.num() {
+                    0 => ProjKind::Cond_False(node),
+                    1 => ProjKind::Cond_True(node),
+                    _ => ProjKind::Other,
+               },
+            Node::Div(node) => 
+               match proj.num() {
+                    0 => ProjKind::Div_M(node),
+                    1 => ProjKind::Div_Res(node),
+                    2 => ProjKind::Div_XRegular(node),
+                    3 => ProjKind::Div_XExcept(node),
+                    _ => ProjKind::Other,
+               },
+            Node::Load(node) => 
+               match proj.num() {
+                    0 => ProjKind::Load_M(node),
+                    1 => ProjKind::Load_Res(node),
+                    2 => ProjKind::Load_XRegular(node),
+                    3 => ProjKind::Load_XExcept(node),
+                    _ => ProjKind::Other,
+               },
+            Node::Mod(node) => 
+               match proj.num() {
+                    0 => ProjKind::Mod_M(node),
+                    1 => ProjKind::Mod_Res(node),
+                    2 => ProjKind::Mod_XRegular(node),
+                    3 => ProjKind::Mod_XExcept(node),
+                    _ => ProjKind::Other,
+               },
+            Node::Raise(node) => 
+               match proj.num() {
+                    0 => ProjKind::Raise_M(node),
+                    1 => ProjKind::Raise_X(node),
+                    _ => ProjKind::Other,
+               },
+            Node::Start(node) => 
+               match proj.num() {
+                    0 => ProjKind::Start_M(node),
+                    1 => ProjKind::Start_PFrameBase(node),
+                    2 => ProjKind::Start_TArgs(node),
+                    _ => ProjKind::Other,
+               },
+            Node::Store(node) => 
+               match proj.num() {
+                    0 => ProjKind::Store_M(node),
+                    1 => ProjKind::Store_XRegular(node),
+                    2 => ProjKind::Store_XExcept(node),
+                    _ => ProjKind::Other,
+               },
+            Node::Switch(node) => 
+               match proj.num() {
+                    0 => ProjKind::Switch_Default(node),
+                    _ => ProjKind::Other,
+               },
+            Node::Proj(proj, ProjKind::Start_TArgs(start)) => ProjKind::Start_TArgs_Arg(proj.num(), start, proj),
+            _ => ProjKind::Other,
+        }
     }
 
     fn create_add(ir_node: *mut bindings::ir_node) -> Node {
@@ -422,7 +516,8 @@ impl NodeFactory {
         Node::Pin(Pin(ir_node))
     }
     fn create_proj(ir_node: *mut bindings::ir_node) -> Node {
-        Node::Proj(Proj(ir_node))
+        let proj = Proj(ir_node);
+        Node::Proj(proj, Self::proj_kind(proj))
     }
     fn create_raise(ir_node: *mut bindings::ir_node) -> Node {
         Node::Raise(Raise(ir_node))
@@ -469,7 +564,7 @@ impl NodeFactory {
 }
 
 /// returns the sum of its operands
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Add(*mut bindings::ir_node);
 
 impl Add {
@@ -520,7 +615,7 @@ impl NodeTrait for Add {
 
 /// Symbolic constant that represents the address of an entity (variable or
 /// method)
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Address(*mut bindings::ir_node);
 
 impl Address {
@@ -546,7 +641,7 @@ impl NodeTrait for Address {
 }
 
 /// A symbolic constant that represents the alignment of a type
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Align(*mut bindings::ir_node);
 
 impl Align {
@@ -572,7 +667,7 @@ impl NodeTrait for Align {
 }
 
 /// Allocates a block of memory on the stack.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Alloc(*mut bindings::ir_node);
 
 impl Alloc {
@@ -639,7 +734,7 @@ impl NodeTrait for Alloc {
 /// Each firm-graph contains exactly one anchor node whose address is always
 /// known. All other well-known graph-nodes like Start, End, NoMem, ...
 /// are found by looking at the respective Anchor operand.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Anchor(*mut bindings::ir_node);
 
 impl Anchor {
@@ -761,7 +856,7 @@ impl NodeTrait for Anchor {
 }
 
 /// returns the result of a bitwise and operation of its operands
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct And(*mut bindings::ir_node);
 
 impl And {
@@ -830,7 +925,7 @@ impl NodeTrait for And {
 /// 
 /// In the future we may use the Bad node to model poison values that arise
 /// from undefined behaviour like reading uninitialized local variables in C.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Bad(*mut bindings::ir_node);
 
 impl Bad {
@@ -857,7 +952,7 @@ impl NodeTrait for Bad {
 
 /// Converts a value between modes with different arithmetics but same
 /// number of bits by reinterpreting the bits in the new mode
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Bitcast(*mut bindings::ir_node);
 
 impl Bitcast {
@@ -895,7 +990,7 @@ impl NodeTrait for Bitcast {
 }
 
 /// A basic block
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Block(*mut bindings::ir_node);
 
 impl Block {
@@ -933,7 +1028,7 @@ impl NodeTrait for Block {
 }
 
 /// performs a backend-specific builtin.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Builtin(*mut bindings::ir_node);
 
 impl Builtin {
@@ -998,7 +1093,7 @@ impl NodeTrait for Builtin {
 /// operands are passed to the called code. Called code usually performs a
 /// return operation. The operands of this return operation are the result
 /// of the Call node.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Call(*mut bindings::ir_node);
 
 impl Call {
@@ -1061,7 +1156,7 @@ impl NodeTrait for Call {
 
 /// Compares its two operands and checks whether a specified
 /// relation (like less or equal) is fulfilled.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Cmp(*mut bindings::ir_node);
 
 impl Cmp {
@@ -1123,7 +1218,7 @@ impl NodeTrait for Cmp {
 }
 
 /// Conditionally change control flow.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Cond(*mut bindings::ir_node);
 
 impl Cond {
@@ -1181,7 +1276,7 @@ impl NodeTrait for Cond {
 /// value is always returned.
 /// Note that this node does NOT check or assert the constraint, it merely
 /// specifies it.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Confirm(*mut bindings::ir_node);
 
 impl Confirm {
@@ -1243,7 +1338,7 @@ impl NodeTrait for Confirm {
 }
 
 /// Returns a constant value.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Const(*mut bindings::ir_node);
 
 impl Const {
@@ -1281,7 +1376,7 @@ impl NodeTrait for Const {
 }
 
 /// Converts values between modes
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Conv(*mut bindings::ir_node);
 
 impl Conv {
@@ -1319,7 +1414,7 @@ impl NodeTrait for Conv {
 }
 
 /// Copies a block of memory with statically known size/type.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct CopyB(*mut bindings::ir_node);
 
 impl CopyB {
@@ -1406,7 +1501,7 @@ impl NodeTrait for CopyB {
 
 /// Internal node which is temporary set to nodes which are already removed
 /// from the graph.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Deleted(*mut bindings::ir_node);
 
 impl Deleted {
@@ -1432,7 +1527,7 @@ impl NodeTrait for Deleted {
 }
 
 /// returns the quotient of its 2 operands
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Div(*mut bindings::ir_node);
 
 impl Div {
@@ -1520,7 +1615,7 @@ impl NodeTrait for Div {
 /// A placeholder value. This is used when constructing cyclic graphs where
 /// you have cases where not all predecessors of a phi-node are known. Dummy
 /// nodes are used for the unknown predecessors and replaced later.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Dummy(*mut bindings::ir_node);
 
 impl Dummy {
@@ -1547,7 +1642,7 @@ impl NodeTrait for Dummy {
 
 /// Last node of a graph. It references nodes in endless loops (so called
 /// keepalive edges)
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct End(*mut bindings::ir_node);
 
 impl End {
@@ -1575,7 +1670,7 @@ impl NodeTrait for End {
 /// returns the result of a bitwise exclusive or operation of its operands.
 /// 
 /// This is also known as the Xor operation.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Eor(*mut bindings::ir_node);
 
 impl Eor {
@@ -1625,7 +1720,7 @@ impl NodeTrait for Eor {
 }
 
 /// Frees a block of memory previously allocated by an Alloc node
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Free(*mut bindings::ir_node);
 
 impl Free {
@@ -1677,7 +1772,7 @@ impl NodeTrait for Free {
 /// Jumps to the code in its argument. The code has to be in the same
 /// function and the destination must be one of the blocks reachable
 /// by the tuple results
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct IJmp(*mut bindings::ir_node);
 
 impl IJmp {
@@ -1718,7 +1813,7 @@ impl NodeTrait for IJmp {
 /// 
 /// This is mainly used when exchanging nodes. Usually you shouldn't see Id
 /// nodes since the getters/setters for node inputs skip them automatically.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Id(*mut bindings::ir_node);
 
 impl Id {
@@ -1756,7 +1851,7 @@ impl NodeTrait for Id {
 }
 
 /// Jumps to the block connected through the out-value
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Jmp(*mut bindings::ir_node);
 
 impl Jmp {
@@ -1782,7 +1877,7 @@ impl NodeTrait for Jmp {
 }
 
 /// Loads a value from memory (heap or stack).
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Load(*mut bindings::ir_node);
 
 impl Load {
@@ -1883,7 +1978,7 @@ impl NodeTrait for Load {
 /// of an instance of the compound type.
 /// 
 /// A Member node must only produce a NULL pointer if the ptr input is NULL.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Member(*mut bindings::ir_node);
 
 impl Member {
@@ -1933,7 +2028,7 @@ impl NodeTrait for Member {
 }
 
 /// returns the additive inverse of its operand
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Minus(*mut bindings::ir_node);
 
 impl Minus {
@@ -1978,7 +2073,7 @@ impl NodeTrait for Minus {
 /// * mod(5,-3)  produces 2
 /// * mod(-5,3)  produces -2
 /// * mod(-5,-3) produces -2
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Mod(*mut bindings::ir_node);
 
 impl Mod {
@@ -2052,7 +2147,7 @@ impl NodeTrait for Mod {
 }
 
 /// returns the product of its operands
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Mul(*mut bindings::ir_node);
 
 impl Mul {
@@ -2103,7 +2198,7 @@ impl NodeTrait for Mul {
 
 /// returns the upper word of the product of its operands (the part which
 /// would not fit into the result mode of a normal Mul anymore)
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Mulh(*mut bindings::ir_node);
 
 impl Mulh {
@@ -2154,7 +2249,7 @@ impl NodeTrait for Mulh {
 
 /// returns the false or true operand depending on the value of the sel
 /// operand
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Mux(*mut bindings::ir_node);
 
 impl Mux {
@@ -2216,7 +2311,7 @@ impl NodeTrait for Mux {
 }
 
 /// Placeholder node for cases where you don't need any memory input
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct NoMem(*mut bindings::ir_node);
 
 impl NoMem {
@@ -2242,7 +2337,7 @@ impl NodeTrait for NoMem {
 }
 
 /// returns the bitwise complement of a value. Works for boolean values, too.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Not(*mut bindings::ir_node);
 
 impl Not {
@@ -2280,7 +2375,7 @@ impl NodeTrait for Not {
 }
 
 /// Symbolic constant that represents the offset of an entity in its owner type.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Offset(*mut bindings::ir_node);
 
 impl Offset {
@@ -2306,7 +2401,7 @@ impl NodeTrait for Offset {
 }
 
 /// returns the result of a bitwise or operation of its operands
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Or(*mut bindings::ir_node);
 
 impl Or {
@@ -2358,7 +2453,7 @@ impl NodeTrait for Or {
 /// Choose a value based on control flow. A phi node has 1 input for each
 /// predecessor of its block. If a block is entered from its nth predecessor
 /// all phi nodes produce their nth input as result.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Phi(*mut bindings::ir_node);
 
 impl Phi {
@@ -2398,7 +2493,7 @@ impl NodeTrait for Phi {
 /// Pin the value of the node node in the current block. No users of the Pin
 /// node can float above the Block of the Pin. The node cannot float behind
 /// this block. Often used to Pin the NoMem node.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Pin(*mut bindings::ir_node);
 
 impl Pin {
@@ -2436,7 +2531,7 @@ impl NodeTrait for Pin {
 }
 
 /// returns an entry of a tuple value
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Proj(*mut bindings::ir_node);
 
 impl Proj {
@@ -2475,7 +2570,7 @@ impl Proj {
 
 impl Into<Node> for Proj {
     fn into(self) -> Node {
-        Node::Proj(self)
+        Node::Proj(self, NodeFactory::proj_kind(self))
     }
 }
 
@@ -2488,7 +2583,7 @@ impl NodeTrait for Proj {
 /// Raises an exception. Unconditional change of control flow. Writes an
 /// explicit Except variable to memory to pass it to the exception handler.
 /// Must be lowered to a Call to a runtime check function.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Raise(*mut bindings::ir_node);
 
 impl Raise {
@@ -2539,7 +2634,7 @@ impl NodeTrait for Raise {
 
 /// Returns from the current function. Takes memory and return values as
 /// operands.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Return(*mut bindings::ir_node);
 
 impl Return {
@@ -2580,7 +2675,7 @@ impl NodeTrait for Return {
 /// an index.
 /// 
 /// A Sel node must only produce a NULL pointer if the ptr input is NULL.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Sel(*mut bindings::ir_node);
 
 impl Sel {
@@ -2646,7 +2741,7 @@ impl NodeTrait for Sel {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Shl(*mut bindings::ir_node);
 
 impl Shl {
@@ -2700,7 +2795,7 @@ impl NodeTrait for Shl {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Shr(*mut bindings::ir_node);
 
 impl Shr {
@@ -2755,7 +2850,7 @@ impl NodeTrait for Shr {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Shrs(*mut bindings::ir_node);
 
 impl Shrs {
@@ -2805,7 +2900,7 @@ impl NodeTrait for Shrs {
 }
 
 /// A symbolic constant that represents the size of a type
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Size(*mut bindings::ir_node);
 
 impl Size {
@@ -2831,7 +2926,7 @@ impl NodeTrait for Size {
 }
 
 /// The first node of a graph. Execution starts with this node.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Start(*mut bindings::ir_node);
 
 impl Start {
@@ -2857,7 +2952,7 @@ impl NodeTrait for Start {
 }
 
 /// Stores a value into memory (heap or stack).
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Store(*mut bindings::ir_node);
 
 impl Store {
@@ -2955,7 +3050,7 @@ impl NodeTrait for Store {
 }
 
 /// returns the difference of its operands
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Sub(*mut bindings::ir_node);
 
 impl Sub {
@@ -3008,7 +3103,7 @@ impl NodeTrait for Sub {
 /// input value which is looked up in a table.
 /// 
 /// Backends can implement this efficiently using a jump table.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Switch(*mut bindings::ir_node);
 
 impl Switch {
@@ -3074,7 +3169,7 @@ impl NodeTrait for Switch {
 /// be identical.  This operation allows to specify all operations that
 /// eventually need several partial memory blocks as input with a single
 /// entrance by unifying the memories with a preceding Sync operation.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Sync(*mut bindings::ir_node);
 
 impl Sync {
@@ -3107,7 +3202,7 @@ impl NodeTrait for Sync {
 /// the implementation with pointers in only one direction.) The Tuple node is
 /// smaller than any other node, so that a node can be changed into a Tuple by
 /// just changing its opcode and giving it a new in array.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Tuple(*mut bindings::ir_node);
 
 impl Tuple {
@@ -3138,7 +3233,7 @@ impl NodeTrait for Tuple {
 /// Be careful when optimising Unknown values, you cannot simply replace
 /// Unknown+x or Unknown<x with a new Unknown node if there are multiple
 /// users of the original unknown node!
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Unknown(*mut bindings::ir_node);
 
 impl Unknown {
@@ -3164,7 +3259,7 @@ impl NodeTrait for Unknown {
 }
 
 impl Graph {
-    /// Creates a new Add.
+    /// Creates a new Add-node.
     /// * `block` The block.
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3172,20 +3267,23 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Add(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Add::new(ir_node)
     }
-    /// Creates a new Address.
+
+    /// Creates a new Address-node.
     /// * `entity` entity to operate on
     pub fn new_address(&self, entity: *mut bindings::ir_entity) -> Address {
         let ir_node = unsafe { bindings::new_r_Address(self.irg, entity) };
         Address::new(ir_node)
     }
-    /// Creates a new Align.
+
+    /// Creates a new Align-node.
     /// * `mode` mode of the operations result
     /// * `ty` type to operate on
     pub fn new_align(&self, mode: *mut bindings::ir_mode, ty: *mut bindings::ir_type) -> Align {
         let ir_node = unsafe { bindings::new_r_Align(self.irg, mode, ty) };
         Align::new(ir_node)
     }
-    /// Creates a new Alloc.
+
+    /// Creates a new Alloc-node.
     /// * `block` The block.
     /// * `irn_mem` mem
     /// * `irn_size` size
@@ -3194,7 +3292,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Alloc(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_size.internal_ir_node(), alignment) };
         Alloc::new(ir_node)
     }
-    /// Creates a new And.
+
+    /// Creates a new And-node.
     /// * `block` The block.
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3202,13 +3301,15 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_And(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         And::new(ir_node)
     }
-    /// Creates a new Bad.
+
+    /// Creates a new Bad-node.
     /// * `mode` mode of the operations result
     pub fn new_bad(&self, mode: *mut bindings::ir_mode) -> Bad {
         let ir_node = unsafe { bindings::new_r_Bad(self.irg, mode) };
         Bad::new(ir_node)
     }
-    /// Creates a new Bitcast.
+
+    /// Creates a new Bitcast-node.
     /// * `block` The block.
     /// * `irn_op` op
     /// * `mode` mode of the operations result
@@ -3216,14 +3317,16 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Bitcast(block.internal_ir_node(), irn_op.internal_ir_node(), mode) };
         Bitcast::new(ir_node)
     }
-    /// Creates a new Block.
+
+    /// Creates a new Block-node.
     /// * `in_` additional inputs
     pub fn new_block(&self, in_: Vec<Node>) -> Block {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe { bindings::new_r_Block(self.irg, in_.len() as i32, in_.as_ptr()) };
         Block::new(ir_node)
     }
-    /// Creates a new Builtin.
+
+    /// Creates a new Builtin-node.
     /// * `block` The block.
     /// * `irn_mem` mem
     /// * `in_` additional inputs
@@ -3234,7 +3337,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Builtin(block.internal_ir_node(), irn_mem.internal_ir_node(), in_.len() as i32, in_.as_ptr(), kind, ty) };
         Builtin::new(ir_node)
     }
-    /// Creates a new Call.
+
+    /// Creates a new Call-node.
     /// * `block` The block.
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
@@ -3245,7 +3349,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Call(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), in_.len() as i32, in_.as_ptr(), ty) };
         Call::new(ir_node)
     }
-    /// Creates a new Cmp.
+
+    /// Creates a new Cmp-node.
     /// * `block` The block.
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3254,14 +3359,16 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Cmp(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node(), relation) };
         Cmp::new(ir_node)
     }
-    /// Creates a new Cond.
+
+    /// Creates a new Cond-node.
     /// * `block` The block.
     /// * `irn_selector` selector
     pub fn new_cond(&self, block: &'_ Block, irn_selector: &'_ Node) -> Cond {
         let ir_node = unsafe { bindings::new_r_Cond(block.internal_ir_node(), irn_selector.internal_ir_node()) };
         Cond::new(ir_node)
     }
-    /// Creates a new Confirm.
+
+    /// Creates a new Confirm-node.
     /// * `block` The block.
     /// * `irn_value` value
     /// * `irn_bound` bound
@@ -3270,13 +3377,15 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Confirm(block.internal_ir_node(), irn_value.internal_ir_node(), irn_bound.internal_ir_node(), relation) };
         Confirm::new(ir_node)
     }
-    /// Creates a new Const.
+
+    /// Creates a new Const-node.
     /// * `tarval` constant value (a tarval object)
     pub fn new_const(&self, tarval: *mut bindings::ir_tarval) -> Const {
         let ir_node = unsafe { bindings::new_r_Const(self.irg, tarval) };
         Const::new(ir_node)
     }
-    /// Creates a new Conv.
+
+    /// Creates a new Conv-node.
     /// * `block` The block.
     /// * `irn_op` op
     /// * `mode` mode of the operations result
@@ -3284,7 +3393,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Conv(block.internal_ir_node(), irn_op.internal_ir_node(), mode) };
         Conv::new(ir_node)
     }
-    /// Creates a new CopyB.
+
+    /// Creates a new CopyB-node.
     /// * `block` The block.
     /// * `irn_mem` mem
     /// * `irn_dst` dst
@@ -3295,7 +3405,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_CopyB(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_dst.internal_ir_node(), irn_src.internal_ir_node(), ty, flags) };
         CopyB::new(ir_node)
     }
-    /// Creates a new Div.
+
+    /// Creates a new Div-node.
     /// * `block` The block.
     /// * `irn_mem` mem
     /// * `irn_left` left
@@ -3305,20 +3416,23 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Div(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node(), pinned) };
         Div::new(ir_node)
     }
-    /// Creates a new Dummy.
+
+    /// Creates a new Dummy-node.
     /// * `mode` mode of the operations result
     pub fn new_dummy(&self, mode: *mut bindings::ir_mode) -> Dummy {
         let ir_node = unsafe { bindings::new_r_Dummy(self.irg, mode) };
         Dummy::new(ir_node)
     }
-    /// Creates a new End.
+
+    /// Creates a new End-node.
     /// * `in_` additional inputs
     pub fn new_end(&self, in_: Vec<Node>) -> End {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe { bindings::new_r_End(self.irg, in_.len() as i32, in_.as_ptr()) };
         End::new(ir_node)
     }
-    /// Creates a new Eor.
+
+    /// Creates a new Eor-node.
     /// * `block` The block.
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3326,7 +3440,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Eor(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Eor::new(ir_node)
     }
-    /// Creates a new Free.
+
+    /// Creates a new Free-node.
     /// * `block` The block.
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
@@ -3334,20 +3449,23 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Free(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_ptr.internal_ir_node()) };
         Free::new(ir_node)
     }
-    /// Creates a new IJmp.
+
+    /// Creates a new IJmp-node.
     /// * `block` The block.
     /// * `irn_target` target
     pub fn new_ijmp(&self, block: &'_ Block, irn_target: &'_ Node) -> IJmp {
         let ir_node = unsafe { bindings::new_r_IJmp(block.internal_ir_node(), irn_target.internal_ir_node()) };
         IJmp::new(ir_node)
     }
-    /// Creates a new Jmp.
+
+    /// Creates a new Jmp-node.
     /// * `block` The block.
     pub fn new_jmp(&self, block: &'_ Block) -> Jmp {
         let ir_node = unsafe { bindings::new_r_Jmp(block.internal_ir_node()) };
         Jmp::new(ir_node)
     }
-    /// Creates a new Load.
+
+    /// Creates a new Load-node.
     /// * `block` The block.
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
@@ -3358,7 +3476,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Load(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), mode, ty, flags) };
         Load::new(ir_node)
     }
-    /// Creates a new Member.
+
+    /// Creates a new Member-node.
     /// * `block` The block.
     /// * `irn_ptr` ptr
     /// * `entity` entity which is selected
@@ -3366,14 +3485,16 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Member(block.internal_ir_node(), irn_ptr.internal_ir_node(), entity) };
         Member::new(ir_node)
     }
-    /// Creates a new Minus.
+
+    /// Creates a new Minus-node.
     /// * `block` The block.
     /// * `irn_op` op
     pub fn new_minus(&self, block: &'_ Block, irn_op: &'_ Node) -> Minus {
         let ir_node = unsafe { bindings::new_r_Minus(block.internal_ir_node(), irn_op.internal_ir_node()) };
         Minus::new(ir_node)
     }
-    /// Creates a new Mod.
+
+    /// Creates a new Mod-node.
     /// * `block` The block.
     /// * `irn_mem` mem
     /// * `irn_left` left
@@ -3383,7 +3504,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Mod(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node(), pinned) };
         Mod::new(ir_node)
     }
-    /// Creates a new Mul.
+
+    /// Creates a new Mul-node.
     /// * `block` The block.
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3391,7 +3513,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Mul(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Mul::new(ir_node)
     }
-    /// Creates a new Mulh.
+
+    /// Creates a new Mulh-node.
     /// * `block` The block.
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3399,7 +3522,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Mulh(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Mulh::new(ir_node)
     }
-    /// Creates a new Mux.
+
+    /// Creates a new Mux-node.
     /// * `block` The block.
     /// * `irn_sel` sel
     /// * `irn_false` false
@@ -3408,26 +3532,30 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Mux(block.internal_ir_node(), irn_sel.internal_ir_node(), irn_false.internal_ir_node(), irn_true.internal_ir_node()) };
         Mux::new(ir_node)
     }
-    /// Creates a new NoMem.
+
+    /// Creates a new NoMem-node.
     pub fn new_nomem(&self, ) -> NoMem {
         let ir_node = unsafe { bindings::new_r_NoMem(self.irg) };
         NoMem::new(ir_node)
     }
-    /// Creates a new Not.
+
+    /// Creates a new Not-node.
     /// * `block` The block.
     /// * `irn_op` op
     pub fn new_not(&self, block: &'_ Block, irn_op: &'_ Node) -> Not {
         let ir_node = unsafe { bindings::new_r_Not(block.internal_ir_node(), irn_op.internal_ir_node()) };
         Not::new(ir_node)
     }
-    /// Creates a new Offset.
+
+    /// Creates a new Offset-node.
     /// * `mode` mode of the operations result
     /// * `entity` entity to operate on
     pub fn new_offset(&self, mode: *mut bindings::ir_mode, entity: *mut bindings::ir_entity) -> Offset {
         let ir_node = unsafe { bindings::new_r_Offset(self.irg, mode, entity) };
         Offset::new(ir_node)
     }
-    /// Creates a new Or.
+
+    /// Creates a new Or-node.
     /// * `block` The block.
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3435,7 +3563,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Or(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Or::new(ir_node)
     }
-    /// Creates a new Phi.
+
+    /// Creates a new Phi-node.
     /// * `block` The block.
     /// * `in_` additional inputs
     /// * `mode` mode of the operations result
@@ -3444,14 +3573,16 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Phi(block.internal_ir_node(), in_.len() as i32, in_.as_ptr(), mode) };
         Phi::new(ir_node)
     }
-    /// Creates a new Pin.
+
+    /// Creates a new Pin-node.
     /// * `block` The block.
     /// * `irn_op` op
     pub fn new_pin(&self, block: &'_ Block, irn_op: &'_ Node) -> Pin {
         let ir_node = unsafe { bindings::new_r_Pin(block.internal_ir_node(), irn_op.internal_ir_node()) };
         Pin::new(ir_node)
     }
-    /// Creates a new Proj.
+
+    /// Creates a new Proj-node.
     /// * `irn_pred` pred
     /// * `mode` mode of the operations result
     /// * `num` number of tuple component to be extracted
@@ -3459,7 +3590,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Proj(irn_pred.internal_ir_node(), mode, num) };
         Proj::new(ir_node)
     }
-    /// Creates a new Raise.
+
+    /// Creates a new Raise-node.
     /// * `block` The block.
     /// * `irn_mem` mem
     /// * `irn_exo_ptr` exo_ptr
@@ -3467,7 +3599,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Raise(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_exo_ptr.internal_ir_node()) };
         Raise::new(ir_node)
     }
-    /// Creates a new Return.
+
+    /// Creates a new Return-node.
     /// * `block` The block.
     /// * `irn_mem` mem
     /// * `in_` additional inputs
@@ -3476,7 +3609,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Return(block.internal_ir_node(), irn_mem.internal_ir_node(), in_.len() as i32, in_.as_ptr()) };
         Return::new(ir_node)
     }
-    /// Creates a new Sel.
+
+    /// Creates a new Sel-node.
     /// * `block` The block.
     /// * `irn_ptr` ptr
     /// * `irn_index` index
@@ -3485,7 +3619,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Sel(block.internal_ir_node(), irn_ptr.internal_ir_node(), irn_index.internal_ir_node(), ty) };
         Sel::new(ir_node)
     }
-    /// Creates a new Shl.
+
+    /// Creates a new Shl-node.
     /// * `block` The block.
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3493,7 +3628,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Shl(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Shl::new(ir_node)
     }
-    /// Creates a new Shr.
+
+    /// Creates a new Shr-node.
     /// * `block` The block.
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3501,7 +3637,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Shr(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Shr::new(ir_node)
     }
-    /// Creates a new Shrs.
+
+    /// Creates a new Shrs-node.
     /// * `block` The block.
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3509,19 +3646,22 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Shrs(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Shrs::new(ir_node)
     }
-    /// Creates a new Size.
+
+    /// Creates a new Size-node.
     /// * `mode` mode of the operations result
     /// * `ty` type to operate on
     pub fn new_size(&self, mode: *mut bindings::ir_mode, ty: *mut bindings::ir_type) -> Size {
         let ir_node = unsafe { bindings::new_r_Size(self.irg, mode, ty) };
         Size::new(ir_node)
     }
-    /// Creates a new Start.
+
+    /// Creates a new Start-node.
     pub fn new_start(&self, ) -> Start {
         let ir_node = unsafe { bindings::new_r_Start(self.irg) };
         Start::new(ir_node)
     }
-    /// Creates a new Store.
+
+    /// Creates a new Store-node.
     /// * `block` The block.
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
@@ -3532,7 +3672,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Store(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), irn_value.internal_ir_node(), ty, flags) };
         Store::new(ir_node)
     }
-    /// Creates a new Sub.
+
+    /// Creates a new Sub-node.
     /// * `block` The block.
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3540,7 +3681,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Sub(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Sub::new(ir_node)
     }
-    /// Creates a new Switch.
+
+    /// Creates a new Switch-node.
     /// * `block` The block.
     /// * `irn_selector` selector
     /// * `n_outs` number of outputs (including pn_Switch_default)
@@ -3549,7 +3691,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Switch(block.internal_ir_node(), irn_selector.internal_ir_node(), n_outs, table) };
         Switch::new(ir_node)
     }
-    /// Creates a new Sync.
+
+    /// Creates a new Sync-node.
     /// * `block` The block.
     /// * `in_` additional inputs
     pub fn new_sync(&self, block: &'_ Block, in_: Vec<Node>) -> Sync {
@@ -3557,7 +3700,8 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Sync(block.internal_ir_node(), in_.len() as i32, in_.as_ptr()) };
         Sync::new(ir_node)
     }
-    /// Creates a new Tuple.
+
+    /// Creates a new Tuple-node.
     /// * `block` The block.
     /// * `in_` additional inputs
     pub fn new_tuple(&self, block: &'_ Block, in_: Vec<Node>) -> Tuple {
@@ -3565,23 +3709,26 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Tuple(block.internal_ir_node(), in_.len() as i32, in_.as_ptr()) };
         Tuple::new(ir_node)
     }
-    /// Creates a new Unknown.
+
+    /// Creates a new Unknown-node.
     /// * `mode` mode of the operations result
     pub fn new_unknown(&self, mode: *mut bindings::ir_mode) -> Unknown {
         let ir_node = unsafe { bindings::new_r_Unknown(self.irg, mode) };
         Unknown::new(ir_node)
     }
+
 }
 
 impl Block {
-    /// Creates a new Add.
+    /// Creates a new Add-node.
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_add(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Add {
         let ir_node = unsafe { bindings::new_r_Add(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Add::new(ir_node)
     }
-    /// Creates a new Alloc.
+
+    /// Creates a new Alloc-node.
     /// * `irn_mem` mem
     /// * `irn_size` size
     /// * `alignment` alignment of the memory block (must be a power of 2)
@@ -3589,21 +3736,24 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Alloc(self.0, irn_mem.internal_ir_node(), irn_size.internal_ir_node(), alignment) };
         Alloc::new(ir_node)
     }
-    /// Creates a new And.
+
+    /// Creates a new And-node.
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_and(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> And {
         let ir_node = unsafe { bindings::new_r_And(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         And::new(ir_node)
     }
-    /// Creates a new Bitcast.
+
+    /// Creates a new Bitcast-node.
     /// * `irn_op` op
     /// * `mode` mode of the operations result
     pub fn new_bitcast(&self, irn_op: &'_ Node, mode: *mut bindings::ir_mode) -> Bitcast {
         let ir_node = unsafe { bindings::new_r_Bitcast(self.0, irn_op.internal_ir_node(), mode) };
         Bitcast::new(ir_node)
     }
-    /// Creates a new Builtin.
+
+    /// Creates a new Builtin-node.
     /// * `irn_mem` mem
     /// * `in_` additional inputs
     /// * `kind` kind of builtin
@@ -3613,7 +3763,8 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Builtin(self.0, irn_mem.internal_ir_node(), in_.len() as i32, in_.as_ptr(), kind, ty) };
         Builtin::new(ir_node)
     }
-    /// Creates a new Call.
+
+    /// Creates a new Call-node.
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     /// * `in_` additional inputs
@@ -3623,7 +3774,8 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Call(self.0, irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), in_.len() as i32, in_.as_ptr(), ty) };
         Call::new(ir_node)
     }
-    /// Creates a new Cmp.
+
+    /// Creates a new Cmp-node.
     /// * `irn_left` left
     /// * `irn_right` right
     /// * `relation` Comparison relation
@@ -3631,13 +3783,15 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Cmp(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node(), relation) };
         Cmp::new(ir_node)
     }
-    /// Creates a new Cond.
+
+    /// Creates a new Cond-node.
     /// * `irn_selector` selector
     pub fn new_cond(&self, irn_selector: &'_ Node) -> Cond {
         let ir_node = unsafe { bindings::new_r_Cond(self.0, irn_selector.internal_ir_node()) };
         Cond::new(ir_node)
     }
-    /// Creates a new Confirm.
+
+    /// Creates a new Confirm-node.
     /// * `irn_value` value
     /// * `irn_bound` bound
     /// * `relation` relation of value to bound
@@ -3645,14 +3799,16 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Confirm(self.0, irn_value.internal_ir_node(), irn_bound.internal_ir_node(), relation) };
         Confirm::new(ir_node)
     }
-    /// Creates a new Conv.
+
+    /// Creates a new Conv-node.
     /// * `irn_op` op
     /// * `mode` mode of the operations result
     pub fn new_conv(&self, irn_op: &'_ Node, mode: *mut bindings::ir_mode) -> Conv {
         let ir_node = unsafe { bindings::new_r_Conv(self.0, irn_op.internal_ir_node(), mode) };
         Conv::new(ir_node)
     }
-    /// Creates a new CopyB.
+
+    /// Creates a new CopyB-node.
     /// * `irn_mem` mem
     /// * `irn_dst` dst
     /// * `irn_src` src
@@ -3662,7 +3818,8 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_CopyB(self.0, irn_mem.internal_ir_node(), irn_dst.internal_ir_node(), irn_src.internal_ir_node(), ty, flags) };
         CopyB::new(ir_node)
     }
-    /// Creates a new Div.
+
+    /// Creates a new Div-node.
     /// * `irn_mem` mem
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3671,32 +3828,37 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Div(self.0, irn_mem.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node(), pinned) };
         Div::new(ir_node)
     }
-    /// Creates a new Eor.
+
+    /// Creates a new Eor-node.
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_eor(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Eor {
         let ir_node = unsafe { bindings::new_r_Eor(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Eor::new(ir_node)
     }
-    /// Creates a new Free.
+
+    /// Creates a new Free-node.
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     pub fn new_free(&self, irn_mem: &'_ Node, irn_ptr: &'_ Node) -> Free {
         let ir_node = unsafe { bindings::new_r_Free(self.0, irn_mem.internal_ir_node(), irn_ptr.internal_ir_node()) };
         Free::new(ir_node)
     }
-    /// Creates a new IJmp.
+
+    /// Creates a new IJmp-node.
     /// * `irn_target` target
     pub fn new_ijmp(&self, irn_target: &'_ Node) -> IJmp {
         let ir_node = unsafe { bindings::new_r_IJmp(self.0, irn_target.internal_ir_node()) };
         IJmp::new(ir_node)
     }
-    /// Creates a new Jmp.
+
+    /// Creates a new Jmp-node.
     pub fn new_jmp(&self, ) -> Jmp {
         let ir_node = unsafe { bindings::new_r_Jmp(self.0) };
         Jmp::new(ir_node)
     }
-    /// Creates a new Load.
+
+    /// Creates a new Load-node.
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     /// * `mode` mode of the value to be loaded
@@ -3706,20 +3868,23 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Load(self.0, irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), mode, ty, flags) };
         Load::new(ir_node)
     }
-    /// Creates a new Member.
+
+    /// Creates a new Member-node.
     /// * `irn_ptr` ptr
     /// * `entity` entity which is selected
     pub fn new_member(&self, irn_ptr: &'_ Node, entity: *mut bindings::ir_entity) -> Member {
         let ir_node = unsafe { bindings::new_r_Member(self.0, irn_ptr.internal_ir_node(), entity) };
         Member::new(ir_node)
     }
-    /// Creates a new Minus.
+
+    /// Creates a new Minus-node.
     /// * `irn_op` op
     pub fn new_minus(&self, irn_op: &'_ Node) -> Minus {
         let ir_node = unsafe { bindings::new_r_Minus(self.0, irn_op.internal_ir_node()) };
         Minus::new(ir_node)
     }
-    /// Creates a new Mod.
+
+    /// Creates a new Mod-node.
     /// * `irn_mem` mem
     /// * `irn_left` left
     /// * `irn_right` right
@@ -3728,21 +3893,24 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Mod(self.0, irn_mem.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node(), pinned) };
         Mod::new(ir_node)
     }
-    /// Creates a new Mul.
+
+    /// Creates a new Mul-node.
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_mul(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Mul {
         let ir_node = unsafe { bindings::new_r_Mul(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Mul::new(ir_node)
     }
-    /// Creates a new Mulh.
+
+    /// Creates a new Mulh-node.
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_mulh(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Mulh {
         let ir_node = unsafe { bindings::new_r_Mulh(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Mulh::new(ir_node)
     }
-    /// Creates a new Mux.
+
+    /// Creates a new Mux-node.
     /// * `irn_sel` sel
     /// * `irn_false` false
     /// * `irn_true` true
@@ -3750,20 +3918,23 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Mux(self.0, irn_sel.internal_ir_node(), irn_false.internal_ir_node(), irn_true.internal_ir_node()) };
         Mux::new(ir_node)
     }
-    /// Creates a new Not.
+
+    /// Creates a new Not-node.
     /// * `irn_op` op
     pub fn new_not(&self, irn_op: &'_ Node) -> Not {
         let ir_node = unsafe { bindings::new_r_Not(self.0, irn_op.internal_ir_node()) };
         Not::new(ir_node)
     }
-    /// Creates a new Or.
+
+    /// Creates a new Or-node.
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_or(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Or {
         let ir_node = unsafe { bindings::new_r_Or(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Or::new(ir_node)
     }
-    /// Creates a new Phi.
+
+    /// Creates a new Phi-node.
     /// * `in_` additional inputs
     /// * `mode` mode of the operations result
     pub fn new_phi(&self, in_: Vec<Node>, mode: *mut bindings::ir_mode) -> Phi {
@@ -3771,20 +3942,23 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Phi(self.0, in_.len() as i32, in_.as_ptr(), mode) };
         Phi::new(ir_node)
     }
-    /// Creates a new Pin.
+
+    /// Creates a new Pin-node.
     /// * `irn_op` op
     pub fn new_pin(&self, irn_op: &'_ Node) -> Pin {
         let ir_node = unsafe { bindings::new_r_Pin(self.0, irn_op.internal_ir_node()) };
         Pin::new(ir_node)
     }
-    /// Creates a new Raise.
+
+    /// Creates a new Raise-node.
     /// * `irn_mem` mem
     /// * `irn_exo_ptr` exo_ptr
     pub fn new_raise(&self, irn_mem: &'_ Node, irn_exo_ptr: &'_ Node) -> Raise {
         let ir_node = unsafe { bindings::new_r_Raise(self.0, irn_mem.internal_ir_node(), irn_exo_ptr.internal_ir_node()) };
         Raise::new(ir_node)
     }
-    /// Creates a new Return.
+
+    /// Creates a new Return-node.
     /// * `irn_mem` mem
     /// * `in_` additional inputs
     pub fn new_return(&self, irn_mem: &'_ Node, in_: Vec<Node>) -> Return {
@@ -3792,7 +3966,8 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Return(self.0, irn_mem.internal_ir_node(), in_.len() as i32, in_.as_ptr()) };
         Return::new(ir_node)
     }
-    /// Creates a new Sel.
+
+    /// Creates a new Sel-node.
     /// * `irn_ptr` ptr
     /// * `irn_index` index
     /// * `ty` array type
@@ -3800,28 +3975,32 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Sel(self.0, irn_ptr.internal_ir_node(), irn_index.internal_ir_node(), ty) };
         Sel::new(ir_node)
     }
-    /// Creates a new Shl.
+
+    /// Creates a new Shl-node.
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_shl(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Shl {
         let ir_node = unsafe { bindings::new_r_Shl(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Shl::new(ir_node)
     }
-    /// Creates a new Shr.
+
+    /// Creates a new Shr-node.
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_shr(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Shr {
         let ir_node = unsafe { bindings::new_r_Shr(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Shr::new(ir_node)
     }
-    /// Creates a new Shrs.
+
+    /// Creates a new Shrs-node.
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_shrs(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Shrs {
         let ir_node = unsafe { bindings::new_r_Shrs(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Shrs::new(ir_node)
     }
-    /// Creates a new Store.
+
+    /// Creates a new Store-node.
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     /// * `irn_value` value
@@ -3831,14 +4010,16 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Store(self.0, irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), irn_value.internal_ir_node(), ty, flags) };
         Store::new(ir_node)
     }
-    /// Creates a new Sub.
+
+    /// Creates a new Sub-node.
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_sub(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Sub {
         let ir_node = unsafe { bindings::new_r_Sub(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
         Sub::new(ir_node)
     }
-    /// Creates a new Switch.
+
+    /// Creates a new Switch-node.
     /// * `irn_selector` selector
     /// * `n_outs` number of outputs (including pn_Switch_default)
     /// * `table` table describing mapping from input values to Proj numbers
@@ -3846,19 +4027,22 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Switch(self.0, irn_selector.internal_ir_node(), n_outs, table) };
         Switch::new(ir_node)
     }
-    /// Creates a new Sync.
+
+    /// Creates a new Sync-node.
     /// * `in_` additional inputs
     pub fn new_sync(&self, in_: Vec<Node>) -> Sync {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe { bindings::new_r_Sync(self.0, in_.len() as i32, in_.as_ptr()) };
         Sync::new(ir_node)
     }
-    /// Creates a new Tuple.
+
+    /// Creates a new Tuple-node.
     /// * `in_` additional inputs
     pub fn new_tuple(&self, in_: Vec<Node>) -> Tuple {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe { bindings::new_r_Tuple(self.0, in_.len() as i32, in_.as_ptr()) };
         Tuple::new(ir_node)
     }
+
 }
 

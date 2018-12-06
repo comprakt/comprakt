@@ -6,6 +6,8 @@ interface NodeIn {
     name: string,
 }
 
+type NodeOut = NodeIn;
+
 interface NodeAttr {
     name: string,
     type: string,
@@ -19,7 +21,7 @@ interface Node {
     structName: string,
     variantName: string;
     ins: NodeIn[],
-    outs: any[],
+    outs: NodeOut[],
     attrs?: NodeAttr[];
     doc: string,
     mode: string,
@@ -39,6 +41,9 @@ class NodeImpl {
     public readonly usesGraph: boolean;
     public readonly block: boolean;
     public readonly hasConstructor: boolean;
+    public readonly outs: ReadonlyArray<NodeOutputImpl>;
+
+    public get isProj() { return this.name === "Proj"; }
 
     public get needsBlock() { return !this.block; }
     public get structName() { return this.name; }
@@ -58,6 +63,8 @@ class NodeImpl {
         this.args = node.arguments.map(input => new NodeArgImpl(input));
         this.block = !!node.block;
         this.hasConstructor = node.constructor;
+        const self = this;
+        this.outs = (node.outs || []).map((o, idx) => new NodeOutputImpl(self, o, idx));
     }
 }
 
@@ -95,6 +102,18 @@ class NodeAttrImpl extends NodeMemberImpl {
 
 class NodeInputImpl extends NodeMemberImpl {
     constructor(attr: NodeIn) {
+        super(attr.name, nodeType, attr.comment);
+    }
+}
+
+class NodeOutputImpl extends NodeMemberImpl {
+    public get variantName(): string {
+        const parts = this.name.split("_").map(p => p[0].toUpperCase() + p.substr(1).toLowerCase());
+        const str = parts.join("");
+        return `${this.parent.name}_${str}`;
+    }
+
+    constructor(public readonly parent: NodeImpl, attr: NodeIn, id: number) {
         super(attr.name, nodeType, attr.comment);
     }
 }
@@ -205,10 +224,14 @@ w.line();
 
 // generate Node enum
 {
-    w.line("#[derive(Debug)]");
+    w.line("#[derive(Debug, Clone, Copy)]");
     w.indent("pub enum Node {");
     for (const node of nodes) {
-        w.line(`${node.variantName}(${node.structName}),`);
+        if (node.isProj) {
+            w.line(`${node.variantName}(${node.structName}, ProjKind),`);
+        } else {
+            w.line(`${node.variantName}(${node.structName}),`);
+        }
     }
     w.unindent("}");
     w.line();
@@ -217,10 +240,28 @@ w.line();
     w.indent(`fn ${internal_ir_node}(&self) -> ${ir_node_type} {`);
     w.indent(`match self {`);
     for (const node of nodes) {
-        w.line(`Node::${node.variantName}(node) => node.${internal_ir_node}(),`);
+        w.line(`Node::${node.variantName}(node${node.isProj ? ", _" : ""}) => node.${internal_ir_node}(),`);
     }
     w.unindent(`}`);
     w.unindent(`}`);
+    w.unindent("}");
+    w.line();
+}
+
+// generate Proj enum
+{
+    w.line("#[derive(Debug, Clone, Copy)]");
+    w.indent("pub enum ProjKind {");
+    for (const node of nodes) {
+        for (const out of node.outs) {
+            w.line(`/// ${out.comment}`);
+            w.line(`${out.variantName}(${node.structName}),`);
+        }
+        if (node.name === "Start") {
+            w.line(`Start_TArgs_Arg(/* arg_idx */ u32, /* pred_pred */ Start, /* pred */ Proj),`);
+        }
+    }
+    w.line(`Other,`);
     w.unindent("}");
     w.line();
 }
@@ -235,8 +276,7 @@ w.line();
     w.indent(`unsafe {`);
     for (const node of nodes) {
         w.line(`let op = bindings::get_op_${node.name}();`);
-        w.line(`let op_code = bindings::get_op_code(op);`);
-        w.line(`map.insert(op_code, Self::${node.create_name});`);
+        w.line(`map.insert(bindings::get_op_code(op), Self::${node.create_name});`);
     }
     w.unindent(`}`);
     w.line(`NodeFactory(map)`);
@@ -255,9 +295,42 @@ w.line();
     w.unindent("}");
     w.line();
 
+    // generate proj_kind function
+    w.indent(`pub fn proj_kind(proj: Proj) -> ProjKind {`);
+    {
+        w.line(`let pred = proj.pred();`);
+        w.indent(`match pred {`);
+        for (const predNode of nodes) {
+            if (predNode.isProj || predNode.outs.length === 0) continue;
+            w.line(`Node::${predNode.variantName}(node) => `);
+            w.indentation++;
+            w.indent(`match proj.num() {`);
+            let idx = 0;
+            for (const out of predNode.outs) {
+                w.line(`${idx} => ProjKind::${out.variantName}(node),`);
+                idx++;
+            }
+            w.line(`_ => ProjKind::Other,`);
+            w.unindent(`},`);
+            w.indentation--;
+        }
+        w.line(`Node::Proj(proj, ProjKind::Start_TArgs(start)) => ProjKind::Start_TArgs_Arg(proj.num(), start, proj),`);
+        w.line(`_ => ProjKind::Other,`);
+        w.unindent("}");
+    }
+    w.unindent(`}`);
+    w.line();
+
+    // generate create_XYZ-Node functions
     for (const node of nodes) {
         w.indent(`fn ${node.create_name}(ir_node: ${ir_node_type}) -> Node {`);
-        w.line(`Node::${node.name}(${node.structName}(ir_node))`);
+        if (node.name === `Proj`) {
+            w.line(`let proj = ${node.structName}(ir_node);`);
+            w.line(`Node::${node.name}(proj, Self::proj_kind(proj))`);
+        }
+        else {
+            w.line(`Node::${node.name}(${node.structName}(ir_node))`);
+        }
         w.unindent("}");
     }
 
@@ -272,7 +345,7 @@ for (const node of nodes) {
             w.line(`/// ${line.trim()}`);
         }
     }
-    w.line("#[derive(Debug)]");
+    w.line("#[derive(Debug, Clone, Copy)]");
     w.line(`pub struct ${node.structName}(${ir_node_type});`);
     w.line();
 
@@ -312,7 +385,8 @@ for (const node of nodes) {
     // into Node
     w.indent(`impl Into<Node> for ${node.structName} {`);
     w.indent(`fn into(self) -> Node {`);
-    w.line(`Node::${node.variantName}(self)`);
+
+    w.line(`Node::${node.variantName}(self${node.isProj ? ", NodeFactory::proj_kind(self)" : ""})`);
     w.unindent(`}`);
     w.unindent("}");
     w.line();

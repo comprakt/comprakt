@@ -1,6 +1,6 @@
 use libfirm_rs_bindings as bindings;
 use super::nodes_gen::{Block, Start, End};
-use std::ffi::{CStr, CString};
+use std::ffi::{CString};
 
 #[derive(Clone, Copy)]
 pub struct Graph {
@@ -33,3 +33,4 @@ impl Graph {
         unsafe { bindings::dump_ir_graph(self.irg, suffix.as_ptr()) }
     }
 }
+
