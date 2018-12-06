@@ -16,23 +16,26 @@ extern "C" {
 pub type MjInt = i32;
 
 macro_rules! mjrt_runtimeexception {
-    ($fn_name:ident, $description:expr) => {
+    ($fn_name:ident($($var:ident : $ty:ty),*), $description:expr) => {
         #[no_mangle]
-        pub extern "C" fn $fn_name() -> ! {
+        pub extern "C" fn $fn_name($($var : $ty),*) -> ! {
             use backtrace::Backtrace;
             let bt = Backtrace::new();
-            println!("{}\n{:?}", $description, bt);
+            println!(concat!($description, "\n{:?}"), $($var,)* bt);
             unsafe { libc::abort() }
         }
     };
 }
 
-mjrt_runtimeexception!(mjrt_dumpstack, "dumpstack");
-mjrt_runtimeexception!(mjrt_div_by_zero, "division by zero");
-mjrt_runtimeexception!(mjrt_null_usage, "reference is null");
-mjrt_runtimeexception!(mjrt_array_out_of_bounds, "array access out of bounds");
+mjrt_runtimeexception!(mjrt_dumpstack(), "dumpstack");
+mjrt_runtimeexception!(mjrt_div_by_zero(), "division by zero");
+mjrt_runtimeexception!(mjrt_null_usage(), "reference is null");
 mjrt_runtimeexception!(
-    mjrt_negative_allocation,
+    mjrt_array_out_of_bounds(idx: i32, len: i32),
+    "array access out of bounds: {} >= {}"
+);
+mjrt_runtimeexception!(
+    mjrt_negative_allocation(),
     "cannot allocate less than 0 bytes"
 );
 

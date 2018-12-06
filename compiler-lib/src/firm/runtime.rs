@@ -88,7 +88,11 @@ impl Runtime {
         };
 
         let array_out_of_bounds = {
-            let t = FunctionType::new().build(false);
+            let mut t = FunctionType::new();
+            t.add_param(PrimitiveType::i32());
+            t.add_param(PrimitiveType::i32());
+            let t = t.build(false);
+
             let id = CString::new("mjrt_array_out_of_bounds").unwrap();
             Entity::new_global(&id, t)
         };

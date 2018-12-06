@@ -661,8 +661,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             self.graph.cur_block().mature();
             self.graph.set_cur_block(err_block);
 
-            // TODO pass array size and actual index
-            let res = self.gen_static_fn_call(self.runtime.array_out_of_bounds, None, &[]);
+            let res = self.gen_static_fn_call(
+                self.runtime.array_out_of_bounds,
+                None,
+                &[idx_expr, len.as_value_node()],
+            );
             assert_matches!(res, ExprResult::Void);
             unsafe { keep_alive(err_block.into()) };
 
