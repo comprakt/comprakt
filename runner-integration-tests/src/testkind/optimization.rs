@@ -1,6 +1,6 @@
-use crate::*;
-use serde_derive::{Deserialize};
 use compiler_lib::optimization::Optimization;
+use crate::*;
+use serde_derive::Deserialize;
 use std::{
     fs::File,
     io::{self, Write},
@@ -20,7 +20,7 @@ pub enum AsmComparisonOutcome {
     /// The mini java code in this tuple should generate
     /// assembly identical to the mini java code currently
     /// tested
-    IdenticalTo(ExpectedData)
+    IdenticalTo(ExpectedData),
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -48,7 +48,7 @@ pub struct OptimizationTestData {
     /// expected outcome of a comparison between
     /// the unoptimized and the optimized asm of
     /// the binary.
-    pub expect: AsmComparisonOutcome
+    pub expect: AsmComparisonOutcome,
 }
 
 impl FromReferencesPath<OptimizationTestData> for OptimizationTestData {
@@ -65,7 +65,7 @@ impl FromReferencesPath<OptimizationTestData> for OptimizationTestData {
             exitcode: None,
             stdin: None,
             optimizations: vec![],
-            expect: AsmComparisonOutcome::Change
+            expect: AsmComparisonOutcome::Change,
         }
     }
 }
@@ -139,30 +139,34 @@ pub fn exec_optimization_test(input: PathBuf) {
 
     let setup = TestSpec {
         references: input.clone(),
-        input: input.clone(),
+        input,
         generate_tentatives: true,
     };
 
     let (input_without_yaml_path, test_data) = load_test_data::<OptimizationTestData>(&setup);
 
-    if test_data.reference.optimizations.len() == 0 {
+    if test_data.reference.optimizations.is_empty() {
         panic!("you MUST at least specify one optimization. none given.");
     }
 
-    let callinfo_actual = 
-        CompilerCall::RawCompiler(CompilerPhase::Binary {
-            output: path_binary_optimized.clone(),
-            assembly: Some(path_asm_optimized.clone()),
-            optimizations: test_data.reference.optimizations.clone()
-        });
+    let callinfo_actual = CompilerCall::RawCompiler(CompilerPhase::Binary {
+        output: path_binary_optimized.clone(),
+        assembly: Some(path_asm_optimized.clone()),
+        optimizations: test_data.reference.optimizations.clone(),
+    });
 
     let mut cmd_actual = compiler_call(callinfo_actual, &input_without_yaml_path);
     println!("Executing: {:?}", cmd_actual);
-    let output_actual = cmd_actual.output().expect("failed to call compiler under test for actual input");
+    let output_actual = cmd_actual
+        .output()
+        .expect("failed to call compiler under test for actual input");
 
     assert_output(
         &output_actual,
-        test_data.reference.clone().into_optimizing_compiler_reference_data(&path_binary_optimized),
+        test_data
+            .reference
+            .clone()
+            .into_optimizing_compiler_reference_data(&path_binary_optimized),
         &TestSpec {
             input: path_binary_optimized.clone(),
             references: path_binary_optimized.clone(),
@@ -190,20 +194,24 @@ pub fn exec_optimization_test(input: PathBuf) {
         }
     };
 
-    let callinfo_reference = 
-        CompilerCall::RawCompiler(CompilerPhase::Binary {
-            output: path_binary_reference.clone(),
-            assembly: Some(path_asm_reference.clone()),
-            optimizations: vec![]
-        });
+    let callinfo_reference = CompilerCall::RawCompiler(CompilerPhase::Binary {
+        output: path_binary_reference.clone(),
+        assembly: Some(path_asm_reference.clone()),
+        optimizations: vec![],
+    });
 
     let mut cmd_reference = compiler_call(callinfo_reference, &reference_input);
     println!("Executing: {:?}", cmd_reference);
-    let output_reference = cmd_reference.output().expect("failed to call compiler under test for reference input");
+    let output_reference = cmd_reference
+        .output()
+        .expect("failed to call compiler under test for reference input");
 
     assert_output(
         &output_reference,
-        test_data.reference.clone().into_reference_compiler_reference_data(&path_binary_reference),
+        test_data
+            .reference
+            .clone()
+            .into_reference_compiler_reference_data(&path_binary_reference),
         &TestSpec {
             input: path_binary_reference.clone(),
             references: path_binary_reference.clone(),
@@ -212,8 +220,24 @@ pub fn exec_optimization_test(input: PathBuf) {
     );
 
     // reaching this line means the compiler assertions were correct
-    assert_binary(&path_binary_optimized, &test_data.reference.stdin, setup.clone(), test_data.reference.clone().into_binary_reference_data(&path_binary_optimized));
-    assert_binary(&path_binary_reference, &test_data.reference.stdin, setup.clone(), test_data.reference.clone().into_binary_reference_data(&path_binary_reference));
+    assert_binary(
+        &path_binary_optimized,
+        &test_data.reference.stdin,
+        &setup,
+        test_data
+            .reference
+            .clone()
+            .into_binary_reference_data(&path_binary_optimized),
+    );
+    assert_binary(
+        &path_binary_reference,
+        &test_data.reference.stdin,
+        &setup,
+        test_data
+            .reference
+            .clone()
+            .into_binary_reference_data(&path_binary_reference),
+    );
 
     let asm_optimized = read(&Some(path_asm_optimized.clone())).unwrap();
     let asm_reference = read(&Some(path_asm_reference.clone())).unwrap();
@@ -223,37 +247,45 @@ pub fn exec_optimization_test(input: PathBuf) {
     match test_data.reference.expect {
         AsmComparisonOutcome::Change => {
             if normalized_reference_asm == normalized_optimized_asm {
-                panic!("asserted assembly to NOT be identical to the reference. But they are the same.");
+                panic!(
+                    "asserted assembly to NOT be identical to the reference. \
+                     But they are the same."
+                );
             }
         }
-        AsmComparisonOutcome::Unchanged | AsmComparisonOutcome::IdenticalTo(_) => {
-
-            assert_changeset(&TestSpec {
+        AsmComparisonOutcome::Unchanged | AsmComparisonOutcome::IdenticalTo(_) => assert_changeset(
+            &TestSpec {
                 input: path_asm_optimized,
                 references: path_asm_reference,
-                generate_tentatives: false
-            }, "asm", &normalized_reference_asm, &normalized_optimized_asm).unwrap_or_else(|msg|
-                panic!("{}. expected asm to be unchanged.", msg.to_string()))
-        }
+                generate_tentatives: false,
+            },
+            "asm",
+            &normalized_reference_asm,
+            &normalized_optimized_asm,
+        )
+        .unwrap_or_else(|msg| panic!("{}. expected asm to be unchanged.", msg.to_string())),
     };
 }
 
-fn strip_comments(s :&str) -> String {
+fn strip_comments(s: &str) -> String {
     let regex = regex::Regex::new("/\\*.*?\\*/").unwrap();
     regex.replace_all(s, "").to_string()
 }
 
 // TODO: not sure if this is actually necessary
-fn sort_blocks(s :&str) -> String {
-    let mut blocks = s.split("# -- Begin  ").map(|block| block.trim()).collect::<Vec<&str>>();
+fn sort_blocks(s: &str) -> String {
+    let mut blocks = s
+        .split("# -- Begin  ")
+        .map(|block| block.trim())
+        .collect::<Vec<&str>>();
     blocks.sort();
-    
+
     format!("# -- Begin {}", blocks.join("\n# -- Begin  "))
 }
 
 // TODO: this could also be done in strip_comments
-fn remove_trailing_whitespace(s :&str) -> String {
-    let lines :Vec<&str> = vec![];
+fn remove_trailing_whitespace(s: &str) -> String {
+    let lines: Vec<&str> = vec![];
     for line in s.lines() {
         line.trim_end();
     }
@@ -261,15 +293,19 @@ fn remove_trailing_whitespace(s :&str) -> String {
     lines.join("\n")
 }
 
-fn normalize_asm(asm :&str) -> String {
+fn normalize_asm(asm: &str) -> String {
     let no_comments = strip_comments(asm);
     let no_trailing = remove_trailing_whitespace(&no_comments);
-    let sorted = sort_blocks(&no_trailing);
-    sorted
+    sort_blocks(&no_trailing)
 }
 
-fn assert_binary(binary_path :&PathBuf, stdin: &Option<ExpectedData>, setup :TestSpec, references: ReferenceData) {
-    let output = run_binary(binary_path, stdin, setup);
+fn assert_binary(
+    binary_path: &PathBuf,
+    stdin: &Option<ExpectedData>,
+    setup: &TestSpec,
+    references: ReferenceData,
+) {
+    let output = run_binary(binary_path, stdin, &setup);
 
     assert_output(
         &output,
@@ -282,31 +318,31 @@ fn assert_binary(binary_path :&PathBuf, stdin: &Option<ExpectedData>, setup :Tes
     );
 }
 
-fn run_binary(binary_path :&PathBuf, stdin: &Option<ExpectedData>, setup: TestSpec) -> Output {
+fn run_binary(binary_path: &PathBuf, stdin: &Option<ExpectedData>, setup: &TestSpec) -> Output {
     let mut cmd = std::process::Command::new(&binary_path);
 
     let mut child = cmd
-      .stdin(Stdio::piped())
-      .stdout(Stdio::piped())
-      .stderr(Stdio::piped())
-      .spawn()
-      .expect("failed to invoke generated binary");
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to invoke generated binary");
 
     if let Some(ref stdin_data) = stdin {
-      let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-      match stdin_data {
-          ExpectedData::Inline(stdin_str) => {
-              stdin
-                  .write_all(stdin_str.as_bytes())
-                  .expect("Failed to write to stdin of generated binary");
-          }
-          ExpectedData::InFile(rel_path) => {
-              let stdin_path = reference_to_absolute_path(&setup, &rel_path);
-              let mut stdin_reader = File::open(&stdin_path).expect("failed to open stdin file");
-              io::copy(&mut stdin_reader, stdin)
-                  .expect("failed to write to stdin of generated binary");
-          }
-      }
+        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+        match stdin_data {
+            ExpectedData::Inline(stdin_str) => {
+                stdin
+                    .write_all(stdin_str.as_bytes())
+                    .expect("Failed to write to stdin of generated binary");
+            }
+            ExpectedData::InFile(rel_path) => {
+                let stdin_path = reference_to_absolute_path(&setup, &rel_path);
+                let mut stdin_reader = File::open(&stdin_path).expect("failed to open stdin file");
+                io::copy(&mut stdin_reader, stdin)
+                    .expect("failed to write to stdin of generated binary");
+            }
+        }
     }
 
     child

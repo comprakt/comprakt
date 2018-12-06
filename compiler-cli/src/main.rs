@@ -211,7 +211,7 @@ impl FromStr for OptimizationList {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let flags: Result<Vec<Optimization>, _> = s
-            .split(",")
+            .split(',')
             .filter_map(|opt| {
                 if opt == "" {
                     None
