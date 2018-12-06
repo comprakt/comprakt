@@ -36,6 +36,10 @@ pub trait NodeTrait {
         ReverseEdgeIterator::new(self.internal_ir_node())
     }
 
+    fn node_id(&self) -> i64 {
+        unsafe { bindings::get_irn_node_nr(self.internal_ir_node()) }
+    }
+
     // TODO implement methods from
     // https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java
 }
