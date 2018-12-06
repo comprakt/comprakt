@@ -4,6 +4,7 @@ pub mod lookup;
 mod testkind;
 pub mod yaml;
 pub use self::{lookup::*, testkind::*};
+use compiler_lib::optimization::Optimization;
 use difference::Changeset;
 use failure::Fail;
 use serde::de::DeserializeOwned;
@@ -28,7 +29,11 @@ pub enum CompilerPhase {
     Ast,
     Semantic,
     Assembly,
-    Binary { output: PathBuf },
+    Binary {
+        output: PathBuf,
+        assembly: Option<PathBuf>,
+        optimizations: Vec<Optimization>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -46,12 +51,34 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
         CompilerPhase::Ast => &["--print-ast"],
         CompilerPhase::Semantic => &["--check"],
         CompilerPhase::Assembly => &["--emit-asm"],
-        CompilerPhase::Binary { output } => {
-            return vec![
+        CompilerPhase::Binary {
+            output,
+            assembly,
+            optimizations,
+        } => {
+            let mut flags = vec![
                 OsString::from("--compile-firm"),
                 OsString::from("-o"),
                 output.as_os_str().to_os_string(),
-            ]
+            ];
+
+            if let Some(path) = assembly {
+                flags.push(OsString::from("--emit-asm"));
+                flags.push(path.as_os_str().to_os_string());
+            }
+
+            if optimizations.len() > 0 {
+                let val: String = optimizations
+                    .into_iter()
+                    .map(|opt| opt.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+
+                flags.push(OsString::from("-O"));
+                flags.push(OsString::from(val));
+            }
+
+            return flags;
         }
     };
 
@@ -99,6 +126,7 @@ fn normalize_stderr(stderr: &str) -> String {
     stderr.replace(&*ROOT_DIR, "{ROOT}")
 }
 
+#[derive(Debug, Clone)]
 pub struct TestSpec {
     pub input: PathBuf,
     pub references: PathBuf,
@@ -111,7 +139,7 @@ fn tentative_file_path(reference: &PathBuf) -> PathBuf {
     if update_references.is_ok() {
         reference.clone()
     } else {
-        add_extension(reference, "tentative")
+        add_extension(reference, "actual")
     }
 }
 
@@ -253,13 +281,11 @@ fn assert_output(actual: &Output, expected: ReferenceData, setup: &TestSpec) {
     }
 }
 
-#[allow(dead_code)]
-pub fn assert_compiler_phase<
+fn load_test_data<
     TestMetadata: IntoReferenceData + FromReferencesPath<TestMetadata> + DeserializeOwned + Clone,
 >(
-    phase: CompilerCall,
     spec: &TestSpec,
-) -> TestData<TestMetadata> {
+) -> (PathBuf, TestData<TestMetadata>) {
     let test_data = lookup::get_files::<TestMetadata>(&spec.input, &spec.references)
         .unwrap_or_else(|msg| {
             panic!(
@@ -281,6 +307,17 @@ pub fn assert_compiler_phase<
         InputData::NotLoaded(ref mj_path) => mj_path.clone(),
     };
 
+    (input_without_yaml_path, test_data)
+}
+
+#[allow(dead_code)]
+pub fn assert_compiler_phase<
+    TestMetadata: IntoReferenceData + FromReferencesPath<TestMetadata> + DeserializeOwned + Clone,
+>(
+    phase: CompilerCall,
+    spec: &TestSpec,
+) -> TestData<TestMetadata> {
+    let (input_without_yaml_path, test_data) = load_test_data::<TestMetadata>(spec);
     let mut call = compiler_call(phase, &input_without_yaml_path);
     println!("Executing: {:?}", call);
     let output = call.output().expect("failed to call compiler under test");

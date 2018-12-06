@@ -140,7 +140,8 @@ pub unsafe fn build<'src, 'ast>(
         }
     }
 
-    println!("Optimizations: {:#?}", opts.optimizations);
+    // TODO: run optimizations here
+    //println!("Optimizations: {:#?}", opts.optimizations);
 
     lower_highlevel();
     be_lower_for_target();

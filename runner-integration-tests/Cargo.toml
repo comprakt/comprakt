@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 integration_test_codegen = { path = "../codegen-integration-tests" }
+compiler-lib = { path = "../compiler-lib" }
 difference = "2.0"
 serde = "1.0"
 serde_derive = "1.0"
@@ -15,3 +16,4 @@ lazy_static = "1.2.0"
 wait-timeout = "0.1.5"
 structopt = "0.2"
 failure = "0.1"
+regex = "1"

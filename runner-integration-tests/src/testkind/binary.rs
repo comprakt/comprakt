@@ -83,6 +83,8 @@ pub fn exec_binary_test(input: PathBuf) {
     let metadata = assert_compiler_phase::<BinaryTestData>(
         CompilerCall::RawCompiler(CompilerPhase::Binary {
             output: binary_path.clone(),
+            optimizations: vec![],
+            assembly: None,
         }),
         &setup,
     );

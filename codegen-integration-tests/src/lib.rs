@@ -91,6 +91,23 @@ pub fn gen_binary_integration_tests(_args: TokenStream) -> TokenStream {
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
+pub fn gen_optimization_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests("optimization", "", |test_name, mj_file| {
+        let function_name = Ident::new(&test_name, Span::call_site());
+        let path_str = mj_file.to_str().unwrap();
+
+        quote! {
+            #[test]
+            fn #function_name() {
+                let input = PathBuf::from(#path_str);
+                exec_optimization_test(input);
+            }
+        }
+    })
+}
+
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
 pub fn gen_ast_reference_integration_tests(_args: TokenStream) -> TokenStream {
     gen_integration_tests("ast", "", |test_name, mj_file| {
         default_test_generator(

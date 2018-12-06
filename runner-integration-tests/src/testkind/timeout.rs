@@ -11,6 +11,8 @@ pub fn exec_timeout_test(input: PathBuf) {
     assert_compiler_phase::<OptionalReferenceData>(
         CompilerCall::RawCompiler(CompilerPhase::Binary {
             output: binary_path.clone(),
+            optimizations: vec![],
+            assembly: None,
         }),
         &TestSpec {
             references: input.clone(),
