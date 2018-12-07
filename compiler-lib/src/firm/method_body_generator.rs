@@ -202,11 +202,16 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         then_arm: &ast::Stmt<'src>,
         else_arm: &Option<Box<Spanned<'src, ast::Stmt<'src>>>>,
     ) -> LastBlockJumps {
-        let prev_block = self.graph.cur_block();
-
         // We evaluate the condition
         let CondProjection { entry, tr, fls } = &self.gen_expr(cond).enforce_cond(self.graph);
         entry.mature();
+
+        // We need to mature this block (and not the cur_block before the
+        // gen_expr-call), because the gen_expr might create new blocks even if
+        // it is not a nested CondProjection (i.e. array bounds checks), and
+        // thus the new current block after the gen_expr is what needs to be
+        // matured, not the old previous block.
+        let prev_block = self.graph.cur_block();
 
         // If its true, we take the then_arm
         self.graph.set_cur_block(self.graph.new_imm_block(tr));
