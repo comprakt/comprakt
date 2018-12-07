@@ -920,6 +920,10 @@
 <span id="920">920</span>
 <span id="921">921</span>
 <span id="922">922</span>
+<span id="923">923</span>
+<span id="924">924</span>
+<span id="925">925</span>
+<span id="926">926</span>
 </pre><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">not_unsafe_ptr_arg_deref</span>)]</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">clippy</span>::<span class="ident">print_stdout</span>)]</span>
@@ -1276,13 +1280,9 @@
         <span class="ident">pinned</span>: <span class="ident">i32</span>,
     ) <span class="op">-&gt;</span> <span class="ident">Div</span> {
         <span class="kw">unsafe</span> {
-            <span class="ident">new_r_Div</span>(
-                <span class="self">self</span>.<span class="number">0</span>,
-                <span class="ident">mem</span>.<span class="ident">into</span>(),
-                <span class="ident">left</span>.<span class="ident">as_alu_operand</span>(),
-                <span class="ident">right</span>.<span class="ident">as_alu_operand</span>(),
-                <span class="ident">pinned</span>,
-            )
+            <span class="kw">let</span> <span class="ident">left</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">new_conv</span>(<span class="ident">left</span>.<span class="ident">as_alu_operand</span>(), <span class="ident">mode</span>::<span class="ident">Ls</span>);
+            <span class="kw">let</span> <span class="ident">right</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">new_conv</span>(<span class="ident">right</span>.<span class="ident">as_alu_operand</span>(), <span class="ident">mode</span>::<span class="ident">Ls</span>);
+            <span class="ident">new_r_Div</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mem</span>.<span class="ident">into</span>(), <span class="ident">left</span>, <span class="ident">right</span>, <span class="ident">pinned</span>)
         }
         .<span class="ident">into</span>()
     }
@@ -1295,13 +1295,9 @@
         <span class="ident">pinned</span>: <span class="ident">i32</span>,
     ) <span class="op">-&gt;</span> <span class="ident">Mod</span> {
         <span class="kw">unsafe</span> {
-            <span class="ident">new_r_Mod</span>(
-                <span class="self">self</span>.<span class="number">0</span>,
-                <span class="ident">mem</span>.<span class="ident">into</span>(),
-                <span class="ident">left</span>.<span class="ident">as_alu_operand</span>(),
-                <span class="ident">right</span>.<span class="ident">as_alu_operand</span>(),
-                <span class="ident">pinned</span>,
-            )
+            <span class="kw">let</span> <span class="ident">left</span> <span class="op">=</span> <span class="ident">new_r_Conv</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">left</span>.<span class="ident">as_alu_operand</span>(), <span class="ident">mode</span>::<span class="ident">Ls</span>);
+            <span class="kw">let</span> <span class="ident">right</span> <span class="op">=</span> <span class="ident">new_r_Conv</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">right</span>.<span class="ident">as_alu_operand</span>(), <span class="ident">mode</span>::<span class="ident">Ls</span>);
+            <span class="ident">new_r_Mod</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mem</span>.<span class="ident">into</span>(), <span class="ident">left</span>, <span class="ident">right</span>, <span class="ident">pinned</span>)
         }
         .<span class="ident">into</span>()
     }
@@ -1441,6 +1437,10 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_bitcast</span>(<span class="self">self</span>, <span class="ident">node</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_node</span>, <span class="ident">target_mode</span>: <span class="ident">mode</span>::<span class="ident">Type</span>) <span class="op">-&gt;</span> <span class="ident">Bitcast</span> {
         <span class="kw">unsafe</span> { <span class="ident">new_r_Bitcast</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">node</span>, <span class="ident">target_mode</span>) }.<span class="ident">into</span>()
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_conv</span>(<span class="self">self</span>, <span class="ident">node</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_node</span>, <span class="ident">target_mode</span>: <span class="ident">mode</span>::<span class="ident">Type</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_node</span> {
+        <span class="kw">unsafe</span> { <span class="ident">new_r_Conv</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">node</span>, <span class="ident">target_mode</span>) }
     }
 }
 
@@ -1731,8 +1731,12 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">project_mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">MemoryState</span> {
         <span class="kw">unsafe</span> { <span class="ident">new_r_Proj</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mode</span>::<span class="ident">M</span>, <span class="ident">pn_Div</span>::<span class="ident">M</span>) }.<span class="ident">into</span>()
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">project_res</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">DivResult</span> {
-        <span class="kw">unsafe</span> { <span class="ident">new_r_Proj</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mode</span>::<span class="ident">Is</span>, <span class="ident">pn_Div</span>::<span class="ident">Res</span>) }.<span class="ident">into</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">project_res</span>(<span class="self">self</span>, <span class="ident">block</span>: <span class="ident">Block</span>) <span class="op">-&gt;</span> <span class="ident">DivResult</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="ident">proj</span> <span class="op">=</span> <span class="ident">new_r_Proj</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mode</span>::<span class="ident">Ls</span>, <span class="ident">pn_Div</span>::<span class="ident">Res</span>);
+            <span class="ident">block</span>.<span class="ident">new_conv</span>(<span class="ident">proj</span>, <span class="ident">mode</span>::<span class="ident">Is</span>)
+        }
+        .<span class="ident">into</span>()
     }
 }
 
@@ -1753,8 +1757,12 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">project_mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">MemoryState</span> {
         <span class="kw">unsafe</span> { <span class="ident">new_r_Proj</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mode</span>::<span class="ident">M</span>, <span class="ident">pn_Mod</span>::<span class="ident">M</span>) }.<span class="ident">into</span>()
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">project_res</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">ModResult</span> {
-        <span class="kw">unsafe</span> { <span class="ident">new_r_Proj</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mode</span>::<span class="ident">Is</span>, <span class="ident">pn_Mod</span>::<span class="ident">Res</span>) }.<span class="ident">into</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">project_res</span>(<span class="self">self</span>, <span class="ident">block</span>: <span class="ident">Block</span>) <span class="op">-&gt;</span> <span class="ident">ModResult</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="ident">proj</span> <span class="op">=</span> <span class="ident">new_r_Proj</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mode</span>::<span class="ident">Ls</span>, <span class="ident">pn_Div</span>::<span class="ident">Res</span>);
+            <span class="ident">block</span>.<span class="ident">new_conv</span>(<span class="ident">proj</span>, <span class="ident">mode</span>::<span class="ident">Is</span>)
+        }
+        .<span class="ident">into</span>()
     }
 }
 
