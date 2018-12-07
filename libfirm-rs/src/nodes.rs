@@ -2,9 +2,7 @@ use crate::nodes_gen::{Block, Node, NodeFactory};
 use libfirm_rs_bindings as bindings;
 use std::hash::{Hash, Hasher};
 
-impl Block {
-
-}
+impl Block {}
 
 /// A trait to abstract from Node enum and various *-Node structs.
 pub trait NodeTrait {
@@ -48,6 +46,27 @@ pub trait NodeTrait {
 impl Hash for Node {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.internal_ir_node().hash(state);
+    }
+}
+
+// FIXME generate this
+impl Into<*mut bindings::ir_node> for Node {
+    fn into(self) -> *mut bindings::ir_node {
+        self.internal_ir_node()
+    }
+}
+
+// FIXME generate this
+impl Into<*mut bindings::ir_node> for crate::nodes_gen::Phi {
+    fn into(self) -> *mut bindings::ir_node {
+        self.internal_ir_node()
+    }
+}
+
+// FIXME generate this
+impl Into<*const bindings::ir_node> for crate::nodes_gen::Phi {
+    fn into(self) -> *const bindings::ir_node {
+        self.internal_ir_node() as *const _
     }
 }
 

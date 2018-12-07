@@ -1,6 +1,5 @@
 use crate::firm::Program;
-mod worklist;
-pub use self::worklist::WorkList;
+mod constant_folding;
 
 #[derive(
     strum_macros::EnumString,
@@ -29,17 +28,7 @@ impl Optimization {
 
         match self {
             Optimization::AlgebraicSimplification => {}
-            Optimization::ConstantFolding => {
-                for class in program.classes.values() {
-                    for method in class.borrow().methods.values() {
-                        if let Some(graph) = method.borrow().graph {
-                            println!("Graph for Method: {:?}", method.borrow().entity.name());
-                            let mut worklist = WorkList::new(graph.into());
-                            worklist.fixpoint_iterate_const_folding();
-                        }
-                    }
-                }
-            }
+            Optimization::ConstantFolding => constant_folding::run(program),
         };
     }
 }
