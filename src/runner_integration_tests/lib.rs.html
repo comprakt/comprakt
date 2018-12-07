@@ -429,6 +429,26 @@
 <span id="429">429</span>
 <span id="430">430</span>
 <span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
 </pre><pre class="rust ">
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">nll</span>)]</span>
 
@@ -472,7 +492,11 @@
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CompilerCall</span> {
     <span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>),
-    <span class="ident">AstInspector</span>,
+    <span class="ident">AstInspector</span> {
+        <span class="ident">content</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+        <span class="ident">kind</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+        <span class="ident">typeinfo</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    },
 }
 
 <span class="doccomment">/// Arguments that should be given to the compiler under test</span>
@@ -538,7 +562,11 @@
 
             <span class="ident">cmd</span>
         }
-        <span class="ident">CompilerCall</span>::<span class="ident">AstInspector</span> <span class="op">=&gt;</span> {
+        <span class="ident">CompilerCall</span>::<span class="ident">AstInspector</span> {
+            <span class="ident">content</span>,
+            <span class="ident">kind</span>,
+            <span class="ident">typeinfo</span>,
+        } <span class="op">=&gt;</span> {
             <span class="kw">let</span> <span class="ident">ast_inspector_path</span> <span class="op">=</span> <span class="ident">project_binary</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;inspect-ast&quot;</span>));
             <span class="macro">println</span><span class="macro">!</span>(
                 <span class="string">&quot;Test run using the ast inspector binary at {:?}&quot;</span>,
@@ -546,6 +574,18 @@
             );
 
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">Command</span>::<span class="ident">new</span>(<span class="ident">ast_inspector_path</span>);
+
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">filter</span>) <span class="op">=</span> <span class="ident">content</span> {
+                <span class="ident">cmd</span>.<span class="ident">args</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;-c&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">filter</span>]);
+            }
+
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">filter</span>) <span class="op">=</span> <span class="ident">kind</span> {
+                <span class="ident">cmd</span>.<span class="ident">args</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;-k&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">filter</span>]);
+            }
+
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">filter</span>) <span class="op">=</span> <span class="ident">typeinfo</span> {
+                <span class="ident">cmd</span>.<span class="ident">args</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;-t&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">filter</span>]);
+            }
 
             <span class="ident">cmd</span>.<span class="ident">env</span>(<span class="string">&quot;TERM&quot;</span>, <span class="string">&quot;dumb&quot;</span>).<span class="ident">arg</span>(<span class="ident">filepath</span>.<span class="ident">as_os_str</span>());
 
