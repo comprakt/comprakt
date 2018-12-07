@@ -85,7 +85,7 @@ pub struct Method<'src, 'ast> {
 }
 
 unsafe fn setup() {
-    ir_init_library();
+    libfirm_rs::init();
 
     // this call panics on error
     let triple = ir_get_host_machine_triple();

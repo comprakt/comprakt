@@ -12,6 +12,17 @@ pub mod nodes_gen;
 pub mod other;
 pub mod types;
 
+pub mod tarval;
+
+use std::sync::Once;
+
+static INIT: Once = Once::new();
+pub fn init() {
+    INIT.call_once(|| unsafe {
+        ir_init_library();
+    });
+}
+
 #[derive(Clone, Copy)]
 pub struct Ty(*mut ir_type);
 
