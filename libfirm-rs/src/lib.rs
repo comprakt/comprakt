@@ -353,8 +353,8 @@ impl Block {
         pinned: i32,
     ) -> Div {
         unsafe {
-            let left = new_r_Conv(self.0, left.as_alu_operand(), mode::Ls);
-            let right = new_r_Conv(self.0, right.as_alu_operand(), mode::Ls);
+            let left = self.new_conv(left.as_alu_operand(), mode::Ls);
+            let right = self.new_conv(right.as_alu_operand(), mode::Ls);
             new_r_Div(self.0, mem.into(), left, right, pinned)
         }
         .into()
@@ -830,7 +830,7 @@ impl Mod {
     pub fn project_mem(self) -> MemoryState {
         unsafe { new_r_Proj(self.0, mode::M, pn_Mod::M) }.into()
     }
-    pub fn project_res(self, block: Block) -> DivResult {
+    pub fn project_res(self, block: Block) -> ModResult {
         unsafe {
             let proj = new_r_Proj(self.0, mode::Ls, pn_Div::Res);
             block.new_conv(proj, mode::Is)
