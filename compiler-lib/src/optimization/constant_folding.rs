@@ -52,6 +52,17 @@ impl ConstantFolding {
         }
     }
 
+    fn queue_followers_if_changed(&mut self, node: Node, prev: Tarval, new: Tarval) {
+        if prev != new {
+            let followers = node.reverse_edges();
+            log::debug!(
+                "queuing edges: node-ids: {:?}",
+                followers.iter().map(|x| x.node_id()).collect::<Vec<_>>()
+            );
+            self.list.extend(followers);
+        }
+    }
+
     fn run(&mut self) {
         unsafe {
             bindings::assure_irg_outs(self.graph.into());
@@ -87,14 +98,7 @@ impl ConstantFolding {
                     let res = Lattice::binop(lhs, rhs, Binop::Add);
                     log::debug!("result is: {:?}", res);
                     let prev = self.values.insert(cur, res).unwrap();
-                    if res != prev {
-                        let followers = cur.reverse_edges();
-                        log::debug!(
-                            "queuing edges: node-ids: {:?}",
-                            followers.iter().map(|x| x.node_id()).collect::<Vec<_>>()
-                        );
-                        self.list.extend(followers);
-                    }
+                    self.queue_followers_if_changed(cur, prev, res);
                 }
                 Node::Phi(phi) => unsafe {
                     let npreds = bindings::get_Phi_n_preds(phi.into());
@@ -107,14 +111,7 @@ impl ConstantFolding {
                     let res = Lattice::phi(preds.into_iter());
                     log::debug!("result is: {:?}", res);
                     let prev = self.values.insert(cur, res).unwrap();
-                    if res != prev {
-                        let followers = cur.reverse_edges();
-                        log::debug!(
-                            "queuing edges: node-ids: {:?}",
-                            followers.iter().map(|x| x.node_id()).collect::<Vec<_>>()
-                        );
-                        self.list.extend(followers);
-                    }
+                    self.queue_followers_if_changed(cur, prev, res);
                 },
                 _ => (),
             }
