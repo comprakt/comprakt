@@ -12,11 +12,16 @@ use termcolor::{ColorChoice, StandardStream};
 
 use compiler_lib::{
     asciifile::{AsciiFile, Span, Spanned},
-    ast,
+    ast::{self, Expr},
     context::{self, Context},
     lexer::{Lexer, TokenKind},
     parser::Parser,
+    semantics,
     strtab::StringTable,
+    type_checking::{
+        type_analysis::{ExprInfo, RefInfo, TypeAnalysis},
+        type_system::CheckedType,
+    },
     visitor::NodeKind,
 };
 
@@ -46,6 +51,11 @@ pub struct CliCommand {
     /// filtering nothing.
     #[structopt(short = "k", long = "node-kind", default_value = "")]
     regex_node_kind: Regex,
+    /// a regular expression used to filter the source code.
+    /// Only expressions with matching type information will be dumped.
+    /// Defaults to filtering nothing.
+    #[structopt(short = "t", long = "type-of-expression", default_value = "")]
+    regex_type: Regex,
     /// stop after first regex match
     #[structopt(short = "1", long = "only-first")]
     only_first_match: bool,
@@ -103,7 +113,14 @@ fn do_main(cmd: CliCommand) -> Result<(), Error> {
         }
     };
 
-    let ast_inspector = AstInspector::new(cmd, &context);
+    // TODO: type system should not write to context directly!!!
+    let (_type_system, type_analysis) = semantics::check(&mut strtab, &program_ast, &context)
+        .unwrap_or_else(|()| {
+            context.diagnostics.write_statistics();
+            exit(1);
+        });
+
+    let ast_inspector = AstInspector::new(cmd, &context, &type_analysis);
 
     ast_inspector.run(&program_ast)
 }
@@ -137,30 +154,66 @@ fn print_error(writer: &mut dyn io::Write, err: &Error) -> Result<(), Error> {
 pub enum Messages {
     #[fail(display = "Matched kind '{}'", kind)]
     Matched { kind: String },
+    #[fail(display = "Matched kind 'expression' of type `{}`", typing)]
+    MatchedExpr { typing: String },
 }
 
 pub struct AstInspector<'f> {
     cfg: CliCommand,
     context: &'f context::Context<'f>,
+    type_analysis: &'f TypeAnalysis<'f, 'f>,
 }
 
 impl<'f> AstInspector<'f> {
-    pub fn new(cfg: CliCommand, context: &'f context::Context<'f>) -> Self {
-        Self { cfg, context }
+    pub fn new(
+        cfg: CliCommand,
+        context: &'f context::Context<'f>,
+        type_analysis: &'f TypeAnalysis<'f, 'f>,
+    ) -> Self {
+        Self {
+            cfg,
+            context,
+            type_analysis,
+        }
+    }
+
+    fn print_expr_if_match(&self, expr: &Spanned<'_, Expr<'_>>) {
+        let expr_info = self.type_analysis.expr_info(expr);
+        let expr_description = expr_info_to_str(&expr_info);
+
+        if self.is_match("expression", &expr.span)
+            && self.cfg.regex_type.is_match(&expr_description)
+        {
+            self.context.diagnostics.info(&Spanned {
+                span: expr.span,
+                data: Messages::MatchedExpr {
+                    typing: expr_description,
+                },
+            });
+
+            self.has_matched();
+        }
     }
 
     fn print_if_match(&self, kindname: &str, span: &Span) {
-        if self.cfg.regex_node_kind.is_match(kindname)
-            && self.cfg.regex_content.is_match(span.as_str())
-        {
+        if self.is_match(kindname, span) {
             self.context.diagnostics.info(&Spanned {
                 span: *span,
                 data: Messages::Matched {
                     kind: kindname.to_string(),
                 },
-            })
-        }
+            });
 
+            self.has_matched();
+        }
+    }
+
+    fn is_match(&self, kindname: &str, span: &Span) -> bool {
+        self.cfg.regex_node_kind.is_match(kindname)
+            && self.cfg.regex_content.is_match(span.as_str())
+    }
+
+    fn has_matched(&self) {
         if self.cfg.only_first_match {
             self.context
                 .diagnostics
@@ -215,7 +268,7 @@ impl<'f> AstInspector<'f> {
                 }
                 NodeKind::Expr(spanned) => {
                     //&'a Spanned<'t, Expr<'t>>
-                    self.print_if_match("expression", &spanned.span)
+                    self.print_expr_if_match(spanned)
                 }
                 NodeKind::BinaryOp(_binary_op) => {
                     //&'a BinaryOp
@@ -229,5 +282,62 @@ impl<'f> AstInspector<'f> {
         });
 
         Ok(())
+    }
+}
+
+fn checked_type_to_str(ty: &CheckedType<'_>) -> String {
+    use self::CheckedType::*;
+    match ty {
+        Int => "integer".to_string(),
+        Boolean => "boolean".to_string(),
+        Void => "void".to_string(),
+        Null => "null".to_string(),
+        TypeRef(class_def) => format!("reference-type '{}'", class_def.as_str()),
+        UnknownType(symbol) => format!("unknown type '{}'", symbol.as_str()),
+        Array(ty) => format!("array of {}", checked_type_to_str(&*ty)),
+    }
+}
+
+fn expr_info_to_str(expr: &ExprInfo<'_, '_>) -> String {
+    let ty_description = checked_type_to_str(&expr.ty);
+
+    if let Some(ref ref_info) = expr.ref_info {
+        format!(
+            "{} associated with {}",
+            ty_description,
+            ref_info_to_str(ref_info)
+        )
+    } else {
+        ty_description
+    }
+}
+
+fn ref_info_to_str(ty: &RefInfo<'_, '_>) -> String {
+    use self::RefInfo::*;
+    match ty {
+        GlobalVar(symbol) => format!("global variable '{}'", symbol.as_str()),
+        Var(local) => format!("local variable definition '{}'", local.name.as_str()),
+        Param(param) => format!("method parameter definition '{}'", param.name.as_str()),
+        Field(field) => format!(
+            "{}field definition '{}'",
+            if field.can_write { "" } else { "read-only " },
+            field.name.as_str()
+        ),
+        Method(method) => format!(
+            "{}{}method definition '{}'",
+            if method.is_static { "static " } else { "" },
+            if method.is_main { "main " } else { "" },
+            method.name.as_str()
+        ),
+        This(class) => format!(
+            "{} class definition '{}'",
+            if class.comparable {
+                "comparable"
+            } else {
+                "incomparable"
+            },
+            class.name.as_str()
+        ),
+        ArrayAccess => "an array access".to_string(),
     }
 }

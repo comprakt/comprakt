@@ -1,0 +1,85 @@
+info: Matched kind 'expression' of type `integer associated with method parameter definition 'callsite'`
+   | 
+ 5 |     System.out.println(callsite);
+   |                        ^^^^^^^^
+
+info: Matched kind 'expression' of type `array of integer`
+   | 
+ 6 |     x = new int[2];
+   |     ^^^^^^^^^^^^^^
+
+info: Matched kind 'expression' of type `array of integer associated with field definition 'x'`
+   | 
+ 6 |     x = new int[2];
+   |     ^
+
+info: Matched kind 'expression' of type `array of integer`
+   | 
+ 6 |     x = new int[2];
+   |         ^^^^^^^^^^
+
+info: Matched kind 'expression' of type `integer`
+   | 
+ 6 |     x = new int[2];
+   |                 ^
+
+info: Matched kind 'expression' of type `array of integer associated with field definition 'x'`
+   | 
+ 7 |     return x;
+   |            ^
+
+info: Matched kind 'expression' of type `integer associated with an array access`
+    | 
+ 12 |     int x = m.foo(1)[m.foo(2)[1]];
+    |             ^^^^^^^^^^^^^^^^^^^^^
+
+info: Matched kind 'expression' of type `array of integer associated with method definition 'foo'`
+    | 
+ 12 |     int x = m.foo(1)[m.foo(2)[1]];
+    |             ^^^^^^^^
+
+info: Matched kind 'expression' of type `integer`
+    | 
+ 12 |     int x = m.foo(1)[m.foo(2)[1]];
+    |                   ^
+
+info: Matched kind 'expression' of type `integer associated with an array access`
+    | 
+ 12 |     int x = m.foo(1)[m.foo(2)[1]];
+    |                      ^^^^^^^^^^^
+
+info: Matched kind 'expression' of type `array of integer associated with method definition 'foo'`
+    | 
+ 12 |     int x = m.foo(1)[m.foo(2)[1]];
+    |                      ^^^^^^^^
+
+info: Matched kind 'expression' of type `integer`
+    | 
+ 12 |     int x = m.foo(1)[m.foo(2)[1]];
+    |                            ^
+
+info: Matched kind 'expression' of type `integer`
+    | 
+ 12 |     int x = m.foo(1)[m.foo(2)[1]];
+    |                               ^
+
+info: Matched kind 'expression' of type `boolean`
+    | 
+ 14 |     if (x > 1) {
+    |         ^^^^^
+
+info: Matched kind 'expression' of type `integer associated with local variable definition 'x'`
+    | 
+ 14 |     if (x > 1) {
+    |         ^
+
+info: Matched kind 'expression' of type `integer`
+    | 
+ 14 |     if (x > 1) {
+    |             ^
+
+info: Matched kind 'expression' of type `integer`
+    | 
+ 15 |         System.out.println(12);
+    |                            ^^
+
