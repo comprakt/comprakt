@@ -1,6 +1,8 @@
 ---
 optimizations: [ConstantFolding]
 expect: change
+compiler_optimized_stdout: ignore
+compiler_reference_stdout: ignore
 stdout:
     is: "1\n"
 ---

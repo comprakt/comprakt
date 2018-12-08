@@ -174,9 +174,10 @@ fn load_reference(
     actual: &str,
     expected: ExpectedData,
     label: &str,
-) -> Result<String, TestFailure> {
+) -> Result<Option<String>, TestFailure> {
     match expected {
-        ExpectedData::Inline(data) => Ok(data),
+        ExpectedData::Inline(data) => Ok(Some(data)),
+        ExpectedData::Ignore => Ok(None),
         ExpectedData::InFile(rel_path) => {
             let path = reference_to_absolute_path(setup, &rel_path);
 
@@ -186,12 +187,14 @@ fn load_reference(
                     Some(wrote) => TestFailure::NotFoundWroteReference { tried: path, wrote },
                 })
             } else {
-                Ok(lookup::read(&Some(path.clone())).unwrap_or_else(|msg| {
-                    panic!(
-                        "failed to read reference file {:?}, because: {:?}",
-                        path, msg
-                    )
-                }))
+                Ok(Some(lookup::read(&Some(path.clone())).unwrap_or_else(
+                    |msg| {
+                        panic!(
+                            "failed to read reference file {:?}, because: {:?}",
+                            path, msg
+                        )
+                    },
+                )))
             }
         }
     }
@@ -248,14 +251,24 @@ fn assert_changeset(
 fn assert_output(actual: &Output, expected: ReferenceData, setup: &TestSpec) {
     let stdout_result = {
         let stdout = &String::from_utf8_lossy(&actual.stdout);
-        load_reference(setup, &stdout, expected.stdout, "stdout")
-            .and_then(|reference| assert_changeset(setup, "stdout", &reference, &stdout))
+        load_reference(setup, &stdout, expected.stdout, "stdout").and_then(|expected| {
+            if let Some(reference) = expected {
+                assert_changeset(setup, "stdout", &reference, &stdout)
+            } else {
+                Ok(())
+            }
+        })
     };
 
     let stderr_result = {
         let stderr = normalize_stderr(&String::from_utf8_lossy(&actual.stderr));
-        load_reference(setup, &stderr, expected.stderr, "stderr")
-            .and_then(|reference| assert_changeset(setup, "stderr", &reference, &stderr))
+        load_reference(setup, &stderr, expected.stderr, "stderr").and_then(|expected| {
+            if let Some(reference) = expected {
+                assert_changeset(setup, "stderr", &reference, &stderr)
+            } else {
+                Ok(())
+            }
+        })
     };
 
     let exitcode_result = {
@@ -265,8 +278,13 @@ fn assert_output(actual: &Output, expected: ReferenceData, setup: &TestSpec) {
             .map(|code| code.to_string())
             .unwrap_or_else(|| "terminated by signal or crashed.".to_string());
 
-        load_reference(setup, &exitcode, expected.exitcode, "exitcode")
-            .and_then(|reference| assert_changeset(setup, "exitcode", &reference.trim(), &exitcode))
+        load_reference(setup, &exitcode, expected.exitcode, "exitcode").and_then(|expected| {
+            if let Some(reference) = expected {
+                assert_changeset(setup, "exitcode", &reference.trim(), &exitcode)
+            } else {
+                Ok(())
+            }
+        })
     };
 
     match (stderr_result, stdout_result, exitcode_result) {

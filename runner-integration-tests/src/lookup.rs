@@ -135,6 +135,8 @@ pub enum ExpectedData {
     InFile(PathBuf),
     #[serde(rename = "is")]
     Inline(String),
+    #[serde(rename = "ignore")]
+    Ignore,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

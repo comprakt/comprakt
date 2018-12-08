@@ -100,14 +100,16 @@ pub fn exec_binary_test(input: PathBuf) {
         .expect("failed to invoke generated binary");
 
     if let Some(ref stdin_data) = metadata.reference.stdin {
-        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
         match stdin_data {
+            ExpectedData::Ignore => {}
             ExpectedData::Inline(stdin_str) => {
+                let stdin = child.stdin.as_mut().expect("Failed to open stdin");
                 stdin
                     .write_all(stdin_str.as_bytes())
                     .expect("Failed to write to stdin of generated binary");
             }
             ExpectedData::InFile(rel_path) => {
+                let stdin = child.stdin.as_mut().expect("Failed to open stdin");
                 let stdin_path = reference_to_absolute_path(&setup, &rel_path);
                 let mut stdin_reader = File::open(&stdin_path).expect("failed to open stdin file");
                 io::copy(&mut stdin_reader, stdin)

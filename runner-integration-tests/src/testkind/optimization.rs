@@ -175,7 +175,9 @@ pub fn exec_optimization_test(input: PathBuf) {
     );
 
     let reference_input = match test_data.reference.expect {
-        AsmComparisonOutcome::Change | AsmComparisonOutcome::Unchanged => {
+        AsmComparisonOutcome::Change
+        | AsmComparisonOutcome::Unchanged
+        | AsmComparisonOutcome::IdenticalTo(ExpectedData::Ignore) => {
             // compare to the same file unoptimized
             input_without_yaml_path.clone()
         }
@@ -253,6 +255,7 @@ pub fn exec_optimization_test(input: PathBuf) {
                 );
             }
         }
+        AsmComparisonOutcome::IdenticalTo(ExpectedData::Ignore) => {}
         AsmComparisonOutcome::Unchanged | AsmComparisonOutcome::IdenticalTo(_) => assert_changeset(
             &TestSpec {
                 input: path_asm_optimized,
@@ -329,14 +332,16 @@ fn run_binary(binary_path: &PathBuf, stdin: &Option<ExpectedData>, setup: &TestS
         .expect("failed to invoke generated binary");
 
     if let Some(ref stdin_data) = stdin {
-        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
         match stdin_data {
+            ExpectedData::Ignore => {}
             ExpectedData::Inline(stdin_str) => {
+                let stdin = child.stdin.as_mut().expect("Failed to open stdin");
                 stdin
                     .write_all(stdin_str.as_bytes())
                     .expect("Failed to write to stdin of generated binary");
             }
             ExpectedData::InFile(rel_path) => {
+                let stdin = child.stdin.as_mut().expect("Failed to open stdin");
                 let stdin_path = reference_to_absolute_path(&setup, &rel_path);
                 let mut stdin_reader = File::open(&stdin_path).expect("failed to open stdin file");
                 io::copy(&mut stdin_reader, stdin)
