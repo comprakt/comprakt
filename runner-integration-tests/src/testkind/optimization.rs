@@ -183,7 +183,7 @@ pub fn exec_optimization_test(input: PathBuf) {
         }
         AsmComparisonOutcome::IdenticalTo(ExpectedData::Inline(ref mj_str)) => {
             // reference mini java given as string in yaml front matter
-            let path = add_extension(&setup.input, "reference.mj");
+            let path = add_extension(&setup.input, "reference");
             write(&Some(path.clone()), mj_str).expect(
                 "Failed to write reference mini java \
                  file to disk (required for input to the compiler under test)",
@@ -288,9 +288,10 @@ fn sort_blocks(s: &str) -> String {
 
 // TODO: this could also be done in strip_comments
 fn remove_trailing_whitespace(s: &str) -> String {
-    let lines: Vec<&str> = vec![];
+    let mut lines: Vec<&str> = vec![];
     for line in s.lines() {
         line.trim_end();
+        lines.push(line);
     }
 
     lines.join("\n")
