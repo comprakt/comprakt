@@ -28,7 +28,7 @@ use compiler_lib::{
     context::Context,
     firm,
     lexer::{Lexer, TokenKind},
-    optimization::Optimization,
+    optimization::{GlobalOptimizationFlag, Optimization, OptimizationKind},
     parser::Parser,
     print::{self, lextest},
     semantics,
@@ -36,7 +36,7 @@ use compiler_lib::{
     OutputSpecification,
 };
 use env_logger;
-use failure::{Error, Fail, ResultExt};
+use failure::{format_err, Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{
     fs::File,
@@ -192,7 +192,10 @@ pub struct BinaryLoweringOptions {
     #[structopt(long = "--output", short = "-o", parse(from_os_str))]
     pub output: Option<PathBuf>,
 
-    /// A list of optimizations to apply
+    /// A comma-separated list of optimizations to apply:
+    /// You can add flags to an optimization using colons after the
+    /// optimization name. Supported flags:
+    ///   `MyOptimization:dy` => dump firm graph after the optimization ran
     #[structopt(long = "--optimizations", short = "-O", default_value = "")]
     pub optimizations: OptimizationList,
 
@@ -206,24 +209,32 @@ pub struct BinaryLoweringOptions {
 #[derive(Debug, Clone, Default)]
 pub struct OptimizationList(Vec<Optimization>);
 
+impl OptimizationList {
+    fn parse_optimization_flag(s: &str) -> Result<GlobalOptimizationFlag, Error> {
+        match s {
+            "dy" => Ok(GlobalOptimizationFlag::DumpYcomp),
+            x => Err(format_err!("unknown flag {:?}", x)),
+        }
+    }
+}
+
 impl FromStr for OptimizationList {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let flags: Result<Vec<Optimization>, _> = s
-            .split(',')
-            .filter_map(|opt| {
-                if opt == "" {
-                    None
-                } else {
-                    Some(Optimization::from_str(opt))
-                }
-            })
-            .collect();
+        let mut list = Vec::new();
+        for opt in s.split(',').filter(|s| s.len() > 0) {
+            let mut fields = opt.split(':');
+            let kind = OptimizationKind::from_str(fields.next().unwrap())
+                .context(CliError::InvalidOptimizationFlag)?;
+            let flags = fields
+                .map(Self::parse_optimization_flag)
+                .collect::<Result<Vec<GlobalOptimizationFlag>, _>>()
+                .context(CliError::InvalidOptimizationFlag)?;
 
-        Ok(OptimizationList(
-            flags.context(CliError::InvalidOptimizationFlag)?,
-        ))
+            list.push(Optimization { kind, flags });
+        }
+        Ok(OptimizationList(list))
     }
 }
 
@@ -235,7 +246,7 @@ impl fmt::Display for OptimizationList {
             "{}",
             self.0
                 .iter()
-                .map(|v| v.to_string())
+                .map(|v| format!("{:?}", v))
                 .collect::<Vec<_>>()
                 .join(",")
         )

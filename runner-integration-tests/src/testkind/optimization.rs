@@ -1,4 +1,4 @@
-use compiler_lib::optimization::Optimization;
+use compiler_lib::optimization::OptimizationKind;
 use crate::*;
 use serde_derive::Deserialize;
 use std::{
@@ -44,7 +44,7 @@ pub struct OptimizationTestData {
     pub stdin: Option<ExpectedData>,
 
     /// optimizations that should be applied
-    pub optimizations: Vec<Optimization>,
+    pub optimizations: Vec<OptimizationKind>,
     /// expected outcome of a comparison between
     /// the unoptimized and the optimized asm of
     /// the binary.
@@ -152,7 +152,16 @@ pub fn exec_optimization_test(input: PathBuf) {
     let callinfo_actual = CompilerCall::RawCompiler(CompilerPhase::Binary {
         output: path_binary_optimized.clone(),
         assembly: Some(path_asm_optimized.clone()),
-        optimizations: test_data.reference.optimizations.clone(),
+        optimizations: test_data
+            .reference
+            .optimizations
+            .clone()
+            .iter()
+            .map(|kind| Optimization {
+                kind: *kind,
+                flags: vec![],
+            })
+            .collect(),
     });
 
     let mut cmd_actual = compiler_call(callinfo_actual, &input_without_yaml_path);

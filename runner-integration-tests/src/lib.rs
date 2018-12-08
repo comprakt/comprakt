@@ -70,7 +70,7 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
             if !optimizations.is_empty() {
                 let val: String = optimizations
                     .into_iter()
-                    .map(|opt| opt.to_string())
+                    .map(|opt| opt.kind.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
 

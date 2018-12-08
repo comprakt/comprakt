@@ -194,14 +194,6 @@ impl ConstantFolding {
                 }
             }
         }
-
-        // TODO move this to a general feature of the optimization CLI
-        unsafe {
-            use std::ffi::CString;
-            self::bindings::dump_all_ir_graphs(
-                CString::new("postconstantfolding").unwrap().as_ptr(),
-            );
-        }
     }
 }
 
