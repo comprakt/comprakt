@@ -54,7 +54,7 @@ impl ConstantFolding {
 
     fn queue_followers_if_changed(&mut self, node: Node, prev: Tarval, new: Tarval) {
         if prev != new {
-            let followers = node.reverse_edges();
+            let followers = node.out_nodes();
             log::debug!(
                 "queuing edges: node-ids: {:?}",
                 followers.iter().map(|x| x.node_id()).collect::<Vec<_>>()
@@ -163,7 +163,7 @@ impl ConstantFolding {
 
                 match node {
                     Node::Div(div) => {
-                        for out_node in node.reverse_edge_iterator() {
+                        for out_node in node.out_node_iterator() {
                             match out_node {
                                 Node::Proj(_proj, ProjKind::Div_Res(_)) => {
                                     Graph::exchange(out_node, const_node);
@@ -176,7 +176,7 @@ impl ConstantFolding {
                         }
                     }
                     Node::Mod(modulo) => {
-                        for out_node in node.reverse_edge_iterator() {
+                        for out_node in node.out_node_iterator() {
                             match out_node {
                                 Node::Proj(_proj, ProjKind::Mod_Res(_)) => {
                                     Graph::exchange(out_node, const_node);

@@ -17,7 +17,7 @@ pub trait NodeTrait {
     }
 
     // TODO: should we use dynamic reverse edges instead of reverse
-    fn reverse_edges(&self) -> Vec<Node> {
+    fn out_nodes(&self) -> Vec<Node> {
         let id = self.internal_ir_node();
         let num_outs = unsafe { bindings::get_irn_n_outs(id) };
 
@@ -31,8 +31,8 @@ pub trait NodeTrait {
         outs
     }
 
-    fn reverse_edge_iterator(&self) -> ReverseEdgeIterator {
-        ReverseEdgeIterator::new(self.internal_ir_node())
+    fn out_node_iterator(&self) -> OutNodeIterator {
+        OutNodeIterator::new(self.internal_ir_node())
     }
 
     fn node_id(&self) -> i64 {
@@ -72,13 +72,13 @@ impl Into<*const bindings::ir_node> for crate::nodes_gen::Phi {
 
 // TODO: derive Eq here, current is incorrect
 
-pub struct ReverseEdgeIterator {
+pub struct OutNodeIterator {
     node: *mut bindings::ir_node,
     cur: u32,
     len: u32,
 }
 
-impl ReverseEdgeIterator {
+impl OutNodeIterator {
     fn new(node: *mut bindings::ir_node) -> Self {
         Self {
             node,
@@ -88,7 +88,7 @@ impl ReverseEdgeIterator {
     }
 }
 
-impl Iterator for ReverseEdgeIterator {
+impl Iterator for OutNodeIterator {
     type Item = Node;
 
     fn next(&mut self) -> Option<Node> {
