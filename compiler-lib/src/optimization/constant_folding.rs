@@ -119,6 +119,13 @@ impl ConstantFolding {
                 Node::Mod(modulo) => {
                     tarval_binop!(modulo, Mod);
                 }
+                Node::Minus(minus) => {
+                    let inner = self.values[&minus.op()];
+                    let res = Lattice::unary_op(inner, UnaryOp::Minus);
+                    log::debug!("result is: {:?}", res);
+                    let prev = self.values.insert(cur, res).unwrap();
+                    self.queue_followers_if_changed(cur, prev, res);
+                }
                 Node::Phi(phi) => unsafe {
                     let npreds = bindings::get_Phi_n_preds(phi.into());
                     let preds = (0..npreds)
@@ -212,7 +219,29 @@ pub enum Binop {
     Rel(bindings::ir_relation::Type),
 }
 
+pub enum UnaryOp {
+    Minus,
+}
+
 impl Lattice {
+    pub fn unary_op(val: Tarval, op: UnaryOp) -> Tarval {
+        let unknown = Tarval::unknown().mode();
+        let bad = Tarval::bad().mode();
+
+        // TODO: these checks might be unnecessary
+        if val.mode() == unknown {
+            return Tarval::unknown();
+        }
+
+        if val.mode() == bad {
+            return Tarval::bad();
+        }
+
+        match op {
+            UnaryOp::Minus => -val,
+        }
+    }
+
     pub fn binop(lhs: Tarval, rhs: Tarval, op: Binop) -> Tarval {
         let unknown = Tarval::unknown().mode();
         let bad = Tarval::bad().mode();

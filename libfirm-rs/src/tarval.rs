@@ -146,6 +146,14 @@ impl_binop_on_tarval!(Mul, mul, tarval_mul);
 impl_binop_on_tarval!(Div, div, tarval_div);
 impl_binop_on_tarval!(Rem, rem, tarval_mod);
 
+impl std::ops::Neg for Tarval {
+    type Output = Tarval;
+
+    fn neg(self) -> Tarval {
+        unsafe { tarval_neg(self.0) }.into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

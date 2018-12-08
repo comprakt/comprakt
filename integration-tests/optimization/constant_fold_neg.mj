@@ -1,0 +1,19 @@
+---
+optimizations: [ConstantFolding]
+expect:
+    identical-to:
+        is: |
+          class CF_Neg {
+            public static void main(String[] args) {
+              System.out.println(9);
+            }
+          }
+        
+stdout:
+    is: "9\n"
+---
+class CF_Neg {
+  public static void main(String[] args) {
+    System.out.println(-(-(-(-9))));
+  }
+}
