@@ -1,4 +1,7 @@
-use super::nodes_gen::{Block, End, Node, NodeFactory, Start};
+use super::{
+    nodes::NodeTrait,
+    nodes_gen::{Block, End, Node, NodeFactory, Start},
+};
 use libfirm_rs_bindings as bindings;
 use std::{
     ffi::{c_void, CString},
@@ -83,6 +86,12 @@ impl Graph {
                 Some(closure_handler),
                 thin_pointer as *mut &mut _ as *mut c_void,
             );
+        }
+    }
+
+    pub fn exchange(prev: Node, new: Node) {
+        unsafe {
+            bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
         }
     }
 }
