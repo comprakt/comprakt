@@ -108,14 +108,17 @@ macro_rules! assert_eq_modes {
     }};
 }
 
-use std::ops::Add;
-
-impl Add for Tarval {
-    type Output = Tarval;
-    fn add(self, other: Tarval) -> Tarval {
-        assert_eq_modes!(self, other);
-        unsafe { tarval_add(self.0, other.0) }.into()
-    }
+macro_rules! impl_binop_on_tarval {
+    ($rust_trait: ident, $rust_method: ident, $firm_func: ident) => {
+        impl std::ops::$rust_trait for Tarval {
+            type Output = Tarval;
+            fn $rust_method(self, other: Tarval) -> Tarval {
+                assert_eq_modes!(self, other);
+                unsafe { $firm_func(self.0, other.0) }.into()
+            }
+        }
+    };
 }
 
-// TODO other ops for Tarval
+impl_binop_on_tarval!(Add, add, tarval_add);
+impl_binop_on_tarval!(Sub, sub, tarval_sub);

@@ -80,6 +80,17 @@ impl ConstantFolding {
                 cur.node_id()
             );
 
+            macro_rules! tarval_binop {
+                ($thing: ident, $op: ident) => {{
+                    let lhs = self.values[&$thing.left()];
+                    let rhs = self.values[&$thing.right()];
+                    let res = Lattice::binop(lhs, rhs, Binop::$op);
+                    log::debug!("result is: {:?}", res);
+                    let prev = self.values.insert(cur, res).unwrap();
+                    self.queue_followers_if_changed(cur, prev, res);
+                }};
+            }
+
             match cur {
                 Node::Const(constant) => {
                     let tv = constant.tarval().into();
@@ -93,12 +104,10 @@ impl ConstantFolding {
                     // no need to queue anything because of initial topological sort
                 }
                 Node::Add(add) => {
-                    let lhs = self.values[&add.left()];
-                    let rhs = self.values[&add.right()];
-                    let res = Lattice::binop(lhs, rhs, Binop::Add);
-                    log::debug!("result is: {:?}", res);
-                    let prev = self.values.insert(cur, res).unwrap();
-                    self.queue_followers_if_changed(cur, prev, res);
+                    tarval_binop!(add, Add);
+                }
+                Node::Sub(sub) => {
+                    tarval_binop!(sub, Sub);
                 }
                 Node::Phi(phi) => unsafe {
                     let npreds = bindings::get_Phi_n_preds(phi.into());
@@ -137,6 +146,7 @@ pub struct Lattice(Tarval);
 // TODO impl TryFrom<Node>
 pub enum Binop {
     Add,
+    Sub,
     Phi,
 }
 
@@ -159,6 +169,7 @@ impl Lattice {
         }
         match op {
             Binop::Add => lhs + rhs,
+            Binop::Sub => lhs - rhs,
             Binop::Phi => {
                 if lhs == rhs {
                     lhs
