@@ -9,6 +9,13 @@ pub fn mode_name(m: mode::Type) -> &'static CStr {
 #[derive(Clone, Copy, From, Into)]
 pub struct Tarval(*mut ir_tarval);
 
+impl Into<*const ir_tarval> for Tarval {
+    fn into(self) -> *const ir_tarval {
+        let x: *mut ir_tarval = self.into();
+        x as *const _
+    }
+}
+
 impl Tarval {
     #[inline]
     pub fn unknown() -> Tarval {
@@ -125,3 +132,23 @@ impl_binop_on_tarval!(Sub, sub, tarval_sub);
 impl_binop_on_tarval!(Mul, mul, tarval_mul);
 impl_binop_on_tarval!(Div, div, tarval_div);
 impl_binop_on_tarval!(Rem, rem, tarval_mod);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tarval_cmp_behavior() {
+        init();
+        let one = Tarval::mj_int(1);
+        let two = Tarval::mj_int(2);
+
+        unsafe {
+            let x = bindings::tarval_cmp(one.into(), two.into());
+            assert!(x & ir_relation::Less != 0);
+            assert!(x & ir_relation::LessEqual != 0);
+            assert!(x & ir_relation::Greater == 0);
+        }
+    }
+
+}
