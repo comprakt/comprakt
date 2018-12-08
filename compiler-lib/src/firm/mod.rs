@@ -25,6 +25,8 @@ pub use self::{
     runtime::Runtime,
 };
 
+use failure::{Error, Fail};
+
 use crate::{
     optimization::{self, Optimization},
     strtab::{StringTable, Symbol},
@@ -54,6 +56,12 @@ pub struct Options {
     pub dump_class_layouts: bool,
     pub dump_assembler: Option<OutputSpecification>,
     pub optimizations: Vec<Optimization>,
+}
+
+#[derive(Debug, Fail)]
+pub enum FirmError {
+    #[fail(display = "failed to write assembly to file {:?}", path)]
+    EmitAsmFailure { path: PathBuf },
 }
 
 pub struct Program<'src, 'ast> {
@@ -104,7 +112,7 @@ pub unsafe fn build<'src, 'ast>(
     type_system: &'src TypeSystem<'src, 'ast>,
     type_analysis: &'src TypeAnalysis<'src, 'ast>,
     strtab: &'src mut StringTable<'src>,
-) {
+) -> Result<(), Error> {
     setup();
 
     let generator = ProgramGenerator::new(type_system, type_analysis, strtab);
@@ -168,6 +176,10 @@ pub unsafe fn build<'src, 'ast>(
                     CStr::from_bytes_with_nul(b"w\0").unwrap().as_ptr(),
                 );
 
+                if assembly_file.is_null() {
+                    return Err(FirmError::EmitAsmFailure { path: path.clone() }.into());
+                }
+
                 #[allow(clippy::cast_ptr_alignment)]
                 be_main(assembly_file as *mut _IO_FILE, label);
 
@@ -182,6 +194,7 @@ pub unsafe fn build<'src, 'ast>(
     drop(program);
 
     ir_finish();
+    Ok(())
 }
 
 /// `None` indicates that the given type is not convertible, which
