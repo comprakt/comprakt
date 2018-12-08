@@ -4,7 +4,7 @@ use libfirm_rs::{
     nodes::NodeTrait,
     nodes_gen::{Node, NodeDiscriminants, NodeFactory},
     other::Graph,
-    tarval::{Binop, Lattice, Tarval},
+    tarval::{mode_name, Tarval},
 };
 use std::collections::{hash_map::HashMap, VecDeque};
 
@@ -129,4 +129,95 @@ impl ConstantFolding {
             );
         }
     }
+}
+
+#[derive(Clone, Copy, From, Into)]
+pub struct Lattice(Tarval);
+
+// TODO impl TryFrom<Node>
+pub enum Binop {
+    Add,
+    Phi,
+}
+
+impl Lattice {
+    pub fn binop(lhs: Tarval, rhs: Tarval, op: Binop) -> Tarval {
+        let unknown = Tarval::unknown().mode();
+        let bad = Tarval::bad().mode();
+        if lhs.mode() == unknown || rhs.mode() == unknown {
+            return Tarval::unknown();
+        }
+        if lhs.mode() == bad || rhs.mode() == bad {
+            return Tarval::bad();
+        }
+        if lhs.mode() != rhs.mode() {
+            panic!(
+                "lhs mode {:?} != {:?} rhs mode",
+                mode_name(lhs.mode()),
+                mode_name(rhs.mode())
+            )
+        }
+        match op {
+            Binop::Add => lhs + rhs,
+            Binop::Phi => {
+                if lhs == rhs {
+                    lhs
+                } else {
+                    Tarval::bad()
+                }
+            }
+        }
+    }
+    pub fn phi<I: Iterator<Item = Tarval>>(mut vals: I) -> Tarval {
+        let first = vals
+            .next()
+            .expect("phi must have at least one predecessor (two in fact, but we only need one)");
+        vals.fold(first, |r, v| Lattice::binop(r, v, Binop::Phi))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! assert_eq_modes {
+        ($l:expr, $r:expr) => {{
+            let lhs = $l;
+            let rhs = $r;
+            debug_assert_eq!(
+                lhs.mode(),
+                rhs.mode(),
+                "modes do not match: {:?} != {:?}",
+                mode_name(lhs.mode()),
+                mode_name(rhs.mode())
+            );
+        }};
+    }
+
+    #[test]
+    fn lattice_binop_modes_like_lecture_slides() {
+        libfirm_rs::init();
+        let uk = Tarval::unknown();
+        let bad = Tarval::bad();
+        let i = Tarval::mj_int(23);
+        let j = Tarval::mj_int(42);
+        let x = Lattice::binop(j, i, Binop::Add);
+
+        assert_eq_modes!(x, i);
+        assert_eq_modes!(x, j);
+
+        let x = Lattice::binop(uk, uk, Binop::Add);
+        assert_eq_modes!(x, uk);
+
+        let x = Lattice::binop(bad, bad, Binop::Add);
+        assert_eq_modes!(x, bad);
+
+        // mixed
+        let x = Lattice::binop(i, bad, Binop::Add);
+        assert_eq_modes!(x, bad);
+
+        let x = Lattice::binop(i, uk, Binop::Add);
+        assert_eq_modes!(x, uk);
+    }
+
 }
