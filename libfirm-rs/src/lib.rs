@@ -8,6 +8,8 @@ use libfirm_rs_bindings::*;
 use std::ffi::{CStr, CString};
 
 pub mod nodes;
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
 pub mod nodes_gen;
 pub mod other;
 pub mod types;
