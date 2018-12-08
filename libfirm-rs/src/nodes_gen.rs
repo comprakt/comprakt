@@ -3261,6 +3261,13 @@ impl NodeTrait for Unknown {
 }
 
 impl Graph {
+
+    pub fn exchange(prev: Node, new: Node) {
+        unsafe {
+            bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
+        }
+    }
+
     /// Creates a new Add-node.
     /// * `block` The block.
     /// * `irn_left` left

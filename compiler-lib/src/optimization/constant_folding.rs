@@ -126,15 +126,29 @@ impl ConstantFolding {
             }
         }
 
-        // TODO annotate graph?
+        // sort to have reproducible replacement order
         let mut values = self.values.iter().collect::<Vec<_>>();
         values.sort_by_key(|(l, _)| l.node_id());
+
+        // now apply the values
         for (n, v) in values {
-            log::debug!(
-                "RESULT NODE kind={} id={:?} val={:?}",
-                NodeDiscriminants::from(n),
-                n.node_id(),
-                v
+            if v.is_constant() {
+                log::debug!(
+                    "EXCHANGE NODE kind={} id{:?} val={:?}",
+                    NodeDiscriminants::from(n),
+                    n.node_id(),
+                    v
+                );
+                let const_node = Node::Const(self.graph.new_const((*v).into()));
+                Graph::exchange(*n, const_node);
+            }
+        }
+
+        // TODO move this to a general feature of the optimization CLI
+        unsafe {
+            use std::ffi::CString;
+            self::bindings::dump_all_ir_graphs(
+                CString::new("postconstantfolding").unwrap().as_ptr(),
             );
         }
     }
