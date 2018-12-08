@@ -146,7 +146,7 @@ pub struct AsmLoweringOptions {
     pub output: Option<PathBuf>,
 
     /// A list of optimizations to apply.
-    #[structopt(long = "--optimizations", short = "-O")]
+    #[structopt(long = "--optimizations", short = "-O", default_value = "")]
     pub optimizations: OptimizationList,
 
     /// A MiniJava input file
