@@ -1,0 +1,43 @@
+---
+optimizations: [ConstantFolding]
+expect: change
+compiler_optimized_stdout: ignore
+compiler_reference_stdout: ignore
+stdout:
+    is: "15\n"
+---
+
+class CF {
+   public static void main(String[] args) throws Exception {
+       CF cf = new CF();
+       System.out.println(cf.foo(23));
+   }
+
+   public int foo(int param) throws Exception {
+
+       int bad = 0;
+       if (param == 23) {
+           bad = 1;
+       } else {
+           bad = 2;
+       }
+
+       int z = 15; /* not what z is after the loop */
+       /* avoid constant propagation during SSA construction */
+       if (param == 23) {
+           z = 15;
+       } else {
+           z = 15;
+       }
+
+       int x = 3;
+       int a = 0;
+       while (false) {
+           int y = x + 4;
+           z = x + y;
+           a = a + z;
+           return z; /* z would always be (0xa) if the loop expr wasn't false */
+       }
+       return z; /* z is always 15 (0xf), but it requires constant folding to prove that the loop is never taken */
+   }
+}
