@@ -160,9 +160,22 @@ impl ConstantFolding {
                             match out_node {
                                 Node::Proj(_proj, ProjKind::Div_Res(_)) => {
                                     Graph::exchange(out_node, const_node);
-                                } // TODO: maybe mem rewiring of div
+                                }
                                 Node::Proj(_proj, ProjKind::Div_M(_)) => {
                                     Graph::exchange(out_node, div.mem());
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    Node::Mod(modulo) => {
+                        for out_node in node.reverse_edge_iterator() {
+                            match out_node {
+                                Node::Proj(_proj, ProjKind::Mod_Res(_)) => {
+                                    Graph::exchange(out_node, const_node);
+                                }
+                                Node::Proj(_proj, ProjKind::Mod_M(_)) => {
+                                    Graph::exchange(out_node, modulo.mem());
                                 }
                                 _ => {}
                             }

@@ -1,0 +1,19 @@
+---
+optimizations: [ConstantFolding]
+expect:
+    identical-to:
+        is: |
+          class CF_Mod {
+            public static void main(String[] args) {
+              System.out.println(15 % 0);
+            }
+          }
+        
+exitcode:
+    is: "terminated by signal or crashed."
+---
+class CF_Mod {
+  public static void main(String[] args) {
+    System.out.println(15 % 0);
+  }
+}
