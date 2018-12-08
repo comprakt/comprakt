@@ -3,7 +3,7 @@ optimizations: [ConstantFolding]
 expect:
     identical-to:
         is: |
-          class CF_Add {
+          class CF_Sub {
             public static void main(String[] args) {
               System.out.println(9);
             }
@@ -12,7 +12,7 @@ expect:
 stdout:
     is: "9\n"
 ---
-class CF_Add {
+class CF_Sub {
   public static void main(String[] args) {
     System.out.println(14 - 5);
   }

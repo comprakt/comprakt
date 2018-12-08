@@ -3,17 +3,17 @@ optimizations: [ConstantFolding]
 expect:
     identical-to:
         is: |
-          class CF_Mul {
+          class CF_Mod {
             public static void main(String[] args) {
-              System.out.println(24);
+              System.out.println(3);
             }
           }
         
 stdout:
-    is: "24\n"
+    is: "3\n"
 ---
-class CF_Mul {
+class CF_Mod {
   public static void main(String[] args) {
-    System.out.println(3 * 8);
+    System.out.println(15 % 4);
   }
 }
