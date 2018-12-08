@@ -81,10 +81,11 @@ impl ConstantFolding {
             );
 
             macro_rules! tarval_binop {
-                ($thing: ident, $op: ident) => {{
+                ($thing: ident, $op: expr) => {{
+                    use self::Binop::*;
                     let lhs = self.values[&$thing.left()];
                     let rhs = self.values[&$thing.right()];
-                    let res = Lattice::binop(lhs, rhs, Binop::$op);
+                    let res = Lattice::binop(lhs, rhs, $op);
                     log::debug!("result is: {:?}", res);
                     let prev = self.values.insert(cur, res).unwrap();
                     self.queue_followers_if_changed(cur, prev, res);
@@ -131,6 +132,9 @@ impl ConstantFolding {
                     let prev = self.values.insert(cur, res).unwrap();
                     self.queue_followers_if_changed(cur, prev, res);
                 },
+
+                Node::Cmp(cmp) => tarval_binop!(cmp, Rel(cmp.relation())),
+
                 _ => (),
             }
         }
@@ -174,6 +178,7 @@ pub enum Binop {
     Div,
     Mod,
     Phi,
+    Rel(bindings::ir_relation::Type),
 }
 
 impl Lattice {
@@ -206,8 +211,11 @@ impl Lattice {
                     Tarval::bad()
                 }
             }
+
+            Binop::Rel(rel) => lhs.cmp(rel, rhs),
         }
     }
+
     pub fn phi<I: Iterator<Item = Tarval>>(mut vals: I) -> Tarval {
         let first = vals
             .next()
