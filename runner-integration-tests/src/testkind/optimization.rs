@@ -290,8 +290,7 @@ fn sort_blocks(s: &str) -> String {
 fn remove_trailing_whitespace(s: &str) -> String {
     let mut lines: Vec<&str> = vec![];
     for line in s.lines() {
-        line.trim_end();
-        lines.push(line);
+        lines.push(line.trim_end());
     }
 
     lines.join("\n")
