@@ -18,7 +18,7 @@ pub fn run(program: &Program<'_, '_>) {
     for class in program.classes.values() {
         for method in class.borrow().methods.values() {
             if let Some(graph) = method.borrow().graph {
-                println!("Graph for Method: {:?}", method.borrow().entity.name());
+                log::debug!("Graph for Method: {:?}", method.borrow().entity.name());
                 let mut cf = ConstantFolding::new(graph.into());
                 cf.run();
             }
