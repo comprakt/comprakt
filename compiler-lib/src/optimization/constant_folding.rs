@@ -2,7 +2,7 @@ use crate::firm::Program;
 use libfirm_rs::{
     bindings,
     nodes::NodeTrait,
-    nodes_gen::{Node, NodeDiscriminants, NodeFactory},
+    nodes_gen::{Node, NodeDiscriminants, NodeFactory, ProjKind},
     other::Graph,
     tarval::{mode_name, Tarval},
 };
@@ -144,16 +144,34 @@ impl ConstantFolding {
         values.sort_by_key(|(l, _)| l.node_id());
 
         // now apply the values
-        for (n, v) in values {
+        for (node, v) in values {
             if v.is_constant() {
                 log::debug!(
                     "EXCHANGE NODE kind={} id{:?} val={:?}",
-                    NodeDiscriminants::from(n),
-                    n.node_id(),
+                    NodeDiscriminants::from(node),
+                    node.node_id(),
                     v
                 );
                 let const_node = Node::Const(self.graph.new_const((*v).into()));
-                Graph::exchange(*n, const_node);
+
+                match node {
+                    Node::Div(div) => {
+                        for out_node in node.reverse_edge_iterator() {
+                            match out_node {
+                                Node::Proj(_proj, ProjKind::Div_Res(_)) => {
+                                    Graph::exchange(out_node, const_node);
+                                } // TODO: maybe mem rewiring of div
+                                Node::Proj(_proj, ProjKind::Div_M(_)) => {
+                                    Graph::exchange(out_node, div.mem());
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    _ => {
+                        Graph::exchange(*node, const_node);
+                    }
+                }
             }
         }
 

@@ -5,12 +5,12 @@ expect:
         is: |
           class CF_Div {
             public static void main(String[] args) {
-              System.out.println(4);
+              System.out.println(2);
             }
           }
         
 stdout:
-    is: "4\n"
+    is: "2\n"
 ---
 class CF_Div {
   public static void main(String[] args) {
