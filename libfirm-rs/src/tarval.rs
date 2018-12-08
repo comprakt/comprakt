@@ -122,3 +122,4 @@ macro_rules! impl_binop_on_tarval {
 
 impl_binop_on_tarval!(Add, add, tarval_add);
 impl_binop_on_tarval!(Sub, sub, tarval_sub);
+impl_binop_on_tarval!(Mul, mul, tarval_mul);

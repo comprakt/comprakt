@@ -109,6 +109,9 @@ impl ConstantFolding {
                 Node::Sub(sub) => {
                     tarval_binop!(sub, Sub);
                 }
+                Node::Mul(mul) => {
+                    tarval_binop!(mul, Mul);
+                }
                 Node::Phi(phi) => unsafe {
                     let npreds = bindings::get_Phi_n_preds(phi.into());
                     let preds = (0..npreds)
@@ -161,6 +164,7 @@ pub struct Lattice(Tarval);
 pub enum Binop {
     Add,
     Sub,
+    Mul,
     Phi,
 }
 
@@ -184,6 +188,7 @@ impl Lattice {
         match op {
             Binop::Add => lhs + rhs,
             Binop::Sub => lhs - rhs,
+            Binop::Mul => lhs * rhs,
             Binop::Phi => {
                 if lhs == rhs {
                     lhs
