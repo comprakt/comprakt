@@ -17,3 +17,5 @@ wait-timeout = "0.1.5"
 structopt = "0.2"
 failure = "0.1"
 regex = "1"
+# used to parse Duration from a string in the YAML of timeout tests
+serde-humantime = "0.1.1"
