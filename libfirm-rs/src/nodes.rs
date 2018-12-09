@@ -1,6 +1,10 @@
-use crate::nodes_gen::{Block, Node, NodeFactory, Phi, Proj};
+use crate::nodes_gen::{self, Block, Call, Node, NodeFactory, Phi, Proj};
 use libfirm_rs_bindings as bindings;
-use std::hash::{Hash, Hasher};
+use std::{
+    ffi::{CStr, CString},
+    fmt,
+    hash::{Hash, Hasher},
+};
 
 macro_rules! simple_node_iterator {
     ($iter_name: ident, $len_fn: ident, $get_fn: ident, $id_type: ty) => {
@@ -99,6 +103,32 @@ impl Hash for Node {
 impl Into<*mut bindings::ir_node> for Node {
     fn into(self) -> *mut bindings::ir_node {
         self.internal_ir_node()
+    }
+}
+
+impl fmt::Debug for nodes_gen::Call {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Call to {:?} {}", self.ptr(), self.node_id())
+    }
+}
+
+impl nodes_gen::Address {
+    pub fn entity(self) -> *mut bindings::ir_entity {
+        unsafe { bindings::get_Address_entity(self.internal_ir_node()) }
+    }
+
+    pub fn set_entity(self, ir_entity: *mut bindings::ir_entity) {
+        unsafe {
+            bindings::set_Address_entity(self.internal_ir_node(), ir_entity);
+        }
+    }
+}
+
+impl fmt::Debug for nodes_gen::Address {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let entity = self.entity();
+        let entity_name = unsafe { CStr::from_ptr(bindings::get_entity_name(entity)) };
+        write!(f, "Address of {:?} {}", entity_name, self.node_id())
     }
 }
 

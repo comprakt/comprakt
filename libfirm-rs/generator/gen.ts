@@ -260,11 +260,12 @@ w.line("use std::collections::HashMap;");
 w.line("use super::nodes::NodeTrait;");
 w.line("use super::graph::Graph;");
 w.line("use strum_macros::EnumDiscriminants;");
+w.line("use std::fmt;");
 
 // generate Node enum
 {
     w.line('#[strum_discriminants(derive(Display))]');
-    w.line("#[derive(EnumDiscriminants, Debug, Clone, Copy, Eq, PartialEq)]");
+    w.line("#[derive(EnumDiscriminants, Clone, Copy, Eq, PartialEq)]");
     w.indent("pub enum Node {");
     for (const node of nodes) {
         if (node.isProj) {
@@ -275,6 +276,23 @@ w.line("use strum_macros::EnumDiscriminants;");
     }
     w.unindent("}");
     w.line();
+
+    // debug for node
+    w.indent(`impl fmt::Debug for Node {`);
+    w.indent(`fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {`);
+    w.indent(`match self {`);
+    for (const node of nodes) {
+        w.indent(`Node::${node.variantName}(node${node.isProj ? ", proj_kind" : ""}) => {`);
+        if (node.isProj) {
+            w.line(`write!(f, "{:?}: {:?}", node, proj_kind)`);
+        } else {
+            w.line(`write!(f, "{:?}", node)`);
+        }
+        w.unindent(`},`);
+    }
+    w.unindent(`}`);
+    w.unindent(`}`);
+    w.unindent(`}`);
 
     w.indent(`impl NodeTrait for Node {`);
     w.indent(`fn ${internal_ir_node}(&self) -> ${ir_node_type} {`);
@@ -385,7 +403,7 @@ for (const node of nodes) {
             w.line(`/// ${line.trim()}`);
         }
     }
-    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq)]");
+    w.line("#[derive(Clone, Copy, Eq, PartialEq)]");
     w.line(`pub struct ${node.structName}(${ir_node_type});`);
     w.line();
 
@@ -465,6 +483,15 @@ for (const node of nodes) {
     w.unindent(`}`);
     w.unindent("}");
     w.line();
+
+    // Debug
+    if (["Address", "Call"].indexOf(node.name) === -1) {
+        w.indent(`impl fmt::Debug for ${node.structName} {`);
+        w.indent(`fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {`);
+        w.line(`write!(f, "${node.name} {}", self.node_id())`);
+        w.unindent(`}`);
+        w.unindent(`}`);
+    }
 }
 
 function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") {
