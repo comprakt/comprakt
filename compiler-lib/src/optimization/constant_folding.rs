@@ -1,9 +1,9 @@
 use crate::firm::Program;
 use libfirm_rs::{
     bindings,
+    graph::Graph,
     nodes::NodeTrait,
     nodes_gen::{Node, NodeDiscriminants, ProjKind},
-    graph::Graph,
     tarval::{mode_name, Tarval},
 };
 use std::collections::{hash_map::HashMap, VecDeque};
@@ -128,15 +128,13 @@ impl ConstantFolding {
                     self.queue_followers_if_changed(cur, prev, res);
                 }
                 Node::Phi(phi) => {
-                    let preds = phi.phi_preds()
-                        .map(|p| self.values[&p])
-                        .collect::<Vec<_>>();
+                    let preds = phi.phi_preds().map(|p| self.values[&p]).collect::<Vec<_>>();
                     log::debug!("preds: {:?}", preds);
                     let res = Lattice::phi(preds.into_iter());
                     log::debug!("result is: {:?}", res);
                     let prev = self.values.insert(cur, res).unwrap();
                     self.queue_followers_if_changed(cur, prev, res);
-                },
+                }
 
                 Node::Cmp(cmp) => tarval_binop!(cmp, Rel(cmp.relation())),
 
@@ -163,7 +161,6 @@ impl ConstantFolding {
                     /* IMPROVEMENT?
                     This might be more elegant, but does not do the exact same:
                     It fails if there are multiple projects to that pin!
-
                     Node::Div(div) => {
                         if Some(res) = div.out_proj_res() {
                             Graph::exchange(res, const_node);
