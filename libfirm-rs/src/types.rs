@@ -1,5 +1,5 @@
 use libfirm_rs_bindings as bindings;
-use std::ffi::{CString};
+use std::ffi::CString;
 
 macro_rules! gen_e {
     ($name:ident; $($var:ident($ty:ident)),*) => {
@@ -39,8 +39,6 @@ macro_rules! gen_e {
     }
 }
 
-
-
 gen_e!(Ty;
     Primitive(PrimitiveTy),
     Method(MethodTy),
@@ -72,8 +70,7 @@ impl Ty {
                 Ty::Struct(StructTy(ty))
             } else if bindings::is_Union_type(ty) != 0 {
                 Ty::Union(UnionTy(ty))
-            } else if bindings::is_unknown_type(ty) != 0
-                    || bindings::is_code_type(ty) != 0 {
+            } else if bindings::is_unknown_type(ty) != 0 || bindings::is_code_type(ty) != 0 {
                 Ty::Other(OtherTy(ty))
             } else {
                 Ty::Other(OtherTy(ty))
@@ -83,23 +80,21 @@ impl Ty {
     }
 }
 
-trait TyTrait : Sized {
+trait TyTrait: Sized {
     fn ir_type(self) -> *mut bindings::ir_type;
 
     fn pointer(self) -> PointerTy {
-        PointerTy::from(
-            Ty::from_ir_type(
-                unsafe { bindings::new_type_pointer(self.ir_type()) }
-            )
-        ).expect("must return pointer type")
+        PointerTy::from(Ty::from_ir_type(unsafe {
+            bindings::new_type_pointer(self.ir_type())
+        }))
+        .expect("must return pointer type")
     }
 
     fn array(self) -> ArrayTy {
-        ArrayTy::from(
-            Ty::from_ir_type(
-                unsafe { bindings::new_type_array(self.ir_type(), 0) }.into()
-            )
-        ).expect("must return array type")
+        ArrayTy::from(Ty::from_ir_type(
+            unsafe { bindings::new_type_array(self.ir_type(), 0) }.into(),
+        ))
+        .expect("must return array type")
     }
 
     fn size(self) -> u32 {
@@ -117,37 +112,27 @@ trait TyTrait : Sized {
 
 impl PointerTy {
     pub fn points_to(self) -> Ty {
-        Ty::from_ir_type(
-            unsafe { bindings::get_pointer_points_to_type(self.ir_type()) }
-        )
+        Ty::from_ir_type(unsafe { bindings::get_pointer_points_to_type(self.ir_type()) })
     }
 }
 
 impl ArrayTy {
     pub fn variable_length(element_type: Ty) -> Ty {
-        Ty::from_ir_type(
-            unsafe { bindings::new_type_array(element_type.ir_type(), 0) }
-        )
+        Ty::from_ir_type(unsafe { bindings::new_type_array(element_type.ir_type(), 0) })
     }
     pub fn fixed_length(element_type: Ty, length: usize) -> Ty {
-        Ty::from_ir_type(
-            unsafe { bindings::new_type_array(element_type.ir_type(), length as u32) }
-        )
+        Ty::from_ir_type(unsafe { bindings::new_type_array(element_type.ir_type(), length as u32) })
     }
 
     pub fn element_type(self) -> Ty {
-        Ty::from_ir_type(
-            unsafe { bindings::get_array_element_type(self.ir_type()) }
-        )
+        Ty::from_ir_type(unsafe { bindings::get_array_element_type(self.ir_type()) })
     }
 }
 
 impl PrimitiveTy {
     fn from_ir_type(ir_type: *mut bindings::ir_type) -> PrimitiveTy {
         // if we trust libfirm, we could just return `PrimitiveTy(ir_type)` here
-        PrimitiveTy::from(
-            Ty::from_ir_type(ir_type)
-        ).expect("ir_type must a primitive type")
+        PrimitiveTy::from(Ty::from_ir_type(ir_type)).expect("ir_type must a primitive type")
     }
 
     pub fn from_mode(mode: *mut bindings::ir_mode) -> PrimitiveTy {
@@ -170,16 +155,12 @@ impl PrimitiveTy {
 
 impl ClassTy {
     pub fn new_class_type(name: &str) -> ClassTy {
-        ClassTy::from(
-            Ty::from_ir_type(
-                unsafe {
-                    bindings::new_type_class(
-                        CString::new(name)
-                        .expect("CString::new failed").as_ptr() as *mut _
-                    )
-                }
+        ClassTy::from(Ty::from_ir_type(unsafe {
+            bindings::new_type_class(
+                CString::new(name).expect("CString::new failed").as_ptr() as *mut _
             )
-        ).expect("Expected class type")
+        }))
+        .expect("Expected class type")
     }
 }
 

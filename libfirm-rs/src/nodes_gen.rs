@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use super::nodes::NodeTrait;
 use super::graph::Graph;
 use strum_macros::EnumDiscriminants;
-
 #[strum_discriminants(derive(Display))]
-#[derive(EnumDiscriminants,Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(EnumDiscriminants, Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Node {
     Add(Add),
     Address(Address),
@@ -124,7 +123,7 @@ impl NodeTrait for Node {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum ProjKind {
     /// memory result
     Alloc_M(Alloc),
@@ -566,7 +565,7 @@ impl NodeFactory {
 }
 
 /// returns the sum of its operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Add(*mut bindings::ir_node);
 
 impl Add {
@@ -617,7 +616,7 @@ impl NodeTrait for Add {
 
 /// Symbolic constant that represents the address of an entity (variable or
 /// method)
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Address(*mut bindings::ir_node);
 
 impl Address {
@@ -643,7 +642,7 @@ impl NodeTrait for Address {
 }
 
 /// A symbolic constant that represents the alignment of a type
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Align(*mut bindings::ir_node);
 
 impl Align {
@@ -669,7 +668,7 @@ impl NodeTrait for Align {
 }
 
 /// Allocates a block of memory on the stack.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Alloc(*mut bindings::ir_node);
 
 impl Alloc {
@@ -716,6 +715,16 @@ impl Alloc {
         unsafe { bindings::set_Alloc_alignment(self.0, unwrapped); }
     }
 
+    /// memory result.
+    pub fn proj_m(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
+    }
+
+    /// pointer to newly allocated memory.
+    pub fn proj_res(&self, mode: bindings::mode::Type) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
+    }
+
 }
 
 impl Into<Node> for Alloc {
@@ -736,7 +745,7 @@ impl NodeTrait for Alloc {
 /// Each firm-graph contains exactly one anchor node whose address is always
 /// known. All other well-known graph-nodes like Start, End, NoMem, ...
 /// are found by looking at the respective Anchor operand.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Anchor(*mut bindings::ir_node);
 
 impl Anchor {
@@ -858,7 +867,7 @@ impl NodeTrait for Anchor {
 }
 
 /// returns the result of a bitwise and operation of its operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct And(*mut bindings::ir_node);
 
 impl And {
@@ -927,7 +936,7 @@ impl NodeTrait for And {
 ///
 /// In the future we may use the Bad node to model poison values that arise
 /// from undefined behaviour like reading uninitialized local variables in C.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Bad(*mut bindings::ir_node);
 
 impl Bad {
@@ -954,7 +963,7 @@ impl NodeTrait for Bad {
 
 /// Converts a value between modes with different arithmetics but same
 /// number of bits by reinterpreting the bits in the new mode
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Bitcast(*mut bindings::ir_node);
 
 impl Bitcast {
@@ -992,7 +1001,7 @@ impl NodeTrait for Bitcast {
 }
 
 /// A basic block
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Block(*mut bindings::ir_node);
 
 impl Block {
@@ -1030,7 +1039,7 @@ impl NodeTrait for Block {
 }
 
 /// performs a backend-specific builtin.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Builtin(*mut bindings::ir_node);
 
 impl Builtin {
@@ -1077,6 +1086,11 @@ impl Builtin {
         unsafe { bindings::set_Builtin_type(self.0, unwrapped); }
     }
 
+    /// memory result.
+    pub fn proj_m(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
+    }
+
 }
 
 impl Into<Node> for Builtin {
@@ -1095,7 +1109,7 @@ impl NodeTrait for Builtin {
 /// operands are passed to the called code. Called code usually performs a
 /// return operation. The operands of this return operation are the result
 /// of the Call node.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Call(*mut bindings::ir_node);
 
 impl Call {
@@ -1142,6 +1156,26 @@ impl Call {
         unsafe { bindings::set_Call_type(self.0, unwrapped); }
     }
 
+    /// memory result.
+    pub fn proj_m(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
+    }
+
+    /// tuple containing all results.
+    pub fn proj_t_result(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::T, 1) })
+    }
+
+    /// control flow when no exception occurs.
+    pub fn proj_x_regular(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 2) })
+    }
+
+    /// control flow when exception occurred.
+    pub fn proj_x_except(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 3) })
+    }
+
 }
 
 impl Into<Node> for Call {
@@ -1158,7 +1192,7 @@ impl NodeTrait for Call {
 
 /// Compares its two operands and checks whether a specified
 /// relation (like less or equal) is fulfilled.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Cmp(*mut bindings::ir_node);
 
 impl Cmp {
@@ -1220,7 +1254,7 @@ impl NodeTrait for Cmp {
 }
 
 /// Conditionally change control flow.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Cond(*mut bindings::ir_node);
 
 impl Cond {
@@ -1255,6 +1289,16 @@ impl Cond {
         unsafe { bindings::set_Cond_jmp_pred(self.0, unwrapped); }
     }
 
+    /// control flow if operand is "false".
+    pub fn proj_false(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 0) })
+    }
+
+    /// control flow if operand is "true".
+    pub fn proj_true(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 1) })
+    }
+
 }
 
 impl Into<Node> for Cond {
@@ -1278,7 +1322,7 @@ impl NodeTrait for Cond {
 /// value is always returned.
 /// Note that this node does NOT check or assert the constraint, it merely
 /// specifies it.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Confirm(*mut bindings::ir_node);
 
 impl Confirm {
@@ -1340,7 +1384,7 @@ impl NodeTrait for Confirm {
 }
 
 /// Returns a constant value.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Const(*mut bindings::ir_node);
 
 impl Const {
@@ -1378,7 +1422,7 @@ impl NodeTrait for Const {
 }
 
 /// Converts values between modes
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Conv(*mut bindings::ir_node);
 
 impl Conv {
@@ -1416,7 +1460,7 @@ impl NodeTrait for Conv {
 }
 
 /// Copies a block of memory with statically known size/type.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct CopyB(*mut bindings::ir_node);
 
 impl CopyB {
@@ -1503,7 +1547,7 @@ impl NodeTrait for CopyB {
 
 /// Internal node which is temporary set to nodes which are already removed
 /// from the graph.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Deleted(*mut bindings::ir_node);
 
 impl Deleted {
@@ -1529,7 +1573,7 @@ impl NodeTrait for Deleted {
 }
 
 /// returns the quotient of its 2 operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Div(*mut bindings::ir_node);
 
 impl Div {
@@ -1600,6 +1644,26 @@ impl Div {
         unsafe { bindings::set_Div_no_remainder(self.0, unwrapped); }
     }
 
+    /// memory result.
+    pub fn proj_m(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
+    }
+
+    /// result of computation.
+    pub fn proj_res(&self, mode: bindings::mode::Type) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
+    }
+
+    /// control flow when no exception occurs.
+    pub fn proj_x_regular(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 2) })
+    }
+
+    /// control flow when exception occurred.
+    pub fn proj_x_except(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 3) })
+    }
+
 }
 
 impl Into<Node> for Div {
@@ -1617,7 +1681,7 @@ impl NodeTrait for Div {
 /// A placeholder value. This is used when constructing cyclic graphs where
 /// you have cases where not all predecessors of a phi-node are known. Dummy
 /// nodes are used for the unknown predecessors and replaced later.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Dummy(*mut bindings::ir_node);
 
 impl Dummy {
@@ -1644,7 +1708,7 @@ impl NodeTrait for Dummy {
 
 /// Last node of a graph. It references nodes in endless loops (so called
 /// keepalive edges)
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct End(*mut bindings::ir_node);
 
 impl End {
@@ -1672,7 +1736,7 @@ impl NodeTrait for End {
 /// returns the result of a bitwise exclusive or operation of its operands.
 ///
 /// This is also known as the Xor operation.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Eor(*mut bindings::ir_node);
 
 impl Eor {
@@ -1722,7 +1786,7 @@ impl NodeTrait for Eor {
 }
 
 /// Frees a block of memory previously allocated by an Alloc node
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Free(*mut bindings::ir_node);
 
 impl Free {
@@ -1774,7 +1838,7 @@ impl NodeTrait for Free {
 /// Jumps to the code in its argument. The code has to be in the same
 /// function and the destination must be one of the blocks reachable
 /// by the tuple results
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct IJmp(*mut bindings::ir_node);
 
 impl IJmp {
@@ -1815,7 +1879,7 @@ impl NodeTrait for IJmp {
 ///
 /// This is mainly used when exchanging nodes. Usually you shouldn't see Id
 /// nodes since the getters/setters for node inputs skip them automatically.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Id(*mut bindings::ir_node);
 
 impl Id {
@@ -1853,7 +1917,7 @@ impl NodeTrait for Id {
 }
 
 /// Jumps to the block connected through the out-value
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Jmp(*mut bindings::ir_node);
 
 impl Jmp {
@@ -1879,7 +1943,7 @@ impl NodeTrait for Jmp {
 }
 
 /// Loads a value from memory (heap or stack).
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Load(*mut bindings::ir_node);
 
 impl Load {
@@ -1962,6 +2026,26 @@ impl Load {
         unsafe { bindings::set_Load_unaligned(self.0, unwrapped); }
     }
 
+    /// memory result.
+    pub fn proj_m(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
+    }
+
+    /// result of load operation.
+    pub fn proj_res(&self, mode: bindings::mode::Type) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
+    }
+
+    /// control flow when no exception occurs.
+    pub fn proj_x_regular(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 2) })
+    }
+
+    /// control flow when exception occurred.
+    pub fn proj_x_except(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 3) })
+    }
+
 }
 
 impl Into<Node> for Load {
@@ -1980,7 +2064,7 @@ impl NodeTrait for Load {
 /// of an instance of the compound type.
 ///
 /// A Member node must only produce a NULL pointer if the ptr input is NULL.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Member(*mut bindings::ir_node);
 
 impl Member {
@@ -2030,7 +2114,7 @@ impl NodeTrait for Member {
 }
 
 /// returns the additive inverse of its operand
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Minus(*mut bindings::ir_node);
 
 impl Minus {
@@ -2075,7 +2159,7 @@ impl NodeTrait for Minus {
 /// * mod(5,-3)  produces 2
 /// * mod(-5,3)  produces -2
 /// * mod(-5,-3) produces -2
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mod(*mut bindings::ir_node);
 
 impl Mod {
@@ -2134,6 +2218,26 @@ impl Mod {
         unsafe { bindings::set_Mod_resmode(self.0, unwrapped); }
     }
 
+    /// memory result.
+    pub fn proj_m(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
+    }
+
+    /// result of computation.
+    pub fn proj_res(&self, mode: bindings::mode::Type) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
+    }
+
+    /// control flow when no exception occurs.
+    pub fn proj_x_regular(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 2) })
+    }
+
+    /// control flow when exception occurred.
+    pub fn proj_x_except(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 3) })
+    }
+
 }
 
 impl Into<Node> for Mod {
@@ -2149,7 +2253,7 @@ impl NodeTrait for Mod {
 }
 
 /// returns the product of its operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mul(*mut bindings::ir_node);
 
 impl Mul {
@@ -2200,7 +2304,7 @@ impl NodeTrait for Mul {
 
 /// returns the upper word of the product of its operands (the part which
 /// would not fit into the result mode of a normal Mul anymore)
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mulh(*mut bindings::ir_node);
 
 impl Mulh {
@@ -2251,7 +2355,7 @@ impl NodeTrait for Mulh {
 
 /// returns the false or true operand depending on the value of the sel
 /// operand
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mux(*mut bindings::ir_node);
 
 impl Mux {
@@ -2313,7 +2417,7 @@ impl NodeTrait for Mux {
 }
 
 /// Placeholder node for cases where you don't need any memory input
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct NoMem(*mut bindings::ir_node);
 
 impl NoMem {
@@ -2339,7 +2443,7 @@ impl NodeTrait for NoMem {
 }
 
 /// returns the bitwise complement of a value. Works for boolean values, too.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Not(*mut bindings::ir_node);
 
 impl Not {
@@ -2377,7 +2481,7 @@ impl NodeTrait for Not {
 }
 
 /// Symbolic constant that represents the offset of an entity in its owner type.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Offset(*mut bindings::ir_node);
 
 impl Offset {
@@ -2403,7 +2507,7 @@ impl NodeTrait for Offset {
 }
 
 /// returns the result of a bitwise or operation of its operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Or(*mut bindings::ir_node);
 
 impl Or {
@@ -2455,7 +2559,7 @@ impl NodeTrait for Or {
 /// Choose a value based on control flow. A phi node has 1 input for each
 /// predecessor of its block. If a block is entered from its nth predecessor
 /// all phi nodes produce their nth input as result.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Phi(*mut bindings::ir_node);
 
 impl Phi {
@@ -2495,7 +2599,7 @@ impl NodeTrait for Phi {
 /// Pin the value of the node node in the current block. No users of the Pin
 /// node can float above the Block of the Pin. The node cannot float behind
 /// this block. Often used to Pin the NoMem node.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Pin(*mut bindings::ir_node);
 
 impl Pin {
@@ -2533,7 +2637,7 @@ impl NodeTrait for Pin {
 }
 
 /// returns an entry of a tuple value
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Proj(*mut bindings::ir_node);
 
 impl Proj {
@@ -2585,7 +2689,7 @@ impl NodeTrait for Proj {
 /// Raises an exception. Unconditional change of control flow. Writes an
 /// explicit Except variable to memory to pass it to the exception handler.
 /// Must be lowered to a Call to a runtime check function.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Raise(*mut bindings::ir_node);
 
 impl Raise {
@@ -2620,6 +2724,16 @@ impl Raise {
         unsafe { bindings::set_Raise_exo_ptr(self.0, unwrapped); }
     }
 
+    /// memory result.
+    pub fn proj_m(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
+    }
+
+    /// control flow to exception handler.
+    pub fn proj_x(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 1) })
+    }
+
 }
 
 impl Into<Node> for Raise {
@@ -2636,7 +2750,7 @@ impl NodeTrait for Raise {
 
 /// Returns from the current function. Takes memory and return values as
 /// operands.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Return(*mut bindings::ir_node);
 
 impl Return {
@@ -2677,7 +2791,7 @@ impl NodeTrait for Return {
 /// an index.
 ///
 /// A Sel node must only produce a NULL pointer if the ptr input is NULL.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Sel(*mut bindings::ir_node);
 
 impl Sel {
@@ -2743,7 +2857,7 @@ impl NodeTrait for Sel {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Shl(*mut bindings::ir_node);
 
 impl Shl {
@@ -2797,7 +2911,7 @@ impl NodeTrait for Shl {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Shr(*mut bindings::ir_node);
 
 impl Shr {
@@ -2852,7 +2966,7 @@ impl NodeTrait for Shr {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Shrs(*mut bindings::ir_node);
 
 impl Shrs {
@@ -2902,7 +3016,7 @@ impl NodeTrait for Shrs {
 }
 
 /// A symbolic constant that represents the size of a type
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Size(*mut bindings::ir_node);
 
 impl Size {
@@ -2928,7 +3042,7 @@ impl NodeTrait for Size {
 }
 
 /// The first node of a graph. Execution starts with this node.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Start(*mut bindings::ir_node);
 
 impl Start {
@@ -2937,6 +3051,21 @@ impl Start {
             panic!("given ir_node is not a Start");
         }
         Start(ir_node)
+    }
+
+    /// initial memory.
+    pub fn proj_m(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
+    }
+
+    /// frame base pointer.
+    pub fn proj_p_frame_base(&self, mode: bindings::mode::Type) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
+    }
+
+    /// function arguments.
+    pub fn proj_t_args(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::T, 2) })
     }
 
 }
@@ -2954,7 +3083,7 @@ impl NodeTrait for Start {
 }
 
 /// Stores a value into memory (heap or stack).
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Store(*mut bindings::ir_node);
 
 impl Store {
@@ -3037,6 +3166,21 @@ impl Store {
         unsafe { bindings::set_Store_unaligned(self.0, unwrapped); }
     }
 
+    /// memory result.
+    pub fn proj_m(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
+    }
+
+    /// control flow when no exception occurs.
+    pub fn proj_x_regular(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 1) })
+    }
+
+    /// control flow when exception occurred.
+    pub fn proj_x_except(&self) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 2) })
+    }
+
 }
 
 impl Into<Node> for Store {
@@ -3052,7 +3196,7 @@ impl NodeTrait for Store {
 }
 
 /// returns the difference of its operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Sub(*mut bindings::ir_node);
 
 impl Sub {
@@ -3105,7 +3249,7 @@ impl NodeTrait for Sub {
 /// input value which is looked up in a table.
 ///
 /// Backends can implement this efficiently using a jump table.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Switch(*mut bindings::ir_node);
 
 impl Switch {
@@ -3152,6 +3296,11 @@ impl Switch {
         unsafe { bindings::set_Switch_table(self.0, unwrapped); }
     }
 
+    /// control flow if no other case matches.
+    pub fn proj_default(&self, mode: bindings::mode::Type) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 0) })
+    }
+
 }
 
 impl Into<Node> for Switch {
@@ -3171,7 +3320,7 @@ impl NodeTrait for Switch {
 /// be identical.  This operation allows to specify all operations that
 /// eventually need several partial memory blocks as input with a single
 /// entrance by unifying the memories with a preceding Sync operation.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Sync(*mut bindings::ir_node);
 
 impl Sync {
@@ -3204,7 +3353,7 @@ impl NodeTrait for Sync {
 /// the implementation with pointers in only one direction.) The Tuple node is
 /// smaller than any other node, so that a node can be changed into a Tuple by
 /// just changing its opcode and giving it a new in array.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Tuple(*mut bindings::ir_node);
 
 impl Tuple {
@@ -3235,7 +3384,7 @@ impl NodeTrait for Tuple {
 /// Be careful when optimising Unknown values, you cannot simply replace
 /// Unknown+x or Unknown<x with a new Unknown node if there are multiple
 /// users of the original unknown node!
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Unknown(*mut bindings::ir_node);
 
 impl Unknown {

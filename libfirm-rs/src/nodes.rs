@@ -1,4 +1,4 @@
-use crate::nodes_gen::{Block, Phi, Node, NodeFactory};
+use crate::nodes_gen::{Block, Node, NodeFactory, Phi, Proj};
 use libfirm_rs_bindings as bindings;
 use std::hash::{Hash, Hasher};
 
@@ -35,9 +35,11 @@ macro_rules! simple_node_iterator {
         }
 
         impl ExactSizeIterator for $iter_name {
-            fn len(&self) -> usize { self.len as usize }
+            fn len(&self) -> usize {
+                self.len as usize
+            }
         }
-    }
+    };
 }
 
 impl Block {}
@@ -49,6 +51,14 @@ impl Phi {
 }
 
 simple_node_iterator!(PhiPredsIterator, get_Phi_n_preds, get_Phi_pred, i32);
+
+impl Proj {
+    pub fn proj(&self, num: u32, mode: bindings::mode::Type) -> Proj {
+        Proj::new(unsafe {
+            bindings::new_r_Proj(self.internal_ir_node(), mode, num)
+        })
+    }
+}
 
 /// A trait to abstract from Node enum and various *-Node structs.
 pub trait NodeTrait {
@@ -106,9 +116,5 @@ impl Into<*const bindings::ir_node> for crate::nodes_gen::Phi {
 }*/
 
 // TODO: derive Eq here, current is incorrect
-
-
-
-
 
 // TODO maybe Into<*const ir_node> for NodeTrait?

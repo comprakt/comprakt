@@ -1,5 +1,6 @@
 import fs from "fs";
 import { CodeMaker } from 'codemaker';
+import { execSync } from 'child_process';
 
 interface NodeIn {
     comment: string,
@@ -107,14 +108,47 @@ class NodeInputImpl extends NodeMemberImpl {
 }
 
 class NodeOutputImpl extends NodeMemberImpl {
+    public readonly idx: number;
+    public get proj_fnName(): string {
+        return `proj_${this.name.toLowerCase()}`;
+    }
+
     public get variantName(): string {
         const parts = this.name.split("_").map(p => p[0].toUpperCase() + p.substr(1).toLowerCase());
         const str = parts.join("");
         return `${this.parent.name}_${str}`;
     }
 
-    constructor(public readonly parent: NodeImpl, attr: NodeIn, id: number) {
+    constructor(public readonly parent: NodeImpl, attr: NodeIn, idx: number) {
         super(attr.name, nodeType, attr.comment);
+        this.idx = idx;
+    }
+
+    public guessModeType(): string|undefined {
+        const projectionModes: { [name: string]: { [projName: string]: string|undefined }|undefined } = {
+            "Cond": {
+                "false": "X",
+                "true": "X",
+            }
+        };
+
+        const nodeModes = projectionModes[this.parent.name];
+        let outMode = nodeModes && nodeModes[this.name];
+
+        if (!outMode) {
+            const modes: { [name: string]: string|undefined } = {
+                "m": "M",
+                "t": "T",
+                "x": "X",
+            };
+            for (const entry of this.name.split(`_`)) {
+                outMode = modes[entry.toLowerCase()];
+                if (outMode) break;
+            }
+        }
+        if (!outMode) return undefined;
+
+        return `bindings::mode::${outMode}`;
     }
 }
 
@@ -220,11 +254,12 @@ w.line("use libfirm_rs_bindings as bindings;");
 w.line("use std::collections::HashMap;");
 w.line("use super::nodes::NodeTrait;");
 w.line("use super::graph::Graph;");
-w.line();
+w.line("use strum_macros::EnumDiscriminants;");
 
 // generate Node enum
 {
-    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]");
+    w.line('#[strum_discriminants(derive(Display))]');
+    w.line("#[derive(EnumDiscriminants, Debug, Clone, Copy, Eq, PartialEq, Hash)]");
     w.indent("pub enum Node {");
     for (const node of nodes) {
         if (node.isProj) {
@@ -345,7 +380,7 @@ for (const node of nodes) {
             w.line(`/// ${line.trim()}`);
         }
     }
-    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]");
+    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq)]");
     w.line(`pub struct ${node.structName}(${ir_node_type});`);
     w.line();
 
@@ -378,6 +413,19 @@ for (const node of nodes) {
             w.unindent(`}`);
             w.line();
         }
+
+        // projection functions
+        for (const out of node.outs) {
+            if (out.comment) { w.line(`/// ${out.comment}.`); }
+            const outMode = out.guessModeType();
+            let args = outMode ? "" : `, mode: bindings::mode::Type`;
+            let modeValue = outMode ? `${outMode}` : `mode`;
+
+            w.indent(`pub fn ${out.proj_fnName}(&self${args}) -> Proj {`);
+            w.line(`Proj::new(unsafe { bindings::new_r_Proj(self.0, ${modeValue}, ${out.idx}) })`);
+            w.unindent(`}`);
+            w.line();
+        }
     }
     w.unindent(`}`);
     w.line();
@@ -385,7 +433,6 @@ for (const node of nodes) {
     // into Node
     w.indent(`impl Into<Node> for ${node.structName} {`);
     w.indent(`fn into(self) -> Node {`);
-
     w.line(`Node::${node.variantName}(self${node.isProj ? ", NodeFactory::proj_kind(self)" : ""})`);
     w.unindent(`}`);
     w.unindent("}");
@@ -471,3 +518,5 @@ w.line();
 
 w.closeFile("nodes_gen.rs");
 w.save("../src/");
+
+execSync("cargo fmt --package libfirm-rs");
