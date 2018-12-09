@@ -7,10 +7,18 @@ extern crate derive_more;
 use libfirm_rs_bindings::*;
 use std::ffi::{CStr, CString};
 
+// TODO: remove these allows
+#[allow(clippy::style, clippy::perf)]
 pub mod graph;
+
+// TODO: remove these allows
+#[allow(clippy::style, clippy::perf)]
 pub mod nodes;
-#[allow(non_camel_case_types)]
-#[allow(dead_code)]
+
+// TODO: remove the clippy::perf allow
+// TODO: remove the clippy::style allow and allow lints separatly instead
+// of the whole lint group.
+#[allow(non_camel_case_types, dead_code, clippy::style, clippy::perf)]
 pub mod nodes_gen;
 pub mod types;
 
@@ -925,16 +933,5 @@ impl Call {
             let result_node = new_r_Proj(self.0, mode::T, pn_Call::TResult);
             CallResultTuple(result_node)
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use libfirm_rs_bindings;
-
-    #[test]
-    fn init() {
-        unsafe { libfirm_rs_bindings::ir_init() };
     }
 }

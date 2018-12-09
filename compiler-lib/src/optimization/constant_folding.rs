@@ -65,12 +65,7 @@ impl ConstantFolding {
     fn run(&mut self) {
         self.graph.assure_outs();
 
-        loop {
-            let cur = match self.list.pop_front() {
-                Some(n) => n,
-                None => break,
-            };
-
+        while let Some(cur) = self.list.pop_front() {
             log::debug!(
                 "VISIT NODE kind={} id={:?}",
                 NodeDiscriminants::from(cur),
@@ -217,6 +212,7 @@ impl ConstantFolding {
 pub struct Lattice(Tarval);
 
 // TODO impl TryFrom<Node>
+#[derive(Clone, Copy, Debug)]
 pub enum Binop {
     Add,
     Sub,
@@ -228,6 +224,7 @@ pub enum Binop {
     Rel(bindings::ir_relation::Type),
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum UnaryOp {
     Minus,
 }

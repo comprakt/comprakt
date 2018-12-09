@@ -1,6 +1,5 @@
 use compiler_lib::optimization::OptimizationKind;
 use crate::*;
-use serde::{Deserialize, Deserializer};
 
 pub const DEFAULT_TIMEOUT_SECONDS: u64 = 3;
 

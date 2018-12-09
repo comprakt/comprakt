@@ -112,6 +112,8 @@ impl Graph {
 }
 
 unsafe extern "C" fn closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    // TODO: is this allow correct, Joshua?
+    #[allow(clippy::transmute_ptr_to_ref)]
     let closure: &mut &mut FnMut(&Node) = mem::transmute(closure);
     closure(&NodeFactory::node(node))
 }

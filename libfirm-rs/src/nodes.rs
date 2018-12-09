@@ -1,7 +1,7 @@
-use crate::nodes_gen::{self, Block, Call, Node, NodeFactory, Phi, Proj};
+use crate::nodes_gen::{self, Block, Node, NodeFactory, Phi, Proj};
 use libfirm_rs_bindings as bindings;
 use std::{
-    ffi::{CStr, CString},
+    ffi::CStr,
     fmt,
     hash::{Hash, Hasher},
 };
@@ -103,6 +103,16 @@ pub trait NodeTrait {
 // TODO: should we use dynamic reverse edges instead of reverse
 simple_node_iterator!(OutNodeIterator, get_irn_n_outs, get_irn_out, u32);
 
+// TODO: deriving PartialEq, even though Hash is implemented
+// by hand seems correct since.
+// a) an mut* ir_node can only have once Node Variant
+// b) the tuple value of each variant is just a new-type
+//    around a mut* ir_node
+//
+// actual task: decide if deriving PartialEq is in fact
+// correct. If it is, remove this todo, but leave an explanation.
+// if it is not, implement PartialEq correctly.
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Node {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.internal_ir_node().hash(state);
@@ -136,7 +146,7 @@ impl nodes_gen::Address {
 
 impl nodes_gen::Block {
     pub fn num_cfgpreds(self) -> i32 {
-        return unsafe { bindings::get_Block_n_cfgpreds(self.internal_ir_node()) };
+        unsafe { bindings::get_Block_n_cfgpreds(self.internal_ir_node()) }
     }
 }
 

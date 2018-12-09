@@ -70,11 +70,12 @@ impl Ty {
                 Ty::Struct(StructTy(ty))
             } else if bindings::is_Union_type(ty) != 0 {
                 Ty::Union(UnionTy(ty))
-            } else if bindings::is_unknown_type(ty) != 0 || bindings::is_code_type(ty) != 0 {
-                Ty::Other(OtherTy(ty))
             } else {
+                // this is either:
+                // bindings::is_unknown_type(ty),
+                // bindings::is_code_type(ty),
+                // or unknown type kind
                 Ty::Other(OtherTy(ty))
-                // unknown type kind found
             }
         }
     }
@@ -91,9 +92,9 @@ trait TyTrait: Sized {
     }
 
     fn array(self) -> ArrayTy {
-        ArrayTy::from(Ty::from_ir_type(
-            unsafe { bindings::new_type_array(self.ir_type(), 0) }.into(),
-        ))
+        ArrayTy::from(Ty::from_ir_type(unsafe {
+            bindings::new_type_array(self.ir_type(), 0)
+        }))
         .expect("must return array type")
     }
 
@@ -149,7 +150,7 @@ impl PrimitiveTy {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::Bu) })
     }
     pub fn ptr() -> PrimitiveTy {
-        Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::P) }.into())
+        Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::P) })
     }
 }
 
