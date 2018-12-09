@@ -1,6 +1,6 @@
 use super::{
     nodes::NodeTrait,
-    nodes_gen::{Block, End, Node, NodeFactory, Start},
+    nodes_gen::{Block, End, Node, NodeFactory, Start, Proj},
 };
 use libfirm_rs_bindings as bindings;
 use std::{
@@ -50,6 +50,10 @@ impl Graph {
 
     pub fn end(self) -> End {
         End::new(unsafe { bindings::get_irg_end(self.irg) })
+    }
+
+    pub fn args_node(self) -> Proj {
+        Proj::new(unsafe { bindings::get_irg_args(self.irg) })
     }
 
     pub fn dump(self, suffix: &str) {
