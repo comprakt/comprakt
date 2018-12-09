@@ -38,6 +38,11 @@ impl Tarval {
     }
 
     #[inline]
+    pub fn is_bool_true(self) -> bool {
+        ptr::eq(self.0, unsafe { tarval_b_true })
+    }
+
+    #[inline]
     pub fn mj_int(val: i64) -> Tarval {
         unsafe { new_tarval_from_long(val, mode::Is) }.into()
     }

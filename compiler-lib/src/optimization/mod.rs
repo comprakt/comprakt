@@ -1,7 +1,9 @@
 use crate::firm::Program;
-mod constant_folding;
 use libfirm_rs::bindings;
 use std::ffi::CString;
+
+mod constant_folding;
+mod unreachable_code_elimination;
 
 #[derive(
     strum_macros::EnumString,
@@ -15,6 +17,7 @@ use std::ffi::CString;
 pub enum OptimizationKind {
     AlgebraicSimplification,
     ConstantFolding,
+    UnreachableCodeElimination,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -50,9 +53,11 @@ pub fn run_all(program: &Program<'_, '_>, optimizations: &[Optimization]) {
 
 impl Optimization {
     fn run(&self, program: &Program<'_, '_>) {
+        use self::OptimizationKind::*;
         match self.kind {
-            OptimizationKind::AlgebraicSimplification => {}
-            OptimizationKind::ConstantFolding => constant_folding::run(program),
+            AlgebraicSimplification => {}
+            ConstantFolding => constant_folding::run(program),
+            UnreachableCodeElimination => unreachable_code_elimination::run(program),
         };
     }
 }

@@ -42,7 +42,11 @@ macro_rules! simple_node_iterator {
     };
 }
 
-impl Block {}
+impl Block {
+    pub fn keep_alive(self) {
+        unsafe { bindings::keep_alive(self.internal_ir_node()) }
+    }
+}
 
 impl Phi {
     pub fn phi_preds(self) -> PhiPredsIterator {

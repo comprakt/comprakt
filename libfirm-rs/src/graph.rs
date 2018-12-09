@@ -65,6 +65,10 @@ impl Graph {
         unsafe { bindings::assure_irg_outs(self.irg) }
     }
 
+    pub fn remove_bads(self) {
+        unsafe { bindings::remove_bads(self.irg) }
+    }
+
     /// Walks over all reachable nodes in the graph, ensuring that nodes inside
     /// a basic block are visited in topological order.
     ///
@@ -97,6 +101,16 @@ impl Graph {
         unsafe {
             bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
         }
+    }
+
+    /// Replace the given node with a "bad" node, thus marking it and all the
+    /// nodes dominated by it as unreachable. The whole subtree can then be
+    /// removed using `Graph::remove_bads`.
+    pub fn mark_as_bad(&self, node: impl Into<Node>) {
+        Graph::exchange(
+            node.into(),
+            self.new_bad(unsafe { bindings::mode::b }).into(),
+        )
     }
 }
 
