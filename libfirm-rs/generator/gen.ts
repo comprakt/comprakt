@@ -1,6 +1,6 @@
 import fs from "fs";
 import { CodeMaker } from 'codemaker';
-import { execSync } from 'child_process';
+import { execSync, exec } from 'child_process';
 
 interface NodeIn {
     comment: string,
@@ -109,11 +109,16 @@ class NodeInputImpl extends NodeMemberImpl {
 
 class NodeOutputImpl extends NodeMemberImpl {
     public readonly idx: number;
-    public get proj_fnName(): string {
-        return `proj_${this.name.toLowerCase()}`;
+
+    public get out_proj_fnName(): string {
+        return `out_proj_${this.name.toLowerCase()}`;
     }
 
-    public get variantName(): string {
+    public get new_proj_fnName(): string {
+        return `new_proj_${this.name.toLowerCase()}`;
+    }
+
+    public get projKind_variantName(): string {
         const parts = this.name.split("_").map(p => p[0].toUpperCase() + p.substr(1).toLowerCase());
         const str = parts.join("");
         return `${this.parent.name}_${str}`;
@@ -259,7 +264,7 @@ w.line("use strum_macros::EnumDiscriminants;");
 // generate Node enum
 {
     w.line('#[strum_discriminants(derive(Display))]');
-    w.line("#[derive(EnumDiscriminants, Debug, Clone, Copy, Eq, PartialEq, Hash)]");
+    w.line("#[derive(EnumDiscriminants, Debug, Clone, Copy, Eq, PartialEq)]");
     w.indent("pub enum Node {");
     for (const node of nodes) {
         if (node.isProj) {
@@ -285,12 +290,12 @@ w.line("use strum_macros::EnumDiscriminants;");
 
 // generate Proj enum
 {
-    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]");
+    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq)]");
     w.indent("pub enum ProjKind {");
     for (const node of nodes) {
         for (const out of node.outs) {
             w.line(`/// ${out.comment}`);
-            w.line(`${out.variantName}(${node.structName}),`);
+            w.line(`${out.projKind_variantName}(${node.structName}),`);
         }
         if (node.name === "Start") {
             w.line(`Start_TArgs_Arg(/* arg_idx */ u32, /* pred_pred */ Start, /* pred */ Proj),`);
@@ -342,7 +347,7 @@ w.line("use strum_macros::EnumDiscriminants;");
             w.indent(`match proj.num() {`);
             let idx = 0;
             for (const out of predNode.outs) {
-                w.line(`${idx} => ProjKind::${out.variantName}(node),`);
+                w.line(`${idx} => ProjKind::${out.projKind_variantName}(node),`);
                 idx++;
             }
             w.line(`_ => ProjKind::Other,`);
@@ -421,8 +426,23 @@ for (const node of nodes) {
             let args = outMode ? "" : `, mode: bindings::mode::Type`;
             let modeValue = outMode ? `${outMode}` : `mode`;
 
-            w.indent(`pub fn ${out.proj_fnName}(&self${args}) -> Proj {`);
+            w.indent(`pub fn ${out.new_proj_fnName}(&self${args}) -> Proj {`);
             w.line(`Proj::new(unsafe { bindings::new_r_Proj(self.0, ${modeValue}, ${out.idx}) })`);
+            w.unindent(`}`);
+            w.line();
+        }
+
+        // projection reverse function
+        for (const out of node.outs) {
+            if (out.comment) { w.line(`/// ${out.comment}.`); }
+
+            w.indent(`pub fn ${out.out_proj_fnName}(&self) -> Option<Proj> {`);
+            w.indent(`for out_node in self.out_nodes() {`);
+            w.indent(`if let Node::Proj(proj, ProjKind::${out.projKind_variantName}(_)) = out_node {`);
+            w.line(`return Some(proj);`);
+            w.unindent(`}`);
+            w.unindent(`}`);
+            w.line(`None`);
             w.unindent(`}`);
             w.line();
         }
@@ -519,4 +539,8 @@ w.line();
 w.closeFile("nodes_gen.rs");
 w.save("../src/");
 
-execSync("cargo fmt --package libfirm-rs");
+exec("cargo fmt --package libfirm-rs", (err, stdout, stderr) => {
+    if (err) { console.error(err); }
+    if (stderr) { console.error(stderr); }
+    if (stdout) { console.log(stdout); }
+});

@@ -1,7 +1,6 @@
+use super::{graph::Graph, nodes::NodeTrait};
 use libfirm_rs_bindings as bindings;
 use std::collections::HashMap;
-use super::nodes::NodeTrait;
-use super::graph::Graph;
 use strum_macros::EnumDiscriminants;
 #[strum_discriminants(derive(Display))]
 #[derive(EnumDiscriminants, Debug, Clone, Copy, Eq, PartialEq)]
@@ -123,7 +122,7 @@ impl NodeTrait for Node {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ProjKind {
     /// memory result
     Alloc_M(Alloc),
@@ -177,7 +176,11 @@ pub enum ProjKind {
     Start_PFrameBase(Start),
     /// function arguments
     Start_TArgs(Start),
-    Start_TArgs_Arg(/* arg_idx */ u32, /* pred_pred */ Start, /* pred */ Proj),
+    Start_TArgs_Arg(
+        /* arg_idx */ u32,
+        /* pred_pred */ Start,
+        /* pred */ Proj,
+    ),
     /// memory result
     Store_M(Store),
     /// control flow when no exception occurs
@@ -320,81 +323,72 @@ impl NodeFactory {
     pub fn proj_kind(proj: Proj) -> ProjKind {
         let pred = proj.pred();
         match pred {
-            Node::Alloc(node) =>
-               match proj.num() {
-                    0 => ProjKind::Alloc_M(node),
-                    1 => ProjKind::Alloc_Res(node),
-                    _ => ProjKind::Other,
-               },
-            Node::Builtin(node) =>
-               match proj.num() {
-                    0 => ProjKind::Builtin_M(node),
-                    _ => ProjKind::Other,
-               },
-            Node::Call(node) =>
-               match proj.num() {
-                    0 => ProjKind::Call_M(node),
-                    1 => ProjKind::Call_TResult(node),
-                    2 => ProjKind::Call_XRegular(node),
-                    3 => ProjKind::Call_XExcept(node),
-                    _ => ProjKind::Other,
-               },
-            Node::Cond(node) =>
-               match proj.num() {
-                    0 => ProjKind::Cond_False(node),
-                    1 => ProjKind::Cond_True(node),
-                    _ => ProjKind::Other,
-               },
-            Node::Div(node) =>
-               match proj.num() {
-                    0 => ProjKind::Div_M(node),
-                    1 => ProjKind::Div_Res(node),
-                    2 => ProjKind::Div_XRegular(node),
-                    3 => ProjKind::Div_XExcept(node),
-                    _ => ProjKind::Other,
-               },
-            Node::Load(node) =>
-               match proj.num() {
-                    0 => ProjKind::Load_M(node),
-                    1 => ProjKind::Load_Res(node),
-                    2 => ProjKind::Load_XRegular(node),
-                    3 => ProjKind::Load_XExcept(node),
-                    _ => ProjKind::Other,
-               },
-            Node::Mod(node) =>
-               match proj.num() {
-                    0 => ProjKind::Mod_M(node),
-                    1 => ProjKind::Mod_Res(node),
-                    2 => ProjKind::Mod_XRegular(node),
-                    3 => ProjKind::Mod_XExcept(node),
-                    _ => ProjKind::Other,
-               },
-            Node::Raise(node) =>
-               match proj.num() {
-                    0 => ProjKind::Raise_M(node),
-                    1 => ProjKind::Raise_X(node),
-                    _ => ProjKind::Other,
-               },
-            Node::Start(node) =>
-               match proj.num() {
-                    0 => ProjKind::Start_M(node),
-                    1 => ProjKind::Start_PFrameBase(node),
-                    2 => ProjKind::Start_TArgs(node),
-                    _ => ProjKind::Other,
-               },
-            Node::Store(node) =>
-               match proj.num() {
-                    0 => ProjKind::Store_M(node),
-                    1 => ProjKind::Store_XRegular(node),
-                    2 => ProjKind::Store_XExcept(node),
-                    _ => ProjKind::Other,
-               },
-            Node::Switch(node) =>
-               match proj.num() {
-                    0 => ProjKind::Switch_Default(node),
-                    _ => ProjKind::Other,
-               },
-            Node::Proj(proj, ProjKind::Start_TArgs(start)) => ProjKind::Start_TArgs_Arg(proj.num(), start, proj),
+            Node::Alloc(node) => match proj.num() {
+                0 => ProjKind::Alloc_M(node),
+                1 => ProjKind::Alloc_Res(node),
+                _ => ProjKind::Other,
+            },
+            Node::Builtin(node) => match proj.num() {
+                0 => ProjKind::Builtin_M(node),
+                _ => ProjKind::Other,
+            },
+            Node::Call(node) => match proj.num() {
+                0 => ProjKind::Call_M(node),
+                1 => ProjKind::Call_TResult(node),
+                2 => ProjKind::Call_XRegular(node),
+                3 => ProjKind::Call_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Cond(node) => match proj.num() {
+                0 => ProjKind::Cond_False(node),
+                1 => ProjKind::Cond_True(node),
+                _ => ProjKind::Other,
+            },
+            Node::Div(node) => match proj.num() {
+                0 => ProjKind::Div_M(node),
+                1 => ProjKind::Div_Res(node),
+                2 => ProjKind::Div_XRegular(node),
+                3 => ProjKind::Div_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Load(node) => match proj.num() {
+                0 => ProjKind::Load_M(node),
+                1 => ProjKind::Load_Res(node),
+                2 => ProjKind::Load_XRegular(node),
+                3 => ProjKind::Load_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Mod(node) => match proj.num() {
+                0 => ProjKind::Mod_M(node),
+                1 => ProjKind::Mod_Res(node),
+                2 => ProjKind::Mod_XRegular(node),
+                3 => ProjKind::Mod_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Raise(node) => match proj.num() {
+                0 => ProjKind::Raise_M(node),
+                1 => ProjKind::Raise_X(node),
+                _ => ProjKind::Other,
+            },
+            Node::Start(node) => match proj.num() {
+                0 => ProjKind::Start_M(node),
+                1 => ProjKind::Start_PFrameBase(node),
+                2 => ProjKind::Start_TArgs(node),
+                _ => ProjKind::Other,
+            },
+            Node::Store(node) => match proj.num() {
+                0 => ProjKind::Store_M(node),
+                1 => ProjKind::Store_XRegular(node),
+                2 => ProjKind::Store_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Switch(node) => match proj.num() {
+                0 => ProjKind::Switch_Default(node),
+                _ => ProjKind::Other,
+            },
+            Node::Proj(proj, ProjKind::Start_TArgs(start)) => {
+                ProjKind::Start_TArgs_Arg(proj.num(), start, proj)
+            }
             _ => ProjKind::Other,
         }
     }
@@ -565,7 +559,7 @@ impl NodeFactory {
 }
 
 /// returns the sum of its operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Add(*mut bindings::ir_node);
 
 impl Add {
@@ -585,7 +579,9 @@ impl Add {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Add_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Add_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -597,9 +593,10 @@ impl Add {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Add_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Add_right(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Add {
@@ -616,7 +613,7 @@ impl NodeTrait for Add {
 
 /// Symbolic constant that represents the address of an entity (variable or
 /// method)
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Address(*mut bindings::ir_node);
 
 impl Address {
@@ -626,7 +623,6 @@ impl Address {
         }
         Address(ir_node)
     }
-
 }
 
 impl Into<Node> for Address {
@@ -642,7 +638,7 @@ impl NodeTrait for Address {
 }
 
 /// A symbolic constant that represents the alignment of a type
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Align(*mut bindings::ir_node);
 
 impl Align {
@@ -652,7 +648,6 @@ impl Align {
         }
         Align(ir_node)
     }
-
 }
 
 impl Into<Node> for Align {
@@ -668,7 +663,7 @@ impl NodeTrait for Align {
 }
 
 /// Allocates a block of memory on the stack.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Alloc(*mut bindings::ir_node);
 
 impl Alloc {
@@ -688,7 +683,9 @@ impl Alloc {
     /// Sets memory dependency.
     pub fn set_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Alloc_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Alloc_mem(self.0, unwrapped);
+        }
     }
 
     /// Gets size of the block in bytes.
@@ -700,7 +697,9 @@ impl Alloc {
     /// Sets size of the block in bytes.
     pub fn set_size(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Alloc_size(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Alloc_size(self.0, unwrapped);
+        }
     }
 
     /// Gets alignment of the memory block (must be a power of 2).
@@ -712,19 +711,40 @@ impl Alloc {
     /// Sets alignment of the memory block (must be a power of 2).
     pub fn set_alignment(&self, val: ::std::os::raw::c_uint) {
         let unwrapped = val;
-        unsafe { bindings::set_Alloc_alignment(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Alloc_alignment(self.0, unwrapped);
+        }
     }
 
     /// memory result.
-    pub fn proj_m(&self) -> Proj {
+    pub fn new_proj_m(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
     }
 
     /// pointer to newly allocated memory.
-    pub fn proj_res(&self, mode: bindings::mode::Type) -> Proj {
+    pub fn new_proj_res(&self, mode: bindings::mode::Type) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
     }
 
+    /// memory result.
+    pub fn out_proj_m(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Alloc_M(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// pointer to newly allocated memory.
+    pub fn out_proj_res(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Alloc_Res(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
 }
 
 impl Into<Node> for Alloc {
@@ -745,7 +765,7 @@ impl NodeTrait for Alloc {
 /// Each firm-graph contains exactly one anchor node whose address is always
 /// known. All other well-known graph-nodes like Start, End, NoMem, ...
 /// are found by looking at the respective Anchor operand.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Anchor(*mut bindings::ir_node);
 
 impl Anchor {
@@ -765,7 +785,9 @@ impl Anchor {
     /// Sets block the end node belongs to.
     pub fn set_end_block(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Anchor_end_block(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Anchor_end_block(self.0, unwrapped);
+        }
     }
 
     /// Gets block the start node belongs to.
@@ -777,7 +799,9 @@ impl Anchor {
     /// Sets block the start node belongs to.
     pub fn set_start_block(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Anchor_start_block(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Anchor_start_block(self.0, unwrapped);
+        }
     }
 
     /// Gets end node of this ir_graph.
@@ -789,7 +813,9 @@ impl Anchor {
     /// Sets end node of this ir_graph.
     pub fn set_end(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Anchor_end(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Anchor_end(self.0, unwrapped);
+        }
     }
 
     /// Gets start node of this ir_graph.
@@ -801,7 +827,9 @@ impl Anchor {
     /// Sets start node of this ir_graph.
     pub fn set_start(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Anchor_start(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Anchor_start(self.0, unwrapped);
+        }
     }
 
     /// Gets frame of this ir_graph.
@@ -813,7 +841,9 @@ impl Anchor {
     /// Sets frame of this ir_graph.
     pub fn set_frame(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Anchor_frame(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Anchor_frame(self.0, unwrapped);
+        }
     }
 
     /// Gets initial memory of this ir_graph.
@@ -825,7 +855,9 @@ impl Anchor {
     /// Sets initial memory of this ir_graph.
     pub fn set_initial_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Anchor_initial_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Anchor_initial_mem(self.0, unwrapped);
+        }
     }
 
     /// Gets argument proj of the start node.
@@ -837,7 +869,9 @@ impl Anchor {
     /// Sets argument proj of the start node.
     pub fn set_args(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Anchor_args(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Anchor_args(self.0, unwrapped);
+        }
     }
 
     /// Gets the only NoMem node of this ir_graph.
@@ -849,9 +883,10 @@ impl Anchor {
     /// Sets the only NoMem node of this ir_graph.
     pub fn set_no_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Anchor_no_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Anchor_no_mem(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Anchor {
@@ -867,7 +902,7 @@ impl NodeTrait for Anchor {
 }
 
 /// returns the result of a bitwise and operation of its operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct And(*mut bindings::ir_node);
 
 impl And {
@@ -887,7 +922,9 @@ impl And {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_And_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_And_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -899,9 +936,10 @@ impl And {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_And_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_And_right(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for And {
@@ -936,7 +974,7 @@ impl NodeTrait for And {
 ///
 /// In the future we may use the Bad node to model poison values that arise
 /// from undefined behaviour like reading uninitialized local variables in C.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Bad(*mut bindings::ir_node);
 
 impl Bad {
@@ -946,7 +984,6 @@ impl Bad {
         }
         Bad(ir_node)
     }
-
 }
 
 impl Into<Node> for Bad {
@@ -963,7 +1000,7 @@ impl NodeTrait for Bad {
 
 /// Converts a value between modes with different arithmetics but same
 /// number of bits by reinterpreting the bits in the new mode
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Bitcast(*mut bindings::ir_node);
 
 impl Bitcast {
@@ -983,9 +1020,10 @@ impl Bitcast {
     /// Sets operand.
     pub fn set_op(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Bitcast_op(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Bitcast_op(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Bitcast {
@@ -1001,7 +1039,7 @@ impl NodeTrait for Bitcast {
 }
 
 /// A basic block
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Block(*mut bindings::ir_node);
 
 impl Block {
@@ -1021,9 +1059,10 @@ impl Block {
     /// Sets entity representing this block.
     pub fn set_entity(&self, val: *mut bindings::ir_entity) {
         let unwrapped = val;
-        unsafe { bindings::set_Block_entity(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Block_entity(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Block {
@@ -1039,7 +1078,7 @@ impl NodeTrait for Block {
 }
 
 /// performs a backend-specific builtin.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Builtin(*mut bindings::ir_node);
 
 impl Builtin {
@@ -1059,7 +1098,9 @@ impl Builtin {
     /// Sets memory dependency.
     pub fn set_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Builtin_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Builtin_mem(self.0, unwrapped);
+        }
     }
 
     /// Gets kind of builtin.
@@ -1071,7 +1112,9 @@ impl Builtin {
     /// Sets kind of builtin.
     pub fn set_kind(&self, val: bindings::ir_builtin_kind::Type) {
         let unwrapped = val;
-        unsafe { bindings::set_Builtin_kind(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Builtin_kind(self.0, unwrapped);
+        }
     }
 
     /// Gets method type for the builtin call.
@@ -1083,14 +1126,25 @@ impl Builtin {
     /// Sets method type for the builtin call.
     pub fn set_ty(&self, val: *mut bindings::ir_type) {
         let unwrapped = val;
-        unsafe { bindings::set_Builtin_type(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Builtin_type(self.0, unwrapped);
+        }
     }
 
     /// memory result.
-    pub fn proj_m(&self) -> Proj {
+    pub fn new_proj_m(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
     }
 
+    /// memory result.
+    pub fn out_proj_m(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Builtin_M(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
 }
 
 impl Into<Node> for Builtin {
@@ -1109,7 +1163,7 @@ impl NodeTrait for Builtin {
 /// operands are passed to the called code. Called code usually performs a
 /// return operation. The operands of this return operation are the result
 /// of the Call node.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Call(*mut bindings::ir_node);
 
 impl Call {
@@ -1129,7 +1183,9 @@ impl Call {
     /// Sets memory dependency.
     pub fn set_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Call_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Call_mem(self.0, unwrapped);
+        }
     }
 
     /// Gets pointer to called code.
@@ -1141,7 +1197,9 @@ impl Call {
     /// Sets pointer to called code.
     pub fn set_ptr(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Call_ptr(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Call_ptr(self.0, unwrapped);
+        }
     }
 
     /// Gets type of the call (usually type of the called procedure).
@@ -1153,29 +1211,70 @@ impl Call {
     /// Sets type of the call (usually type of the called procedure).
     pub fn set_ty(&self, val: *mut bindings::ir_type) {
         let unwrapped = val;
-        unsafe { bindings::set_Call_type(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Call_type(self.0, unwrapped);
+        }
     }
 
     /// memory result.
-    pub fn proj_m(&self) -> Proj {
+    pub fn new_proj_m(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
     }
 
     /// tuple containing all results.
-    pub fn proj_t_result(&self) -> Proj {
+    pub fn new_proj_t_result(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::T, 1) })
     }
 
     /// control flow when no exception occurs.
-    pub fn proj_x_regular(&self) -> Proj {
+    pub fn new_proj_x_regular(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 2) })
     }
 
     /// control flow when exception occurred.
-    pub fn proj_x_except(&self) -> Proj {
+    pub fn new_proj_x_except(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 3) })
     }
 
+    /// memory result.
+    pub fn out_proj_m(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Call_M(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// tuple containing all results.
+    pub fn out_proj_t_result(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Call_TResult(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow when no exception occurs.
+    pub fn out_proj_x_regular(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Call_XRegular(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow when exception occurred.
+    pub fn out_proj_x_except(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Call_XExcept(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
 }
 
 impl Into<Node> for Call {
@@ -1192,7 +1291,7 @@ impl NodeTrait for Call {
 
 /// Compares its two operands and checks whether a specified
 /// relation (like less or equal) is fulfilled.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Cmp(*mut bindings::ir_node);
 
 impl Cmp {
@@ -1212,7 +1311,9 @@ impl Cmp {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Cmp_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Cmp_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -1224,7 +1325,9 @@ impl Cmp {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Cmp_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Cmp_right(self.0, unwrapped);
+        }
     }
 
     /// Gets Comparison relation.
@@ -1236,9 +1339,10 @@ impl Cmp {
     /// Sets Comparison relation.
     pub fn set_relation(&self, val: bindings::ir_relation::Type) {
         let unwrapped = val;
-        unsafe { bindings::set_Cmp_relation(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Cmp_relation(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Cmp {
@@ -1254,7 +1358,7 @@ impl NodeTrait for Cmp {
 }
 
 /// Conditionally change control flow.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Cond(*mut bindings::ir_node);
 
 impl Cond {
@@ -1274,7 +1378,9 @@ impl Cond {
     /// Sets condition parameter.
     pub fn set_selector(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Cond_selector(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Cond_selector(self.0, unwrapped);
+        }
     }
 
     /// Gets can indicate the most likely jump.
@@ -1286,19 +1392,40 @@ impl Cond {
     /// Sets can indicate the most likely jump.
     pub fn set_jmp_pred(&self, val: bindings::cond_jmp_predicate::Type) {
         let unwrapped = val;
-        unsafe { bindings::set_Cond_jmp_pred(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Cond_jmp_pred(self.0, unwrapped);
+        }
     }
 
     /// control flow if operand is "false".
-    pub fn proj_false(&self) -> Proj {
+    pub fn new_proj_false(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 0) })
     }
 
     /// control flow if operand is "true".
-    pub fn proj_true(&self) -> Proj {
+    pub fn new_proj_true(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 1) })
     }
 
+    /// control flow if operand is "false".
+    pub fn out_proj_false(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Cond_False(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow if operand is "true".
+    pub fn out_proj_true(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Cond_True(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
 }
 
 impl Into<Node> for Cond {
@@ -1322,7 +1449,7 @@ impl NodeTrait for Cond {
 /// value is always returned.
 /// Note that this node does NOT check or assert the constraint, it merely
 /// specifies it.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Confirm(*mut bindings::ir_node);
 
 impl Confirm {
@@ -1342,7 +1469,9 @@ impl Confirm {
     /// Sets value to express a constraint for.
     pub fn set_value(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Confirm_value(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Confirm_value(self.0, unwrapped);
+        }
     }
 
     /// Gets value to compare against.
@@ -1354,7 +1483,9 @@ impl Confirm {
     /// Sets value to compare against.
     pub fn set_bound(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Confirm_bound(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Confirm_bound(self.0, unwrapped);
+        }
     }
 
     /// Gets relation of value to bound.
@@ -1366,9 +1497,10 @@ impl Confirm {
     /// Sets relation of value to bound.
     pub fn set_relation(&self, val: bindings::ir_relation::Type) {
         let unwrapped = val;
-        unsafe { bindings::set_Confirm_relation(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Confirm_relation(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Confirm {
@@ -1384,7 +1516,7 @@ impl NodeTrait for Confirm {
 }
 
 /// Returns a constant value.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Const(*mut bindings::ir_node);
 
 impl Const {
@@ -1404,9 +1536,10 @@ impl Const {
     /// Sets constant value (a tarval object).
     pub fn set_tarval(&self, val: *mut bindings::ir_tarval) {
         let unwrapped = val;
-        unsafe { bindings::set_Const_tarval(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Const_tarval(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Const {
@@ -1422,7 +1555,7 @@ impl NodeTrait for Const {
 }
 
 /// Converts values between modes
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Conv(*mut bindings::ir_node);
 
 impl Conv {
@@ -1442,9 +1575,10 @@ impl Conv {
     /// Sets operand.
     pub fn set_op(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Conv_op(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Conv_op(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Conv {
@@ -1460,7 +1594,7 @@ impl NodeTrait for Conv {
 }
 
 /// Copies a block of memory with statically known size/type.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct CopyB(*mut bindings::ir_node);
 
 impl CopyB {
@@ -1480,7 +1614,9 @@ impl CopyB {
     /// Sets memory dependency.
     pub fn set_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_CopyB_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_CopyB_mem(self.0, unwrapped);
+        }
     }
 
     /// Gets destination address.
@@ -1492,7 +1628,9 @@ impl CopyB {
     /// Sets destination address.
     pub fn set_dst(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_CopyB_dst(self.0, unwrapped); }
+        unsafe {
+            bindings::set_CopyB_dst(self.0, unwrapped);
+        }
     }
 
     /// Gets source address.
@@ -1504,7 +1642,9 @@ impl CopyB {
     /// Sets source address.
     pub fn set_src(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_CopyB_src(self.0, unwrapped); }
+        unsafe {
+            bindings::set_CopyB_src(self.0, unwrapped);
+        }
     }
 
     /// Gets type of copied data.
@@ -1516,21 +1656,26 @@ impl CopyB {
     /// Sets type of copied data.
     pub fn set_ty(&self, val: *mut bindings::ir_type) {
         let unwrapped = val;
-        unsafe { bindings::set_CopyB_type(self.0, unwrapped); }
+        unsafe {
+            bindings::set_CopyB_type(self.0, unwrapped);
+        }
     }
 
-    /// Gets volatile CopyB nodes have a visible side-effect and may not be optimized.
+    /// Gets volatile CopyB nodes have a visible side-effect and may not be
+    /// optimized.
     pub fn volatility(&self) -> bindings::ir_volatility::Type {
         let unwrapped = unsafe { bindings::get_CopyB_volatility(self.0) };
         unwrapped
     }
 
-    /// Sets volatile CopyB nodes have a visible side-effect and may not be optimized.
+    /// Sets volatile CopyB nodes have a visible side-effect and may not be
+    /// optimized.
     pub fn set_volatility(&self, val: bindings::ir_volatility::Type) {
         let unwrapped = val;
-        unsafe { bindings::set_CopyB_volatility(self.0, unwrapped); }
+        unsafe {
+            bindings::set_CopyB_volatility(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for CopyB {
@@ -1547,7 +1692,7 @@ impl NodeTrait for CopyB {
 
 /// Internal node which is temporary set to nodes which are already removed
 /// from the graph.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Deleted(*mut bindings::ir_node);
 
 impl Deleted {
@@ -1557,7 +1702,6 @@ impl Deleted {
         }
         Deleted(ir_node)
     }
-
 }
 
 impl Into<Node> for Deleted {
@@ -1573,7 +1717,7 @@ impl NodeTrait for Deleted {
 }
 
 /// returns the quotient of its 2 operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Div(*mut bindings::ir_node);
 
 impl Div {
@@ -1593,7 +1737,9 @@ impl Div {
     /// Sets memory dependency.
     pub fn set_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Div_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Div_mem(self.0, unwrapped);
+        }
     }
 
     /// Gets first operand.
@@ -1605,7 +1751,9 @@ impl Div {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Div_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Div_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -1617,7 +1765,9 @@ impl Div {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Div_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Div_right(self.0, unwrapped);
+        }
     }
 
     /// Gets mode of the result value.
@@ -1629,7 +1779,9 @@ impl Div {
     /// Sets mode of the result value.
     pub fn set_resmode(&self, val: *mut bindings::ir_mode) {
         let unwrapped = val;
-        unsafe { bindings::set_Div_resmode(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Div_resmode(self.0, unwrapped);
+        }
     }
 
     /// Gets Set when division remainder is known to be zero.
@@ -1641,29 +1793,70 @@ impl Div {
     /// Sets Set when division remainder is known to be zero.
     pub fn set_no_remainder(&self, val: i32) {
         let unwrapped = val;
-        unsafe { bindings::set_Div_no_remainder(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Div_no_remainder(self.0, unwrapped);
+        }
     }
 
     /// memory result.
-    pub fn proj_m(&self) -> Proj {
+    pub fn new_proj_m(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
     }
 
     /// result of computation.
-    pub fn proj_res(&self, mode: bindings::mode::Type) -> Proj {
+    pub fn new_proj_res(&self, mode: bindings::mode::Type) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
     }
 
     /// control flow when no exception occurs.
-    pub fn proj_x_regular(&self) -> Proj {
+    pub fn new_proj_x_regular(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 2) })
     }
 
     /// control flow when exception occurred.
-    pub fn proj_x_except(&self) -> Proj {
+    pub fn new_proj_x_except(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 3) })
     }
 
+    /// memory result.
+    pub fn out_proj_m(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Div_M(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// result of computation.
+    pub fn out_proj_res(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Div_Res(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow when no exception occurs.
+    pub fn out_proj_x_regular(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Div_XRegular(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow when exception occurred.
+    pub fn out_proj_x_except(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Div_XExcept(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
 }
 
 impl Into<Node> for Div {
@@ -1681,7 +1874,7 @@ impl NodeTrait for Div {
 /// A placeholder value. This is used when constructing cyclic graphs where
 /// you have cases where not all predecessors of a phi-node are known. Dummy
 /// nodes are used for the unknown predecessors and replaced later.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Dummy(*mut bindings::ir_node);
 
 impl Dummy {
@@ -1691,7 +1884,6 @@ impl Dummy {
         }
         Dummy(ir_node)
     }
-
 }
 
 impl Into<Node> for Dummy {
@@ -1708,7 +1900,7 @@ impl NodeTrait for Dummy {
 
 /// Last node of a graph. It references nodes in endless loops (so called
 /// keepalive edges)
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct End(*mut bindings::ir_node);
 
 impl End {
@@ -1718,7 +1910,6 @@ impl End {
         }
         End(ir_node)
     }
-
 }
 
 impl Into<Node> for End {
@@ -1736,7 +1927,7 @@ impl NodeTrait for End {
 /// returns the result of a bitwise exclusive or operation of its operands.
 ///
 /// This is also known as the Xor operation.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Eor(*mut bindings::ir_node);
 
 impl Eor {
@@ -1756,7 +1947,9 @@ impl Eor {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Eor_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Eor_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -1768,9 +1961,10 @@ impl Eor {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Eor_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Eor_right(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Eor {
@@ -1786,7 +1980,7 @@ impl NodeTrait for Eor {
 }
 
 /// Frees a block of memory previously allocated by an Alloc node
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Free(*mut bindings::ir_node);
 
 impl Free {
@@ -1806,7 +2000,9 @@ impl Free {
     /// Sets memory dependency.
     pub fn set_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Free_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Free_mem(self.0, unwrapped);
+        }
     }
 
     /// Gets pointer to the object to free.
@@ -1818,9 +2014,10 @@ impl Free {
     /// Sets pointer to the object to free.
     pub fn set_ptr(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Free_ptr(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Free_ptr(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Free {
@@ -1838,7 +2035,7 @@ impl NodeTrait for Free {
 /// Jumps to the code in its argument. The code has to be in the same
 /// function and the destination must be one of the blocks reachable
 /// by the tuple results
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct IJmp(*mut bindings::ir_node);
 
 impl IJmp {
@@ -1858,9 +2055,10 @@ impl IJmp {
     /// Sets target address of the jump.
     pub fn set_target(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_IJmp_target(self.0, unwrapped); }
+        unsafe {
+            bindings::set_IJmp_target(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for IJmp {
@@ -1879,7 +2077,7 @@ impl NodeTrait for IJmp {
 ///
 /// This is mainly used when exchanging nodes. Usually you shouldn't see Id
 /// nodes since the getters/setters for node inputs skip them automatically.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Id(*mut bindings::ir_node);
 
 impl Id {
@@ -1899,9 +2097,10 @@ impl Id {
     /// Sets the value which is returned unchanged.
     pub fn set_pred(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Id_pred(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Id_pred(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Id {
@@ -1917,7 +2116,7 @@ impl NodeTrait for Id {
 }
 
 /// Jumps to the block connected through the out-value
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Jmp(*mut bindings::ir_node);
 
 impl Jmp {
@@ -1927,7 +2126,6 @@ impl Jmp {
         }
         Jmp(ir_node)
     }
-
 }
 
 impl Into<Node> for Jmp {
@@ -1943,7 +2141,7 @@ impl NodeTrait for Jmp {
 }
 
 /// Loads a value from memory (heap or stack).
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Load(*mut bindings::ir_node);
 
 impl Load {
@@ -1963,7 +2161,9 @@ impl Load {
     /// Sets memory dependency.
     pub fn set_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Load_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Load_mem(self.0, unwrapped);
+        }
     }
 
     /// Gets address to load from.
@@ -1975,7 +2175,9 @@ impl Load {
     /// Sets address to load from.
     pub fn set_ptr(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Load_ptr(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Load_ptr(self.0, unwrapped);
+        }
     }
 
     /// Gets mode of the value to be loaded.
@@ -1987,19 +2189,25 @@ impl Load {
     /// Sets mode of the value to be loaded.
     pub fn set_mode(&self, val: *mut bindings::ir_mode) {
         let unwrapped = val;
-        unsafe { bindings::set_Load_mode(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Load_mode(self.0, unwrapped);
+        }
     }
 
-    /// Gets The type of the object which is stored at ptr (need not match with mode).
+    /// Gets The type of the object which is stored at ptr (need not match with
+    /// mode).
     pub fn ty(&self) -> *mut bindings::ir_type {
         let unwrapped = unsafe { bindings::get_Load_type(self.0) };
         unwrapped
     }
 
-    /// Sets The type of the object which is stored at ptr (need not match with mode).
+    /// Sets The type of the object which is stored at ptr (need not match with
+    /// mode).
     pub fn set_ty(&self, val: *mut bindings::ir_type) {
         let unwrapped = val;
-        unsafe { bindings::set_Load_type(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Load_type(self.0, unwrapped);
+        }
     }
 
     /// Gets volatile loads are a visible side-effect and may not be optimized.
@@ -2011,41 +2219,86 @@ impl Load {
     /// Sets volatile loads are a visible side-effect and may not be optimized.
     pub fn set_volatility(&self, val: bindings::ir_volatility::Type) {
         let unwrapped = val;
-        unsafe { bindings::set_Load_volatility(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Load_volatility(self.0, unwrapped);
+        }
     }
 
-    /// Gets pointers to unaligned loads don't need to respect the load-mode/type alignments.
+    /// Gets pointers to unaligned loads don't need to respect the
+    /// load-mode/type alignments.
     pub fn unaligned(&self) -> bindings::ir_align::Type {
         let unwrapped = unsafe { bindings::get_Load_unaligned(self.0) };
         unwrapped
     }
 
-    /// Sets pointers to unaligned loads don't need to respect the load-mode/type alignments.
+    /// Sets pointers to unaligned loads don't need to respect the
+    /// load-mode/type alignments.
     pub fn set_unaligned(&self, val: bindings::ir_align::Type) {
         let unwrapped = val;
-        unsafe { bindings::set_Load_unaligned(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Load_unaligned(self.0, unwrapped);
+        }
     }
 
     /// memory result.
-    pub fn proj_m(&self) -> Proj {
+    pub fn new_proj_m(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
     }
 
     /// result of load operation.
-    pub fn proj_res(&self, mode: bindings::mode::Type) -> Proj {
+    pub fn new_proj_res(&self, mode: bindings::mode::Type) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
     }
 
     /// control flow when no exception occurs.
-    pub fn proj_x_regular(&self) -> Proj {
+    pub fn new_proj_x_regular(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 2) })
     }
 
     /// control flow when exception occurred.
-    pub fn proj_x_except(&self) -> Proj {
+    pub fn new_proj_x_except(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 3) })
     }
 
+    /// memory result.
+    pub fn out_proj_m(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Load_M(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// result of load operation.
+    pub fn out_proj_res(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Load_Res(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow when no exception occurs.
+    pub fn out_proj_x_regular(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Load_XRegular(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow when exception occurred.
+    pub fn out_proj_x_except(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Load_XExcept(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
 }
 
 impl Into<Node> for Load {
@@ -2064,7 +2317,7 @@ impl NodeTrait for Load {
 /// of an instance of the compound type.
 ///
 /// A Member node must only produce a NULL pointer if the ptr input is NULL.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Member(*mut bindings::ir_node);
 
 impl Member {
@@ -2084,7 +2337,9 @@ impl Member {
     /// Sets pointer to object to select from.
     pub fn set_ptr(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Member_ptr(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Member_ptr(self.0, unwrapped);
+        }
     }
 
     /// Gets entity which is selected.
@@ -2096,9 +2351,10 @@ impl Member {
     /// Sets entity which is selected.
     pub fn set_entity(&self, val: *mut bindings::ir_entity) {
         let unwrapped = val;
-        unsafe { bindings::set_Member_entity(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Member_entity(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Member {
@@ -2114,7 +2370,7 @@ impl NodeTrait for Member {
 }
 
 /// returns the additive inverse of its operand
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Minus(*mut bindings::ir_node);
 
 impl Minus {
@@ -2134,9 +2390,10 @@ impl Minus {
     /// Sets operand.
     pub fn set_op(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Minus_op(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Minus_op(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Minus {
@@ -2159,7 +2416,7 @@ impl NodeTrait for Minus {
 /// * mod(5,-3)  produces 2
 /// * mod(-5,3)  produces -2
 /// * mod(-5,-3) produces -2
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Mod(*mut bindings::ir_node);
 
 impl Mod {
@@ -2179,7 +2436,9 @@ impl Mod {
     /// Sets memory dependency.
     pub fn set_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Mod_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Mod_mem(self.0, unwrapped);
+        }
     }
 
     /// Gets first operand.
@@ -2191,7 +2450,9 @@ impl Mod {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Mod_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Mod_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -2203,7 +2464,9 @@ impl Mod {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Mod_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Mod_right(self.0, unwrapped);
+        }
     }
 
     /// Gets mode of the result.
@@ -2215,29 +2478,70 @@ impl Mod {
     /// Sets mode of the result.
     pub fn set_resmode(&self, val: *mut bindings::ir_mode) {
         let unwrapped = val;
-        unsafe { bindings::set_Mod_resmode(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Mod_resmode(self.0, unwrapped);
+        }
     }
 
     /// memory result.
-    pub fn proj_m(&self) -> Proj {
+    pub fn new_proj_m(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
     }
 
     /// result of computation.
-    pub fn proj_res(&self, mode: bindings::mode::Type) -> Proj {
+    pub fn new_proj_res(&self, mode: bindings::mode::Type) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
     }
 
     /// control flow when no exception occurs.
-    pub fn proj_x_regular(&self) -> Proj {
+    pub fn new_proj_x_regular(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 2) })
     }
 
     /// control flow when exception occurred.
-    pub fn proj_x_except(&self) -> Proj {
+    pub fn new_proj_x_except(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 3) })
     }
 
+    /// memory result.
+    pub fn out_proj_m(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Mod_M(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// result of computation.
+    pub fn out_proj_res(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Mod_Res(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow when no exception occurs.
+    pub fn out_proj_x_regular(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Mod_XRegular(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow when exception occurred.
+    pub fn out_proj_x_except(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Mod_XExcept(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
 }
 
 impl Into<Node> for Mod {
@@ -2253,7 +2557,7 @@ impl NodeTrait for Mod {
 }
 
 /// returns the product of its operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Mul(*mut bindings::ir_node);
 
 impl Mul {
@@ -2273,7 +2577,9 @@ impl Mul {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Mul_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Mul_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -2285,9 +2591,10 @@ impl Mul {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Mul_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Mul_right(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Mul {
@@ -2304,7 +2611,7 @@ impl NodeTrait for Mul {
 
 /// returns the upper word of the product of its operands (the part which
 /// would not fit into the result mode of a normal Mul anymore)
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Mulh(*mut bindings::ir_node);
 
 impl Mulh {
@@ -2324,7 +2631,9 @@ impl Mulh {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Mulh_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Mulh_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -2336,9 +2645,10 @@ impl Mulh {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Mulh_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Mulh_right(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Mulh {
@@ -2355,7 +2665,7 @@ impl NodeTrait for Mulh {
 
 /// returns the false or true operand depending on the value of the sel
 /// operand
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Mux(*mut bindings::ir_node);
 
 impl Mux {
@@ -2375,7 +2685,9 @@ impl Mux {
     /// Sets value making the output selection.
     pub fn set_sel(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Mux_sel(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Mux_sel(self.0, unwrapped);
+        }
     }
 
     /// Gets selected if sel input is false.
@@ -2387,7 +2699,9 @@ impl Mux {
     /// Sets selected if sel input is false.
     pub fn set_false_(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Mux_false(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Mux_false(self.0, unwrapped);
+        }
     }
 
     /// Gets selected if sel input is true.
@@ -2399,9 +2713,10 @@ impl Mux {
     /// Sets selected if sel input is true.
     pub fn set_true_(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Mux_true(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Mux_true(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Mux {
@@ -2417,7 +2732,7 @@ impl NodeTrait for Mux {
 }
 
 /// Placeholder node for cases where you don't need any memory input
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct NoMem(*mut bindings::ir_node);
 
 impl NoMem {
@@ -2427,7 +2742,6 @@ impl NoMem {
         }
         NoMem(ir_node)
     }
-
 }
 
 impl Into<Node> for NoMem {
@@ -2443,7 +2757,7 @@ impl NodeTrait for NoMem {
 }
 
 /// returns the bitwise complement of a value. Works for boolean values, too.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Not(*mut bindings::ir_node);
 
 impl Not {
@@ -2463,9 +2777,10 @@ impl Not {
     /// Sets operand.
     pub fn set_op(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Not_op(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Not_op(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Not {
@@ -2481,7 +2796,7 @@ impl NodeTrait for Not {
 }
 
 /// Symbolic constant that represents the offset of an entity in its owner type.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Offset(*mut bindings::ir_node);
 
 impl Offset {
@@ -2491,7 +2806,6 @@ impl Offset {
         }
         Offset(ir_node)
     }
-
 }
 
 impl Into<Node> for Offset {
@@ -2507,7 +2821,7 @@ impl NodeTrait for Offset {
 }
 
 /// returns the result of a bitwise or operation of its operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Or(*mut bindings::ir_node);
 
 impl Or {
@@ -2527,7 +2841,9 @@ impl Or {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Or_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Or_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -2539,9 +2855,10 @@ impl Or {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Or_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Or_right(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Or {
@@ -2559,7 +2876,7 @@ impl NodeTrait for Or {
 /// Choose a value based on control flow. A phi node has 1 input for each
 /// predecessor of its block. If a block is entered from its nth predecessor
 /// all phi nodes produce their nth input as result.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Phi(*mut bindings::ir_node);
 
 impl Phi {
@@ -2570,18 +2887,21 @@ impl Phi {
         Phi(ir_node)
     }
 
-    /// Gets whether Phi represents the observable effect of a (possibly) nonterminating loop.
+    /// Gets whether Phi represents the observable effect of a (possibly)
+    /// nonterminating loop.
     pub fn loop_(&self) -> i32 {
         let unwrapped = unsafe { bindings::get_Phi_loop(self.0) };
         unwrapped
     }
 
-    /// Sets whether Phi represents the observable effect of a (possibly) nonterminating loop.
+    /// Sets whether Phi represents the observable effect of a (possibly)
+    /// nonterminating loop.
     pub fn set_loop_(&self, val: i32) {
         let unwrapped = val;
-        unsafe { bindings::set_Phi_loop(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Phi_loop(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Phi {
@@ -2599,7 +2919,7 @@ impl NodeTrait for Phi {
 /// Pin the value of the node node in the current block. No users of the Pin
 /// node can float above the Block of the Pin. The node cannot float behind
 /// this block. Often used to Pin the NoMem node.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Pin(*mut bindings::ir_node);
 
 impl Pin {
@@ -2619,9 +2939,10 @@ impl Pin {
     /// Sets value which is pinned.
     pub fn set_op(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Pin_op(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Pin_op(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Pin {
@@ -2637,7 +2958,7 @@ impl NodeTrait for Pin {
 }
 
 /// returns an entry of a tuple value
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Proj(*mut bindings::ir_node);
 
 impl Proj {
@@ -2657,7 +2978,9 @@ impl Proj {
     /// Sets the tuple value from which a part is extracted.
     pub fn set_pred(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Proj_pred(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Proj_pred(self.0, unwrapped);
+        }
     }
 
     /// Gets number of tuple component to be extracted.
@@ -2669,9 +2992,10 @@ impl Proj {
     /// Sets number of tuple component to be extracted.
     pub fn set_num(&self, val: ::std::os::raw::c_uint) {
         let unwrapped = val;
-        unsafe { bindings::set_Proj_num(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Proj_num(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Proj {
@@ -2689,7 +3013,7 @@ impl NodeTrait for Proj {
 /// Raises an exception. Unconditional change of control flow. Writes an
 /// explicit Except variable to memory to pass it to the exception handler.
 /// Must be lowered to a Call to a runtime check function.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Raise(*mut bindings::ir_node);
 
 impl Raise {
@@ -2709,7 +3033,9 @@ impl Raise {
     /// Sets memory dependency.
     pub fn set_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Raise_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Raise_mem(self.0, unwrapped);
+        }
     }
 
     /// Gets pointer to exception object to be thrown.
@@ -2721,19 +3047,40 @@ impl Raise {
     /// Sets pointer to exception object to be thrown.
     pub fn set_exo_ptr(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Raise_exo_ptr(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Raise_exo_ptr(self.0, unwrapped);
+        }
     }
 
     /// memory result.
-    pub fn proj_m(&self) -> Proj {
+    pub fn new_proj_m(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
     }
 
     /// control flow to exception handler.
-    pub fn proj_x(&self) -> Proj {
+    pub fn new_proj_x(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 1) })
     }
 
+    /// memory result.
+    pub fn out_proj_m(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Raise_M(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow to exception handler.
+    pub fn out_proj_x(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Raise_X(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
 }
 
 impl Into<Node> for Raise {
@@ -2750,7 +3097,7 @@ impl NodeTrait for Raise {
 
 /// Returns from the current function. Takes memory and return values as
 /// operands.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Return(*mut bindings::ir_node);
 
 impl Return {
@@ -2770,9 +3117,10 @@ impl Return {
     /// Sets memory dependency.
     pub fn set_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Return_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Return_mem(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Return {
@@ -2791,7 +3139,7 @@ impl NodeTrait for Return {
 /// an index.
 ///
 /// A Sel node must only produce a NULL pointer if the ptr input is NULL.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Sel(*mut bindings::ir_node);
 
 impl Sel {
@@ -2811,7 +3159,9 @@ impl Sel {
     /// Sets pointer to array to select from.
     pub fn set_ptr(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Sel_ptr(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Sel_ptr(self.0, unwrapped);
+        }
     }
 
     /// Gets index to select.
@@ -2823,7 +3173,9 @@ impl Sel {
     /// Sets index to select.
     pub fn set_index(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Sel_index(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Sel_index(self.0, unwrapped);
+        }
     }
 
     /// Gets array type.
@@ -2835,9 +3187,10 @@ impl Sel {
     /// Sets array type.
     pub fn set_ty(&self, val: *mut bindings::ir_type) {
         let unwrapped = val;
-        unsafe { bindings::set_Sel_type(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Sel_type(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Sel {
@@ -2857,7 +3210,7 @@ impl NodeTrait for Sel {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Shl(*mut bindings::ir_node);
 
 impl Shl {
@@ -2877,7 +3230,9 @@ impl Shl {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Shl_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Shl_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -2889,9 +3244,10 @@ impl Shl {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Shl_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Shl_right(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Shl {
@@ -2911,7 +3267,7 @@ impl NodeTrait for Shl {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Shr(*mut bindings::ir_node);
 
 impl Shr {
@@ -2931,7 +3287,9 @@ impl Shr {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Shr_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Shr_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -2943,9 +3301,10 @@ impl Shr {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Shr_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Shr_right(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Shr {
@@ -2966,7 +3325,7 @@ impl NodeTrait for Shr {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Shrs(*mut bindings::ir_node);
 
 impl Shrs {
@@ -2986,7 +3345,9 @@ impl Shrs {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Shrs_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Shrs_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -2998,9 +3359,10 @@ impl Shrs {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Shrs_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Shrs_right(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Shrs {
@@ -3016,7 +3378,7 @@ impl NodeTrait for Shrs {
 }
 
 /// A symbolic constant that represents the size of a type
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Size(*mut bindings::ir_node);
 
 impl Size {
@@ -3026,7 +3388,6 @@ impl Size {
         }
         Size(ir_node)
     }
-
 }
 
 impl Into<Node> for Size {
@@ -3042,7 +3403,7 @@ impl NodeTrait for Size {
 }
 
 /// The first node of a graph. Execution starts with this node.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Start(*mut bindings::ir_node);
 
 impl Start {
@@ -3054,20 +3415,49 @@ impl Start {
     }
 
     /// initial memory.
-    pub fn proj_m(&self) -> Proj {
+    pub fn new_proj_m(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
     }
 
     /// frame base pointer.
-    pub fn proj_p_frame_base(&self, mode: bindings::mode::Type) -> Proj {
+    pub fn new_proj_p_frame_base(&self, mode: bindings::mode::Type) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
     }
 
     /// function arguments.
-    pub fn proj_t_args(&self) -> Proj {
+    pub fn new_proj_t_args(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::T, 2) })
     }
 
+    /// initial memory.
+    pub fn out_proj_m(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Start_M(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// frame base pointer.
+    pub fn out_proj_p_frame_base(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Start_PFrameBase(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// function arguments.
+    pub fn out_proj_t_args(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Start_TArgs(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
 }
 
 impl Into<Node> for Start {
@@ -3083,7 +3473,7 @@ impl NodeTrait for Start {
 }
 
 /// Stores a value into memory (heap or stack).
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Store(*mut bindings::ir_node);
 
 impl Store {
@@ -3103,7 +3493,9 @@ impl Store {
     /// Sets memory dependency.
     pub fn set_mem(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Store_mem(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Store_mem(self.0, unwrapped);
+        }
     }
 
     /// Gets address to store to.
@@ -3115,7 +3507,9 @@ impl Store {
     /// Sets address to store to.
     pub fn set_ptr(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Store_ptr(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Store_ptr(self.0, unwrapped);
+        }
     }
 
     /// Gets value to store.
@@ -3127,19 +3521,25 @@ impl Store {
     /// Sets value to store.
     pub fn set_value(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Store_value(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Store_value(self.0, unwrapped);
+        }
     }
 
-    /// Gets The type of the object which is stored at ptr (need not match with value's type).
+    /// Gets The type of the object which is stored at ptr (need not match with
+    /// value's type).
     pub fn ty(&self) -> *mut bindings::ir_type {
         let unwrapped = unsafe { bindings::get_Store_type(self.0) };
         unwrapped
     }
 
-    /// Sets The type of the object which is stored at ptr (need not match with value's type).
+    /// Sets The type of the object which is stored at ptr (need not match with
+    /// value's type).
     pub fn set_ty(&self, val: *mut bindings::ir_type) {
         let unwrapped = val;
-        unsafe { bindings::set_Store_type(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Store_type(self.0, unwrapped);
+        }
     }
 
     /// Gets volatile stores are a visible side-effect and may not be optimized.
@@ -3151,36 +3551,71 @@ impl Store {
     /// Sets volatile stores are a visible side-effect and may not be optimized.
     pub fn set_volatility(&self, val: bindings::ir_volatility::Type) {
         let unwrapped = val;
-        unsafe { bindings::set_Store_volatility(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Store_volatility(self.0, unwrapped);
+        }
     }
 
-    /// Gets pointers to unaligned stores don't need to respect the load-mode/type alignments.
+    /// Gets pointers to unaligned stores don't need to respect the
+    /// load-mode/type alignments.
     pub fn unaligned(&self) -> bindings::ir_align::Type {
         let unwrapped = unsafe { bindings::get_Store_unaligned(self.0) };
         unwrapped
     }
 
-    /// Sets pointers to unaligned stores don't need to respect the load-mode/type alignments.
+    /// Sets pointers to unaligned stores don't need to respect the
+    /// load-mode/type alignments.
     pub fn set_unaligned(&self, val: bindings::ir_align::Type) {
         let unwrapped = val;
-        unsafe { bindings::set_Store_unaligned(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Store_unaligned(self.0, unwrapped);
+        }
     }
 
     /// memory result.
-    pub fn proj_m(&self) -> Proj {
+    pub fn new_proj_m(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::M, 0) })
     }
 
     /// control flow when no exception occurs.
-    pub fn proj_x_regular(&self) -> Proj {
+    pub fn new_proj_x_regular(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 1) })
     }
 
     /// control flow when exception occurred.
-    pub fn proj_x_except(&self) -> Proj {
+    pub fn new_proj_x_except(&self) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, bindings::mode::X, 2) })
     }
 
+    /// memory result.
+    pub fn out_proj_m(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Store_M(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow when no exception occurs.
+    pub fn out_proj_x_regular(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Store_XRegular(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
+
+    /// control flow when exception occurred.
+    pub fn out_proj_x_except(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Store_XExcept(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
 }
 
 impl Into<Node> for Store {
@@ -3196,7 +3631,7 @@ impl NodeTrait for Store {
 }
 
 /// returns the difference of its operands
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Sub(*mut bindings::ir_node);
 
 impl Sub {
@@ -3216,7 +3651,9 @@ impl Sub {
     /// Sets first operand.
     pub fn set_left(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Sub_left(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Sub_left(self.0, unwrapped);
+        }
     }
 
     /// Gets second operand.
@@ -3228,9 +3665,10 @@ impl Sub {
     /// Sets second operand.
     pub fn set_right(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Sub_right(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Sub_right(self.0, unwrapped);
+        }
     }
-
 }
 
 impl Into<Node> for Sub {
@@ -3249,7 +3687,7 @@ impl NodeTrait for Sub {
 /// input value which is looked up in a table.
 ///
 /// Backends can implement this efficiently using a jump table.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Switch(*mut bindings::ir_node);
 
 impl Switch {
@@ -3269,7 +3707,9 @@ impl Switch {
     /// Sets input selector.
     pub fn set_selector(&self, val: &'_ Node) {
         let unwrapped = val.internal_ir_node();
-        unsafe { bindings::set_Switch_selector(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Switch_selector(self.0, unwrapped);
+        }
     }
 
     /// Gets number of outputs (including pn_Switch_default).
@@ -3281,7 +3721,9 @@ impl Switch {
     /// Sets number of outputs (including pn_Switch_default).
     pub fn set_n_outs(&self, val: ::std::os::raw::c_uint) {
         let unwrapped = val;
-        unsafe { bindings::set_Switch_n_outs(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Switch_n_outs(self.0, unwrapped);
+        }
     }
 
     /// Gets table describing mapping from input values to Proj numbers.
@@ -3293,14 +3735,25 @@ impl Switch {
     /// Sets table describing mapping from input values to Proj numbers.
     pub fn set_table(&self, val: *mut bindings::ir_switch_table) {
         let unwrapped = val;
-        unsafe { bindings::set_Switch_table(self.0, unwrapped); }
+        unsafe {
+            bindings::set_Switch_table(self.0, unwrapped);
+        }
     }
 
     /// control flow if no other case matches.
-    pub fn proj_default(&self, mode: bindings::mode::Type) -> Proj {
+    pub fn new_proj_default(&self, mode: bindings::mode::Type) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 0) })
     }
 
+    /// control flow if no other case matches.
+    pub fn out_proj_default(&self) -> Option<Proj> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Switch_Default(_)) = out_node {
+                return Some(proj);
+            }
+        }
+        None
+    }
 }
 
 impl Into<Node> for Switch {
@@ -3320,7 +3773,7 @@ impl NodeTrait for Switch {
 /// be identical.  This operation allows to specify all operations that
 /// eventually need several partial memory blocks as input with a single
 /// entrance by unifying the memories with a preceding Sync operation.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Sync(*mut bindings::ir_node);
 
 impl Sync {
@@ -3330,7 +3783,6 @@ impl Sync {
         }
         Sync(ir_node)
     }
-
 }
 
 impl Into<Node> for Sync {
@@ -3353,7 +3805,7 @@ impl NodeTrait for Sync {
 /// the implementation with pointers in only one direction.) The Tuple node is
 /// smaller than any other node, so that a node can be changed into a Tuple by
 /// just changing its opcode and giving it a new in array.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Tuple(*mut bindings::ir_node);
 
 impl Tuple {
@@ -3363,7 +3815,6 @@ impl Tuple {
         }
         Tuple(ir_node)
     }
-
 }
 
 impl Into<Node> for Tuple {
@@ -3384,7 +3835,7 @@ impl NodeTrait for Tuple {
 /// Be careful when optimising Unknown values, you cannot simply replace
 /// Unknown+x or Unknown<x with a new Unknown node if there are multiple
 /// users of the original unknown node!
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Unknown(*mut bindings::ir_node);
 
 impl Unknown {
@@ -3394,7 +3845,6 @@ impl Unknown {
         }
         Unknown(ir_node)
     }
-
 }
 
 impl Into<Node> for Unknown {
@@ -3415,7 +3865,13 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_add(&self, block: &'_ Block, irn_left: &'_ Node, irn_right: &'_ Node) -> Add {
-        let ir_node = unsafe { bindings::new_r_Add(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Add(
+                block.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Add::new(ir_node)
     }
 
@@ -3439,8 +3895,21 @@ impl Graph {
     /// * `irn_mem` mem
     /// * `irn_size` size
     /// * `alignment` alignment of the memory block (must be a power of 2)
-    pub fn new_alloc(&self, block: &'_ Block, irn_mem: &'_ Node, irn_size: &'_ Node, alignment: ::std::os::raw::c_uint) -> Alloc {
-        let ir_node = unsafe { bindings::new_r_Alloc(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_size.internal_ir_node(), alignment) };
+    pub fn new_alloc(
+        &self,
+        block: &'_ Block,
+        irn_mem: &'_ Node,
+        irn_size: &'_ Node,
+        alignment: ::std::os::raw::c_uint,
+    ) -> Alloc {
+        let ir_node = unsafe {
+            bindings::new_r_Alloc(
+                block.internal_ir_node(),
+                irn_mem.internal_ir_node(),
+                irn_size.internal_ir_node(),
+                alignment,
+            )
+        };
         Alloc::new(ir_node)
     }
 
@@ -3449,7 +3918,13 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_and(&self, block: &'_ Block, irn_left: &'_ Node, irn_right: &'_ Node) -> And {
-        let ir_node = unsafe { bindings::new_r_And(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_And(
+                block.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         And::new(ir_node)
     }
 
@@ -3464,8 +3939,15 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_op` op
     /// * `mode` mode of the operations result
-    pub fn new_bitcast(&self, block: &'_ Block, irn_op: &'_ Node, mode: *mut bindings::ir_mode) -> Bitcast {
-        let ir_node = unsafe { bindings::new_r_Bitcast(block.internal_ir_node(), irn_op.internal_ir_node(), mode) };
+    pub fn new_bitcast(
+        &self,
+        block: &'_ Block,
+        irn_op: &'_ Node,
+        mode: *mut bindings::ir_mode,
+    ) -> Bitcast {
+        let ir_node = unsafe {
+            bindings::new_r_Bitcast(block.internal_ir_node(), irn_op.internal_ir_node(), mode)
+        };
         Bitcast::new(ir_node)
     }
 
@@ -3483,9 +3965,25 @@ impl Graph {
     /// * `in_` additional inputs
     /// * `kind` kind of builtin
     /// * `ty` method type for the builtin call
-    pub fn new_builtin(&self, block: &'_ Block, irn_mem: &'_ Node, in_: Vec<Node>, kind: bindings::ir_builtin_kind::Type, ty: *mut bindings::ir_type) -> Builtin {
+    pub fn new_builtin(
+        &self,
+        block: &'_ Block,
+        irn_mem: &'_ Node,
+        in_: Vec<Node>,
+        kind: bindings::ir_builtin_kind::Type,
+        ty: *mut bindings::ir_type,
+    ) -> Builtin {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
-        let ir_node = unsafe { bindings::new_r_Builtin(block.internal_ir_node(), irn_mem.internal_ir_node(), in_.len() as i32, in_.as_ptr(), kind, ty) };
+        let ir_node = unsafe {
+            bindings::new_r_Builtin(
+                block.internal_ir_node(),
+                irn_mem.internal_ir_node(),
+                in_.len() as i32,
+                in_.as_ptr(),
+                kind,
+                ty,
+            )
+        };
         Builtin::new(ir_node)
     }
 
@@ -3495,9 +3993,25 @@ impl Graph {
     /// * `irn_ptr` ptr
     /// * `in_` additional inputs
     /// * `ty` type of the call (usually type of the called procedure)
-    pub fn new_call(&self, block: &'_ Block, irn_mem: &'_ Node, irn_ptr: &'_ Node, in_: Vec<Node>, ty: *mut bindings::ir_type) -> Call {
+    pub fn new_call(
+        &self,
+        block: &'_ Block,
+        irn_mem: &'_ Node,
+        irn_ptr: &'_ Node,
+        in_: Vec<Node>,
+        ty: *mut bindings::ir_type,
+    ) -> Call {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
-        let ir_node = unsafe { bindings::new_r_Call(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), in_.len() as i32, in_.as_ptr(), ty) };
+        let ir_node = unsafe {
+            bindings::new_r_Call(
+                block.internal_ir_node(),
+                irn_mem.internal_ir_node(),
+                irn_ptr.internal_ir_node(),
+                in_.len() as i32,
+                in_.as_ptr(),
+                ty,
+            )
+        };
         Call::new(ir_node)
     }
 
@@ -3506,8 +4020,21 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     /// * `relation` Comparison relation
-    pub fn new_cmp(&self, block: &'_ Block, irn_left: &'_ Node, irn_right: &'_ Node, relation: bindings::ir_relation::Type) -> Cmp {
-        let ir_node = unsafe { bindings::new_r_Cmp(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node(), relation) };
+    pub fn new_cmp(
+        &self,
+        block: &'_ Block,
+        irn_left: &'_ Node,
+        irn_right: &'_ Node,
+        relation: bindings::ir_relation::Type,
+    ) -> Cmp {
+        let ir_node = unsafe {
+            bindings::new_r_Cmp(
+                block.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+                relation,
+            )
+        };
         Cmp::new(ir_node)
     }
 
@@ -3515,7 +4042,9 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_selector` selector
     pub fn new_cond(&self, block: &'_ Block, irn_selector: &'_ Node) -> Cond {
-        let ir_node = unsafe { bindings::new_r_Cond(block.internal_ir_node(), irn_selector.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Cond(block.internal_ir_node(), irn_selector.internal_ir_node())
+        };
         Cond::new(ir_node)
     }
 
@@ -3524,8 +4053,21 @@ impl Graph {
     /// * `irn_value` value
     /// * `irn_bound` bound
     /// * `relation` relation of value to bound
-    pub fn new_confirm(&self, block: &'_ Block, irn_value: &'_ Node, irn_bound: &'_ Node, relation: bindings::ir_relation::Type) -> Confirm {
-        let ir_node = unsafe { bindings::new_r_Confirm(block.internal_ir_node(), irn_value.internal_ir_node(), irn_bound.internal_ir_node(), relation) };
+    pub fn new_confirm(
+        &self,
+        block: &'_ Block,
+        irn_value: &'_ Node,
+        irn_bound: &'_ Node,
+        relation: bindings::ir_relation::Type,
+    ) -> Confirm {
+        let ir_node = unsafe {
+            bindings::new_r_Confirm(
+                block.internal_ir_node(),
+                irn_value.internal_ir_node(),
+                irn_bound.internal_ir_node(),
+                relation,
+            )
+        };
         Confirm::new(ir_node)
     }
 
@@ -3540,8 +4082,15 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_op` op
     /// * `mode` mode of the operations result
-    pub fn new_conv(&self, block: &'_ Block, irn_op: &'_ Node, mode: *mut bindings::ir_mode) -> Conv {
-        let ir_node = unsafe { bindings::new_r_Conv(block.internal_ir_node(), irn_op.internal_ir_node(), mode) };
+    pub fn new_conv(
+        &self,
+        block: &'_ Block,
+        irn_op: &'_ Node,
+        mode: *mut bindings::ir_mode,
+    ) -> Conv {
+        let ir_node = unsafe {
+            bindings::new_r_Conv(block.internal_ir_node(), irn_op.internal_ir_node(), mode)
+        };
         Conv::new(ir_node)
     }
 
@@ -3552,8 +4101,25 @@ impl Graph {
     /// * `irn_src` src
     /// * `ty` type of copied data
     /// * `flags` specifies volatility
-    pub fn new_copyb(&self, block: &'_ Block, irn_mem: &'_ Node, irn_dst: &'_ Node, irn_src: &'_ Node, ty: *mut bindings::ir_type, flags: bindings::ir_cons_flags::Type) -> CopyB {
-        let ir_node = unsafe { bindings::new_r_CopyB(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_dst.internal_ir_node(), irn_src.internal_ir_node(), ty, flags) };
+    pub fn new_copyb(
+        &self,
+        block: &'_ Block,
+        irn_mem: &'_ Node,
+        irn_dst: &'_ Node,
+        irn_src: &'_ Node,
+        ty: *mut bindings::ir_type,
+        flags: bindings::ir_cons_flags::Type,
+    ) -> CopyB {
+        let ir_node = unsafe {
+            bindings::new_r_CopyB(
+                block.internal_ir_node(),
+                irn_mem.internal_ir_node(),
+                irn_dst.internal_ir_node(),
+                irn_src.internal_ir_node(),
+                ty,
+                flags,
+            )
+        };
         CopyB::new(ir_node)
     }
 
@@ -3563,8 +4129,23 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     /// * `pinned` pinned state
-    pub fn new_div(&self, block: &'_ Block, irn_mem: &'_ Node, irn_left: &'_ Node, irn_right: &'_ Node, pinned: i32) -> Div {
-        let ir_node = unsafe { bindings::new_r_Div(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node(), pinned) };
+    pub fn new_div(
+        &self,
+        block: &'_ Block,
+        irn_mem: &'_ Node,
+        irn_left: &'_ Node,
+        irn_right: &'_ Node,
+        pinned: i32,
+    ) -> Div {
+        let ir_node = unsafe {
+            bindings::new_r_Div(
+                block.internal_ir_node(),
+                irn_mem.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+                pinned,
+            )
+        };
         Div::new(ir_node)
     }
 
@@ -3588,7 +4169,13 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_eor(&self, block: &'_ Block, irn_left: &'_ Node, irn_right: &'_ Node) -> Eor {
-        let ir_node = unsafe { bindings::new_r_Eor(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Eor(
+                block.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Eor::new(ir_node)
     }
 
@@ -3597,7 +4184,13 @@ impl Graph {
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     pub fn new_free(&self, block: &'_ Block, irn_mem: &'_ Node, irn_ptr: &'_ Node) -> Free {
-        let ir_node = unsafe { bindings::new_r_Free(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_ptr.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Free(
+                block.internal_ir_node(),
+                irn_mem.internal_ir_node(),
+                irn_ptr.internal_ir_node(),
+            )
+        };
         Free::new(ir_node)
     }
 
@@ -3605,7 +4198,9 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_target` target
     pub fn new_ijmp(&self, block: &'_ Block, irn_target: &'_ Node) -> IJmp {
-        let ir_node = unsafe { bindings::new_r_IJmp(block.internal_ir_node(), irn_target.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_IJmp(block.internal_ir_node(), irn_target.internal_ir_node())
+        };
         IJmp::new(ir_node)
     }
 
@@ -3621,10 +4216,27 @@ impl Graph {
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     /// * `mode` mode of the value to be loaded
-    /// * `ty` The type of the object which is stored at ptr (need not match with mode)
-    /// * `flags` specifies alignment, volatility and pin state
-    pub fn new_load(&self, block: &'_ Block, irn_mem: &'_ Node, irn_ptr: &'_ Node, mode: *mut bindings::ir_mode, ty: *mut bindings::ir_type, flags: bindings::ir_cons_flags::Type) -> Load {
-        let ir_node = unsafe { bindings::new_r_Load(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), mode, ty, flags) };
+    /// * `ty` The type of the object which is stored at ptr (need not match
+    /// with mode) * `flags` specifies alignment, volatility and pin state
+    pub fn new_load(
+        &self,
+        block: &'_ Block,
+        irn_mem: &'_ Node,
+        irn_ptr: &'_ Node,
+        mode: *mut bindings::ir_mode,
+        ty: *mut bindings::ir_type,
+        flags: bindings::ir_cons_flags::Type,
+    ) -> Load {
+        let ir_node = unsafe {
+            bindings::new_r_Load(
+                block.internal_ir_node(),
+                irn_mem.internal_ir_node(),
+                irn_ptr.internal_ir_node(),
+                mode,
+                ty,
+                flags,
+            )
+        };
         Load::new(ir_node)
     }
 
@@ -3632,8 +4244,15 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_ptr` ptr
     /// * `entity` entity which is selected
-    pub fn new_member(&self, block: &'_ Block, irn_ptr: &'_ Node, entity: *mut bindings::ir_entity) -> Member {
-        let ir_node = unsafe { bindings::new_r_Member(block.internal_ir_node(), irn_ptr.internal_ir_node(), entity) };
+    pub fn new_member(
+        &self,
+        block: &'_ Block,
+        irn_ptr: &'_ Node,
+        entity: *mut bindings::ir_entity,
+    ) -> Member {
+        let ir_node = unsafe {
+            bindings::new_r_Member(block.internal_ir_node(), irn_ptr.internal_ir_node(), entity)
+        };
         Member::new(ir_node)
     }
 
@@ -3641,7 +4260,8 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_op` op
     pub fn new_minus(&self, block: &'_ Block, irn_op: &'_ Node) -> Minus {
-        let ir_node = unsafe { bindings::new_r_Minus(block.internal_ir_node(), irn_op.internal_ir_node()) };
+        let ir_node =
+            unsafe { bindings::new_r_Minus(block.internal_ir_node(), irn_op.internal_ir_node()) };
         Minus::new(ir_node)
     }
 
@@ -3651,8 +4271,23 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     /// * `pinned` pinned state
-    pub fn new_mod(&self, block: &'_ Block, irn_mem: &'_ Node, irn_left: &'_ Node, irn_right: &'_ Node, pinned: i32) -> Mod {
-        let ir_node = unsafe { bindings::new_r_Mod(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node(), pinned) };
+    pub fn new_mod(
+        &self,
+        block: &'_ Block,
+        irn_mem: &'_ Node,
+        irn_left: &'_ Node,
+        irn_right: &'_ Node,
+        pinned: i32,
+    ) -> Mod {
+        let ir_node = unsafe {
+            bindings::new_r_Mod(
+                block.internal_ir_node(),
+                irn_mem.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+                pinned,
+            )
+        };
         Mod::new(ir_node)
     }
 
@@ -3661,7 +4296,13 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_mul(&self, block: &'_ Block, irn_left: &'_ Node, irn_right: &'_ Node) -> Mul {
-        let ir_node = unsafe { bindings::new_r_Mul(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Mul(
+                block.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Mul::new(ir_node)
     }
 
@@ -3670,7 +4311,13 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_mulh(&self, block: &'_ Block, irn_left: &'_ Node, irn_right: &'_ Node) -> Mulh {
-        let ir_node = unsafe { bindings::new_r_Mulh(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Mulh(
+                block.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Mulh::new(ir_node)
     }
 
@@ -3679,13 +4326,26 @@ impl Graph {
     /// * `irn_sel` sel
     /// * `irn_false` false
     /// * `irn_true` true
-    pub fn new_mux(&self, block: &'_ Block, irn_sel: &'_ Node, irn_false: &'_ Node, irn_true: &'_ Node) -> Mux {
-        let ir_node = unsafe { bindings::new_r_Mux(block.internal_ir_node(), irn_sel.internal_ir_node(), irn_false.internal_ir_node(), irn_true.internal_ir_node()) };
+    pub fn new_mux(
+        &self,
+        block: &'_ Block,
+        irn_sel: &'_ Node,
+        irn_false: &'_ Node,
+        irn_true: &'_ Node,
+    ) -> Mux {
+        let ir_node = unsafe {
+            bindings::new_r_Mux(
+                block.internal_ir_node(),
+                irn_sel.internal_ir_node(),
+                irn_false.internal_ir_node(),
+                irn_true.internal_ir_node(),
+            )
+        };
         Mux::new(ir_node)
     }
 
     /// Creates a new NoMem-node.
-    pub fn new_nomem(&self, ) -> NoMem {
+    pub fn new_nomem(&self) -> NoMem {
         let ir_node = unsafe { bindings::new_r_NoMem(self.irg) };
         NoMem::new(ir_node)
     }
@@ -3694,14 +4354,19 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_op` op
     pub fn new_not(&self, block: &'_ Block, irn_op: &'_ Node) -> Not {
-        let ir_node = unsafe { bindings::new_r_Not(block.internal_ir_node(), irn_op.internal_ir_node()) };
+        let ir_node =
+            unsafe { bindings::new_r_Not(block.internal_ir_node(), irn_op.internal_ir_node()) };
         Not::new(ir_node)
     }
 
     /// Creates a new Offset-node.
     /// * `mode` mode of the operations result
     /// * `entity` entity to operate on
-    pub fn new_offset(&self, mode: *mut bindings::ir_mode, entity: *mut bindings::ir_entity) -> Offset {
+    pub fn new_offset(
+        &self,
+        mode: *mut bindings::ir_mode,
+        entity: *mut bindings::ir_entity,
+    ) -> Offset {
         let ir_node = unsafe { bindings::new_r_Offset(self.irg, mode, entity) };
         Offset::new(ir_node)
     }
@@ -3711,7 +4376,13 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_or(&self, block: &'_ Block, irn_left: &'_ Node, irn_right: &'_ Node) -> Or {
-        let ir_node = unsafe { bindings::new_r_Or(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Or(
+                block.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Or::new(ir_node)
     }
 
@@ -3721,7 +4392,14 @@ impl Graph {
     /// * `mode` mode of the operations result
     pub fn new_phi(&self, block: &'_ Block, in_: Vec<Node>, mode: *mut bindings::ir_mode) -> Phi {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
-        let ir_node = unsafe { bindings::new_r_Phi(block.internal_ir_node(), in_.len() as i32, in_.as_ptr(), mode) };
+        let ir_node = unsafe {
+            bindings::new_r_Phi(
+                block.internal_ir_node(),
+                in_.len() as i32,
+                in_.as_ptr(),
+                mode,
+            )
+        };
         Phi::new(ir_node)
     }
 
@@ -3729,7 +4407,8 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_op` op
     pub fn new_pin(&self, block: &'_ Block, irn_op: &'_ Node) -> Pin {
-        let ir_node = unsafe { bindings::new_r_Pin(block.internal_ir_node(), irn_op.internal_ir_node()) };
+        let ir_node =
+            unsafe { bindings::new_r_Pin(block.internal_ir_node(), irn_op.internal_ir_node()) };
         Pin::new(ir_node)
     }
 
@@ -3737,7 +4416,12 @@ impl Graph {
     /// * `irn_pred` pred
     /// * `mode` mode of the operations result
     /// * `num` number of tuple component to be extracted
-    pub fn new_proj(&self, irn_pred: &'_ Node, mode: *mut bindings::ir_mode, num: ::std::os::raw::c_uint) -> Proj {
+    pub fn new_proj(
+        &self,
+        irn_pred: &'_ Node,
+        mode: *mut bindings::ir_mode,
+        num: ::std::os::raw::c_uint,
+    ) -> Proj {
         let ir_node = unsafe { bindings::new_r_Proj(irn_pred.internal_ir_node(), mode, num) };
         Proj::new(ir_node)
     }
@@ -3747,7 +4431,13 @@ impl Graph {
     /// * `irn_mem` mem
     /// * `irn_exo_ptr` exo_ptr
     pub fn new_raise(&self, block: &'_ Block, irn_mem: &'_ Node, irn_exo_ptr: &'_ Node) -> Raise {
-        let ir_node = unsafe { bindings::new_r_Raise(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_exo_ptr.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Raise(
+                block.internal_ir_node(),
+                irn_mem.internal_ir_node(),
+                irn_exo_ptr.internal_ir_node(),
+            )
+        };
         Raise::new(ir_node)
     }
 
@@ -3757,7 +4447,14 @@ impl Graph {
     /// * `in_` additional inputs
     pub fn new_return(&self, block: &'_ Block, irn_mem: &'_ Node, in_: Vec<Node>) -> Return {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
-        let ir_node = unsafe { bindings::new_r_Return(block.internal_ir_node(), irn_mem.internal_ir_node(), in_.len() as i32, in_.as_ptr()) };
+        let ir_node = unsafe {
+            bindings::new_r_Return(
+                block.internal_ir_node(),
+                irn_mem.internal_ir_node(),
+                in_.len() as i32,
+                in_.as_ptr(),
+            )
+        };
         Return::new(ir_node)
     }
 
@@ -3766,8 +4463,21 @@ impl Graph {
     /// * `irn_ptr` ptr
     /// * `irn_index` index
     /// * `ty` array type
-    pub fn new_sel(&self, block: &'_ Block, irn_ptr: &'_ Node, irn_index: &'_ Node, ty: *mut bindings::ir_type) -> Sel {
-        let ir_node = unsafe { bindings::new_r_Sel(block.internal_ir_node(), irn_ptr.internal_ir_node(), irn_index.internal_ir_node(), ty) };
+    pub fn new_sel(
+        &self,
+        block: &'_ Block,
+        irn_ptr: &'_ Node,
+        irn_index: &'_ Node,
+        ty: *mut bindings::ir_type,
+    ) -> Sel {
+        let ir_node = unsafe {
+            bindings::new_r_Sel(
+                block.internal_ir_node(),
+                irn_ptr.internal_ir_node(),
+                irn_index.internal_ir_node(),
+                ty,
+            )
+        };
         Sel::new(ir_node)
     }
 
@@ -3776,7 +4486,13 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_shl(&self, block: &'_ Block, irn_left: &'_ Node, irn_right: &'_ Node) -> Shl {
-        let ir_node = unsafe { bindings::new_r_Shl(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Shl(
+                block.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Shl::new(ir_node)
     }
 
@@ -3785,7 +4501,13 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_shr(&self, block: &'_ Block, irn_left: &'_ Node, irn_right: &'_ Node) -> Shr {
-        let ir_node = unsafe { bindings::new_r_Shr(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Shr(
+                block.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Shr::new(ir_node)
     }
 
@@ -3794,7 +4516,13 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_shrs(&self, block: &'_ Block, irn_left: &'_ Node, irn_right: &'_ Node) -> Shrs {
-        let ir_node = unsafe { bindings::new_r_Shrs(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Shrs(
+                block.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Shrs::new(ir_node)
     }
 
@@ -3807,7 +4535,7 @@ impl Graph {
     }
 
     /// Creates a new Start-node.
-    pub fn new_start(&self, ) -> Start {
+    pub fn new_start(&self) -> Start {
         let ir_node = unsafe { bindings::new_r_Start(self.irg) };
         Start::new(ir_node)
     }
@@ -3817,10 +4545,28 @@ impl Graph {
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     /// * `irn_value` value
-    /// * `ty` The type of the object which is stored at ptr (need not match with value's type)
-    /// * `flags` specifies alignment, volatility and pin state
-    pub fn new_store(&self, block: &'_ Block, irn_mem: &'_ Node, irn_ptr: &'_ Node, irn_value: &'_ Node, ty: *mut bindings::ir_type, flags: bindings::ir_cons_flags::Type) -> Store {
-        let ir_node = unsafe { bindings::new_r_Store(block.internal_ir_node(), irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), irn_value.internal_ir_node(), ty, flags) };
+    /// * `ty` The type of the object which is stored at ptr (need not match
+    /// with value's type) * `flags` specifies alignment, volatility and
+    /// pin state
+    pub fn new_store(
+        &self,
+        block: &'_ Block,
+        irn_mem: &'_ Node,
+        irn_ptr: &'_ Node,
+        irn_value: &'_ Node,
+        ty: *mut bindings::ir_type,
+        flags: bindings::ir_cons_flags::Type,
+    ) -> Store {
+        let ir_node = unsafe {
+            bindings::new_r_Store(
+                block.internal_ir_node(),
+                irn_mem.internal_ir_node(),
+                irn_ptr.internal_ir_node(),
+                irn_value.internal_ir_node(),
+                ty,
+                flags,
+            )
+        };
         Store::new(ir_node)
     }
 
@@ -3829,7 +4575,13 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_sub(&self, block: &'_ Block, irn_left: &'_ Node, irn_right: &'_ Node) -> Sub {
-        let ir_node = unsafe { bindings::new_r_Sub(block.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Sub(
+                block.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Sub::new(ir_node)
     }
 
@@ -3838,8 +4590,21 @@ impl Graph {
     /// * `irn_selector` selector
     /// * `n_outs` number of outputs (including pn_Switch_default)
     /// * `table` table describing mapping from input values to Proj numbers
-    pub fn new_switch(&self, block: &'_ Block, irn_selector: &'_ Node, n_outs: ::std::os::raw::c_uint, table: *mut bindings::ir_switch_table) -> Switch {
-        let ir_node = unsafe { bindings::new_r_Switch(block.internal_ir_node(), irn_selector.internal_ir_node(), n_outs, table) };
+    pub fn new_switch(
+        &self,
+        block: &'_ Block,
+        irn_selector: &'_ Node,
+        n_outs: ::std::os::raw::c_uint,
+        table: *mut bindings::ir_switch_table,
+    ) -> Switch {
+        let ir_node = unsafe {
+            bindings::new_r_Switch(
+                block.internal_ir_node(),
+                irn_selector.internal_ir_node(),
+                n_outs,
+                table,
+            )
+        };
         Switch::new(ir_node)
     }
 
@@ -3848,7 +4613,9 @@ impl Graph {
     /// * `in_` additional inputs
     pub fn new_sync(&self, block: &'_ Block, in_: Vec<Node>) -> Sync {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
-        let ir_node = unsafe { bindings::new_r_Sync(block.internal_ir_node(), in_.len() as i32, in_.as_ptr()) };
+        let ir_node = unsafe {
+            bindings::new_r_Sync(block.internal_ir_node(), in_.len() as i32, in_.as_ptr())
+        };
         Sync::new(ir_node)
     }
 
@@ -3857,7 +4624,9 @@ impl Graph {
     /// * `in_` additional inputs
     pub fn new_tuple(&self, block: &'_ Block, in_: Vec<Node>) -> Tuple {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
-        let ir_node = unsafe { bindings::new_r_Tuple(block.internal_ir_node(), in_.len() as i32, in_.as_ptr()) };
+        let ir_node = unsafe {
+            bindings::new_r_Tuple(block.internal_ir_node(), in_.len() as i32, in_.as_ptr())
+        };
         Tuple::new(ir_node)
     }
 
@@ -3867,7 +4636,6 @@ impl Graph {
         let ir_node = unsafe { bindings::new_r_Unknown(self.irg, mode) };
         Unknown::new(ir_node)
     }
-
 }
 
 impl Block {
@@ -3875,7 +4643,13 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_add(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Add {
-        let ir_node = unsafe { bindings::new_r_Add(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Add(
+                self.0,
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Add::new(ir_node)
     }
 
@@ -3883,8 +4657,20 @@ impl Block {
     /// * `irn_mem` mem
     /// * `irn_size` size
     /// * `alignment` alignment of the memory block (must be a power of 2)
-    pub fn new_alloc(&self, irn_mem: &'_ Node, irn_size: &'_ Node, alignment: ::std::os::raw::c_uint) -> Alloc {
-        let ir_node = unsafe { bindings::new_r_Alloc(self.0, irn_mem.internal_ir_node(), irn_size.internal_ir_node(), alignment) };
+    pub fn new_alloc(
+        &self,
+        irn_mem: &'_ Node,
+        irn_size: &'_ Node,
+        alignment: ::std::os::raw::c_uint,
+    ) -> Alloc {
+        let ir_node = unsafe {
+            bindings::new_r_Alloc(
+                self.0,
+                irn_mem.internal_ir_node(),
+                irn_size.internal_ir_node(),
+                alignment,
+            )
+        };
         Alloc::new(ir_node)
     }
 
@@ -3892,7 +4678,13 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_and(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> And {
-        let ir_node = unsafe { bindings::new_r_And(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_And(
+                self.0,
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         And::new(ir_node)
     }
 
@@ -3909,9 +4701,24 @@ impl Block {
     /// * `in_` additional inputs
     /// * `kind` kind of builtin
     /// * `ty` method type for the builtin call
-    pub fn new_builtin(&self, irn_mem: &'_ Node, in_: Vec<Node>, kind: bindings::ir_builtin_kind::Type, ty: *mut bindings::ir_type) -> Builtin {
+    pub fn new_builtin(
+        &self,
+        irn_mem: &'_ Node,
+        in_: Vec<Node>,
+        kind: bindings::ir_builtin_kind::Type,
+        ty: *mut bindings::ir_type,
+    ) -> Builtin {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
-        let ir_node = unsafe { bindings::new_r_Builtin(self.0, irn_mem.internal_ir_node(), in_.len() as i32, in_.as_ptr(), kind, ty) };
+        let ir_node = unsafe {
+            bindings::new_r_Builtin(
+                self.0,
+                irn_mem.internal_ir_node(),
+                in_.len() as i32,
+                in_.as_ptr(),
+                kind,
+                ty,
+            )
+        };
         Builtin::new(ir_node)
     }
 
@@ -3920,9 +4727,24 @@ impl Block {
     /// * `irn_ptr` ptr
     /// * `in_` additional inputs
     /// * `ty` type of the call (usually type of the called procedure)
-    pub fn new_call(&self, irn_mem: &'_ Node, irn_ptr: &'_ Node, in_: Vec<Node>, ty: *mut bindings::ir_type) -> Call {
+    pub fn new_call(
+        &self,
+        irn_mem: &'_ Node,
+        irn_ptr: &'_ Node,
+        in_: Vec<Node>,
+        ty: *mut bindings::ir_type,
+    ) -> Call {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
-        let ir_node = unsafe { bindings::new_r_Call(self.0, irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), in_.len() as i32, in_.as_ptr(), ty) };
+        let ir_node = unsafe {
+            bindings::new_r_Call(
+                self.0,
+                irn_mem.internal_ir_node(),
+                irn_ptr.internal_ir_node(),
+                in_.len() as i32,
+                in_.as_ptr(),
+                ty,
+            )
+        };
         Call::new(ir_node)
     }
 
@@ -3930,8 +4752,20 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     /// * `relation` Comparison relation
-    pub fn new_cmp(&self, irn_left: &'_ Node, irn_right: &'_ Node, relation: bindings::ir_relation::Type) -> Cmp {
-        let ir_node = unsafe { bindings::new_r_Cmp(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node(), relation) };
+    pub fn new_cmp(
+        &self,
+        irn_left: &'_ Node,
+        irn_right: &'_ Node,
+        relation: bindings::ir_relation::Type,
+    ) -> Cmp {
+        let ir_node = unsafe {
+            bindings::new_r_Cmp(
+                self.0,
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+                relation,
+            )
+        };
         Cmp::new(ir_node)
     }
 
@@ -3946,8 +4780,20 @@ impl Block {
     /// * `irn_value` value
     /// * `irn_bound` bound
     /// * `relation` relation of value to bound
-    pub fn new_confirm(&self, irn_value: &'_ Node, irn_bound: &'_ Node, relation: bindings::ir_relation::Type) -> Confirm {
-        let ir_node = unsafe { bindings::new_r_Confirm(self.0, irn_value.internal_ir_node(), irn_bound.internal_ir_node(), relation) };
+    pub fn new_confirm(
+        &self,
+        irn_value: &'_ Node,
+        irn_bound: &'_ Node,
+        relation: bindings::ir_relation::Type,
+    ) -> Confirm {
+        let ir_node = unsafe {
+            bindings::new_r_Confirm(
+                self.0,
+                irn_value.internal_ir_node(),
+                irn_bound.internal_ir_node(),
+                relation,
+            )
+        };
         Confirm::new(ir_node)
     }
 
@@ -3965,8 +4811,24 @@ impl Block {
     /// * `irn_src` src
     /// * `ty` type of copied data
     /// * `flags` specifies volatility
-    pub fn new_copyb(&self, irn_mem: &'_ Node, irn_dst: &'_ Node, irn_src: &'_ Node, ty: *mut bindings::ir_type, flags: bindings::ir_cons_flags::Type) -> CopyB {
-        let ir_node = unsafe { bindings::new_r_CopyB(self.0, irn_mem.internal_ir_node(), irn_dst.internal_ir_node(), irn_src.internal_ir_node(), ty, flags) };
+    pub fn new_copyb(
+        &self,
+        irn_mem: &'_ Node,
+        irn_dst: &'_ Node,
+        irn_src: &'_ Node,
+        ty: *mut bindings::ir_type,
+        flags: bindings::ir_cons_flags::Type,
+    ) -> CopyB {
+        let ir_node = unsafe {
+            bindings::new_r_CopyB(
+                self.0,
+                irn_mem.internal_ir_node(),
+                irn_dst.internal_ir_node(),
+                irn_src.internal_ir_node(),
+                ty,
+                flags,
+            )
+        };
         CopyB::new(ir_node)
     }
 
@@ -3975,8 +4837,22 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     /// * `pinned` pinned state
-    pub fn new_div(&self, irn_mem: &'_ Node, irn_left: &'_ Node, irn_right: &'_ Node, pinned: i32) -> Div {
-        let ir_node = unsafe { bindings::new_r_Div(self.0, irn_mem.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node(), pinned) };
+    pub fn new_div(
+        &self,
+        irn_mem: &'_ Node,
+        irn_left: &'_ Node,
+        irn_right: &'_ Node,
+        pinned: i32,
+    ) -> Div {
+        let ir_node = unsafe {
+            bindings::new_r_Div(
+                self.0,
+                irn_mem.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+                pinned,
+            )
+        };
         Div::new(ir_node)
     }
 
@@ -3984,7 +4860,13 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_eor(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Eor {
-        let ir_node = unsafe { bindings::new_r_Eor(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Eor(
+                self.0,
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Eor::new(ir_node)
     }
 
@@ -3992,7 +4874,13 @@ impl Block {
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     pub fn new_free(&self, irn_mem: &'_ Node, irn_ptr: &'_ Node) -> Free {
-        let ir_node = unsafe { bindings::new_r_Free(self.0, irn_mem.internal_ir_node(), irn_ptr.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Free(
+                self.0,
+                irn_mem.internal_ir_node(),
+                irn_ptr.internal_ir_node(),
+            )
+        };
         Free::new(ir_node)
     }
 
@@ -4004,7 +4892,7 @@ impl Block {
     }
 
     /// Creates a new Jmp-node.
-    pub fn new_jmp(&self, ) -> Jmp {
+    pub fn new_jmp(&self) -> Jmp {
         let ir_node = unsafe { bindings::new_r_Jmp(self.0) };
         Jmp::new(ir_node)
     }
@@ -4013,10 +4901,26 @@ impl Block {
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     /// * `mode` mode of the value to be loaded
-    /// * `ty` The type of the object which is stored at ptr (need not match with mode)
-    /// * `flags` specifies alignment, volatility and pin state
-    pub fn new_load(&self, irn_mem: &'_ Node, irn_ptr: &'_ Node, mode: *mut bindings::ir_mode, ty: *mut bindings::ir_type, flags: bindings::ir_cons_flags::Type) -> Load {
-        let ir_node = unsafe { bindings::new_r_Load(self.0, irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), mode, ty, flags) };
+    /// * `ty` The type of the object which is stored at ptr (need not match
+    /// with mode) * `flags` specifies alignment, volatility and pin state
+    pub fn new_load(
+        &self,
+        irn_mem: &'_ Node,
+        irn_ptr: &'_ Node,
+        mode: *mut bindings::ir_mode,
+        ty: *mut bindings::ir_type,
+        flags: bindings::ir_cons_flags::Type,
+    ) -> Load {
+        let ir_node = unsafe {
+            bindings::new_r_Load(
+                self.0,
+                irn_mem.internal_ir_node(),
+                irn_ptr.internal_ir_node(),
+                mode,
+                ty,
+                flags,
+            )
+        };
         Load::new(ir_node)
     }
 
@@ -4040,8 +4944,22 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     /// * `pinned` pinned state
-    pub fn new_mod(&self, irn_mem: &'_ Node, irn_left: &'_ Node, irn_right: &'_ Node, pinned: i32) -> Mod {
-        let ir_node = unsafe { bindings::new_r_Mod(self.0, irn_mem.internal_ir_node(), irn_left.internal_ir_node(), irn_right.internal_ir_node(), pinned) };
+    pub fn new_mod(
+        &self,
+        irn_mem: &'_ Node,
+        irn_left: &'_ Node,
+        irn_right: &'_ Node,
+        pinned: i32,
+    ) -> Mod {
+        let ir_node = unsafe {
+            bindings::new_r_Mod(
+                self.0,
+                irn_mem.internal_ir_node(),
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+                pinned,
+            )
+        };
         Mod::new(ir_node)
     }
 
@@ -4049,7 +4967,13 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_mul(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Mul {
-        let ir_node = unsafe { bindings::new_r_Mul(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Mul(
+                self.0,
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Mul::new(ir_node)
     }
 
@@ -4057,7 +4981,13 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_mulh(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Mulh {
-        let ir_node = unsafe { bindings::new_r_Mulh(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Mulh(
+                self.0,
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Mulh::new(ir_node)
     }
 
@@ -4066,7 +4996,14 @@ impl Block {
     /// * `irn_false` false
     /// * `irn_true` true
     pub fn new_mux(&self, irn_sel: &'_ Node, irn_false: &'_ Node, irn_true: &'_ Node) -> Mux {
-        let ir_node = unsafe { bindings::new_r_Mux(self.0, irn_sel.internal_ir_node(), irn_false.internal_ir_node(), irn_true.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Mux(
+                self.0,
+                irn_sel.internal_ir_node(),
+                irn_false.internal_ir_node(),
+                irn_true.internal_ir_node(),
+            )
+        };
         Mux::new(ir_node)
     }
 
@@ -4081,7 +5018,13 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_or(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Or {
-        let ir_node = unsafe { bindings::new_r_Or(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Or(
+                self.0,
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Or::new(ir_node)
     }
 
@@ -4105,7 +5048,13 @@ impl Block {
     /// * `irn_mem` mem
     /// * `irn_exo_ptr` exo_ptr
     pub fn new_raise(&self, irn_mem: &'_ Node, irn_exo_ptr: &'_ Node) -> Raise {
-        let ir_node = unsafe { bindings::new_r_Raise(self.0, irn_mem.internal_ir_node(), irn_exo_ptr.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Raise(
+                self.0,
+                irn_mem.internal_ir_node(),
+                irn_exo_ptr.internal_ir_node(),
+            )
+        };
         Raise::new(ir_node)
     }
 
@@ -4114,7 +5063,14 @@ impl Block {
     /// * `in_` additional inputs
     pub fn new_return(&self, irn_mem: &'_ Node, in_: Vec<Node>) -> Return {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
-        let ir_node = unsafe { bindings::new_r_Return(self.0, irn_mem.internal_ir_node(), in_.len() as i32, in_.as_ptr()) };
+        let ir_node = unsafe {
+            bindings::new_r_Return(
+                self.0,
+                irn_mem.internal_ir_node(),
+                in_.len() as i32,
+                in_.as_ptr(),
+            )
+        };
         Return::new(ir_node)
     }
 
@@ -4122,8 +5078,20 @@ impl Block {
     /// * `irn_ptr` ptr
     /// * `irn_index` index
     /// * `ty` array type
-    pub fn new_sel(&self, irn_ptr: &'_ Node, irn_index: &'_ Node, ty: *mut bindings::ir_type) -> Sel {
-        let ir_node = unsafe { bindings::new_r_Sel(self.0, irn_ptr.internal_ir_node(), irn_index.internal_ir_node(), ty) };
+    pub fn new_sel(
+        &self,
+        irn_ptr: &'_ Node,
+        irn_index: &'_ Node,
+        ty: *mut bindings::ir_type,
+    ) -> Sel {
+        let ir_node = unsafe {
+            bindings::new_r_Sel(
+                self.0,
+                irn_ptr.internal_ir_node(),
+                irn_index.internal_ir_node(),
+                ty,
+            )
+        };
         Sel::new(ir_node)
     }
 
@@ -4131,7 +5099,13 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_shl(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Shl {
-        let ir_node = unsafe { bindings::new_r_Shl(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Shl(
+                self.0,
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Shl::new(ir_node)
     }
 
@@ -4139,7 +5113,13 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_shr(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Shr {
-        let ir_node = unsafe { bindings::new_r_Shr(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Shr(
+                self.0,
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Shr::new(ir_node)
     }
 
@@ -4147,7 +5127,13 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_shrs(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Shrs {
-        let ir_node = unsafe { bindings::new_r_Shrs(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Shrs(
+                self.0,
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Shrs::new(ir_node)
     }
 
@@ -4155,10 +5141,27 @@ impl Block {
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     /// * `irn_value` value
-    /// * `ty` The type of the object which is stored at ptr (need not match with value's type)
-    /// * `flags` specifies alignment, volatility and pin state
-    pub fn new_store(&self, irn_mem: &'_ Node, irn_ptr: &'_ Node, irn_value: &'_ Node, ty: *mut bindings::ir_type, flags: bindings::ir_cons_flags::Type) -> Store {
-        let ir_node = unsafe { bindings::new_r_Store(self.0, irn_mem.internal_ir_node(), irn_ptr.internal_ir_node(), irn_value.internal_ir_node(), ty, flags) };
+    /// * `ty` The type of the object which is stored at ptr (need not match
+    /// with value's type) * `flags` specifies alignment, volatility and
+    /// pin state
+    pub fn new_store(
+        &self,
+        irn_mem: &'_ Node,
+        irn_ptr: &'_ Node,
+        irn_value: &'_ Node,
+        ty: *mut bindings::ir_type,
+        flags: bindings::ir_cons_flags::Type,
+    ) -> Store {
+        let ir_node = unsafe {
+            bindings::new_r_Store(
+                self.0,
+                irn_mem.internal_ir_node(),
+                irn_ptr.internal_ir_node(),
+                irn_value.internal_ir_node(),
+                ty,
+                flags,
+            )
+        };
         Store::new(ir_node)
     }
 
@@ -4166,7 +5169,13 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     pub fn new_sub(&self, irn_left: &'_ Node, irn_right: &'_ Node) -> Sub {
-        let ir_node = unsafe { bindings::new_r_Sub(self.0, irn_left.internal_ir_node(), irn_right.internal_ir_node()) };
+        let ir_node = unsafe {
+            bindings::new_r_Sub(
+                self.0,
+                irn_left.internal_ir_node(),
+                irn_right.internal_ir_node(),
+            )
+        };
         Sub::new(ir_node)
     }
 
@@ -4174,8 +5183,15 @@ impl Block {
     /// * `irn_selector` selector
     /// * `n_outs` number of outputs (including pn_Switch_default)
     /// * `table` table describing mapping from input values to Proj numbers
-    pub fn new_switch(&self, irn_selector: &'_ Node, n_outs: ::std::os::raw::c_uint, table: *mut bindings::ir_switch_table) -> Switch {
-        let ir_node = unsafe { bindings::new_r_Switch(self.0, irn_selector.internal_ir_node(), n_outs, table) };
+    pub fn new_switch(
+        &self,
+        irn_selector: &'_ Node,
+        n_outs: ::std::os::raw::c_uint,
+        table: *mut bindings::ir_switch_table,
+    ) -> Switch {
+        let ir_node = unsafe {
+            bindings::new_r_Switch(self.0, irn_selector.internal_ir_node(), n_outs, table)
+        };
         Switch::new(ir_node)
     }
 
@@ -4194,6 +5210,4 @@ impl Block {
         let ir_node = unsafe { bindings::new_r_Tuple(self.0, in_.len() as i32, in_.as_ptr()) };
         Tuple::new(ir_node)
     }
-
 }
-

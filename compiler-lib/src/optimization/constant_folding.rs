@@ -157,14 +157,35 @@ impl ConstantFolding {
                 let const_node = Node::Const(self.graph.new_const((*v).into()));
 
                 match node {
+                    /* IMPROVEMENT?
+                    This might be more elegant, but does not do the exact same:
+                    It fails if there are multiple projects to that pin!
+
+                    Node::Div(div) => {
+                        if Some(res) = div.out_proj_res() {
+                            Graph::exchange(res, const_node);
+                        }
+                        if Some(mem) = div.out_proj_m {
+                            Graph::exchange(mem, div.mem());
+                        }
+                    }
+                    Node::Mod(modulo) => {
+                        if Some(res) = modulo.out_proj_res() {
+                            Graph::exchange(res, const_node);
+                        }
+                        if Some(m) = modulo.out_proj_m() {
+                            Graph::exchange(m, modulo.mem());
+                        }
+                    }
+                    */
                     Node::Div(div) => {
                         for out_node in node.out_nodes() {
                             match out_node {
-                                Node::Proj(_proj, ProjKind::Div_Res(_)) => {
-                                    Graph::exchange(out_node, const_node);
+                                Node::Proj(res_proj, ProjKind::Div_Res(_)) => {
+                                    Graph::exchange(res_proj, const_node);
                                 }
-                                Node::Proj(_proj, ProjKind::Div_M(_)) => {
-                                    Graph::exchange(out_node, div.mem());
+                                Node::Proj(m_proj, ProjKind::Div_M(_)) => {
+                                    Graph::exchange(m_proj, div.mem());
                                 }
                                 _ => {}
                             }
@@ -173,11 +194,11 @@ impl ConstantFolding {
                     Node::Mod(modulo) => {
                         for out_node in node.out_nodes() {
                             match out_node {
-                                Node::Proj(_proj, ProjKind::Mod_Res(_)) => {
-                                    Graph::exchange(out_node, const_node);
+                                Node::Proj(res_proj, ProjKind::Mod_Res(_)) => {
+                                    Graph::exchange(res_proj, const_node);
                                 }
-                                Node::Proj(_proj, ProjKind::Mod_M(_)) => {
-                                    Graph::exchange(out_node, modulo.mem());
+                                Node::Proj(m_proj, ProjKind::Mod_M(_)) => {
+                                    Graph::exchange(m_proj, modulo.mem());
                                 }
                                 _ => {}
                             }

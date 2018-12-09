@@ -1,6 +1,6 @@
 use super::{
     nodes::NodeTrait,
-    nodes_gen::{Block, End, Node, NodeFactory, Start, Proj},
+    nodes_gen::{Block, End, Node, NodeFactory, Proj, Start},
 };
 use libfirm_rs_bindings as bindings;
 use std::{
@@ -93,7 +93,7 @@ impl Graph {
         }
     }
 
-    pub fn exchange(prev: Node, new: Node) {
+    pub fn exchange(prev: impl NodeTrait, new: impl NodeTrait) {
         unsafe {
             bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
         }

@@ -54,9 +54,7 @@ simple_node_iterator!(PhiPredsIterator, get_Phi_n_preds, get_Phi_pred, i32);
 
 impl Proj {
     pub fn proj(&self, num: u32, mode: bindings::mode::Type) -> Proj {
-        Proj::new(unsafe {
-            bindings::new_r_Proj(self.internal_ir_node(), mode, num)
-        })
+        Proj::new(unsafe { bindings::new_r_Proj(self.internal_ir_node(), mode, num) })
     }
 }
 
