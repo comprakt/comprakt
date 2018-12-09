@@ -117,6 +117,9 @@ impl ConstantFolding {
                 Node::Mod(modulo) => {
                     tarval_binop!(modulo, Mod);
                 }
+                Node::Eor(eor) => {
+                    tarval_binop!(eor, Xor);
+                }
                 Node::Minus(minus) => {
                     let inner = self.values[&minus.op()];
                     let res = Lattice::unary_op(inner, UnaryOp::Minus);
@@ -222,6 +225,7 @@ pub enum Binop {
     Sub,
     Mul,
     Div,
+    Xor,
     Mod,
     Phi,
     Rel(bindings::ir_relation::Type),
@@ -272,6 +276,7 @@ impl Lattice {
             Binop::Mul => lhs * rhs,
             Binop::Div => lhs / rhs,
             Binop::Mod => lhs % rhs,
+            Binop::Xor => lhs ^ rhs,
             Binop::Phi => {
                 if lhs == rhs {
                     lhs

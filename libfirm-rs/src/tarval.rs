@@ -149,6 +149,7 @@ impl_binop_on_tarval!(Add, add, tarval_add);
 impl_binop_on_tarval!(Sub, sub, tarval_sub);
 impl_binop_on_tarval!(Mul, mul, tarval_mul);
 impl_binop_on_tarval!(Div, div, tarval_div);
+impl_binop_on_tarval!(BitXor, bitxor, tarval_eor);
 impl_binop_on_tarval!(Rem, rem, tarval_mod);
 
 impl std::ops::Neg for Tarval {
