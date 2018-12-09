@@ -106,11 +106,8 @@ impl Graph {
     /// Replace the given node with a "bad" node, thus marking it and all the
     /// nodes dominated by it as unreachable. The whole subtree can then be
     /// removed using `Graph::remove_bads`.
-    pub fn mark_as_bad(&self, node: impl Into<Node>) {
-        Graph::exchange(
-            node.into(),
-            self.new_bad(unsafe { bindings::mode::b }).into(),
-        )
+    pub fn mark_as_bad(&self, node: impl NodeTrait) {
+        Graph::exchange(node, self.new_bad(unsafe { bindings::mode::b }))
     }
 }
 

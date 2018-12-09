@@ -90,7 +90,7 @@ impl UnreachableCodeElimination {
 
         for (used_proj, jmp, unused_proj, target_block) in replacements {
             // Now we replace the always-taken path with an unconditional jump ...
-            Graph::exchange(used_proj.into(), jmp.into());
+            Graph::exchange(used_proj, jmp);
 
             // ... and mark the never-taken as "bad", so it will be later removed
             self.graph.mark_as_bad(unused_proj);
