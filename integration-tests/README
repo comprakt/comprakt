@@ -1,0 +1,433 @@
+This folder contains black-box tests, that are primarily used for regression
+testing the compiler and the binaries it generates. This is done by comparing
+the actual outputs for mini java files with contributor verified reference
+output files. Executable files are verified by examining their stdout, stderr
+and exitcode.
+
+Overview
+========
+
+|--------------|-------------------------------------------------|----------------------|
+| Folder       | Description                                     | Cli Equivalent       |
+|==============|=================================================|======================|
+| lexer        | Assert stdin/stdout/exitcode of the lexer       | `--lextest`          |
+|--------------|-------------------------------------------------|----------------------|
+| parser       | Assert stdin/stdout/exitcode of parser. Note    | `--parsetest`        |
+|              | that errors may change for identical files      |                      |
+|              | in comparison to `lexer` tests since the parser |                      |
+|              | pulls the lexer.                                |                      |
+|--------------|-------------------------------------------------|----------------------|
+| semantic     | Assert stderr/exitcode of a semanatic analysis. | `--check`            |
+|              | stdout should always be empty.                  |                      |
+|--------------|-------------------------------------------------|----------------------|
+| ast          | Same as semantic analysis, but prints           |                      |
+|              | normalized MiniJava on stdout. Normalized       |                      |
+|              | MiniJava is feed into the compiler and checked  |                      |
+|              | for idempotency.                                |                      |
+|--------------|-------------------------------------------------|----------------------|
+| assembly     | Assert stderr/stdout/exitcode and the generated | `--lower --emit-asm` |
+|              | assembly file.                                  |                      |
+|--------------|-------------------------------------------------|----------------------|
+| binary       | Assert stderr/stdout/exitcode for binary        |                      |
+|              | generation (a full compiler call). Run the      |                      |
+|              | generated binary and assert stderr/stdout       |                      |
+|              | and exitcode.                                   |                      |
+|--------------|-------------------------------------------------|----------------------|
+| timeout      | Assert stderr/stdout/exitcode for binary        |                      |
+|              | generation (a full compiler call). Run the      |                      |
+|              | generated binary and assert that it does never  |                      |
+|              | return.                                         |                      |
+|--------------|-------------------------------------------------|----------------------|
+| optimization | Compile the binary once with optimizations,     |                      |
+|              | once without optimizations. Assert that the     |                      |
+|              | emitted assembly changed/did not change/matches |                      |
+|              | the assembly of another program. Assert that    |                      |
+|              | the behaviour of the binary is identical to the |                      |
+|              | unoptimized binary.                             |                      |
+|--------------|-------------------------------------------------|----------------------|
+
+Lookup order for reference outputs and configuration variables
+--------------------------------------------------------------
+
+- Check if a yaml front matter block exists in the test file `TEST_NAME.mj`.
+- Check if a separate file `TEST_NAME.yml` exists.
+- Expect the output of the default assertions (see next section) to be in
+  separate files: `TEST_NAME.stderr` `TEST_NAME.stdout` and `TEST_NAME.exitcode`.
+
+Strip YAML utility
+------------------
+
+While debugging you might want to execute a test with meta information in
+YAML front matter format directly. In this case you can remove the front
+matter using the strip-front-matter utility as follows:
+
+```
+cargo run --bin strip-front-matter INPUT_WITH_YAML.mj OUTPUT_WITHOUT_YAML.mj
+```
+
+The utility can also read from stdin and write to stdout.
+
+Default assertions
+------------------
+
+If a test folder is not mentioned below, the YAML accepts the following fields:
+
+- stdout: stdout of the compiler during compilation of the test file
+- stderr: stderr of the compiler during compilation of the test file
+- exitcode: the exit code of compiler. In case no exit code is available,
+  e.g. after a crash or abort through a signal, this might also be a well
+  defined and assertable error message.
+
+There is no default value!
+
+Most YAML fields that expect a string as value, can take one of the following:
+
+1. an inline string using `is: STRING`. For example
+   ```
+   stdout:
+     is: "9\n"
+   ```
+2. an external file using `file: PATH`, where PATH is relative to the 
+   directory of the test.
+   ```
+   stdout:
+     path: my_test.mj.stdout
+   ```
+3. In some context, you can use `ignore`, to disable a check. For example
+   if you are not interested in `stdout` of a test, just write:
+   ```
+   stdout: ignore
+   ```
+
+
+Optimization Tests
+==================
+
+Available YAML fields are:
+
+- optimizations: a non-empty list (required)
+- expect: unchanged                 # expect the optimization is not applied.
+        | change                    # expect the assembly is changed without
+                                    # changing the program behaviour.
+        | identical-to: file: PATH  # expect the assembly to be identical
+                                    # to the hand-optimized program in PATH.
+        | identical-to: is: STRING  # expect the assembly to be identical
+                                    # to the hand-optimized program in STRING.
+        | identical-to: ignore      # do not assert anything.
+
+Standard outputs of the compiler during the compilation of
+the mini java program under test:
+
+- compiler_optimized_stderr (optional, default: "")
+- compiler_optimized_stdout (optional, default: "")
+- compiler_optimized_exitcode (optional, default: 0)
+
+Standard outputs of the compiler during the compilation of
+the reference program, which is always compiled without
+optimizations:
+
+- compiler_reference_stderr (optional, default: "")
+- compiler_reference_stdout (optional, default: "")
+- compiler_reference_exitcode (optional, default: 0)
+
+stderr, stdout, stdin and exitcode of the 1.) unoptimized reference binary
+and the 2.) the optimized binary of the input of the test specification.
+These are expected to be identical!
+
+- stderr (optional, default: "")
+- stdout (optional, default: "")
+- exitcode (optional, default: 0)
+- stdin (optional, default: "")
+
+
+
+EXAMPLE 1: We assert that the compiler can constant fold a simple
+addition of two constants. We assert that the expression `2 + 7`
+is equivalent to our hand-optimized reference program that
+contains the expression `9` instead:
+
+```java
+
+---
+optimizations: [ConstantFolding]
+expect:
+    identical-to:
+        is: |
+          class CF_Add {
+            public static void main(String[] args) {
+              System.out.println(9);
+            }
+          }
+        
+stdout:
+    is: "9\n"
+---
+class CF_Add {
+  public static void main(String[] args) {
+    System.out.println(2 + 7);
+  }
+}
+```
+
+EXAMPLE 2: We expect that the compiler does not constant fold expressions
+that might have side effects. In the example below a devision by zero
+will results in an abort of the program. We assert that the optimization
+is not applied:
+
+```java
+---
+optimizations: [ConstantFolding]
+expect: unchanged
+exitcode:
+    is: "terminated by signal or crashed."
+---
+class CF_Div_Zero {
+  public static void main(String[] args) {
+    System.out.println(10 / 0);
+  }
+}
+```
+
+EXAMPLE 3: Assert that applying constant folding several times does not
+result in endless recursion or crash the compiler.
+
+```java
+---
+optimizations:
+    - ConstantFolding
+    - ConstantFolding
+    - ConstantFolding
+expect: unchanged
+---
+class SimplifyMul1 {
+}
+```
+
+Binary Tests
+============
+
+Available YAML Fields
+---------------------
+
+Standard outputs of the compiler during compilation of
+the mini java program under test:
+
+- compiler_optimized_stderr (optional, default: "")
+- compiler_optimized_stdout (optional, default: "")
+- compiler_optimized_exitcode (optional, default: "0")
+
+Standard input and outputs of the generated binary itself. The program is run
+without a time limit!
+
+- stderr: (optional, default: contents of TEST_NAME.out.stderr)
+- stdout: (optional, default: contents of TEST_NAME.out.stdout)
+- exitcode: (optional, default: contents of TEST_NAME.out.exitcode)
+- stdin: (optional, default: "")
+
+EXAMPLE 1: Assert the program compiles and prints the number 12.
+
+```java
+---
+stderr:
+    is: ''
+stdout:
+    is: '12\n'
+exitcode:
+    is: 0
+---
+class Foo {
+    public static void main(String[] args) {
+        System.out.println(12);
+    }
+}
+```
+
+EXAMPLE 2: Assert that a reimplementation of `cat` in mini java works.
+
+```java
+---
+stdin:
+    file: cat.out.stdin
+---
+class Cat {
+    public static void main(String[] args) {
+        int c;
+        while((c = System.in.read()) != -1) {
+            System.out.write(c);
+        }
+    }
+}
+```
+
+Typesystem and Text Marker Tests
+================================
+
+These are located in the `span` folder. The YAML can expect the same
+arguments as the `cargo run --bin inspect-ast` utility, which are:
+
+- kind: REGEX (optional, default: no filtering using AST node types)
+- typeinfo: REGEX (optional, default: no filtering using type information)
+- content: REGEX (optional, default: no content filtering)
+
+- stdout: stdout of the inspect-ast utility 
+- stderr: stderr of the inspect-ast utility
+- exitcode: the exit code of the inspect-ast utility
+
+
+EXAMPLE 1: Find and assert all boolean expressions that are using a 
+lower than comparison operator.
+
+```java
+---
+kind: expression
+typeinfo: bool
+content: ">"
+---
+class ArrayAccessIsByValue {
+  public int[] x;
+
+  public int[] foo(int callsite) {
+    System.out.println(callsite);
+    x = new int[2];
+    return x;
+  }
+
+  public static void main(String[] args) {
+    ArrayAccessIsByValue m = new ArrayAccessIsByValue();
+    int x = m.foo(1)[m.foo(2)[1]];
+    
+    if (x > 1) {
+        System.out.println(12);
+    }
+  }
+}
+```
+
+with the following asserted reference output:
+
+```
+info: Matched kind 'expression' of type `boolean`
+    | 
+ 14 |     if (x > 1) {
+    |         ^^^^^
+```
+
+EXAMPLE 2: Find and assert all statements.
+
+```java
+---
+kind: statement
+---
+class ArrayAccessIsByValue {
+  public int[] x;
+
+  public int[] foo(int callsite) {
+    System.out.println(callsite);
+    x = new int[2];
+    return x;
+  }
+
+  public static void main(String[] args) {
+    ArrayAccessIsByValue m = new ArrayAccessIsByValue();
+    int x = m.foo(1)[m.foo(2)[1]];
+    
+    if (x > 1) {
+        System.out.println(12);
+    }
+  }
+}
+```
+
+with the following asserted reference output:
+
+```
+info: Matched kind 'statement'
+   | 
+ 5 |     System.out.println(callsite);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+info: Matched kind 'statement'
+   | 
+ 6 |     x = new int[2];
+   |     ^^^^^^^^^^^^^^^
+
+info: Matched kind 'statement'
+   | 
+ 7 |     return x;
+   |     ^^^^^^^^^
+
+info: Matched kind 'statement'
+    | 
+ 11 |     ArrayAccessIsByValue m = new ArrayAccessIsByValue();
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+info: Matched kind 'statement'
+    | 
+ 12 |     int x = m.foo(1)[m.foo(2)[1]];
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+info: Matched kind 'statement'
+    | 
+ 14 |     if (x > 1) {
+    |     ^^^^^^^^^^^^
+ 15 |         System.out.println(12);
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 16 |     }
+    | ^^^^^
+
+info: Matched kind 'statement'
+    | 
+ 14 |     if (x > 1) {
+    |                ^
+ 15 |         System.out.println(12);
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 16 |     }
+    | ^^^^^
+
+info: Matched kind 'statement'
+    | 
+ 15 |         System.out.println(12);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^
+```
+
+EXAMPLE 3: Assert that the special case 'System' is indeed modeled as global
+variable.
+
+```java
+---
+typeinfo: global var
+---
+class ArrayAccessIsByValue {
+  public static void main(String[] args) {
+    System.out.println(1);
+  }
+}
+```
+
+Timeout Tests
+=============
+
+These tests assume that a program never returns. Available YAML
+fields are:
+
+- timeout: a human readable string, e.g. "10s", "1h 10min", ...
+           specifying the maximal execution time. Defaults to 3
+           seconds.
+- optimizations: a list of optimizations to apply. Defaults to none.
+
+The test fails if the program returns early and succeedes if the
+program has to be killed after a duration of `timeout`.
+
+EXAMPLE 1: Assume that optimizations do not remove an empty while:
+
+```java
+---
+optimizations: [ConstantFolding,UnreachableCodeElimination]
+timeout: 1s
+---
+class EmptyWhile {
+  public static void main(String[] args) {
+        while(true) {}
+  }
+}
+```
