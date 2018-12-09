@@ -1,0 +1,22 @@
+---
+optimizations: [ConstantFolding]
+expect:
+    identical-to:
+        is: |
+          class CF_Add {
+            public static void main(String[] args) {
+              System.out.println(210);
+            }
+          }
+        
+stdout:
+    is: "210\n"
+---
+class CF_Add {
+  public static void main(String[] args) {
+    int x = 5;
+    int y = x;
+    int z = 15 + x;
+    System.out.println(4 * x + y * 2 * (z - 1));
+  }
+}

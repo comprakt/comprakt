@@ -1,0 +1,27 @@
+---
+# NOTE: We need to constant fold first, since true is modeled as "1 != 0" 
+optimizations: [ConstantFolding,UnreachableCodeElimination]
+expect:
+    identical-to:
+        is: |
+          class UCE_If {
+            public static void main(String[] args) {
+              System.out.println(1);
+            }
+          }
+        
+stdout:
+    is: "1\n"
+---
+class UCE_If {
+  public static void main(String[] args) {
+    while (false) {
+        System.out.println(0);
+    }
+
+    while (false) {
+    }
+
+    System.out.println(1);
+  }
+}
