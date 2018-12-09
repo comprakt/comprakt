@@ -219,7 +219,7 @@ w.openFile("nodes_gen.rs");
 w.line("use libfirm_rs_bindings as bindings;");
 w.line("use std::collections::HashMap;");
 w.line("use super::nodes::NodeTrait;");
-w.line("use super::other::Graph;");
+w.line("use super::graph::Graph;");
 w.line();
 
 // generate Node enum

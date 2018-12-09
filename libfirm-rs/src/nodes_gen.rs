@@ -1,7 +1,7 @@
 use libfirm_rs_bindings as bindings;
 use std::collections::HashMap;
 use super::nodes::NodeTrait;
-use super::other::Graph;
+use super::graph::Graph;
 use strum_macros::EnumDiscriminants;
 
 #[strum_discriminants(derive(Display))]
@@ -321,18 +321,18 @@ impl NodeFactory {
     pub fn proj_kind(proj: Proj) -> ProjKind {
         let pred = proj.pred();
         match pred {
-            Node::Alloc(node) => 
+            Node::Alloc(node) =>
                match proj.num() {
                     0 => ProjKind::Alloc_M(node),
                     1 => ProjKind::Alloc_Res(node),
                     _ => ProjKind::Other,
                },
-            Node::Builtin(node) => 
+            Node::Builtin(node) =>
                match proj.num() {
                     0 => ProjKind::Builtin_M(node),
                     _ => ProjKind::Other,
                },
-            Node::Call(node) => 
+            Node::Call(node) =>
                match proj.num() {
                     0 => ProjKind::Call_M(node),
                     1 => ProjKind::Call_TResult(node),
@@ -340,13 +340,13 @@ impl NodeFactory {
                     3 => ProjKind::Call_XExcept(node),
                     _ => ProjKind::Other,
                },
-            Node::Cond(node) => 
+            Node::Cond(node) =>
                match proj.num() {
                     0 => ProjKind::Cond_False(node),
                     1 => ProjKind::Cond_True(node),
                     _ => ProjKind::Other,
                },
-            Node::Div(node) => 
+            Node::Div(node) =>
                match proj.num() {
                     0 => ProjKind::Div_M(node),
                     1 => ProjKind::Div_Res(node),
@@ -354,7 +354,7 @@ impl NodeFactory {
                     3 => ProjKind::Div_XExcept(node),
                     _ => ProjKind::Other,
                },
-            Node::Load(node) => 
+            Node::Load(node) =>
                match proj.num() {
                     0 => ProjKind::Load_M(node),
                     1 => ProjKind::Load_Res(node),
@@ -362,7 +362,7 @@ impl NodeFactory {
                     3 => ProjKind::Load_XExcept(node),
                     _ => ProjKind::Other,
                },
-            Node::Mod(node) => 
+            Node::Mod(node) =>
                match proj.num() {
                     0 => ProjKind::Mod_M(node),
                     1 => ProjKind::Mod_Res(node),
@@ -370,27 +370,27 @@ impl NodeFactory {
                     3 => ProjKind::Mod_XExcept(node),
                     _ => ProjKind::Other,
                },
-            Node::Raise(node) => 
+            Node::Raise(node) =>
                match proj.num() {
                     0 => ProjKind::Raise_M(node),
                     1 => ProjKind::Raise_X(node),
                     _ => ProjKind::Other,
                },
-            Node::Start(node) => 
+            Node::Start(node) =>
                match proj.num() {
                     0 => ProjKind::Start_M(node),
                     1 => ProjKind::Start_PFrameBase(node),
                     2 => ProjKind::Start_TArgs(node),
                     _ => ProjKind::Other,
                },
-            Node::Store(node) => 
+            Node::Store(node) =>
                match proj.num() {
                     0 => ProjKind::Store_M(node),
                     1 => ProjKind::Store_XRegular(node),
                     2 => ProjKind::Store_XExcept(node),
                     _ => ProjKind::Other,
                },
-            Node::Switch(node) => 
+            Node::Switch(node) =>
                match proj.num() {
                     0 => ProjKind::Switch_Default(node),
                     _ => ProjKind::Other,
@@ -909,13 +909,13 @@ impl NodeTrait for And {
 
 /// Bad nodes indicate invalid input, which is values which should never be
 /// computed.
-/// 
+///
 /// The typical use case for the Bad node is removing unreachable code.
 /// Frontends should set the current_block to Bad when it is clear that
 /// following code must be unreachable (i.e. after a goto or return statement).
 /// Optimizations also set block predecessors to Bad when it becomes clear,
 /// that a control flow edge can never be executed.
-/// 
+///
 /// The gigo optimizations ensures that nodes with Bad as their block, get
 /// replaced by Bad themselves. Nodes with at least 1 Bad input get exchanged
 /// with Bad too. Exception to this rule are Block, Phi, Tuple and End node;
@@ -924,7 +924,7 @@ impl NodeTrait for And {
 /// they are set to Bad, and the actual removal is left to the control flow
 /// optimization phase. Block, Phi, Tuple with only Bad inputs however are
 /// replaced by Bad right away.
-/// 
+///
 /// In the future we may use the Bad node to model poison values that arise
 /// from undefined behaviour like reading uninitialized local variables in C.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -1273,7 +1273,7 @@ impl NodeTrait for Cond {
 /// of path-sensitive properties. (Example: This value is always >= 0 on 1
 /// if-branch then all users within that branch are rerouted to a confirm-node
 /// specifying this property).
-/// 
+///
 /// A constraint is specified for the relation between value and bound.
 /// value is always returned.
 /// Note that this node does NOT check or assert the constraint, it merely
@@ -1670,7 +1670,7 @@ impl NodeTrait for End {
 }
 
 /// returns the result of a bitwise exclusive or operation of its operands.
-/// 
+///
 /// This is also known as the Xor operation.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Eor(*mut bindings::ir_node);
@@ -1812,7 +1812,7 @@ impl NodeTrait for IJmp {
 }
 
 /// Returns its operand unchanged.
-/// 
+///
 /// This is mainly used when exchanging nodes. Usually you shouldn't see Id
 /// nodes since the getters/setters for node inputs skip them automatically.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -1978,7 +1978,7 @@ impl NodeTrait for Load {
 
 /// Computes the address of a compound type member given the base address
 /// of an instance of the compound type.
-/// 
+///
 /// A Member node must only produce a NULL pointer if the ptr input is NULL.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Member(*mut bindings::ir_node);
@@ -2068,9 +2068,9 @@ impl NodeTrait for Minus {
 }
 
 /// returns the remainder of its operands from an implied division.
-/// 
+///
 /// Examples:
-/// 
+///
 /// * mod(5,3)   produces 2
 /// * mod(5,-3)  produces 2
 /// * mod(-5,3)  produces -2
@@ -2675,7 +2675,7 @@ impl NodeTrait for Return {
 
 /// Computes the address of an array element from the array base pointer and
 /// an index.
-/// 
+///
 /// A Sel node must only produce a NULL pointer if the ptr input is NULL.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Sel(*mut bindings::ir_node);
@@ -3103,7 +3103,7 @@ impl NodeTrait for Sub {
 
 /// Change control flow. The destination is chosen based on an integer
 /// input value which is looked up in a table.
-/// 
+///
 /// Backends can implement this efficiently using a jump table.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Switch(*mut bindings::ir_node);
@@ -3197,7 +3197,7 @@ impl NodeTrait for Sync {
 }
 
 /// Builds a Tuple from single values.
-/// 
+///
 /// This is needed to implement optimizations that remove a node that produced
 /// a tuple.  The node can be replaced by the Tuple operation so that the
 /// following Proj nodes have not to be changed. (They are hard to find due to
@@ -3231,7 +3231,7 @@ impl NodeTrait for Tuple {
 
 /// Returns an unknown (at compile- and runtime) value. It is a valid
 /// optimization to replace an Unknown by any other constant value.
-/// 
+///
 /// Be careful when optimising Unknown values, you cannot simply replace
 /// Unknown+x or Unknown<x with a new Unknown node if there are multiple
 /// users of the original unknown node!

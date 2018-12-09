@@ -3,7 +3,7 @@ use libfirm_rs::{
     bindings,
     nodes::NodeTrait,
     nodes_gen::{Node, NodeDiscriminants, ProjKind},
-    other::Graph,
+    graph::Graph,
     tarval::{mode_name, Tarval},
 };
 use std::collections::{hash_map::HashMap, VecDeque};
@@ -100,6 +100,7 @@ impl ConstantFolding {
                         "only set const nodes once"
                     );
                     // no need to queue anything because of initial topological sort
+                    // FIXME queue nethertheless to prevent accidental bugs.
                 }
                 Node::Add(add) => {
                     tarval_binop!(add, Add);
