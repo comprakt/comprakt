@@ -2,7 +2,7 @@ use crate::firm::Program;
 use libfirm_rs::{
     bindings,
     nodes::NodeTrait,
-    nodes_gen::{Node, NodeDiscriminants, NodeFactory, ProjKind},
+    nodes_gen::{Node, NodeDiscriminants, ProjKind},
     other::Graph,
     tarval::{mode_name, Tarval},
 };
@@ -54,19 +54,16 @@ impl ConstantFolding {
 
     fn queue_followers_if_changed(&mut self, node: Node, prev: Tarval, new: Tarval) {
         if prev != new {
-            let followers = node.out_nodes();
             log::debug!(
                 "queuing edges: node-ids: {:?}",
-                followers.iter().map(|x| x.node_id()).collect::<Vec<_>>()
+                node.out_nodes().map(|x| x.node_id()).collect::<Vec<_>>()
             );
-            self.list.extend(followers);
+            self.list.extend(node.out_nodes());
         }
     }
 
     fn run(&mut self) {
-        unsafe {
-            bindings::assure_irg_outs(self.graph.into());
-        }
+        self.graph.assure_outs();
 
         loop {
             let cur = match self.list.pop_front() {
@@ -126,11 +123,8 @@ impl ConstantFolding {
                     let prev = self.values.insert(cur, res).unwrap();
                     self.queue_followers_if_changed(cur, prev, res);
                 }
-                Node::Phi(phi) => unsafe {
-                    let npreds = bindings::get_Phi_n_preds(phi.into());
-                    let preds = (0..npreds)
-                        .map(|pos| bindings::get_Phi_pred(phi.into(), pos))
-                        .map(|irn| NodeFactory::node(irn))
+                Node::Phi(phi) => {
+                    let preds = phi.phi_preds()
                         .map(|p| self.values[&p])
                         .collect::<Vec<_>>();
                     log::debug!("preds: {:?}", preds);
@@ -163,7 +157,7 @@ impl ConstantFolding {
 
                 match node {
                     Node::Div(div) => {
-                        for out_node in node.out_node_iterator() {
+                        for out_node in node.out_nodes() {
                             match out_node {
                                 Node::Proj(_proj, ProjKind::Div_Res(_)) => {
                                     Graph::exchange(out_node, const_node);
@@ -176,7 +170,7 @@ impl ConstantFolding {
                         }
                     }
                     Node::Mod(modulo) => {
-                        for out_node in node.out_node_iterator() {
+                        for out_node in node.out_nodes() {
                             match out_node {
                                 Node::Proj(_proj, ProjKind::Mod_Res(_)) => {
                                     Graph::exchange(out_node, const_node);

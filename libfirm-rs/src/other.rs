@@ -54,6 +54,10 @@ impl Graph {
         unsafe { bindings::dump_ir_graph(self.irg, suffix.as_ptr()) }
     }
 
+    pub fn assure_outs(self) {
+        unsafe { bindings::assure_irg_outs(self.irg) }
+    }
+
     /// Walks over all reachable nodes in the graph, ensuring that nodes inside
     /// a basic block are visited in topological order.
     ///
