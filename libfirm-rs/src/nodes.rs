@@ -96,6 +96,10 @@ pub trait NodeTrait {
         unsafe { bindings::is_Jmp(self.internal_ir_node()) != 0 }
     }
 
+    fn is_const(&self) -> bool {
+        unsafe { bindings::is_Const(self.internal_ir_node()) != 0 }
+    }
+
     // TODO implement methods from
     // https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java
 }

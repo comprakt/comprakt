@@ -1,3 +1,4 @@
+use super::{OptimizationResult, OptimizationResultCollector};
 use crate::firm::Program;
 use libfirm_rs::{
     bindings,
@@ -11,15 +12,17 @@ struct UnreachableCodeElimination {
     graph: Graph,
 }
 
-pub fn run(program: &Program<'_, '_>) {
+pub fn run(program: &Program<'_, '_>) -> OptimizationResult {
+    let mut collector = OptimizationResultCollector::new();
     for class in program.classes.values() {
         for method in class.borrow().methods.values() {
             if let Some(graph) = method.borrow().graph {
                 log::debug!("Graph for Method: {:?}", method.borrow().entity.name());
-                UnreachableCodeElimination::new(graph.into()).run();
+                collector.push(UnreachableCodeElimination::new(graph.into()).run());
             }
         }
     }
+    collector.result()
 }
 
 impl UnreachableCodeElimination {
@@ -27,7 +30,7 @@ impl UnreachableCodeElimination {
         Self { graph }
     }
 
-    fn run(&mut self) {
+    fn run(&mut self) -> OptimizationResult {
         unsafe {
             bindings::assure_irg_outs(self.graph.into());
         }
@@ -122,7 +125,7 @@ impl UnreachableCodeElimination {
             target_block.keep_alive();
         }
 
-        for nontarget_block in dangling_nontarget_blocks {
+        for nontarget_block in &dangling_nontarget_blocks {
             let outs = nontarget_block.out_nodes().collect::<Vec<_>>();
             for (i, child) in outs.iter().enumerate() {
                 log::debug!("Mark Nontarget block child #{} {:?}", i, child);
@@ -132,5 +135,11 @@ impl UnreachableCodeElimination {
 
         // Now we actually remove the unreachable code
         self.graph.remove_bads();
+
+        if replacements.len() + dangling_nontarget_blocks.len() > 0 {
+            OptimizationResult::Changed
+        } else {
+            OptimizationResult::Unchanged
+        }
     }
 }

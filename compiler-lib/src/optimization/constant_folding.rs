@@ -1,3 +1,4 @@
+use super::{OptimizationResult, OptimizationResultCollector};
 use crate::firm::Program;
 use libfirm_rs::{
     bindings,
@@ -14,16 +15,18 @@ struct ConstantFolding {
     graph: Graph,
 }
 
-pub fn run(program: &Program<'_, '_>) {
+pub fn run(program: &Program<'_, '_>) -> OptimizationResult {
+    let mut collector = OptimizationResultCollector::new();
     for class in program.classes.values() {
         for method in class.borrow().methods.values() {
             if let Some(graph) = method.borrow().graph {
                 log::debug!("Graph for Method: {:?}", method.borrow().entity.name());
                 let mut cf = ConstantFolding::new(graph.into());
-                cf.run();
+                collector.push(cf.run());
             }
         }
     }
+    collector.result()
 }
 
 impl ConstantFolding {
@@ -62,7 +65,7 @@ impl ConstantFolding {
         }
     }
 
-    fn run(&mut self) {
+    fn run(&mut self) -> OptimizationResult {
         self.graph.assure_outs();
 
         while let Some(cur) = self.list.pop_front() {
@@ -142,8 +145,16 @@ impl ConstantFolding {
         values.sort_by_key(|(l, _)| l.node_id());
 
         // now apply the values
+        let mut collector = OptimizationResultCollector::new();
         for (node, v) in values {
             if v.is_constant() {
+                if node.is_const() {
+                    // no change necessary
+                    collector.push(OptimizationResult::Unchanged);
+                    continue;
+                }
+                collector.push(OptimizationResult::Changed);
+
                 log::debug!(
                     "EXCHANGE NODE kind={} id{:?} val={:?}",
                     NodeDiscriminants::from(node),
@@ -205,6 +216,8 @@ impl ConstantFolding {
                 }
             }
         }
+
+        collector.result()
     }
 }
 

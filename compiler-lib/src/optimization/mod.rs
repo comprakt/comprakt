@@ -3,7 +3,10 @@ use libfirm_rs::bindings;
 use std::ffi::CString;
 
 mod constant_folding;
+mod fixpoint;
 mod unreachable_code_elimination;
+
+pub use self::fixpoint::Fixpoint;
 
 #[derive(
     strum_macros::EnumString,
@@ -31,8 +34,48 @@ pub struct Optimization {
     pub flags: Vec<GlobalOptimizationFlag>,
 }
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum OptimizationResult {
+    Unchanged,
+    Changed,
+}
+
+pub struct OptimizationResultCollector {
+    results: Vec<OptimizationResult>,
+}
+
+impl OptimizationResultCollector {
+    pub fn new() -> OptimizationResultCollector {
+        OptimizationResultCollector {
+            results: Vec::new(),
+        }
+    }
+
+    pub fn push(&mut self, res: OptimizationResult) {
+        self.results.push(res);
+    }
+
+    pub fn result(&self) -> OptimizationResult {
+        if self
+            .results
+            .iter()
+            .any(|x| *x == OptimizationResult::Changed)
+        {
+            OptimizationResult::Changed
+        } else {
+            OptimizationResult::Unchanged
+        }
+    }
+}
+
 /// run a list of optimizations on the given program
 pub fn run_all(program: &Program<'_, '_>, optimizations: &[Optimization]) {
+    if let Err(_) = std::env::var("COMPRAKT_OPTIMIZATION_NO_FIXPOINT") {
+        let fp = Fixpoint::new(optimizations);
+        fp.run(program);
+        return;
+    }
+
     for (i, optimization) in optimizations.iter().enumerate() {
         log::debug!("Running optimization #{}: {:?}", i, optimization.kind);
         optimization.run(program);
@@ -52,12 +95,12 @@ pub fn run_all(program: &Program<'_, '_>, optimizations: &[Optimization]) {
 }
 
 impl Optimization {
-    fn run(&self, program: &Program<'_, '_>) {
+    fn run(&self, program: &Program<'_, '_>) -> OptimizationResult {
         use self::OptimizationKind::*;
         match self.kind {
-            AlgebraicSimplification => {}
+            AlgebraicSimplification => unimplemented!(),
             ConstantFolding => constant_folding::run(program),
             UnreachableCodeElimination => unreachable_code_elimination::run(program),
-        };
+        }
     }
 }
