@@ -86,6 +86,16 @@ pub trait NodeTrait {
         unsafe { bindings::get_irn_node_nr(self.internal_ir_node()) }
     }
 
+    // TODO autogenerate
+    fn is_block(&self) -> bool {
+        unsafe { bindings::is_Block(self.internal_ir_node()) != 0 }
+    }
+
+    // TODO autogenerate
+    fn is_jmp(&self) -> bool {
+        unsafe { bindings::is_Jmp(self.internal_ir_node()) != 0 }
+    }
+
     // TODO implement methods from
     // https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java
 }
@@ -121,6 +131,12 @@ impl nodes_gen::Address {
         unsafe {
             bindings::set_Address_entity(self.internal_ir_node(), ir_entity);
         }
+    }
+}
+
+impl nodes_gen::Block {
+    pub fn num_cfgpreds(self) -> i32 {
+        return unsafe { bindings::get_Block_n_cfgpreds(self.internal_ir_node()) };
     }
 }
 

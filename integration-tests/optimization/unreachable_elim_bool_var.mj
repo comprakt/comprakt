@@ -1,7 +1,5 @@
 ---
-optimizations: [ConstantFolding,UnreachableCodeElimination]
-# the following results in endless recursion
-#optimizations: [ConstantFolding,UnreachableCodeElimination,ConstantFolding,UnreachableCodeElimination]
+optimizations: [ConstantFolding,UnreachableCodeElimination,ConstantFolding,UnreachableCodeElimination]
 expect:
     identical-to:
         is: |
