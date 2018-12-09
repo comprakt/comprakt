@@ -1,17 +1,11 @@
 ---
-optimizations: [ConstantFolding]
+optimizations: [ConstantFolding,UnreachableCodeElimination]
 expect:
     identical-to:
         is: |
           class Simple {
           
             public int optimizeMe() {
-              int x = 1;
-              
-              while(false) {
-                 x = 2 - x;
-              }
-          
               return 1;
             }
           
