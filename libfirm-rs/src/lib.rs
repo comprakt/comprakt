@@ -11,7 +11,7 @@ pub mod nodes;
 #[allow(non_camel_case_types)]
 #[allow(dead_code)]
 pub mod nodes_gen;
-pub mod other;
+pub mod graph;
 pub mod types;
 
 pub mod tarval;
