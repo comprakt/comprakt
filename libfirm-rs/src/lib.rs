@@ -16,6 +16,8 @@ pub mod graph;
 #[allow(clippy::style, clippy::perf)]
 pub mod nodes;
 
+pub mod entity;
+
 // TODO: remove the clippy::perf allow
 // TODO: remove the clippy::style allow and allow lints separatly instead
 // of the whole lint group.
