@@ -100,6 +100,17 @@ impl ConstantFolding {
                     // no need to queue anything because of initial topological sort
                     // FIXME queue nethertheless to prevent accidental bugs.
                 }
+                Node::Conv(conversion) => {
+                    let operand = self.values[&conversion.op()];
+                    let mode = conversion.mode();
+
+                    // TODO: according to the libfirm docs this will panic for
+                    // some conversions. But the docs are eat least partially
+                    // outdated. Lookup rules in the actual implementation.
+                    let res = operand.cast(mode);
+                    let prev = self.values.insert(cur, res).unwrap();
+                    self.queue_followers_if_changed(cur, prev, res);
+                }
                 Node::Add(add) => {
                     tarval_binop!(add, Add);
                 }

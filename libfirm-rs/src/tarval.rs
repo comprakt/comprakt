@@ -53,6 +53,12 @@ impl Tarval {
     }
 
     #[inline]
+    pub fn cast(self, mode: mode::Type) -> Tarval {
+        // TODO: this might panic for unsafe casts
+        unsafe { bindings::tarval_convert_to(self.0, mode) }.into()
+    }
+
+    #[inline]
     pub fn is_constant(self) -> bool {
         unsafe { tarval_is_constant(self.0) != 0 }
     }

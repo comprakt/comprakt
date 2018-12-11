@@ -70,6 +70,10 @@ impl Proj {
 pub trait NodeTrait {
     fn internal_ir_node(&self) -> *mut bindings::ir_node;
 
+    fn mode(&self) -> bindings::mode::Type {
+        unsafe { bindings::get_irn_mode(self.internal_ir_node()) }
+    }
+
     fn block(&self) -> Block {
         let block_ir_node = unsafe { bindings::get_nodes_block(self.internal_ir_node()) };
         match NodeFactory::node(block_ir_node) {
