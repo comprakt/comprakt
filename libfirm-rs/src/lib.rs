@@ -379,13 +379,9 @@ impl Block {
         pinned: i32,
     ) -> Div {
         unsafe {
-            new_r_Div(
-                self.0,
-                mem.into(),
-                left.as_alu_operand(),
-                right.as_alu_operand(),
-                pinned,
-            )
+            let left = self.new_conv(left.as_alu_operand(), mode::Ls);
+            let right = self.new_conv(right.as_alu_operand(), mode::Ls);
+            new_r_Div(self.0, mem.into(), left, right, pinned)
         }
         .into()
     }
@@ -398,13 +394,9 @@ impl Block {
         pinned: i32,
     ) -> Mod {
         unsafe {
-            new_r_Mod(
-                self.0,
-                mem.into(),
-                left.as_alu_operand(),
-                right.as_alu_operand(),
-                pinned,
-            )
+            let left = new_r_Conv(self.0, left.as_alu_operand(), mode::Ls);
+            let right = new_r_Conv(self.0, right.as_alu_operand(), mode::Ls);
+            new_r_Mod(self.0, mem.into(), left, right, pinned)
         }
         .into()
     }
@@ -544,6 +536,10 @@ impl Block {
 
     pub fn new_bitcast(self, node: *mut ir_node, target_mode: mode::Type) -> Bitcast {
         unsafe { new_r_Bitcast(self.0, node, target_mode) }.into()
+    }
+
+    pub fn new_conv(self, node: *mut ir_node, target_mode: mode::Type) -> *mut ir_node {
+        unsafe { new_r_Conv(self.0, node, target_mode) }
     }
 }
 
@@ -834,8 +830,12 @@ impl Div {
     pub fn project_mem(self) -> MemoryState {
         unsafe { new_r_Proj(self.0, mode::M, pn_Div::M) }.into()
     }
-    pub fn project_res(self) -> DivResult {
-        unsafe { new_r_Proj(self.0, mode::Is, pn_Div::Res) }.into()
+    pub fn project_res(self, block: Block) -> DivResult {
+        unsafe {
+            let proj = new_r_Proj(self.0, mode::Ls, pn_Div::Res);
+            block.new_conv(proj, mode::Is)
+        }
+        .into()
     }
 }
 
@@ -856,8 +856,12 @@ impl Mod {
     pub fn project_mem(self) -> MemoryState {
         unsafe { new_r_Proj(self.0, mode::M, pn_Mod::M) }.into()
     }
-    pub fn project_res(self) -> ModResult {
-        unsafe { new_r_Proj(self.0, mode::Is, pn_Mod::Res) }.into()
+    pub fn project_res(self, block: Block) -> ModResult {
+        unsafe {
+            let proj = new_r_Proj(self.0, mode::Ls, pn_Div::Res);
+            block.new_conv(proj, mode::Is)
+        }
+        .into()
     }
 }
 

@@ -159,7 +159,16 @@ pub fn gen_semantic_integration_tests(_args: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn gen_ast_inspector_tests(_args: TokenStream) -> TokenStream {
     gen_integration_tests("spans", "", |test_name, mj_file| {
-        default_test_generator(&quote! { CompilerCall::AstInspector }, test_name, mj_file)
+        let function_name = Ident::new(&test_name, Span::call_site());
+        let path_str = mj_file.to_str().unwrap();
+
+        quote! {
+            #[test]
+            fn #function_name() {
+                let input = PathBuf::from(#path_str);
+                exec_ast_inspector_test(input);
+            }
+        }
     })
 }
 

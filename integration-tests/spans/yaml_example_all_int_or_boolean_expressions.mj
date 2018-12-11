@@ -1,0 +1,23 @@
+---
+kind: expression
+typeinfo: integer|boolean
+---
+class ArrayAccessIsByValue {
+  public int[] x;
+
+  public int[] foo(int callsite) {
+    System.out.println(callsite);
+    x = new int[2];
+    return x;
+  }
+
+  public static void main(String[] args) {
+    ArrayAccessIsByValue m = new ArrayAccessIsByValue();
+    int x = m.foo(1)[m.foo(2)[1]];
+    
+    if (x > 1) {
+        System.out.println(12);
+    }
+  }
+}
+

@@ -673,7 +673,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .$op(mem, &$lhs, &$rhs, op_pin_state::Pinned as i32);
                 self.graph.set_store(op.project_mem());
                 log::debug!("pre project res {}", stringify!($op));
-                let res = op.project_res();
+                let res = op.project_res(self.graph.cur_block());
                 log::debug!("pre as_value_node {}", stringify!($op));
                 Value(ValueComputation::simple(&res))
             }};

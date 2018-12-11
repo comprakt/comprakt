@@ -40,7 +40,11 @@ pub enum CompilerPhase {
 #[allow(dead_code)]
 pub enum CompilerCall {
     RawCompiler(CompilerPhase),
-    AstInspector,
+    AstInspector {
+        content: Option<String>,
+        kind: Option<String>,
+        typeinfo: Option<String>,
+    },
 }
 
 /// Arguments that should be given to the compiler under test
@@ -106,7 +110,11 @@ fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
 
             cmd
         }
-        CompilerCall::AstInspector => {
+        CompilerCall::AstInspector {
+            content,
+            kind,
+            typeinfo,
+        } => {
             let ast_inspector_path = project_binary(Some("inspect-ast"));
             println!(
                 "Test run using the ast inspector binary at {:?}",
@@ -114,6 +122,18 @@ fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
             );
 
             let mut cmd = Command::new(ast_inspector_path);
+
+            if let Some(filter) = content {
+                cmd.args(&["-c", &filter]);
+            }
+
+            if let Some(filter) = kind {
+                cmd.args(&["-k", &filter]);
+            }
+
+            if let Some(filter) = typeinfo {
+                cmd.args(&["-t", &filter]);
+            }
 
             cmd.env("TERM", "dumb").arg(filepath.as_os_str());
 
