@@ -107,21 +107,26 @@ pub trait NodeTrait {
 // TODO: should we use dynamic reverse edges instead of reverse
 simple_node_iterator!(OutNodeIterator, get_irn_n_outs, get_irn_out, u32);
 
-// TODO: deriving PartialEq, even though Hash is implemented
-// by hand seems correct since.
-// a) an mut* ir_node can only have once Node Variant
-// b) the tuple value of each variant is just a new-type
-//    around a mut* ir_node
-//
-// actual task: decide if deriving PartialEq is in fact
-// correct. If it is, remove this todo, but leave an explanation.
-// if it is not, implement PartialEq correctly.
 #[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Node {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        // k1 == k2 => hash(k1) == hash(k2)
+        // has to hold, update PartialEq implementation if this code
+        // is updated.
         self.internal_ir_node().hash(state);
     }
 }
+
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        // k1 == k2 => hash(k1) == hash(k2)
+        // has to hold, update Hash implementation if this code
+        // is updated.
+        self.internal_ir_node() == other.internal_ir_node()
+    }
+}
+
+impl Eq for Node {}
 
 // FIXME generate this
 impl Into<*mut bindings::ir_node> for Node {

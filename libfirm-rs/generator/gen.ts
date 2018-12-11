@@ -265,7 +265,7 @@ w.line("use std::fmt;");
 // generate Node enum
 {
     w.line('#[strum_discriminants(derive(Display))]');
-    w.line("#[derive(EnumDiscriminants, Clone, Copy, Eq, PartialEq)]");
+    w.line("#[derive(EnumDiscriminants, Clone, Copy)]");
     w.indent("pub enum Node {");
     for (const node of nodes) {
         if (node.isProj) {

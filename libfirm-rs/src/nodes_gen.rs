@@ -2,9 +2,8 @@ use super::{graph::Graph, nodes::NodeTrait};
 use libfirm_rs_bindings as bindings;
 use std::{collections::HashMap, fmt};
 use strum_macros::EnumDiscriminants;
-
 #[strum_discriminants(derive(Display))]
-#[derive(EnumDiscriminants, Clone, Copy, Eq, PartialEq)]
+#[derive(EnumDiscriminants, Clone, Copy)]
 pub enum Node {
     Add(Add),
     Address(Address),
