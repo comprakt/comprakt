@@ -53,9 +53,17 @@ impl Tarval {
     }
 
     #[inline]
-    pub fn cast(self, mode: mode::Type) -> Tarval {
-        // TODO: this might panic for unsafe casts
-        unsafe { bindings::tarval_convert_to(self.0, mode) }.into()
+    pub fn cast(self, mode: mode::Type) -> Option<Tarval> {
+        if self.can_be_cast_into(mode) {
+            Some(unsafe { bindings::tarval_convert_to(self.0, mode) }.into())
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    pub fn can_be_cast_into(self, mode: mode::Type) -> bool {
+        unsafe { bindings::smaller_mode(self.mode(), mode) != 0 }
     }
 
     #[inline]

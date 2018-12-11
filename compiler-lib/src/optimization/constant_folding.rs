@@ -3,6 +3,7 @@ use crate::firm::Program;
 use libfirm_rs::{
     bindings,
     graph::Graph,
+    mode,
     nodes::NodeTrait,
     nodes_gen::{Node, NodeDiscriminants, ProjKind},
     tarval::{mode_name, Tarval},
@@ -103,11 +104,8 @@ impl ConstantFolding {
                 Node::Conv(conversion) => {
                     let operand = self.values[&conversion.op()];
                     let mode = conversion.mode();
-
-                    // TODO: according to the libfirm docs this will panic for
-                    // some conversions. But the docs are eat least partially
-                    // outdated. Lookup rules in the actual implementation.
-                    let res = operand.cast(mode);
+                    let res = Lattice::unary_op(operand, UnaryOp::Cast(mode));
+                    log::debug!("cast into: {:?}", res);
                     let prev = self.values.insert(cur, res).unwrap();
                     self.queue_followers_if_changed(cur, prev, res);
                 }
@@ -251,24 +249,26 @@ pub enum Binop {
 #[derive(Clone, Copy, Debug)]
 pub enum UnaryOp {
     Minus,
+    Cast(mode::Type),
 }
 
 impl Lattice {
-    pub fn unary_op(val: Tarval, op: UnaryOp) -> Tarval {
+    pub fn unary_op(operand: Tarval, op: UnaryOp) -> Tarval {
         let unknown = Tarval::unknown().mode();
         let bad = Tarval::bad().mode();
 
         // TODO: these checks might be unnecessary
-        if val.mode() == unknown {
+        if operand.mode() == unknown {
             return Tarval::unknown();
         }
 
-        if val.mode() == bad {
+        if operand.mode() == bad {
             return Tarval::bad();
         }
 
         match op {
-            UnaryOp::Minus => -val,
+            UnaryOp::Minus => -operand,
+            UnaryOp::Cast(mode) => operand.cast(mode).unwrap_or_else(Tarval::bad),
         }
     }
 

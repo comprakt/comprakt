@@ -4,6 +4,7 @@ pub use libfirm_rs_bindings as bindings;
 #[macro_use]
 extern crate derive_more;
 
+pub use libfirm_rs_bindings::mode;
 use libfirm_rs_bindings::*;
 use std::ffi::{CStr, CString};
 
