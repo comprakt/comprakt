@@ -1,4 +1,4 @@
-use super::{graph::Graph, nodes::NodeTrait};
+use super::{graph::Graph, nodes::NodeTrait, tarval::Tarval};
 use libfirm_rs_bindings as bindings;
 use std::{collections::HashMap, fmt};
 use strum_macros::EnumDiscriminants;
@@ -1648,14 +1648,14 @@ impl Const {
     }
 
     /// Gets constant value (a tarval object).
-    pub fn tarval(&self) -> *mut bindings::ir_tarval {
+    pub fn tarval(&self) -> Tarval {
         let unwrapped = unsafe { bindings::get_Const_tarval(self.0) };
-        unwrapped
+        unwrapped.into()
     }
 
     /// Sets constant value (a tarval object).
-    pub fn set_tarval(&self, val: *mut bindings::ir_tarval) {
-        let unwrapped = val;
+    pub fn set_tarval(&self, val: Tarval) {
+        let unwrapped = val.into();
         unsafe {
             bindings::set_Const_tarval(self.0, unwrapped);
         }
@@ -4393,8 +4393,8 @@ impl Graph {
 
     /// Creates a new Const-node.
     /// * `tarval` constant value (a tarval object)
-    pub fn new_const(&self, tarval: *mut bindings::ir_tarval) -> Const {
-        let ir_node = unsafe { bindings::new_r_Const(self.irg, tarval) };
+    pub fn new_const(&self, tarval: Tarval) -> Const {
+        let ir_node = unsafe { bindings::new_r_Const(self.irg, tarval.into()) };
         Const::new(ir_node)
     }
 

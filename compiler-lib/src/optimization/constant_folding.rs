@@ -5,7 +5,7 @@ use libfirm_rs::{
     graph::Graph,
     mode,
     nodes::NodeTrait,
-    nodes_gen::{Node, NodeDiscriminants, ProjKind},
+    nodes_gen::{Node, ProjKind},
     tarval::{mode_name, Tarval},
 };
 use std::collections::{hash_map::HashMap, VecDeque};
@@ -70,11 +70,7 @@ impl ConstantFolding {
         self.graph.assure_outs();
 
         while let Some(cur) = self.list.pop_front() {
-            log::debug!(
-                "VISIT NODE kind={} id={:?}",
-                NodeDiscriminants::from(cur),
-                cur.node_id()
-            );
+            log::debug!("VISIT NODE {:?}", cur);
 
             macro_rules! tarval_binop {
                 ($thing: ident, $op: expr) => {{
@@ -90,7 +86,7 @@ impl ConstantFolding {
 
             match cur {
                 Node::Const(constant) => {
-                    let tv = constant.tarval().into();
+                    let tv = constant.tarval();
                     log::debug!("constant: {:?}", tv);
                     let prev = self.values.insert(cur, tv).unwrap();
                     debug_assert_eq!(
@@ -145,7 +141,9 @@ impl ConstantFolding {
 
                 Node::Cmp(cmp) => tarval_binop!(cmp, Rel(cmp.relation())),
 
-                _ => (),
+                node => {
+                    log::debug!("unhandled {:?}", node);
+                },
             }
         }
 
@@ -164,12 +162,7 @@ impl ConstantFolding {
                 }
                 collector.push(OptimizationResult::Changed);
 
-                log::debug!(
-                    "EXCHANGE NODE kind={} id{:?} val={:?}",
-                    NodeDiscriminants::from(node),
-                    node.node_id(),
-                    v
-                );
+                log::debug!("EXCHANGE NODE {:?} val={:?}", node, v);
                 let const_node = Node::Const(self.graph.new_const((*v).into()));
 
                 match node {

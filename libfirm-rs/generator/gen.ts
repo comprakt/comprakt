@@ -226,7 +226,12 @@ function lookupType(typeName: string) {
         "ir_entity*": rawPointerType("ir_entity"),
         "ir_type*": rawPointerType("ir_type"),
         "ir_mode*": rawPointerType("ir_mode"),
-        "ir_tarval*": rawPointerType("ir_tarval"),
+        "ir_tarval*": ({
+            rustInName: "Tarval",
+            rustOutName: "Tarval",
+            wrap: arg => `${arg}.into()`,
+            unwrap: arg => `${arg}.into()`,
+        }),
         "ir_switch_table*": rawPointerType("ir_switch_table"),
         "ir_asm_constraint*": rawPointerType("ir_asm_constraint"),
         "ident*": rawPointerType("ident"),
@@ -259,6 +264,7 @@ w.line("use libfirm_rs_bindings as bindings;");
 w.line("use std::collections::HashMap;");
 w.line("use super::nodes::NodeTrait;");
 w.line("use super::graph::Graph;");
+w.line("use super::tarval::Tarval;");
 w.line("use strum_macros::EnumDiscriminants;");
 w.line("use std::fmt;");
 
