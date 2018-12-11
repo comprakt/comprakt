@@ -86,6 +86,10 @@ pub trait NodeTrait {
         OutNodeIterator::new(self.internal_ir_node())
     }
 
+    fn in_nodes(&self) -> InNodeIterator {
+        InNodeIterator::new(self.internal_ir_node())
+    }
+
     fn node_id(&self) -> i64 {
         unsafe { bindings::get_irn_node_nr(self.internal_ir_node()) }
     }
@@ -107,6 +111,8 @@ pub trait NodeTrait {
     // TODO implement methods from
     // https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java
 }
+
+simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
 
 // TODO: should we use dynamic reverse edges instead of reverse
 simple_node_iterator!(OutNodeIterator, get_irn_n_outs, get_irn_out, u32);
