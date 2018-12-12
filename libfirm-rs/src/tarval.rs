@@ -152,7 +152,7 @@ impl PartialEq for Tarval {
         match (self.kind(), o.kind()) {
             (TarvalKind::Unknown, TarvalKind::Unknown) => true,
             (TarvalKind::Bad, TarvalKind::Bad) => true,
-            _ if self.kind() != o.kind() => self.lattice_eq(*o),
+            _ if self.kind() == o.kind() => self.lattice_eq(*o),
             _ => false,
         }
     }
