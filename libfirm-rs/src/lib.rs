@@ -9,11 +9,7 @@ use libfirm_rs_bindings::*;
 use std::ffi::{CStr, CString};
 
 pub mod graph;
-
-// TODO: remove these allows
-#[allow(clippy::style, clippy::perf)]
 pub mod nodes;
-
 pub mod entity;
 
 // TODO: remove the clippy::perf allow
