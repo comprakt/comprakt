@@ -49,7 +49,7 @@ pub fn exec_timeout_test(input: PathBuf) {
     use wait_timeout::ChildExt;
     let binary_path = input.with_extension("out");
 
-    let test_data: TestData<Data> = assert_compiler_phase::<Data>(
+    let test_data = assert_compiler_phase::<Data>(
         CompilerCall::RawCompiler(CompilerPhase::Binary {
             output: binary_path.clone(),
             optimizations: vec![],

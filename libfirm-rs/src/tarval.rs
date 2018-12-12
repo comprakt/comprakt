@@ -155,19 +155,6 @@ impl PartialEq for Tarval {
             _ if self.kind() != o.kind() => self.lattice_eq(*o),
             _ => false,
         }
-
-        /*if !self.is_constant() || !o.is_constant() {
-            self.mode() == o.mode()
-        } else if self.mode() != o.mode() {
-            false
-        } else if self.mode() == unsafe { bindings::mode::b } {
-            ptr::eq(self.0, o.0)
-        } else if self.is_long() && o.is_long() {
-            // numeric comparison required
-            self.get_long() == o.get_long()
-        } else {
-            unimplemented!()
-        }*/
     }
 }
 

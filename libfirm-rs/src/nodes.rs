@@ -176,22 +176,3 @@ impl fmt::Debug for nodes_gen::Address {
         write!(f, "Address of {:?} {}", entity_name, self.node_id())
     }
 }
-
-/*
-// FIXME generate this
-impl Into<*mut bindings::ir_node> for crate::nodes_gen::Phi {
-    fn into(self) -> *mut bindings::ir_node {
-        self.internal_ir_node()
-    }
-}
-
-// FIXME generate this
-impl Into<*const bindings::ir_node> for crate::nodes_gen::Phi {
-    fn into(self) -> *const bindings::ir_node {
-        self.internal_ir_node() as *const _
-    }
-}*/
-
-// TODO: derive Eq here, current is incorrect
-
-// TODO maybe Into<*const ir_node> for NodeTrait?
