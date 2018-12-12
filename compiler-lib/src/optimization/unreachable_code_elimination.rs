@@ -5,7 +5,6 @@ use libfirm_rs::{
     graph::Graph,
     nodes::NodeTrait,
     nodes_gen::{Node, ProjKind},
-    tarval::Tarval,
 };
 
 struct UnreachableCodeElimination {
@@ -40,7 +39,7 @@ impl UnreachableCodeElimination {
         self.graph.walk_topological(|node| {
             if let Node::Cond(cond) = node {
                 if let Node::Const(c) = cond.selector() {
-                    let tarval = Tarval::from(c.tarval());
+                    let tarval = c.tarval();
 
                     let used_proj = node
                         .out_nodes()

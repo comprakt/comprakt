@@ -28,7 +28,7 @@ impl FromStr for OptimizationList {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut list = Vec::new();
-        for opt in s.split(',').filter(|s| s.len() > 0) {
+        for opt in s.split(',').filter(|s| !s.is_empty()) {
             let mut fields = opt.split(':');
             let kind = OptimizationKind::from_str(fields.next().unwrap())
                 .context(CliError::InvalidOptimizationFlag)?;

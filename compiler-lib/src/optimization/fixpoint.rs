@@ -13,7 +13,7 @@ impl<'a> Fixpoint<'a> {
     }
 
     pub fn run(&self, program: &Program<'_, '_>) -> OptimizationResult {
-        if self.opts.len() == 0 {
+        if self.opts.is_empty() {
             return OptimizationResult::Unchanged;
         }
 

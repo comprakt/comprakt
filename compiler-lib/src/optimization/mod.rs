@@ -40,15 +40,14 @@ pub enum OptimizationResult {
     Changed,
 }
 
+#[derive(Default)]
 pub struct OptimizationResultCollector {
     results: Vec<OptimizationResult>,
 }
 
 impl OptimizationResultCollector {
     pub fn new() -> OptimizationResultCollector {
-        OptimizationResultCollector {
-            results: Vec::new(),
-        }
+        Self::default()
     }
 
     pub fn push(&mut self, res: OptimizationResult) {
@@ -70,7 +69,7 @@ impl OptimizationResultCollector {
 
 /// run a list of optimizations on the given program
 pub fn run_all(program: &Program<'_, '_>, optimizations: &[Optimization]) {
-    if let Err(_) = std::env::var("COMPRAKT_OPTIMIZATION_NO_FIXPOINT") {
+    if std::env::var("COMPRAKT_OPTIMIZATION_NO_FIXPOINT").is_err() {
         let fp = Fixpoint::new(optimizations);
         fp.run(program);
         return;

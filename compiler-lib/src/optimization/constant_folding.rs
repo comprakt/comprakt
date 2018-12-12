@@ -66,6 +66,7 @@ impl ConstantFolding {
         }
     }
 
+    #[allow(clippy::cyclomatic_complexity)]
     fn run(&mut self) -> OptimizationResult {
         self.graph.assure_outs();
 
@@ -163,7 +164,7 @@ impl ConstantFolding {
                 collector.push(OptimizationResult::Changed);
 
                 log::debug!("EXCHANGE NODE {:?} val={:?}", node, v);
-                let const_node = Node::Const(self.graph.new_const((*v).into()));
+                let const_node = Node::Const(self.graph.new_const(*v));
 
                 match node {
                     /* IMPROVEMENT?
