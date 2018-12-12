@@ -3,6 +3,7 @@ use libfirm_rs::bindings;
 use std::ffi::CString;
 
 mod constant_folding;
+mod constant_folding2;
 mod fixpoint;
 mod unreachable_code_elimination;
 
@@ -21,6 +22,7 @@ pub enum OptimizationKind {
     AlgebraicSimplification,
     ConstantFolding,
     UnreachableCodeElimination,
+    ConstantFolding2,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -100,6 +102,10 @@ impl Optimization {
             AlgebraicSimplification => unimplemented!(),
             ConstantFolding => constant_folding::run(program),
             UnreachableCodeElimination => unreachable_code_elimination::run(program),
+            ConstantFolding2 => {
+                constant_folding2::run(program);
+                OptimizationResult::Unchanged
+            }
         }
     }
 }

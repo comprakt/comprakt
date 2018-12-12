@@ -37,3 +37,4 @@ pub mod strtab;
 pub mod symtab;
 pub mod type_checking;
 pub use self::utils::OutputSpecification;
+pub mod debugging;

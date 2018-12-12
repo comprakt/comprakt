@@ -1,0 +1,32 @@
+---
+optimizations: [ConstantFolding]
+expect: change
+compiler_optimized_stdout: ignore
+compiler_reference_stdout: ignore
+stdout:
+    is: "40\n"
+---
+
+class CF {
+    public static void main(String[] args) throws Exception {
+        CF cf = new CF();
+        System.out.println(cf.foo());
+    }
+
+    public int foo() throws Exception {
+        int i = 0;
+        if (i == 0) { i = 10; }
+        else { i = 11; }
+
+        if (i == 10) { i = 20; }
+        else { i = 21; }
+
+        if (i == 20) { i = 30; }
+        else { i = 31; }
+
+        if (i == 30) { i = 40; }
+        else { i = 41; }
+
+        return i;
+    }
+}
