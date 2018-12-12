@@ -1,4 +1,4 @@
-use compiler_lib::optimization::Optimization;
+use compiler_lib::optimization::OptimizationKind;
 use crate::*;
 use serde_derive::Deserialize;
 use std::{
@@ -44,7 +44,7 @@ pub struct OptimizationTestData {
     pub stdin: Option<ExpectedData>,
 
     /// optimizations that should be applied
-    pub optimizations: Vec<Optimization>,
+    pub optimizations: Vec<OptimizationKind>,
     /// expected outcome of a comparison between
     /// the unoptimized and the optimized asm of
     /// the binary.
@@ -152,7 +152,16 @@ pub fn exec_optimization_test(input: PathBuf) {
     let callinfo_actual = CompilerCall::RawCompiler(CompilerPhase::Binary {
         output: path_binary_optimized.clone(),
         assembly: Some(path_asm_optimized.clone()),
-        optimizations: test_data.reference.optimizations.clone(),
+        optimizations: test_data
+            .reference
+            .optimizations
+            .clone()
+            .iter()
+            .map(|kind| Optimization {
+                kind: *kind,
+                flags: vec![],
+            })
+            .collect(),
     });
 
     let mut cmd_actual = compiler_call(callinfo_actual, &input_without_yaml_path);
@@ -175,13 +184,15 @@ pub fn exec_optimization_test(input: PathBuf) {
     );
 
     let reference_input = match test_data.reference.expect {
-        AsmComparisonOutcome::Change | AsmComparisonOutcome::Unchanged => {
+        AsmComparisonOutcome::Change
+        | AsmComparisonOutcome::Unchanged
+        | AsmComparisonOutcome::IdenticalTo(ExpectedData::Ignore) => {
             // compare to the same file unoptimized
             input_without_yaml_path.clone()
         }
         AsmComparisonOutcome::IdenticalTo(ExpectedData::Inline(ref mj_str)) => {
             // reference mini java given as string in yaml front matter
-            let path = add_extension(&setup.input, "reference.mj");
+            let path = add_extension(&setup.input, "reference");
             write(&Some(path.clone()), mj_str).expect(
                 "Failed to write reference mini java \
                  file to disk (required for input to the compiler under test)",
@@ -253,6 +264,7 @@ pub fn exec_optimization_test(input: PathBuf) {
                 );
             }
         }
+        AsmComparisonOutcome::IdenticalTo(ExpectedData::Ignore) => {}
         AsmComparisonOutcome::Unchanged | AsmComparisonOutcome::IdenticalTo(_) => assert_changeset(
             &TestSpec {
                 input: path_asm_optimized,
@@ -285,9 +297,12 @@ fn sort_blocks(s: &str) -> String {
 
 // TODO: this could also be done in strip_comments
 fn remove_trailing_whitespace(s: &str) -> String {
-    let lines: Vec<&str> = vec![];
+    let mut lines: Vec<&str> = vec![];
     for line in s.lines() {
-        line.trim_end();
+        let trimmed = line.trim_end();
+        if !trimmed.is_empty() {
+            lines.push(trimmed);
+        }
     }
 
     lines.join("\n")
@@ -329,14 +344,16 @@ fn run_binary(binary_path: &PathBuf, stdin: &Option<ExpectedData>, setup: &TestS
         .expect("failed to invoke generated binary");
 
     if let Some(ref stdin_data) = stdin {
-        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
         match stdin_data {
+            ExpectedData::Ignore => {}
             ExpectedData::Inline(stdin_str) => {
+                let stdin = child.stdin.as_mut().expect("Failed to open stdin");
                 stdin
                     .write_all(stdin_str.as_bytes())
                     .expect("Failed to write to stdin of generated binary");
             }
             ExpectedData::InFile(rel_path) => {
+                let stdin = child.stdin.as_mut().expect("Failed to open stdin");
                 let stdin_path = reference_to_absolute_path(&setup, &rel_path);
                 let mut stdin_reader = File::open(&stdin_path).expect("failed to open stdin file");
                 io::copy(&mut stdin_reader, stdin)

@@ -1,0 +1,11 @@
+---
+optimizations: [ConstantFolding]
+expect: unchanged
+exitcode:
+    is: "terminated by signal or crashed."
+---
+class CF_Mod {
+  public static void main(String[] args) {
+    System.out.println(15 % 0);
+  }
+}

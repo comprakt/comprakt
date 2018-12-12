@@ -4,8 +4,28 @@ pub use libfirm_rs_bindings as bindings;
 #[macro_use]
 extern crate derive_more;
 
+pub use libfirm_rs_bindings::mode;
 use libfirm_rs_bindings::*;
 use std::ffi::{CStr, CString};
+
+pub mod entity;
+pub mod graph;
+pub mod nodes;
+
+#[allow(dead_code)]
+pub mod nodes_gen;
+pub mod types;
+
+pub mod tarval;
+
+use std::sync::Once;
+
+static INIT: Once = Once::new();
+pub fn init() {
+    INIT.call_once(|| unsafe {
+        ir_init_library();
+    });
+}
 
 #[derive(Clone, Copy)]
 pub struct Ty(*mut ir_type);
@@ -911,16 +931,5 @@ impl Call {
             let result_node = new_r_Proj(self.0, mode::T, pn_Call::TResult);
             CallResultTuple(result_node)
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use libfirm_rs_bindings;
-
-    #[test]
-    fn init() {
-        unsafe { libfirm_rs_bindings::ir_init() };
     }
 }

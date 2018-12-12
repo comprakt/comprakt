@@ -1,0 +1,19 @@
+---
+optimizations: [ConstantFolding]
+expect:
+    identical-to:
+        is: |
+          class CF_Div {
+            public static void main(String[] args) {
+              System.out.println(3);
+            }
+          }
+        
+stdout:
+    is: "3\n"
+---
+class CF_Div {
+  public static void main(String[] args) {
+    System.out.println(15 / 5);
+  }
+}

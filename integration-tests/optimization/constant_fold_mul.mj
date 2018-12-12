@@ -1,0 +1,19 @@
+---
+optimizations: [ConstantFolding]
+expect:
+    identical-to:
+        is: |
+          class CF_Mul {
+            public static void main(String[] args) {
+              System.out.println(24);
+            }
+          }
+        
+stdout:
+    is: "24\n"
+---
+class CF_Mul {
+  public static void main(String[] args) {
+    System.out.println(3 * 8);
+  }
+}

@@ -25,8 +25,10 @@ pub use self::{
     runtime::Runtime,
 };
 
+use failure::{Error, Fail};
+
 use crate::{
-    optimization::Optimization,
+    optimization::{self, Optimization},
     strtab::{StringTable, Symbol},
     type_checking::{
         type_analysis::TypeAnalysis,
@@ -56,36 +58,42 @@ pub struct Options {
     pub optimizations: Vec<Optimization>,
 }
 
+#[derive(Debug, Fail)]
+pub enum FirmError {
+    #[fail(display = "failed to write assembly to file {:?}", path)]
+    EmitAsmFailure { path: PathBuf },
+}
+
 pub struct Program<'src, 'ast> {
-    classes: HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
+    pub classes: HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
 }
 
-struct Class<'src, 'ast> {
-    name: CString,
-    def: &'src ClassDef<'src, 'ast>,
-    entity: Entity,
+pub struct Class<'src, 'ast> {
+    pub name: CString,
+    pub def: &'src ClassDef<'src, 'ast>,
+    pub entity: Entity,
     pub fields: HashMap<Symbol<'src>, Rc<RefCell<Field<'src, 'ast>>>>,
-    methods: HashMap<Symbol<'src>, Rc<RefCell<Method<'src, 'ast>>>>,
+    pub methods: HashMap<Symbol<'src>, Rc<RefCell<Method<'src, 'ast>>>>,
 }
 
-struct Field<'src, 'ast> {
-    _name: CString,
-    _class: Weak<RefCell<Class<'src, 'ast>>>,
-    def: Rc<ClassFieldDef<'src>>,
-    entity: Entity,
+pub struct Field<'src, 'ast> {
+    pub _name: CString,
+    pub _class: Weak<RefCell<Class<'src, 'ast>>>,
+    pub def: Rc<ClassFieldDef<'src>>,
+    pub entity: Entity,
 }
 
-struct Method<'src, 'ast> {
-    _name: CString,
-    _class: Weak<RefCell<Class<'src, 'ast>>>,
-    body: ClassMethodBody<'src, 'ast>,
-    def: Rc<ClassMethodDef<'src, 'ast>>,
-    entity: Entity,
-    graph: Option<Graph>,
+pub struct Method<'src, 'ast> {
+    pub _name: CString,
+    pub _class: Weak<RefCell<Class<'src, 'ast>>>,
+    pub body: ClassMethodBody<'src, 'ast>,
+    pub def: Rc<ClassMethodDef<'src, 'ast>>,
+    pub entity: Entity,
+    pub graph: Option<Graph>,
 }
 
 unsafe fn setup() {
-    ir_init_library();
+    libfirm_rs::init();
 
     // this call panics on error
     let triple = ir_get_host_machine_triple();
@@ -104,7 +112,7 @@ pub unsafe fn build<'src, 'ast>(
     type_system: &'src TypeSystem<'src, 'ast>,
     type_analysis: &'src TypeAnalysis<'src, 'ast>,
     strtab: &'src mut StringTable<'src>,
-) {
+) -> Result<(), Error> {
     setup();
 
     let generator = ProgramGenerator::new(type_system, type_analysis, strtab);
@@ -140,8 +148,7 @@ pub unsafe fn build<'src, 'ast>(
         }
     }
 
-    // TODO: run optimizations here
-    //println!("Optimizations: {:#?}", opts.optimizations);
+    optimization::run_all(&program, &opts.optimizations);
 
     lower_highlevel();
     be_lower_for_target();
@@ -169,6 +176,10 @@ pub unsafe fn build<'src, 'ast>(
                     CStr::from_bytes_with_nul(b"w\0").unwrap().as_ptr(),
                 );
 
+                if assembly_file.is_null() {
+                    return Err(FirmError::EmitAsmFailure { path: path.clone() }.into());
+                }
+
                 #[allow(clippy::cast_ptr_alignment)]
                 be_main(assembly_file as *mut _IO_FILE, label);
 
@@ -183,6 +194,7 @@ pub unsafe fn build<'src, 'ast>(
     drop(program);
 
     ir_finish();
+    Ok(())
 }
 
 /// `None` indicates that the given type is not convertible, which

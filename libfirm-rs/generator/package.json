@@ -1,0 +1,10 @@
+{
+  "name": "generator",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^10.12.12",
+    "codemaker": "^0.7.11"
+  }
+}
