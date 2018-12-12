@@ -131,10 +131,11 @@ impl Graph {
             let node_data = data(*node);
             writeln!(
                 writer,
-                "{:?} [label=\"{}\", style={}, shape=box];",
+                "{:?} [label=\"{}\", style={}, shape=box{}];",
                 node.node_id(),
                 node_data.text.replace("\"", "'").replace("\n", "\\n"),
-                if node_data.filled { "filled" } else { "none" }
+                if node_data.filled { "filled" } else { "none" },
+                if node_data.bold { ", penwidth=3" } else { "" },
             )
             .unwrap();
 
@@ -160,6 +161,7 @@ impl Graph {
 pub struct NodeData {
     text: String,
     filled: bool,
+    bold: bool,
 }
 
 impl NodeData {
@@ -167,11 +169,16 @@ impl NodeData {
         NodeData {
             text,
             filled: false,
+            bold: false,
         }
     }
 
     pub fn filled(&mut self, val: bool) {
         self.filled = val;
+    }
+
+    pub fn bold(&mut self, val: bool) {
+        self.bold = val;
     }
 }
 
