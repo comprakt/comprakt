@@ -217,6 +217,18 @@
 <span id="217">217</span>
 <span id="218">218</span>
 <span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Lowers the output of the semantic analysis phase (AST, Type System, Type</span>
 <span class="doccomment">//! Analysis), into Firm for code generation.</span>
@@ -245,8 +257,10 @@
     <span class="ident">runtime</span>::<span class="ident">Runtime</span>,
 };
 
+<span class="kw">use</span> <span class="ident">failure</span>::{<span class="ident">Error</span>, <span class="ident">Fail</span>};
+
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">optimization</span>::<span class="ident">Optimization</span>,
+    <span class="ident">optimization</span>::{<span class="self">self</span>, <span class="ident">Optimization</span>},
     <span class="ident">strtab</span>::{<span class="ident">StringTable</span>, <span class="ident">Symbol</span>},
     <span class="ident">type_checking</span>::{
         <span class="ident">type_analysis</span>::<span class="ident">TypeAnalysis</span>,
@@ -276,36 +290,42 @@
     <span class="kw">pub</span> <span class="ident">optimizations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Optimization</span><span class="op">&gt;</span>,
 }
 
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Fail</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">FirmError</span> {
+    <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;failed to write assembly to file {:?}&quot;</span>, <span class="ident">path</span>)]</span>
+    <span class="ident">EmitAsmFailure</span> { <span class="ident">path</span>: <span class="ident">PathBuf</span> },
+}
+
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Program</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
-    <span class="ident">classes</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">classes</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;&gt;</span>,
 }
 
-<span class="kw">struct</span> <span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
-    <span class="ident">name</span>: <span class="ident">CString</span>,
-    <span class="ident">def</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
-    <span class="ident">entity</span>: <span class="ident">Entity</span>,
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="ident">name</span>: <span class="ident">CString</span>,
+    <span class="kw">pub</span> <span class="ident">def</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">entity</span>: <span class="ident">Entity</span>,
     <span class="kw">pub</span> <span class="ident">fields</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Field</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;&gt;</span>,
-    <span class="ident">methods</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">methods</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;&gt;</span>,
 }
 
-<span class="kw">struct</span> <span class="ident">Field</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
-    <span class="ident">_name</span>: <span class="ident">CString</span>,
-    <span class="ident">_class</span>: <span class="ident">Weak</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">def</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassFieldDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
-    <span class="ident">entity</span>: <span class="ident">Entity</span>,
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Field</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="ident">_name</span>: <span class="ident">CString</span>,
+    <span class="kw">pub</span> <span class="ident">_class</span>: <span class="ident">Weak</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">def</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassFieldDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">entity</span>: <span class="ident">Entity</span>,
 }
 
-<span class="kw">struct</span> <span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
-    <span class="ident">_name</span>: <span class="ident">CString</span>,
-    <span class="ident">_class</span>: <span class="ident">Weak</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">body</span>: <span class="ident">ClassMethodBody</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
-    <span class="ident">def</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassMethodDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
-    <span class="ident">entity</span>: <span class="ident">Entity</span>,
-    <span class="ident">graph</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Graph</span><span class="op">&gt;</span>,
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="ident">_name</span>: <span class="ident">CString</span>,
+    <span class="kw">pub</span> <span class="ident">_class</span>: <span class="ident">Weak</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">body</span>: <span class="ident">ClassMethodBody</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">def</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassMethodDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">entity</span>: <span class="ident">Entity</span>,
+    <span class="kw">pub</span> <span class="ident">graph</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Graph</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">setup</span>() {
-    <span class="ident">ir_init_library</span>();
+    <span class="ident">libfirm_rs</span>::<span class="ident">init</span>();
 
     <span class="comment">// this call panics on error</span>
     <span class="kw">let</span> <span class="ident">triple</span> <span class="op">=</span> <span class="ident">ir_get_host_machine_triple</span>();
@@ -324,7 +344,7 @@
     <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
     <span class="ident">type_analysis</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
     <span class="ident">strtab</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="kw-2">mut</span> <span class="ident">StringTable</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
-) {
+) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
     <span class="ident">setup</span>();
 
     <span class="kw">let</span> <span class="ident">generator</span> <span class="op">=</span> <span class="ident">ProgramGenerator</span>::<span class="ident">new</span>(<span class="ident">type_system</span>, <span class="ident">type_analysis</span>, <span class="ident">strtab</span>);
@@ -360,8 +380,7 @@
         }
     }
 
-    <span class="comment">// TODO: run optimizations here</span>
-    <span class="comment">//println!(&quot;Optimizations: {:#?}&quot;, opts.optimizations);</span>
+    <span class="ident">optimization</span>::<span class="ident">run_all</span>(<span class="kw-2">&amp;</span><span class="ident">program</span>, <span class="kw-2">&amp;</span><span class="ident">opts</span>.<span class="ident">optimizations</span>);
 
     <span class="ident">lower_highlevel</span>();
     <span class="ident">be_lower_for_target</span>();
@@ -389,6 +408,10 @@
                     <span class="ident">CStr</span>::<span class="ident">from_bytes_with_nul</span>(<span class="string">b&quot;w\0&quot;</span>).<span class="ident">unwrap</span>().<span class="ident">as_ptr</span>(),
                 );
 
+                <span class="kw">if</span> <span class="ident">assembly_file</span>.<span class="ident">is_null</span>() {
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">FirmError</span>::<span class="ident">EmitAsmFailure</span> { <span class="ident">path</span>: <span class="ident">path</span>.<span class="ident">clone</span>() }.<span class="ident">into</span>());
+                }
+
                 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
                 <span class="ident">be_main</span>(<span class="ident">assembly_file</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">_IO_FILE</span>, <span class="ident">label</span>);
 
@@ -403,6 +426,7 @@
     <span class="ident">drop</span>(<span class="ident">program</span>);
 
     <span class="ident">ir_finish</span>();
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// `None` indicates that the given type is not convertible, which</span>

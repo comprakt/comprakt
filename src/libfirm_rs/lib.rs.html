@@ -924,6 +924,15 @@
 <span id="924">924</span>
 <span id="925">925</span>
 <span id="926">926</span>
+<span id="927">927</span>
+<span id="928">928</span>
+<span id="929">929</span>
+<span id="930">930</span>
+<span id="931">931</span>
+<span id="932">932</span>
+<span id="933">933</span>
+<span id="934">934</span>
+<span id="935">935</span>
 </pre><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">not_unsafe_ptr_arg_deref</span>)]</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">clippy</span>::<span class="ident">print_stdout</span>)]</span>
@@ -931,8 +940,28 @@
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">derive_more</span>;
 
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span>::<span class="ident">mode</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::{<span class="ident">CStr</span>, <span class="ident">CString</span>};
+
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">entity</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">graph</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">nodes</span>;
+
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">nodes_gen</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span>;
+
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">tarval</span>;
+
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Once</span>;
+
+<span class="kw">static</span> <span class="ident">INIT</span>: <span class="ident">Once</span> <span class="op">=</span> <span class="ident">Once</span>::<span class="ident">new</span>();
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">init</span>() {
+    <span class="ident">INIT</span>.<span class="ident">call_once</span>(<span class="op">||</span> <span class="kw">unsafe</span> {
+        <span class="ident">ir_init_library</span>();
+    });
+}
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Ty</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ir_type</span>);
@@ -1838,17 +1867,6 @@
             <span class="kw">let</span> <span class="ident">result_node</span> <span class="op">=</span> <span class="ident">new_r_Proj</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mode</span>::<span class="ident">T</span>, <span class="ident">pn_Call</span>::<span class="ident">TResult</span>);
             <span class="ident">CallResultTuple</span>(<span class="ident">result_node</span>)
         }
-    }
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-
-    <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span>;
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">init</span>() {
-        <span class="kw">unsafe</span> { <span class="ident">libfirm_rs_bindings</span>::<span class="ident">ir_init</span>() };
     }
 }
 </pre>

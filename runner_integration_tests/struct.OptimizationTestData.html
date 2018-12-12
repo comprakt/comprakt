@@ -9,7 +9,7 @@
     pub stdout: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../runner_integration_tests/lookup/enum.ExpectedData.html" title="enum runner_integration_tests::lookup::ExpectedData">ExpectedData</a>&gt;,
     pub exitcode: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../runner_integration_tests/lookup/enum.ExpectedData.html" title="enum runner_integration_tests::lookup::ExpectedData">ExpectedData</a>&gt;,
     pub stdin: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../runner_integration_tests/lookup/enum.ExpectedData.html" title="enum runner_integration_tests::lookup::ExpectedData">ExpectedData</a>&gt;,
-    pub optimizations: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../compiler_lib/optimization/enum.Optimization.html" title="enum compiler_lib::optimization::Optimization">Optimization</a>&gt;,
+    pub optimizations: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../compiler_lib/optimization/enum.OptimizationKind.html" title="enum compiler_lib::optimization::OptimizationKind">OptimizationKind</a>&gt;,
     pub expect: <a class="enum" href="../runner_integration_tests/enum.AsmComparisonOutcome.html" title="enum runner_integration_tests::AsmComparisonOutcome">AsmComparisonOutcome</a>,
 }</pre></div><h2 id='fields' class='fields small-section-header'>
                        Fields<a href='#fields' class='anchor'></a></h2><span id="structfield.compiler_optimized_stderr" class="structfield small-section-header">
@@ -55,7 +55,7 @@
                            </span></span><span id="structfield.optimizations" class="structfield small-section-header">
                            <a href="#structfield.optimizations" class="anchor field"></a>
                            <span id="optimizations.v" class='invisible'>
-                           <code>optimizations: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../compiler_lib/optimization/enum.Optimization.html" title="enum compiler_lib::optimization::Optimization">Optimization</a>&gt;</code>
+                           <code>optimizations: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../compiler_lib/optimization/enum.OptimizationKind.html" title="enum compiler_lib::optimization::OptimizationKind">OptimizationKind</a>&gt;</code>
                            </span></span><div class='docblock'><p>optimizations that should be applied</p>
 </div><span id="structfield.expect" class="structfield small-section-header">
                            <a href="#structfield.expect" class="anchor field"></a>

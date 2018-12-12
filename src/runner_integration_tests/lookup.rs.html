@@ -247,6 +247,8 @@
 <span id="247">247</span>
 <span id="248">248</span>
 <span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
 </pre><pre class="rust ">
 <span class="doccomment">///! Finds files belonging to an integration test.</span>
 <span class="doccomment">///!</span>
@@ -385,6 +387,8 @@
     <span class="ident">InFile</span>(<span class="ident">PathBuf</span>),
     <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">rename</span> <span class="op">=</span> <span class="string">&quot;is&quot;</span>)]</span>
     <span class="ident">Inline</span>(<span class="ident">String</span>),
+    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">rename</span> <span class="op">=</span> <span class="string">&quot;ignore&quot;</span>)]</span>
+    <span class="ident">Ignore</span>,
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Deserialize</span>, <span class="ident">Serialize</span>, <span class="ident">Clone</span>)]</span>

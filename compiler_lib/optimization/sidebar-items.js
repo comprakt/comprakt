@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Optimization",""]]});
+initSidebarItems({"enum":[["GlobalOptimizationFlag",""],["OptimizationKind",""],["OptimizationResult",""]],"fn":[["run_all","run a list of optimizations on the given program"]],"struct":[["Fixpoint",""],["Optimization",""],["OptimizationResultCollector",""]]});
