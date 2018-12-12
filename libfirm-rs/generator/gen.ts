@@ -176,7 +176,7 @@ const internal_ir_node = "internal_ir_node";
 const nodeType: TypeDef = ({
     wrap: (expr: string) => `NodeFactory::node(${expr})`,
     unwrap: (expr: string) => `${expr}.${internal_ir_node}()`,
-    rustInName: "&'_ Node",
+    rustInName: "Node",
     rustOutName: "Node",
 });
 
@@ -265,13 +265,11 @@ w.line("use std::collections::HashMap;");
 w.line("use super::nodes::NodeTrait;");
 w.line("use super::graph::Graph;");
 w.line("use super::tarval::Tarval;");
-w.line("use strum_macros::EnumDiscriminants;");
 w.line("use std::fmt;");
 
 // generate Node enum
 {
-    w.line('#[strum_discriminants(derive(Display))]');
-    w.line("#[derive(EnumDiscriminants, Clone, Copy)]");
+    w.line("#[derive(Clone, Copy)]");
     w.indent("pub enum Node {");
     for (const node of nodes) {
         if (node.isProj) {
@@ -315,6 +313,7 @@ w.line("use std::fmt;");
 // generate Proj enum
 {
     w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq)]");
+    w.line("#[allow(non_camel_case_types)]");
     w.indent("pub enum ProjKind {");
     for (const node of nodes) {
         for (const out of node.outs) {
@@ -333,6 +332,7 @@ w.line("use std::fmt;");
 // generate NodeFactory to map ir_node to Node
 {
     w.line("type NodeFactoryFn = fn(*mut bindings::ir_node) -> Node;");
+    w.line("#[allow(clippy::new_without_default_derive)]");
     w.line(`pub struct NodeFactory(HashMap<u32, NodeFactoryFn>);`);
     w.indent("impl NodeFactory {");
     w.indent("pub fn new() -> Self {");
@@ -354,7 +354,7 @@ w.line("use std::fmt;");
 
     w.indent(`pub fn create(&self, ir_node: ${ir_node_type}) -> Node {`);
     w.line(`let op_code = unsafe { bindings::get_irn_opcode(ir_node) };`);
-    w.line(`let f = self.0.get(&op_code).unwrap();`);
+    w.line(`let f = self.0[&op_code];`);
     w.line(`f(ir_node)`);
     w.unindent("}");
     w.line();
@@ -429,14 +429,16 @@ for (const node of nodes) {
         // getter and setter for input nodes and attributes
         for (const input of node.attrOrInputs) {
             if (input.comment) { w.line(`/// Gets ${input.comment}.`); }
-            w.indent(`pub fn ${input.getterName}(&self) -> ${input.type.rustOutName} {`);
+            w.indent("#[allow(clippy::let_and_return)]");
+            w.indent(`pub fn ${input.getterName}(self) -> ${input.type.rustOutName} {`);
             w.line(`let unwrapped = unsafe { bindings::get_${node.name}_${input.name}(self.0) };`);
             w.line(input.type.wrap("unwrapped"));
             w.unindent(`}`);
             w.line();
 
             if (input.comment) { w.line(`/// Sets ${input.comment}.`); }
-            w.indent(`pub fn ${input.setterName}(&self, val: ${input.type.rustInName}) {`);
+            w.indent("#[allow(clippy::let_and_return)]");
+            w.indent(`pub fn ${input.setterName}(self, val: ${input.type.rustInName}) {`);
             w.line(`let unwrapped = ${input.type.unwrap("val")};`);
             w.line(`unsafe { bindings::set_${node.name}_${input.name}(self.0, unwrapped); }`);
             w.unindent(`}`);
@@ -450,7 +452,7 @@ for (const node of nodes) {
             let args = outMode ? "" : `, mode: bindings::mode::Type`;
             let modeValue = outMode ? `${outMode}` : `mode`;
 
-            w.indent(`pub fn ${out.new_proj_fnName}(&self${args}) -> Proj {`);
+            w.indent(`pub fn ${out.new_proj_fnName}(self${args}) -> Proj {`);
             w.line(`Proj::new(unsafe { bindings::new_r_Proj(self.0, ${modeValue}, ${out.idx}) })`);
             w.unindent(`}`);
             w.line();
@@ -460,7 +462,7 @@ for (const node of nodes) {
         for (const out of node.outs) {
             if (out.comment) { w.line(`/// ${out.comment}.`); }
 
-            w.indent(`pub fn ${out.out_proj_fnName}(&self) -> Option<Proj> {`);
+            w.indent(`pub fn ${out.out_proj_fnName}(self) -> Option<Proj> {`);
             w.indent(`for out_node in self.out_nodes() {`);
             w.indent(`if let Node::Proj(proj, ProjKind::${out.projKind_variantName}(_)) = out_node {`);
             w.line(`return Some(proj);`);
@@ -512,7 +514,7 @@ function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") 
     }
     else if (context === "graph") {
         if (node.needsBlock) {
-            params.push({ name: `block`, type: `&'_ Block`, doc: `The block.` });
+            params.push({ name: `block`, type: `Block`, doc: `The block.` });
             args.push(nodeType.unwrap(`block`));
         }
         else if (node.usesGraph) {
@@ -542,7 +544,8 @@ function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") 
         w.line(`/// * \`${param.name}\` ${param.doc}`);
     }
     const paramsStr = params.map(p => `${p.name}: ${p.type}`).join(", ");
-    w.indent(`pub fn ${node.new_name}(&self, ${paramsStr}) -> ${node.structName} {`);
+    w.indent("#[allow(clippy::style)]");
+    w.indent(`pub fn ${node.new_name}(self, ${paramsStr}) -> ${node.structName} {`);
     for (const line of statements) { w.line(line); }
     w.line(`let ir_node = unsafe { bindings::new_r_${node.name}(${args.join(", ")}) };`);
     w.line(`${node.structName}::new(ir_node)`);

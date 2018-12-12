@@ -8,14 +8,11 @@ pub use libfirm_rs_bindings::mode;
 use libfirm_rs_bindings::*;
 use std::ffi::{CStr, CString};
 
+pub mod entity;
 pub mod graph;
 pub mod nodes;
-pub mod entity;
 
-// TODO: remove the clippy::perf allow
-// TODO: remove the clippy::style allow and allow lints separatly instead
-// of the whole lint group.
-#[allow(non_camel_case_types, dead_code, clippy::style, clippy::perf)]
+#[allow(dead_code)]
 pub mod nodes_gen;
 pub mod types;
 
