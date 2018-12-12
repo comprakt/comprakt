@@ -9,15 +9,15 @@ impl Entity {
         Entity(ir_entity)
     }
 
-    pub fn name(&self) -> &CStr {
+    pub fn name(self) -> &'static CStr {
         unsafe { CStr::from_ptr(bindings::get_entity_name(self.0)) }
     }
 
-    pub fn name_string(&self) -> String {
+    pub fn name_string(self) -> String {
         self.name().to_string_lossy().into_owned()
     }
 
-    pub fn ld_name(&self) -> &CStr {
+    pub fn ld_name(self) -> &'static CStr {
         unsafe { CStr::from_ptr(bindings::get_entity_ld_name(self.0)) }
     }
 }
