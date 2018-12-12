@@ -143,7 +143,7 @@ impl ConstantFolding {
 
                 node => {
                     log::debug!("unhandled {:?}", node);
-                },
+                }
             }
         }
 
@@ -296,7 +296,7 @@ impl Lattice {
                 }
             }
 
-            Binop::Rel(rel) => lhs.cmp(rel, rhs),
+            Binop::Rel(rel) => lhs.lattice_cmp(rel, rhs),
         }
     }
 
