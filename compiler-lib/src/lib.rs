@@ -28,6 +28,7 @@ pub mod parser;
 #[macro_use]
 pub mod visitor;
 pub mod firm;
+pub mod lowering;
 pub mod optimization;
 pub mod print;
 mod ref_eq;
