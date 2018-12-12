@@ -1,3 +1,5 @@
+// This file is generated! Do not edit by hand!
+// Follow the instructions in the README on how to update this file.
 use super::{graph::Graph, nodes::NodeTrait, tarval::Tarval};
 use libfirm_rs_bindings as bindings;
 use std::{collections::HashMap, fmt};

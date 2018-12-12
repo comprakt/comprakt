@@ -260,6 +260,8 @@ if (notFoundTypes.length > 0) {
 const w = new CodeMaker();
 w.openFile("nodes_gen.rs");
 
+w.line("// This file is generated! Do not edit by hand!");
+w.line("// Follow the instructions in the README on how to update this file.");
 w.line("use libfirm_rs_bindings as bindings;");
 w.line("use std::collections::HashMap;");
 w.line("use super::nodes::NodeTrait;");
