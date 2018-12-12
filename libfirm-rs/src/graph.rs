@@ -82,7 +82,7 @@ impl Graph {
     ///  - `walker`	walker function
     ///
     /// Does not use the link field.
-    pub fn walk_topological<F>(&self, mut walker: F)
+    pub fn walk_topological<F>(self, mut walker: F)
     where
         F: FnMut(&Node),
     {
@@ -101,7 +101,7 @@ impl Graph {
         }
     }
 
-    pub fn exchange(prev: impl NodeTrait, new: impl NodeTrait) {
+    pub fn exchange(prev: &impl NodeTrait, new: &impl NodeTrait) {
         unsafe {
             bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
         }
@@ -110,11 +110,11 @@ impl Graph {
     /// Replace the given node with a "bad" node, thus marking it and all the
     /// nodes dominated by it as unreachable. The whole subtree can then be
     /// removed using `Graph::remove_bads`.
-    pub fn mark_as_bad(&self, node: impl NodeTrait) {
-        Graph::exchange(node, self.new_bad(unsafe { bindings::mode::b }))
+    pub fn mark_as_bad(self, node: &impl NodeTrait) {
+        Graph::exchange(node, &self.new_bad(unsafe { bindings::mode::b }))
     }
 
-    pub fn dump_dot_data<T>(&self, filename: &PathBuf, data: T)
+    pub fn dump_dot_data<T>(self, filename: &PathBuf, data: T)
     where
         T: Fn(Node) -> NodeData,
     {

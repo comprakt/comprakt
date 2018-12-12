@@ -119,11 +119,11 @@ impl UnreachableCodeElimination {
         for (used_proj, jmp, unused_proj, target_block) in &replacements {
             // Now we replace the always-taken path with an unconditional jump ...
             log::debug!("Exchange unused proj {:?} with jmp {:?}", unused_proj, jmp,);
-            Graph::exchange(*used_proj, *jmp);
+            Graph::exchange(used_proj, jmp);
 
             // ... and mark the never-taken as "bad", so it will be later removed
             log::debug!("Mark unused proj {:?} as bad", unused_proj);
-            self.graph.mark_as_bad(*unused_proj);
+            self.graph.mark_as_bad(unused_proj);
 
             // We need this because if we have a while(true) loop, the code will be
             // unreachable (libfirm-edge wise) from the end block (because the end block is
@@ -136,7 +136,7 @@ impl UnreachableCodeElimination {
             let outs = nontarget_block.out_nodes().collect::<Vec<_>>();
             for (i, child) in outs.iter().enumerate() {
                 log::debug!("Mark Nontarget block child #{} {:?}", i, child);
-                self.graph.mark_as_bad(*child);
+                self.graph.mark_as_bad(child);
             }
         }
 

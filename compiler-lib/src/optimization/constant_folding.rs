@@ -191,10 +191,10 @@ impl ConstantFolding {
                         for out_node in node.out_nodes() {
                             match out_node {
                                 Node::Proj(res_proj, ProjKind::Div_Res(_)) => {
-                                    Graph::exchange(res_proj, const_node);
+                                    Graph::exchange(&res_proj, &const_node);
                                 }
                                 Node::Proj(m_proj, ProjKind::Div_M(_)) => {
-                                    Graph::exchange(m_proj, div.mem());
+                                    Graph::exchange(&m_proj, &div.mem());
                                 }
                                 _ => {}
                             }
@@ -204,17 +204,17 @@ impl ConstantFolding {
                         for out_node in node.out_nodes() {
                             match out_node {
                                 Node::Proj(res_proj, ProjKind::Mod_Res(_)) => {
-                                    Graph::exchange(res_proj, const_node);
+                                    Graph::exchange(&res_proj, &const_node);
                                 }
                                 Node::Proj(m_proj, ProjKind::Mod_M(_)) => {
-                                    Graph::exchange(m_proj, modulo.mem());
+                                    Graph::exchange(&m_proj, &modulo.mem());
                                 }
                                 _ => {}
                             }
                         }
                     }
                     _ => {
-                        Graph::exchange(*node, const_node);
+                        Graph::exchange(node, &const_node);
                     }
                 }
             }

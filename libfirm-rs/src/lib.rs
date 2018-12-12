@@ -8,8 +8,6 @@ pub use libfirm_rs_bindings::mode;
 use libfirm_rs_bindings::*;
 use std::ffi::{CStr, CString};
 
-// TODO: remove these allows
-#[allow(clippy::style, clippy::perf)]
 pub mod graph;
 
 // TODO: remove these allows
