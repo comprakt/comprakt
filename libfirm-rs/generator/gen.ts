@@ -334,8 +334,8 @@ w.line("use std::fmt;");
 // generate NodeFactory to map ir_node to Node
 {
     w.line("type NodeFactoryFn = fn(*mut bindings::ir_node) -> Node;");
-    w.line("#[allow(clippy::new_without_default_derive)]");
     w.line(`pub struct NodeFactory(HashMap<u32, NodeFactoryFn>);`);
+    w.line("#[allow(clippy::new_without_default_derive)]");
     w.indent("impl NodeFactory {");
     w.indent("pub fn new() -> Self {");
     w.line(`let mut map = HashMap::<u32, NodeFactoryFn>::new();`);
