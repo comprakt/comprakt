@@ -44,12 +44,12 @@ impl UnreachableCodeElimination {
                     let used_proj = node
                         .out_nodes()
                         .filter_map(|out_node| match out_node {
-                            Node::Proj(proj, ProjKind::Cond_True(_))
+                            Node::Proj(proj, ProjKind::Cond_Val(true, _))
                                 if tarval.is_bool_val(true) =>
                             {
                                 Some(proj)
                             }
-                            Node::Proj(proj, ProjKind::Cond_False(_))
+                            Node::Proj(proj, ProjKind::Cond_Val(false, _))
                                 if !tarval.is_bool_val(true) =>
                             {
                                 Some(proj)
@@ -62,12 +62,12 @@ impl UnreachableCodeElimination {
                     let unused_proj = node
                         .out_nodes()
                         .filter_map(|out_node| match out_node {
-                            Node::Proj(proj, ProjKind::Cond_True(_))
+                            Node::Proj(proj, ProjKind::Cond_Val(true, _))
                                 if !tarval.is_bool_val(true) =>
                             {
                                 Some(proj)
                             }
-                            Node::Proj(proj, ProjKind::Cond_False(_))
+                            Node::Proj(proj, ProjKind::Cond_Val(false, _))
                                 if tarval.is_bool_val(true) =>
                             {
                                 Some(proj)

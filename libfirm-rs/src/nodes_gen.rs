@@ -199,10 +199,8 @@ pub enum ProjKind {
     Call_XRegular(Call),
     /// control flow when exception occurred
     Call_XExcept(Call),
-    /// control flow if operand is "false"
-    Cond_False(Cond),
-    /// control flow if operand is "true"
-    Cond_True(Cond),
+    /// control flow if operand is "false" or "true"
+    Cond_Val(bool, Cond),
     /// memory result
     Div_M(Div),
     /// result of computation
@@ -254,8 +252,8 @@ pub enum ProjKind {
 }
 
 type NodeFactoryFn = fn(*mut bindings::ir_node) -> Node;
-pub struct NodeFactory(HashMap<u32, NodeFactoryFn>);
 #[allow(clippy::new_without_default_derive)]
+pub struct NodeFactory(HashMap<u32, NodeFactoryFn>);
 impl NodeFactory {
     pub fn new() -> Self {
         let mut map = HashMap::<u32, NodeFactoryFn>::new();
@@ -402,8 +400,8 @@ impl NodeFactory {
                 _ => ProjKind::Other,
             },
             Node::Cond(node) => match proj.num() {
-                0 => ProjKind::Cond_False(node),
-                1 => ProjKind::Cond_True(node),
+                0 => ProjKind::Cond_Val(false, node),
+                1 => ProjKind::Cond_Val(true, node),
                 _ => ProjKind::Other,
             },
             Node::Div(node) => match proj.num() {
@@ -1578,7 +1576,7 @@ impl Cond {
     /// control flow if operand is "false".
     pub fn out_proj_false(self) -> Option<Proj> {
         for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Cond_False(_)) = out_node {
+            if let Node::Proj(proj, ProjKind::Cond_Val(false, _)) = out_node {
                 return Some(proj);
             }
         }
@@ -1588,7 +1586,7 @@ impl Cond {
     /// control flow if operand is "true".
     pub fn out_proj_true(self) -> Option<Proj> {
         for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Cond_True(_)) = out_node {
+            if let Node::Proj(proj, ProjKind::Cond_Val(true, _)) = out_node {
                 return Some(proj);
             }
         }

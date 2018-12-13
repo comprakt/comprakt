@@ -44,6 +44,7 @@ class NodeImpl {
     public readonly hasConstructor: boolean;
     public readonly outs: ReadonlyArray<NodeOutputImpl>;
 
+    public get isCond() { return this.name === "Cond"; }
     public get isProj() { return this.name === "Proj"; }
 
     public get needsBlock() { return !this.block; }
@@ -118,7 +119,23 @@ class NodeOutputImpl extends NodeMemberImpl {
         return `new_proj_${this.name.toLowerCase()}`;
     }
 
-    public get projKind_variantName(): string {
+    public get isCondTrue(): boolean { return this.parent.isCond && this.name === "true"; }
+    public get isCondFalse(): boolean { return this.parent.isCond && this.name === "false"; }
+
+    public projKind_variantCtor(nodeExpr: string): string {
+        const extra = (this.isCondFalse || this.isCondTrue) ? `${this.isCondTrue}, ` : ``;
+        return `${this.projKind_variantName}(${extra}${nodeExpr})`;
+    }
+
+    public projKind_variantDecl(): { comment: string, decl: string } | undefined {
+        const extra = this.isCondTrue ? `bool, ` : ``;
+        const comment = this.isCondTrue ? `control flow if operand is "false" or "true"` : this.comment;
+        if (this.isCondFalse) { return undefined; }
+        return { comment, decl: `${this.projKind_variantName}(${extra}${this.parent.structName})` };
+    }
+
+    private get projKind_variantName(): string {
+        if (this.isCondTrue || this.isCondFalse) { return "Cond_Val"; }
         const parts = this.name.split("_").map(p => p[0].toUpperCase() + p.substr(1).toLowerCase());
         const str = parts.join("");
         return `${this.parent.name}_${str}`;
@@ -319,8 +336,11 @@ w.line("use std::fmt;");
     w.indent("pub enum ProjKind {");
     for (const node of nodes) {
         for (const out of node.outs) {
-            w.line(`/// ${out.comment}`);
-            w.line(`${out.projKind_variantName}(${node.structName}),`);
+            const decl = out.projKind_variantDecl();
+            if (!decl) { continue; }
+
+            w.line(`/// ${decl.comment}`);
+            w.line(`${decl.decl},`);
         }
         if (node.name === "Start") {
             w.line(`Start_TArgs_Arg(/* arg_idx */ u32, /* pred_pred */ Start, /* pred */ Proj),`);
@@ -373,7 +393,7 @@ w.line("use std::fmt;");
             w.indent(`match proj.num() {`);
             let idx = 0;
             for (const out of predNode.outs) {
-                w.line(`${idx} => ProjKind::${out.projKind_variantName}(node),`);
+                w.line(`${idx} => ProjKind::${out.projKind_variantCtor("node")},`);
                 idx++;
             }
             w.line(`_ => ProjKind::Other,`);
@@ -466,7 +486,7 @@ for (const node of nodes) {
 
             w.indent(`pub fn ${out.out_proj_fnName}(self) -> Option<Proj> {`);
             w.indent(`for out_node in self.out_nodes() {`);
-            w.indent(`if let Node::Proj(proj, ProjKind::${out.projKind_variantName}(_)) = out_node {`);
+            w.indent(`if let Node::Proj(proj, ProjKind::${out.projKind_variantCtor("_")}) = out_node {`);
             w.line(`return Some(proj);`);
             w.unindent(`}`);
             w.unindent(`}`);
