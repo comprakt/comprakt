@@ -1,13 +1,46 @@
+//!
+//!
+//! # Sequence of Optimizations
 use crate::firm::Program;
-use libfirm_rs::bindings;
+use libfirm_rs::{bindings, graph::Graph};
 use std::ffi::CString;
 
 mod constant_folding;
-mod fixpoint;
+use self::constant_folding::ConstantFolding;
 mod unreachable_code_elimination;
+use self::unreachable_code_elimination::UnreachableCodeElimination;
 
-pub use self::fixpoint::Fixpoint;
+/// An optimization that optimizes the whole program by
+/// examining all function graphs at once.
+pub trait Interprocedural {
+    fn optimize(program: &Program<'_, '_>) -> Outcome;
+}
 
+/// An optimization that only works on a single graph
+/// and therefore does not optimize across function call
+/// boundaries.
+pub trait Local {
+    fn optimize_function(graph: Graph) -> Outcome;
+}
+
+impl<T> Interprocedural for T
+where
+    T: Local,
+{
+    fn optimize(program: &Program<'_, '_>) -> Outcome {
+        let mut collector = OutcomeCollector::new();
+        for class in program.classes.values() {
+            for method in class.borrow().methods.values() {
+                if let Some(graph) = method.borrow().graph {
+                    collector.push(T::optimize_function(graph.into()));
+                }
+            }
+        }
+        collector.result()
+    }
+}
+
+/// All available optimizations
 #[derive(
     strum_macros::EnumString,
     serde_derive::Deserialize,
@@ -17,89 +50,134 @@ pub use self::fixpoint::Fixpoint;
     Clone,
     Display,
 )]
-pub enum OptimizationKind {
-    AlgebraicSimplification,
+pub enum Kind {
     ConstantFolding,
     UnreachableCodeElimination,
 }
 
+impl Kind {
+    fn run(self, program: &Program<'_, '_>) -> Outcome {
+        match self {
+            Kind::ConstantFolding => ConstantFolding::optimize(program),
+            Kind::UnreachableCodeElimination => UnreachableCodeElimination::optimize(program),
+        }
+    }
+}
+
+/// These are predefined sequences of optimizations, in
+/// clang and gcc these are called `-O1`, `-O3`, `-Os`
+/// and so forth.
+#[derive(Debug, Clone)]
+pub enum Level {
+    /// This level compiles the fastest and generates the most debuggable code
+    /// since it does not perform any optimization.
+    None,
+    /// Moderate level of optimization which enables most optimizations.
+    Moderate,
+    /// Enables optimizations that take longer to perform or that may generate
+    /// larger code in an attempt to make the program run faster.
+    Aggressive,
+    /// Enables optimizations that take longer to perform or that may generate
+    /// larger code in an attempt to make the program run faster.
+    Custom(Vec<Optimization>),
+}
+
+impl Default for Level {
+    fn default() -> Level {
+        Level::None
+    }
+}
+
+impl Level {
+    fn sequence(&self) -> Vec<Optimization> {
+        match self {
+            Level::None => vec![],
+            Level::Moderate | Level::Aggressive => vec![Optimization::new(Kind::ConstantFolding)],
+            Level::Custom(list) => list.clone(),
+        }
+    }
+}
+
+/// These are options that can be attached to any optimization
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum GlobalOptimizationFlag {
-    DumpYcomp,
+pub enum Flag {
+    /// Dump a 'Visualization of Compiler Graph' (VCG) file that can be viewed
+    /// in yComp.
+    DumpVcg,
 }
 
 #[derive(Clone, Debug)]
 pub struct Optimization {
-    pub kind: OptimizationKind,
-    pub flags: Vec<GlobalOptimizationFlag>,
+    pub kind: Kind,
+    pub flags: Vec<Flag>,
 }
 
+impl Optimization {
+    fn new(kind: Kind) -> Self {
+        Self {
+            kind,
+            flags: vec![],
+        }
+    }
+
+    fn has_flag(&self, flag: Flag) -> bool {
+        self.flags.iter().any(|f| *f == flag)
+    }
+
+    fn run(&self, program: &Program<'_, '_>) -> Outcome {
+        let outcome = self.kind.run(program);
+        self.apply_flags();
+        outcome
+    }
+
+    fn apply_flags(&self) {
+        if self.has_flag(Flag::DumpVcg) {
+            unsafe {
+                let suffix = CString::new(format!("-{}", self.kind)).unwrap();
+                bindings::dump_all_ir_graphs(suffix.as_ptr());
+            }
+        }
+    }
+}
+
+///
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub enum OptimizationResult {
+pub enum Outcome {
     Unchanged,
     Changed,
 }
 
 #[derive(Default)]
-pub struct OptimizationResultCollector {
-    results: Vec<OptimizationResult>,
+pub struct OutcomeCollector {
+    results: Vec<Outcome>,
 }
 
-impl OptimizationResultCollector {
-    pub fn new() -> OptimizationResultCollector {
+impl OutcomeCollector {
+    pub fn new() -> OutcomeCollector {
         Self::default()
     }
 
-    pub fn push(&mut self, res: OptimizationResult) {
+    pub fn push(&mut self, res: Outcome) {
         self.results.push(res);
     }
 
-    pub fn result(&self) -> OptimizationResult {
-        if self
-            .results
-            .iter()
-            .any(|x| *x == OptimizationResult::Changed)
-        {
-            OptimizationResult::Changed
+    pub fn result(&self) -> Outcome {
+        if self.results.iter().any(|x| *x == Outcome::Changed) {
+            Outcome::Changed
         } else {
-            OptimizationResult::Unchanged
+            Outcome::Unchanged
         }
     }
 }
 
-/// run a list of optimizations on the given program
-pub fn run_all(program: &Program<'_, '_>, optimizations: &[Optimization]) {
-    if std::env::var("COMPRAKT_OPTIMIZATION_NO_FIXPOINT").is_err() {
-        let fp = Fixpoint::new(optimizations);
-        fp.run(program);
-        return;
-    }
+impl Level {
+    /// run a list of optimizations on the given program
+    pub fn run_all(&self, program: &Program<'_, '_>) {
+        for (i, optimization) in self.sequence().iter().enumerate() {
+            log::info!("Running optimization #{}: {:?}", i, optimization);
+            optimization.run(program);
 
-    for (i, optimization) in optimizations.iter().enumerate() {
-        log::debug!("Running optimization #{}: {:?}", i, optimization.kind);
-        optimization.run(program);
-        if optimization
-            .flags
-            .iter()
-            .any(|f| *f == GlobalOptimizationFlag::DumpYcomp)
-        {
-            unsafe {
-                let suffix = CString::new(format!("{:?}", optimization.kind)).unwrap();
-                log::debug!("Dumping graph with suffix {:?}", suffix);
-                bindings::dump_all_ir_graphs(suffix.as_ptr());
-            }
-        }
-        log::debug!("Finished optimization #{}: {:?}", i, optimization.kind);
-    }
-}
-
-impl Optimization {
-    fn run(&self, program: &Program<'_, '_>) -> OptimizationResult {
-        use self::OptimizationKind::*;
-        match self.kind {
-            AlgebraicSimplification => unimplemented!(),
-            ConstantFolding => constant_folding::run(program),
-            UnreachableCodeElimination => unreachable_code_elimination::run(program),
+            log::debug!("Finished optimization #{}: {:?}", i, optimization.kind);
         }
     }
 }

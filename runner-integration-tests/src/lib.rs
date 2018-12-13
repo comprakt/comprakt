@@ -72,14 +72,14 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
             }
 
             if !optimizations.is_empty() {
-                let val: String = optimizations
+                let vals: String = optimizations
                     .into_iter()
                     .map(|opt| opt.kind.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
 
                 flags.push(OsString::from("-O"));
-                flags.push(OsString::from(val));
+                flags.push(OsString::from(format!("custom:{}", vals)));
             }
 
             return flags;

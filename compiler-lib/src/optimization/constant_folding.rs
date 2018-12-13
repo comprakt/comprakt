@@ -1,5 +1,4 @@
-use super::{OptimizationResult, OptimizationResultCollector};
-use crate::firm::Program;
+use crate::optimization::{self, Outcome, OutcomeCollector};
 use libfirm_rs::{
     bindings,
     graph::Graph,
@@ -10,24 +9,17 @@ use libfirm_rs::{
 };
 use std::collections::{hash_map::HashMap, VecDeque};
 
-struct ConstantFolding {
+pub struct ConstantFolding {
     values: HashMap<Node, Tarval>,
     list: VecDeque<Node>,
     graph: Graph,
 }
 
-pub fn run(program: &Program<'_, '_>) -> OptimizationResult {
-    let mut collector = OptimizationResultCollector::new();
-    for class in program.classes.values() {
-        for method in class.borrow().methods.values() {
-            if let Some(graph) = method.borrow().graph {
-                log::debug!("Graph for Method: {:?}", method.borrow().entity.name());
-                let mut cf = ConstantFolding::new(graph.into());
-                collector.push(cf.run());
-            }
-        }
+impl optimization::Local for ConstantFolding {
+    fn optimize_function(graph: Graph) -> Outcome {
+        let mut constant_folding = ConstantFolding::new(graph);
+        constant_folding.run()
     }
-    collector.result()
 }
 
 impl ConstantFolding {
@@ -67,7 +59,7 @@ impl ConstantFolding {
     }
 
     #[allow(clippy::cyclomatic_complexity)]
-    fn run(&mut self) -> OptimizationResult {
+    fn run(&mut self) -> Outcome {
         self.graph.assure_outs();
 
         while let Some(cur) = self.list.pop_front() {
@@ -153,40 +145,20 @@ impl ConstantFolding {
         values.sort_by_key(|(l, _)| l.node_id());
 
         // now apply the values
-        let mut collector = OptimizationResultCollector::new();
+        let mut collector = OutcomeCollector::new();
         for (node, v) in values {
             if v.is_constant() {
                 if node.is_const() {
                     // no change necessary
-                    collector.push(OptimizationResult::Unchanged);
+                    collector.push(Outcome::Unchanged);
                     continue;
                 }
-                collector.push(OptimizationResult::Changed);
+                collector.push(Outcome::Changed);
 
                 log::debug!("EXCHANGE NODE {:?} val={:?}", node, v);
                 let const_node = Node::Const(self.graph.new_const(*v));
 
                 match node {
-                    /* IMPROVEMENT?
-                    This might be more elegant, but does not do the exact same:
-                    It fails if there are multiple projects to that pin!
-                    Node::Div(div) => {
-                        if Some(res) = div.out_proj_res() {
-                            Graph::exchange(res, const_node);
-                        }
-                        if Some(mem) = div.out_proj_m {
-                            Graph::exchange(mem, div.mem());
-                        }
-                    }
-                    Node::Mod(modulo) => {
-                        if Some(res) = modulo.out_proj_res() {
-                            Graph::exchange(res, const_node);
-                        }
-                        if Some(m) = modulo.out_proj_m() {
-                            Graph::exchange(m, modulo.mem());
-                        }
-                    }
-                    */
                     Node::Div(div) => {
                         for out_node in node.out_nodes() {
                             match out_node {

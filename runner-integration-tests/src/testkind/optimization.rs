@@ -1,4 +1,4 @@
-use compiler_lib::optimization::OptimizationKind;
+use compiler_lib::optimization;
 use crate::*;
 use serde_derive::Deserialize;
 use std::{
@@ -44,7 +44,7 @@ pub struct OptimizationTestData {
     pub stdin: Option<ExpectedData>,
 
     /// optimizations that should be applied
-    pub optimizations: Vec<OptimizationKind>,
+    pub optimizations: Vec<optimization::Kind>,
     /// expected outcome of a comparison between
     /// the unoptimized and the optimized asm of
     /// the binary.
