@@ -1,13 +1,12 @@
 use crate::{debugging, firm::Program};
 use libfirm_rs::{
     graph::{Graph, NodeData},
-    nodes::NodeTrait,
+    nodes::{try_as_bin_op, try_as_unary_op, NodeTrait},
     nodes_gen::{Node, ProjKind},
     tarval::{Tarval, TarvalKind},
 };
-use std::{collections::hash_map::HashMap, path::PathBuf};
-// extern crate priority_queue;
 use priority_queue::PriorityQueue;
+use std::{collections::hash_map::HashMap, path::PathBuf};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 struct Priority {
@@ -33,9 +32,15 @@ pub fn run(program: &Program<'_, '_>) {
     for class in program.classes.values() {
         for method in class.borrow().methods.values() {
             if let Some(graph) = method.borrow().graph {
+                let graph: Graph = graph.into();
                 log::debug!("Graph for Method: {:?}", method.borrow().entity.name());
-                let mut cf = ConstantFolding::new(graph.into());
+                let mut cf = ConstantFolding::new(graph);
                 cf.run();
+                cf.apply();
+                graph.dump_dot_data(
+                    &PathBuf::from(format!("./dot-out/{}.dot", graph.entity().name_string())),
+                    |n| NodeData::new(format!("{:?}", n)),
+                );
             }
         }
     }
@@ -67,7 +72,13 @@ impl ConstantFolding {
         graph.walk_topological(|node| {
             topo_order += 1;
             // blocks immediately, as they are not considered in walk_topological
-            node_topo_idx.insert(*node, if node.is_block() { 0 } else { topo_order });
+            node_topo_idx.insert(
+                *node,
+                match node {
+                    Node::Block(_) | Node::Jmp(_) => 0,
+                    _ => topo_order,
+                },
+            );
 
             values.insert(
                 *node,
@@ -100,7 +111,7 @@ impl ConstantFolding {
     }
 
     fn lookup(&self, node: Node) -> MyLattice {
-        self.values.get(&node).unwrap().clone()
+        self.values[&node].clone()
     }
 
     fn update(&mut self, node: Node, new: MyLattice) {
@@ -108,6 +119,18 @@ impl ConstantFolding {
     }
 
     fn run(&mut self) {
+        macro_rules! invalidate {
+            ($node: expr) => {
+                self.queue.push(
+                    $node,
+                    Priority {
+                        topo_order: *self.node_topo_idx.get(&$node).unwrap(),
+                        priority: 0,
+                    },
+                );
+            };
+        }
+
         loop {
             let (cur_node, _priority) = match self.queue.pop() {
                 Some(t) => t,
@@ -119,30 +142,18 @@ impl ConstantFolding {
             if updated_lattice != cur_lattice {
                 if let Some(deps) = self.deps.get(&cur_node) {
                     for out_node in deps.iter() {
-                        self.queue.push(
-                            *out_node,
-                            Priority {
-                                topo_order: *self.node_topo_idx.get(out_node).unwrap(),
-                                priority: 0,
-                            },
-                        );
+                        invalidate!(*out_node);
                     }
                 }
 
                 for out_node in cur_node.out_nodes() {
-                    self.queue.push(
-                        out_node,
-                        Priority {
-                            topo_order: *self.node_topo_idx.get(&out_node).unwrap(),
-                            priority: 0,
-                        },
-                    );
+                    invalidate!(out_node);
                 }
 
                 self.update(cur_node, updated_lattice);
             }
 
-            if self.graph.entity().name_string() == "CF.M.foo" {
+            if false && self.graph.entity().name_string() == "CF.M.foo" {
                 // only for debugging/development
                 self.graph.dump_dot_data(
                     &PathBuf::from(format!(
@@ -158,10 +169,9 @@ impl ConstantFolding {
                         match n {
                             Node::Phi(phi) => {
                                 let mut string = "".to_string();
-                                let block = phi.block();
-                                let block_preds: Vec<_> = block.in_nodes().collect();
-                                for (idx, pred) in phi.in_nodes().enumerate() {
-                                    string += &format!("\n{:?} => {:?}", block_preds[idx], pred);
+                                for (pred, block_pred) in phi.in_nodes().zip(phi.block().in_nodes())
+                                {
+                                    string += &format!("\n{:?} => {:?}", block_pred, pred);
                                 }
                                 str += &string;
                             }
@@ -197,63 +207,131 @@ impl ConstantFolding {
 
         let mut value = Tarval::bad();
 
-        match cur_node {
-            Node::Const(constant) => {
-                value = constant.tarval();
-            }
-            Node::Cmp(cmp) => {
-                let left_val = self.lookup(cmp.left()).value;
-                let right_val = self.lookup(cmp.right()).value;
-                value = left_val.lattice_cmp(cmp.relation(), right_val);
-            }
-            Node::Cond(cond) => {
-                value = self.lookup(cond.selector()).value;
-            }
-            Node::Proj(_proj, ProjKind::Cond_False(cond)) => {
-                if self.lookup(cond.into()).value.is_bool_val(true) {
-                    reachable = false;
+        if let Ok(binop) = try_as_bin_op(&cur_node) {
+            let left_val = self.lookup(binop.left()).value;
+            let right_val = self.lookup(binop.right()).value;
+            value = match (left_val.kind(), right_val.kind()) {
+                (TarvalKind::Bad, _) | (_, TarvalKind::Bad) => Tarval::bad(),
+                (TarvalKind::Unknown, _) | (_, TarvalKind::Unknown) => Tarval::unknown(),
+                _ => binop.compute(left_val, right_val),
+            };
+            log::debug!("compute: {:?} op {:?} = {:?}", left_val, right_val, value);
+        } else if let Ok(unary_op) = try_as_unary_op(&cur_node) {
+            let operand_val = self.lookup(unary_op.operand()).value;
+            value = match operand_val.kind() {
+                TarvalKind::Bad => Tarval::bad(),
+                TarvalKind::Unknown => Tarval::unknown(),
+                _ => unary_op.compute(operand_val),
+            };
+            log::debug!("compute: op {:?} = {:?}", operand_val, value);
+        } else {
+            use self::{Node::*, ProjKind::*};
+            match cur_node {
+                Const(constant) => {
+                    value = constant.tarval();
                 }
-            }
-            Node::Proj(_proj, ProjKind::Cond_True(cond)) => {
-                if self.lookup(cond.into()).value.is_bool_val(false) {
-                    reachable = false;
+                Cond(cond) => {
+                    value = self.lookup(cond.selector()).value;
                 }
-            }
-            Node::Phi(phi) => {
-                value = Tarval::unknown();
-                let block = phi.block();
-                let block_preds: Vec<_> = block.in_nodes().collect();
-
-                for (idx, pred) in phi.in_nodes().enumerate() {
-                    // only consider reachable blocks for phi inputs
-                    if !self.lookup(block_preds[idx]).reachable {
-                        // we must get informed when that block gets reachable
-                        self.deps
-                            .entry(block_preds[idx])
-                            .and_modify(|e| e.push(cur_node))
-                            .or_insert(vec![cur_node]);
-
-                        log::debug!(
-                            "{:?} is unreachable, thus {:?} can be ignored",
-                            block_preds[idx],
-                            pred
-                        );
-                        continue;
+                Proj(_, Cond_Val(val, cond)) => {
+                    if self.lookup(cond.into()).value.is_bool_val(!val) {
+                        reachable = false;
                     }
-                    let pred_val = self.lookup(pred).value;
-                    value = match (value.kind(), pred_val.kind()) {
-                        (TarvalKind::Unknown, _) => pred_val,
-                        (_, TarvalKind::Unknown) => value,
-                        (TarvalKind::Bad, _) | (_, TarvalKind::Bad) => Tarval::bad(),
-                        _ if value.lattice_eq(pred_val) => value,
-                        _ => Tarval::bad(),
-                    };
-                    log::debug!("for {:?}; pred_val: {:?}, val: {:?}", pred, pred_val, value);
                 }
+                Phi(phi) => {
+                    value = phi.in_nodes().zip(phi.block().in_nodes()).fold(
+                        Tarval::unknown(),
+                        |val, (pred, block)| {
+                            // only consider reachable blocks for phi inputs
+                            if !self.lookup(block).reachable {
+                                // we must get informed when that block gets reachable
+                                self.deps
+                                    .entry(block)
+                                    .and_modify(|e| e.push(cur_node))
+                                    .or_insert(vec![cur_node]);
+
+                                log::debug!(
+                                    "{:?} is unreachable, thus {:?} can be ignored",
+                                    block,
+                                    pred
+                                );
+                                val
+                            } else {
+                                let pred_val = self.lookup(pred).value;
+                                let new_val = val.join(pred_val);
+                                log::debug!(
+                                    "for {:?}; pred_val: {:?} -> val: {:?}",
+                                    pred,
+                                    pred_val,
+                                    new_val
+                                );
+                                new_val
+                            }
+                        },
+                    )
+                }
+                _ => {}
             }
-            _ => {}
         }
 
         MyLattice { reachable, value }
+    }
+
+    fn apply(&mut self) {
+        let mut values = self.values.iter().collect::<Vec<_>>();
+        values.sort_by_key(|(l, _)| l.node_id());
+
+        for (node, lattice) in values {
+            if !lattice.value.is_constant() {
+                continue;
+            }
+            if node.is_const() {
+                continue;
+            }
+
+            let const_node = Node::Const(self.graph.new_const(lattice.value));
+            log::debug!("EXCHANGE NODE {:?} val={:?}", node, lattice.value);
+
+            match node {
+                Node::Cond(cond) => {}
+                /* IMPROVEMENT?
+                This might be more elegant, but does not do the exact same:
+                It fails if there are multiple projects to that pin!
+                Node::Div(div) => {
+                    div.out_proj_res().then(|res| Graph::exchange(res, const_node))
+                    div.out_proj_m().then(|mem| Graph::exchange(mem, div.mem()))
+                }
+                */
+                Node::Div(div) => {
+                    for out_node in node.out_nodes() {
+                        match out_node {
+                            Node::Proj(res_proj, ProjKind::Div_Res(_)) => {
+                                Graph::exchange(&res_proj, &const_node);
+                            }
+                            Node::Proj(m_proj, ProjKind::Div_M(_)) => {
+                                Graph::exchange(&m_proj, &div.mem());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Node::Mod(modulo) => {
+                    for out_node in node.out_nodes() {
+                        match out_node {
+                            Node::Proj(res_proj, ProjKind::Mod_Res(_)) => {
+                                Graph::exchange(&res_proj, &const_node);
+                            }
+                            Node::Proj(m_proj, ProjKind::Mod_M(_)) => {
+                                Graph::exchange(&m_proj, &modulo.mem());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {
+                    Graph::exchange(node, &const_node);
+                }
+            }
+        }
     }
 }
