@@ -1,10 +1,10 @@
 use crate::{
-    nodes_gen::{self, Block, Node, NodeFactory, Phi, Proj},
+    entity::Entity,
+    nodes_gen::{self, Block, Node, NodeFactory, Phi, Proj, ProjKind},
     tarval::Tarval,
 };
 use libfirm_rs_bindings as bindings;
 use std::{
-    ffi::CStr,
     fmt,
     hash::{Hash, Hasher},
 };
@@ -53,6 +53,10 @@ impl Block {
     pub fn keep_alive(self) {
         unsafe { bindings::keep_alive(self.internal_ir_node()) }
     }
+
+    pub fn num_cfgpreds(self) -> i32 {
+        unsafe { bindings::get_Block_n_cfgpreds(self.internal_ir_node()) }
+    }
 }
 
 impl Phi {
@@ -66,6 +70,10 @@ simple_node_iterator!(PhiPredsIterator, get_Phi_n_preds, get_Phi_pred, i32);
 impl Proj {
     pub fn proj(self, num: u32, mode: bindings::mode::Type) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.internal_ir_node(), mode, num) })
+    }
+
+    pub fn kind(self) -> ProjKind {
+        NodeFactory::proj_kind(self)
     }
 }
 
@@ -141,10 +149,21 @@ impl PartialEq for Node {
 
 impl Eq for Node {}
 
-// FIXME generate this
-impl Into<*mut bindings::ir_node> for Node {
-    fn into(self) -> *mut bindings::ir_node {
-        self.internal_ir_node()
+impl From<Node> for *mut bindings::ir_node {
+    fn from(n: Node) -> *mut bindings::ir_node {
+        n.internal_ir_node()
+    }
+}
+
+impl From<Box<dyn ValueNode>> for Node {
+    fn from(n: Box<ValueNode>) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
+impl From<&Box<dyn ValueNode>> for Node {
+    fn from(n: &Box<ValueNode>) -> Node {
+        NodeFactory::node(n.internal_ir_node())
     }
 }
 
@@ -155,54 +174,125 @@ impl fmt::Debug for nodes_gen::Call {
 }
 
 impl nodes_gen::Address {
-    pub fn entity(self) -> *mut bindings::ir_entity {
-        unsafe { bindings::get_Address_entity(self.internal_ir_node()) }
+    pub fn entity(self) -> Entity {
+        unsafe { bindings::get_Address_entity(self.internal_ir_node()).into() }
     }
 
-    pub fn set_entity(self, ir_entity: *mut bindings::ir_entity) {
+    pub fn set_entity(self, ir_entity: Entity) {
         unsafe {
-            bindings::set_Address_entity(self.internal_ir_node(), ir_entity);
+            bindings::set_Address_entity(self.internal_ir_node(), ir_entity.into());
         }
-    }
-}
-
-impl nodes_gen::Block {
-    pub fn num_cfgpreds(self) -> i32 {
-        unsafe { bindings::get_Block_n_cfgpreds(self.internal_ir_node()) }
     }
 }
 
 impl fmt::Debug for nodes_gen::Address {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let entity = self.entity();
-        let entity_name = unsafe { CStr::from_ptr(bindings::get_entity_name(entity)) };
-        write!(f, "Address of {:?} {}", entity_name, self.node_id())
+        write!(
+            f,
+            "Address of {:?} {}",
+            self.entity().name_string(),
+            self.node_id()
+        )
     }
 }
 
+#[derive(Debug)]
+pub struct DowncastErr(Node);
+
+macro_rules! downcast_node {
+    ($cast_name: ident, $trait_name: ident, [$($variant: ident),*]) => (
+        pub fn $cast_name(node: Node) -> Result<Box<dyn $trait_name>, DowncastErr> {
+            match node {
+                $(
+                    Node::$variant(node) => Ok(Box::new(node)),
+                )*
+                _ => Err(DowncastErr(node)),
+            }
+        }
+    );
+}
+
+pub trait ValueNode: NodeTrait {
+    fn value_nodes(&self) -> Vec<Box<dyn ValueNode>>;
+    fn compute(&self, values: Vec<Tarval>) -> Tarval;
+}
+
 pub trait BinOp {
-    fn left(&self) -> Node;
-    fn right(&self) -> Node;
+    fn left(&self) -> Box<dyn ValueNode>;
+    fn right(&self) -> Box<dyn ValueNode>;
     fn compute(&self, left: Tarval, right: Tarval) -> Tarval;
+}
+
+impl ValueNode for Const {
+    fn value_nodes(&self) -> Vec<Box<dyn ValueNode>> {
+        vec![]
+    }
+
+    fn compute(&self, values: Vec<Tarval>) -> Tarval {
+        assert!(values.len() == 0);
+        self.tarval()
+    }
+}
+
+impl ValueNode for Phi {
+    fn value_nodes(&self) -> Vec<Box<dyn ValueNode>> {
+        self.in_nodes()
+            .map(|n| try_as_value_node(n).unwrap())
+            .collect()
+    }
+
+    fn compute(&self, values: Vec<Tarval>) -> Tarval {
+        values.iter().fold(Tarval::unknown(), |a, b| a.join(*b))
+    }
+}
+
+impl ValueNode for Proj {
+    fn value_nodes(&self) -> Vec<Box<dyn ValueNode>> {
+        match self.kind() {
+            ProjKind::Div_Res(_) => vec![try_as_value_node(self.pred()).unwrap()],
+            ProjKind::Mod_Res(_) => vec![try_as_value_node(self.pred()).unwrap()],
+            _ => vec![],
+        }
+    }
+
+    fn compute(&self, values: Vec<Tarval>) -> Tarval {
+        assert!(values.len() <= 1);
+        if values.len() == 1 {
+            values[0]
+        } else {
+            Tarval::bad()
+        }
+    }
 }
 
 macro_rules! binop_impl {
     ($node_ty: ident, $compute: expr) => {
         impl BinOp for $node_ty {
-            fn left(&self) -> Node {
-                $node_ty::left(*self)
+            fn left(&self) -> Box<dyn ValueNode> {
+                try_as_value_node($node_ty::left(*self)).unwrap()
             }
-            fn right(&self) -> Node {
-                $node_ty::right(*self)
+            fn right(&self) -> Box<dyn ValueNode> {
+                try_as_value_node($node_ty::right(*self)).unwrap()
             }
             fn compute(&self, left: Tarval, right: Tarval) -> Tarval {
                 $compute(self, left, right)
             }
         }
+
+        impl ValueNode for $node_ty {
+            fn value_nodes(&self) -> Vec<Box<dyn ValueNode>> {
+                vec![BinOp::left(self), BinOp::right(self)]
+            }
+
+            fn compute(&self, values: Vec<Tarval>) -> Tarval {
+                assert!(values.len() == 2);
+                BinOp::compute(self, values[0], values[1])
+            }
+        }
     };
 }
 
-use self::nodes_gen::{Add, Cmp, Div, Eor, Mod, Mul, Sub};
+use self::nodes_gen::{Add, Cmp, Const, Div, Eor, Mod, Mul, Sub};
 
 binop_impl!(Add, |_n, l, r| l + r);
 binop_impl!(Sub, |_n, l, r| l - r);
@@ -212,48 +302,58 @@ binop_impl!(Mod, |_n, l, r| l % r);
 binop_impl!(Eor, |_n, l, r| l ^ r);
 binop_impl!(Cmp, |n: &Cmp, l: Tarval, r| l.lattice_cmp(n.relation(), r));
 
-macro_rules! try_as_bin_op {
-    ($($node_ty: ident),*) => (
-        pub fn try_as_bin_op(node: &Node) -> Result<&dyn BinOp, ()> {
-            match node {
-                $(
-                    Node::$node_ty(node) => Ok(node),
-                )*
-                _ => Err(()),
-            }
-        }
-    );
-}
-
-try_as_bin_op!(Add, Sub, Mul, Div, Mod, Eor, Cmp);
+downcast_node!(try_as_bin_op, BinOp, [Add, Sub, Mul, Div, Mod, Eor, Cmp]);
 
 pub trait UnaryOp {
-    fn operand(&self) -> Node;
+    fn operand(&self) -> Box<dyn ValueNode>;
     fn compute(&self, val: Tarval) -> Tarval;
 }
 
-impl UnaryOp for nodes_gen::Conv {
-    fn operand(&self) -> Node {
-        self.op()
-    }
-    fn compute(&self, val: Tarval) -> Tarval {
-        val.cast(self.mode()).unwrap_or_else(Tarval::bad)
-    }
+use self::nodes_gen::{Conv, Minus};
+
+macro_rules! unaryop_impl {
+    ($node_ty: ident, $compute: expr) => {
+        impl UnaryOp for $node_ty {
+            fn operand(&self) -> Box<dyn ValueNode> {
+                try_as_value_node(self.op()).unwrap()
+            }
+            fn compute(&self, val: Tarval) -> Tarval {
+                $compute(self, val)
+            }
+        }
+
+        impl ValueNode for $node_ty {
+            fn value_nodes(&self) -> Vec<Box<dyn ValueNode>> {
+                vec![self.operand()]
+            }
+
+            fn compute(&self, values: Vec<Tarval>) -> Tarval {
+                assert!(values.len() == 1);
+                UnaryOp::compute(self, values[0])
+            }
+        }
+    };
 }
 
-impl UnaryOp for nodes_gen::Minus {
-    fn operand(&self) -> Node {
-        self.op()
-    }
-    fn compute(&self, val: Tarval) -> Tarval {
-        -val
-    }
-}
+unaryop_impl!(Minus, |_n, val: Tarval| -val);
+unaryop_impl!(Conv, |n: &Conv, val: Tarval| val
+    .cast(n.mode())
+    .unwrap_or_else(Tarval::bad));
+downcast_node!(try_as_unary_op, UnaryOp, [Minus, Conv]);
 
-pub fn try_as_unary_op(node: &Node) -> Result<&dyn UnaryOp, ()> {
+downcast_node!(
+    internal_try_as_value_node,
+    ValueNode,
+    [
+        Const, Phi, // special
+        Minus, Conv, // unary
+        Add, Sub, Mul, Div, Mod, Eor, Cmp // binary
+    ]
+);
+
+pub fn try_as_value_node(node: Node) -> Result<Box<dyn ValueNode>, DowncastErr> {
     match node {
-        Node::Minus(node) => Ok(node),
-        Node::Conv(node) => Ok(node),
-        _ => Err(()),
+        Node::Proj(node, _) => Ok(Box::new(node)),
+        _ => internal_try_as_value_node(node),
     }
 }

@@ -1,7 +1,7 @@
-use crate::firm::Program;
+use crate::{debugging, firm::Program};
 use libfirm_rs::{
     graph::{Graph, NodeData},
-    nodes::{try_as_bin_op, try_as_unary_op, NodeTrait},
+    nodes::{try_as_value_node, NodeTrait},
     nodes_gen::{Node, ProjKind},
     tarval::{Tarval, TarvalKind},
 };
@@ -147,7 +147,7 @@ impl ConstantFolding {
 
                 self.update(cur_node, updated_lattice);
             }
-            /*
+
             if false && self.graph.entity().name_string() == "CF.M.foo" {
                 // only for debugging/development
                 self.graph.dump_dot_data(
@@ -180,10 +180,9 @@ impl ConstantFolding {
                         nd
                     },
                 );
-                debugging::wait();
             }
-            */
         }
+        //debugging::wait();
     }
 
     fn update_node(&mut self, cur_node: Node, cur_lattice: MyLattice) -> MyLattice {
@@ -196,70 +195,63 @@ impl ConstantFolding {
 
         let mut value = Tarval::bad();
 
-        if let Ok(binop) = try_as_bin_op(&cur_node) {
-            let left_val = self.lookup(binop.left()).value;
-            let right_val = self.lookup(binop.right()).value;
-            value = match (left_val.kind(), right_val.kind()) {
-                (TarvalKind::Bad, _) | (_, TarvalKind::Bad) => Tarval::bad(),
-                (TarvalKind::Unknown, _) | (_, TarvalKind::Unknown) => Tarval::unknown(),
-                _ => binop.compute(left_val, right_val),
-            };
-            log::debug!("compute: {:?} op {:?} = {:?}", left_val, right_val, value);
-        } else if let Ok(unary_op) = try_as_unary_op(&cur_node) {
-            let operand_val = self.lookup(unary_op.operand()).value;
-            value = match operand_val.kind() {
-                TarvalKind::Bad => Tarval::bad(),
-                TarvalKind::Unknown => Tarval::unknown(),
-                _ => unary_op.compute(operand_val),
-            };
-            log::debug!("compute: op {:?} = {:?}", operand_val, value);
-        } else {
-            use self::{Node::*, ProjKind::*};
-            match cur_node {
-                Const(constant) => {
-                    value = constant.tarval();
+        use self::{Node::*, ProjKind::*};
+        match cur_node {
+            Cond(cond) => {
+                value = self.lookup(cond.selector()).value;
+            }
+            Proj(_, Cond_Val(val, cond)) => {
+                if self.lookup(cond.into()).value.is_bool_val(!val) {
+                    reachable = false;
                 }
-                Cond(cond) => {
-                    value = self.lookup(cond.selector()).value;
-                }
-                Proj(_, Cond_Val(val, cond)) => {
-                    if self.lookup(cond.into()).value.is_bool_val(!val) {
-                        reachable = false;
-                    }
-                }
-                Phi(phi) => {
-                    value = phi.in_nodes().zip(phi.block().in_nodes()).fold(
-                        Tarval::unknown(),
-                        |val, (pred, block)| {
-                            // only consider reachable blocks for phi inputs
-                            if !self.lookup(block).reachable {
-                                // we must get informed when that block gets reachable
-                                self.deps
-                                    .entry(block)
-                                    .and_modify(|e| e.push(cur_node))
-                                    .or_insert_with(|| vec![cur_node]);
+            }
+            Phi(phi) => {
+                value = phi.in_nodes().zip(phi.block().in_nodes()).fold(
+                    Tarval::unknown(),
+                    |val, (pred, block)| {
+                        // only consider reachable blocks for phi inputs
+                        if !self.lookup(block).reachable {
+                            // we must get informed when that block gets reachable
+                            self.deps
+                                .entry(block)
+                                .and_modify(|e| e.push(cur_node))
+                                .or_insert_with(|| vec![cur_node]);
 
-                                log::debug!(
-                                    "{:?} is unreachable, thus {:?} can be ignored",
-                                    block,
-                                    pred
-                                );
-                                val
-                            } else {
-                                let pred_val = self.lookup(pred).value;
-                                let new_val = val.join(pred_val);
-                                log::debug!(
-                                    "for {:?}; pred_val: {:?} -> val: {:?}",
-                                    pred,
-                                    pred_val,
-                                    new_val
-                                );
+                            log::debug!(
+                                "{:?} is unreachable, thus {:?} can be ignored",
+                                block,
+                                pred
+                            );
+                            val
+                        } else {
+                            let pred_val = self.lookup(pred).value;
+                            let new_val = val.join(pred_val);
+                            log::debug!(
+                                "for {:?}; pred_val: {:?} -> val: {:?}",
+                                pred,
+                                pred_val,
                                 new_val
-                            }
-                        },
-                    )
+                            );
+                            new_val
+                        }
+                    },
+                )
+            }
+            _ => {
+                if let Ok(value_node) = try_as_value_node(cur_node) {
+                    let values: Vec<_> = value_node
+                        .value_nodes()
+                        .iter()
+                        .map(|n| self.lookup(n.into()).value)
+                        .collect();
+                    value = if values.iter().any(|n| n.is_bad()) {
+                        Tarval::bad()
+                    } else if values.iter().any(|n| n.is_unknown()) {
+                        Tarval::unknown()
+                    } else {
+                        value_node.compute(values)
+                    };
                 }
-                _ => {}
             }
         }
 
@@ -280,6 +272,11 @@ impl ConstantFolding {
 
             let const_node = Node::Const(self.graph.new_const(lattice.value));
             log::debug!("EXCHANGE NODE {:?} val={:?}", node, lattice.value);
+            /*
+            match node {
+                 Node::Cond(_) => {}
+                 _ => Graph::exchange_value(node, )
+            }*/
 
             match node {
                 Node::Cond(_) => {}

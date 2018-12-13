@@ -107,6 +107,11 @@ impl Graph {
         }
     }
 
+    pub fn exchange_value(prev: Node, new: Node) {
+        // todo introduce proper types
+
+    }
+
     /// Replace the given node with a "bad" node, thus marking it and all the
     /// nodes dominated by it as unreachable. The whole subtree can then be
     /// removed using `Graph::remove_bads`.
