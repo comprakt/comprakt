@@ -1,4 +1,7 @@
-use crate::nodes_gen::{self, Block, Node, NodeFactory, Phi, Proj};
+use crate::{
+    nodes_gen::{self, Block, Node, NodeFactory, Phi, Proj},
+    tarval::Tarval,
+};
 use libfirm_rs_bindings as bindings;
 use std::{
     ffi::CStr,
@@ -174,5 +177,83 @@ impl fmt::Debug for nodes_gen::Address {
         let entity = self.entity();
         let entity_name = unsafe { CStr::from_ptr(bindings::get_entity_name(entity)) };
         write!(f, "Address of {:?} {}", entity_name, self.node_id())
+    }
+}
+
+pub trait BinOp {
+    fn left(&self) -> Node;
+    fn right(&self) -> Node;
+    fn compute(&self, left: Tarval, right: Tarval) -> Tarval;
+}
+
+macro_rules! binop_impl {
+    ($node_ty: ident, $compute: expr) => {
+        impl BinOp for $node_ty {
+            fn left(&self) -> Node {
+                $node_ty::left(*self)
+            }
+            fn right(&self) -> Node {
+                $node_ty::right(*self)
+            }
+            fn compute(&self, left: Tarval, right: Tarval) -> Tarval {
+                $compute(self, left, right)
+            }
+        }
+    };
+}
+
+use self::nodes_gen::{Add, Cmp, Div, Eor, Mod, Mul, Sub};
+
+binop_impl!(Add, |_n, l, r| l + r);
+binop_impl!(Sub, |_n, l, r| l - r);
+binop_impl!(Mul, |_n, l, r| l * r);
+binop_impl!(Div, |_n, l, r| l / r);
+binop_impl!(Mod, |_n, l, r| l % r);
+binop_impl!(Eor, |_n, l, r| l ^ r);
+binop_impl!(Cmp, |n: &Cmp, l: Tarval, r| l.lattice_cmp(n.relation(), r));
+
+macro_rules! try_as_bin_op {
+    ($($node_ty: ident),*) => (
+        pub fn try_as_bin_op(node: &Node) -> Result<&dyn BinOp, ()> {
+            match node {
+                $(
+                    Node::$node_ty(node) => Ok(node),
+                )*
+                _ => Err(()),
+            }
+        }
+    );
+}
+
+try_as_bin_op!(Add, Sub, Mul, Div, Mod, Eor, Cmp);
+
+pub trait UnaryOp {
+    fn operand(&self) -> Node;
+    fn compute(&self, val: Tarval) -> Tarval;
+}
+
+impl UnaryOp for nodes_gen::Conv {
+    fn operand(&self) -> Node {
+        self.op()
+    }
+    fn compute(&self, val: Tarval) -> Tarval {
+        val.cast(self.mode()).unwrap_or_else(Tarval::bad)
+    }
+}
+
+impl UnaryOp for nodes_gen::Minus {
+    fn operand(&self) -> Node {
+        self.op()
+    }
+    fn compute(&self, val: Tarval) -> Tarval {
+        -val
+    }
+}
+
+pub fn try_as_unary_op(node: &Node) -> Result<&dyn UnaryOp, ()> {
+    match node {
+        Node::Minus(node) => Ok(node),
+        Node::Conv(node) => Ok(node),
+        _ => Err(()),
     }
 }
