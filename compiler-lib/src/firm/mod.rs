@@ -152,7 +152,8 @@ pub unsafe fn build<'src, 'ast>(
     //optimization::run_all(&program, &opts.optimizations);
 
     // TODO Better seperation of modules
-    let _lir = LIR::from(&program);
+    let lir = LIR::from(&program);
+    println!("{:#?}", lir);
 
     lower_highlevel();
     be_lower_for_target();

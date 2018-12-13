@@ -132,6 +132,13 @@ impl Hash for Node {
     }
 }
 
+// TODO Autogenerate for all node kinds
+impl Hash for Block {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        NodeFactory::node(self.internal_ir_node()).hash(state)
+    }
+}
+
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
         // k1 == k2 => hash(k1) == hash(k2)
@@ -173,8 +180,11 @@ impl nodes_gen::Block {
         unsafe { bindings::get_Block_n_cfgpreds(self.internal_ir_node()) }
     }
 
-    pub fn preds(&self) -> BlockPredIterator {
-        BlockPredIterator::new(self.internal_ir_node())
+    pub fn preds(&self) -> impl Iterator<Item = nodes_gen::Block> {
+        BlockPredIterator::new(self.internal_ir_node()).filter_map(|node| match node {
+            Node::Block(block) => Some(block),
+            _ => None,
+        })
     }
 }
 

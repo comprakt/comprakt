@@ -2,7 +2,11 @@
 
 use crate::firm;
 use libfirm_rs::nodes::Node;
-use std::rc::{Rc, Weak};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    rc::{Rc, Weak},
+};
 
 #[derive(Debug)]
 pub struct LIR {
@@ -57,11 +61,14 @@ impl From<&firm::Method<'_, '_>> for Function {
 /// being phi-nodes pointing to some far
 /// away firm-node.
 pub struct BlockGraph {
-    head: BasicBlock,
+    head: MutRc<BasicBlock>,
 }
 
+pub type MutRc<T> = Rc<RefCell<T>>;
+pub type MutWeak<T> = Weak<RefCell<T>>;
+
 /// This is a vertex in the basic-block graph
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct BasicBlock {
     /// The Pseudo-registers used by the Block
     regs: Vec<ValueSlot>,
@@ -69,10 +76,13 @@ pub struct BasicBlock {
     code: Vec<Instruction>,
     /// Control flow-transfers *to* this block.
     /// Usually at most 2
-    pred: Vec<Weak<ControlFlowTransfer>>,
+    pred: Vec<MutWeak<ControlFlowTransfer>>,
     /// Control flow-transfers *out of* this block
     /// Usually at most 2
-    succ: Vec<Rc<ControlFlowTransfer>>,
+    succ: Vec<MutRc<ControlFlowTransfer>>,
+
+    /// The firm structure of this block
+    firm: libfirm_rs::nodes::Block,
 }
 
 /// TODO Tie to problames instruction stuff
@@ -82,7 +92,7 @@ pub type Instruction = !;
 #[derive(Debug)]
 pub struct ValueSlot {
     /// The block in which this slot is allocated
-    block: Weak<BasicBlock>,
+    //block: MutWeak<BasicBlock>,
     /// The slot number. Uniqe only per Block, not globally
     num: usize,
     kind: ValueSlotKind,
@@ -127,24 +137,68 @@ pub struct ControlFlowTransfer {
     /// the register transitions.
     register_transitions: Vec<(ValueSlot, ValueSlot)>,
 
-    source: Weak<BasicBlock>,
-    target: Rc<BasicBlock>,
+    source: MutWeak<BasicBlock>,
+    target: MutRc<BasicBlock>,
 }
 
 impl From<libfirm_rs::graph::Graph> for BlockGraph {
     fn from(firm_graph: libfirm_rs::graph::Graph) -> Self {
-        BlockGraph {
-            head: BasicBlock::from_firm_block(None, firm_graph.end_block()),
-        }
+        let mut graph = Self::build_skeleton(firm_graph);
+        graph.fill_blocks();
+        graph
     }
 }
 
+impl BlockGraph {
+    fn build_skeleton(firm_graph: libfirm_rs::graph::Graph) -> Self {
+        let mut blocks = HashMap::new();
+
+        // This is basically a `for each edge "firm_target -> firm_source"`
+        firm_graph.walk_blocks(|_, firm_target| {
+            let target = BasicBlock::skeleton_block(&mut blocks, *firm_target);
+
+            for firm_source in firm_target.preds() {
+                let source = BasicBlock::skeleton_block(&mut blocks, firm_source);
+
+                let edge = Rc::new(RefCell::from(ControlFlowTransfer {
+                    register_transitions: Vec::new(),
+                    source: Rc::downgrade(&source),
+                    target: Rc::clone(&target),
+                }));
+
+                source.borrow_mut().succ.push(Rc::clone(&edge));
+                target.borrow_mut().pred.push(Rc::downgrade(&edge));
+            }
+        });
+
+        BlockGraph {
+            head: Rc::clone(
+                blocks
+                    .get(&firm_graph.start_block())
+                    .expect("All blocks (including start block) should have been generated"),
+            ),
+        }
+    }
+
+    fn fill_blocks(&mut self) {}
+}
+
 impl BasicBlock {
-    /// TODO
-    fn from_firm_block(
-        outgoing: Option<Weak<ControlFlowTransfer>>,
-        firm_block: libfirm_rs::nodes::Block,
-    ) -> Self {
-        unimplemented!()
+    fn skeleton_block(
+        known_blocks: &mut HashMap<libfirm_rs::nodes::Block, MutRc<BasicBlock>>,
+        firm: libfirm_rs::nodes::Block,
+    ) -> MutRc<Self> {
+        known_blocks
+            .entry(firm)
+            .or_insert_with(|| {
+                Rc::new(RefCell::from(BasicBlock {
+                    regs: Vec::new(),
+                    code: Vec::new(),
+                    pred: Vec::new(),
+                    succ: Vec::new(),
+                    firm,
+                }))
+            })
+            .clone()
     }
 }
