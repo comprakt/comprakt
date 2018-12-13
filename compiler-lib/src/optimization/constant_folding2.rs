@@ -1,4 +1,4 @@
-use crate::{debugging, firm::Program};
+use crate::firm::Program;
 use libfirm_rs::{
     graph::{Graph, NodeData},
     nodes::{try_as_bin_op, try_as_unary_op, NodeTrait},
@@ -111,7 +111,7 @@ impl ConstantFolding {
     }
 
     fn lookup(&self, node: Node) -> MyLattice {
-        self.values[&node].clone()
+        self.values[&node]
     }
 
     fn update(&mut self, node: Node, new: MyLattice) {
@@ -131,12 +131,7 @@ impl ConstantFolding {
             };
         }
 
-        loop {
-            let (cur_node, _priority) = match self.queue.pop() {
-                Some(t) => t,
-                None => break,
-            };
-
+        while let Some((cur_node, _priority)) = self.queue.pop() {
             let cur_lattice = self.lookup(cur_node);
             let updated_lattice = self.update_node(cur_node, cur_lattice);
             if updated_lattice != cur_lattice {
@@ -152,7 +147,7 @@ impl ConstantFolding {
 
                 self.update(cur_node, updated_lattice);
             }
-
+            /*
             if false && self.graph.entity().name_string() == "CF.M.foo" {
                 // only for debugging/development
                 self.graph.dump_dot_data(
@@ -165,7 +160,6 @@ impl ConstantFolding {
                             Some(data) => format!("r: {:?}, val: {:?}", data.reachable, data.value),
                             None => " ".to_string(),
                         };
-
                         match n {
                             Node::Phi(phi) => {
                                 let mut string = "".to_string();
@@ -177,23 +171,18 @@ impl ConstantFolding {
                             }
                             _ => {}
                         }
-
-                        let mut nd = NodeData::new(format!(
-                            "{:?}; {}\n{}",
-                            n,
-                            self.node_topo_idx.get(&n).unwrap(),
-                            str
-                        ));
+                        let mut nd =
+                            NodeData::new(format!("{:?}; {}\n{}", n, self.node_topo_idx[&n], str));
                         nd.filled(n == cur_node);
-                        if let Some(_) = self.queue.get(&n) {
+                        if self.queue.get(&n).is_some() {
                             nd.bold(true)
                         }
                         nd
                     },
                 );
-
                 debugging::wait();
             }
+            */
         }
     }
 
@@ -248,7 +237,7 @@ impl ConstantFolding {
                                 self.deps
                                     .entry(block)
                                     .and_modify(|e| e.push(cur_node))
-                                    .or_insert(vec![cur_node]);
+                                    .or_insert_with(|| vec![cur_node]);
 
                                 log::debug!(
                                     "{:?} is unreachable, thus {:?} can be ignored",
@@ -293,7 +282,7 @@ impl ConstantFolding {
             log::debug!("EXCHANGE NODE {:?} val={:?}", node, lattice.value);
 
             match node {
-                Node::Cond(cond) => {}
+                Node::Cond(_) => {}
                 /* IMPROVEMENT?
                 This might be more elegant, but does not do the exact same:
                 It fails if there are multiple projects to that pin!

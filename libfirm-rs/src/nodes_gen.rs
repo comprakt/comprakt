@@ -252,8 +252,8 @@ pub enum ProjKind {
 }
 
 type NodeFactoryFn = fn(*mut bindings::ir_node) -> Node;
-#[allow(clippy::new_without_default_derive)]
 pub struct NodeFactory(HashMap<u32, NodeFactoryFn>);
+#[allow(clippy::new_without_default_derive)]
 impl NodeFactory {
     pub fn new() -> Self {
         let mut map = HashMap::<u32, NodeFactoryFn>::new();
