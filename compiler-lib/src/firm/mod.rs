@@ -28,6 +28,7 @@ pub use self::{
 use failure::{Error, Fail};
 
 use crate::{
+    lowering::lir::LIR,
     optimization::{self, Optimization},
     strtab::{StringTable, Symbol},
     type_checking::{
@@ -148,7 +149,10 @@ pub unsafe fn build<'src, 'ast>(
         }
     }
 
-    optimization::run_all(&program, &opts.optimizations);
+    //optimization::run_all(&program, &opts.optimizations);
+
+    // TODO Better seperation of modules
+    let _lir = LIR::from(&program);
 
     lower_highlevel();
     be_lower_for_target();

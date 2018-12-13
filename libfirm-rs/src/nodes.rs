@@ -1,4 +1,5 @@
-use crate::nodes_gen::{self, Block, Node, NodeFactory, Phi, Proj};
+use crate::nodes_gen;
+pub use crate::nodes_gen::*;
 use libfirm_rs_bindings as bindings;
 use std::{
     ffi::CStr,
@@ -82,10 +83,14 @@ pub trait NodeTrait {
         }
     }
 
+    /// These er the "reverse" libfirm edges, i.e. those going downwards in the
+    /// graph, i.e in the directon of the data/mem/control flow.
     fn out_nodes(&self) -> OutNodeIterator {
         OutNodeIterator::new(self.internal_ir_node())
     }
 
+    /// These are the "normal" libfirm edges, i.e. those going upwards in the
+    /// graph, i.e. in the directorn of the data/mem/flow *dependency*
     fn in_nodes(&self) -> InNodeIterator {
         InNodeIterator::new(self.internal_ir_node())
     }
@@ -167,7 +172,18 @@ impl nodes_gen::Block {
     pub fn num_cfgpreds(self) -> i32 {
         unsafe { bindings::get_Block_n_cfgpreds(self.internal_ir_node()) }
     }
+
+    pub fn preds(&self) -> BlockPredIterator {
+        BlockPredIterator::new(self.internal_ir_node())
+    }
 }
+
+simple_node_iterator!(
+    BlockPredIterator,
+    get_Block_n_cfgpreds,
+    get_Block_cfgpred_block,
+    i32
+);
 
 impl fmt::Debug for nodes_gen::Address {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

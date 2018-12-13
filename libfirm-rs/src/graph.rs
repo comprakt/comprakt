@@ -101,6 +101,39 @@ impl Graph {
         }
     }
 
+    /// Walks over reachable Block nodes in the graph, starting at the
+    /// end_block.
+    ///
+    /// For each block, the walker function is called twice, once before and
+    /// once after all predecessors of the block are visited. This is indicated
+    /// by the `VisitTime` parameter to the closure.
+    ///
+    /// ## Parameters
+    ///  - `walker` walker function
+    ///
+    /// Has its own visited flag, so that it can be interleaved
+    /// with the other walker. Does not use the link
+    /// field.
+    pub fn walk_blocks<F>(&self, mut walker: F)
+    where
+        F: FnMut(VisitTime, &Block),
+    {
+        // We need the type ascription here, because otherwise rust infers `&mut F`,
+        // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
+        // `closure_handler` doesn't know the concrete `F`.
+        let mut fat_pointer: &mut dyn FnMut(VisitTime, &Block) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            bindings::irg_block_walk_graph(
+                self.irg,
+                Some(pre_closure_handler),
+                Some(post_closure_handler),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
     pub fn exchange(prev: &impl NodeTrait, new: &impl NodeTrait) {
         unsafe {
             bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
@@ -186,4 +219,30 @@ unsafe extern "C" fn closure_handler(node: *mut bindings::ir_node, closure: *mut
     #[allow(clippy::transmute_ptr_to_ref)]
     let closure: &mut &mut FnMut(&Node) = mem::transmute(closure);
     closure(&NodeFactory::node(node))
+}
+
+unsafe extern "C" fn pre_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    // TODO: is this allow correct, Joshua?
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, &Block) = mem::transmute(closure);
+    match NodeFactory::node(node) {
+        Node::Block(block) => closure(VisitTime::BeforePredecessors, &block),
+        _ => unreachable!("irg_block_walk_graph only walks over blocks"),
+    }
+}
+
+unsafe extern "C" fn post_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    // TODO: is this allow correct, Joshua?
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, &Block) = mem::transmute(closure);
+    match NodeFactory::node(node) {
+        Node::Block(block) => closure(VisitTime::AfterPredecessors, &block),
+        _ => unreachable!("irg_block_walk_graph only walks over blocks"),
+    }
+}
+
+#[derive(Debug)]
+pub enum VisitTime {
+    BeforePredecessors,
+    AfterPredecessors,
 }
