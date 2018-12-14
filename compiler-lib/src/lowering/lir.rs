@@ -1,15 +1,15 @@
 //! Low level intermediate representation
 
-use crate::{firm, type_checking::type_system::CheckedType};
+use crate::{
+    firm,
+    type_checking::type_system::CheckedType,
+    utils::cell::{MutRc, MutWeak},
+};
 use libfirm_rs::{
     graph::VisitTime,
     nodes::{Node, NodeTrait},
 };
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    rc::{Rc, Weak},
-};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct LIR {
@@ -76,9 +76,6 @@ pub struct BlockGraph {
     blocks: HashMap<libfirm_rs::nodes::Block, MutRc<BasicBlock>>,
     pub head: MutRc<BasicBlock>,
 }
-
-pub type MutRc<T> = Rc<RefCell<T>>;
-pub type MutWeak<T> = Weak<RefCell<T>>;
 
 /// This is a vertex in the basic-block graph
 #[derive(Debug)]
@@ -177,23 +174,23 @@ impl BlockGraph {
                 for firm_source in firm_target.cfg_preds() {
                     let source = BasicBlock::skeleton_block(&mut blocks, firm_source);
 
-                    let edge = Rc::new(RefCell::from(ControlFlowTransfer {
+                    let edge = MutRc::new(ControlFlowTransfer {
                         register_transitions: Vec::new(),
-                        source: Rc::downgrade(&source),
-                        target: Rc::clone(&target),
-                    }));
+                        source: MutRc::downgrade(&source),
+                        target: MutRc::clone(&target),
+                    });
 
                     log::debug!("Visiting edge: {:?}->{:?}", firm_source, firm_target);
 
-                    source.borrow_mut().succs.push(Rc::clone(&edge));
-                    target.borrow_mut().preds.push(Rc::downgrade(&edge));
+                    source.borrow_mut().succs.push(MutRc::clone(&edge));
+                    target.borrow_mut().preds.push(MutRc::downgrade(&edge));
                 }
             }
 
             VisitTime::AfterPredecessors => (),
         });
 
-        let head = Rc::clone(
+        let head = MutRc::clone(
             blocks
                 .get(&firm_graph.start_block())
                 .expect("All blocks (including start block) should have been generated"),
@@ -242,13 +239,13 @@ impl BasicBlock {
         known_blocks
             .entry(firm)
             .or_insert_with(|| {
-                Rc::new(RefCell::from(BasicBlock {
+                MutRc::new(BasicBlock {
                     regs: Vec::new(),
                     code: Vec::new(),
                     preds: Vec::new(),
                     succs: Vec::new(),
                     firm,
-                }))
+                })
             })
             .clone()
     }

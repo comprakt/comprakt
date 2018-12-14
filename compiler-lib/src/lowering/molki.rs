@@ -279,11 +279,8 @@ impl Block {
     }
 }
 
-use crate::lowering::lir;
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    rc::Rc,
-};
+use crate::{lowering::lir, utils::cell::MutRc};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 impl From<lir::LIR> for Program {
     fn from(p: lir::LIR) -> Program {
@@ -297,7 +294,7 @@ impl From<lir::LIR> for Program {
             let mut mblocks = HashMap::new();
             let mut visited = HashSet::new();
             let mut visit_list = VecDeque::new();
-            visit_list.push_front(Rc::clone(&f.graph.head));
+            visit_list.push_front(MutRc::clone(&f.graph.head));
             let mut is_entry_block = true;
             loop {
                 let block = match visit_list.pop_front() {
@@ -312,7 +309,7 @@ impl From<lir::LIR> for Program {
                 mblocks.insert(block.borrow().firm, (mblock, is_entry_block));
                 is_entry_block = false;
                 for edge in &block.borrow().succs {
-                    let succ = Rc::clone(&edge.borrow().target);
+                    let succ = MutRc::clone(&edge.borrow().target);
                     if !visited.contains(&succ.borrow().firm) {
                         visited.insert(succ.borrow().firm);
                         visit_list.push_back(succ);
@@ -340,18 +337,18 @@ mod tests {
         let expected = r"
 .function fib 1 1
 entry:
-	/* some comment */
-	cmpq $1, %@0
-	jle fib_basecase
-	subq [ $1 | %@0 ] -> %@1
-	subq [ $2 | %@0 ] -> %@2
-	call fib [ %@1 ] -> %@3
-	call fib [ %@2 ] -> %@4
-	addq [ %@3 | %@4 ] -> %@r0
-	jmp end
+  /* some comment */
+  cmpq $1, %@0
+  jle fib_basecase
+  subq [ $1 | %@0 ] -> %@1
+  subq [ $2 | %@0 ] -> %@2
+  call fib [ %@1 ] -> %@3
+  call fib [ %@2 ] -> %@4
+  addq [ %@3 | %@4 ] -> %@r0
+  jmp end
 fib_basecase:
-	movq %@0, %@r0
-	jmp end
+  movq %@0, %@r0
+  jmp end
 end:
 .endfunction
          "

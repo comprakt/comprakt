@@ -87,3 +87,76 @@ where
         Some(self.buffer.remove(0))
     }
 }
+
+#[macro_use]
+pub mod cell {
+
+    use std::{
+        cell::{Ref, RefCell, RefMut},
+        fmt,
+        rc::{Rc, Weak},
+    };
+
+    pub struct MutRc<T>(Rc<RefCell<T>>);
+    pub struct MutWeak<T>(Weak<RefCell<T>>);
+
+    impl<T> MutRc<T> {
+        pub fn new(val: T) -> Self {
+            MutRc(Rc::new(RefCell::from(val)))
+        }
+
+        pub fn downgrade(&self) -> MutWeak<T> {
+            MutWeak(Rc::downgrade(&self.0))
+        }
+
+        pub fn clone(&self) -> MutRc<T> {
+            MutRc(Rc::clone(&self.0))
+        }
+
+        pub fn borrow(&self) -> Ref<'_, T> {
+            self.0.borrow()
+        }
+
+        pub fn borrow_mut(&self) -> RefMut<'_, T> {
+            self.0.borrow_mut()
+        }
+    }
+
+    impl<T> MutWeak<T> {
+        pub fn clone(&self) -> MutWeak<T> {
+            MutWeak(Weak::clone(&self.0))
+        }
+
+        pub fn upgrade(&self) -> Option<MutRc<T>> {
+            Weak::upgrade(&self.0).map(MutRc)
+        }
+    }
+
+    macro_rules! upborrow {
+        ($mut_weak: expr) => {
+            MutWeak::upgrade(&$mut_weak).unwrap().borrow()
+        };
+
+        (mut $mut_weak: expr) => {
+            MutWeak::upgrade(&$mut_weak).unwrap().borrow_mut()
+        };
+    }
+
+    impl<T> fmt::Debug for MutRc<T>
+    where
+        T: fmt::Debug,
+    {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            self.borrow().fmt(f)
+        }
+    }
+
+    impl<T> fmt::Debug for MutWeak<T>
+    where
+        T: fmt::Debug,
+    {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            upborrow!(self).fmt(f)
+        }
+    }
+}
