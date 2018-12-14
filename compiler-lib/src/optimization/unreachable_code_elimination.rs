@@ -50,7 +50,7 @@ impl UnreachableCodeElimination {
                                 Some(proj)
                             }
                             Node::Proj(proj, ProjKind::Cond_Val(false, _))
-                                if !tarval.is_bool_val(true) =>
+                                if tarval.is_bool_val(false) =>
                             {
                                 Some(proj)
                             }
