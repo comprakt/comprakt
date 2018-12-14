@@ -1,6 +1,6 @@
 //! Low level intermediate representation
 
-use crate::firm;
+use crate::{firm, type_checking::type_system::CheckedType};
 use libfirm_rs::{
     graph::VisitTime,
     nodes::{Node, NodeTrait},
@@ -13,7 +13,7 @@ use std::{
 
 #[derive(Debug)]
 pub struct LIR {
-    functions: Vec<Function>,
+    pub functions: Vec<Function>,
 }
 
 impl From<&firm::Program<'_, '_>> for LIR {
@@ -32,7 +32,10 @@ impl From<&firm::Program<'_, '_>> for LIR {
 
 #[derive(Debug)]
 pub struct Function {
-    graph: BlockGraph,
+    pub name: String,
+    pub nargs: usize,
+    pub returns: bool,
+    pub graph: BlockGraph,
 }
 
 impl From<&firm::Method<'_, '_>> for Function {
@@ -46,7 +49,11 @@ impl From<&firm::Method<'_, '_>> for Function {
             .into();
         let graph: libfirm_rs::graph::Graph = graph.into();
 
+        let returns = method.def.return_ty != CheckedType::Void;
         Function {
+            name: method._name.clone().into_string().unwrap(),
+            nargs: method.def.params.len(),
+            returns,
             graph: graph.into(),
         }
     }
@@ -59,12 +66,12 @@ impl From<&firm::Method<'_, '_>> for Function {
 /// slots (or variable names) are
 /// namespaced per block (and can only be
 /// refered to by adjacent blocks) and
-/// thesources of the values are
+/// the sources of the values are
 /// annotated on each edge, instead of
 /// being phi-nodes pointing to some far
 /// away firm-node.
 pub struct BlockGraph {
-    head: MutRc<BasicBlock>,
+    pub head: MutRc<BasicBlock>,
 }
 
 pub type MutRc<T> = Rc<RefCell<T>>;
@@ -74,18 +81,18 @@ pub type MutWeak<T> = Weak<RefCell<T>>;
 #[derive(Debug)]
 pub struct BasicBlock {
     /// The Pseudo-registers used by the Block
-    regs: Vec<ValueSlot>,
+    pub regs: Vec<ValueSlot>,
     /// The instructions (using arbitrarily many registers) of the block
-    code: Vec<Instruction>,
+    pub code: Vec<Instruction>,
     /// Control flow-transfers *to* this block.
     /// Usually at most 2
-    pred: Vec<MutWeak<ControlFlowTransfer>>,
+    pub pred: Vec<MutWeak<ControlFlowTransfer>>,
     /// Control flow-transfers *out of* this block
     /// Usually at most 2
-    succ: Vec<MutRc<ControlFlowTransfer>>,
+    pub succ: Vec<MutRc<ControlFlowTransfer>>,
 
     /// The firm structure of this block
-    firm: libfirm_rs::nodes::Block,
+    pub firm: libfirm_rs::nodes::Block,
 }
 
 /// TODO Tie to problames instruction stuff
@@ -141,7 +148,7 @@ pub struct ControlFlowTransfer {
     register_transitions: Vec<(ValueSlot, ValueSlot)>,
 
     source: MutWeak<BasicBlock>,
-    target: MutRc<BasicBlock>,
+    pub target: MutRc<BasicBlock>,
 }
 
 impl From<libfirm_rs::graph::Graph> for BlockGraph {

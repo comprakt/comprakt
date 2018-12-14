@@ -28,7 +28,7 @@ pub use self::{
 use failure::{Error, Fail};
 
 use crate::{
-    lowering::lir::LIR,
+    lowering::{lir::LIR, molki},
     optimization::{self, Optimization},
     strtab::{StringTable, Symbol},
     type_checking::{
@@ -153,7 +153,8 @@ pub unsafe fn build<'src, 'ast>(
 
     // TODO Better seperation of modules
     let lir = LIR::from(&program);
-    println!("{:#?}", lir);
+    let molki = molki::Program::from(lir);
+    molki.emit_molki(&mut std::io::stdout()).unwrap();
 
     lower_highlevel();
     be_lower_for_target();

@@ -1,3 +1,5 @@
+use libfirm_rs::nodes::NodeTrait;
+
 type Label = String;
 
 pub struct Program {
@@ -10,8 +12,7 @@ pub struct Function {
     nargs: usize,
     reg_counter: usize,
     returns: bool,
-    label_counter: usize,
-    pending_blocks: usize,
+    issued_blocks: usize,
     blocks: Vec<Block>,
 }
 
@@ -210,7 +211,7 @@ impl Program {
     }
     pub fn add_function(&mut self, f: Function) {
         assert!(!f.name.chars().any(|c| c.is_whitespace()));
-        assert_eq!(f.pending_blocks, 0);
+        assert_eq!(f.issued_blocks, f.blocks.len());
         self.functions.push(f);
     }
 }
@@ -219,11 +220,10 @@ impl Function {
     pub fn new(name: String, nargs: usize, returns: bool) -> Function {
         Function {
             name,
-            label_counter: 0,
             nargs,
             reg_counter: nargs,
             returns,
-            pending_blocks: 0,
+            issued_blocks: 0,
             blocks: vec![],
         }
     }
@@ -244,25 +244,16 @@ impl Function {
         reg
     }
 
-    fn gen_label(&mut self) -> Label {
-        let label = format!("L{}", self.label_counter);
-        self.label_counter += 1;
-        label
-    }
-
-    pub fn begin_block(&mut self) -> Block {
-        self.pending_blocks += 1;
-        Block::new(self.gen_label())
+    pub fn begin_block(&mut self, label: String) -> Block {
+        self.issued_blocks += 1;
+        Block::new(label)
     }
 
     pub fn complete_entry_block(&mut self, block: Block) {
-        assert!(self.blocks.len() == 0);
-        self.pending_blocks -= 1;
         self.blocks.insert(0, block);
     }
 
     pub fn complete_block(&mut self, block: Block) {
-        self.pending_blocks -= 1;
         self.blocks.push(block);
     }
 }
@@ -279,6 +270,59 @@ impl Block {
     }
     pub fn push(&mut self, instr: Instr) {
         self.instrs.push(instr);
+    }
+}
+
+use crate::lowering::lir;
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    rc::Rc,
+};
+
+impl From<lir::LIR> for Program {
+    fn from(p: lir::LIR) -> Program {
+        let mut mp = Program::new();
+        for f in &p.functions {
+            let mf_name = match f.name.as_ref() {
+                "mj_main" => "minijava_main".to_owned(),
+                x => x.to_owned(),
+            };
+            let mut mf = Function::new(mf_name, f.nargs, f.returns);
+            let mut mblocks = HashMap::new();
+            let mut visited = HashSet::new();
+            let mut visit_list = VecDeque::new();
+            visit_list.push_front(Rc::clone(&f.graph.head));
+            let mut is_entry_block = true;
+            loop {
+                let block = match visit_list.pop_front() {
+                    None => break,
+                    Some(b) => b,
+                };
+                let mblock = mf.begin_block(format!(".L{}", block.borrow().firm.node_id()));
+                for _instr in &block.borrow().code {
+                    unimplemented!();
+                }
+                // TODO assert that there is a jump at the end of each instr list
+                mblocks.insert(block.borrow().firm, (mblock, is_entry_block));
+                is_entry_block = false;
+                for edge in &block.borrow().succ {
+                    let succ = Rc::clone(&edge.borrow().target);
+                    if !visited.contains(&succ.borrow().firm) {
+                        visited.insert(succ.borrow().firm);
+                        visit_list.push_back(succ);
+                    }
+                }
+            }
+            for (_, (mblock, is_entry_block)) in mblocks {
+                if is_entry_block {
+                    mf.complete_entry_block(mblock);
+                } else {
+                    mf.complete_block(mblock)
+                }
+            }
+            mp.add_function(mf);
+        }
+        mp
     }
 }
 
