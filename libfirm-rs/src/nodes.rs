@@ -50,18 +50,6 @@ macro_rules! simple_node_iterator {
     };
 }
 
-impl Block {
-    pub fn keep_alive(self) {
-        unsafe { bindings::keep_alive(self.internal_ir_node()) }
-    }
-
-    /// This is the control flow Node that enters this block, such as Jmp,
-    /// Proj(X) or Return.
-    pub fn cfg_pred(self, idx: i32) -> Node {
-        NodeFactory::node(unsafe { bindings::get_Block_cfgpred(self.internal_ir_node(), idx) })
-    }
-}
-
 impl Phi {
     /// `Node` is the result of the phi node when entering this phi's block via
     /// `Block`
@@ -94,6 +82,7 @@ pub trait NodeTrait {
     }
 
     fn block(&self) -> Block {
+        assert!(!self.is_block());
         let block_ir_node = unsafe { bindings::get_nodes_block(self.internal_ir_node()) };
         match NodeFactory::node(block_ir_node) {
             Node::Block(block) => block,
@@ -204,11 +193,21 @@ impl nodes_gen::Block {
         unsafe { bindings::get_Block_n_cfgpreds(self.internal_ir_node()) }
     }
 
-    pub fn preds(&self) -> impl Iterator<Item = nodes_gen::Block> {
+    pub fn cfg_preds(&self) -> impl Iterator<Item = nodes_gen::Block> {
         BlockPredIterator::new(self.internal_ir_node()).filter_map(|node| match node {
             Node::Block(block) => Some(block),
             _ => None,
         })
+    }
+
+    pub fn keep_alive(self) {
+        unsafe { bindings::keep_alive(self.internal_ir_node()) }
+    }
+
+    /// This is the control flow Node that enters this block, such as Jmp,
+    /// Proj(X) or Return.
+    pub fn cfg_pred(self, idx: i32) -> Node {
+        NodeFactory::node(unsafe { bindings::get_Block_cfgpred(self.internal_ir_node(), idx) })
     }
 }
 

@@ -88,10 +88,10 @@ pub struct BasicBlock {
     pub code: Vec<Instruction>,
     /// Control flow-transfers *to* this block.
     /// Usually at most 2
-    pub pred: Vec<MutWeak<ControlFlowTransfer>>,
+    pub preds: Vec<MutWeak<ControlFlowTransfer>>,
     /// Control flow-transfers *out of* this block
     /// Usually at most 2
-    pub succ: Vec<MutRc<ControlFlowTransfer>>,
+    pub succs: Vec<MutRc<ControlFlowTransfer>>,
 
     /// The firm structure of this block
     pub firm: libfirm_rs::nodes::Block,
@@ -173,7 +173,7 @@ impl BlockGraph {
             VisitTime::BeforePredecessors => {
                 let target = BasicBlock::skeleton_block(&mut blocks, *firm_target);
 
-                for firm_source in firm_target.preds() {
+                for firm_source in firm_target.cfg_preds() {
                     let source = BasicBlock::skeleton_block(&mut blocks, firm_source);
 
                     let edge = Rc::new(RefCell::from(ControlFlowTransfer {
@@ -184,8 +184,8 @@ impl BlockGraph {
 
                     log::debug!("Visiting edge: {:?}->{:?}", firm_source, firm_target);
 
-                    source.borrow_mut().succ.push(Rc::clone(&edge));
-                    target.borrow_mut().pred.push(Rc::downgrade(&edge));
+                    source.borrow_mut().succs.push(Rc::clone(&edge));
+                    target.borrow_mut().preds.push(Rc::downgrade(&edge));
                 }
             }
 
@@ -241,8 +241,8 @@ impl BasicBlock {
                 Rc::new(RefCell::from(BasicBlock {
                     regs: Vec::new(),
                     code: Vec::new(),
-                    pred: Vec::new(),
-                    succ: Vec::new(),
+                    preds: Vec::new(),
+                    succs: Vec::new(),
                     firm,
                 }))
             })

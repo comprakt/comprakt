@@ -311,7 +311,7 @@ impl From<lir::LIR> for Program {
                 // TODO assert that there is a jump at the end of each instr list
                 mblocks.insert(block.borrow().firm, (mblock, is_entry_block));
                 is_entry_block = false;
-                for edge in &block.borrow().succ {
+                for edge in &block.borrow().succs {
                     let succ = Rc::clone(&edge.borrow().target);
                     if !visited.contains(&succ.borrow().firm) {
                         visited.insert(succ.borrow().firm);
