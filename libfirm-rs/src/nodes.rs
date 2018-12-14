@@ -1,5 +1,8 @@
 pub use crate::nodes_gen::*;
-use crate::{graph::Graph, nodes_gen};
+use crate::{
+    graph::{self, Graph},
+    nodes_gen,
+};
 use libfirm_rs_bindings as bindings;
 use std::{
     ffi::CStr,
@@ -51,11 +54,26 @@ impl Block {
     pub fn keep_alive(self) {
         unsafe { bindings::keep_alive(self.internal_ir_node()) }
     }
+
+    /// This is the control flow Node that enters this block, such as Jmp,
+    /// Proj(X) or Return.
+    pub fn cfg_pred(self, idx: i32) -> Node {
+        NodeFactory::node(unsafe { bindings::get_Block_cfgpred(self.internal_ir_node(), idx) })
+    }
 }
 
 impl Phi {
-    pub fn phi_preds(self) -> PhiPredsIterator {
+    /// `Node` is the result of the phi node when entering this phi's block via
+    /// `Block`
+    pub fn preds(self) -> impl Iterator<Item = (Block, Node)> {
+        // From libfirm docs:
+        // A phi node has 1 input for each predecessor of its block. If a
+        // block is entered from its nth predecessor all phi nodes produce
+        // their nth input as result.
+        let block = self.block();
         PhiPredsIterator::new(self.internal_ir_node())
+            .enumerate()
+            .map(move |(i, pred)| (block.cfg_pred(i as i32).block(), pred))
     }
 }
 

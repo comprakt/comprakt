@@ -132,7 +132,10 @@ impl ConstantFolding {
                     self.queue_followers_if_changed(cur, prev, res);
                 }
                 Node::Phi(phi) => {
-                    let preds = phi.phi_preds().map(|p| self.values[&p]).collect::<Vec<_>>();
+                    let preds = phi
+                        .preds()
+                        .map(|(_, p)| self.values[&p])
+                        .collect::<Vec<_>>();
                     log::debug!("preds: {:?}", preds);
                     let res = Lattice::phi(preds.into_iter());
                     log::debug!("result is: {:?}", res);
