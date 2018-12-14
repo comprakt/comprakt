@@ -1,0 +1,12 @@
+class Test {
+    public static void main(String[] args) {
+        Test t = new Test();
+        int x = t.test(1) + t.test(2) * t.test(3) + (t.test(4) + t.test(5)) * t.test(6);
+        System.out.println(x);
+    }
+
+    public int test(int i) {
+        System.out.println(i);
+        return i;
+    }
+}
