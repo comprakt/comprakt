@@ -333,19 +333,19 @@ mod tests {
     fn works() {
         let expected = r"
 .function fib 1 1
-L0:
+entry:
 	cmpq $1, %@0
-	jle L1
+	jle fib_basecase
 	subq [ $1 | %@0 ] -> %@1
 	subq [ $2 | %@0 ] -> %@2
 	call fib [ %@1 ] -> %@3
 	call fib [ %@2 ] -> %@4
 	addq [ %@3 | %@4 ] -> %@r0
-	jmp L2
-L1:
+	jmp end
+fib_basecase:
 	movq %@0, %@r0
-	jmp L2
-L2:
+	jmp end
+end:
 .endfunction
          "
         .trim();
@@ -353,9 +353,9 @@ L2:
         let mut prog = Program::new();
         let mut fib = Function::new("fib".to_string(), 1, true);
 
-        let mut entry = fib.begin_block();
-        let mut fib_basecase = fib.begin_block();
-        let mut end = fib.begin_block();
+        let mut entry = fib.begin_block("entry".to_owned());
+        let mut fib_basecase = fib.begin_block("fib_basecase".to_owned());
+        let mut end = fib.begin_block("end".to_owned());
 
         use self::{BinopKind::*, Instr::*};
 
