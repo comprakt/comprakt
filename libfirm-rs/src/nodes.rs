@@ -156,13 +156,25 @@ impl From<Node> for *mut bindings::ir_node {
 }
 
 impl From<Box<dyn ValueNode>> for Node {
-    fn from(n: Box<ValueNode>) -> Node {
+    fn from(n: Box<dyn ValueNode>) -> Node {
         NodeFactory::node(n.internal_ir_node())
     }
 }
 
 impl From<&Box<dyn ValueNode>> for Node {
-    fn from(n: &Box<ValueNode>) -> Node {
+    fn from(n: &Box<dyn ValueNode>) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
+impl From<&dyn ValueNode> for Node {
+    fn from(n: &dyn ValueNode) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
+impl<T> From<&T> for Node where T : ValueNode {
+    fn from(n: &T) -> Node {
         NodeFactory::node(n.internal_ir_node())
     }
 }
@@ -170,6 +182,25 @@ impl From<&Box<dyn ValueNode>> for Node {
 impl fmt::Debug for nodes_gen::Call {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Call to {:?} {}", self.ptr(), self.node_id())
+    }
+}
+
+impl nodes_gen::Cond {
+    pub fn out_proj_val(self, val: bool) -> Option<Proj> {
+        if val { self.out_proj_true() }
+        else { self.out_proj_false() }
+    }
+
+    pub fn out_proj_target_block(self, val: bool) -> Option<(Proj, Block)> {
+        self.out_proj_val(val).and_then(|proj| {
+            proj.out_nodes().next().map(|target_block| {
+                if let Node::Block(target_block) = target_block {
+                    (proj, target_block)
+                } else {
+                    unreachable!("Target of a Proj must be a Block")
+                }
+            })
+        })
     }
 }
 
