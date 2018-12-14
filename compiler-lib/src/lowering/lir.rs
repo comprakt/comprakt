@@ -73,6 +73,7 @@ impl From<&firm::Method<'_, '_>> for Function {
 /// away firm-node.
 pub struct BlockGraph {
     pub firm: libfirm_rs::graph::Graph,
+    blocks: HashMap<libfirm_rs::nodes::Block, MutRc<BasicBlock>>,
     pub head: MutRc<BasicBlock>,
 }
 
@@ -192,13 +193,16 @@ impl BlockGraph {
             VisitTime::AfterPredecessors => (),
         });
 
+        let head = Rc::clone(
+            blocks
+                .get(&firm_graph.start_block())
+                .expect("All blocks (including start block) should have been generated"),
+        );
+
         BlockGraph {
             firm: firm_graph,
-            head: Rc::clone(
-                blocks
-                    .get(&firm_graph.start_block())
-                    .expect("All blocks (including start block) should have been generated"),
-            ),
+            blocks,
+            head,
         }
     }
 
