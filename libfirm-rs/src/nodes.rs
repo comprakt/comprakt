@@ -90,7 +90,9 @@ pub trait NodeTrait {
     /// These er the "reverse" libfirm edges, i.e. those going downwards in the
     /// graph, i.e in the directon of the data/mem/control flow.
     fn out_nodes(&self) -> OutNodeIterator {
-        OutNodeIterator::new(self.internal_ir_node())
+        let internal = self.internal_ir_node();
+        graph::Graph::from(unsafe { bindings::get_irn_irg(internal) }).assure_outs();
+        OutNodeIterator::new(internal)
     }
 
     /// These are the "normal" libfirm edges, i.e. those going upwards in the
