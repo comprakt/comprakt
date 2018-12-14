@@ -73,6 +73,7 @@ pub enum Instr {
         target: Label,
         cond: Cond,
     },
+    Comment(String),
 }
 
 #[derive(Display)]
@@ -182,6 +183,11 @@ impl Instr {
                     LessEqual => "jle",
                 };
                 write!(out, "{} {}", instr, target)
+            }
+            Comment(c) => {
+                assert!(!c.contains("/*"));
+                assert!(!c.contains("*/"));
+                write!(out, "/* {} */", c)
             }
         }
     }
@@ -334,6 +340,7 @@ mod tests {
         let expected = r"
 .function fib 1 1
 entry:
+	/* some comment */
 	cmpq $1, %@0
 	jle fib_basecase
 	subq [ $1 | %@0 ] -> %@1
@@ -359,6 +366,7 @@ end:
 
         use self::{BinopKind::*, Instr::*};
 
+        entry.push(Comment("some comment".to_owned()));
         entry.push(Cmpq {
             lhs: Operand::Imm(1),
             rhs: fib.arg_reg_operand(0),
