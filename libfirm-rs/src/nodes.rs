@@ -1,5 +1,5 @@
-use crate::nodes_gen;
 pub use crate::nodes_gen::*;
+use crate::{graph::Graph, nodes_gen};
 use libfirm_rs_bindings as bindings;
 use std::{
     ffi::CStr,
@@ -81,6 +81,10 @@ pub trait NodeTrait {
             Node::Block(block) => block,
             _ => panic!("Expected block."),
         }
+    }
+
+    fn graph(&self) -> Graph {
+        unsafe { bindings::get_irn_irg(self.internal_ir_node()) }.into()
     }
 
     /// These er the "reverse" libfirm edges, i.e. those going downwards in the
