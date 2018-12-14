@@ -1,7 +1,10 @@
 //! Low level intermediate representation
 
 use crate::firm;
-use libfirm_rs::nodes::Node;
+use libfirm_rs::{
+    graph::VisitTime,
+    nodes::{Node, NodeTrait},
+};
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -154,21 +157,25 @@ impl BlockGraph {
         let mut blocks = HashMap::new();
 
         // This is basically a `for each edge "firm_target -> firm_source"`
-        firm_graph.walk_blocks(|_, firm_target| {
-            let target = BasicBlock::skeleton_block(&mut blocks, *firm_target);
+        firm_graph.walk_blocks(|visit, firm_target| match visit {
+            VisitTime::BeforePredecessors => {
+                let target = BasicBlock::skeleton_block(&mut blocks, *firm_target);
 
-            for firm_source in firm_target.preds() {
-                let source = BasicBlock::skeleton_block(&mut blocks, firm_source);
+                for firm_source in firm_target.preds() {
+                    let source = BasicBlock::skeleton_block(&mut blocks, firm_source);
 
-                let edge = Rc::new(RefCell::from(ControlFlowTransfer {
-                    register_transitions: Vec::new(),
-                    source: Rc::downgrade(&source),
-                    target: Rc::clone(&target),
-                }));
+                    let edge = Rc::new(RefCell::from(ControlFlowTransfer {
+                        register_transitions: Vec::new(),
+                        source: Rc::downgrade(&source),
+                        target: Rc::clone(&target),
+                    }));
 
-                source.borrow_mut().succ.push(Rc::clone(&edge));
-                target.borrow_mut().pred.push(Rc::downgrade(&edge));
+                    source.borrow_mut().succ.push(Rc::clone(&edge));
+                    target.borrow_mut().pred.push(Rc::downgrade(&edge));
+                }
             }
+
+            VisitTime::AfterPredecessors => (),
         });
 
         BlockGraph {
