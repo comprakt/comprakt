@@ -186,7 +186,7 @@ fn breakpoint(debugger: State<DebuggerState>) -> Result<Json<Option<Compiliation
 
 fn http_server(sender :SyncSender<MsgToCompiler>) {
     // TODO: compile static files into binary
-    let static_files = format!("{}/debugger-gui/dist/", env!("CARGO_MANIFEST_DIR"));
+    let static_files = format!("{}/debugger-gui/dist/development/", env!("CARGO_MANIFEST_DIR"));
 
     log::debug!("static files served from {}", static_files);
 

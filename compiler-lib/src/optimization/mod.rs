@@ -180,11 +180,14 @@ impl OutcomeCollector {
 impl Level {
     /// run a list of optimizations on the given program
     pub fn run_all(&self, program: &Program<'_, '_>) {
+        breakpoint!("before optimization sequence".to_string(), program);
+
         for (i, optimization) in self.sequence().iter().enumerate() {
             log::info!("Running optimization #{}: {:?}", i, optimization);
             optimization.run(program);
-
             log::debug!("Finished optimization #{}: {:?}", i, optimization.kind);
         }
+
+        breakpoint!("after optimization sequence".to_string(), program);
     }
 }
