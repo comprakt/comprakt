@@ -50,6 +50,7 @@ impl From<&firm::Method<'_, '_>> for Function {
         let graph: libfirm_rs::graph::Graph = graph.into();
 
         let returns = method.def.return_ty != CheckedType::Void;
+        log::debug!("Generating block graph for {}", method.def.name);
         Function {
             name: method._name.clone().into_string().unwrap(),
             nargs: method.def.params.len(),
@@ -71,6 +72,7 @@ impl From<&firm::Method<'_, '_>> for Function {
 /// being phi-nodes pointing to some far
 /// away firm-node.
 pub struct BlockGraph {
+    pub firm: libfirm_rs::graph::Graph,
     pub head: MutRc<BasicBlock>,
 }
 
@@ -106,6 +108,8 @@ pub struct ValueSlot {
     /// The slot number. Uniqe only per Block, not globally
     num: usize,
     kind: ValueSlotKind,
+    /// The firm node that corresponds to this value
+    firm: Node,
 }
 
 #[derive(Debug)]
@@ -154,6 +158,7 @@ pub struct ControlFlowTransfer {
 impl From<libfirm_rs::graph::Graph> for BlockGraph {
     fn from(firm_graph: libfirm_rs::graph::Graph) -> Self {
         let mut graph = Self::build_skeleton(firm_graph);
+        log::debug!("Head: {:?}", graph.head.borrow().firm);
         graph.fill_blocks();
         graph
     }
@@ -177,6 +182,8 @@ impl BlockGraph {
                         target: Rc::clone(&target),
                     }));
 
+                    log::debug!("Visiting edge: {:?}->{:?}", firm_source, firm_target);
+
                     source.borrow_mut().succ.push(Rc::clone(&edge));
                     target.borrow_mut().pred.push(Rc::downgrade(&edge));
                 }
@@ -186,6 +193,7 @@ impl BlockGraph {
         });
 
         BlockGraph {
+            firm: firm_graph,
             head: Rc::clone(
                 blocks
                     .get(&firm_graph.start_block())
@@ -194,7 +202,32 @@ impl BlockGraph {
         }
     }
 
-    fn fill_blocks(&mut self) {}
+    fn fill_blocks(&mut self) {
+        self.firm.walk_blocks(|visit, firm_target| match visit {
+            VisitTime::BeforePredecessors => {
+                log::debug!("Nodes in: {:?}", firm_target);
+                for node_in_block in firm_target.out_nodes() {
+                    log::debug!("\tGreen points of {:?}", node_in_block);
+                    match node_in_block {
+                        Node::Phi(phi) => {
+                            for (cfg_pred, value) in phi.preds() {
+                                log::debug!("\t\t {:?} via {:?}", value, cfg_pred);
+                            }
+                        }
+                        _ => {
+                            for child in node_in_block.in_nodes() {
+                                if child.block() != *firm_target {
+                                    log::debug!("\t\t{:?}", child)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            VisitTime::AfterPredecessors => (),
+        });
+    }
 }
 
 impl BasicBlock {

@@ -18,7 +18,7 @@ impl From<crate::Graph> for Graph {
     }
 }
 
-#[derive(Clone, Copy, From)]
+#[derive(Debug, Clone, Copy, From)]
 pub struct Graph {
     pub(super) irg: *mut bindings::ir_graph,
 }
