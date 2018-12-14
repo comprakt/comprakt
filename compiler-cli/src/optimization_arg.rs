@@ -26,6 +26,7 @@ pub enum ParseError {
 fn parse_flag(s: &str) -> Result<optimization::Flag, ParseError> {
     match s.to_ascii_lowercase().as_str() {
         "d" | "vcg" => Ok(optimization::Flag::DumpVcg),
+        "g" | "gui" => Ok(optimization::Flag::Gui),
         _ => Err(ParseError::UnknownFlag {
             name: s.to_string(),
         }),

@@ -13,6 +13,7 @@
 #![feature(core_intrinsics)]
 #![feature(custom_attribute)]
 #![feature(result_map_or_else)]
+#![feature(proc_macro_hygiene, decl_macro)]
 #[macro_use]
 extern crate derive_more;
 
@@ -27,6 +28,8 @@ pub mod lexer;
 pub mod parser;
 #[macro_use]
 pub mod visitor;
+#[macro_use]
+pub mod debugging;
 pub mod firm;
 pub mod optimization;
 pub mod print;

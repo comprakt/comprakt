@@ -120,7 +120,19 @@ impl Graph {
     {
         let write_file = File::create(filename).unwrap();
         let mut writer = BufWriter::new(&write_file);
+        self.write_dot_data(&mut writer, data)
+    }
 
+    pub fn dot_data(self) -> String {
+        let mut dot_data :Vec<u8> = Vec::new();
+        self.write_dot_data(&mut dot_data, |_| NodeData::default());
+        String::from_utf8_lossy(&dot_data).to_string()
+    }
+
+    pub fn write_dot_data<T>(self, writer: &mut dyn Write, data: T)
+    where
+        T: Fn(Node) -> NodeData,
+    {
         let mut list = Vec::new();
         self.walk_topological(|node| {
             list.push(*node);
@@ -158,6 +170,7 @@ impl Graph {
     }
 }
 
+#[derive(Default)]
 pub struct NodeData {
     text: String,
     filled: bool,

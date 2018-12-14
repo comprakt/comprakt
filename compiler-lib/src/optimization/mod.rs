@@ -104,6 +104,8 @@ pub enum Flag {
     /// Dump a 'Visualization of Compiler Graph' (VCG) file that can be viewed
     /// in yComp.
     DumpVcg,
+    /// Start the interactive web-based graphical debugger
+    Gui
 }
 
 #[derive(Clone, Debug)]
@@ -126,16 +128,21 @@ impl Optimization {
 
     fn run(&self, program: &Program<'_, '_>) -> Outcome {
         let outcome = self.kind.run(program);
-        self.apply_flags();
+        self.apply_flags(program);
         outcome
     }
 
-    fn apply_flags(&self) {
+    fn apply_flags(&self, program: &Program<'_,'_>) {
         if self.has_flag(Flag::DumpVcg) {
             unsafe {
                 let suffix = CString::new(format!("-{}", self.kind)).unwrap();
                 bindings::dump_all_ir_graphs(suffix.as_ptr());
             }
+        }
+
+        if self.has_flag(Flag::Gui) {
+            let label = format!("After running optimization '{}'", self.kind);
+            breakpoint!(label,program);
         }
     }
 }
