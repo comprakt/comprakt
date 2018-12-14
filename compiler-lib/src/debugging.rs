@@ -9,7 +9,7 @@
 //! message content is the current compiler state.
 
 use rocket_contrib::serve::StaticFiles;
-use serde_derive::{Deserialize,Serialize};
+use serde_derive::{Serialize};
 use rocket_contrib::json::Json;
 use rocket::response::content;
 use rocket::response::status;
@@ -185,8 +185,13 @@ fn breakpoint(debugger: State<DebuggerState>) -> Result<Json<Option<Compiliation
 }
 
 fn http_server(sender :SyncSender<MsgToCompiler>) {
+    // TODO: compile static files into binary
+    let static_files = format!("{}/debugger-gui/dist/", env!("CARGO_MANIFEST_DIR"));
+
+    log::debug!("static files served from {}", static_files);
+
     rocket::ignite()
-        .mount("/", StaticFiles::from("static"))
+        .mount("/", StaticFiles::from(&static_files))
         .mount("/", rocket::routes![breakpoint_continue, breakpoint])
         .manage(DebuggerState(Debugger::new(sender)))
         .launch();

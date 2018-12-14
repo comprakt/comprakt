@@ -125,7 +125,9 @@ impl Graph {
 
     pub fn dot_data(self) -> String {
         let mut dot_data :Vec<u8> = Vec::new();
-        self.write_dot_data(&mut dot_data, |_| NodeData::default());
+        self.write_dot_data(&mut dot_data, |node| {
+            NodeData::new(format!("{:?}", node))
+        });
         String::from_utf8_lossy(&dot_data).to_string()
     }
 
