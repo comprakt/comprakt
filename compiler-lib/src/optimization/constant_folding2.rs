@@ -37,10 +37,10 @@ pub fn run(program: &Program<'_, '_>) {
                 let mut cf = ConstantFolding::new(graph);
                 cf.run();
                 cf.apply();
-                graph.dump_dot_data(
+                /*graph.dump_dot_data(
                     &PathBuf::from(format!("./dot-out/{}.dot", graph.entity().name_string())),
                     |n| NodeData::new(format!("{:?}", n)),
-                );
+                );*/
             }
         }
     }
@@ -147,42 +147,44 @@ impl ConstantFolding {
 
                 self.update(cur_node, updated_lattice);
             }
-
-            if false && self.graph.entity().name_string() == "CF.M.foo" {
-                // only for debugging/development
-                self.graph.dump_dot_data(
-                    &PathBuf::from(format!(
-                        "./dot-out/{}.dot",
-                        self.graph.entity().name_string()
-                    )),
-                    |n| {
-                        let mut str = match self.values.get(&n) {
-                            Some(data) => format!("r: {:?}, val: {:?}", data.reachable, data.value),
-                            None => " ".to_string(),
-                        };
-                        match n {
-                            Node::Phi(phi) => {
-                                let mut string = "".to_string();
-                                for (pred, block_pred) in phi.in_nodes().zip(phi.block().in_nodes())
-                                {
-                                    string += &format!("\n{:?} => {:?}", block_pred, pred);
-                                }
-                                str += &string;
-                            }
-                            _ => {}
-                        }
-                        let mut nd =
-                            NodeData::new(format!("{:?}; {}\n{}", n, self.node_topo_idx[&n], str));
-                        nd.filled(n == cur_node);
-                        if self.queue.get(&n).is_some() {
-                            nd.bold(true)
-                        }
-                        nd
-                    },
-                );
-            }
         }
-        //debugging::wait();
+    }
+
+    fn dump_graph(&self, cur_node: Option<Node>)  {
+        if self.graph.entity().name_string() == "CF.M.foo" {
+            // only for debugging/development
+            self.graph.dump_dot_data(
+                &PathBuf::from(format!(
+                    "./dot-out/{}.dot",
+                    self.graph.entity().name_string()
+                )),
+                |n| {
+                    let mut str = match self.values.get(&n) {
+                        Some(data) => format!("r: {:?}, val: {:?}", data.reachable, data.value),
+                        None => " ".to_string(),
+                    };
+                    match n {
+                        Node::Phi(phi) => {
+                            let mut string = "".to_string();
+                            for (pred, block_pred) in phi.in_nodes().zip(phi.block().in_nodes())
+                            {
+                                string += &format!("\n{:?} => {:?}", block_pred, pred);
+                            }
+                            str += &string;
+                        }
+                        _ => {}
+                    }
+                    let mut nd =
+                        NodeData::new(format!("{:?}; {:?}\n{}", n, self.node_topo_idx.get(&n), str));
+                    nd.filled(Some(n) == cur_node);
+                    if self.queue.get(&n).is_some() {
+                        nd.bold(true)
+                    }
+                    nd
+                },
+            );
+        }
+        debugging::wait();
     }
 
     fn update_node(&mut self, cur_node: Node, cur_lattice: MyLattice) -> MyLattice {
@@ -259,8 +261,12 @@ impl ConstantFolding {
     }
 
     fn apply(&mut self) {
+        if self.graph.entity().name_string() != "CF.M.foo" { return; }
+        self.dump_graph(None);
         let mut values = self.values.iter().collect::<Vec<_>>();
         values.sort_by_key(|(l, _)| l.node_id());
+
+        //let mut dangling_nontarget_blocks = Vec::new();
 
         for (node, lattice) in values {
             if !lattice.value.is_constant() {
@@ -270,54 +276,43 @@ impl ConstantFolding {
                 continue;
             }
 
-            let const_node = Node::Const(self.graph.new_const(lattice.value));
-            log::debug!("EXCHANGE NODE {:?} val={:?}", node, lattice.value);
-            /*
-            match node {
-                 Node::Cond(_) => {}
-                 _ => Graph::exchange_value(node, )
-            }*/
+            if let Ok(value_node) = try_as_value_node(*node) {
+                let const_node = self.graph.new_const(lattice.value);
+                log::debug!("EXCHANGE NODE {:?} val={:?}", node, lattice.value);
+                Graph::exchange_value(value_node.as_ref(), &const_node);
+            }
+            else {
+                match (node, lattice.value.kind()) {
+                    (Node::Cond(cond), TarvalKind::Bool(val)) => {
 
-            match node {
-                Node::Cond(_) => {}
-                /* IMPROVEMENT?
-                This might be more elegant, but does not do the exact same:
-                It fails if there are multiple projects to that pin!
-                Node::Div(div) => {
-                    div.out_proj_res().then(|res| Graph::exchange(res, const_node))
-                    div.out_proj_m().then(|mem| Graph::exchange(mem, div.mem()))
-                }
-                */
-                Node::Div(div) => {
-                    for out_node in node.out_nodes() {
-                        match out_node {
-                            Node::Proj(res_proj, ProjKind::Div_Res(_)) => {
-                                Graph::exchange(&res_proj, &const_node);
-                            }
-                            Node::Proj(m_proj, ProjKind::Div_M(_)) => {
-                                Graph::exchange(&m_proj, &div.mem());
-                            }
-                            _ => {}
+                        let (always_taken_path, target_block) = cond.out_proj_target_block(val).unwrap();
+
+                        let (dead_path, nontarget_block) = cond.out_proj_target_block(!val).unwrap();
+    /*
+    TODO see unrecahable_code_elimination
+                        if nontarget_block.num_cfgpreds() <= 1 {
+                            log::debug!("Mark nontarget block {:?} as dangling", nontarget_block);
+                            dangling_nontarget_blocks.push(nontarget_block);
                         }
+    */
+
+                        let jmp = cond.block().new_jmp();
+                        log::debug!("Replace {:?} with {:?} to {:?}", node, jmp, target_block);
+                        Graph::exchange(&always_taken_path, &jmp);
+                        self.graph.mark_as_bad(&dead_path);
+
+                        // We need this because if we have a while(true) loop, the code will be
+                        // unreachable (libfirm-edge wise) from the end block (because the end block is
+                        // never reached control-flow wise), but libfirm needs to find the
+                        // loop (and it starts searching from the end block)
+                        target_block.keep_alive();
                     }
-                }
-                Node::Mod(modulo) => {
-                    for out_node in node.out_nodes() {
-                        match out_node {
-                            Node::Proj(res_proj, ProjKind::Mod_Res(_)) => {
-                                Graph::exchange(&res_proj, &const_node);
-                            }
-                            Node::Proj(m_proj, ProjKind::Mod_M(_)) => {
-                                Graph::exchange(&m_proj, &modulo.mem());
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                _ => {
-                    Graph::exchange(node, &const_node);
+                    _ => {},
                 }
             }
         }
+
+        self.graph.remove_bads();
+        self.dump_graph(None);
     }
 }
