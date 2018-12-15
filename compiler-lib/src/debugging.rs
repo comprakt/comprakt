@@ -195,6 +195,14 @@ fn breakpoint(debugger: State<DebuggerState>) -> Result<Json<Option<Compiliation
     Ok(Json(debugger.0.breakpoints.read().unwrap().last().map(|v| v.clone())))
 }
 
+#[get("/snapshot/<index>")]
+fn snapshot_at_index(index: usize, debugger: State<DebuggerState>) -> Result<Json<Option<CompiliationState>>, Status> {
+    // we have a http server --> compiler channel, build a compiler --> http server channel that
+    // can be used for anwsering
+    check_updates(&debugger);
+    Ok(Json(debugger.0.breakpoints.read().unwrap().get(index).map(|v| v.clone())))
+}
+
 #[get("/breakpoint/all")]
 fn breakpoint_list(debugger: State<DebuggerState>) -> Result<Json<Vec<Breakpoint>>, Status> {
     check_updates(&debugger);
@@ -211,7 +219,7 @@ fn http_server(sender :SyncSender<MsgToCompiler>) {
 
     rocket::ignite()
         .mount("/", StaticFiles::from(&static_files))
-        .mount("/", rocket::routes![breakpoint_continue, breakpoint, breakpoint_list])
+        .mount("/", rocket::routes![breakpoint_continue, breakpoint, breakpoint_list, snapshot_at_index])
         .manage(DebuggerState(Debugger::new(sender)))
         .launch();
 }
