@@ -63,6 +63,7 @@ pub fn pause(breakpoint: Breakpoint, program :&Program<'_,'_>) {
     log::debug!("waiting at breakpoint: {:?}", breakpoint);
     let state = CompiliationState::new(breakpoint, program);
     let gui = gui_thread().lock().unwrap();
+    let mut already_sent = false;
 
     loop {
         let msg = gui.as_ref().unwrap().receiver.recv().expect("failed to interact with debugger webserver");
@@ -70,8 +71,11 @@ pub fn pause(breakpoint: Breakpoint, program :&Program<'_,'_>) {
         match msg {
             MsgToCompiler::Continue => break,
             MsgToCompiler::GetCompilationState { sender } => {
-                log::debug!("updating compilation state");
-                sender.send(MsgToGui::CompiliationState(state.clone()));
+                sender.send(MsgToGui::CompiliationState{
+                    state: state.clone(),
+                    already_sent
+                });
+                already_sent = true;
             },
         }
     }
@@ -87,7 +91,10 @@ enum MsgToCompiler {
 }
 
 enum MsgToGui {
-    CompiliationState(CompiliationState)
+    CompiliationState {
+        state: CompiliationState,
+        already_sent: bool
+    }
 }
 
 struct GuiThread {
@@ -144,7 +151,7 @@ impl CompiliationState {
 }
 
 struct Debugger {
-    last_breakpoint: RwLock<Option<CompiliationState>>,
+    breakpoints: RwLock<Vec<CompiliationState>>,
     sender: SyncSender<MsgToCompiler>,
 }
 
@@ -152,7 +159,7 @@ impl Debugger {
     fn new(sender: SyncSender<MsgToCompiler>) -> Self {
 
         Self {
-            last_breakpoint: RwLock::new(None),
+            breakpoints: RwLock::new(Vec::new()),
             sender,
         }
     }
@@ -167,21 +174,33 @@ fn breakpoint_continue(debugger: State<DebuggerState>) -> Result<(), Status> {
     Ok(())
 }
 
-#[get("/breakpoint")]
-fn breakpoint(debugger: State<DebuggerState>) -> Result<Json<Option<CompiliationState>>, Status> {
-    // we have a http server --> compiler channel, build a compiler --> http server channel that
-    // can be used for anwsering
+fn check_updates(debugger: &State<DebuggerState>) {
     let (sender, receiver) = mpsc::channel();
     debugger.0.sender.send(MsgToCompiler::GetCompilationState{sender}).unwrap();
 
     match receiver.recv().unwrap() {
-        MsgToGui::CompiliationState(state) => {
-            // TODO: only update state if it is truly new
-            *debugger.0.last_breakpoint.write().unwrap() = Some(state);
+        MsgToGui::CompiliationState{state,already_sent} => {
+            if !already_sent {
+                debugger.0.breakpoints.write().unwrap().push(state);
+            }
         }
     };
+}
 
-    Ok(Json(debugger.0.last_breakpoint.read().unwrap().clone()))
+#[get("/snapshot/latest")]
+fn breakpoint(debugger: State<DebuggerState>) -> Result<Json<Option<CompiliationState>>, Status> {
+    // we have a http server --> compiler channel, build a compiler --> http server channel that
+    // can be used for anwsering
+    check_updates(&debugger);
+    Ok(Json(debugger.0.breakpoints.read().unwrap().last().map(|v| v.clone())))
+}
+
+#[get("/breakpoint/all")]
+fn breakpoint_list(debugger: State<DebuggerState>) -> Result<Json<Vec<Breakpoint>>, Status> {
+    check_updates(&debugger);
+    Ok(Json(debugger.0.breakpoints.read().unwrap().iter().map(|v| {
+        v.breakpoint.clone()
+    }).collect()))
 }
 
 fn http_server(sender :SyncSender<MsgToCompiler>) {
@@ -192,7 +211,7 @@ fn http_server(sender :SyncSender<MsgToCompiler>) {
 
     rocket::ignite()
         .mount("/", StaticFiles::from(&static_files))
-        .mount("/", rocket::routes![breakpoint_continue, breakpoint])
+        .mount("/", rocket::routes![breakpoint_continue, breakpoint, breakpoint_list])
         .manage(DebuggerState(Debugger::new(sender)))
         .launch();
 }
