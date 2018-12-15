@@ -1,7 +1,8 @@
 use super::{
     entity::Entity,
-    nodes::{NodeTrait, ValueNode},
-    nodes_gen::{Block, End, Node, NodeFactory, Proj, Start, ProjKind},
+    nodes::NodeTrait,
+    nodes_gen::{Block, End, Node, NodeFactory, Proj, ProjKind, Start},
+    value_nodes::ValueNode,
 };
 use libfirm_rs_bindings as bindings;
 use std::{

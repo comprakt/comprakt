@@ -21,8 +21,6 @@ pub use self::fixpoint::Fixpoint;
 pub enum OptimizationKind {
     AlgebraicSimplification,
     ConstantFolding,
-    UnreachableCodeElimination,
-    ConstantFolding2,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -100,12 +98,7 @@ impl Optimization {
         use self::OptimizationKind::*;
         match self.kind {
             AlgebraicSimplification => unimplemented!(),
-            ConstantFolding => constant_folding::run(program),
-            UnreachableCodeElimination => unreachable_code_elimination::run(program),
-            ConstantFolding2 => {
-                constant_folding2::run(program);
-                OptimizationResult::Unchanged
-            }
+            ConstantFolding => constant_folding2::run(program),
         }
     }
 }

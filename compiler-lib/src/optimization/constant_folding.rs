@@ -16,6 +16,7 @@ struct ConstantFolding {
     graph: Graph,
 }
 
+#[allow(dead_code)]
 pub fn run(program: &Program<'_, '_>) -> OptimizationResult {
     let mut collector = OptimizationResultCollector::new();
     for class in program.classes.values() {

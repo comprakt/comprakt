@@ -1,6 +1,19 @@
 ---
 optimizations: [ConstantFolding]
-expect: change
+expect:
+    identical-to:
+        is: |
+            class CF {
+                public static void main(String[] args) throws Exception {
+                    CF cf = new CF();
+                    System.out.println(cf.foo());
+                }
+
+                public int foo() throws Exception {
+                    return 40;
+                }
+            }
+
 compiler_optimized_stdout: ignore
 compiler_reference_stdout: ignore
 stdout:
