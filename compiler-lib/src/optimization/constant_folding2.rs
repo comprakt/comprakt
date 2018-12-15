@@ -46,14 +46,15 @@ pub fn run(program: &Program<'_, '_>) -> OptimizationResult {
     collector.result()
 }
 
+// The lattice used for constant folding.
 #[derive(Debug, Clone, PartialEq, Copy)]
-struct MyLattice {
+struct CfLattice {
     reachable: bool,
     value: Tarval,
 }
 
 struct ConstantFolding {
-    values: HashMap<Node, MyLattice>,
+    values: HashMap<Node, CfLattice>,
     queue: PriorityQueue<Node, Priority>,
     node_topo_idx: HashMap<Node, u32>,
     graph: Graph,
@@ -85,7 +86,7 @@ impl ConstantFolding {
 
             values.insert(
                 *node,
-                MyLattice {
+                CfLattice {
                     reachable: false,
                     value: Tarval::unknown(),
                 },
@@ -113,11 +114,11 @@ impl ConstantFolding {
         }
     }
 
-    fn lookup(&self, node: Node) -> MyLattice {
+    fn lookup(&self, node: Node) -> CfLattice {
         self.values[&node]
     }
 
-    fn update(&mut self, node: Node, new: MyLattice) {
+    fn update(&mut self, node: Node, new: CfLattice) {
         self.values.insert(node, new).unwrap();
     }
 
@@ -191,7 +192,7 @@ impl ConstantFolding {
         debugging::wait();
     }
 
-    fn update_node(&mut self, cur_node: Node, cur_lattice: MyLattice) -> MyLattice {
+    fn update_node(&mut self, cur_node: Node, cur_lattice: CfLattice) -> CfLattice {
         let mut reachable = cur_lattice.reachable || if cur_node.is_block() {
             cur_node.in_nodes().any(|pred| self.lookup(pred).reachable)
                 || cur_node == self.start_block
@@ -261,7 +262,7 @@ impl ConstantFolding {
             }
         }
 
-        MyLattice { reachable, value }
+        CfLattice { reachable, value }
     }
 
     fn apply(&mut self, collector: &mut OptimizationResultCollector) {
