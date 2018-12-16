@@ -1,6 +1,11 @@
 // This file is generated! Do not edit by hand!
 // Follow the instructions in the README on how to update this file.
-use super::{graph::Graph, nodes::NodeTrait, tarval::Tarval};
+use super::{
+    entity::Entity,
+    graph::Graph,
+    nodes::{NodeDebug, NodeDebugOpts, NodeTrait},
+    tarval::Tarval,
+};
 use libfirm_rs_bindings as bindings;
 use std::{collections::HashMap, fmt};
 #[derive(Clone, Copy)]
@@ -62,227 +67,234 @@ pub enum Node {
 }
 
 impl Node {
-    fn is_add(&self) -> bool {
+    pub fn is_add(&self) -> bool {
         unsafe { bindings::is_Add(self.internal_ir_node()) != 0 }
     }
-    fn is_address(&self) -> bool {
+    pub fn is_address(&self) -> bool {
         unsafe { bindings::is_Address(self.internal_ir_node()) != 0 }
     }
-    fn is_align(&self) -> bool {
+    pub fn is_align(&self) -> bool {
         unsafe { bindings::is_Align(self.internal_ir_node()) != 0 }
     }
-    fn is_alloc(&self) -> bool {
+    pub fn is_alloc(&self) -> bool {
         unsafe { bindings::is_Alloc(self.internal_ir_node()) != 0 }
     }
-    fn is_anchor(&self) -> bool {
+    pub fn is_anchor(&self) -> bool {
         unsafe { bindings::is_Anchor(self.internal_ir_node()) != 0 }
     }
-    fn is_and(&self) -> bool {
+    pub fn is_and(&self) -> bool {
         unsafe { bindings::is_And(self.internal_ir_node()) != 0 }
     }
-    fn is_bad(&self) -> bool {
+    pub fn is_bad(&self) -> bool {
         unsafe { bindings::is_Bad(self.internal_ir_node()) != 0 }
     }
-    fn is_bitcast(&self) -> bool {
+    pub fn is_bitcast(&self) -> bool {
         unsafe { bindings::is_Bitcast(self.internal_ir_node()) != 0 }
     }
-    fn is_block(&self) -> bool {
+    pub fn is_block(&self) -> bool {
         unsafe { bindings::is_Block(self.internal_ir_node()) != 0 }
     }
-    fn is_builtin(&self) -> bool {
+    pub fn is_builtin(&self) -> bool {
         unsafe { bindings::is_Builtin(self.internal_ir_node()) != 0 }
     }
-    fn is_call(&self) -> bool {
+    pub fn is_call(&self) -> bool {
         unsafe { bindings::is_Call(self.internal_ir_node()) != 0 }
     }
-    fn is_cmp(&self) -> bool {
+    pub fn is_cmp(&self) -> bool {
         unsafe { bindings::is_Cmp(self.internal_ir_node()) != 0 }
     }
-    fn is_cond(&self) -> bool {
+    pub fn is_cond(&self) -> bool {
         unsafe { bindings::is_Cond(self.internal_ir_node()) != 0 }
     }
-    fn is_confirm(&self) -> bool {
+    pub fn is_confirm(&self) -> bool {
         unsafe { bindings::is_Confirm(self.internal_ir_node()) != 0 }
     }
-    fn is_const(&self) -> bool {
+    pub fn is_const(&self) -> bool {
         unsafe { bindings::is_Const(self.internal_ir_node()) != 0 }
     }
-    fn is_conv(&self) -> bool {
+    pub fn is_conv(&self) -> bool {
         unsafe { bindings::is_Conv(self.internal_ir_node()) != 0 }
     }
-    fn is_copyb(&self) -> bool {
+    pub fn is_copyb(&self) -> bool {
         unsafe { bindings::is_CopyB(self.internal_ir_node()) != 0 }
     }
-    fn is_deleted(&self) -> bool {
+    pub fn is_deleted(&self) -> bool {
         unsafe { bindings::is_Deleted(self.internal_ir_node()) != 0 }
     }
-    fn is_div(&self) -> bool {
+    pub fn is_div(&self) -> bool {
         unsafe { bindings::is_Div(self.internal_ir_node()) != 0 }
     }
-    fn is_dummy(&self) -> bool {
+    pub fn is_dummy(&self) -> bool {
         unsafe { bindings::is_Dummy(self.internal_ir_node()) != 0 }
     }
-    fn is_end(&self) -> bool {
+    pub fn is_end(&self) -> bool {
         unsafe { bindings::is_End(self.internal_ir_node()) != 0 }
     }
-    fn is_eor(&self) -> bool {
+    pub fn is_eor(&self) -> bool {
         unsafe { bindings::is_Eor(self.internal_ir_node()) != 0 }
     }
-    fn is_free(&self) -> bool {
+    pub fn is_free(&self) -> bool {
         unsafe { bindings::is_Free(self.internal_ir_node()) != 0 }
     }
-    fn is_ijmp(&self) -> bool {
+    pub fn is_ijmp(&self) -> bool {
         unsafe { bindings::is_IJmp(self.internal_ir_node()) != 0 }
     }
-    fn is_id(&self) -> bool {
+    pub fn is_id(&self) -> bool {
         unsafe { bindings::is_Id(self.internal_ir_node()) != 0 }
     }
-    fn is_jmp(&self) -> bool {
+    pub fn is_jmp(&self) -> bool {
         unsafe { bindings::is_Jmp(self.internal_ir_node()) != 0 }
     }
-    fn is_load(&self) -> bool {
+    pub fn is_load(&self) -> bool {
         unsafe { bindings::is_Load(self.internal_ir_node()) != 0 }
     }
-    fn is_member(&self) -> bool {
+    pub fn is_member(&self) -> bool {
         unsafe { bindings::is_Member(self.internal_ir_node()) != 0 }
     }
-    fn is_minus(&self) -> bool {
+    pub fn is_minus(&self) -> bool {
         unsafe { bindings::is_Minus(self.internal_ir_node()) != 0 }
     }
-    fn is_mod(&self) -> bool {
+    pub fn is_mod(&self) -> bool {
         unsafe { bindings::is_Mod(self.internal_ir_node()) != 0 }
     }
-    fn is_mul(&self) -> bool {
+    pub fn is_mul(&self) -> bool {
         unsafe { bindings::is_Mul(self.internal_ir_node()) != 0 }
     }
-    fn is_mulh(&self) -> bool {
+    pub fn is_mulh(&self) -> bool {
         unsafe { bindings::is_Mulh(self.internal_ir_node()) != 0 }
     }
-    fn is_mux(&self) -> bool {
+    pub fn is_mux(&self) -> bool {
         unsafe { bindings::is_Mux(self.internal_ir_node()) != 0 }
     }
-    fn is_nomem(&self) -> bool {
+    pub fn is_nomem(&self) -> bool {
         unsafe { bindings::is_NoMem(self.internal_ir_node()) != 0 }
     }
-    fn is_not(&self) -> bool {
+    pub fn is_not(&self) -> bool {
         unsafe { bindings::is_Not(self.internal_ir_node()) != 0 }
     }
-    fn is_offset(&self) -> bool {
+    pub fn is_offset(&self) -> bool {
         unsafe { bindings::is_Offset(self.internal_ir_node()) != 0 }
     }
-    fn is_or(&self) -> bool {
+    pub fn is_or(&self) -> bool {
         unsafe { bindings::is_Or(self.internal_ir_node()) != 0 }
     }
-    fn is_phi(&self) -> bool {
+    pub fn is_phi(&self) -> bool {
         unsafe { bindings::is_Phi(self.internal_ir_node()) != 0 }
     }
-    fn is_pin(&self) -> bool {
+    pub fn is_pin(&self) -> bool {
         unsafe { bindings::is_Pin(self.internal_ir_node()) != 0 }
     }
-    fn is_proj(&self) -> bool {
+    pub fn is_proj(&self) -> bool {
         unsafe { bindings::is_Proj(self.internal_ir_node()) != 0 }
     }
-    fn is_raise(&self) -> bool {
+    pub fn is_raise(&self) -> bool {
         unsafe { bindings::is_Raise(self.internal_ir_node()) != 0 }
     }
-    fn is_return(&self) -> bool {
+    pub fn is_return(&self) -> bool {
         unsafe { bindings::is_Return(self.internal_ir_node()) != 0 }
     }
-    fn is_sel(&self) -> bool {
+    pub fn is_sel(&self) -> bool {
         unsafe { bindings::is_Sel(self.internal_ir_node()) != 0 }
     }
-    fn is_shl(&self) -> bool {
+    pub fn is_shl(&self) -> bool {
         unsafe { bindings::is_Shl(self.internal_ir_node()) != 0 }
     }
-    fn is_shr(&self) -> bool {
+    pub fn is_shr(&self) -> bool {
         unsafe { bindings::is_Shr(self.internal_ir_node()) != 0 }
     }
-    fn is_shrs(&self) -> bool {
+    pub fn is_shrs(&self) -> bool {
         unsafe { bindings::is_Shrs(self.internal_ir_node()) != 0 }
     }
-    fn is_size(&self) -> bool {
+    pub fn is_size(&self) -> bool {
         unsafe { bindings::is_Size(self.internal_ir_node()) != 0 }
     }
-    fn is_start(&self) -> bool {
+    pub fn is_start(&self) -> bool {
         unsafe { bindings::is_Start(self.internal_ir_node()) != 0 }
     }
-    fn is_store(&self) -> bool {
+    pub fn is_store(&self) -> bool {
         unsafe { bindings::is_Store(self.internal_ir_node()) != 0 }
     }
-    fn is_sub(&self) -> bool {
+    pub fn is_sub(&self) -> bool {
         unsafe { bindings::is_Sub(self.internal_ir_node()) != 0 }
     }
-    fn is_switch(&self) -> bool {
+    pub fn is_switch(&self) -> bool {
         unsafe { bindings::is_Switch(self.internal_ir_node()) != 0 }
     }
-    fn is_sync(&self) -> bool {
+    pub fn is_sync(&self) -> bool {
         unsafe { bindings::is_Sync(self.internal_ir_node()) != 0 }
     }
-    fn is_tuple(&self) -> bool {
+    pub fn is_tuple(&self) -> bool {
         unsafe { bindings::is_Tuple(self.internal_ir_node()) != 0 }
     }
-    fn is_unknown(&self) -> bool {
+    pub fn is_unknown(&self) -> bool {
         unsafe { bindings::is_Unknown(self.internal_ir_node()) != 0 }
+    }
+}
+impl NodeDebug for Node {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        match self {
+            Node::Add(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Address(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Align(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Alloc(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Anchor(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::And(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Bad(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Bitcast(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Block(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Builtin(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Call(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Cmp(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Cond(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Confirm(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Const(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Conv(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::CopyB(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Deleted(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Div(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Dummy(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::End(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Eor(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Free(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::IJmp(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Id(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Jmp(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Load(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Member(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Minus(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Mod(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Mul(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Mulh(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Mux(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::NoMem(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Not(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Offset(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Or(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Phi(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Pin(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Proj(node, proj_kind) => {
+                write!(f, "{}: {:?}", node.debug_fmt().with(opts), proj_kind)
+            }
+            Node::Raise(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Return(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Sel(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Shl(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Shr(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Shrs(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Size(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Start(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Store(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Sub(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Switch(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Sync(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Tuple(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Unknown(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+        }
     }
 }
 impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Node::Add(node) => write!(f, "{:?}", node),
-            Node::Address(node) => write!(f, "{:?}", node),
-            Node::Align(node) => write!(f, "{:?}", node),
-            Node::Alloc(node) => write!(f, "{:?}", node),
-            Node::Anchor(node) => write!(f, "{:?}", node),
-            Node::And(node) => write!(f, "{:?}", node),
-            Node::Bad(node) => write!(f, "{:?}", node),
-            Node::Bitcast(node) => write!(f, "{:?}", node),
-            Node::Block(node) => write!(f, "{:?}", node),
-            Node::Builtin(node) => write!(f, "{:?}", node),
-            Node::Call(node) => write!(f, "{:?}", node),
-            Node::Cmp(node) => write!(f, "{:?}", node),
-            Node::Cond(node) => write!(f, "{:?}", node),
-            Node::Confirm(node) => write!(f, "{:?}", node),
-            Node::Const(node) => write!(f, "{:?}", node),
-            Node::Conv(node) => write!(f, "{:?}", node),
-            Node::CopyB(node) => write!(f, "{:?}", node),
-            Node::Deleted(node) => write!(f, "{:?}", node),
-            Node::Div(node) => write!(f, "{:?}", node),
-            Node::Dummy(node) => write!(f, "{:?}", node),
-            Node::End(node) => write!(f, "{:?}", node),
-            Node::Eor(node) => write!(f, "{:?}", node),
-            Node::Free(node) => write!(f, "{:?}", node),
-            Node::IJmp(node) => write!(f, "{:?}", node),
-            Node::Id(node) => write!(f, "{:?}", node),
-            Node::Jmp(node) => write!(f, "{:?}", node),
-            Node::Load(node) => write!(f, "{:?}", node),
-            Node::Member(node) => write!(f, "{:?}", node),
-            Node::Minus(node) => write!(f, "{:?}", node),
-            Node::Mod(node) => write!(f, "{:?}", node),
-            Node::Mul(node) => write!(f, "{:?}", node),
-            Node::Mulh(node) => write!(f, "{:?}", node),
-            Node::Mux(node) => write!(f, "{:?}", node),
-            Node::NoMem(node) => write!(f, "{:?}", node),
-            Node::Not(node) => write!(f, "{:?}", node),
-            Node::Offset(node) => write!(f, "{:?}", node),
-            Node::Or(node) => write!(f, "{:?}", node),
-            Node::Phi(node) => write!(f, "{:?}", node),
-            Node::Pin(node) => write!(f, "{:?}", node),
-            Node::Proj(node, proj_kind) => write!(f, "{:?}: {:?}", node, proj_kind),
-            Node::Raise(node) => write!(f, "{:?}", node),
-            Node::Return(node) => write!(f, "{:?}", node),
-            Node::Sel(node) => write!(f, "{:?}", node),
-            Node::Shl(node) => write!(f, "{:?}", node),
-            Node::Shr(node) => write!(f, "{:?}", node),
-            Node::Shrs(node) => write!(f, "{:?}", node),
-            Node::Size(node) => write!(f, "{:?}", node),
-            Node::Start(node) => write!(f, "{:?}", node),
-            Node::Store(node) => write!(f, "{:?}", node),
-            Node::Sub(node) => write!(f, "{:?}", node),
-            Node::Switch(node) => write!(f, "{:?}", node),
-            Node::Sync(node) => write!(f, "{:?}", node),
-            Node::Tuple(node) => write!(f, "{:?}", node),
-            Node::Unknown(node) => write!(f, "{:?}", node),
-        }
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 impl NodeTrait for Node {
@@ -363,6 +375,11 @@ pub enum ProjKind {
     Call_XRegular(Call),
     /// control flow when exception occurred
     Call_XExcept(Call),
+    Call_TResult_Arg(
+        /* arg_idx */ u32,
+        /* pred_pred */ Call,
+        /* pred */ Proj,
+    ),
     /// control flow if operand is "false" or "true"
     Cond_Val(bool, Cond),
     /// memory result
@@ -413,6 +430,84 @@ pub enum ProjKind {
     /// control flow if no other case matches
     Switch_Default(Switch),
     Other,
+}
+
+impl Proj {
+    pub fn kind(self) -> ProjKind {
+        let pred = self.pred();
+        match pred {
+            Node::Alloc(node) => match self.num() {
+                0 => ProjKind::Alloc_M(node),
+                1 => ProjKind::Alloc_Res(node),
+                _ => ProjKind::Other,
+            },
+            Node::Builtin(node) => match self.num() {
+                0 => ProjKind::Builtin_M(node),
+                _ => ProjKind::Other,
+            },
+            Node::Call(node) => match self.num() {
+                0 => ProjKind::Call_M(node),
+                1 => ProjKind::Call_TResult(node),
+                2 => ProjKind::Call_XRegular(node),
+                3 => ProjKind::Call_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Cond(node) => match self.num() {
+                0 => ProjKind::Cond_Val(false, node),
+                1 => ProjKind::Cond_Val(true, node),
+                _ => ProjKind::Other,
+            },
+            Node::Div(node) => match self.num() {
+                0 => ProjKind::Div_M(node),
+                1 => ProjKind::Div_Res(node),
+                2 => ProjKind::Div_XRegular(node),
+                3 => ProjKind::Div_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Load(node) => match self.num() {
+                0 => ProjKind::Load_M(node),
+                1 => ProjKind::Load_Res(node),
+                2 => ProjKind::Load_XRegular(node),
+                3 => ProjKind::Load_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Mod(node) => match self.num() {
+                0 => ProjKind::Mod_M(node),
+                1 => ProjKind::Mod_Res(node),
+                2 => ProjKind::Mod_XRegular(node),
+                3 => ProjKind::Mod_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Raise(node) => match self.num() {
+                0 => ProjKind::Raise_M(node),
+                1 => ProjKind::Raise_X(node),
+                _ => ProjKind::Other,
+            },
+            Node::Start(node) => match self.num() {
+                0 => ProjKind::Start_M(node),
+                1 => ProjKind::Start_PFrameBase(node),
+                2 => ProjKind::Start_TArgs(node),
+                _ => ProjKind::Other,
+            },
+            Node::Store(node) => match self.num() {
+                0 => ProjKind::Store_M(node),
+                1 => ProjKind::Store_XRegular(node),
+                2 => ProjKind::Store_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Switch(node) => match self.num() {
+                0 => ProjKind::Switch_Default(node),
+                _ => ProjKind::Other,
+            },
+            Node::Proj(proj, ProjKind::Start_TArgs(start)) => {
+                ProjKind::Start_TArgs_Arg(proj.num(), start, proj)
+            }
+            Node::Proj(proj, ProjKind::Call_TResult(call)) => {
+                ProjKind::Call_TResult_Arg(proj.num(), call, proj)
+            }
+            _ => ProjKind::Other,
+        }
+    }
 }
 
 type NodeFactoryFn = fn(*mut bindings::ir_node) -> Node;
@@ -544,79 +639,6 @@ impl NodeFactory {
         f(ir_node)
     }
 
-    pub fn proj_kind(proj: Proj) -> ProjKind {
-        let pred = proj.pred();
-        match pred {
-            Node::Alloc(node) => match proj.num() {
-                0 => ProjKind::Alloc_M(node),
-                1 => ProjKind::Alloc_Res(node),
-                _ => ProjKind::Other,
-            },
-            Node::Builtin(node) => match proj.num() {
-                0 => ProjKind::Builtin_M(node),
-                _ => ProjKind::Other,
-            },
-            Node::Call(node) => match proj.num() {
-                0 => ProjKind::Call_M(node),
-                1 => ProjKind::Call_TResult(node),
-                2 => ProjKind::Call_XRegular(node),
-                3 => ProjKind::Call_XExcept(node),
-                _ => ProjKind::Other,
-            },
-            Node::Cond(node) => match proj.num() {
-                0 => ProjKind::Cond_Val(false, node),
-                1 => ProjKind::Cond_Val(true, node),
-                _ => ProjKind::Other,
-            },
-            Node::Div(node) => match proj.num() {
-                0 => ProjKind::Div_M(node),
-                1 => ProjKind::Div_Res(node),
-                2 => ProjKind::Div_XRegular(node),
-                3 => ProjKind::Div_XExcept(node),
-                _ => ProjKind::Other,
-            },
-            Node::Load(node) => match proj.num() {
-                0 => ProjKind::Load_M(node),
-                1 => ProjKind::Load_Res(node),
-                2 => ProjKind::Load_XRegular(node),
-                3 => ProjKind::Load_XExcept(node),
-                _ => ProjKind::Other,
-            },
-            Node::Mod(node) => match proj.num() {
-                0 => ProjKind::Mod_M(node),
-                1 => ProjKind::Mod_Res(node),
-                2 => ProjKind::Mod_XRegular(node),
-                3 => ProjKind::Mod_XExcept(node),
-                _ => ProjKind::Other,
-            },
-            Node::Raise(node) => match proj.num() {
-                0 => ProjKind::Raise_M(node),
-                1 => ProjKind::Raise_X(node),
-                _ => ProjKind::Other,
-            },
-            Node::Start(node) => match proj.num() {
-                0 => ProjKind::Start_M(node),
-                1 => ProjKind::Start_PFrameBase(node),
-                2 => ProjKind::Start_TArgs(node),
-                _ => ProjKind::Other,
-            },
-            Node::Store(node) => match proj.num() {
-                0 => ProjKind::Store_M(node),
-                1 => ProjKind::Store_XRegular(node),
-                2 => ProjKind::Store_XExcept(node),
-                _ => ProjKind::Other,
-            },
-            Node::Switch(node) => match proj.num() {
-                0 => ProjKind::Switch_Default(node),
-                _ => ProjKind::Other,
-            },
-            Node::Proj(proj, ProjKind::Start_TArgs(start)) => {
-                ProjKind::Start_TArgs_Arg(proj.num(), start, proj)
-            }
-            _ => ProjKind::Other,
-        }
-    }
-
     fn create_add(ir_node: *mut bindings::ir_node) -> Node {
         Node::Add(Add(ir_node))
     }
@@ -736,7 +758,7 @@ impl NodeFactory {
     }
     fn create_proj(ir_node: *mut bindings::ir_node) -> Node {
         let proj = Proj(ir_node);
-        Node::Proj(proj, Self::proj_kind(proj))
+        Node::Proj(proj, proj.kind())
     }
     fn create_raise(ir_node: *mut bindings::ir_node) -> Node {
         Node::Raise(Raise(ir_node))
@@ -839,9 +861,14 @@ impl NodeTrait for Add {
     }
 }
 
+impl NodeDebug for Add {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Add {}", self.node_id())
+    }
+}
 impl fmt::Debug for Add {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Add {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Symbolic constant that represents the address of an entity (variable or
@@ -870,6 +897,11 @@ impl NodeTrait for Address {
     }
 }
 
+impl fmt::Debug for Address {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.debug_fmt(), f)
+    }
+}
 /// A symbolic constant that represents the alignment of a type
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Align(*mut bindings::ir_node);
@@ -895,9 +927,14 @@ impl NodeTrait for Align {
     }
 }
 
+impl NodeDebug for Align {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Align {}", self.node_id())
+    }
+}
 impl fmt::Debug for Align {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Align {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Allocates a block of memory on the stack.
@@ -1003,9 +1040,14 @@ impl NodeTrait for Alloc {
     }
 }
 
+impl NodeDebug for Alloc {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Alloc {}", self.node_id())
+    }
+}
 impl fmt::Debug for Alloc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Alloc {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Utility node used to "hold" nodes in a graph that might possibly not be
@@ -1166,9 +1208,14 @@ impl NodeTrait for Anchor {
     }
 }
 
+impl NodeDebug for Anchor {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Anchor {}", self.node_id())
+    }
+}
 impl fmt::Debug for Anchor {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Anchor {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the result of a bitwise and operation of its operands
@@ -1228,9 +1275,14 @@ impl NodeTrait for And {
     }
 }
 
+impl NodeDebug for And {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "And {}", self.node_id())
+    }
+}
 impl fmt::Debug for And {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "And {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Bad nodes indicate invalid input, which is values which should never be
@@ -1277,9 +1329,14 @@ impl NodeTrait for Bad {
     }
 }
 
+impl NodeDebug for Bad {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Bad {}", self.node_id())
+    }
+}
 impl fmt::Debug for Bad {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Bad {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Converts a value between modes with different arithmetics but same
@@ -1324,9 +1381,14 @@ impl NodeTrait for Bitcast {
     }
 }
 
+impl NodeDebug for Bitcast {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Bitcast {}", self.node_id())
+    }
+}
 impl fmt::Debug for Bitcast {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Bitcast {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// A basic block
@@ -1343,15 +1405,15 @@ impl Block {
 
     /// Gets entity representing this block.
     #[allow(clippy::let_and_return)]
-    pub fn entity(self) -> *mut bindings::ir_entity {
+    pub fn entity(self) -> Entity {
         let unwrapped = unsafe { bindings::get_Block_entity(self.0) };
-        unwrapped
+        unwrapped.into()
     }
 
     /// Sets entity representing this block.
     #[allow(clippy::let_and_return)]
-    pub fn set_entity(self, val: *mut bindings::ir_entity) {
-        let unwrapped = val;
+    pub fn set_entity(self, val: Entity) {
+        let unwrapped = val.into();
         unsafe {
             bindings::set_Block_entity(self.0, unwrapped);
         }
@@ -1370,9 +1432,14 @@ impl NodeTrait for Block {
     }
 }
 
+impl NodeDebug for Block {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Block {}", self.node_id())
+    }
+}
 impl fmt::Debug for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Block {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// performs a backend-specific builtin.
@@ -1463,9 +1530,14 @@ impl NodeTrait for Builtin {
     }
 }
 
+impl NodeDebug for Builtin {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Builtin {}", self.node_id())
+    }
+}
 impl fmt::Debug for Builtin {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Builtin {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Calls other code. Control flow is transferred to ptr, additional
@@ -1604,6 +1676,11 @@ impl NodeTrait for Call {
     }
 }
 
+impl fmt::Debug for Call {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.debug_fmt(), f)
+    }
+}
 /// Compares its two operands and checks whether a specified
 /// relation (like less or equal) is fulfilled.
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -1678,9 +1755,14 @@ impl NodeTrait for Cmp {
     }
 }
 
+impl NodeDebug for Cmp {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Cmp {}", self.node_id())
+    }
+}
 impl fmt::Debug for Cmp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Cmp {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Conditionally change control flow.
@@ -1770,9 +1852,14 @@ impl NodeTrait for Cond {
     }
 }
 
+impl NodeDebug for Cond {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Cond {}", self.node_id())
+    }
+}
 impl fmt::Debug for Cond {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Cond {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Specifies constraints for a value. This allows explicit representation
@@ -1856,9 +1943,14 @@ impl NodeTrait for Confirm {
     }
 }
 
+impl NodeDebug for Confirm {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Confirm {}", self.node_id())
+    }
+}
 impl fmt::Debug for Confirm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Confirm {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns a constant value.
@@ -1902,9 +1994,14 @@ impl NodeTrait for Const {
     }
 }
 
+impl NodeDebug for Const {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Const {}", self.node_id())
+    }
+}
 impl fmt::Debug for Const {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Const {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Converts values between modes
@@ -1948,9 +2045,14 @@ impl NodeTrait for Conv {
     }
 }
 
+impl NodeDebug for Conv {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Conv {}", self.node_id())
+    }
+}
 impl fmt::Debug for Conv {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Conv {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Copies a block of memory with statically known size/type.
@@ -2060,9 +2162,14 @@ impl NodeTrait for CopyB {
     }
 }
 
+impl NodeDebug for CopyB {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "CopyB {}", self.node_id())
+    }
+}
 impl fmt::Debug for CopyB {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CopyB {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Internal node which is temporary set to nodes which are already removed
@@ -2091,9 +2198,14 @@ impl NodeTrait for Deleted {
     }
 }
 
+impl NodeDebug for Deleted {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Deleted {}", self.node_id())
+    }
+}
 impl fmt::Debug for Deleted {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Deleted {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the quotient of its 2 operands
@@ -2261,9 +2373,14 @@ impl NodeTrait for Div {
     }
 }
 
+impl NodeDebug for Div {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Div {}", self.node_id())
+    }
+}
 impl fmt::Debug for Div {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Div {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// A placeholder value. This is used when constructing cyclic graphs where
@@ -2293,9 +2410,14 @@ impl NodeTrait for Dummy {
     }
 }
 
+impl NodeDebug for Dummy {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Dummy {}", self.node_id())
+    }
+}
 impl fmt::Debug for Dummy {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Dummy {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Last node of a graph. It references nodes in endless loops (so called
@@ -2324,9 +2446,14 @@ impl NodeTrait for End {
     }
 }
 
+impl NodeDebug for End {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "End {}", self.node_id())
+    }
+}
 impl fmt::Debug for End {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "End {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the result of a bitwise exclusive or operation of its operands.
@@ -2388,9 +2515,14 @@ impl NodeTrait for Eor {
     }
 }
 
+impl NodeDebug for Eor {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Eor {}", self.node_id())
+    }
+}
 impl fmt::Debug for Eor {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Eor {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Frees a block of memory previously allocated by an Alloc node
@@ -2450,9 +2582,14 @@ impl NodeTrait for Free {
     }
 }
 
+impl NodeDebug for Free {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Free {}", self.node_id())
+    }
+}
 impl fmt::Debug for Free {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Free {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Jumps to the code in its argument. The code has to be in the same
@@ -2498,9 +2635,14 @@ impl NodeTrait for IJmp {
     }
 }
 
+impl NodeDebug for IJmp {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "IJmp {}", self.node_id())
+    }
+}
 impl fmt::Debug for IJmp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "IJmp {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns its operand unchanged.
@@ -2547,9 +2689,14 @@ impl NodeTrait for Id {
     }
 }
 
+impl NodeDebug for Id {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Id {}", self.node_id())
+    }
+}
 impl fmt::Debug for Id {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Id {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Jumps to the block connected through the out-value
@@ -2577,9 +2724,14 @@ impl NodeTrait for Jmp {
     }
 }
 
+impl NodeDebug for Jmp {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Jmp {}", self.node_id())
+    }
+}
 impl fmt::Debug for Jmp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Jmp {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Loads a value from memory (heap or stack).
@@ -2767,9 +2919,14 @@ impl NodeTrait for Load {
     }
 }
 
+impl NodeDebug for Load {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Load {}", self.node_id())
+    }
+}
 impl fmt::Debug for Load {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Load {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Computes the address of a compound type member given the base address
@@ -2805,15 +2962,15 @@ impl Member {
 
     /// Gets entity which is selected.
     #[allow(clippy::let_and_return)]
-    pub fn entity(self) -> *mut bindings::ir_entity {
+    pub fn entity(self) -> Entity {
         let unwrapped = unsafe { bindings::get_Member_entity(self.0) };
-        unwrapped
+        unwrapped.into()
     }
 
     /// Sets entity which is selected.
     #[allow(clippy::let_and_return)]
-    pub fn set_entity(self, val: *mut bindings::ir_entity) {
-        let unwrapped = val;
+    pub fn set_entity(self, val: Entity) {
+        let unwrapped = val.into();
         unsafe {
             bindings::set_Member_entity(self.0, unwrapped);
         }
@@ -2832,9 +2989,14 @@ impl NodeTrait for Member {
     }
 }
 
+impl NodeDebug for Member {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Member {}", self.node_id())
+    }
+}
 impl fmt::Debug for Member {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Member {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the additive inverse of its operand
@@ -2878,9 +3040,14 @@ impl NodeTrait for Minus {
     }
 }
 
+impl NodeDebug for Minus {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Minus {}", self.node_id())
+    }
+}
 impl fmt::Debug for Minus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Minus {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the remainder of its operands from an implied division.
@@ -3039,9 +3206,14 @@ impl NodeTrait for Mod {
     }
 }
 
+impl NodeDebug for Mod {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Mod {}", self.node_id())
+    }
+}
 impl fmt::Debug for Mod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Mod {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the product of its operands
@@ -3101,9 +3273,14 @@ impl NodeTrait for Mul {
     }
 }
 
+impl NodeDebug for Mul {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Mul {}", self.node_id())
+    }
+}
 impl fmt::Debug for Mul {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Mul {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the upper word of the product of its operands (the part which
@@ -3164,9 +3341,14 @@ impl NodeTrait for Mulh {
     }
 }
 
+impl NodeDebug for Mulh {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Mulh {}", self.node_id())
+    }
+}
 impl fmt::Debug for Mulh {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Mulh {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the false or true operand depending on the value of the sel
@@ -3243,9 +3425,14 @@ impl NodeTrait for Mux {
     }
 }
 
+impl NodeDebug for Mux {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Mux {}", self.node_id())
+    }
+}
 impl fmt::Debug for Mux {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Mux {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Placeholder node for cases where you don't need any memory input
@@ -3273,9 +3460,14 @@ impl NodeTrait for NoMem {
     }
 }
 
+impl NodeDebug for NoMem {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "NoMem {}", self.node_id())
+    }
+}
 impl fmt::Debug for NoMem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "NoMem {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the bitwise complement of a value. Works for boolean values, too.
@@ -3319,9 +3511,14 @@ impl NodeTrait for Not {
     }
 }
 
+impl NodeDebug for Not {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Not {}", self.node_id())
+    }
+}
 impl fmt::Debug for Not {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Not {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Symbolic constant that represents the offset of an entity in its owner type.
@@ -3349,9 +3546,14 @@ impl NodeTrait for Offset {
     }
 }
 
+impl NodeDebug for Offset {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Offset {}", self.node_id())
+    }
+}
 impl fmt::Debug for Offset {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Offset {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the result of a bitwise or operation of its operands
@@ -3411,9 +3613,14 @@ impl NodeTrait for Or {
     }
 }
 
+impl NodeDebug for Or {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Or {}", self.node_id())
+    }
+}
 impl fmt::Debug for Or {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Or {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Choose a value based on control flow. A phi node has 1 input for each
@@ -3461,9 +3668,14 @@ impl NodeTrait for Phi {
     }
 }
 
+impl NodeDebug for Phi {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Phi {}", self.node_id())
+    }
+}
 impl fmt::Debug for Phi {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Phi {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Pin the value of the node node in the current block. No users of the Pin
@@ -3509,9 +3721,14 @@ impl NodeTrait for Pin {
     }
 }
 
+impl NodeDebug for Pin {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Pin {}", self.node_id())
+    }
+}
 impl fmt::Debug for Pin {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Pin {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns an entry of a tuple value
@@ -3561,7 +3778,7 @@ impl Proj {
 
 impl Into<Node> for Proj {
     fn into(self) -> Node {
-        Node::Proj(self, NodeFactory::proj_kind(self))
+        Node::Proj(self, self.kind())
     }
 }
 
@@ -3571,9 +3788,14 @@ impl NodeTrait for Proj {
     }
 }
 
+impl NodeDebug for Proj {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Proj {}", self.node_id())
+    }
+}
 impl fmt::Debug for Proj {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Proj {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Raises an exception. Unconditional change of control flow. Writes an
@@ -3665,9 +3887,14 @@ impl NodeTrait for Raise {
     }
 }
 
+impl NodeDebug for Raise {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Raise {}", self.node_id())
+    }
+}
 impl fmt::Debug for Raise {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Raise {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns from the current function. Takes memory and return values as
@@ -3712,9 +3939,14 @@ impl NodeTrait for Return {
     }
 }
 
+impl NodeDebug for Return {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Return {}", self.node_id())
+    }
+}
 impl fmt::Debug for Return {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Return {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Computes the address of an array element from the array base pointer and
@@ -3793,9 +4025,14 @@ impl NodeTrait for Sel {
     }
 }
 
+impl NodeDebug for Sel {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Sel {}", self.node_id())
+    }
+}
 impl fmt::Debug for Sel {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Sel {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns its first operands bits shifted left by the amount of the 2nd
@@ -3859,9 +4096,14 @@ impl NodeTrait for Shl {
     }
 }
 
+impl NodeDebug for Shl {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Shl {}", self.node_id())
+    }
+}
 impl fmt::Debug for Shl {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Shl {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns its first operands bits shifted right by the amount of the 2nd
@@ -3925,9 +4167,14 @@ impl NodeTrait for Shr {
     }
 }
 
+impl NodeDebug for Shr {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Shr {}", self.node_id())
+    }
+}
 impl fmt::Debug for Shr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Shr {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns its first operands bits shifted right by the amount of the 2nd
@@ -3992,9 +4239,14 @@ impl NodeTrait for Shrs {
     }
 }
 
+impl NodeDebug for Shrs {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Shrs {}", self.node_id())
+    }
+}
 impl fmt::Debug for Shrs {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Shrs {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// A symbolic constant that represents the size of a type
@@ -4022,9 +4274,14 @@ impl NodeTrait for Size {
     }
 }
 
+impl NodeDebug for Size {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Size {}", self.node_id())
+    }
+}
 impl fmt::Debug for Size {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Size {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// The first node of a graph. Execution starts with this node.
@@ -4097,9 +4354,14 @@ impl NodeTrait for Start {
     }
 }
 
+impl NodeDebug for Start {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Start {}", self.node_id())
+    }
+}
 impl fmt::Debug for Start {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Start {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Stores a value into memory (heap or stack).
@@ -4272,9 +4534,14 @@ impl NodeTrait for Store {
     }
 }
 
+impl NodeDebug for Store {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Store {}", self.node_id())
+    }
+}
 impl fmt::Debug for Store {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Store {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the difference of its operands
@@ -4334,9 +4601,14 @@ impl NodeTrait for Sub {
     }
 }
 
+impl NodeDebug for Sub {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Sub {}", self.node_id())
+    }
+}
 impl fmt::Debug for Sub {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Sub {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Change control flow. The destination is chosen based on an integer
@@ -4430,9 +4702,14 @@ impl NodeTrait for Switch {
     }
 }
 
+impl NodeDebug for Switch {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Switch {}", self.node_id())
+    }
+}
 impl fmt::Debug for Switch {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Switch {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// The Sync operation unifies several partial memory blocks. These blocks
@@ -4464,9 +4741,14 @@ impl NodeTrait for Sync {
     }
 }
 
+impl NodeDebug for Sync {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Sync {}", self.node_id())
+    }
+}
 impl fmt::Debug for Sync {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Sync {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Builds a Tuple from single values.
@@ -4501,9 +4783,14 @@ impl NodeTrait for Tuple {
     }
 }
 
+impl NodeDebug for Tuple {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Tuple {}", self.node_id())
+    }
+}
 impl fmt::Debug for Tuple {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Tuple {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns an unknown (at compile- and runtime) value. It is a valid
@@ -4536,9 +4823,14 @@ impl NodeTrait for Unknown {
     }
 }
 
+impl NodeDebug for Unknown {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Unknown {}", self.node_id())
+    }
+}
 impl fmt::Debug for Unknown {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Unknown {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 impl Graph {
@@ -4561,8 +4853,8 @@ impl Graph {
     /// Creates a new Address-node.
     /// * `entity` entity to operate on
     #[allow(clippy::style)]
-    pub fn new_address(self, entity: *mut bindings::ir_entity) -> Address {
-        let ir_node = unsafe { bindings::new_r_Address(self.irg, entity) };
+    pub fn new_address(self, entity: Entity) -> Address {
+        let ir_node = unsafe { bindings::new_r_Address(self.irg, entity.into()) };
         Address::new(ir_node)
     }
 
@@ -4941,14 +5233,13 @@ impl Graph {
     /// * `irn_ptr` ptr
     /// * `entity` entity which is selected
     #[allow(clippy::style)]
-    pub fn new_member(
-        self,
-        block: Block,
-        irn_ptr: Node,
-        entity: *mut bindings::ir_entity,
-    ) -> Member {
+    pub fn new_member(self, block: Block, irn_ptr: Node, entity: Entity) -> Member {
         let ir_node = unsafe {
-            bindings::new_r_Member(block.internal_ir_node(), irn_ptr.internal_ir_node(), entity)
+            bindings::new_r_Member(
+                block.internal_ir_node(),
+                irn_ptr.internal_ir_node(),
+                entity.into(),
+            )
         };
         Member::new(ir_node)
     }
@@ -5061,12 +5352,8 @@ impl Graph {
     /// * `mode` mode of the operations result
     /// * `entity` entity to operate on
     #[allow(clippy::style)]
-    pub fn new_offset(
-        self,
-        mode: *mut bindings::ir_mode,
-        entity: *mut bindings::ir_entity,
-    ) -> Offset {
-        let ir_node = unsafe { bindings::new_r_Offset(self.irg, mode, entity) };
+    pub fn new_offset(self, mode: *mut bindings::ir_mode, entity: Entity) -> Offset {
+        let ir_node = unsafe { bindings::new_r_Offset(self.irg, mode, entity.into()) };
         Offset::new(ir_node)
     }
 
@@ -5656,8 +5943,9 @@ impl Block {
     /// * `irn_ptr` ptr
     /// * `entity` entity which is selected
     #[allow(clippy::style)]
-    pub fn new_member(self, irn_ptr: Node, entity: *mut bindings::ir_entity) -> Member {
-        let ir_node = unsafe { bindings::new_r_Member(self.0, irn_ptr.internal_ir_node(), entity) };
+    pub fn new_member(self, irn_ptr: Node, entity: Entity) -> Member {
+        let ir_node =
+            unsafe { bindings::new_r_Member(self.0, irn_ptr.internal_ir_node(), entity.into()) };
         Member::new(ir_node)
     }
 
