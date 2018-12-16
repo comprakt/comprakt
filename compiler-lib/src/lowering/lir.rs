@@ -264,7 +264,6 @@ impl BlockGraph {
                                         .borrow()
                                         .find_incoming_edge_from(cfg_pred)
                                         .unwrap()
-                                        .borrow_mut()
                                         .add_incoming_value_flow(value_slot);
                                 });
                         }
@@ -310,10 +309,28 @@ impl BlockGraph {
     }
 }
 
-impl ControlFlowTransfer {
+impl MutRc<ControlFlowTransfer> {
     /// Only call this from target
-    fn add_incoming_value_flow(&mut self, target_slot: MutRc<ValueSlot>) {
+    fn add_incoming_value_flow(&self, target_slot: MutRc<ValueSlot>) {
+        if let Some((source, target)) = self
+            .borrow()
+            .register_transitions
+            .iter()
+            .find(|(_, existing_slot)| target_slot.borrow().firm == existing_slot.borrow().firm)
+        {
+            assert_eq!(target.borrow().num, target_slot.borrow().num);
+            log::debug!(
+                "\tPIGGY: from='{:?}' to='{:?}' value='{:?}'",
+                upborrow!(source.borrow().allocated_in).firm,
+                upborrow!(target.borrow().allocated_in).firm,
+                target.borrow().firm,
+            );
+
+            return;
+        }
+
         let source_slot = self
+            .borrow()
             .source
             .upgrade()
             .unwrap()
@@ -321,13 +338,15 @@ impl ControlFlowTransfer {
 
         assert_eq!(target_slot.borrow().firm, source_slot.borrow().firm);
         log::debug!(
-            "\tTRANSFER: from='{:?}' to='{:?}' value='{:?}'",
-            upborrow!(self.source).firm,
-            self.target.borrow().firm,
+            "\tTRANS: from='{:?}' to='{:?}' value='{:?}'",
+            upborrow!(self.borrow().source).firm,
+            self.borrow().target.borrow().firm,
             target_slot.borrow().firm,
         );
 
-        self.register_transitions.push((source_slot, target_slot));
+        self.borrow_mut()
+            .register_transitions
+            .push((source_slot, target_slot));
     }
 }
 
@@ -353,7 +372,7 @@ impl MutRc<BasicBlock> {
             .filter_map(|multislot| multislot.iter().find(|slot| slot.borrow().firm == value))
             .next();
 
-        let slot = if let Some(slot) = possibly_existing_slot {
+        if let Some(slot) = possibly_existing_slot {
             log::debug!(
                 "\tREUSE: slot={} in='{:?}' kind={} value='{:?}'",
                 slot.borrow().num,
@@ -366,20 +385,25 @@ impl MutRc<BasicBlock> {
         } else {
             drop(possibly_existing_slot);
             drop(this);
-            self.new_multislot(terminates_in)
-                .add_possible_value(value, originates_in)
-        };
+            let slot = self
+                .new_multislot(terminates_in)
+                .add_possible_value(value, originates_in);
 
-        // If the value is foreign, we need to "get it" from each blocks above us,
-        // to pass it through to the block below us. This only happens if this function
-        // is called from `ControlFlowtransfer::add_incoming_value_flow`.
-        if !slot.borrow().value_kind().originates_here() {
-            for pred in &self.borrow().preds {
-                upborrow!(mut pred).add_incoming_value_flow(MutRc::clone(&slot));
+            // If the value is foreign, we need to "get it" from each blocks above us,
+            // to pass it through to the block below us. This only happens if this function
+            // is called from `ControlFlowtransfer::add_incoming_value_flow`.
+            if !slot.borrow().value_kind().originates_here() {
+                for pred in &self.borrow().preds {
+                        upborrow!(upborrow!(pred).source).firm
+                    );
+                    pred.upgrade()
+                        .unwrap()
+                        .add_incoming_value_flow(MutRc::clone(&slot));
+                }
             }
-        }
 
-        slot
+            slot
+        }
     }
 
     fn new_forwarding_slot(&self, target_slot: &ValueSlot) -> MutRc<ValueSlot> {
