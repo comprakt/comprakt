@@ -1,6 +1,6 @@
 use crate::{
     entity::Entity,
-    nodes_gen::{self, Block, Node, NodeFactory, Phi, Proj, ProjKind},
+    nodes_gen::{self, Block, Node, NodeFactory, Phi, Proj},
     value_nodes::ValueNode,
 };
 use libfirm_rs_bindings as bindings;
@@ -70,10 +70,6 @@ simple_node_iterator!(PhiPredsIterator, get_Phi_n_preds, get_Phi_pred, i32);
 impl Proj {
     pub fn proj(self, num: u32, mode: bindings::mode::Type) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.internal_ir_node(), mode, num) })
-    }
-
-    pub fn kind(self) -> ProjKind {
-        NodeFactory::proj_kind(self)
     }
 }
 
@@ -168,12 +164,6 @@ where
     }
 }
 
-impl fmt::Debug for nodes_gen::Call {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Call to {:?} {}", self.ptr(), self.node_id())
-    }
-}
-
 impl nodes_gen::Cond {
     pub fn out_proj_val(self, val: bool) -> Option<Proj> {
         if val {
@@ -208,13 +198,78 @@ impl nodes_gen::Address {
     }
 }
 
-impl fmt::Debug for nodes_gen::Address {
+// = Debug fmt =
+
+pub trait NodeDebug {
+    fn fmt(&self, f: &mut fmt::Formatter, options: NodeDebugOpts) -> fmt::Result;
+
+    fn debug_fmt(self) -> NodeDebugFmt<Self>
+    where
+        Self: Sized + Copy,
+    {
+        NodeDebugFmt(self, NodeDebugOpts::default())
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NodeDebugOpts {
+    short: bool,
+}
+
+impl NodeDebugOpts {
+    pub fn short(self) -> bool {
+        self.short
+    }
+
+    pub fn with_short(mut self, val: bool) -> Self {
+        self.short = val;
+        self
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct NodeDebugFmt<T: NodeDebug + Sized + Copy>(T, NodeDebugOpts);
+impl<T: NodeDebug + Copy> NodeDebugFmt<T> {
+    pub fn short(self, val: bool) -> Self {
+        NodeDebugFmt(self.0, self.1.with_short(val))
+    }
+    pub fn with(self, opts: NodeDebugOpts) -> Self {
+        NodeDebugFmt(self.0, opts)
+    }
+}
+
+impl<T: NodeDebug + Copy> fmt::Display for NodeDebugFmt<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Address of {:?} {}",
-            self.entity().name_string(),
-            self.node_id()
-        )
+        NodeDebug::fmt(&self.0, f, self.1)
+    }
+}
+
+impl<T: NodeDebug + Copy> fmt::Debug for NodeDebugFmt<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "NodeDebugFmt {:?}", self.1)
+    }
+}
+
+// = Debug fmt impls =
+
+impl NodeDebug for nodes_gen::Call {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        let x = self.ptr().debug_fmt().short(true);
+        write!(f, "Call to {} {}", x, self.node_id())
+    }
+}
+
+impl NodeDebug for nodes_gen::Address {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "@{}", self.entity().name_string(),)
+        } else {
+            write!(
+                f,
+                "Address of {:?} {}",
+                self.entity().name_string(),
+                self.node_id(),
+            )
+        }
     }
 }
