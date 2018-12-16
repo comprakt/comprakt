@@ -2,11 +2,13 @@ use libfirm_rs::nodes::NodeTrait;
 
 type Label = String;
 
+#[derive(Debug)]
 pub struct Program {
     // name => function
     functions: Vec<Function>,
 }
 
+#[derive(Debug)]
 pub struct Function {
     name: String,
     nargs: usize,
@@ -16,18 +18,19 @@ pub struct Function {
     blocks: Vec<Block>,
 }
 
+#[derive(Debug)]
 pub struct Block {
     label: Label,
     instrs: Vec<Instr>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Operand {
     Reg(Reg),
     Imm(isize),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Reg {
     /// Magic register that contains the return value of a function call (rax).
     R0,
@@ -40,6 +43,7 @@ impl Reg {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum Instr {
     Binop {
         kind: BinopKind,
@@ -76,7 +80,7 @@ pub enum Instr {
     Comment(String),
 }
 
-#[derive(Display)]
+#[derive(Debug, Display, Clone)]
 pub enum Cond {
     #[display(fmt = "jmp")]
     True,
@@ -84,7 +88,7 @@ pub enum Cond {
     LessEqual,
 }
 
-#[derive(Display)]
+#[derive(Debug, Display, Clone)]
 pub enum BinopKind {
     #[display(fmt = "addq")]
     Addq,
@@ -92,10 +96,10 @@ pub enum BinopKind {
     Subq,
 }
 
-#[derive(Display)]
+#[derive(Debug, Display)]
 pub enum UnopKind {}
 
-#[derive(Display)]
+#[derive(Debug, Display, Clone)]
 pub enum DivKind {
     /// unsigned
     #[display(fmt = "div")]
@@ -279,8 +283,8 @@ impl Block {
     }
 }
 
-use crate::{lowering::lir, utils::cell::MutRc};
-use std::collections::{HashMap, HashSet, VecDeque};
+use crate::lowering::lir;
+use std::collections::HashMap;
 
 impl From<lir::LIR> for Program {
     fn from(p: lir::LIR) -> Program {
@@ -292,30 +296,18 @@ impl From<lir::LIR> for Program {
             };
             let mut mf = Function::new(mf_name, f.nargs, f.returns);
             let mut mblocks = HashMap::new();
-            let mut visited = HashSet::new();
-            let mut visit_list = VecDeque::new();
-            visit_list.push_front(MutRc::clone(&f.graph.head));
             let mut is_entry_block = true;
-            loop {
-                let block = match visit_list.pop_front() {
-                    None => break,
-                    Some(b) => b,
-                };
-                let mblock = mf.begin_block(format!(".L{}", block.borrow().firm.node_id()));
-                for _instr in &block.borrow().code {
-                    unimplemented!();
+
+            f.graph.walk_blocks(|block| {
+                let mut mblock = mf.begin_block(format!(".L{}", block.borrow().firm.node_id()));
+                for instr in &block.borrow().code {
+                    mblock.push(instr.clone());
                 }
                 // TODO assert that there is a jump at the end of each instr list
                 mblocks.insert(block.borrow().firm, (mblock, is_entry_block));
                 is_entry_block = false;
-                for edge in &block.borrow().succs {
-                    let succ = MutRc::clone(&edge.borrow().target);
-                    if !visited.contains(&succ.borrow().firm) {
-                        visited.insert(succ.borrow().firm);
-                        visit_list.push_back(succ);
-                    }
-                }
-            }
+            });
+
             for (_, (mblock, is_entry_block)) in mblocks {
                 if is_entry_block {
                     mf.complete_entry_block(mblock);

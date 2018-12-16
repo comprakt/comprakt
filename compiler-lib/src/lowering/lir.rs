@@ -2,6 +2,7 @@
 
 use crate::{
     firm,
+    lowering::molki,
     type_checking::type_system::CheckedType,
     utils::cell::{MutRc, MutWeak},
 };
@@ -9,7 +10,7 @@ use libfirm_rs::{
     graph::VisitTime,
     nodes::{Node, NodeTrait},
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 #[derive(Debug)]
 pub struct LIR {
@@ -96,7 +97,7 @@ pub struct BasicBlock {
 }
 
 /// TODO Tie to problames instruction stuff
-pub type Instruction = !;
+pub type Instruction = molki::Instr;
 
 /// An abstract pseudo-register
 #[derive(Debug)]
@@ -183,7 +184,8 @@ pub struct ControlFlowTransfer {
 impl From<libfirm_rs::graph::Graph> for BlockGraph {
     fn from(firm_graph: libfirm_rs::graph::Graph) -> Self {
         let mut graph = Self::build_skeleton(firm_graph);
-        graph.fill_blocks();
+        graph.construct_flows();
+        graph.gen_instrs();
         graph
     }
 }
@@ -227,7 +229,7 @@ impl BlockGraph {
         }
     }
 
-    fn fill_blocks(&mut self) {
+    fn construct_flows(&mut self) {
         self.firm.walk_blocks(|visit, firm_block| match visit {
             VisitTime::BeforePredecessors => {
                 log::debug!("VISIT {:?}", firm_block);
@@ -235,7 +237,6 @@ impl BlockGraph {
 
                 // Foreign values are the green points in yComp (inter-block edges)
                 for node_in_block in firm_block.out_nodes() {
-                    log::debug!("---");
                     match node_in_block {
                         Node::Phi(phi) => {
                             let multislot = local_block.new_terminating_multislot();
@@ -261,7 +262,6 @@ impl BlockGraph {
                                     )
                                 })
                                 .for_each(|(cfg_pred, value_slot)| {
-                                    log::debug!("");
                                     local_block
                                         .borrow()
                                         .find_incoming_edge_from(cfg_pred)
@@ -301,6 +301,65 @@ impl BlockGraph {
 
             VisitTime::AfterPredecessors => (),
         });
+    }
+
+    fn gen_instrs(&mut self) {
+        self.walk_blocks(|block| {
+            let mut instrs = Vec::new();
+            let mut block = block.borrow_mut();
+            for (num, multislot) in block.regs.iter().enumerate() {
+                instrs.push(molki::Instr::Comment(format!("Slot {}:", num)));
+                for slot in multislot {
+                    instrs.push(molki::Instr::Comment(format!(
+                        "\t=  {:?}",
+                        slot.borrow().firm
+                    )));
+                }
+                for edge in block.preds.iter() {
+                    edge.upgrade()
+                        .unwrap()
+                        .borrow()
+                        .register_transitions
+                        .iter()
+                        .filter(|(_, dst)| dst.borrow().num == num)
+                        .for_each(|(src, _)| {
+                            instrs.push(molki::Instr::Comment(format!(
+                                "\t<- {:?}({}): {:?}",
+                                upborrow!(src.borrow().allocated_in).firm,
+                                src.borrow().num,
+                                src.borrow().firm
+                            )));
+                        })
+                }
+            }
+
+            block.code = instrs;
+        })
+    }
+
+    pub fn walk_blocks<F>(&self, mut func: F)
+    where
+        F: FnMut(MutRc<BasicBlock>),
+    {
+        let mut visited = HashSet::new();
+        let mut visit_list = VecDeque::new();
+        visit_list.push_front(MutRc::clone(&self.head));
+        loop {
+            let block = match visit_list.pop_front() {
+                None => break,
+                Some(b) => b,
+            };
+
+            func(MutRc::clone(&block));
+
+            for edge in &block.borrow().succs {
+                let succ = MutRc::clone(&edge.borrow().target);
+                if !visited.contains(&succ.borrow().firm) {
+                    visited.insert(succ.borrow().firm);
+                    visit_list.push_back(succ);
+                }
+            }
+        }
     }
 
     fn get_block(&self, firm_block: libfirm_rs::nodes::Block) -> MutRc<BasicBlock> {
