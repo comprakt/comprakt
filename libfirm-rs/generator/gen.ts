@@ -52,6 +52,7 @@ class NodeImpl {
     public get variantName() { return this.name; }
     public get create_name() { return `create_${this.name.toLowerCase()}`; }
     public get new_name() { return `new_${this.name.toLowerCase()}`; }
+    public get is_name() { return `is_${this.name.toLowerCase()}`; }
 
     constructor(node: Node) {
         this.name = node.name;
@@ -299,6 +300,14 @@ w.line("use std::fmt;");
     }
     w.unindent("}");
     w.line();
+
+    w.indent(`impl Node {`);
+    for (const node of nodes) {
+        w.indent(`fn ${node.is_name}(&self) -> bool {`);
+        w.line(`unsafe { bindings::is_${node.name}(self.internal_ir_node()) != 0 }`);
+        w.unindent(`}`);
+    }
+    w.unindent(`}`);
 
     // debug for node
     w.indent(`impl fmt::Debug for Node {`);

@@ -61,6 +61,170 @@ pub enum Node {
     Unknown(Unknown),
 }
 
+impl Node {
+    fn is_add(&self) -> bool {
+        unsafe { bindings::is_Add(self.internal_ir_node()) != 0 }
+    }
+    fn is_address(&self) -> bool {
+        unsafe { bindings::is_Address(self.internal_ir_node()) != 0 }
+    }
+    fn is_align(&self) -> bool {
+        unsafe { bindings::is_Align(self.internal_ir_node()) != 0 }
+    }
+    fn is_alloc(&self) -> bool {
+        unsafe { bindings::is_Alloc(self.internal_ir_node()) != 0 }
+    }
+    fn is_anchor(&self) -> bool {
+        unsafe { bindings::is_Anchor(self.internal_ir_node()) != 0 }
+    }
+    fn is_and(&self) -> bool {
+        unsafe { bindings::is_And(self.internal_ir_node()) != 0 }
+    }
+    fn is_bad(&self) -> bool {
+        unsafe { bindings::is_Bad(self.internal_ir_node()) != 0 }
+    }
+    fn is_bitcast(&self) -> bool {
+        unsafe { bindings::is_Bitcast(self.internal_ir_node()) != 0 }
+    }
+    fn is_block(&self) -> bool {
+        unsafe { bindings::is_Block(self.internal_ir_node()) != 0 }
+    }
+    fn is_builtin(&self) -> bool {
+        unsafe { bindings::is_Builtin(self.internal_ir_node()) != 0 }
+    }
+    fn is_call(&self) -> bool {
+        unsafe { bindings::is_Call(self.internal_ir_node()) != 0 }
+    }
+    fn is_cmp(&self) -> bool {
+        unsafe { bindings::is_Cmp(self.internal_ir_node()) != 0 }
+    }
+    fn is_cond(&self) -> bool {
+        unsafe { bindings::is_Cond(self.internal_ir_node()) != 0 }
+    }
+    fn is_confirm(&self) -> bool {
+        unsafe { bindings::is_Confirm(self.internal_ir_node()) != 0 }
+    }
+    fn is_const(&self) -> bool {
+        unsafe { bindings::is_Const(self.internal_ir_node()) != 0 }
+    }
+    fn is_conv(&self) -> bool {
+        unsafe { bindings::is_Conv(self.internal_ir_node()) != 0 }
+    }
+    fn is_copyb(&self) -> bool {
+        unsafe { bindings::is_CopyB(self.internal_ir_node()) != 0 }
+    }
+    fn is_deleted(&self) -> bool {
+        unsafe { bindings::is_Deleted(self.internal_ir_node()) != 0 }
+    }
+    fn is_div(&self) -> bool {
+        unsafe { bindings::is_Div(self.internal_ir_node()) != 0 }
+    }
+    fn is_dummy(&self) -> bool {
+        unsafe { bindings::is_Dummy(self.internal_ir_node()) != 0 }
+    }
+    fn is_end(&self) -> bool {
+        unsafe { bindings::is_End(self.internal_ir_node()) != 0 }
+    }
+    fn is_eor(&self) -> bool {
+        unsafe { bindings::is_Eor(self.internal_ir_node()) != 0 }
+    }
+    fn is_free(&self) -> bool {
+        unsafe { bindings::is_Free(self.internal_ir_node()) != 0 }
+    }
+    fn is_ijmp(&self) -> bool {
+        unsafe { bindings::is_IJmp(self.internal_ir_node()) != 0 }
+    }
+    fn is_id(&self) -> bool {
+        unsafe { bindings::is_Id(self.internal_ir_node()) != 0 }
+    }
+    fn is_jmp(&self) -> bool {
+        unsafe { bindings::is_Jmp(self.internal_ir_node()) != 0 }
+    }
+    fn is_load(&self) -> bool {
+        unsafe { bindings::is_Load(self.internal_ir_node()) != 0 }
+    }
+    fn is_member(&self) -> bool {
+        unsafe { bindings::is_Member(self.internal_ir_node()) != 0 }
+    }
+    fn is_minus(&self) -> bool {
+        unsafe { bindings::is_Minus(self.internal_ir_node()) != 0 }
+    }
+    fn is_mod(&self) -> bool {
+        unsafe { bindings::is_Mod(self.internal_ir_node()) != 0 }
+    }
+    fn is_mul(&self) -> bool {
+        unsafe { bindings::is_Mul(self.internal_ir_node()) != 0 }
+    }
+    fn is_mulh(&self) -> bool {
+        unsafe { bindings::is_Mulh(self.internal_ir_node()) != 0 }
+    }
+    fn is_mux(&self) -> bool {
+        unsafe { bindings::is_Mux(self.internal_ir_node()) != 0 }
+    }
+    fn is_nomem(&self) -> bool {
+        unsafe { bindings::is_NoMem(self.internal_ir_node()) != 0 }
+    }
+    fn is_not(&self) -> bool {
+        unsafe { bindings::is_Not(self.internal_ir_node()) != 0 }
+    }
+    fn is_offset(&self) -> bool {
+        unsafe { bindings::is_Offset(self.internal_ir_node()) != 0 }
+    }
+    fn is_or(&self) -> bool {
+        unsafe { bindings::is_Or(self.internal_ir_node()) != 0 }
+    }
+    fn is_phi(&self) -> bool {
+        unsafe { bindings::is_Phi(self.internal_ir_node()) != 0 }
+    }
+    fn is_pin(&self) -> bool {
+        unsafe { bindings::is_Pin(self.internal_ir_node()) != 0 }
+    }
+    fn is_proj(&self) -> bool {
+        unsafe { bindings::is_Proj(self.internal_ir_node()) != 0 }
+    }
+    fn is_raise(&self) -> bool {
+        unsafe { bindings::is_Raise(self.internal_ir_node()) != 0 }
+    }
+    fn is_return(&self) -> bool {
+        unsafe { bindings::is_Return(self.internal_ir_node()) != 0 }
+    }
+    fn is_sel(&self) -> bool {
+        unsafe { bindings::is_Sel(self.internal_ir_node()) != 0 }
+    }
+    fn is_shl(&self) -> bool {
+        unsafe { bindings::is_Shl(self.internal_ir_node()) != 0 }
+    }
+    fn is_shr(&self) -> bool {
+        unsafe { bindings::is_Shr(self.internal_ir_node()) != 0 }
+    }
+    fn is_shrs(&self) -> bool {
+        unsafe { bindings::is_Shrs(self.internal_ir_node()) != 0 }
+    }
+    fn is_size(&self) -> bool {
+        unsafe { bindings::is_Size(self.internal_ir_node()) != 0 }
+    }
+    fn is_start(&self) -> bool {
+        unsafe { bindings::is_Start(self.internal_ir_node()) != 0 }
+    }
+    fn is_store(&self) -> bool {
+        unsafe { bindings::is_Store(self.internal_ir_node()) != 0 }
+    }
+    fn is_sub(&self) -> bool {
+        unsafe { bindings::is_Sub(self.internal_ir_node()) != 0 }
+    }
+    fn is_switch(&self) -> bool {
+        unsafe { bindings::is_Switch(self.internal_ir_node()) != 0 }
+    }
+    fn is_sync(&self) -> bool {
+        unsafe { bindings::is_Sync(self.internal_ir_node()) != 0 }
+    }
+    fn is_tuple(&self) -> bool {
+        unsafe { bindings::is_Tuple(self.internal_ir_node()) != 0 }
+    }
+    fn is_unknown(&self) -> bool {
+        unsafe { bindings::is_Unknown(self.internal_ir_node()) != 0 }
+    }
+}
 impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
