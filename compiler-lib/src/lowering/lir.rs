@@ -114,8 +114,10 @@ pub struct ValueSlot {
     terminates_in: MutWeak<BasicBlock>,
 }
 
+/// This is currently unused (because the categorisations are wrong), but we
+/// might need something similar later (or at least the comments).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Display)]
-pub enum ValueSlotKind {
+pub enum _ValueSlotKind {
     /// The value in this slot originates in the local block, but is used in a
     /// later block
     ///
@@ -374,10 +376,9 @@ impl MutRc<BasicBlock> {
 
         if let Some(slot) = possibly_existing_slot {
             log::debug!(
-                "\tREUSE: slot={} in='{:?}' kind={} value='{:?}'",
+                "\tREUSE: slot={} in='{:?}' value='{:?}'",
                 slot.borrow().num,
                 this.firm,
-                slot.borrow().value_kind(),
                 slot.borrow().firm
             );
 
@@ -392,11 +393,16 @@ impl MutRc<BasicBlock> {
             // If the value is foreign, we need to "get it" from each blocks above us,
             // to pass it through to the block below us. This only happens if this function
             // is called from `ControlFlowtransfer::add_incoming_value_flow`.
-            if !slot.borrow().value_kind().originates_here() {
-                for pred in &self.borrow().preds {
-                        upborrow!(upborrow!(pred).source).firm
+            let originates_here = upborrow!(slot.borrow().allocated_in).firm
+                == upborrow!(slot.borrow().originates_in).firm;
+            if !originates_here {
+                for incoming_edge in &self.borrow().preds {
+                    log::debug!(
+                        "new_slot:preds_loop {:?}",
+                        upborrow!(upborrow!(incoming_edge).source).firm
                     );
-                    pred.upgrade()
+                    incoming_edge
+                        .upgrade()
                         .unwrap()
                         .add_incoming_value_flow(MutRc::clone(&slot));
                 }
@@ -413,7 +419,6 @@ impl MutRc<BasicBlock> {
             MutWeak::clone(&target_slot.terminates_in),
         );
 
-        assert!(!local_slot.borrow().value_kind().terminates_here());
         local_slot
     }
 
@@ -424,7 +429,6 @@ impl MutRc<BasicBlock> {
     ) -> MutRc<ValueSlot> {
         let local_slot = self.new_slot(value, origin, MutRc::downgrade(self));
 
-        assert!(local_slot.borrow().value_kind().terminates_here());
         local_slot
     }
 
@@ -433,7 +437,6 @@ impl MutRc<BasicBlock> {
         assert_eq!(value.block(), self.borrow().firm);
         let slot = self.new_slot(value, MutRc::downgrade(self), MutRc::downgrade(self));
 
-        assert!(slot.borrow().value_kind().is_private());
         slot
     }
 }
@@ -512,10 +515,9 @@ impl MultiSlotBuilder {
         };
 
         log::debug!(
-            "\tALLOC: slot={} in='{:?}' kind={} value='{:?}'",
+            "\tALLOC: slot={} in='{:?}' value='{:?}'",
             slot.num,
             upborrow!(self.allocated_in).firm,
-            slot.value_kind(),
             slot.firm
         );
 
@@ -523,54 +525,5 @@ impl MultiSlotBuilder {
         upborrow!(mut self.allocated_in).regs[self.num].push(MutRc::clone(&slot));
 
         slot
-    }
-}
-
-impl ValueSlot {
-    pub fn value_kind(&self) -> ValueSlotKind {
-        use self::ValueSlotKind::*;
-        if upborrow!(self.originates_in).firm == upborrow!(self.terminates_in).firm {
-            assert_eq!(
-                upborrow!(self.allocated_in).firm,
-                upborrow!(self.originates_in).firm
-            );
-            Private
-        } else if upborrow!(self.allocated_in).firm == upborrow!(self.originates_in).firm {
-            Original
-        } else if upborrow!(self.allocated_in).firm == upborrow!(self.terminates_in).firm {
-            Terminal
-        } else {
-            PassThrough
-        }
-    }
-}
-
-impl ValueSlotKind {
-    pub fn is_private(self) -> bool {
-        use self::ValueSlotKind::*;
-        self == Private
-    }
-
-    pub fn is_original(self) -> bool {
-        use self::ValueSlotKind::*;
-        self == Original
-    }
-
-    pub fn is_terminal(self) -> bool {
-        use self::ValueSlotKind::*;
-        self == Terminal
-    }
-
-    pub fn is_pass_through(self) -> bool {
-        use self::ValueSlotKind::*;
-        self == PassThrough
-    }
-
-    pub fn terminates_here(self) -> bool {
-        self.is_private() || self.is_terminal()
-    }
-
-    pub fn originates_here(self) -> bool {
-        self.is_private() || self.is_original()
     }
 }
