@@ -67,167 +67,653 @@ pub enum Node {
 }
 
 impl Node {
-    pub fn is_add(&self) -> bool {
-        unsafe { bindings::is_Add(self.internal_ir_node()) != 0 }
+    pub fn is_add(node: Node) -> bool {
+        match node {
+            Node::Add(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_address(&self) -> bool {
-        unsafe { bindings::is_Address(self.internal_ir_node()) != 0 }
+    pub fn as_add(node: Node) -> Option<Add> {
+        match node {
+            Node::Add(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_align(&self) -> bool {
-        unsafe { bindings::is_Align(self.internal_ir_node()) != 0 }
+    pub fn is_address(node: Node) -> bool {
+        match node {
+            Node::Address(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_alloc(&self) -> bool {
-        unsafe { bindings::is_Alloc(self.internal_ir_node()) != 0 }
+    pub fn as_address(node: Node) -> Option<Address> {
+        match node {
+            Node::Address(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_anchor(&self) -> bool {
-        unsafe { bindings::is_Anchor(self.internal_ir_node()) != 0 }
+    pub fn is_align(node: Node) -> bool {
+        match node {
+            Node::Align(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_and(&self) -> bool {
-        unsafe { bindings::is_And(self.internal_ir_node()) != 0 }
+    pub fn as_align(node: Node) -> Option<Align> {
+        match node {
+            Node::Align(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_bad(&self) -> bool {
-        unsafe { bindings::is_Bad(self.internal_ir_node()) != 0 }
+    pub fn is_alloc(node: Node) -> bool {
+        match node {
+            Node::Alloc(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_bitcast(&self) -> bool {
-        unsafe { bindings::is_Bitcast(self.internal_ir_node()) != 0 }
+    pub fn as_alloc(node: Node) -> Option<Alloc> {
+        match node {
+            Node::Alloc(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_block(&self) -> bool {
-        unsafe { bindings::is_Block(self.internal_ir_node()) != 0 }
+    pub fn is_anchor(node: Node) -> bool {
+        match node {
+            Node::Anchor(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_builtin(&self) -> bool {
-        unsafe { bindings::is_Builtin(self.internal_ir_node()) != 0 }
+    pub fn as_anchor(node: Node) -> Option<Anchor> {
+        match node {
+            Node::Anchor(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_call(&self) -> bool {
-        unsafe { bindings::is_Call(self.internal_ir_node()) != 0 }
+    pub fn is_and(node: Node) -> bool {
+        match node {
+            Node::And(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_cmp(&self) -> bool {
-        unsafe { bindings::is_Cmp(self.internal_ir_node()) != 0 }
+    pub fn as_and(node: Node) -> Option<And> {
+        match node {
+            Node::And(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_cond(&self) -> bool {
-        unsafe { bindings::is_Cond(self.internal_ir_node()) != 0 }
+    pub fn is_bad(node: Node) -> bool {
+        match node {
+            Node::Bad(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_confirm(&self) -> bool {
-        unsafe { bindings::is_Confirm(self.internal_ir_node()) != 0 }
+    pub fn as_bad(node: Node) -> Option<Bad> {
+        match node {
+            Node::Bad(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_const(&self) -> bool {
-        unsafe { bindings::is_Const(self.internal_ir_node()) != 0 }
+    pub fn is_bitcast(node: Node) -> bool {
+        match node {
+            Node::Bitcast(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_conv(&self) -> bool {
-        unsafe { bindings::is_Conv(self.internal_ir_node()) != 0 }
+    pub fn as_bitcast(node: Node) -> Option<Bitcast> {
+        match node {
+            Node::Bitcast(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_copyb(&self) -> bool {
-        unsafe { bindings::is_CopyB(self.internal_ir_node()) != 0 }
+    pub fn is_block(node: Node) -> bool {
+        match node {
+            Node::Block(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_deleted(&self) -> bool {
-        unsafe { bindings::is_Deleted(self.internal_ir_node()) != 0 }
+    pub fn as_block(node: Node) -> Option<Block> {
+        match node {
+            Node::Block(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_div(&self) -> bool {
-        unsafe { bindings::is_Div(self.internal_ir_node()) != 0 }
+    pub fn is_builtin(node: Node) -> bool {
+        match node {
+            Node::Builtin(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_dummy(&self) -> bool {
-        unsafe { bindings::is_Dummy(self.internal_ir_node()) != 0 }
+    pub fn as_builtin(node: Node) -> Option<Builtin> {
+        match node {
+            Node::Builtin(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_end(&self) -> bool {
-        unsafe { bindings::is_End(self.internal_ir_node()) != 0 }
+    pub fn is_call(node: Node) -> bool {
+        match node {
+            Node::Call(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_eor(&self) -> bool {
-        unsafe { bindings::is_Eor(self.internal_ir_node()) != 0 }
+    pub fn as_call(node: Node) -> Option<Call> {
+        match node {
+            Node::Call(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_free(&self) -> bool {
-        unsafe { bindings::is_Free(self.internal_ir_node()) != 0 }
+    pub fn is_cmp(node: Node) -> bool {
+        match node {
+            Node::Cmp(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_ijmp(&self) -> bool {
-        unsafe { bindings::is_IJmp(self.internal_ir_node()) != 0 }
+    pub fn as_cmp(node: Node) -> Option<Cmp> {
+        match node {
+            Node::Cmp(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_id(&self) -> bool {
-        unsafe { bindings::is_Id(self.internal_ir_node()) != 0 }
+    pub fn is_cond(node: Node) -> bool {
+        match node {
+            Node::Cond(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_jmp(&self) -> bool {
-        unsafe { bindings::is_Jmp(self.internal_ir_node()) != 0 }
+    pub fn as_cond(node: Node) -> Option<Cond> {
+        match node {
+            Node::Cond(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_load(&self) -> bool {
-        unsafe { bindings::is_Load(self.internal_ir_node()) != 0 }
+    pub fn is_confirm(node: Node) -> bool {
+        match node {
+            Node::Confirm(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_member(&self) -> bool {
-        unsafe { bindings::is_Member(self.internal_ir_node()) != 0 }
+    pub fn as_confirm(node: Node) -> Option<Confirm> {
+        match node {
+            Node::Confirm(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_minus(&self) -> bool {
-        unsafe { bindings::is_Minus(self.internal_ir_node()) != 0 }
+    pub fn is_const(node: Node) -> bool {
+        match node {
+            Node::Const(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_mod(&self) -> bool {
-        unsafe { bindings::is_Mod(self.internal_ir_node()) != 0 }
+    pub fn as_const(node: Node) -> Option<Const> {
+        match node {
+            Node::Const(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_mul(&self) -> bool {
-        unsafe { bindings::is_Mul(self.internal_ir_node()) != 0 }
+    pub fn is_conv(node: Node) -> bool {
+        match node {
+            Node::Conv(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_mulh(&self) -> bool {
-        unsafe { bindings::is_Mulh(self.internal_ir_node()) != 0 }
+    pub fn as_conv(node: Node) -> Option<Conv> {
+        match node {
+            Node::Conv(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_mux(&self) -> bool {
-        unsafe { bindings::is_Mux(self.internal_ir_node()) != 0 }
+    pub fn is_copyb(node: Node) -> bool {
+        match node {
+            Node::CopyB(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_nomem(&self) -> bool {
-        unsafe { bindings::is_NoMem(self.internal_ir_node()) != 0 }
+    pub fn as_copyb(node: Node) -> Option<CopyB> {
+        match node {
+            Node::CopyB(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_not(&self) -> bool {
-        unsafe { bindings::is_Not(self.internal_ir_node()) != 0 }
+    pub fn is_deleted(node: Node) -> bool {
+        match node {
+            Node::Deleted(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_offset(&self) -> bool {
-        unsafe { bindings::is_Offset(self.internal_ir_node()) != 0 }
+    pub fn as_deleted(node: Node) -> Option<Deleted> {
+        match node {
+            Node::Deleted(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_or(&self) -> bool {
-        unsafe { bindings::is_Or(self.internal_ir_node()) != 0 }
+    pub fn is_div(node: Node) -> bool {
+        match node {
+            Node::Div(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_phi(&self) -> bool {
-        unsafe { bindings::is_Phi(self.internal_ir_node()) != 0 }
+    pub fn as_div(node: Node) -> Option<Div> {
+        match node {
+            Node::Div(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_pin(&self) -> bool {
-        unsafe { bindings::is_Pin(self.internal_ir_node()) != 0 }
+    pub fn is_dummy(node: Node) -> bool {
+        match node {
+            Node::Dummy(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_proj(&self) -> bool {
-        unsafe { bindings::is_Proj(self.internal_ir_node()) != 0 }
+    pub fn as_dummy(node: Node) -> Option<Dummy> {
+        match node {
+            Node::Dummy(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_raise(&self) -> bool {
-        unsafe { bindings::is_Raise(self.internal_ir_node()) != 0 }
+    pub fn is_end(node: Node) -> bool {
+        match node {
+            Node::End(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_return(&self) -> bool {
-        unsafe { bindings::is_Return(self.internal_ir_node()) != 0 }
+    pub fn as_end(node: Node) -> Option<End> {
+        match node {
+            Node::End(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_sel(&self) -> bool {
-        unsafe { bindings::is_Sel(self.internal_ir_node()) != 0 }
+    pub fn is_eor(node: Node) -> bool {
+        match node {
+            Node::Eor(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_shl(&self) -> bool {
-        unsafe { bindings::is_Shl(self.internal_ir_node()) != 0 }
+    pub fn as_eor(node: Node) -> Option<Eor> {
+        match node {
+            Node::Eor(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_shr(&self) -> bool {
-        unsafe { bindings::is_Shr(self.internal_ir_node()) != 0 }
+    pub fn is_free(node: Node) -> bool {
+        match node {
+            Node::Free(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_shrs(&self) -> bool {
-        unsafe { bindings::is_Shrs(self.internal_ir_node()) != 0 }
+    pub fn as_free(node: Node) -> Option<Free> {
+        match node {
+            Node::Free(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_size(&self) -> bool {
-        unsafe { bindings::is_Size(self.internal_ir_node()) != 0 }
+    pub fn is_ijmp(node: Node) -> bool {
+        match node {
+            Node::IJmp(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_start(&self) -> bool {
-        unsafe { bindings::is_Start(self.internal_ir_node()) != 0 }
+    pub fn as_ijmp(node: Node) -> Option<IJmp> {
+        match node {
+            Node::IJmp(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_store(&self) -> bool {
-        unsafe { bindings::is_Store(self.internal_ir_node()) != 0 }
+    pub fn is_id(node: Node) -> bool {
+        match node {
+            Node::Id(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_sub(&self) -> bool {
-        unsafe { bindings::is_Sub(self.internal_ir_node()) != 0 }
+    pub fn as_id(node: Node) -> Option<Id> {
+        match node {
+            Node::Id(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_switch(&self) -> bool {
-        unsafe { bindings::is_Switch(self.internal_ir_node()) != 0 }
+    pub fn is_jmp(node: Node) -> bool {
+        match node {
+            Node::Jmp(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_sync(&self) -> bool {
-        unsafe { bindings::is_Sync(self.internal_ir_node()) != 0 }
+    pub fn as_jmp(node: Node) -> Option<Jmp> {
+        match node {
+            Node::Jmp(node) => Some(node),
+            _ => None,
+        }
     }
-    pub fn is_tuple(&self) -> bool {
-        unsafe { bindings::is_Tuple(self.internal_ir_node()) != 0 }
+    pub fn is_load(node: Node) -> bool {
+        match node {
+            Node::Load(_node) => true,
+            _ => false,
+        }
     }
-    pub fn is_unknown(&self) -> bool {
-        unsafe { bindings::is_Unknown(self.internal_ir_node()) != 0 }
+    pub fn as_load(node: Node) -> Option<Load> {
+        match node {
+            Node::Load(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_member(node: Node) -> bool {
+        match node {
+            Node::Member(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_member(node: Node) -> Option<Member> {
+        match node {
+            Node::Member(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_minus(node: Node) -> bool {
+        match node {
+            Node::Minus(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_minus(node: Node) -> Option<Minus> {
+        match node {
+            Node::Minus(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_mod(node: Node) -> bool {
+        match node {
+            Node::Mod(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_mod(node: Node) -> Option<Mod> {
+        match node {
+            Node::Mod(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_mul(node: Node) -> bool {
+        match node {
+            Node::Mul(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_mul(node: Node) -> Option<Mul> {
+        match node {
+            Node::Mul(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_mulh(node: Node) -> bool {
+        match node {
+            Node::Mulh(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_mulh(node: Node) -> Option<Mulh> {
+        match node {
+            Node::Mulh(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_mux(node: Node) -> bool {
+        match node {
+            Node::Mux(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_mux(node: Node) -> Option<Mux> {
+        match node {
+            Node::Mux(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_nomem(node: Node) -> bool {
+        match node {
+            Node::NoMem(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_nomem(node: Node) -> Option<NoMem> {
+        match node {
+            Node::NoMem(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_not(node: Node) -> bool {
+        match node {
+            Node::Not(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_not(node: Node) -> Option<Not> {
+        match node {
+            Node::Not(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_offset(node: Node) -> bool {
+        match node {
+            Node::Offset(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_offset(node: Node) -> Option<Offset> {
+        match node {
+            Node::Offset(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_or(node: Node) -> bool {
+        match node {
+            Node::Or(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_or(node: Node) -> Option<Or> {
+        match node {
+            Node::Or(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_phi(node: Node) -> bool {
+        match node {
+            Node::Phi(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_phi(node: Node) -> Option<Phi> {
+        match node {
+            Node::Phi(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_pin(node: Node) -> bool {
+        match node {
+            Node::Pin(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_pin(node: Node) -> Option<Pin> {
+        match node {
+            Node::Pin(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_proj(node: Node) -> bool {
+        match node {
+            Node::Proj(_node, _proj_kind) => true,
+            _ => false,
+        }
+    }
+    pub fn as_proj(node: Node) -> Option<Proj> {
+        match node {
+            Node::Proj(node, _proj_kind) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_raise(node: Node) -> bool {
+        match node {
+            Node::Raise(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_raise(node: Node) -> Option<Raise> {
+        match node {
+            Node::Raise(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_return(node: Node) -> bool {
+        match node {
+            Node::Return(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_return(node: Node) -> Option<Return> {
+        match node {
+            Node::Return(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_sel(node: Node) -> bool {
+        match node {
+            Node::Sel(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_sel(node: Node) -> Option<Sel> {
+        match node {
+            Node::Sel(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_shl(node: Node) -> bool {
+        match node {
+            Node::Shl(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_shl(node: Node) -> Option<Shl> {
+        match node {
+            Node::Shl(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_shr(node: Node) -> bool {
+        match node {
+            Node::Shr(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_shr(node: Node) -> Option<Shr> {
+        match node {
+            Node::Shr(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_shrs(node: Node) -> bool {
+        match node {
+            Node::Shrs(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_shrs(node: Node) -> Option<Shrs> {
+        match node {
+            Node::Shrs(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_size(node: Node) -> bool {
+        match node {
+            Node::Size(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_size(node: Node) -> Option<Size> {
+        match node {
+            Node::Size(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_start(node: Node) -> bool {
+        match node {
+            Node::Start(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_start(node: Node) -> Option<Start> {
+        match node {
+            Node::Start(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_store(node: Node) -> bool {
+        match node {
+            Node::Store(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_store(node: Node) -> Option<Store> {
+        match node {
+            Node::Store(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_sub(node: Node) -> bool {
+        match node {
+            Node::Sub(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_sub(node: Node) -> Option<Sub> {
+        match node {
+            Node::Sub(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_switch(node: Node) -> bool {
+        match node {
+            Node::Switch(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_switch(node: Node) -> Option<Switch> {
+        match node {
+            Node::Switch(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_sync(node: Node) -> bool {
+        match node {
+            Node::Sync(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_sync(node: Node) -> Option<Sync> {
+        match node {
+            Node::Sync(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_tuple(node: Node) -> bool {
+        match node {
+            Node::Tuple(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_tuple(node: Node) -> Option<Tuple> {
+        match node {
+            Node::Tuple(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_unknown(node: Node) -> bool {
+        match node {
+            Node::Unknown(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_unknown(node: Node) -> Option<Unknown> {
+        match node {
+            Node::Unknown(node) => Some(node),
+            _ => None,
+        }
     }
 }
 impl NodeDebug for Node {
@@ -500,10 +986,10 @@ impl Proj {
                 _ => ProjKind::Other,
             },
             Node::Proj(proj, ProjKind::Start_TArgs(start)) => {
-                ProjKind::Start_TArgs_Arg(proj.num(), start, proj)
+                ProjKind::Start_TArgs_Arg(self.num(), start, proj)
             }
             Node::Proj(proj, ProjKind::Call_TResult(call)) => {
-                ProjKind::Call_TResult_Arg(proj.num(), call, proj)
+                ProjKind::Call_TResult_Arg(self.num(), call, proj)
             }
             _ => ProjKind::Other,
         }
