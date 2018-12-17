@@ -53,6 +53,7 @@ class NodeImpl {
     public get create_name() { return `create_${this.name.toLowerCase()}`; }
     public get new_name() { return `new_${this.name.toLowerCase()}`; }
     public get is_name() { return `is_${this.name.toLowerCase()}`; }
+    public get as_name() { return `as_${this.name.toLowerCase()}`; }
 
     constructor(node: Node) {
         this.name = node.name;
@@ -284,7 +285,7 @@ w.openFile("nodes_gen.rs");
 generateHeader();
 
 generateNodeEnum();
-generateNodeIsNodeImpl();
+generateNodeIsAsNodeImpl();
 generateNodeDebug();
 generateNodeTrait();
 
@@ -339,11 +340,15 @@ function generateNodeEnum() {
     w.line();
 }
 
-function generateNodeIsNodeImpl() {
+function generateNodeIsAsNodeImpl() {
     w.indent(`impl Node {`);
     for (const node of nodes) {
-        w.indent(`pub fn ${node.is_name}(&self) -> bool {`);
-        w.line(`unsafe { bindings::is_${node.name}(self.internal_ir_node()) != 0 }`);
+        w.indent(`pub fn ${node.is_name}(node: Node) -> bool {`);
+        w.line(`match node { Node::${node.variantName}(_node${node.isProj ? ", _proj_kind" : ""}) => true, _ => false }`);
+        w.unindent(`}`);
+
+        w.indent(`pub fn ${node.as_name}(node: Node) -> Option<${node.structName}> {`);
+        w.line(`match node { Node::${node.variantName}(node${node.isProj ? ", _proj_kind" : ""}) => Some(node), _ => None }`);
         w.unindent(`}`);
     }
     w.unindent(`}`);
@@ -478,8 +483,8 @@ function generateProjKindImpl() {
             w.unindent(`},`);
             w.indentation--;
         }
-        w.line(`Node::Proj(proj, ProjKind::Start_TArgs(start)) => ProjKind::Start_TArgs_Arg(proj.num(), start, proj),`);
-        w.line(`Node::Proj(proj, ProjKind::Call_TResult(call)) => ProjKind::Call_TResult_Arg(proj.num(), call, proj),`);
+        w.line(`Node::Proj(proj, ProjKind::Start_TArgs(start)) => ProjKind::Start_TArgs_Arg(self.num(), start, proj),`);
+        w.line(`Node::Proj(proj, ProjKind::Call_TResult(call)) => ProjKind::Call_TResult_Arg(self.num(), call, proj),`);
         w.line(`_ => ProjKind::Other,`);
         w.unindent("}");
     }
