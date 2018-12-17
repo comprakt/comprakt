@@ -28,6 +28,7 @@ pub mod lexer;
 pub mod parser;
 #[macro_use]
 pub mod visitor;
+pub mod dot;
 #[macro_use]
 pub mod debugging;
 pub mod firm;

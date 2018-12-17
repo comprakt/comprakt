@@ -23,34 +23,7 @@ use std::collections::hash_map::HashMap;
 use crate::firm::Program;
 use libfirm_rs::graph::Graph;
 use libfirm_rs::entity::Entity;
-
-pub trait GuiDisplay {
-    /// Transform the object into a map of unique function names
-    /// to graph information in dot format
-    fn display_for_gui(&self) -> HashMap<String, GraphState>;
-}
-
-impl<'a, 'b> GuiDisplay for Program<'a, 'b> {
-    fn display_for_gui(&self) -> HashMap<String, GraphState> {
-        let mut dot_files = HashMap::new();
-
-        for (class_name, class) in &self.classes {
-            for (method_name, method) in &class.borrow().methods {
-                if let Some(graph) = method.borrow().graph {
-                    let graph : Graph = graph.into();
-                    let internal_name = Entity::new(method.borrow().entity.into()).name_string();
-                    dot_files.insert(internal_name, GraphState {
-                        class_name: class_name.to_string(),
-                        method_name: method_name.to_string(),
-                        dot_file: graph.dot_data()
-                    });
-                }
-            }
-        }
-
-        dot_files
-    }
-}
+use crate::dot::{GraphState, GraphData};
 
 lazy_static::lazy_static! {
     static ref GUI: Mutex<Option<GuiThread>> = Mutex::new(None);
@@ -59,12 +32,22 @@ lazy_static::lazy_static! {
 #[macro_export]
 macro_rules! breakpoint {
     ($label:expr, $prog:expr) => {{
+        use crate::dot::GraphData;
         crate::debugging::pause(crate::debugging::Breakpoint {
             label: $label,
             line: line!(),
             column: column!(),
             file: file!()
-        }, $prog); }}; }
+        }, $prog.graph_data(&crate::dot::default_label)); }};
+    ($label:expr, $prog:expr, $labels:expr) => {{
+        use crate::dot::GraphData;
+        crate::debugging::pause(crate::debugging::Breakpoint {
+            label: $label,
+            line: line!(),
+            column: column!(),
+            file: file!()
+        }, $prog.graph_data($labels)); }};
+}
 
 fn gui_thread() -> &'static GUI {
     if (*GUI.lock().unwrap()).is_none() {
@@ -87,7 +70,7 @@ fn spawn_gui_thread() {
     });
 }
 
-pub fn pause(breakpoint: Breakpoint, program :&dyn GuiDisplay) {
+pub fn pause(breakpoint: Breakpoint, program :HashMap<String, GraphState>) {
     log::debug!("waiting at breakpoint: {:?}", breakpoint);
     let state = CompiliationState::new(breakpoint, program);
     let gui = gui_thread().lock().unwrap();
@@ -145,19 +128,12 @@ struct CompiliationState {
     dot_files: HashMap<String, GraphState>
 }
 
-#[derive(Debug,Clone,Serialize)]
-pub struct GraphState {
-    class_name: String,
-    method_name: String,
-    dot_file: String
-}
-
 impl CompiliationState {
-    pub fn new(breakpoint: Breakpoint, program :&dyn GuiDisplay) -> Self {
+    pub fn new(breakpoint: Breakpoint, program : HashMap<String, GraphState>) -> Self {
         
         Self {
             breakpoint,
-            dot_files: program.display_for_gui()
+            dot_files: program
         }
     }
 }
