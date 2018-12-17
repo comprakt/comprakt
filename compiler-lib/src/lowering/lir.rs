@@ -288,7 +288,6 @@ impl BlockGraph {
                             // Foreign values that are not phi, flow in from each cfg pred
                             // => values x cfg_preds
                             .for_each(|value| {
-                                log::debug!("");
                                 // Do this here, because we don't want to move `self` or
                                 // `local_block` into closure
                                 let original_block = self.get_block(value.block());
@@ -456,10 +455,6 @@ impl MutRc<BasicBlock> {
                 == upborrow!(slot.borrow().originates_in).firm;
             if !originates_here {
                 for incoming_edge in &self.borrow().preds {
-                    log::debug!(
-                        "new_slot:preds_loop {:?}",
-                        upborrow!(upborrow!(incoming_edge).source).firm
-                    );
                     incoming_edge
                         .upgrade()
                         .unwrap()
