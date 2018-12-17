@@ -1,8 +1,5 @@
-use crate::{
-    entity::Entity,
-    nodes_gen::{self, Block, Node, NodeFactory, Phi, Proj},
-    value_nodes::ValueNode,
-};
+pub use super::{nodes_gen::*, value_nodes::*};
+use crate::entity::Entity;
 use libfirm_rs_bindings as bindings;
 use std::{
     fmt,
@@ -23,6 +20,15 @@ macro_rules! simple_node_iterator {
                     node,
                     len: unsafe { bindings::$len_fn(node) },
                     cur: 0,
+                }
+            }
+
+            pub fn idx(&self, index: $id_type) -> Option<Node> {
+                if (0..self.len).contains(&index) {
+                    let out = unsafe { bindings::$get_fn(self.node, index) };
+                    Some(NodeFactory::node(out))
+                } else {
+                    None
                 }
             }
         }
@@ -49,33 +55,13 @@ macro_rules! simple_node_iterator {
     };
 }
 
-impl Block {
-    pub fn keep_alive(self) {
-        unsafe { bindings::keep_alive(self.internal_ir_node()) }
-    }
-
-    pub fn num_cfgpreds(self) -> i32 {
-        unsafe { bindings::get_Block_n_cfgpreds(self.internal_ir_node()) }
-    }
-}
-
-impl Phi {
-    pub fn phi_preds(self) -> PhiPredsIterator {
-        PhiPredsIterator::new(self.internal_ir_node())
-    }
-}
-
-simple_node_iterator!(PhiPredsIterator, get_Phi_n_preds, get_Phi_pred, i32);
-
-impl Proj {
-    pub fn proj(self, num: u32, mode: bindings::mode::Type) -> Proj {
-        Proj::new(unsafe { bindings::new_r_Proj(self.internal_ir_node(), mode, num) })
-    }
-}
-
 /// A trait to abstract from Node enum and various *-Node structs.
 pub trait NodeTrait {
     fn internal_ir_node(&self) -> *mut bindings::ir_node;
+
+    fn keep_alive(&self) {
+        unsafe { bindings::keep_alive(self.internal_ir_node()) }
+    }
 
     fn mode(&self) -> bindings::mode::Type {
         unsafe { bindings::get_irn_mode(self.internal_ir_node()) }
@@ -83,10 +69,11 @@ pub trait NodeTrait {
 
     fn block(&self) -> Block {
         let block_ir_node = unsafe { bindings::get_nodes_block(self.internal_ir_node()) };
-        match NodeFactory::node(block_ir_node) {
-            Node::Block(block) => block,
-            _ => panic!("Expected block."),
-        }
+        Block::new(block_ir_node)
+    }
+
+    fn set_block(&self, block: Block) {
+        unsafe { bindings::set_nodes_block(self.internal_ir_node(), block.internal_ir_node()) }
     }
 
     fn out_nodes(&self) -> OutNodeIterator {
@@ -95,6 +82,14 @@ pub trait NodeTrait {
 
     fn in_nodes(&self) -> InNodeIterator {
         InNodeIterator::new(self.internal_ir_node())
+    }
+
+    fn set_in_nodes(&self, nodes: &[Node]) {
+        let nodes: Vec<*mut bindings::ir_node> =
+            nodes.iter().map(|v| v.internal_ir_node()).collect();
+        unsafe {
+            bindings::set_irn_in(self.internal_ir_node(), nodes.len() as i32, nodes.as_ptr());
+        }
     }
 
     fn node_id(&self) -> i64 {
@@ -164,7 +159,55 @@ where
     }
 }
 
-impl nodes_gen::Cond {
+// == Node extensions ==
+
+impl Return {
+    pub fn return_res(self) -> ReturnResIterator {
+        ReturnResIterator::new(self.internal_ir_node())
+    }
+}
+
+simple_node_iterator!(
+    ReturnResIterator,
+    get_Return_n_ress,
+    get_Return_res,
+    i32
+);
+
+impl Block {
+    pub fn cfg_preds(self) -> CfgPredsIterator {
+        CfgPredsIterator::new(self.internal_ir_node())
+    }
+}
+
+simple_node_iterator!(
+    CfgPredsIterator,
+    get_Block_n_cfgpreds,
+    get_Block_cfgpred,
+    i32
+);
+
+impl Phi {
+    pub fn phi_preds(self) -> PhiPredsIterator {
+        PhiPredsIterator::new(self.internal_ir_node())
+    }
+}
+
+simple_node_iterator!(PhiPredsIterator, get_Phi_n_preds, get_Phi_pred, i32);
+
+impl Proj {
+    pub fn proj(self, num: u32, mode: bindings::mode::Type) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.internal_ir_node(), mode, num) })
+    }
+}
+
+impl Jmp {
+    pub fn out_target_block(self) -> Option<Block> {
+        self.out_nodes().next().and_then(Node::as_block)
+    }
+}
+
+impl Cond {
     pub fn out_proj_val(self, val: bool) -> Option<Proj> {
         if val {
             self.out_proj_true()
@@ -186,7 +229,7 @@ impl nodes_gen::Cond {
     }
 }
 
-impl nodes_gen::Address {
+impl Address {
     pub fn entity(self) -> Entity {
         unsafe { bindings::get_Address_entity(self.internal_ir_node()).into() }
     }
@@ -197,6 +240,15 @@ impl nodes_gen::Address {
         }
     }
 }
+
+impl Call {
+    pub fn args(self) -> CallArgsIterator {
+        CallArgsIterator::new(self.internal_ir_node())
+    }
+}
+
+simple_node_iterator!(CallArgsIterator, get_Call_n_params, get_Call_param, i32);
+
 
 // = Debug fmt =
 
@@ -252,14 +304,23 @@ impl<T: NodeDebug + Copy> fmt::Debug for NodeDebugFmt<T> {
 
 // = Debug fmt impls =
 
-impl NodeDebug for nodes_gen::Call {
+/*
+impl NodeDebug for nodes_gen::Const {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        let x = self.ptr().debug_fmt().short(true);
+        write!(f, "Const ", x, self.node_id())
+    }
+}
+*/
+
+impl NodeDebug for Call {
     fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
         let x = self.ptr().debug_fmt().short(true);
         write!(f, "Call to {} {}", x, self.node_id())
     }
 }
 
-impl NodeDebug for nodes_gen::Address {
+impl NodeDebug for Address {
     fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
         if opts.short {
             write!(f, "@{}", self.entity().name_string(),)

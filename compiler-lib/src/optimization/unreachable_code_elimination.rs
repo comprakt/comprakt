@@ -108,7 +108,7 @@ impl UnreachableCodeElimination {
                     } else {
                         unreachable!("Target of a Proj must be a Block")
                     };
-                    if nontarget_block.num_cfgpreds() <= 1 {
+                    if nontarget_block.cfg_preds().len() <= 1 {
                         log::debug!("Mark nontarget block {:?} as dangling", nontarget_block);
                         dangling_nontarget_blocks.push(nontarget_block);
                     }

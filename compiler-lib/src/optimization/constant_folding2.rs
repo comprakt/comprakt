@@ -157,7 +157,8 @@ impl ConstantFolding {
     // only for debugging/development
     #[allow(dead_code)]
     fn dump_graph(&self, cur_node: Option<Node>) {
-        if self.graph.entity().name_string() == "CF.M.foo" {
+        log::debug!("dump_graph");
+        //if self.graph.entity().name_string() == "CF.M.foo" {
             self.graph.dump_dot_data(
                 &PathBuf::from(format!(
                     "./dot-out/{}.dot",
@@ -188,12 +189,12 @@ impl ConstantFolding {
                     nd
                 },
             );
-        }
-        debugging::wait();
+        //}
+        //debugging::wait();
     }
 
     fn update_node(&mut self, cur_node: Node, cur_lattice: CfLattice) -> CfLattice {
-        let mut reachable = cur_lattice.reachable || if cur_node.is_block() {
+        let mut reachable = cur_lattice.reachable || if Node::is_block(cur_node) {
             cur_node.in_nodes().any(|pred| self.lookup(pred).reachable)
                 || cur_node == self.start_block
         } else {
@@ -267,7 +268,7 @@ impl ConstantFolding {
 
     fn apply(&mut self, collector: &mut OptimizationResultCollector) {
         //if self.graph.entity().name_string() != "CF.M.foo" { return; }
-        //self.dump_graph(None);
+        self.dump_graph(None);
         let mut values = self.values.iter().collect::<Vec<_>>();
         values.sort_by_key(|(l, _)| l.node_id());
 
@@ -278,7 +279,7 @@ impl ConstantFolding {
                 collector.push(OptimizationResult::Unchanged);
                 continue;
             }
-            if node.is_const() {
+            if Node::is_const(*node) {
                 collector.push(OptimizationResult::Unchanged);
                 continue;
             }
@@ -293,7 +294,7 @@ impl ConstantFolding {
 
                 let (dead_path, nontarget_block) = cond.out_proj_target_block(!val).unwrap();
 
-                if nontarget_block.num_cfgpreds() <= 1 {
+                if nontarget_block.cfg_preds().len() <= 1 {
                     // If the unused_proj is the sole predecessor of its successor,
                     // mark the successor, eliminate it.
                     // One would think this happens automatically, but it doesn't:

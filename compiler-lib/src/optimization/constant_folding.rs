@@ -157,7 +157,7 @@ impl ConstantFolding {
         let mut collector = OptimizationResultCollector::new();
         for (node, v) in values {
             if v.is_constant() {
-                if node.is_const() {
+                if Node::is_const(*node) {
                     // no change necessary
                     collector.push(OptimizationResult::Unchanged);
                     continue;
