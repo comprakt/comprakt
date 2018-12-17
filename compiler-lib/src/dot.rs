@@ -52,6 +52,20 @@ impl<'a, 'b> GraphData for Program<'a, 'b> {
     }
 }
 
+impl<'a, 'b> GraphData for Graph {
+    fn graph_data<T>(&self, label_maker: &T) -> HashMap<String, GraphState> 
+        where Self: Sized, T : LabelMaker
+    {
+        let mut dot_files = HashMap::new();
+        dot_files.insert("unknown.unknown".to_string(), GraphState {
+            class_name: "unknown".to_string(),
+            method_name: "unknown".to_string(),
+            dot_file: self.into_dot_format_string("unknown.unknown", label_maker)
+        });
+        dot_files
+    }
+}
+
 impl Dot for Graph {
     fn into_dot_format<T>(&self, writer: &mut dyn Write, graph_name:&str, label_maker: &T)
         where Self: Sized, T : LabelMaker
@@ -61,7 +75,7 @@ impl Dot for Graph {
             list.push(*node);
         });
 
-        writeln!(writer, "digraph {} {{", graph_name).unwrap();
+        writeln!(writer, "digraph {} {{", dot_string(graph_name)).unwrap();
         for node in list.iter() {
             let label = label_maker.label_for_node(*node);
             label.write_dot_format(writer);
@@ -218,6 +232,15 @@ impl Label {
         self.text = LabelText::Plain(text);
     }
 
+    pub fn append(&mut self, new_text:String) {
+        let new_label = match &self.text {
+            LabelText::Plain(text) => LabelText::Plain(format!("{}{}", text, new_text)),
+            LabelText::Html(text) => LabelText::Html(format!("{}{}", text, new_text))
+        };
+
+        self.text = new_label;
+    }
+
     pub fn html(&mut self, text:String) {
         self.text = LabelText::Html(text);
     }
@@ -238,13 +261,14 @@ impl Label {
             },
             style={
                 let val = (vec![
+                    // TODO: read actual value? :D
                     self.bold.map(|_| "bold"),
                     self.dotted.map(|_| "dotted"),
                     self.filled.map(|_| "filled"),
                 ]).iter().filter_map(|v| *v).collect::<Vec<_>>().join(",");
 
                 if val != "" {
-                    format!(",{}",val)
+                    format!(",style={}",val)
                 } else {
                     "".to_string()
                 }

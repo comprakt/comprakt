@@ -8,6 +8,7 @@ use libfirm_rs::{
     tarval::{mode_name, Tarval},
 };
 use std::collections::{hash_map::HashMap, VecDeque};
+use crate::dot::default_label;
 
 pub struct ConstantFolding {
     values: HashMap<Node, Tarval>,
@@ -34,6 +35,14 @@ impl ConstantFolding {
         for node in &list {
             values.insert(*node, Tarval::unknown());
         }
+
+        breakpoint!("Constant Folding: tarvals at beginning", graph, &|node| {
+            let mut label = default_label(node);
+            if let Some(tarval) = values.get(&node) {
+                label.append(format!("\n{:?}", tarval));
+            }
+            label
+        });
 
         // the first node is always the start _block_
         //   it also contains all const nodes
@@ -138,6 +147,19 @@ impl ConstantFolding {
                     log::debug!("unhandled {:?}", node);
                 }
             }
+
+            breakpoint!("Constant Folding: iteration", self.graph, &|node| {
+                let mut label = default_label(node);
+                if let Some(tarval) = self.values.get(&node) {
+                    label.append(format!("\n{:?}", tarval));
+                }
+
+                if node == cur {
+                    label.dotted(true);
+                }
+
+                label
+            });
         }
 
         // sort to have reproducible replacement order
@@ -189,6 +211,14 @@ impl ConstantFolding {
                         Graph::exchange(node, &const_node);
                     }
                 }
+
+                breakpoint!(format!("Constant Folding: exchange {}", node.node_id()), self.graph, &|node| {
+                    let mut label = default_label(node);
+                    if let Some(tarval) = self.values.get(&node) {
+                        label.append(format!("\n{:?}", tarval));
+                    }
+                    label
+                });
             }
         }
 

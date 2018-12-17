@@ -1,6 +1,39 @@
 //! This is a browser based graphical debugger for libfirm graphs.
 //! Simply drop
 //!
+//! # Usage
+//!
+//! Use the `breakpoint!` macro to interact with the graphical debugger.
+//! The macro can be called in two variants:
+//!
+//! `breakpoint!(label:&str,compiler_state:firm::Program|Graph)` will
+//! print all graphs with each node labeled by its kind and id.
+//!
+//! `breakpoint!(label:&str,compiler_state:firm::Program|Graph, label_maker)`
+//! can be used to highlight some nodes and to add additional information.
+//! `label_maker` can be a `Fn(Node) -> Label` or just a `HashMap<Node,Label>`.
+//!
+//! So for example, to highlight the currently visited node and to add
+//! the current lattice value assigned to each node, you can write:
+//!
+//! ```ignore
+//! // assume a context similar to:
+//! // let values :HashMap<Node,Tarval> = HashMap::new();
+//! // while let Some(cur) = next_node() 
+//! breakpoint!("Constant Folding: iteration", graph, &|node| {
+//!     let mut label = default_label(node); // prints node id and node kind
+//!     if let Some(tarval) = values.get(&node) {
+//!         label.append(format!("\n{:?}", tarval));
+//!     }
+//!
+//!     if node == cur {
+//!         label.dotted(true);
+//!     }
+//!
+//!     label
+//! });
+//! ```
+//!
 //! # Implementation
 //!
 //! We lazily start a webserver serving the debugger the first time
@@ -34,7 +67,7 @@ macro_rules! breakpoint {
     ($label:expr, $prog:expr) => {{
         use crate::dot::GraphData;
         crate::debugging::pause(crate::debugging::Breakpoint {
-            label: $label,
+            label: $label.to_string(),
             line: line!(),
             column: column!(),
             file: file!()
@@ -42,7 +75,7 @@ macro_rules! breakpoint {
     ($label:expr, $prog:expr, $labels:expr) => {{
         use crate::dot::GraphData;
         crate::debugging::pause(crate::debugging::Breakpoint {
-            label: $label,
+            label: $label.to_string(),
             line: line!(),
             column: column!(),
             file: file!()
