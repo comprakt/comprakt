@@ -24,6 +24,34 @@ use crate::firm::Program;
 use libfirm_rs::graph::Graph;
 use libfirm_rs::entity::Entity;
 
+pub trait GuiDisplay {
+    /// Transform the object into a map of unique function names
+    /// to graph information in dot format
+    fn display_for_gui(&self) -> HashMap<String, GraphState>;
+}
+
+impl<'a, 'b> GuiDisplay for Program<'a, 'b> {
+    fn display_for_gui(&self) -> HashMap<String, GraphState> {
+        let mut dot_files = HashMap::new();
+
+        for (class_name, class) in &self.classes {
+            for (method_name, method) in &class.borrow().methods {
+                if let Some(graph) = method.borrow().graph {
+                    let graph : Graph = graph.into();
+                    let internal_name = Entity::new(method.borrow().entity.into()).name_string();
+                    dot_files.insert(internal_name, GraphState {
+                        class_name: class_name.to_string(),
+                        method_name: method_name.to_string(),
+                        dot_file: graph.dot_data()
+                    });
+                }
+            }
+        }
+
+        dot_files
+    }
+}
+
 lazy_static::lazy_static! {
     static ref GUI: Mutex<Option<GuiThread>> = Mutex::new(None);
 }
@@ -59,7 +87,7 @@ fn spawn_gui_thread() {
     });
 }
 
-pub fn pause(breakpoint: Breakpoint, program :&Program<'_,'_>) {
+pub fn pause(breakpoint: Breakpoint, program :&dyn GuiDisplay) {
     log::debug!("waiting at breakpoint: {:?}", breakpoint);
     let state = CompiliationState::new(breakpoint, program);
     let gui = gui_thread().lock().unwrap();
@@ -118,34 +146,18 @@ struct CompiliationState {
 }
 
 #[derive(Debug,Clone,Serialize)]
-struct GraphState {
+pub struct GraphState {
     class_name: String,
     method_name: String,
     dot_file: String
 }
 
 impl CompiliationState {
-    pub fn new(breakpoint: Breakpoint, program :&Program<'_,'_>) -> Self {
-
-        let mut dot_files = HashMap::new();
-
-        for (class_name, class) in &program.classes {
-            for (method_name, method) in &class.borrow().methods {
-                if let Some(graph) = method.borrow().graph {
-                    let graph : Graph = graph.into();
-                    let internal_name = Entity::new(method.borrow().entity.into()).name_string();
-                    dot_files.insert(internal_name, GraphState {
-                        class_name: class_name.to_string(),
-                        method_name: method_name.to_string(),
-                        dot_file: graph.dot_data()
-                    });
-                }
-            }
-        }
+    pub fn new(breakpoint: Breakpoint, program :&dyn GuiDisplay) -> Self {
         
         Self {
             breakpoint,
-            dot_files
+            dot_files: program.display_for_gui()
         }
     }
 }
@@ -169,12 +181,12 @@ struct DebuggerState(Debugger);
 
 // TODO serving this via GET is not standard conform, but convenient during development
 #[get("/breakpoint/continue")]
-fn breakpoint_continue(debugger: State<DebuggerState>) -> Result<(), Status> {
+fn breakpoint_continue(debugger: State<'_, DebuggerState>) -> Result<(), Status> {
     debugger.0.sender.send(MsgToCompiler::Continue).unwrap();
     Ok(())
 }
 
-fn check_updates(debugger: &State<DebuggerState>) {
+fn check_updates(debugger: &State<'_, DebuggerState>) {
     let (sender, receiver) = mpsc::channel();
     debugger.0.sender.send(MsgToCompiler::GetCompilationState{sender}).unwrap();
 
