@@ -1,13 +1,13 @@
 use super::{
     entity::Entity,
-    nodes::NodeTrait,
-    nodes_gen::{Block, End, Node, NodeFactory, Proj, ProjKind, Start},
+    nodes::{NodeTrait, Block, End, Node, NodeFactory, Proj, ProjKind, Start, NoMem},
     value_nodes::ValueNode,
 };
 use libfirm_rs_bindings as bindings;
 use std::{
     ffi::{c_void, CString},
     mem,
+    ptr,
 };
 
 impl From<crate::Graph> for Graph {
@@ -50,16 +50,33 @@ impl Graph {
         Start::new(unsafe { bindings::get_irg_start(self.irg) })
     }
 
+    pub fn set_start_block(self, block: Block) {
+        unsafe {
+            bindings::set_irg_start_block(self.irg, block.internal_ir_node());
+        }
+    }
+
     pub fn end(self) -> End {
         End::new(unsafe { bindings::get_irg_end(self.irg) })
     }
 
-    pub fn args_node(self) -> Proj {
+    pub fn args(self) -> Proj {
         Proj::new(unsafe { bindings::get_irg_args(self.irg) })
+    }
+
+    pub fn no_mem(self) -> NoMem {
+        NoMem::new(unsafe { bindings::get_irg_no_mem(self.irg) })
+    }
+
+    pub fn frame(self) -> Node {
+        NodeFactory::node(unsafe { bindings::get_irg_frame(self.irg) })
     }
 
     pub fn dump(self, suffix: &str) {
         let suffix = CString::new(suffix).unwrap();
+        // use ir_dump_flags to change dump
+        // use self::bindings::ir_dump_flags_t::*;
+        // unsafe { bindings::ir_set_dump_flags(IdxLabel | NumberLabel | KeepaliveEdges | BlocksAsSubgraphs | Iredges | AllAnchors | LdNames); }
         unsafe { bindings::dump_ir_graph(self.irg, suffix.as_ptr()) }
     }
 
@@ -99,11 +116,25 @@ impl Graph {
         }
     }
 
+    pub fn nodes(self) -> Vec<Node> {
+        let mut result = Vec::new();
+        self.walk_topological(|n| {
+            result.push(*n);
+        });
+        result
+    }
+
     pub fn exchange(prev: &impl NodeTrait, new: &impl NodeTrait) {
         unsafe {
             bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
         }
     }
+
+    /*pub fn partition_block_by_node(node: &impl NodeTrait) {
+        unsafe {
+            bindings::part_block(node.internal_ir_node());
+        }
+    }*/
 
     // FIXME why does not work this with `&impl ValueNode`?
     pub fn exchange_value(prev: &dyn ValueNode, new: &dyn ValueNode) {
@@ -156,6 +187,43 @@ impl Graph {
     /// removed using `Graph::remove_bads`.
     pub fn mark_as_bad(self, node: &impl NodeTrait) {
         Graph::exchange(node, &self.new_bad(unsafe { bindings::mode::b }))
+    }
+
+    pub fn copy_node<F>(&self, node: Node, mut copy_fn: F) -> Node
+    where
+        F: FnMut(Node) -> Node,
+    {
+        unsafe {
+            let ptr = node.internal_ir_node();
+            let op = bindings::get_irn_op(ptr);
+            let mode = bindings::get_irn_mode(ptr);
+            let arity = bindings::get_irn_arity(ptr);
+
+            let block = if Node::is_block(node) {
+                ptr::null_mut()
+            } else {
+                copy_fn(node.block().into()).internal_ir_node()
+            };
+
+            let ins: Vec<_> = node
+                .in_nodes()
+                .map(|n| copy_fn(n))
+                .map(|n| n.internal_ir_node())
+                .collect();
+
+            let new_node_ptr = bindings::new_ir_node(
+                ptr::null_mut(),
+                self.irg,
+                block,
+                op,
+                mode,
+                arity,
+                ins.as_ptr(),
+            );
+            bindings::copy_node_attr(self.irg, ptr, new_node_ptr);
+
+            NodeFactory::node(new_node_ptr)
+        }
     }
 }
 
