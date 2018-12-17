@@ -6,6 +6,7 @@ mod constant_folding;
 mod constant_folding2;
 mod fixpoint;
 mod unreachable_code_elimination;
+mod inlining;
 
 pub use self::fixpoint::Fixpoint;
 
@@ -21,6 +22,7 @@ pub use self::fixpoint::Fixpoint;
 pub enum OptimizationKind {
     AlgebraicSimplification,
     ConstantFolding,
+    Inline
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -99,6 +101,7 @@ impl Optimization {
         match self.kind {
             AlgebraicSimplification => unimplemented!(),
             ConstantFolding => constant_folding2::run(program),
+            Inline => inlining::run(program),
         }
     }
 }
