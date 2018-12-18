@@ -2,9 +2,11 @@
 //!
 //! `--optimization Aggressive`
 //!
-//! or in development builds:
+//! It might also be a custom sequence with flags:
 //!
-//! `-O Custom|ConstantFolding:vcg:debug,ConstantFolding`
+//! `-O Custom:ConstantFolding.vcg.gui,OtherOpt,YetAnotherOpt`
+//!
+//! where `.vcg` and `.gui` are flags applied to the `ConstantFolding` optimization
 use compiler_lib::optimization;
 use failure::Fail;
 use std::str::FromStr;
@@ -17,9 +19,9 @@ pub enum ParseError {
     UnknownOptimization { name: String },
     #[fail(display = "unknown optimization flag ':{}'", name)]
     UnknownFlag { name: String },
-    #[fail(display = "optimization flag can only contain a single pipe")]
+    #[fail(display = "optimization flag can only contain a single separator")]
     TooManySeparators,
-    #[fail(display = "a custom optimization sequence requires a list of optimizations")]
+    #[fail(display = "a custom optimization sequence requires a non-empty list of optimizations")]
     CustomWithoutList,
 }
 

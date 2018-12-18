@@ -77,8 +77,7 @@ pub enum Level {
     /// Enables optimizations that take longer to perform or that may generate
     /// larger code in an attempt to make the program run faster.
     Aggressive,
-    /// Enables optimizations that take longer to perform or that may generate
-    /// larger code in an attempt to make the program run faster.
+    /// A user-defined sequence of optimizations
     Custom(Vec<Optimization>),
 }
 
