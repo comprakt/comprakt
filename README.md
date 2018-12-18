@@ -14,11 +14,11 @@ git clone https://github.com/comprakt/comprakt.git
 git submodule update --init --recursive
 # Install Rust using rustup and the toolchain we are using
 curl https://sh.rustup.rs -sSf | sh
-rustup toolchain install nightly-2018-10-14
+rustup toolchain install nightly-2018-12-17
 
 cd comprakt
-rustup component add clippy-preview
-rustup component add rustfmt-preview
+rustup component add clippy
+rustup component add rustfmt
 ```
 
 Additionally, make sure the following build dependencies of *libFirm* are installed (see `libfirm-rs-bindings/build.rs`):

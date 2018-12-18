@@ -6,7 +6,8 @@
 //!
 //! `-O Custom:ConstantFolding.vcg.gui,OtherOpt,YetAnotherOpt`
 //!
-//! where `.vcg` and `.gui` are flags applied to the `ConstantFolding` optimization
+//! where `.vcg` and `.gui` are flags applied to the `ConstantFolding`
+//! optimization
 use compiler_lib::optimization;
 use failure::Fail;
 use std::str::FromStr;
@@ -23,7 +24,11 @@ pub enum ParseError {
     TooManySeparators,
     #[fail(display = "a custom optimization sequence requires a non-empty list of optimizations")]
     CustomWithoutList,
-    #[fail(display = "this binary was compiled without visual debugger support. Flag `{}` cannot be used.", flag)] 
+    #[fail(
+        display = "this binary was compiled without visual debugger support. \
+                   Flag `{}` cannot be used.",
+        flag
+    )]
     NoDebuggerSupport { flag: String },
 }
 
@@ -34,9 +39,11 @@ fn parse_flag(s: &str) -> Result<optimization::Flag, ParseError> {
             if cfg!(feature = "gui_debugger") {
                 Ok(optimization::Flag::Gui)
             } else {
-                Err(ParseError::NoDebuggerSupport{flag: s.to_string()})
+                Err(ParseError::NoDebuggerSupport {
+                    flag: s.to_string(),
+                })
             }
-        },
+        }
         _ => Err(ParseError::UnknownFlag {
             name: s.to_string(),
         }),

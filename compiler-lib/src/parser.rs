@@ -649,7 +649,8 @@ where
                 .last()
                 .map_or(false, |(_, top_prec, top_assoc)| {
                     *top_prec < prec || *top_assoc == Assoc::Left && *top_prec == prec
-                }) {
+                })
+            {
                 let (top_op, _, _) = operator_stack.pop().unwrap();
                 rpn_eval(&mut operand_stack, top_op);
             }

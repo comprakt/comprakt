@@ -6,10 +6,7 @@ use super::{
 use libfirm_rs_bindings as bindings;
 use std::{
     ffi::{c_void, CString},
-    fs::File,
-    io::{BufWriter, Write},
     mem,
-    path::PathBuf,
 };
 
 impl From<crate::Graph> for Graph {

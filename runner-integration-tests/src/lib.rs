@@ -8,7 +8,7 @@ use compiler_lib::optimization::Optimization;
 use difference::Changeset;
 use failure::Fail;
 use serde::de::DeserializeOwned;
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 use std::{
     collections::HashMap,
     env,
@@ -167,8 +167,7 @@ fn tentative_file_path(reference: &PathBuf) -> PathBuf {
 enum TestFailure {
     #[fail(
         display = "not found! was expected at {:?}. wrote reference to {:?}",
-        tried,
-        wrote
+        tried, wrote
     )]
     NotFoundWroteReference { tried: PathBuf, wrote: PathBuf },
     #[fail(display = "Not found! was expected at {:?}", tried)]

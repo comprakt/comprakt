@@ -1,23 +1,24 @@
-//! Converts FIRM or LIR graphs into dot graph description language for easy debugging.
-use libfirm_rs::nodes::NodeTrait;
-use std::fs::File;
-use std::path::PathBuf;
-use std::collections::hash_map::HashMap;
-use libfirm_rs::entity::Entity;
-use libfirm_rs::graph::Graph;
+//! Converts FIRM or LIR graphs into dot graph description language for easy
+//! debugging.
 use crate::firm::Program;
-use libfirm_rs::nodes_gen::Node;
-use std::io::{Write, BufWriter};
-use serde_derive::{Serialize};
+use libfirm_rs::{entity::Entity, graph::Graph, nodes::NodeTrait, nodes_gen::Node};
+use serde_derive::Serialize;
+use std::{
+    collections::hash_map::HashMap,
+    fs::File,
+    hash::BuildHasher,
+    io::{BufWriter, Write},
+    path::PathBuf,
+};
 
-#[derive(Debug,Clone,Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct GraphState {
     class_name: String,
     method_name: String,
-    dot_file: String
+    dot_file: String,
 }
 
-pub fn default_label(node :Node) -> Label {
+pub fn default_label(node: Node) -> Label {
     Label::from_text(node.node_id().to_string(), format!("{:?}", node))
 }
 
@@ -25,25 +26,32 @@ pub trait GraphData {
     /// Transform the object into a map of unique function names
     /// to graph information in dot format
     fn graph_data<T>(&self, label_maker: &T) -> HashMap<String, GraphState>
-        where Self: Sized, T : LabelMaker;
+    where
+        Self: Sized,
+        T: LabelMaker;
 }
 
 impl<'a, 'b> GraphData for Program<'a, 'b> {
-    fn graph_data<T>(&self, label_maker: &T) -> HashMap<String, GraphState> 
-        where Self: Sized, T : LabelMaker
+    fn graph_data<T>(&self, label_maker: &T) -> HashMap<String, GraphState>
+    where
+        Self: Sized,
+        T: LabelMaker,
     {
         let mut dot_files = HashMap::new();
 
         for (class_name, class) in &self.classes {
             for (method_name, method) in &class.borrow().methods {
                 if let Some(graph) = method.borrow().graph {
-                    let graph : Graph = graph.into();
+                    let graph: Graph = graph.into();
                     let internal_name = Entity::new(method.borrow().entity.into()).name_string();
-                    dot_files.insert(internal_name.clone(), GraphState {
-                        class_name: class_name.to_string(),
-                        method_name: method_name.to_string(),
-                        dot_file: graph.into_dot_format_string(&internal_name, label_maker)
-                    });
+                    dot_files.insert(
+                        internal_name.clone(),
+                        GraphState {
+                            class_name: class_name.to_string(),
+                            method_name: method_name.to_string(),
+                            dot_file: graph.into_dot_format_string(&internal_name, label_maker),
+                        },
+                    );
                 }
             }
         }
@@ -53,22 +61,29 @@ impl<'a, 'b> GraphData for Program<'a, 'b> {
 }
 
 impl<'a, 'b> GraphData for Graph {
-    fn graph_data<T>(&self, label_maker: &T) -> HashMap<String, GraphState> 
-        where Self: Sized, T : LabelMaker
+    fn graph_data<T>(&self, label_maker: &T) -> HashMap<String, GraphState>
+    where
+        Self: Sized,
+        T: LabelMaker,
     {
         let mut dot_files = HashMap::new();
-        dot_files.insert("unknown.unknown".to_string(), GraphState {
-            class_name: "unknown".to_string(),
-            method_name: "unknown".to_string(),
-            dot_file: self.into_dot_format_string("unknown.unknown", label_maker)
-        });
+        dot_files.insert(
+            "unknown.unknown".to_string(),
+            GraphState {
+                class_name: "unknown".to_string(),
+                method_name: "unknown".to_string(),
+                dot_file: self.into_dot_format_string("unknown.unknown", label_maker),
+            },
+        );
         dot_files
     }
 }
 
 impl Dot for Graph {
-    fn into_dot_format<T>(&self, writer: &mut dyn Write, graph_name:&str, label_maker: &T)
-        where Self: Sized, T : LabelMaker
+    fn into_dot_format<T>(&self, writer: &mut dyn Write, graph_name: &str, label_maker: &T)
+    where
+        Self: Sized,
+        T: LabelMaker,
     {
         let mut list = Vec::new();
         self.walk_topological(|node| {
@@ -79,7 +94,6 @@ impl Dot for Graph {
         for node in list.iter() {
             let label = label_maker.label_for_node(*node);
             label.write_dot_format(writer);
-
 
             if !node.is_block() {
                 writeln!(
@@ -100,54 +114,66 @@ impl Dot for Graph {
     }
 }
 
-
-/// Abstraction over anything that can be transformed into labels for 
+/// Abstraction over anything that can be transformed into labels for
 /// each node in a graph
 pub trait LabelMaker {
-    fn label_for_node(&self, node :Node) -> Label;
+    fn label_for_node(&self, node: Node) -> Label;
 }
 
-
-impl<F> LabelMaker for F where F: Fn(Node) -> Label {
+impl<F> LabelMaker for F
+where
+    F: Fn(Node) -> Label,
+{
     fn label_for_node(&self, node: Node) -> Label {
         self(node)
     }
 }
 
-impl LabelMaker for HashMap<Node, Label> {
-    fn label_for_node(&self, node :Node) -> Label {
-        self.get(&node).map(|v| v.clone()).unwrap_or_else(|| {
-            Label::from_text(node.node_id().to_string(), "".to_string())
-        })
+impl<S: BuildHasher> LabelMaker for HashMap<Node, Label, S> {
+    fn label_for_node(&self, node: Node) -> Label {
+        self.get(&node)
+            .cloned()
+            .unwrap_or_else(|| Label::from_text(node.node_id().to_string(), "".to_string()))
     }
 }
 
 pub trait Dot {
-    fn dump_as_dot_file<T>(&self, filename: &PathBuf, graph_name:&str, data: &T)
-        where Self: Sized, T : LabelMaker
+    fn dump_as_dot_file<T>(&self, filename: &PathBuf, graph_name: &str, data: &T)
+    where
+        Self: Sized,
+        T: LabelMaker,
     {
         let write_file = File::create(filename).unwrap();
         let mut writer = BufWriter::new(&write_file);
         self.into_dot_format(&mut writer, graph_name, data)
     }
 
-    fn into_dot_format_string<T>(&self, graph_name:&str, data: &T) -> String
-        where Self: Sized, T : LabelMaker {
-        let mut dot_data :Vec<u8> = Vec::new();
-        self.into_dot_format(&mut dot_data, graph_name, data/*|node| {
-            Label::from_text(node.node_id().to_string(), format!("{:?}", node))
-        }*/);
+    fn into_dot_format_string<T>(&self, graph_name: &str, data: &T) -> String
+    where
+        Self: Sized,
+        T: LabelMaker,
+    {
+        let mut dot_data: Vec<u8> = Vec::new();
+        self.into_dot_format(
+            &mut dot_data,
+            graph_name,
+            data, /*|node| {
+                      Label::from_text(node.node_id().to_string(), format!("{:?}", node))
+                  }*/
+        );
         String::from_utf8_lossy(&dot_data).to_string()
     }
 
-    fn into_dot_format<T>(&self, writer: &mut dyn Write, graph_name:&str, data: &T)
-        where Self: Sized, T : LabelMaker;
+    fn into_dot_format<T>(&self, writer: &mut dyn Write, graph_name: &str, data: &T)
+    where
+        Self: Sized,
+        T: LabelMaker;
 }
 
 #[derive(Debug, Clone)]
 enum LabelText {
     Plain(String),
-    Html(String)
+    Html(String),
 }
 
 impl Default for LabelText {
@@ -158,16 +184,16 @@ impl Default for LabelText {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Color {
-    Hsv(f32,f32,f32),
-    Rgb(u8,u8,u8),
+    Hsv(f32, f32, f32),
+    Rgb(u8, u8, u8),
     X11Color(X11Color),
 }
 
 impl Color {
     fn to_dot_string(&self) -> String {
         match self {
-            Color::Hsv(h,s,v) => format!("\"{} {} {}\"", h, s, v),
-            Color::Rgb(r,g,b) => format!("\"#{:02x}{:02x}{:02x}\"", r,g,b),
+            Color::Hsv(h, s, v) => format!("\"{} {} {}\"", h, s, v),
+            Color::Rgb(r, g, b) => format!("\"#{:02x}{:02x}{:02x}\"", r, g, b),
             Color::X11Color(color) => color.to_string().to_lowercase(),
         }
     }
@@ -718,7 +744,7 @@ pub enum X11Color {
     Yellow,
     Yellow1,
     Yellow2,
-    Yellow3, 
+    Yellow3,
     Yellow4,
     YellowGreen,
 }
@@ -732,13 +758,13 @@ impl From<X11Color> for Color {
 #[derive(Display, Debug, Clone, Copy)]
 pub enum Style {
     Dashed,
-    Dotted,	
+    Dotted,
     Solid,
     Bold,
     Invisible,
     Filled,
     Diagonals,
-    Rounded
+    Rounded,
 }
 
 #[derive(Display, Debug, Clone, Copy)]
@@ -773,9 +799,9 @@ pub enum Shape {
     Folder,
     Box3D,
     Component,
-    // Must specify the record shape with a Label.
-    // Record	
-    // MRecord
+    /* Must specify the record shape with a Label.
+     * Record
+     * MRecord */
 }
 
 #[derive(Default, Debug, Clone)]
@@ -794,18 +820,14 @@ pub struct Label {
 
 impl Label {
     pub fn from_text(id: String, text: String) -> Label {
-        Label::default()
-            .text(text)
-            .id(id)
+        Label::default().text(text).id(id)
     }
 
     pub fn from_html(id: String, text: String) -> Label {
-        Label::default()
-            .html(text)
-            .id(id)
+        Label::default().html(text).id(id)
     }
 
-    pub fn style(mut self, val:Style) -> Self {
+    pub fn style(mut self, val: Style) -> Self {
         self.style = Some(val);
         self
     }
@@ -815,12 +837,12 @@ impl Label {
         self
     }
 
-    pub fn fillcolor<T : Into<Color>>(mut self, color: T) -> Self {
+    pub fn fillcolor<T: Into<Color>>(mut self, color: T) -> Self {
         self.fillcolor = Some(color.into());
         self
     }
 
-    pub fn fontcolor<T : Into<Color>>(mut self, color: T) -> Self {
+    pub fn fontcolor<T: Into<Color>>(mut self, color: T) -> Self {
         self.fontcolor = Some(color.into());
         self
     }
@@ -832,37 +854,37 @@ impl Label {
         self
     }
 
-    pub fn skew(mut self, val:f32) -> Self {
+    pub fn skew(mut self, val: f32) -> Self {
         self.skew = Some(val);
         self
     }
 
-    pub fn sides(mut self, val:u32) -> Self {
+    pub fn sides(mut self, val: u32) -> Self {
         self.sides = Some(val);
         self
     }
 
-    pub fn text(mut self, text:String) -> Self {
+    pub fn text(mut self, text: String) -> Self {
         self.text = LabelText::Plain(text);
         self
     }
 
-    pub fn append(mut self, new_text:String) -> Self {
+    pub fn append(mut self, new_text: String) -> Self {
         let new_label = match &self.text {
             LabelText::Plain(text) => LabelText::Plain(format!("{}{}", text, new_text)),
-            LabelText::Html(text) => LabelText::Html(format!("{}{}", text, new_text))
+            LabelText::Html(text) => LabelText::Html(format!("{}{}", text, new_text)),
         };
 
         self.text = new_label;
         self
     }
 
-    pub fn html(mut self, text:String) -> Self {
+    pub fn html(mut self, text: String) -> Self {
         self.text = LabelText::Html(text);
         self
     }
 
-    pub fn id(mut self, id:String) -> Self {
+    pub fn id(mut self, id: String) -> Self {
         self.id = id;
         self
     }
@@ -870,42 +892,60 @@ impl Label {
     pub fn write_dot_format(&self, writer: &mut dyn Write) {
         writeln!(
             writer,
-            "{id} [label={label}{style}{fillcolor}{fontcolor}{shape}{peripheries}{skew}{distortion}{sides}];",
-            id=self.id,
-            label=match self.text {
-                // TODO: escape 
+            "{id} [label={label}{style}{fillcolor}{fontcolor}{shape}\
+             {peripheries}{skew}{distortion}{sides}];",
+            id = self.id,
+            label = match self.text {
+                // TODO: escape
                 LabelText::Plain(ref text) => dot_string(&text),
                 LabelText::Html(ref text) => format!("<{}>", text),
             },
-            style={
-                self.style.map(|v| format!(",style={}",v.to_string().to_lowercase())).unwrap_or("".to_string())
+            style = {
+                self.style
+                    .map(|v| format!(",style={}", v.to_string().to_lowercase()))
+                    .unwrap_or_else(|| "".to_string())
             },
-            fillcolor={
-                self.fillcolor.map(|v| format!(",fillcolor={}", v.to_dot_string())).unwrap_or("".to_string())
+            fillcolor = {
+                self.fillcolor
+                    .map(|v| format!(",fillcolor={}", v.to_dot_string()))
+                    .unwrap_or_else(|| "".to_string())
             },
-            fontcolor={
-                self.fontcolor.map(|v| format!(",fontcolor={}", v.to_dot_string())).unwrap_or("".to_string())
+            fontcolor = {
+                self.fontcolor
+                    .map(|v| format!(",fontcolor={}", v.to_dot_string()))
+                    .unwrap_or_else(|| "".to_string())
             },
-            shape={
-                format!(",shape={}", self.shape.unwrap_or(Shape::Box).to_string().to_lowercase())
+            shape = {
+                format!(
+                    ",shape={}",
+                    self.shape.unwrap_or(Shape::Box).to_string().to_lowercase()
+                )
             },
-            peripheries={
-                self.peripheries.map(|v| format!(",peripheries={}", v)).unwrap_or("".to_string())
+            peripheries = {
+                self.peripheries
+                    .map(|v| format!(",peripheries={}", v))
+                    .unwrap_or_else(|| "".to_string())
             },
-            skew={
-                self.skew.map(|v| format!(",skew={}", v)).unwrap_or("".to_string())
+            skew = {
+                self.skew
+                    .map(|v| format!(",skew={}", v))
+                    .unwrap_or_else(|| "".to_string())
             },
-            distortion={
-                self.distortion.map(|v| format!(",distortion={}", v)).unwrap_or("".to_string())
+            distortion = {
+                self.distortion
+                    .map(|v| format!(",distortion={}", v))
+                    .unwrap_or_else(|| "".to_string())
             },
-            sides={
-                self.sides.map(|v| format!(",sides={}", v)).unwrap_or("".to_string())
+            sides = {
+                self.sides
+                    .map(|v| format!(",sides={}", v))
+                    .unwrap_or_else(|| "".to_string())
             },
         )
         .unwrap();
     }
 }
 
-fn dot_string(string:&str) -> String {
+fn dot_string(string: &str) -> String {
     format!("\"{}\"", string.replace("\"", "'").replace("\n", "\\n"))
 }

@@ -17,10 +17,7 @@ pub enum SemanticError {
         name: String, // name of the parameter class...
     },
 
-    #[fail(
-        display = "Usage of the parameter '{}' of the main function",
-        name
-    )]
+    #[fail(display = "Usage of the parameter '{}' of the main function", name)]
     MainMethodParamUsed { name: String },
 
     #[fail(display = "Only the 'main' method can be static")]
@@ -73,8 +70,7 @@ pub enum SemanticError {
 
     #[fail(
         display = "invalid type: Expected expression of type '{}', but was of type '{}'",
-        ty_expected,
-        ty_expr
+        ty_expected, ty_expr
     )]
     InvalidType {
         ty_expected: String,
@@ -90,24 +86,15 @@ pub enum SemanticError {
     #[fail(display = "cannot index non-array type '{}'", ty)]
     CannotIndexNonArrayType { ty: String },
 
-    #[fail(
-        display = "method '{}' does not exist on type '{}'",
-        method_name,
-        ty
-    )]
+    #[fail(display = "method '{}' does not exist on type '{}'", method_name, ty)]
     MethodDoesNotExistOnType { method_name: String, ty: String },
 
-    #[fail(
-        display = "field '{}' does not exist on type '{}'",
-        field_name,
-        ty
-    )]
+    #[fail(display = "field '{}' does not exist on type '{}'", field_name, ty)]
     FieldDoesNotExistOnType { field_name: String, ty: String },
 
     #[fail(
         display = "method argument count does not match: Expected {} arguments, but found {}",
-        expected_args,
-        actual_args
+        expected_args, actual_args
     )]
     MethodArgCountDoesNotMatch {
         expected_args: usize,
@@ -116,18 +103,15 @@ pub enum SemanticError {
 
     #[fail(
         display = "cannot compare values of type '{}' with values of type '{}'",
-        ty1,
-        ty2
+        ty1, ty2
     )]
     CannotCompareValuesOfType1WithType2 { ty1: String, ty2: String },
 
     #[fail(display = "not a statement")]
     NotAStatement,
 
-    #[fail(
-        display = "invalid assignment - can only assign to \
-                   local variables, parameters, field and array fields"
-    )]
+    #[fail(display = "invalid assignment - can only assign to \
+                      local variables, parameters, field and array fields")]
     InvalidAssignment,
 
     #[fail(display = "Cannot write to read-only field '{}'", field_name)]

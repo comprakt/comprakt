@@ -1,3 +1,4 @@
+// TODO: forward write! failures using a Result instead of `ok()`ing them.
 use crate::{ast, visitor::NodeKind};
 use failure::Error;
 
@@ -18,16 +19,16 @@ impl<'w> IndentPrinter<'w> {
 
     fn print(&mut self, args: std::fmt::Arguments<'_>) {
         self.indent_if_required();
-        write!(self.writer, "{}", args);
+        write!(self.writer, "{}", args).ok();
     }
 
     fn print_str(&mut self, str: &str) {
         self.indent_if_required();
-        write!(self.writer, "{}", str);
+        write!(self.writer, "{}", str).ok();
     }
 
     fn newline(&mut self) {
-        writeln!(self.writer);
+        writeln!(self.writer).ok();
         self.indent_on_next_write = true;
     }
 
@@ -38,7 +39,7 @@ impl<'w> IndentPrinter<'w> {
 
     fn indent_if_required(&mut self) {
         if self.indent_on_next_write {
-            write!(self.writer, "{}", &"\t".repeat(self.indent));
+            write!(self.writer, "{}", &"\t".repeat(self.indent)).ok();
             self.indent_on_next_write = false;
         }
     }

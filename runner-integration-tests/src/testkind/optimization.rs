@@ -1,5 +1,5 @@
-use compiler_lib::optimization;
 use crate::*;
+use compiler_lib::optimization;
 use serde_derive::Deserialize;
 use std::{
     fs::File,
@@ -124,8 +124,8 @@ pub fn exec_optimization_test(input: PathBuf) {
     // 1.) compile asm and binary for the unoptimized reference binary
     //     this is either
     //     - the file specified by 'expect: IsIdenticalTo: path"
-    //     - or the same file as the optimized file, but without optimizations
-    //       if 'expect: Change/Unchanged'.
+    //     - or the same file as the optimized file, but without optimizations if
+    //       'expect: Change/Unchanged'.
     // 2.) compile asm and binary of the input file with the given optimizations
     // 3.) Assert
     //     - that stdout/stderr/exitcode are the same for both binaries

@@ -104,7 +104,7 @@ pub enum Flag {
     /// in yComp.
     DumpVcg,
     /// Start the interactive web-based graphical debugger
-    Gui
+    Gui,
 }
 
 #[derive(Clone, Debug)]
@@ -131,7 +131,7 @@ impl Optimization {
         outcome
     }
 
-    fn apply_flags(&self, program: &Program<'_,'_>) {
+    fn apply_flags(&self, program: &Program<'_, '_>) {
         if self.has_flag(Flag::DumpVcg) {
             unsafe {
                 let suffix = CString::new(format!("-{}", self.kind)).unwrap();
@@ -141,7 +141,7 @@ impl Optimization {
 
         if self.has_flag(Flag::Gui) {
             let label = format!("After running optimization '{}'", self.kind);
-            breakpoint!(label,program);
+            breakpoint!(label, program);
         }
     }
 }
