@@ -8,7 +8,7 @@ use libfirm_rs::{
     tarval::{mode_name, Tarval},
 };
 use std::collections::{hash_map::HashMap, VecDeque};
-use crate::dot::default_label;
+use crate::dot::{default_label, X11Color, Style, Shape};
 
 pub struct ConstantFolding {
     values: HashMap<Node, Tarval>,
@@ -37,11 +37,12 @@ impl ConstantFolding {
         }
 
         breakpoint!("Constant Folding: tarvals at beginning", graph, &|node| {
-            let mut label = default_label(node);
+            let mut label = default_label(node)
+                .html(format!("<TABLE CELLBORDER=\"1\" CELLSPACING=\"0\" BORDER=\"0\"><TR><TD>ID</TD><TD>{}</TD></TR><TR><TD>Kind</TD><TD>{:?}</TD></TR>", node.node_id(), node));
             if let Some(tarval) = values.get(&node) {
-                label.append(format!("\n{:?}", tarval));
+                label = label.append(format!("<TR><TD>Tarval</TD><TD>{:?}</TD></TR>", tarval));
             }
-            label
+            label.append("</TABLE>".to_string())
         });
 
         // the first node is always the start _block_
@@ -149,16 +150,19 @@ impl ConstantFolding {
             }
 
             breakpoint!("Constant Folding: iteration", self.graph, &|node| {
-                let mut label = default_label(node);
+                let mut label = default_label(node)
+                    .html(format!("<TABLE CELLBORDER=\"1\" CELLSPACING=\"0\" BORDER=\"0\"><TR><TD>ID</TD><TD>{}</TD></TR><TR><TD>Kind</TD><TD>{:?}</TD></TR>", node.node_id(), node));
                 if let Some(tarval) = self.values.get(&node) {
-                    label.append(format!("\n{:?}", tarval));
+                    label = label.append(format!("<TR><TD>Tarval</TD><TD>{:?}</TD></TR>", tarval));
                 }
 
                 if node == cur {
-                    label.dotted(true);
+                    label = label
+                        .style(Style::Filled)
+                        .fillcolor(X11Color::Blue);
                 }
 
-                label
+                label.append("</TABLE>".to_string())
             });
         }
 
@@ -176,6 +180,19 @@ impl ConstantFolding {
                     continue;
                 }
                 collector.push(Outcome::Changed);
+
+                breakpoint!(format!("Constant Folding: exchange {} before", node.node_id()), self.graph, &|cur| {
+                    let mut label = default_label(cur);
+                    if let Some(tarval) = self.values.get(&cur) {
+                        label = label.append(format!("\n{:?}", tarval));
+                    }
+
+                    if cur == *node {
+                        label = label.style(Style::Filled).fillcolor(X11Color::Blue).fontcolor(X11Color::White)
+                    }
+
+                    label
+                });
 
                 log::debug!("EXCHANGE NODE {:?} val={:?}", node, v);
                 let const_node = Node::Const(self.graph.new_const(*v));
@@ -212,10 +229,10 @@ impl ConstantFolding {
                     }
                 }
 
-                breakpoint!(format!("Constant Folding: exchange {}", node.node_id()), self.graph, &|node| {
+                breakpoint!(format!("Constant Folding: exchange {} after", node.node_id()), self.graph, &|node| {
                     let mut label = default_label(node);
                     if let Some(tarval) = self.values.get(&node) {
-                        label.append(format!("\n{:?}", tarval));
+                        label = label.append(format!("\n{:?}", tarval));
                     }
                     label
                 });
