@@ -1,6 +1,3 @@
-//!
-//!
-//! # Sequence of Optimizations
 use crate::firm::Program;
 use libfirm_rs::{bindings, graph::Graph};
 use std::ffi::CString;
@@ -10,15 +7,14 @@ use self::constant_folding::ConstantFolding;
 mod unreachable_code_elimination;
 use self::unreachable_code_elimination::UnreachableCodeElimination;
 
-/// An optimization that optimizes the whole program by
-/// examining all function graphs at once.
+/// An optimization that optimizes the whole program by examining all function
+/// graphs at once.
 pub trait Interprocedural {
     fn optimize(program: &Program<'_, '_>) -> Outcome;
 }
 
-/// An optimization that only works on a single graph
-/// and therefore does not optimize across function call
-/// boundaries.
+/// An optimization that only works on a single graph and therefore does not
+/// optimize across function call boundaries.
 pub trait Local {
     fn optimize_function(graph: Graph) -> Outcome;
 }
@@ -64,9 +60,8 @@ impl Kind {
     }
 }
 
-/// These are predefined sequences of optimizations, in
-/// clang and gcc these are called `-O1`, `-O3`, `-Os`
-/// and so forth.
+/// These are predefined sequences of optimizations (in clang and gcc these are
+/// called `-O1`, `-O3`, `-Os` and so forth).
 #[derive(Debug, Clone)]
 pub enum Level {
     /// This level compiles the fastest and generates the most debuggable code
@@ -146,7 +141,6 @@ impl Optimization {
     }
 }
 
-///
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Outcome {
     Unchanged,
@@ -177,7 +171,8 @@ impl OutcomeCollector {
 }
 
 impl Level {
-    /// run a list of optimizations on the given program
+    /// run the list of optimizations defined by the optimization level
+    /// on the given program
     pub fn run_all(&self, program: &Program<'_, '_>) {
         breakpoint!("before optimization sequence".to_string(), program);
 

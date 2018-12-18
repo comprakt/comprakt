@@ -1,9 +1,8 @@
-//! This is a browser based graphical debugger for libfirm graphs.
-//! Simply drop
+//! This is a browser-based graphical debugger for FIRM graphs.
 //!
 //! # Usage
 //!
-//! Use the `breakpoint!` macro to interact with the graphical debugger.
+//! All interaction with the debugger is done through the `breakpoint!` macro.
 //! The macro can be called in two variants:
 //!
 //! `breakpoint!(label:&str,compiler_state:firm::Program|Graph)` will
@@ -20,14 +19,18 @@
 //! // assume a context similar to:
 //! // let values :HashMap<Node,Tarval> = HashMap::new();
 //! // while let Some(cur) = next_node()
-//! breakpoint!("Constant Folding: iteration", graph, &|node| {
-//!     let mut label = default_label(node); // prints node id and node kind
-//!     if let Some(tarval) = values.get(&node) {
-//!         label.append(format!("\n{:?}", tarval));
+//! breakpoint!("Constant Folding: iteration", self.graph, &|node| {
+//!     let mut label = default_label(node);
+//!
+//!     if let Some(tarval) = self.values.get(&node) {
+//!         label = label.append(format!("\n{:?}", tarval));
 //!     }
 //!
 //!     if node == cur {
-//!         label.dotted(true);
+//!         label = label
+//!             .style(Style::Filled)
+//!             .fillcolor(X11Color::Blue)
+//!             .fontcolor(X11Color::White);
 //!     }
 //!
 //!     label
