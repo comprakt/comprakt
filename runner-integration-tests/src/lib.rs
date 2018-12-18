@@ -71,7 +71,10 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
                 flags.push(path.as_os_str().to_os_string());
             }
 
-            if !optimizations.is_empty() {
+            if optimizations.is_empty() {
+                flags.push(OsString::from("-O"));
+                flags.push(OsString::from("None"));
+            } else {
                 let vals: String = optimizations
                     .into_iter()
                     .map(|opt| opt.kind.to_string())

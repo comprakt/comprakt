@@ -255,6 +255,9 @@ pub fn exec_optimization_test(input: PathBuf) {
     let normalized_optimized_asm = normalize_asm(&asm_optimized);
     let normalized_reference_asm = normalize_asm(&asm_reference);
 
+    write(&Some(add_extension(&path_asm_optimized, "normalized")), &normalized_optimized_asm).unwrap();
+    write(&Some(add_extension(&path_asm_reference, "normalized")), &normalized_reference_asm).unwrap();
+
     match test_data.reference.expect {
         AsmComparisonOutcome::Change => {
             if normalized_reference_asm == normalized_optimized_asm {
@@ -275,7 +278,12 @@ pub fn exec_optimization_test(input: PathBuf) {
             &normalized_reference_asm,
             &normalized_optimized_asm,
         )
-        .unwrap_or_else(|msg| panic!("{}. expected asm to be unchanged.", msg.to_string())),
+        .unwrap_or_else(|msg| match test_data.reference.expect {
+                AsmComparisonOutcome::Unchanged => {
+                        panic!("{}. expected asm to be unchanged.", msg.to_string()) },
+                _ => {
+                        panic!("{}. expected asm to be identical to reference.", msg.to_string())
+                }}),
     };
 }
 
