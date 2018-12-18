@@ -30,6 +30,7 @@ pub mod parser;
 pub mod visitor;
 pub mod dot;
 #[macro_use]
+#[allow(dead_code)]
 pub mod debugging;
 pub mod firm;
 pub mod optimization;

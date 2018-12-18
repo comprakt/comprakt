@@ -23,12 +23,20 @@ pub enum ParseError {
     TooManySeparators,
     #[fail(display = "a custom optimization sequence requires a non-empty list of optimizations")]
     CustomWithoutList,
+    #[fail(display = "this binary was compiled without visual debugger support. Flag `{}` cannot be used.", flag)] 
+    NoDebuggerSupport { flag: String },
 }
 
 fn parse_flag(s: &str) -> Result<optimization::Flag, ParseError> {
     match s.to_ascii_lowercase().as_str() {
         "d" | "vcg" => Ok(optimization::Flag::DumpVcg),
-        "g" | "gui" => Ok(optimization::Flag::Gui),
+        "g" | "gui" => {
+            if cfg!(feature = "gui_debugger") {
+                Ok(optimization::Flag::Gui)
+            } else {
+                Err(ParseError::NoDebuggerSupport{flag: s.to_string()})
+            }
+        },
         _ => Err(ParseError::UnknownFlag {
             name: s.to_string(),
         }),

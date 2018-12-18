@@ -152,6 +152,25 @@ and accepted the PR you can tell this `bors`, by commenting with (for example)
 More commands for the bors-bot can be found in the
 [documentation](https://bors.tech/documentation/).
 
+## Using the Visual Debugger
+
+The visual debugger is disabled by default. To enable it, enable the
+`gui_debugger` feature during compilation. For example, to debug the constant
+folding optimization run the following commands and then open
+`http://localhost:8000`.
+
+```
+cd compiler-cli
+cargo run --features "gui_debugger" -- --emit-asm my_file.mj  -O Custom:ConstantFolding.gui
+```
+
+You should see an interface that looks similar to the screenshot below.
+The debugger will halt at each location annotated with the `breakpoint!`
+macro. For a detailed explanation see the module-level documentation of
+`compiler_lib::debugger`.
+
+![Debugger Screenshot](readme-images/debugger_screenshot.png)
+
 ---
 ## License
 

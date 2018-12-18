@@ -62,6 +62,7 @@ lazy_static::lazy_static! {
     static ref GUI: Mutex<Option<GuiThread>> = Mutex::new(None);
 }
 
+#[cfg(feature = "gui_debugger")]
 #[macro_export]
 macro_rules! breakpoint {
     ($label:expr, $prog:expr) => {{
@@ -80,6 +81,13 @@ macro_rules! breakpoint {
             column: column!(),
             file: file!()
         }, $prog.graph_data($labels)); }};
+}
+
+#[cfg(not(feature = "gui_debugger"))]
+#[macro_export]
+macro_rules! breakpoint {
+    ($label:expr, $prog:expr) => {{ }};
+    ($label:expr, $prog:expr, $labels:expr) => {{ }};
 }
 
 fn gui_thread() -> &'static GUI {
@@ -103,6 +111,11 @@ fn spawn_gui_thread() {
     });
 }
 
+#[cfg(not(feature = "gui_debugger"))]
+pub fn pause(_breakpoint: Breakpoint, _program :HashMap<String, GraphState>) {
+}
+
+#[cfg(feature = "gui_debugger")]
 pub fn pause(breakpoint: Breakpoint, program :HashMap<String, GraphState>) {
     log::debug!("waiting at breakpoint: {:?}", breakpoint);
     let state = CompiliationState::new(breakpoint, program);
@@ -162,7 +175,7 @@ struct CompiliationState {
 }
 
 impl CompiliationState {
-    pub fn new(breakpoint: Breakpoint, program : HashMap<String, GraphState>) -> Self {
+    fn new(breakpoint: Breakpoint, program : HashMap<String, GraphState>) -> Self {
         
         Self {
             breakpoint,
@@ -209,7 +222,7 @@ fn check_updates(debugger: &State<'_, DebuggerState>) {
 }
 
 #[get("/snapshot/latest")]
-fn breakpoint(debugger: State<DebuggerState>) -> Result<Json<Option<CompiliationState>>, Status> {
+fn breakpoint(debugger: State<'_, DebuggerState>) -> Result<Json<Option<CompiliationState>>, Status> {
     // we have a http server --> compiler channel, build a compiler --> http server channel that
     // can be used for anwsering
     check_updates(&debugger);
@@ -217,7 +230,7 @@ fn breakpoint(debugger: State<DebuggerState>) -> Result<Json<Option<Compiliation
 }
 
 #[get("/snapshot/<index>")]
-fn snapshot_at_index(index: usize, debugger: State<DebuggerState>) -> Result<Json<Option<CompiliationState>>, Status> {
+fn snapshot_at_index(index: usize, debugger: State<'_, DebuggerState>) -> Result<Json<Option<CompiliationState>>, Status> {
     // we have a http server --> compiler channel, build a compiler --> http server channel that
     // can be used for anwsering
     check_updates(&debugger);
@@ -225,7 +238,7 @@ fn snapshot_at_index(index: usize, debugger: State<DebuggerState>) -> Result<Jso
 }
 
 #[get("/breakpoint/all")]
-fn breakpoint_list(debugger: State<DebuggerState>) -> Result<Json<Vec<Breakpoint>>, Status> {
+fn breakpoint_list(debugger: State<'_, DebuggerState>) -> Result<Json<Vec<Breakpoint>>, Status> {
     check_updates(&debugger);
     Ok(Json(debugger.0.breakpoints.read().unwrap().iter().map(|v| {
         v.breakpoint.clone()

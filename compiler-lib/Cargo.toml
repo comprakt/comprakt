@@ -38,3 +38,10 @@ criterion = "0.2"
 [[bench]]
 name = "symtab_bench"
 harness = false
+
+[features]
+default = [ ]
+# This feature enables the `breakpoint!` macro, which
+# among other things, is used to implement the `gui`
+# flag in custom optimization sequences.
+gui_debugger = [ ]
