@@ -317,6 +317,7 @@ impl BlockGraph {
                         slot.borrow().firm
                     )));
                 }
+
                 for edge in block.preds.iter() {
                     edge.upgrade()
                         .unwrap()
@@ -346,7 +347,8 @@ impl BlockGraph {
             .clone()
     }
 
-    /// Iterate over all basic blocks in `self` in a breadth-first manner
+    /// Iterate over all basic blocks in `self` in a breadth-first manner (in
+    /// control flow direction, starting at the start block)
     pub fn iter_blocks<'g>(&'g self) -> impl Iterator<Item = MutRc<BasicBlock>> + 'g {
         let mut visit_list = VecDeque::new();
         visit_list.push_front(MutRc::clone(&self.head));
@@ -358,6 +360,20 @@ impl BlockGraph {
         }
     }
 
+    /// Iterate over all control flow transfers in `self` in a breadth-first
+    /// manner
+    pub fn iter_control_flows<'g>(
+        &'g self,
+    ) -> impl Iterator<Item = MutRc<ControlFlowTransfer>> + 'g {
+        self.iter_blocks().flat_map(|block| {
+            block
+                .borrow()
+                .succs
+                .iter()
+                .map(MutRc::clone)
+                .collect::<Vec<_>>()
+        })
+    }
 }
 
 struct BasicBlockIter<'g> {
