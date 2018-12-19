@@ -450,6 +450,10 @@ impl MutRc<BasicBlock> {
         self.new_multislot(MutRc::downgrade(self))
     }
 
+    /// TODO This function makes the assupmtion that is not used for `value`s
+    /// that are the inputs to phi nodes (instead
+    /// `new_multislot`, `add_possible_value` and `add_incoming_value_flow` are
+    /// used seperately in that case). BE AWARE OF THIS when refactoring
     fn new_slot(
         &self,
         value: libfirm_rs::nodes::Node,
@@ -479,11 +483,19 @@ impl MutRc<BasicBlock> {
                 .new_multislot(terminates_in)
                 .add_possible_value(value, originates_in);
 
-            // If the value is foreign, we need to "get it" from each blocks above us,
-            // to pass it through to the block below us. This only happens if this function
-            // is called from `ControlFlowtransfer::add_incoming_value_flow`.
-            let originates_here = upborrow!(slot.borrow().allocated_in).firm
-                == upborrow!(slot.borrow().originates_in).firm;
+            // If the value is foreign, we need to "get it" from each blocks above us.
+            // Note: In libfirm, const nodes are all in the start block, no matter where
+            // they are used, however we don't want or need to transfer them down to the
+            // usage from the start block, so we can treat a const node as "originating
+            // here".
+            // DANGER: We cannot make this assumption if this node is used as input to a
+            // phi node in this block, because the value need to originate in the
+            // corresponding cfg_pred. However, when creating slots for the inputs of phi
+            // nodes, this function (`MutRc<BasicBlock>::new_slot`), in not used. So the
+            // assumption holds, but BE AWARE OF THIS when refactoring.
+            let originates_here = slot.borrow().firm.is_const()
+                || upborrow!(slot.borrow().allocated_in).firm
+                    == upborrow!(slot.borrow().originates_in).firm;
             if !originates_here {
                 for incoming_edge in &self.borrow().preds {
                     incoming_edge
