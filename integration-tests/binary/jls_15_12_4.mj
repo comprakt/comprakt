@@ -1,0 +1,11 @@
+class Test {
+    public static void main(String[] args) {
+        Test t = new Test();
+        t.test(1).test(2);
+    }
+
+    public Test test(int i) {
+        System.out.println(i);
+        return this;
+    }
+}

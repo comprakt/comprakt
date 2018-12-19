@@ -14,11 +14,11 @@ git clone https://github.com/comprakt/comprakt.git
 git submodule update --init --recursive
 # Install Rust using rustup and the toolchain we are using
 curl https://sh.rustup.rs -sSf | sh
-rustup toolchain install nightly-2018-10-14
+rustup toolchain install nightly-2018-12-17
 
 cd comprakt
-rustup component add clippy-preview
-rustup component add rustfmt-preview
+rustup component add clippy
+rustup component add rustfmt
 ```
 
 Additionally, make sure the following build dependencies of *libFirm* are installed (see `libfirm-rs-bindings/build.rs`):
@@ -151,6 +151,25 @@ and accepted the PR you can tell this `bors`, by commenting with (for example)
 
 More commands for the bors-bot can be found in the
 [documentation](https://bors.tech/documentation/).
+
+## Using the Visual Debugger
+
+The visual debugger is disabled by default. To enable it, enable the
+`gui_debugger` feature during compilation. For example, to debug the constant
+folding optimization run the following commands and then open
+`http://localhost:8000`.
+
+```
+cd compiler-cli
+cargo run --features "gui_debugger" -- --emit-asm my_file.mj  -O Custom:ConstantFolding.gui
+```
+
+You should see an interface that looks similar to the screenshot below.
+The debugger will halt at each location annotated with the `breakpoint!`
+macro. For a detailed explanation see the module-level documentation of
+`compiler_lib::debugger`.
+
+![Debugger Screenshot](readme-images/debugger_screenshot.png)
 
 ---
 ## License

@@ -1,0 +1,13 @@
+class EvalOrder {
+    public int n;
+    public static void main(String[] args) {
+        EvalOrder a = new EvalOrder();
+        int x = a.u();
+        System.out.println(x);
+        System.out.println(a.n);
+    }
+
+    public int u() {
+        return n = 42;
+    }
+}

@@ -1,0 +1,12 @@
+class Test1 {
+    public static void main(String[] args) {
+        Test1 t = new Test1();
+        int s = 1;
+        t.print3(s, s, s = 2);
+    }
+    public void print3(int a, int b, int c) {
+        System.out.println(a);
+        System.out.println(b);
+        System.out.println(c);
+    }
+}

@@ -8,7 +8,7 @@ use compiler_lib::optimization::Optimization;
 use difference::Changeset;
 use failure::Fail;
 use serde::de::DeserializeOwned;
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 use std::{
     collections::HashMap,
     env,
@@ -71,15 +71,18 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
                 flags.push(path.as_os_str().to_os_string());
             }
 
-            if !optimizations.is_empty() {
-                let val: String = optimizations
+            if optimizations.is_empty() {
+                flags.push(OsString::from("-O"));
+                flags.push(OsString::from("None"));
+            } else {
+                let vals: String = optimizations
                     .into_iter()
                     .map(|opt| opt.kind.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
 
                 flags.push(OsString::from("-O"));
-                flags.push(OsString::from(val));
+                flags.push(OsString::from(format!("custom:{}", vals)));
             }
 
             return flags;
@@ -167,8 +170,7 @@ fn tentative_file_path(reference: &PathBuf) -> PathBuf {
 enum TestFailure {
     #[fail(
         display = "not found! was expected at {:?}. wrote reference to {:?}",
-        tried,
-        wrote
+        tried, wrote
     )]
     NotFoundWroteReference { tried: PathBuf, wrote: PathBuf },
     #[fail(display = "Not found! was expected at {:?}", tried)]

@@ -92,10 +92,10 @@ impl LineNumberCache {
     /// are out of range. Prefer the safe API of the `Position` struct
     /// instead.
     pub fn row(&self, byte_offset: usize) -> usize {
-        // - binary_search always gives the index of the smaller number
-        //   if the fiven offset lies between two newlines.
-        // - binary_search returns len() if the number is bigger than
-        //   everything seen
+        //
+        // - binary_search always gives the index of the smaller number if the fiven
+        //   offset lies between two newlines.
+        // - binary_search returns len() if the number is bigger than everything seen
         // => the returned index is always the row-number.
         match self.linebreaks.binary_search(&byte_offset) {
             Err(row) => row,

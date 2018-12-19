@@ -1,0 +1,21 @@
+class Test2 {
+    public static void main(String[] args) {
+        Test2 t = new Test2();
+        System.out.println(t.array()[t.test()]);
+    }
+
+    public int[] array() {
+        System.out.println(5);
+        int[] ret = new int[3];
+        ret[0] = 5;
+        ret[1] = 5;
+        ret[2] = 5;
+        int x = 1 / 0;
+        return ret;
+    }
+
+    public int test() {
+        System.out.println(10);
+        return 0;
+    }
+}

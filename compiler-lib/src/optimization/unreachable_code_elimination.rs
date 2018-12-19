@@ -1,5 +1,4 @@
-use super::{OptimizationResult, OptimizationResultCollector};
-use crate::firm::Program;
+use crate::optimization::{self, Outcome};
 use libfirm_rs::{
     bindings,
     graph::Graph,
@@ -7,21 +6,15 @@ use libfirm_rs::{
     nodes_gen::{Node, ProjKind},
 };
 
-struct UnreachableCodeElimination {
+pub struct UnreachableCodeElimination {
     graph: Graph,
 }
 
-pub fn run(program: &Program<'_, '_>) -> OptimizationResult {
-    let mut collector = OptimizationResultCollector::new();
-    for class in program.classes.values() {
-        for method in class.borrow().methods.values() {
-            if let Some(graph) = method.borrow().graph {
-                log::debug!("Graph for Method: {:?}", method.borrow().entity.name());
-                collector.push(UnreachableCodeElimination::new(graph.into()).run());
-            }
-        }
+impl optimization::Local for UnreachableCodeElimination {
+    fn optimize_function(graph: Graph) -> Outcome {
+        let mut elimination = UnreachableCodeElimination::new(graph);
+        elimination.run()
     }
-    collector.result()
 }
 
 impl UnreachableCodeElimination {
@@ -29,7 +22,7 @@ impl UnreachableCodeElimination {
         Self { graph }
     }
 
-    fn run(&mut self) -> OptimizationResult {
+    fn run(&mut self) -> Outcome {
         unsafe {
             bindings::assure_irg_outs(self.graph.into());
         }
@@ -144,9 +137,9 @@ impl UnreachableCodeElimination {
         self.graph.remove_bads();
 
         if replacements.len() + dangling_nontarget_blocks.len() > 0 {
-            OptimizationResult::Changed
+            Outcome::Changed
         } else {
-            OptimizationResult::Unchanged
+            Outcome::Unchanged
         }
     }
 }

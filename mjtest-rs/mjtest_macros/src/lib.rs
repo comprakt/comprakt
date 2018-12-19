@@ -81,13 +81,13 @@ impl GenArgs {
         let mut tcdef = proc_macro2::TokenStream::new();
         case.to_tokens(&mut tcdef);
         let ignore = if self.release_only.contains(case.file_name()) && cfg!(debug_assertions) {
-            quote!{ #[ignore] }
+            quote! { #[ignore] }
         } else {
-            quote!{}
+            quote! {}
         };
         let test_name = TokenTree::Ident(Ident::new(&case.test_name(), Span::call_site()));
         let handler = &self.handler;
-        let test = quote!{
+        let test = quote! {
             #ignore
             #[test]
             fn #test_name() {

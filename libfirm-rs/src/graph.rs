@@ -7,10 +7,7 @@ use super::{
 use libfirm_rs_bindings as bindings;
 use std::{
     ffi::{c_void, CString},
-    fs::File,
-    io::{BufWriter, Write},
     mem,
-    path::PathBuf,
 };
 
 impl From<crate::Graph> for Graph {
@@ -159,73 +156,6 @@ impl Graph {
     /// removed using `Graph::remove_bads`.
     pub fn mark_as_bad(self, node: &impl NodeTrait) {
         Graph::exchange(node, &self.new_bad(unsafe { bindings::mode::b }))
-    }
-
-    pub fn dump_dot_data<T>(self, filename: &PathBuf, data: T)
-    where
-        T: Fn(Node) -> NodeData,
-    {
-        let write_file = File::create(filename).unwrap();
-        let mut writer = BufWriter::new(&write_file);
-
-        let mut list = Vec::new();
-        self.walk_topological(|node| {
-            list.push(*node);
-        });
-
-        writeln!(writer, "digraph G {{").unwrap();
-        for node in list.iter() {
-            let node_data = data(*node);
-            writeln!(
-                writer,
-                "{:?} [label=\"{}\", style={}, shape=box{}];",
-                node.node_id(),
-                node_data.text.replace("\"", "'").replace("\n", "\\n"),
-                if node_data.filled { "filled" } else { "none" },
-                if node_data.bold { ", penwidth=3" } else { "" },
-            )
-            .unwrap();
-
-            if !node.is_block() {
-                writeln!(
-                    writer,
-                    "{:?} -> {:?} [color=blue];",
-                    node.block().node_id(),
-                    node.node_id()
-                )
-                .unwrap();
-            }
-            for ref_node in node.in_nodes() {
-                writeln!(writer, "{:?} -> {:?};", ref_node.node_id(), node.node_id()).unwrap();
-            }
-        }
-        writeln!(writer, "}}").unwrap();
-
-        writer.flush().unwrap();
-    }
-}
-
-pub struct NodeData {
-    text: String,
-    filled: bool,
-    bold: bool,
-}
-
-impl NodeData {
-    pub fn new(text: String) -> NodeData {
-        NodeData {
-            text,
-            filled: false,
-            bold: false,
-        }
-    }
-
-    pub fn filled(&mut self, val: bool) {
-        self.filled = val;
-    }
-
-    pub fn bold(&mut self, val: bool) {
-        self.bold = val;
     }
 }
 

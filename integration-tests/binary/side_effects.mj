@@ -1,0 +1,66 @@
+class Main {
+    public int i;
+    public static void main(String[] args) {
+        Main m = new Main();
+        int x = m.ret_side(); /* prints 0 */
+
+        System.out.write(10);
+
+        m.i = 1;
+        m.getSelf().i = 10; /* prints 1 */
+        if (m.getSelfChangeI(2).i == 2) {
+            System.out.println(2);
+            m.getSelfChangeI(2).i = 10;
+            if (m.i == 10) {
+                System.out.println(3);
+            }
+        }
+
+        System.out.write(10);
+
+        int[] arr = new int[10];
+        x = 0;
+        int y = 1;
+        if (arr[arr[x] = y] == 0 && arr[x] == 1) {
+            System.out.println(2);
+        }
+
+        System.out.write(10);
+
+        y = 3;
+        arr[(x = y)] = x;
+        System.out.println(x); /* prints 3 */
+        System.out.println(y); /* prints 3 */
+        System.out.println(arr[x]); /* prints 3 */
+        System.out.println(arr[y]); /* prints 3 */
+
+        System.out.write(10);
+
+        m.side_effect(0, m.side_effect(1, m.side_effect(2, 0))); /* prints 210 */
+    }
+
+    public int side_int() {
+        System.out.println(0);
+        return 0;
+    }
+
+    public int ret_side() {
+        return side_int();
+    }
+
+    public Main getSelf() {
+        System.out.println(this.i);
+        return this;
+    }
+
+    public Main getSelfChangeI(int i) {
+        this.i = i;
+        return this;
+    }
+
+    public int side_effect(int print, int fn) {
+        System.out.println(print);
+        return fn;
+    }
+}
+

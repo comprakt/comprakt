@@ -269,13 +269,13 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         &mut self,
         res_expr: &Option<Box<Spanned<'src, ast::Expr<'src>>>>,
     ) -> LastBlockJumps {
-        let mem = self.graph.cur_store();
         let res = res_expr.as_ref().map(|res_expr| {
             self.gen_expr(&*res_expr)
                 .enforce_value(self.graph)
                 .mature_entry()
         });
 
+        let mem = self.graph.cur_store();
         let ret = self.graph.cur_block().new_return(mem, res);
 
         self.graph.end_block().add_pred(&ret);

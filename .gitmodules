@@ -4,3 +4,6 @@
 [submodule "libfirm-rs-bindings/libfirm"]
 	path = libfirm-rs-bindings/libfirm
 	url = https://github.com/libfirm/libfirm.git
+[submodule "compiler-lib/debugger-gui"]
+	path = compiler-lib/debugger-gui
+	url = https://github.com/comprakt/dot-visualizer.git

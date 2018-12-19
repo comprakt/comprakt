@@ -177,7 +177,7 @@ macro_rules! derive_keyword_display_and_tryfrom {
     };
 }
 
-derive_keyword_display_and_tryfrom!{
+derive_keyword_display_and_tryfrom! {
     (Abstract      = "abstract"),
     (Assert        = "assert"),
     (Boolean       = "boolean"),

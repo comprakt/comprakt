@@ -1,0 +1,16 @@
+class Test3 {
+    public static void main(String[] args) {
+        Test3 t = new Test3();
+        int i = t.forgetIt() / t.test();
+    }
+
+    public int forgetIt() {
+        System.out.println(1);
+        return 1 / 0;
+    }
+
+    public int test() {
+        System.out.println(2);
+        return 1;
+    }
+}

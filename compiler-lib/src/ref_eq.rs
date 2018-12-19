@@ -1,7 +1,4 @@
-use std::{
-    hash::{Hash, Hasher},
-    rc::Rc,
-};
+use std::{hash::Hasher, rc::Rc};
 
 #[derive(Debug)]
 pub struct RefEq<T>(pub T);

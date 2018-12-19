@@ -1,0 +1,17 @@
+class Test {
+    public int i;
+    public static void main(String[] args) {
+        Test t = new Test();
+        t.getTest().i = t.test();
+    }
+
+    public int test() {
+        System.out.println(10);
+        return 10;
+    }
+
+    public Test getTest() {
+        this.i = 1 / 0;
+        return this;
+    }
+}
