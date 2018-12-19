@@ -61,7 +61,7 @@ lazy_static::lazy_static! {
     static ref GUI: Mutex<Option<GuiThread>> = Mutex::new(None);
 }
 
-#[cfg(feature = "gui_debugger")]
+#[cfg(feature = "debugger_gui")]
 #[macro_export]
 macro_rules! breakpoint {
     ($label:expr, $prog:expr) => {{
@@ -90,7 +90,7 @@ macro_rules! breakpoint {
     }};
 }
 
-#[cfg(not(feature = "gui_debugger"))]
+#[cfg(not(feature = "debugger_gui"))]
 #[macro_export]
 macro_rules! breakpoint {
     ($label:expr, $prog:expr) => {{
@@ -126,14 +126,19 @@ fn spawn_gui_thread() {
     *GUI.lock().unwrap() = Some(GuiThread { handle, receiver });
 }
 
-#[cfg(not(feature = "gui_debugger"))]
+#[cfg(not(feature = "debugger_gui"))]
 #[allow(clippy::implicit_hasher)]
 pub fn pause(_breakpoint: Breakpoint, _program: HashMap<String, GraphState>) {}
 
-#[cfg(feature = "gui_debugger")]
+#[cfg(feature = "debugger_gui")]
 #[allow(clippy::implicit_hasher)]
 pub fn pause(breakpoint: Breakpoint, program: HashMap<String, GraphState>) {
-    log::debug!("waiting at breakpoint: {:?}", breakpoint);
+    log::info!(
+        "waiting at breakpoint\n    label: {}\n    file:  {}\n    line:  {}",
+        breakpoint.label,
+        breakpoint.file,
+        breakpoint.line
+    );
     let state = CompiliationState::new(breakpoint, program);
     let gui = gui_thread().lock().unwrap();
     let mut already_sent = false;

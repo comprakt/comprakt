@@ -35,4 +35,4 @@ env_logger = "0.6"
 # Enable all UB-safe-making features by default.
 default = [ "checked_new" ]
 checked_new = [ "mjrt/checked_new" ]
-gui_debugger = [ "compiler-lib/gui_debugger" ]
+debugger_gui = [ "compiler-lib/debugger_gui" ]
