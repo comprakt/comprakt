@@ -10,7 +10,10 @@ use libfirm_rs::{
     graph::VisitTime,
     nodes::{Node, NodeTrait},
 };
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    marker::PhantomData,
+};
 
 #[derive(Debug)]
 pub struct LIR {
@@ -303,7 +306,7 @@ impl BlockGraph {
     }
 
     fn gen_instrs(&mut self) {
-        self.walk_blocks(|block| {
+        for block in self.iter_blocks() {
             let mut instrs = Vec::new();
             let mut block = block.borrow_mut();
             for (num, multislot) in block.regs.iter().enumerate() {
@@ -333,31 +336,6 @@ impl BlockGraph {
             }
 
             block.code = instrs;
-        })
-    }
-
-    pub fn walk_blocks<F>(&self, mut func: F)
-    where
-        F: FnMut(MutRc<BasicBlock>),
-    {
-        let mut visited = HashSet::new();
-        let mut visit_list = VecDeque::new();
-        visit_list.push_front(MutRc::clone(&self.head));
-        loop {
-            let block = match visit_list.pop_front() {
-                None => break,
-                Some(b) => b,
-            };
-
-            func(MutRc::clone(&block));
-
-            for edge in &block.borrow().succs {
-                let succ = MutRc::clone(&edge.borrow().target);
-                if !visited.contains(&succ.borrow().firm) {
-                    visited.insert(succ.borrow().firm);
-                    visit_list.push_back(succ);
-                }
-            }
         }
     }
 
@@ -366,6 +344,43 @@ impl BlockGraph {
             .get(&firm_block)
             .expect("BlockGraph is incomplete")
             .clone()
+    }
+
+    /// Iterate over all basic blocks in `self` in a breadth-first manner
+    pub fn iter_blocks<'g>(&'g self) -> impl Iterator<Item = MutRc<BasicBlock>> + 'g {
+        let mut visit_list = VecDeque::new();
+        visit_list.push_front(MutRc::clone(&self.head));
+
+        BasicBlockIter {
+            _graph: PhantomData,
+            visited: HashSet::new(),
+            visit_list,
+        }
+    }
+
+}
+
+struct BasicBlockIter<'g> {
+    _graph: PhantomData<&'g !>,
+    visited: HashSet<libfirm_rs::nodes::Block>,
+    visit_list: VecDeque<MutRc<BasicBlock>>,
+}
+
+impl<'g> Iterator for BasicBlockIter<'g> {
+    type Item = MutRc<BasicBlock>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.visit_list.pop_front().map(|block| {
+            for edge in &block.borrow().succs {
+                let succ = MutRc::clone(&edge.borrow().target);
+                if !self.visited.contains(&succ.borrow().firm) {
+                    self.visited.insert(succ.borrow().firm);
+                    self.visit_list.push_back(succ);
+                }
+            }
+
+            block
+        })
     }
 }
 

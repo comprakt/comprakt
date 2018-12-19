@@ -298,7 +298,7 @@ impl From<lir::LIR> for Program {
             let mut mblocks = HashMap::new();
             let mut is_entry_block = true;
 
-            f.graph.walk_blocks(|block| {
+            for block in f.graph.iter_blocks() {
                 let mut mblock = mf.begin_block(format!(".L{}", block.borrow().firm.node_id()));
                 for instr in &block.borrow().code {
                     mblock.push(instr.clone());
@@ -306,7 +306,7 @@ impl From<lir::LIR> for Program {
                 // TODO assert that there is a jump at the end of each instr list
                 mblocks.insert(block.borrow().firm, (mblock, is_entry_block));
                 is_entry_block = false;
-            });
+            }
 
             for (_, (mblock, is_entry_block)) in mblocks {
                 if is_entry_block {
