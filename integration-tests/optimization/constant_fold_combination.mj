@@ -1,5 +1,5 @@
 ---
-optimizations: [ConstantFolding2]
+optimizations: [ConstantFolding]
 expect:
     identical-to:
         is: |
@@ -8,7 +8,7 @@ expect:
               System.out.println(210);
             }
           }
-
+        
 stdout:
     is: "210\n"
 ---
