@@ -1,5 +1,5 @@
 ---
-optimizations: [ConstantFolding]
+optimizations: [ConstantFolding2]
 expect: unchanged
 exitcode:
     is: "terminated by signal or crashed."

@@ -1,5 +1,5 @@
 ---
-optimizations: [ConstantFolding]
+optimizations: [ConstantFolding2]
 expect:
     identical-to:
         is: |
@@ -8,7 +8,7 @@ expect:
               System.out.println(3);
             }
           }
-        
+
 stdout:
     is: "3\n"
 ---

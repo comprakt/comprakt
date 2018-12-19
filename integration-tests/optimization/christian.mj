@@ -1,5 +1,5 @@
 ---
-optimizations: [ConstantFolding]
+optimizations: [ConstantFolding2]
 expect: change
 stdout:
     is: "15\n"
