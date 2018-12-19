@@ -138,7 +138,8 @@ impl Diagnostics {
                     1 => "an error".to_string(),
                     n => format!("{} errors", n),
                 }
-            );
+            )
+            .ok();
         } else {
             output.set_color(Some(Color::Green));
             writeln!(
@@ -149,7 +150,8 @@ impl Diagnostics {
                     1 => "with a warning".to_string(),
                     n => format!("with {} warnings", n),
                 }
-            );
+            )
+            .ok();
         }
     }
 
@@ -267,8 +269,8 @@ impl<'file, 'msg> Message<'file, 'msg> {
             if let Some(faulty_part_of_line) = Span::intersect(error, &line) {
                 // TODO: implement this without the following 3 assumptions:
                 // - start_pos - end_pos >= 0, guranteed by data structure invariant of Span
-                // - start_term_pos - end_term_pos >= 0, guranteed by monotony of columns
-                //   (a Position.char() can only be rendered to 0 or more terminal characters)
+                // - start_term_pos - end_term_pos >= 0, guranteed by monotony of columns (a
+                //   Position.char() can only be rendered to 0 or more terminal characters)
                 // - unwrap(.): both positions are guranteed to exist in the line since we just
                 //   got them from the faulty line, which is a subset of the whole error line
                 let (start_term_pos, end_term_pos) =

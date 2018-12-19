@@ -1,5 +1,5 @@
-use compiler_lib::optimization::OptimizationKind;
 use crate::*;
+use compiler_lib::optimization;
 
 pub const DEFAULT_TIMEOUT_SECONDS: u64 = 3;
 
@@ -10,7 +10,7 @@ pub struct Data {
     pub exitcode: Option<ExpectedData>,
     pub stdin: Option<ExpectedData>,
     pub timeout: Option<HumanDuration>,
-    pub optimizations: Vec<OptimizationKind>,
+    pub optimizations: Vec<optimization::Kind>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

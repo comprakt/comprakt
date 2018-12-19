@@ -1,5 +1,5 @@
-use compiler_lib::optimization::OptimizationKind;
 use crate::*;
+use compiler_lib::optimization;
 use serde_derive::Deserialize;
 use std::{
     fs::File,
@@ -44,7 +44,7 @@ pub struct OptimizationTestData {
     pub stdin: Option<ExpectedData>,
 
     /// optimizations that should be applied
-    pub optimizations: Vec<OptimizationKind>,
+    pub optimizations: Vec<optimization::Kind>,
     /// expected outcome of a comparison between
     /// the unoptimized and the optimized asm of
     /// the binary.
@@ -124,8 +124,8 @@ pub fn exec_optimization_test(input: PathBuf) {
     // 1.) compile asm and binary for the unoptimized reference binary
     //     this is either
     //     - the file specified by 'expect: IsIdenticalTo: path"
-    //     - or the same file as the optimized file, but without optimizations
-    //       if 'expect: Change/Unchanged'.
+    //     - or the same file as the optimized file, but without optimizations if
+    //       'expect: Change/Unchanged'.
     // 2.) compile asm and binary of the input file with the given optimizations
     // 3.) Assert
     //     - that stdout/stderr/exitcode are the same for both binaries
@@ -255,6 +255,17 @@ pub fn exec_optimization_test(input: PathBuf) {
     let normalized_optimized_asm = normalize_asm(&asm_optimized);
     let normalized_reference_asm = normalize_asm(&asm_reference);
 
+    write(
+        &Some(add_extension(&path_asm_optimized, "normalized")),
+        &normalized_optimized_asm,
+    )
+    .unwrap();
+    write(
+        &Some(add_extension(&path_asm_reference, "normalized")),
+        &normalized_reference_asm,
+    )
+    .unwrap();
+
     match test_data.reference.expect {
         AsmComparisonOutcome::Change => {
             if normalized_reference_asm == normalized_optimized_asm {
@@ -275,7 +286,15 @@ pub fn exec_optimization_test(input: PathBuf) {
             &normalized_reference_asm,
             &normalized_optimized_asm,
         )
-        .unwrap_or_else(|msg| panic!("{}. expected asm to be unchanged.", msg.to_string())),
+        .unwrap_or_else(|msg| match test_data.reference.expect {
+            AsmComparisonOutcome::Unchanged => {
+                panic!("{}. expected asm to be unchanged.", msg.to_string())
+            }
+            _ => panic!(
+                "{}. expected asm to be identical to reference.",
+                msg.to_string()
+            ),
+        }),
     };
 }
 
