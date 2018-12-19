@@ -1,7 +1,8 @@
 use super::{
     entity::Entity,
     nodes::NodeTrait,
-    nodes_gen::{Block, End, Node, NodeFactory, Proj, Start},
+    nodes_gen::{Block, End, Node, NodeFactory, Proj, ProjKind, Start},
+    value_nodes::ValueNode,
 };
 use libfirm_rs_bindings as bindings;
 use std::{
@@ -101,6 +102,52 @@ impl Graph {
     pub fn exchange(prev: &impl NodeTrait, new: &impl NodeTrait) {
         unsafe {
             bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
+        }
+    }
+
+    // FIXME why does not work this with `&impl ValueNode`?
+    pub fn exchange_value(prev: &dyn ValueNode, new: &dyn ValueNode) {
+        let prev: Node = prev.into();
+        let new: Node = new.into();
+        use self::Node::*;
+        match prev {
+            /* IMPROVEMENT?
+            This might be more elegant, but does not do the exact same:
+            It fails if there are multiple projects to that pin!
+            Node::Div(div) => {
+                div.out_proj_res().then(|res| Graph::exchange(res, const_node))
+                div.out_proj_m().then(|mem| Graph::exchange(mem, div.mem()))
+            }
+            */
+            Div(node) => {
+                for out_node in node.out_nodes() {
+                    match out_node {
+                        Proj(res_proj, ProjKind::Div_Res(_)) => {
+                            Graph::exchange(&res_proj, &new);
+                        }
+                        Proj(m_proj, ProjKind::Div_M(_)) => {
+                            Graph::exchange(&m_proj, &node.mem());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Mod(node) => {
+                for out_node in node.out_nodes() {
+                    match out_node {
+                        Proj(res_proj, ProjKind::Mod_Res(_)) => {
+                            Graph::exchange(&res_proj, &new);
+                        }
+                        Proj(m_proj, ProjKind::Mod_M(_)) => {
+                            Graph::exchange(&m_proj, &node.mem());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            node => {
+                Graph::exchange(&node, &new);
+            }
         }
     }
 

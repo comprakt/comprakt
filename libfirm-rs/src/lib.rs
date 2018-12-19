@@ -17,6 +17,7 @@ pub mod nodes_gen;
 pub mod types;
 
 pub mod tarval;
+pub mod value_nodes;
 
 use std::sync::Once;
 
