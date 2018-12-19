@@ -3,7 +3,6 @@ use libfirm_rs::{bindings, graph::Graph};
 use std::ffi::CString;
 
 mod constant_folding;
-mod constant_folding2;
 use self::constant_folding::ConstantFolding;
 mod unreachable_code_elimination;
 use self::unreachable_code_elimination::UnreachableCodeElimination;
@@ -49,7 +48,6 @@ where
 )]
 pub enum Kind {
     ConstantFolding,
-    ConstantFolding2,
     UnreachableCodeElimination,
 }
 
@@ -57,7 +55,6 @@ impl Kind {
     fn run(self, program: &Program<'_, '_>) -> Outcome {
         match self {
             Kind::ConstantFolding => ConstantFolding::optimize(program),
-            Kind::ConstantFolding2 => constant_folding2::ConstantFolding::optimize(program),
             Kind::UnreachableCodeElimination => UnreachableCodeElimination::optimize(program),
         }
     }
