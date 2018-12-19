@@ -94,17 +94,14 @@ macro_rules! breakpoint {
 #[macro_export]
 macro_rules! breakpoint {
     ($label:expr, $prog:expr) => {{
-        // TODO: there has to be a better way
-        fn use_macro_argument<T>(_val: &T) {}
-        use_macro_argument(&$label);
-        use_macro_argument(&$prog);
+        let _ = &$label;
+        let _ = &$prog;
     }};
     ($label:expr, $prog:expr, $labels:expr) => {{
         // TODO: there has to be a better way
-        fn use_macro_argument<T>(_val: &T) {}
-        use_macro_argument(&$label);
-        use_macro_argument(&$prog);
-        use_macro_argument(&$labels);
+        let _ = &$label;
+        let _ = &$prog;
+        let _ = &$labels;
     }};
 }
 
