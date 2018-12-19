@@ -48,8 +48,8 @@ where
     Display,
 )]
 pub enum Kind {
-    AlgebraicSimplification,
     ConstantFolding,
+    ConstantFolding2,
     UnreachableCodeElimination,
 }
 
@@ -57,6 +57,7 @@ impl Kind {
     fn run(self, program: &Program<'_, '_>) -> Outcome {
         match self {
             Kind::ConstantFolding => ConstantFolding::optimize(program),
+            Kind::ConstantFolding2 => constant_folding2::ConstantFolding::optimize(program),
             Kind::UnreachableCodeElimination => UnreachableCodeElimination::optimize(program),
         }
     }

@@ -1,14 +1,14 @@
-use super::{OptimizationResult, OptimizationResultCollector};
-use crate::{debugging, firm::Program};
+use super::{Outcome, OutcomeCollector};
+use crate::optimization;
 use libfirm_rs::{
-    graph::{Graph, NodeData},
+    graph::Graph,
     nodes::NodeTrait,
     nodes_gen::{Node, ProjKind},
     tarval::{Tarval, TarvalKind},
     value_nodes::try_as_value_node,
 };
 use priority_queue::PriorityQueue;
-use std::{collections::hash_map::HashMap, path::PathBuf};
+use std::collections::hash_map::HashMap;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 struct Priority {
@@ -30,22 +30,6 @@ impl PartialOrd for Priority {
     }
 }
 
-pub fn run(program: &Program<'_, '_>) -> OptimizationResult {
-    let mut collector = OptimizationResultCollector::new();
-    for class in program.classes.values() {
-        for method in class.borrow().methods.values() {
-            if let Some(graph) = method.borrow().graph {
-                let graph: Graph = graph.into();
-                log::debug!("Graph for Method: {:?}", method.borrow().entity.name());
-                let mut cf = ConstantFolding::new(graph);
-                cf.run();
-                cf.apply(&mut collector);
-            }
-        }
-    }
-    collector.result()
-}
-
 // The lattice used for constant folding.
 #[derive(Debug, Clone, PartialEq, Copy)]
 struct CfLattice {
@@ -53,7 +37,7 @@ struct CfLattice {
     value: Tarval,
 }
 
-struct ConstantFolding {
+pub struct ConstantFolding {
     values: HashMap<Node, CfLattice>,
     queue: PriorityQueue<Node, Priority>,
     node_topo_idx: HashMap<Node, u32>,
@@ -61,6 +45,14 @@ struct ConstantFolding {
     start_block: Node,
     // duplicates are not that important for the inner list as there are at most less than 10.
     deps: HashMap<Node, Vec<Node>>,
+}
+
+impl optimization::Local for ConstantFolding {
+    fn optimize_function(graph: Graph) -> Outcome {
+        let mut constant_folding = ConstantFolding::new(graph);
+        constant_folding.run();
+        constant_folding.apply()
+    }
 }
 
 impl ConstantFolding {
@@ -154,51 +146,14 @@ impl ConstantFolding {
         }
     }
 
-    // only for debugging/development
-    #[allow(dead_code)]
-    fn dump_graph(&self, cur_node: Option<Node>) {
-        if self.graph.entity().name_string() == "CF.M.foo" {
-            self.graph.dump_dot_data(
-                &PathBuf::from(format!(
-                    "./dot-out/{}.dot",
-                    self.graph.entity().name_string()
-                )),
-                |n| {
-                    let mut str = match self.values.get(&n) {
-                        Some(data) => format!("r: {:?}, val: {:?}", data.reachable, data.value),
-                        None => " ".to_string(),
-                    };
-                    if let Node::Phi(phi) = n {
-                        let mut string = "".to_string();
-                        for (pred, block_pred) in phi.in_nodes().zip(phi.block().in_nodes()) {
-                            string += &format!("\n{:?} => {:?}", block_pred, pred);
-                        }
-                        str += &string;
-                    }
-                    let mut nd = NodeData::new(format!(
-                        "{:?}; {:?}\n{}",
-                        n,
-                        self.node_topo_idx.get(&n),
-                        str
-                    ));
-                    nd.filled(Some(n) == cur_node);
-                    if self.queue.get(&n).is_some() {
-                        nd.bold(true)
-                    }
-                    nd
-                },
-            );
-        }
-        debugging::wait();
-    }
-
     fn update_node(&mut self, cur_node: Node, cur_lattice: CfLattice) -> CfLattice {
-        let mut reachable = cur_lattice.reachable || if cur_node.is_block() {
-            cur_node.in_nodes().any(|pred| self.lookup(pred).reachable)
-                || cur_node == self.start_block
-        } else {
-            self.lookup(cur_node.block().into()).reachable
-        };
+        let mut reachable = cur_lattice.reachable
+            || if cur_node.is_block() {
+                cur_node.in_nodes().any(|pred| self.lookup(pred).reachable)
+                    || cur_node == self.start_block
+            } else {
+                self.lookup(cur_node.block().into()).reachable
+            };
 
         let mut value = Tarval::bad();
 
@@ -265,9 +220,8 @@ impl ConstantFolding {
         CfLattice { reachable, value }
     }
 
-    fn apply(&mut self, collector: &mut OptimizationResultCollector) {
-        //if self.graph.entity().name_string() != "CF.M.foo" { return; }
-        //self.dump_graph(None);
+    fn apply(&mut self) -> Outcome {
+        let mut collector = OutcomeCollector::new();
         let mut values = self.values.iter().collect::<Vec<_>>();
         values.sort_by_key(|(l, _)| l.node_id());
 
@@ -275,11 +229,11 @@ impl ConstantFolding {
 
         for (node, lattice) in values {
             if !lattice.value.is_constant() {
-                collector.push(OptimizationResult::Unchanged);
+                collector.push(Outcome::Unchanged);
                 continue;
             }
             if node.is_const() {
-                collector.push(OptimizationResult::Unchanged);
+                collector.push(Outcome::Unchanged);
                 continue;
             }
 
@@ -287,7 +241,7 @@ impl ConstantFolding {
                 let const_node = self.graph.new_const(lattice.value);
                 log::debug!("EXCHANGE NODE {:?} val={:?}", node, lattice.value);
                 Graph::exchange_value(value_node.as_ref(), &const_node);
-                collector.push(OptimizationResult::Changed);
+                collector.push(Outcome::Changed);
             } else if let (Node::Cond(cond), TarvalKind::Bool(val)) = (node, lattice.value.kind()) {
                 let (always_taken_path, target_block) = cond.out_proj_target_block(val).unwrap();
 
@@ -315,7 +269,7 @@ impl ConstantFolding {
                 // searching from the end
                 // block)
                 target_block.keep_alive();
-                collector.push(OptimizationResult::Changed);
+                collector.push(Outcome::Changed);
             }
         }
 
@@ -327,6 +281,7 @@ impl ConstantFolding {
         }
 
         self.graph.remove_bads();
-        //self.dump_graph(None);
+
+        collector.result()
     }
 }
