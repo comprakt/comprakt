@@ -5785,8 +5785,6 @@
 <span id="5785">5785</span>
 <span id="5786">5786</span>
 <span id="5787">5787</span>
-<span id="5788">5788</span>
-<span id="5789">5789</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file is generated! Do not edit by hand!</span>
 <span class="comment">// Follow the instructions in the README on how to update this file.</span>
@@ -5989,10 +5987,8 @@
     <span class="ident">Call_XRegular</span>(<span class="ident">Call</span>),
     <span class="doccomment">/// control flow when exception occurred</span>
     <span class="ident">Call_XExcept</span>(<span class="ident">Call</span>),
-    <span class="doccomment">/// control flow if operand is &quot;false&quot;</span>
-    <span class="ident">Cond_False</span>(<span class="ident">Cond</span>),
-    <span class="doccomment">/// control flow if operand is &quot;true&quot;</span>
-    <span class="ident">Cond_True</span>(<span class="ident">Cond</span>),
+    <span class="doccomment">/// control flow if operand is &quot;false&quot; or &quot;true&quot;</span>
+    <span class="ident">Cond_Val</span>(<span class="ident">bool</span>, <span class="ident">Cond</span>),
     <span class="doccomment">/// memory result</span>
     <span class="ident">Div_M</span>(<span class="ident">Div</span>),
     <span class="doccomment">/// result of computation</span>
@@ -6192,8 +6188,8 @@
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
             <span class="ident">Node</span>::<span class="ident">Cond</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">proj</span>.<span class="ident">num</span>() {
-                <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Cond_False</span>(<span class="ident">node</span>),
-                <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Cond_True</span>(<span class="ident">node</span>),
+                <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">false</span>, <span class="ident">node</span>),
+                <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">true</span>, <span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
             <span class="ident">Node</span>::<span class="ident">Div</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">proj</span>.<span class="ident">num</span>() {
@@ -7368,7 +7364,7 @@
     <span class="doccomment">/// control flow if operand is &quot;false&quot;.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_false</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
         <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_False</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">false</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
                 <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
             }
         }
@@ -7378,7 +7374,7 @@
     <span class="doccomment">/// control flow if operand is &quot;true&quot;.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_true</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
         <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_True</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">true</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
                 <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
             }
         }

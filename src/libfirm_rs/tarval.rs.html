@@ -280,6 +280,17 @@
 <span id="280">280</span>
 <span id="281">281</span>
 <span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">ffi</span>::<span class="ident">CStr</span>, <span class="ident">ptr</span>};
@@ -426,6 +437,17 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lattice_eq</span>(<span class="self">self</span>, <span class="ident">o</span>: <span class="ident">Tarval</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">lattice_cmp</span>(<span class="ident">bindings</span>::<span class="ident">ir_relation</span>::<span class="ident">Equal</span>, <span class="ident">o</span>)
             .<span class="ident">is_bool_val</span>(<span class="bool-val">true</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">join</span>(<span class="self">self</span>, <span class="ident">o</span>: <span class="ident">Tarval</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
+        <span class="kw">use</span> <span class="self">self</span>::<span class="ident">TarvalKind</span>::<span class="kw-2">*</span>;
+        <span class="kw">match</span> (<span class="self">self</span>.<span class="ident">kind</span>(), <span class="ident">o</span>.<span class="ident">kind</span>()) {
+            (<span class="ident">Bad</span>, <span class="kw">_</span>) <span class="op">|</span> (<span class="kw">_</span>, <span class="ident">Bad</span>) <span class="op">=&gt;</span> <span class="ident">Tarval</span>::<span class="ident">bad</span>(),
+            (<span class="ident">Unknown</span>, <span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">o</span>,
+            (<span class="kw">_</span>, <span class="ident">Unknown</span>) <span class="op">=&gt;</span> <span class="self">self</span>,
+            <span class="kw">_</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">lattice_eq</span>(<span class="ident">o</span>) <span class="op">=&gt;</span> <span class="self">self</span>,
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">Tarval</span>::<span class="ident">bad</span>(),
+        }
     }
 }
 

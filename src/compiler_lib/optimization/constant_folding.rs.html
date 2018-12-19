@@ -285,499 +285,293 @@
 <span id="285">285</span>
 <span id="286">286</span>
 <span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
-<span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
-<span id="351">351</span>
-<span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
-<span id="359">359</span>
-<span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
-<span id="386">386</span>
-<span id="387">387</span>
-<span id="388">388</span>
-<span id="389">389</span>
-<span id="390">390</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">dot</span>::{<span class="ident">default_label</span>, <span class="ident">Style</span>, <span class="ident">X11Color</span>},
-    <span class="ident">optimization</span>::{<span class="self">self</span>, <span class="ident">Outcome</span>, <span class="ident">OutcomeCollector</span>},
-};
+<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Outcome</span>, <span class="ident">OutcomeCollector</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">optimization</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{
-    <span class="ident">bindings</span>,
     <span class="ident">graph</span>::<span class="ident">Graph</span>,
-    <span class="ident">mode</span>,
     <span class="ident">nodes</span>::<span class="ident">NodeTrait</span>,
     <span class="ident">nodes_gen</span>::{<span class="ident">Node</span>, <span class="ident">ProjKind</span>},
-    <span class="ident">tarval</span>::{<span class="ident">mode_name</span>, <span class="ident">Tarval</span>},
+    <span class="ident">tarval</span>::{<span class="ident">Tarval</span>, <span class="ident">TarvalKind</span>},
+    <span class="ident">value_nodes</span>::<span class="ident">try_as_value_node</span>,
 };
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::{<span class="ident">hash_map</span>::<span class="ident">HashMap</span>, <span class="ident">VecDeque</span>};
+<span class="kw">use</span> <span class="ident">priority_queue</span>::<span class="ident">PriorityQueue</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">hash_map</span>::<span class="ident">HashMap</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="kw">struct</span> <span class="ident">Priority</span> {
+    <span class="ident">topo_order</span>: <span class="ident">u32</span>,
+    <span class="ident">priority</span>: <span class="ident">u32</span>, <span class="comment">// is not needed right now</span>
+}
+
+<span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">cmp</span>::<span class="ident">Ord</span> <span class="kw">for</span> <span class="ident">Priority</span> {
+    <span class="kw">fn</span> <span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-&gt;</span> <span class="ident">std</span>::<span class="ident">cmp</span>::<span class="ident">Ordering</span> {
+        <span class="self">self</span>.<span class="ident">priority</span>
+            .<span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="ident">priority</span>)
+            .<span class="ident">then_with</span>(<span class="op">||</span> <span class="self">self</span>.<span class="ident">topo_order</span>.<span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="ident">topo_order</span>).<span class="ident">reverse</span>())
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">PartialOrd</span> <span class="kw">for</span> <span class="ident">Priority</span> {
+    <span class="kw">fn</span> <span class="ident">partial_cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">std</span>::<span class="ident">cmp</span>::<span class="ident">Ordering</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">cmp</span>(<span class="ident">other</span>))
+    }
+}
+
+<span class="comment">// The lattice used for constant folding.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Copy</span>)]</span>
+<span class="kw">struct</span> <span class="ident">CfLattice</span> {
+    <span class="ident">reachable</span>: <span class="ident">bool</span>,
+    <span class="ident">value</span>: <span class="ident">Tarval</span>,
+}
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ConstantFolding</span> {
-    <span class="ident">values</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">Tarval</span><span class="op">&gt;</span>,
-    <span class="ident">list</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span>,
+    <span class="ident">values</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">CfLattice</span><span class="op">&gt;</span>,
+    <span class="ident">queue</span>: <span class="ident">PriorityQueue</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">Priority</span><span class="op">&gt;</span>,
+    <span class="ident">node_topo_idx</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">u32</span><span class="op">&gt;</span>,
     <span class="ident">graph</span>: <span class="ident">Graph</span>,
+    <span class="ident">start_block</span>: <span class="ident">Node</span>,
+    <span class="comment">// duplicates are not that important for the inner list as there are at most less than 10.</span>
+    <span class="ident">deps</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">optimization</span>::<span class="ident">Local</span> <span class="kw">for</span> <span class="ident">ConstantFolding</span> {
     <span class="kw">fn</span> <span class="ident">optimize_function</span>(<span class="ident">graph</span>: <span class="ident">Graph</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">constant_folding</span> <span class="op">=</span> <span class="ident">ConstantFolding</span>::<span class="ident">new</span>(<span class="ident">graph</span>);
-        <span class="ident">constant_folding</span>.<span class="ident">run</span>()
+        <span class="ident">constant_folding</span>.<span class="ident">run</span>();
+        <span class="ident">constant_folding</span>.<span class="ident">apply</span>()
     }
 }
 
 <span class="kw">impl</span> <span class="ident">ConstantFolding</span> {
     <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">graph</span>: <span class="ident">Graph</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">list</span> <span class="op">=</span> <span class="ident">VecDeque</span>::<span class="ident">new</span>();
-        <span class="ident">graph</span>.<span class="ident">walk_topological</span>(<span class="op">|</span><span class="ident">node</span><span class="op">|</span> {
-            <span class="ident">list</span>.<span class="ident">push_back</span>(<span class="kw-2">*</span><span class="ident">node</span>);
-        });
-
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">queue</span> <span class="op">=</span> <span class="ident">PriorityQueue</span>::<span class="ident">new</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">topo_order</span> <span class="op">=</span> <span class="number">0</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">node_topo_idx</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">values</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
 
-        <span class="kw">for</span> <span class="ident">node</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">list</span> {
-            <span class="ident">values</span>.<span class="ident">insert</span>(<span class="kw-2">*</span><span class="ident">node</span>, <span class="ident">Tarval</span>::<span class="ident">unknown</span>());
-        }
+        <span class="ident">graph</span>.<span class="ident">walk_topological</span>(<span class="op">|</span><span class="ident">node</span><span class="op">|</span> {
+            <span class="ident">topo_order</span> <span class="op">+=</span> <span class="number">1</span>;
+            <span class="comment">// blocks and jumps are handled immediately,</span>
+            <span class="comment">// as they are not considered in walk_topological (in case of blocks)</span>
+            <span class="comment">// or don&#39;t depend much on anything before</span>
 
-        <span class="macro">breakpoint</span><span class="macro">!</span>(<span class="string">&quot;Constant Folding: tarval initialization&quot;</span>, <span class="ident">graph</span>, <span class="kw-2">&amp;</span><span class="op">|</span><span class="ident">node</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">default_label</span>(<span class="ident">node</span>);
+            <span class="ident">node_topo_idx</span>.<span class="ident">insert</span>(
+                <span class="kw-2">*</span><span class="ident">node</span>,
+                <span class="kw">match</span> <span class="ident">node</span> {
+                    <span class="ident">Node</span>::<span class="ident">Block</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Node</span>::<span class="ident">Jmp</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="number">0</span>,
+                    <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">topo_order</span>,
+                },
+            );
 
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">tarval</span>) <span class="op">=</span> <span class="ident">values</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>) {
-                <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>.<span class="ident">append</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n{:?}&quot;</span>, <span class="ident">tarval</span>));
-            }
-
-            <span class="ident">label</span>
+            <span class="ident">values</span>.<span class="ident">insert</span>(
+                <span class="kw-2">*</span><span class="ident">node</span>,
+                <span class="ident">CfLattice</span> {
+                    <span class="ident">reachable</span>: <span class="bool-val">false</span>,
+                    <span class="ident">value</span>: <span class="ident">Tarval</span>::<span class="ident">unknown</span>(),
+                },
+            );
         });
+        <span class="ident">graph</span>.<span class="ident">assure_outs</span>();
 
-        <span class="comment">// the first node is always the start _block_</span>
-        <span class="comment">//   it also contains all const nodes</span>
-        <span class="comment">// the second node is always the start node</span>
-        <span class="comment">// let&#39;s start with the start node</span>
-        <span class="ident">list</span>.<span class="ident">pop_front</span>().<span class="ident">expect</span>(<span class="string">&quot;graph must contain start block&quot;</span>);
+        <span class="kw">let</span> <span class="ident">start_block</span> <span class="op">=</span> <span class="ident">graph</span>.<span class="ident">start</span>().<span class="ident">block</span>().<span class="ident">into</span>();
+
+        <span class="ident">queue</span>.<span class="ident">push</span>(
+            <span class="ident">start_block</span>,
+            <span class="ident">Priority</span> {
+                <span class="ident">topo_order</span>: <span class="number">0</span>,
+                <span class="ident">priority</span>: <span class="number">0</span>,
+            },
+        );
 
         <span class="self">Self</span> {
-            <span class="ident">list</span>,
+            <span class="ident">queue</span>,
             <span class="ident">values</span>,
             <span class="ident">graph</span>,
+            <span class="ident">node_topo_idx</span>,
+            <span class="ident">start_block</span>,
+            <span class="ident">deps</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">queue_followers_if_changed</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>, <span class="ident">prev</span>: <span class="ident">Tarval</span>, <span class="ident">new</span>: <span class="ident">Tarval</span>) {
-        <span class="kw">if</span> <span class="ident">prev</span> <span class="op">!=</span> <span class="ident">new</span> {
-            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(
-                <span class="string">&quot;queuing edges: node-ids: {:?}&quot;</span>,
-                <span class="ident">node</span>.<span class="ident">out_nodes</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">node_id</span>()).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>()
-            );
-            <span class="self">self</span>.<span class="ident">list</span>.<span class="ident">extend</span>(<span class="ident">node</span>.<span class="ident">out_nodes</span>());
+    <span class="kw">fn</span> <span class="ident">lookup</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-&gt;</span> <span class="ident">CfLattice</span> {
+        <span class="self">self</span>.<span class="ident">values</span>[<span class="kw-2">&amp;</span><span class="ident">node</span>]
+    }
+
+    <span class="kw">fn</span> <span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>, <span class="ident">new</span>: <span class="ident">CfLattice</span>) {
+        <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">insert</span>(<span class="ident">node</span>, <span class="ident">new</span>).<span class="ident">unwrap</span>();
+    }
+
+    <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">invalidate</span> {
+            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">node</span>: <span class="ident">expr</span>) <span class="op">=&gt;</span> {
+                <span class="self">self</span>.<span class="ident">queue</span>.<span class="ident">push</span>(
+                    <span class="macro-nonterminal">$</span><span class="macro-nonterminal">node</span>,
+                    <span class="ident">Priority</span> {
+                        <span class="ident">topo_order</span>: <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">node_topo_idx</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">node</span>).<span class="ident">unwrap</span>(),
+                        <span class="ident">priority</span>: <span class="number">0</span>,
+                    },
+                );
+            };
+        }
+
+        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">cur_node</span>, <span class="ident">_priority</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">queue</span>.<span class="ident">pop</span>() {
+            <span class="kw">let</span> <span class="ident">cur_lattice</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">cur_node</span>);
+            <span class="kw">let</span> <span class="ident">updated_lattice</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">update_node</span>(<span class="ident">cur_node</span>, <span class="ident">cur_lattice</span>);
+            <span class="kw">if</span> <span class="ident">updated_lattice</span> <span class="op">!=</span> <span class="ident">cur_lattice</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">deps</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">deps</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">cur_node</span>) {
+                    <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="ident">deps</span>.<span class="ident">iter</span>() {
+                        <span class="macro">invalidate</span><span class="macro">!</span>(<span class="kw-2">*</span><span class="ident">out_node</span>);
+                    }
+                }
+
+                <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="ident">cur_node</span>.<span class="ident">out_nodes</span>() {
+                    <span class="macro">invalidate</span><span class="macro">!</span>(<span class="ident">out_node</span>);
+                }
+
+                <span class="self">self</span>.<span class="ident">update</span>(<span class="ident">cur_node</span>, <span class="ident">updated_lattice</span>);
+            }
         }
     }
 
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cyclomatic_complexity</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
-        <span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">assure_outs</span>();
+    <span class="kw">fn</span> <span class="ident">update_node</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">cur_node</span>: <span class="ident">Node</span>, <span class="ident">cur_lattice</span>: <span class="ident">CfLattice</span>) <span class="op">-&gt;</span> <span class="ident">CfLattice</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reachable</span> <span class="op">=</span> <span class="ident">cur_lattice</span>.<span class="ident">reachable</span>
+            <span class="op">||</span> <span class="kw">if</span> <span class="ident">cur_node</span>.<span class="ident">is_block</span>() {
+                <span class="ident">cur_node</span>.<span class="ident">in_nodes</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">pred</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">pred</span>).<span class="ident">reachable</span>)
+                    <span class="op">||</span> <span class="ident">cur_node</span> <span class="op">==</span> <span class="self">self</span>.<span class="ident">start_block</span>
+            } <span class="kw">else</span> {
+                <span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">cur_node</span>.<span class="ident">block</span>().<span class="ident">into</span>()).<span class="ident">reachable</span>
+            };
 
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cur</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">list</span>.<span class="ident">pop_front</span>() {
-            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;VISIT NODE {:?}&quot;</span>, <span class="ident">cur</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Tarval</span>::<span class="ident">bad</span>();
 
-            <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">tarval_binop</span> {
-                (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">thing</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>: <span class="ident">expr</span>) <span class="op">=&gt;</span> {{
-                    <span class="kw">use</span> <span class="self">self</span>::<span class="ident">Binop</span>::<span class="kw-2">*</span>;
-                    <span class="kw">let</span> <span class="ident">lhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>[<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">thing</span>.<span class="ident">left</span>()];
-                    <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>[<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">thing</span>.<span class="ident">right</span>()];
-                    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">Lattice</span>::<span class="ident">binop</span>(<span class="ident">lhs</span>, <span class="ident">rhs</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>);
-                    <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;result is: {:?}&quot;</span>, <span class="ident">res</span>);
-                    <span class="kw">let</span> <span class="ident">prev</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">insert</span>(<span class="ident">cur</span>, <span class="ident">res</span>).<span class="ident">unwrap</span>();
-                    <span class="self">self</span>.<span class="ident">queue_followers_if_changed</span>(<span class="ident">cur</span>, <span class="ident">prev</span>, <span class="ident">res</span>);
-                }};
+        <span class="kw">use</span> <span class="self">self</span>::{<span class="ident">Node</span>::<span class="kw-2">*</span>, <span class="ident">ProjKind</span>::<span class="kw-2">*</span>};
+        <span class="kw">match</span> <span class="ident">cur_node</span> {
+            <span class="ident">Cond</span>(<span class="ident">cond</span>) <span class="op">=&gt;</span> {
+                <span class="ident">value</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">cond</span>.<span class="ident">selector</span>()).<span class="ident">value</span>;
             }
-
-            <span class="kw">match</span> <span class="ident">cur</span> {
-                <span class="ident">Node</span>::<span class="ident">Const</span>(<span class="ident">constant</span>) <span class="op">=&gt;</span> {
-                    <span class="kw">let</span> <span class="ident">tv</span> <span class="op">=</span> <span class="ident">constant</span>.<span class="ident">tarval</span>();
-                    <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;constant: {:?}&quot;</span>, <span class="ident">tv</span>);
-                    <span class="kw">let</span> <span class="ident">prev</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">insert</span>(<span class="ident">cur</span>, <span class="ident">tv</span>).<span class="ident">unwrap</span>();
-                    <span class="macro">debug_assert_eq</span><span class="macro">!</span>(
-                        <span class="ident">prev</span>.<span class="ident">mode</span>(),
-                        <span class="ident">Tarval</span>::<span class="ident">unknown</span>().<span class="ident">mode</span>(),
-                        <span class="string">&quot;only set const nodes once&quot;</span>
-                    );
-                    <span class="comment">// no need to queue anything because of initial topological sort</span>
-                    <span class="comment">// FIXME queue nethertheless to prevent accidental bugs.</span>
-                }
-                <span class="ident">Node</span>::<span class="ident">Conv</span>(<span class="ident">conversion</span>) <span class="op">=&gt;</span> {
-                    <span class="kw">let</span> <span class="ident">operand</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>[<span class="kw-2">&amp;</span><span class="ident">conversion</span>.<span class="ident">op</span>()];
-                    <span class="kw">let</span> <span class="ident">mode</span> <span class="op">=</span> <span class="ident">conversion</span>.<span class="ident">mode</span>();
-                    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">Lattice</span>::<span class="ident">unary_op</span>(<span class="ident">operand</span>, <span class="ident">UnaryOp</span>::<span class="ident">Cast</span>(<span class="ident">mode</span>));
-                    <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;cast into: {:?}&quot;</span>, <span class="ident">res</span>);
-                    <span class="kw">let</span> <span class="ident">prev</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">insert</span>(<span class="ident">cur</span>, <span class="ident">res</span>).<span class="ident">unwrap</span>();
-                    <span class="self">self</span>.<span class="ident">queue_followers_if_changed</span>(<span class="ident">cur</span>, <span class="ident">prev</span>, <span class="ident">res</span>);
-                }
-                <span class="ident">Node</span>::<span class="ident">Add</span>(<span class="ident">add</span>) <span class="op">=&gt;</span> {
-                    <span class="macro">tarval_binop</span><span class="macro">!</span>(<span class="ident">add</span>, <span class="ident">Add</span>);
-                }
-                <span class="ident">Node</span>::<span class="ident">Sub</span>(<span class="ident">sub</span>) <span class="op">=&gt;</span> {
-                    <span class="macro">tarval_binop</span><span class="macro">!</span>(<span class="ident">sub</span>, <span class="ident">Sub</span>);
-                }
-                <span class="ident">Node</span>::<span class="ident">Mul</span>(<span class="ident">mul</span>) <span class="op">=&gt;</span> {
-                    <span class="macro">tarval_binop</span><span class="macro">!</span>(<span class="ident">mul</span>, <span class="ident">Mul</span>);
-                }
-                <span class="ident">Node</span>::<span class="ident">Div</span>(<span class="ident">div</span>) <span class="op">=&gt;</span> {
-                    <span class="macro">tarval_binop</span><span class="macro">!</span>(<span class="ident">div</span>, <span class="ident">Div</span>);
-                }
-                <span class="ident">Node</span>::<span class="ident">Mod</span>(<span class="ident">modulo</span>) <span class="op">=&gt;</span> {
-                    <span class="macro">tarval_binop</span><span class="macro">!</span>(<span class="ident">modulo</span>, <span class="ident">Mod</span>);
-                }
-                <span class="ident">Node</span>::<span class="ident">Eor</span>(<span class="ident">eor</span>) <span class="op">=&gt;</span> {
-                    <span class="macro">tarval_binop</span><span class="macro">!</span>(<span class="ident">eor</span>, <span class="ident">Xor</span>);
-                }
-                <span class="ident">Node</span>::<span class="ident">Minus</span>(<span class="ident">minus</span>) <span class="op">=&gt;</span> {
-                    <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>[<span class="kw-2">&amp;</span><span class="ident">minus</span>.<span class="ident">op</span>()];
-                    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">Lattice</span>::<span class="ident">unary_op</span>(<span class="ident">inner</span>, <span class="ident">UnaryOp</span>::<span class="ident">Minus</span>);
-                    <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;result is: {:?}&quot;</span>, <span class="ident">res</span>);
-                    <span class="kw">let</span> <span class="ident">prev</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">insert</span>(<span class="ident">cur</span>, <span class="ident">res</span>).<span class="ident">unwrap</span>();
-                    <span class="self">self</span>.<span class="ident">queue_followers_if_changed</span>(<span class="ident">cur</span>, <span class="ident">prev</span>, <span class="ident">res</span>);
-                }
-                <span class="ident">Node</span>::<span class="ident">Phi</span>(<span class="ident">phi</span>) <span class="op">=&gt;</span> {
-                    <span class="kw">let</span> <span class="ident">preds</span> <span class="op">=</span> <span class="ident">phi</span>.<span class="ident">phi_preds</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">values</span>[<span class="kw-2">&amp;</span><span class="ident">p</span>]).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
-                    <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;preds: {:?}&quot;</span>, <span class="ident">preds</span>);
-                    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">Lattice</span>::<span class="ident">phi</span>(<span class="ident">preds</span>.<span class="ident">into_iter</span>());
-                    <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;result is: {:?}&quot;</span>, <span class="ident">res</span>);
-                    <span class="kw">let</span> <span class="ident">prev</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">insert</span>(<span class="ident">cur</span>, <span class="ident">res</span>).<span class="ident">unwrap</span>();
-                    <span class="self">self</span>.<span class="ident">queue_followers_if_changed</span>(<span class="ident">cur</span>, <span class="ident">prev</span>, <span class="ident">res</span>);
-                }
-
-                <span class="ident">Node</span>::<span class="ident">Cmp</span>(<span class="ident">cmp</span>) <span class="op">=&gt;</span> <span class="macro">tarval_binop</span><span class="macro">!</span>(<span class="ident">cmp</span>, <span class="ident">Rel</span>(<span class="ident">cmp</span>.<span class="ident">relation</span>())),
-
-                <span class="ident">node</span> <span class="op">=&gt;</span> {
-                    <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;unhandled {:?}&quot;</span>, <span class="ident">node</span>);
+            <span class="ident">Proj</span>(<span class="kw">_</span>, <span class="ident">Cond_Val</span>(<span class="ident">val</span>, <span class="ident">cond</span>)) <span class="op">=&gt;</span> {
+                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">cond</span>.<span class="ident">into</span>()).<span class="ident">value</span>.<span class="ident">is_bool_val</span>(<span class="op">!</span><span class="ident">val</span>) {
+                    <span class="ident">reachable</span> <span class="op">=</span> <span class="bool-val">false</span>;
                 }
             }
+            <span class="ident">Phi</span>(<span class="ident">phi</span>) <span class="op">=&gt;</span> {
+                <span class="ident">value</span> <span class="op">=</span> <span class="ident">phi</span>.<span class="ident">in_nodes</span>().<span class="ident">zip</span>(<span class="ident">phi</span>.<span class="ident">block</span>().<span class="ident">in_nodes</span>()).<span class="ident">fold</span>(
+                    <span class="ident">Tarval</span>::<span class="ident">unknown</span>(),
+                    <span class="op">|</span><span class="ident">val</span>, (<span class="ident">pred</span>, <span class="ident">block</span>)<span class="op">|</span> {
+                        <span class="comment">// only consider reachable blocks for phi inputs</span>
+                        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">block</span>).<span class="ident">reachable</span> {
+                            <span class="comment">// we must get informed when that block gets reachable</span>
+                            <span class="self">self</span>.<span class="ident">deps</span>
+                                .<span class="ident">entry</span>(<span class="ident">block</span>)
+                                .<span class="ident">and_modify</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">push</span>(<span class="ident">cur_node</span>))
+                                .<span class="ident">or_insert_with</span>(<span class="op">||</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">cur_node</span>]);
 
-            <span class="macro">breakpoint</span><span class="macro">!</span>(<span class="string">&quot;Constant Folding: iteration&quot;</span>, <span class="self">self</span>.<span class="ident">graph</span>, <span class="kw-2">&amp;</span><span class="op">|</span><span class="ident">node</span><span class="op">|</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">default_label</span>(<span class="ident">node</span>);
-
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">tarval</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>) {
-                    <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>.<span class="ident">append</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n{:?}&quot;</span>, <span class="ident">tarval</span>));
+                            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(
+                                <span class="string">&quot;{:?} is unreachable, thus {:?} can be ignored&quot;</span>,
+                                <span class="ident">block</span>,
+                                <span class="ident">pred</span>
+                            );
+                            <span class="ident">val</span>
+                        } <span class="kw">else</span> {
+                            <span class="kw">let</span> <span class="ident">pred_val</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">pred</span>).<span class="ident">value</span>;
+                            <span class="kw">let</span> <span class="ident">new_val</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">join</span>(<span class="ident">pred_val</span>);
+                            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(
+                                <span class="string">&quot;for {:?}; pred_val: {:?} -&gt; val: {:?}&quot;</span>,
+                                <span class="ident">pred</span>,
+                                <span class="ident">pred_val</span>,
+                                <span class="ident">new_val</span>
+                            );
+                            <span class="ident">new_val</span>
+                        }
+                    },
+                )
+            }
+            <span class="kw">_</span> <span class="op">=&gt;</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">value_node</span>) <span class="op">=</span> <span class="ident">try_as_value_node</span>(<span class="ident">cur_node</span>) {
+                    <span class="kw">let</span> <span class="ident">values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">value_node</span>
+                        .<span class="ident">value_nodes</span>()
+                        .<span class="ident">iter</span>()
+                        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">n</span>.<span class="ident">into</span>()).<span class="ident">value</span>)
+                        .<span class="ident">collect</span>();
+                    <span class="ident">value</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">values</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span>.<span class="ident">is_bad</span>()) {
+                        <span class="ident">Tarval</span>::<span class="ident">bad</span>()
+                    } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">values</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span>.<span class="ident">is_unknown</span>()) {
+                        <span class="ident">Tarval</span>::<span class="ident">unknown</span>()
+                    } <span class="kw">else</span> {
+                        <span class="ident">value_node</span>.<span class="ident">compute</span>(<span class="ident">values</span>)
+                    };
                 }
-
-                <span class="kw">if</span> <span class="ident">node</span> <span class="op">==</span> <span class="ident">cur</span> {
-                    <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>
-                        .<span class="ident">style</span>(<span class="ident">Style</span>::<span class="ident">Filled</span>)
-                        .<span class="ident">fillcolor</span>(<span class="ident">X11Color</span>::<span class="ident">Blue</span>)
-                        .<span class="ident">fontcolor</span>(<span class="ident">X11Color</span>::<span class="ident">White</span>);
-                }
-
-                <span class="ident">label</span>
-            });
+            }
         }
 
-        <span class="comment">// sort to have reproducible replacement order</span>
+        <span class="ident">CfLattice</span> { <span class="ident">reachable</span>, <span class="ident">value</span> }
+    }
+
+    <span class="kw">fn</span> <span class="ident">apply</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">collector</span> <span class="op">=</span> <span class="ident">OutcomeCollector</span>::<span class="ident">new</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">values</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">iter</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
         <span class="ident">values</span>.<span class="ident">sort_by_key</span>(<span class="op">|</span>(<span class="ident">l</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="ident">l</span>.<span class="ident">node_id</span>());
 
-        <span class="comment">// now apply the values</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">collector</span> <span class="op">=</span> <span class="ident">OutcomeCollector</span>::<span class="ident">new</span>();
-        <span class="kw">for</span> (<span class="ident">node</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="ident">values</span> {
-            <span class="kw">if</span> <span class="ident">v</span>.<span class="ident">is_constant</span>() {
-                <span class="kw">if</span> <span class="ident">node</span>.<span class="ident">is_const</span>() {
-                    <span class="comment">// no change necessary</span>
-                    <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">Outcome</span>::<span class="ident">Unchanged</span>);
-                    <span class="kw">continue</span>;
-                }
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dangling_blocks</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
+
+        <span class="kw">for</span> (<span class="ident">node</span>, <span class="ident">lattice</span>) <span class="kw">in</span> <span class="ident">values</span> {
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">lattice</span>.<span class="ident">value</span>.<span class="ident">is_constant</span>() {
+                <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">Outcome</span>::<span class="ident">Unchanged</span>);
+                <span class="kw">continue</span>;
+            }
+            <span class="kw">if</span> <span class="ident">node</span>.<span class="ident">is_const</span>() {
+                <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">Outcome</span>::<span class="ident">Unchanged</span>);
+                <span class="kw">continue</span>;
+            }
+
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">value_node</span>) <span class="op">=</span> <span class="ident">try_as_value_node</span>(<span class="kw-2">*</span><span class="ident">node</span>) {
+                <span class="kw">let</span> <span class="ident">const_node</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">new_const</span>(<span class="ident">lattice</span>.<span class="ident">value</span>);
+                <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;EXCHANGE NODE {:?} val={:?}&quot;</span>, <span class="ident">node</span>, <span class="ident">lattice</span>.<span class="ident">value</span>);
+                <span class="ident">Graph</span>::<span class="ident">exchange_value</span>(<span class="ident">value_node</span>.<span class="ident">as_ref</span>(), <span class="kw-2">&amp;</span><span class="ident">const_node</span>);
                 <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">Outcome</span>::<span class="ident">Changed</span>);
+            } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> (<span class="ident">Node</span>::<span class="ident">Cond</span>(<span class="ident">cond</span>), <span class="ident">TarvalKind</span>::<span class="ident">Bool</span>(<span class="ident">val</span>)) <span class="op">=</span> (<span class="ident">node</span>, <span class="ident">lattice</span>.<span class="ident">value</span>.<span class="ident">kind</span>()) {
+                <span class="kw">let</span> (<span class="ident">always_taken_path</span>, <span class="ident">target_block</span>) <span class="op">=</span> <span class="ident">cond</span>.<span class="ident">out_proj_target_block</span>(<span class="ident">val</span>).<span class="ident">unwrap</span>();
 
-                <span class="macro">breakpoint</span><span class="macro">!</span>(
-                    <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Constant Folding: exchange {} before&quot;</span>, <span class="ident">node</span>.<span class="ident">node_id</span>()),
-                    <span class="self">self</span>.<span class="ident">graph</span>,
-                    <span class="kw-2">&amp;</span><span class="op">|</span><span class="ident">cur</span><span class="op">|</span> {
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">default_label</span>(<span class="ident">cur</span>);
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">tarval</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">cur</span>) {
-                            <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>.<span class="ident">append</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n{:?}&quot;</span>, <span class="ident">tarval</span>));
-                        }
+                <span class="kw">let</span> (<span class="ident">dead_path</span>, <span class="ident">nontarget_block</span>) <span class="op">=</span> <span class="ident">cond</span>.<span class="ident">out_proj_target_block</span>(<span class="op">!</span><span class="ident">val</span>).<span class="ident">unwrap</span>();
 
-                        <span class="kw">if</span> <span class="ident">cur</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">node</span> {
-                            <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>
-                                .<span class="ident">style</span>(<span class="ident">Style</span>::<span class="ident">Filled</span>)
-                                .<span class="ident">fillcolor</span>(<span class="ident">X11Color</span>::<span class="ident">Blue</span>)
-                                .<span class="ident">fontcolor</span>(<span class="ident">X11Color</span>::<span class="ident">White</span>)
-                        }
-
-                        <span class="ident">label</span>
-                    }
-                );
-
-                <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;EXCHANGE NODE {:?} val={:?}&quot;</span>, <span class="ident">node</span>, <span class="ident">v</span>);
-                <span class="kw">let</span> <span class="ident">const_node</span> <span class="op">=</span> <span class="ident">Node</span>::<span class="ident">Const</span>(<span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">new_const</span>(<span class="kw-2">*</span><span class="ident">v</span>));
-
-                <span class="kw">match</span> <span class="ident">node</span> {
-                    <span class="ident">Node</span>::<span class="ident">Div</span>(<span class="ident">div</span>) <span class="op">=&gt;</span> {
-                        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="ident">node</span>.<span class="ident">out_nodes</span>() {
-                            <span class="kw">match</span> <span class="ident">out_node</span> {
-                                <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">res_proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Div_Res</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> {
-                                    <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="kw-2">&amp;</span><span class="ident">res_proj</span>, <span class="kw-2">&amp;</span><span class="ident">const_node</span>);
-                                }
-                                <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">m_proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Div_M</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> {
-                                    <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="kw-2">&amp;</span><span class="ident">m_proj</span>, <span class="kw-2">&amp;</span><span class="ident">div</span>.<span class="ident">mem</span>());
-                                }
-                                <span class="kw">_</span> <span class="op">=&gt;</span> {}
-                            }
-                        }
-                    }
-                    <span class="ident">Node</span>::<span class="ident">Mod</span>(<span class="ident">modulo</span>) <span class="op">=&gt;</span> {
-                        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="ident">node</span>.<span class="ident">out_nodes</span>() {
-                            <span class="kw">match</span> <span class="ident">out_node</span> {
-                                <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">res_proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Mod_Res</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> {
-                                    <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="kw-2">&amp;</span><span class="ident">res_proj</span>, <span class="kw-2">&amp;</span><span class="ident">const_node</span>);
-                                }
-                                <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">m_proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Mod_M</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> {
-                                    <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="kw-2">&amp;</span><span class="ident">m_proj</span>, <span class="kw-2">&amp;</span><span class="ident">modulo</span>.<span class="ident">mem</span>());
-                                }
-                                <span class="kw">_</span> <span class="op">=&gt;</span> {}
-                            }
-                        }
-                    }
-                    <span class="kw">_</span> <span class="op">=&gt;</span> {
-                        <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="ident">node</span>, <span class="kw-2">&amp;</span><span class="ident">const_node</span>);
-                    }
+                <span class="kw">if</span> <span class="ident">nontarget_block</span>.<span class="ident">num_cfgpreds</span>() <span class="op">&lt;=</span> <span class="number">1</span> {
+                    <span class="comment">// If the unused_proj is the sole predecessor of its successor,</span>
+                    <span class="comment">// mark the successor, eliminate it.</span>
+                    <span class="comment">// One would think this happens automatically, but it doesn&#39;t:</span>
+                    <span class="comment">// The successor block (if(f?) it contains a Jmp), is kept alive</span>
+                    <span class="comment">// somehow, causing be_lower_for_target to fail</span>
+                    <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Mark nontarget_block {:?} as dangling&quot;</span>, <span class="ident">nontarget_block</span>);
+                    <span class="ident">dangling_blocks</span>.<span class="ident">push</span>(<span class="ident">nontarget_block</span>);
                 }
 
-                <span class="macro">breakpoint</span><span class="macro">!</span>(
-                    <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Constant Folding: exchange {} after&quot;</span>, <span class="ident">node</span>.<span class="ident">node_id</span>()),
-                    <span class="self">self</span>.<span class="ident">graph</span>,
-                    <span class="kw-2">&amp;</span><span class="op">|</span><span class="ident">node</span><span class="op">|</span> {
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">default_label</span>(<span class="ident">node</span>);
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">tarval</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>) {
-                            <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>.<span class="ident">append</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n{:?}&quot;</span>, <span class="ident">tarval</span>));
-                        }
-                        <span class="ident">label</span>
-                    }
-                );
+                <span class="kw">let</span> <span class="ident">jmp</span> <span class="op">=</span> <span class="ident">cond</span>.<span class="ident">block</span>().<span class="ident">new_jmp</span>();
+                <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Replace {:?} with {:?} to {:?}&quot;</span>, <span class="ident">node</span>, <span class="ident">jmp</span>, <span class="ident">target_block</span>);
+                <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="kw-2">&amp;</span><span class="ident">always_taken_path</span>, <span class="kw-2">&amp;</span><span class="ident">jmp</span>);
+                <span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">mark_as_bad</span>(<span class="kw-2">&amp;</span><span class="ident">dead_path</span>);
+
+                <span class="comment">// We need this because if we have a while(true) loop, the code will be</span>
+                <span class="comment">// unreachable (libfirm-edge wise) from the end block (because the end</span>
+                <span class="comment">// block is never reached control-flow wise), but</span>
+                <span class="comment">// libfirm needs to find the loop (and it starts</span>
+                <span class="comment">// searching from the end</span>
+                <span class="comment">// block)</span>
+                <span class="ident">target_block</span>.<span class="ident">keep_alive</span>();
+                <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">Outcome</span>::<span class="ident">Changed</span>);
             }
         }
+
+        <span class="kw">for</span> <span class="ident">block</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">dangling_blocks</span> {
+            <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">child</span>) <span class="kw">in</span> <span class="ident">block</span>.<span class="ident">out_nodes</span>().<span class="ident">enumerate</span>() {
+                <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Mark block child #{} {:?} as bad&quot;</span>, <span class="ident">i</span>, <span class="ident">child</span>);
+                <span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">mark_as_bad</span>(<span class="kw-2">&amp;</span><span class="ident">child</span>);
+            }
+        }
+
+        <span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">remove_bads</span>();
 
         <span class="ident">collector</span>.<span class="ident">result</span>()
     }
-}
-
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">From</span>, <span class="ident">Into</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Lattice</span>(<span class="ident">Tarval</span>);
-
-<span class="comment">// TODO impl TryFrom&lt;Node&gt;</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Binop</span> {
-    <span class="ident">Add</span>,
-    <span class="ident">Sub</span>,
-    <span class="ident">Mul</span>,
-    <span class="ident">Div</span>,
-    <span class="ident">Xor</span>,
-    <span class="ident">Mod</span>,
-    <span class="ident">Phi</span>,
-    <span class="ident">Rel</span>(<span class="ident">bindings</span>::<span class="ident">ir_relation</span>::<span class="ident">Type</span>),
-}
-
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">UnaryOp</span> {
-    <span class="ident">Minus</span>,
-    <span class="ident">Cast</span>(<span class="ident">mode</span>::<span class="ident">Type</span>),
-}
-
-<span class="kw">impl</span> <span class="ident">Lattice</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">unary_op</span>(<span class="ident">operand</span>: <span class="ident">Tarval</span>, <span class="ident">op</span>: <span class="ident">UnaryOp</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
-        <span class="kw">let</span> <span class="ident">unknown</span> <span class="op">=</span> <span class="ident">Tarval</span>::<span class="ident">unknown</span>().<span class="ident">mode</span>();
-        <span class="kw">let</span> <span class="ident">bad</span> <span class="op">=</span> <span class="ident">Tarval</span>::<span class="ident">bad</span>().<span class="ident">mode</span>();
-
-        <span class="comment">// TODO: these checks might be unnecessary</span>
-        <span class="kw">if</span> <span class="ident">operand</span>.<span class="ident">mode</span>() <span class="op">==</span> <span class="ident">unknown</span> {
-            <span class="kw">return</span> <span class="ident">Tarval</span>::<span class="ident">unknown</span>();
-        }
-
-        <span class="kw">if</span> <span class="ident">operand</span>.<span class="ident">mode</span>() <span class="op">==</span> <span class="ident">bad</span> {
-            <span class="kw">return</span> <span class="ident">Tarval</span>::<span class="ident">bad</span>();
-        }
-
-        <span class="kw">match</span> <span class="ident">op</span> {
-            <span class="ident">UnaryOp</span>::<span class="ident">Minus</span> <span class="op">=&gt;</span> <span class="op">-</span><span class="ident">operand</span>,
-            <span class="ident">UnaryOp</span>::<span class="ident">Cast</span>(<span class="ident">mode</span>) <span class="op">=&gt;</span> <span class="ident">operand</span>.<span class="ident">cast</span>(<span class="ident">mode</span>).<span class="ident">unwrap_or_else</span>(<span class="ident">Tarval</span>::<span class="ident">bad</span>),
-        }
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">binop</span>(<span class="ident">lhs</span>: <span class="ident">Tarval</span>, <span class="ident">rhs</span>: <span class="ident">Tarval</span>, <span class="ident">op</span>: <span class="ident">Binop</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
-        <span class="kw">let</span> <span class="ident">unknown</span> <span class="op">=</span> <span class="ident">Tarval</span>::<span class="ident">unknown</span>().<span class="ident">mode</span>();
-        <span class="kw">let</span> <span class="ident">bad</span> <span class="op">=</span> <span class="ident">Tarval</span>::<span class="ident">bad</span>().<span class="ident">mode</span>();
-        <span class="kw">if</span> <span class="ident">lhs</span>.<span class="ident">mode</span>() <span class="op">==</span> <span class="ident">unknown</span> <span class="op">||</span> <span class="ident">rhs</span>.<span class="ident">mode</span>() <span class="op">==</span> <span class="ident">unknown</span> {
-            <span class="kw">return</span> <span class="ident">Tarval</span>::<span class="ident">unknown</span>();
-        }
-        <span class="kw">if</span> <span class="ident">lhs</span>.<span class="ident">mode</span>() <span class="op">==</span> <span class="ident">bad</span> <span class="op">||</span> <span class="ident">rhs</span>.<span class="ident">mode</span>() <span class="op">==</span> <span class="ident">bad</span> {
-            <span class="kw">return</span> <span class="ident">Tarval</span>::<span class="ident">bad</span>();
-        }
-        <span class="kw">if</span> <span class="ident">lhs</span>.<span class="ident">mode</span>() <span class="op">!=</span> <span class="ident">rhs</span>.<span class="ident">mode</span>() {
-            <span class="macro">panic</span><span class="macro">!</span>(
-                <span class="string">&quot;lhs mode {:?} != {:?} rhs mode&quot;</span>,
-                <span class="ident">mode_name</span>(<span class="ident">lhs</span>.<span class="ident">mode</span>()),
-                <span class="ident">mode_name</span>(<span class="ident">rhs</span>.<span class="ident">mode</span>())
-            )
-        }
-        <span class="kw">match</span> <span class="ident">op</span> {
-            <span class="ident">Binop</span>::<span class="ident">Add</span> <span class="op">=&gt;</span> <span class="ident">lhs</span> <span class="op">+</span> <span class="ident">rhs</span>,
-            <span class="ident">Binop</span>::<span class="ident">Sub</span> <span class="op">=&gt;</span> <span class="ident">lhs</span> <span class="op">-</span> <span class="ident">rhs</span>,
-            <span class="ident">Binop</span>::<span class="ident">Mul</span> <span class="op">=&gt;</span> <span class="ident">lhs</span> <span class="op">*</span> <span class="ident">rhs</span>,
-            <span class="ident">Binop</span>::<span class="ident">Div</span> <span class="op">=&gt;</span> <span class="ident">lhs</span> <span class="op">/</span> <span class="ident">rhs</span>,
-            <span class="ident">Binop</span>::<span class="ident">Mod</span> <span class="op">=&gt;</span> <span class="ident">lhs</span> <span class="op">%</span> <span class="ident">rhs</span>,
-            <span class="ident">Binop</span>::<span class="ident">Xor</span> <span class="op">=&gt;</span> <span class="ident">lhs</span> <span class="op">^</span> <span class="ident">rhs</span>,
-            <span class="ident">Binop</span>::<span class="ident">Phi</span> <span class="op">=&gt;</span> {
-                <span class="kw">if</span> <span class="ident">lhs</span> <span class="op">==</span> <span class="ident">rhs</span> {
-                    <span class="ident">lhs</span>
-                } <span class="kw">else</span> {
-                    <span class="ident">Tarval</span>::<span class="ident">bad</span>()
-                }
-            }
-
-            <span class="ident">Binop</span>::<span class="ident">Rel</span>(<span class="ident">rel</span>) <span class="op">=&gt;</span> <span class="ident">lhs</span>.<span class="ident">lattice_cmp</span>(<span class="ident">rel</span>, <span class="ident">rhs</span>),
-        }
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">phi</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Tarval</span><span class="op">&gt;&gt;</span>(<span class="kw-2">mut</span> <span class="ident">vals</span>: <span class="ident">I</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
-        <span class="kw">let</span> <span class="ident">first</span> <span class="op">=</span> <span class="ident">vals</span>
-            .<span class="ident">next</span>()
-            .<span class="ident">expect</span>(<span class="string">&quot;phi must have at least one predecessor (two in fact, but we only need one)&quot;</span>);
-        <span class="ident">vals</span>.<span class="ident">fold</span>(<span class="ident">first</span>, <span class="op">|</span><span class="ident">r</span>, <span class="ident">v</span><span class="op">|</span> <span class="ident">Lattice</span>::<span class="ident">binop</span>(<span class="ident">r</span>, <span class="ident">v</span>, <span class="ident">Binop</span>::<span class="ident">Phi</span>))
-    }
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-
-    <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">assert_eq_modes</span> {
-        (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">l</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">r</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
-            <span class="kw">let</span> <span class="ident">lhs</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">l</span>;
-            <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">r</span>;
-            <span class="macro">debug_assert_eq</span><span class="macro">!</span>(
-                <span class="ident">lhs</span>.<span class="ident">mode</span>(),
-                <span class="ident">rhs</span>.<span class="ident">mode</span>(),
-                <span class="string">&quot;modes do not match: {:?} != {:?}&quot;</span>,
-                <span class="ident">mode_name</span>(<span class="ident">lhs</span>.<span class="ident">mode</span>()),
-                <span class="ident">mode_name</span>(<span class="ident">rhs</span>.<span class="ident">mode</span>())
-            );
-        }};
-    }
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">lattice_binop_modes_like_lecture_slides</span>() {
-        <span class="ident">libfirm_rs</span>::<span class="ident">init</span>();
-        <span class="kw">let</span> <span class="ident">uk</span> <span class="op">=</span> <span class="ident">Tarval</span>::<span class="ident">unknown</span>();
-        <span class="kw">let</span> <span class="ident">bad</span> <span class="op">=</span> <span class="ident">Tarval</span>::<span class="ident">bad</span>();
-        <span class="kw">let</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">Tarval</span>::<span class="ident">mj_int</span>(<span class="number">23</span>);
-        <span class="kw">let</span> <span class="ident">j</span> <span class="op">=</span> <span class="ident">Tarval</span>::<span class="ident">mj_int</span>(<span class="number">42</span>);
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">Lattice</span>::<span class="ident">binop</span>(<span class="ident">j</span>, <span class="ident">i</span>, <span class="ident">Binop</span>::<span class="ident">Add</span>);
-
-        <span class="macro">assert_eq_modes</span><span class="macro">!</span>(<span class="ident">x</span>, <span class="ident">i</span>);
-        <span class="macro">assert_eq_modes</span><span class="macro">!</span>(<span class="ident">x</span>, <span class="ident">j</span>);
-
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">Lattice</span>::<span class="ident">binop</span>(<span class="ident">uk</span>, <span class="ident">uk</span>, <span class="ident">Binop</span>::<span class="ident">Add</span>);
-        <span class="macro">assert_eq_modes</span><span class="macro">!</span>(<span class="ident">x</span>, <span class="ident">uk</span>);
-
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">Lattice</span>::<span class="ident">binop</span>(<span class="ident">bad</span>, <span class="ident">bad</span>, <span class="ident">Binop</span>::<span class="ident">Add</span>);
-        <span class="macro">assert_eq_modes</span><span class="macro">!</span>(<span class="ident">x</span>, <span class="ident">bad</span>);
-
-        <span class="comment">// mixed</span>
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">Lattice</span>::<span class="ident">binop</span>(<span class="ident">i</span>, <span class="ident">bad</span>, <span class="ident">Binop</span>::<span class="ident">Add</span>);
-        <span class="macro">assert_eq_modes</span><span class="macro">!</span>(<span class="ident">x</span>, <span class="ident">bad</span>);
-
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">Lattice</span>::<span class="ident">binop</span>(<span class="ident">i</span>, <span class="ident">uk</span>, <span class="ident">Binop</span>::<span class="ident">Add</span>);
-        <span class="macro">assert_eq_modes</span><span class="macro">!</span>(<span class="ident">x</span>, <span class="ident">uk</span>);
-    }
-
 }
 </pre></div>
 </section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../../";window.currentCrate = "compiler_lib";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script src="../../../source-files.js"></script><script src="../../../source-script.js"></script><script defer src="../../../search-index.js"></script></body></html>

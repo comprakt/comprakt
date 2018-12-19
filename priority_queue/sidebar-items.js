@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["PriorityQueue","A priority queue with efficient change function to change the priority of an element."]]});

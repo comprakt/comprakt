@@ -183,13 +183,13 @@
                     <span class="kw">let</span> <span class="ident">used_proj</span> <span class="op">=</span> <span class="ident">node</span>
                         .<span class="ident">out_nodes</span>()
                         .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
-                            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_True</span>(<span class="kw">_</span>))
+                            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">true</span>, <span class="kw">_</span>))
                                 <span class="kw">if</span> <span class="ident">tarval</span>.<span class="ident">is_bool_val</span>(<span class="bool-val">true</span>) <span class="op">=&gt;</span>
                             {
                                 <span class="prelude-val">Some</span>(<span class="ident">proj</span>)
                             }
-                            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_False</span>(<span class="kw">_</span>))
-                                <span class="kw">if</span> <span class="op">!</span><span class="ident">tarval</span>.<span class="ident">is_bool_val</span>(<span class="bool-val">true</span>) <span class="op">=&gt;</span>
+                            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">false</span>, <span class="kw">_</span>))
+                                <span class="kw">if</span> <span class="ident">tarval</span>.<span class="ident">is_bool_val</span>(<span class="bool-val">false</span>) <span class="op">=&gt;</span>
                             {
                                 <span class="prelude-val">Some</span>(<span class="ident">proj</span>)
                             }
@@ -201,12 +201,12 @@
                     <span class="kw">let</span> <span class="ident">unused_proj</span> <span class="op">=</span> <span class="ident">node</span>
                         .<span class="ident">out_nodes</span>()
                         .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
-                            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_True</span>(<span class="kw">_</span>))
+                            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">true</span>, <span class="kw">_</span>))
                                 <span class="kw">if</span> <span class="op">!</span><span class="ident">tarval</span>.<span class="ident">is_bool_val</span>(<span class="bool-val">true</span>) <span class="op">=&gt;</span>
                             {
                                 <span class="prelude-val">Some</span>(<span class="ident">proj</span>)
                             }
-                            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_False</span>(<span class="kw">_</span>))
+                            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">false</span>, <span class="kw">_</span>))
                                 <span class="kw">if</span> <span class="ident">tarval</span>.<span class="ident">is_bool_val</span>(<span class="bool-val">true</span>) <span class="op">=&gt;</span>
                             {
                                 <span class="prelude-val">Some</span>(<span class="ident">proj</span>)

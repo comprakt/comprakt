@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/structopt-derive-0.2.13/src/attrs.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>attrs.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/structopt-derive-0.2.14/src/attrs.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>attrs.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -460,6 +460,34 @@
 <span id="460">460</span>
 <span id="461">461</span>
 <span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Copyright 2018 Guillaume Pinot (@TeXitoi) &lt;texitoi@texitoi.eu&gt;</span>
 <span class="comment">//</span>
@@ -622,10 +650,12 @@
                     ),
                     <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
                 }
-            }).<span class="ident">flat_map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">m</span> {
+            })
+            .<span class="ident">flat_map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">m</span> {
                 <span class="ident">List</span>(<span class="ident">l</span>) <span class="op">=&gt;</span> <span class="ident">l</span>.<span class="ident">nested</span>,
                 <span class="ident">tokens</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;unsupported syntax: {}&quot;</span>, <span class="macro">quote</span><span class="macro">!</span>(#<span class="ident">tokens</span>).<span class="ident">to_string</span>()),
-            }).<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">m</span> {
+            })
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">m</span> {
                 <span class="ident">Meta</span>(<span class="ident">m</span>) <span class="op">=&gt;</span> <span class="ident">m</span>,
                 <span class="kw-2">ref</span> <span class="ident">tokens</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;unsupported syntax: {}&quot;</span>, <span class="macro">quote</span><span class="macro">!</span>(#<span class="ident">tokens</span>).<span class="ident">to_string</span>()),
             });
@@ -636,9 +666,7 @@
                     <span class="kw-2">ref</span> <span class="ident">ident</span>,
                     <span class="ident">lit</span>: <span class="ident">Str</span>(<span class="kw-2">ref</span> <span class="ident">value</span>),
                     ..
-                })
-                    <span class="kw">if</span> <span class="ident">ident</span> <span class="op">==</span> <span class="string">&quot;rename_all&quot;</span> <span class="op">=&gt;</span>
-                {
+                }) <span class="kw">if</span> <span class="ident">ident</span> <span class="op">==</span> <span class="string">&quot;rename_all&quot;</span> <span class="op">=&gt;</span> {
                     <span class="self">self</span>.<span class="ident">casing</span> <span class="op">=</span> {
                         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">value</span>.<span class="ident">value</span>();
                         ::<span class="ident">std</span>::<span class="ident">str</span>::<span class="ident">FromStr</span>::<span class="ident">from_str</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>)
@@ -659,9 +687,7 @@
                     <span class="kw-2">ref</span> <span class="ident">ident</span>,
                     <span class="kw-2">ref</span> <span class="ident">nested</span>,
                     ..
-                })
-                    <span class="kw">if</span> <span class="ident">ident</span> <span class="op">==</span> <span class="string">&quot;parse&quot;</span> <span class="op">=&gt;</span>
-                {
+                }) <span class="kw">if</span> <span class="ident">ident</span> <span class="op">==</span> <span class="string">&quot;parse&quot;</span> <span class="op">=&gt;</span> {
                     <span class="kw">if</span> <span class="ident">nested</span>.<span class="ident">len</span>() <span class="op">!=</span> <span class="number">1</span> {
                         <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;parse must have exactly one argument&quot;</span>);
                     }
@@ -697,9 +723,7 @@
                     <span class="kw-2">ref</span> <span class="ident">ident</span>,
                     <span class="kw-2">ref</span> <span class="ident">nested</span>,
                     ..
-                })
-                    <span class="kw">if</span> <span class="ident">ident</span> <span class="op">==</span> <span class="string">&quot;raw&quot;</span> <span class="op">=&gt;</span>
-                {
+                }) <span class="kw">if</span> <span class="ident">ident</span> <span class="op">==</span> <span class="string">&quot;raw&quot;</span> <span class="op">=&gt;</span> {
                     <span class="kw">for</span> <span class="ident">method</span> <span class="kw">in</span> <span class="ident">nested</span> {
                         <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">method</span> {
                             <span class="ident">Meta</span>(<span class="ident">NameValue</span>(<span class="ident">MetaNameValue</span> {
@@ -741,7 +765,7 @@
         })
     }
     <span class="kw">fn</span> <span class="ident">push_doc_comment</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">attrs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Attribute</span>], <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
-        <span class="kw">let</span> <span class="ident">doc_comments</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">attrs</span>
+        <span class="kw">let</span> <span class="ident">doc_comments</span> <span class="op">=</span> <span class="ident">attrs</span>
             .<span class="ident">iter</span>()
             .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">attr</span><span class="op">|</span> {
                 <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">attr</span>.<span class="ident">path</span>;
@@ -749,7 +773,8 @@
                     <span class="bool-val">true</span> <span class="op">=&gt;</span> <span class="ident">attr</span>.<span class="ident">interpret_meta</span>(),
                     <span class="bool-val">false</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
                 }
-            }).<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">attr</span><span class="op">|</span> {
+            })
+            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">attr</span><span class="op">|</span> {
                 <span class="kw">use</span> <span class="ident">Lit</span>::<span class="kw-2">*</span>;
                 <span class="kw">use</span> <span class="ident">Meta</span>::<span class="kw-2">*</span>;
                 <span class="kw">if</span> <span class="kw">let</span> <span class="ident">NameValue</span>(<span class="ident">MetaNameValue</span> {
@@ -775,20 +800,51 @@
                 } <span class="kw">else</span> {
                     <span class="prelude-val">None</span>
                 }
-            }).<span class="ident">collect</span>();
+            })
+            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
+
         <span class="kw">if</span> <span class="ident">doc_comments</span>.<span class="ident">is_empty</span>() {
             <span class="kw">return</span>;
         }
-        <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">doc_comments</span>
+
+        <span class="kw">let</span> <span class="ident">merged_lines</span> <span class="op">=</span> <span class="ident">doc_comments</span>
             .<span class="ident">join</span>(<span class="string">&quot; &quot;</span>)
             .<span class="ident">split</span>(<span class="string">&#39;\n&#39;</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">l</span><span class="op">|</span> <span class="ident">l</span>.<span class="ident">trim</span>().<span class="ident">to_string</span>())
+            .<span class="ident">map</span>(<span class="ident">str</span>::<span class="ident">trim</span>)
+            .<span class="ident">map</span>(<span class="ident">str</span>::<span class="ident">to_string</span>)
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>()
             .<span class="ident">join</span>(<span class="string">&quot;\n&quot;</span>);
-        <span class="self">self</span>.<span class="ident">methods</span>.<span class="ident">push</span>(<span class="ident">Method</span> {
-            <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-            <span class="ident">args</span>: <span class="macro">quote</span><span class="macro">!</span>(#<span class="ident">arg</span>),
-        });
+
+        <span class="kw">let</span> <span class="ident">expected_doc_comment_split</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">content</span>) <span class="op">=</span> <span class="ident">doc_comments</span>.<span class="ident">get</span>(<span class="number">1</span>) {
+            (<span class="ident">doc_comments</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">2</span>) <span class="op">&amp;&amp;</span> (<span class="ident">content</span> <span class="op">==</span> <span class="kw-2">&amp;</span><span class="string">&quot;\n\n&quot;</span>)
+        } <span class="kw">else</span> {
+            <span class="bool-val">false</span>
+        };
+
+        <span class="kw">if</span> <span class="ident">expected_doc_comment_split</span> {
+            <span class="kw">let</span> <span class="ident">long_name</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;long_&quot;</span>) <span class="op">+</span> <span class="ident">name</span>;
+
+            <span class="self">self</span>.<span class="ident">methods</span>.<span class="ident">push</span>(<span class="ident">Method</span> {
+                <span class="ident">name</span>: <span class="ident">long_name</span>,
+                <span class="ident">args</span>: <span class="macro">quote</span><span class="macro">!</span>(#<span class="ident">merged_lines</span>),
+            });
+
+            <span class="kw">let</span> <span class="ident">short_arg</span> <span class="op">=</span> <span class="ident">doc_comments</span>
+                .<span class="ident">first</span>()
+                .<span class="ident">map</span>(<span class="ident">String</span>::<span class="ident">as_ref</span>)
+                .<span class="ident">map</span>(<span class="ident">str</span>::<span class="ident">trim</span>)
+                .<span class="ident">unwrap_or</span>(<span class="string">&quot;&quot;</span>);
+
+            <span class="self">self</span>.<span class="ident">methods</span>.<span class="ident">push</span>(<span class="ident">Method</span> {
+                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
+                <span class="ident">args</span>: <span class="macro">quote</span><span class="macro">!</span>(#<span class="ident">short_arg</span>),
+            });
+        } <span class="kw">else</span> {
+            <span class="self">self</span>.<span class="ident">methods</span>.<span class="ident">push</span>(<span class="ident">Method</span> {
+                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
+                <span class="ident">args</span>: <span class="macro">quote</span><span class="macro">!</span>(#<span class="ident">merged_lines</span>),
+            });
+        }
     }
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_struct</span>(<span class="ident">attrs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Attribute</span>], <span class="ident">name</span>: <span class="ident">String</span>, <span class="ident">argument_casing</span>: <span class="ident">CasingStyle</span>) <span class="op">-&gt;</span> <span class="ident">Attrs</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">name</span>, <span class="ident">argument_casing</span>);
