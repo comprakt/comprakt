@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Client","A structure to construct requests for local dispatching."],["LocalRequest","A structure representing a local request as created by [`Client`]."],["LocalResponse","A structure representing a response from dispatching a local request."]]});

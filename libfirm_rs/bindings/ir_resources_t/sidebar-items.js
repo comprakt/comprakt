@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["BlockMark",""],["BlockVisited",""],["IrnLink",""],["IrnVisited",""],["LoopLink",""],["None",""],["PhiList",""]],"type":[["Type",""]]});

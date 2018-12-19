@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `config` mod in crate `rocket`."><meta name="keywords" content="rust, rustlang, rust-lang, config"><title>rocket::config - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://rocket.rs/v0.4/images/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../rocket/index.html'><img src='https://rocket.rs/v0.4/images/logo-boxed.png' alt='logo' width='100'></a><p class='location'>Module config</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'><a href='../index.html'>rocket</a></p><script>window.sidebarCurrent = {name: 'config', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/rocket/config/mod.rs.html#1-1169' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>rocket</a>::<wbr><a class="mod" href=''>config</a></span></h1><div class='docblock'><p>Application configuration and configuration parameter retrieval.</p>
+<p>This module implements configuration handling for Rocket. It implements the
+parsing and interpretation of the <code>Rocket.toml</code> config file and
+<code>ROCKET_{PARAM}</code> environment variables. It also allows libraries to access
+user-configured values.</p>
+<h2 id="application-configuration" class="section-header"><a href="#application-configuration">Application Configuration</a></h2><h3 id="environments" class="section-header"><a href="#environments">Environments</a></h3>
+<p>Rocket applications are always running in one of three environments:</p>
+<ul>
+<li>development <em>or</em> dev</li>
+<li>staging <em>or</em> stage</li>
+<li>production <em>or</em> prod</li>
+</ul>
+<p>Each environment can contain different configuration parameters. By default,
+Rocket applications run in the <strong>development</strong> environment. The environment
+can be changed via the <code>ROCKET_ENV</code> environment variable. For example, to
+start a Rocket application in the <strong>production</strong> environment:</p>
+<pre><code class="language-sh">ROCKET_ENV=production ./target/release/rocket_app
+</code></pre>
+<h3 id="configuration-parameters" class="section-header"><a href="#configuration-parameters">Configuration Parameters</a></h3>
+<p>Each environments consists of several standard configuration parameters as
+well as an arbitrary number of <em>extra</em> configuration parameters, which are
+not used by Rocket itself but can be used by external libraries. The
+standard configuration parameters are:</p>
+<table><thead><tr><th> name       </th><th> type           </th><th> description                                                 </th><th> examples                   </th></tr></thead><tbody>
+<tr><td> address    </td><td> string         </td><td> ip address or host to listen on                             </td><td> <code>&quot;localhost&quot;</code>, <code>&quot;1.2.3.4&quot;</code> </td></tr>
+<tr><td> port       </td><td> integer        </td><td> port number to listen on                                    </td><td> <code>8000</code>, <code>80</code>               </td></tr>
+<tr><td> keep_alive </td><td> integer        </td><td> keep-alive timeout in seconds                               </td><td> <code>0</code> (disable), <code>10</code>        </td></tr>
+<tr><td> workers    </td><td> integer        </td><td> number of concurrent thread workers                         </td><td> <code>36</code>, <code>512</code>                </td></tr>
+<tr><td> log        </td><td> string         </td><td> max log level: <code>&quot;off&quot;</code>, <code>&quot;normal&quot;</code>, <code>&quot;debug&quot;</code>, <code>&quot;critical&quot;</code> </td><td> <code>&quot;off&quot;</code>, <code>&quot;normal&quot;</code>        </td></tr>
+<tr><td> secret_key </td><td> 256-bit base64 </td><td> secret key for private cookies                              </td><td> <code>&quot;8Xui8SI...&quot;</code> (44 chars)  </td></tr>
+<tr><td> tls        </td><td> table          </td><td> tls config table with two keys (<code>certs</code>, <code>key</code>)             </td><td> <em>see below</em>                </td></tr>
+<tr><td> tls.certs  </td><td> string         </td><td> path to certificate chain in PEM format                     </td><td> <code>&quot;private/cert.pem&quot;</code>       </td></tr>
+<tr><td> tls.key    </td><td> string         </td><td> path to private key for <code>tls.certs</code> in PEM format           </td><td> <code>&quot;private/key.pem&quot;</code>        </td></tr>
+<tr><td> limits     </td><td> table          </td><td> map from data type (string) to data limit (integer: bytes)  </td><td> <code>{ forms = 65536 }</code>        </td></tr>
+</tbody></table>
+<h3 id="rockettoml" class="section-header"><a href="#rockettoml">Rocket.toml</a></h3>
+<p><code>Rocket.toml</code> is a Rocket application's configuration file. It can
+optionally be used to specify the configuration parameters for each
+environment. If it is not present, the default configuration parameters or
+environment supplied parameters are used.</p>
+<p>The file must be a series of TOML tables, at most one for each environment,
+and an optional &quot;global&quot; table, where each table contains key-value pairs
+corresponding to configuration parameters for that environment. If a
+configuration parameter is missing, the default value is used. The following
+is a complete <code>Rocket.toml</code> file, where every standard configuration
+parameter is specified with the default value:</p>
+<pre><code class="language-toml">[development]
+address = &quot;localhost&quot;
+port = 8000
+workers = [number_of_cpus * 2]
+keep_alive = 5
+log = &quot;normal&quot;
+secret_key = [randomly generated at launch]
+limits = { forms = 32768 }
+
+[staging]
+address = &quot;0.0.0.0&quot;
+port = 8000
+workers = [number_of_cpus * 2]
+keep_alive = 5
+log = &quot;normal&quot;
+secret_key = [randomly generated at launch]
+limits = { forms = 32768 }
+
+[production]
+address = &quot;0.0.0.0&quot;
+port = 8000
+workers = [number_of_cpus * 2]
+keep_alive = 5
+log = &quot;critical&quot;
+secret_key = [randomly generated at launch]
+limits = { forms = 32768 }
+</code></pre>
+<p>The <code>workers</code> and <code>secret_key</code> default parameters are computed by Rocket
+automatically; the values above are not valid TOML syntax. When manually
+specifying the number of workers, the value should be an integer: <code>workers = 10</code>. When manually specifying the secret key, the value should a 256-bit
+base64 encoded string. Such a string can be generated with the <code>openssl</code>
+command line tool: <code>openssl rand -base64 32</code>.</p>
+<p>The &quot;global&quot; pseudo-environment can be used to set and/or override
+configuration parameters globally. A parameter defined in a <code>[global]</code> table
+sets, or overrides if already present, that parameter in every environment.
+For example, given the following <code>Rocket.toml</code> file, the value of <code>address</code>
+will be <code>&quot;1.2.3.4&quot;</code> in every environment:</p>
+<pre><code class="language-toml">[global]
+address = &quot;1.2.3.4&quot;
+
+[development]
+address = &quot;localhost&quot;
+
+[production]
+address = &quot;0.0.0.0&quot;
+</code></pre>
+<h3 id="tls-configuration" class="section-header"><a href="#tls-configuration">TLS Configuration</a></h3>
+<p>TLS can be enabled by specifying the <code>tls.key</code> and <code>tls.certs</code> parameters.
+Rocket must be compiled with the <code>tls</code> feature enabled for the parameters to
+take effect. The recommended way to specify the parameters is via the
+<code>global</code> environment:</p>
+<pre><code class="language-toml">[global.tls]
+certs = &quot;/path/to/certs.pem&quot;
+key = &quot;/path/to/key.pem&quot;
+</code></pre>
+<h3 id="environment-variables" class="section-header"><a href="#environment-variables">Environment Variables</a></h3>
+<p>All configuration parameters, including extras, can be overridden through
+environment variables. To override the configuration parameter <code>{param}</code>,
+use an environment variable named <code>ROCKET_{PARAM}</code>. For instance, to
+override the &quot;port&quot; configuration parameter, you can run your application
+with:</p>
+<pre><code class="language-sh">ROCKET_PORT=3721 ./your_application
+</code></pre>
+<p>Environment variables take precedence over all other configuration methods:
+if the variable is set, it will be used as the value for the parameter.
+Variable values are parsed as if they were TOML syntax. As illustration,
+consider the following examples:</p>
+<pre><code class="language-sh">ROCKET_INTEGER=1
+ROCKET_FLOAT=3.14
+ROCKET_STRING=Hello
+ROCKET_STRING=&quot;Hello&quot;
+ROCKET_BOOL=true
+ROCKET_ARRAY=[1,&quot;b&quot;,3.14]
+ROCKET_DICT={key=&quot;abc&quot;,val=123}
+</code></pre>
+<h2 id="retrieving-configuration-parameters" class="section-header"><a href="#retrieving-configuration-parameters">Retrieving Configuration Parameters</a></h2>
+<p>Configuration parameters for the currently active configuration environment
+can be retrieved via the <a href="../../rocket/struct.Rocket.html#method.config" title="`Rocket::config()`"><code>Rocket::config()</code></a> <code>Rocket</code> and <code>get_</code> methods on
+<a href="../../rocket/struct.Config.html" title="`Config`"><code>Config</code></a> structure.</p>
+<p>The retrivial of configuration parameters usually occurs at launch time via
+a <a href="../../rocket/fairing/trait.Fairing.html">launch fairing</a>. If information about the
+configuraiton is needed later in the program, an attach fairing can be used
+to store the information as managed state. As an example of the latter,
+consider the following short program which reads the <code>token</code> configuration
+parameter and stores the value or a default in a <code>Token</code> managed state
+value:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">rocket</span>::<span class="ident">fairing</span>::<span class="ident">AdHoc</span>;
+
+<span class="kw">struct</span> <span class="ident">Token</span>(<span class="ident">i64</span>);
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="ident">rocket</span>::<span class="ident">ignite</span>()
+        .<span class="ident">attach</span>(<span class="ident">AdHoc</span>::<span class="ident">on_attach</span>(<span class="string">&quot;Token Config&quot;</span>, <span class="op">|</span><span class="ident">rocket</span><span class="op">|</span> {
+            <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Adding token managed state from config...&quot;</span>);
+            <span class="kw">let</span> <span class="ident">token_val</span> <span class="op">=</span> <span class="ident">rocket</span>.<span class="ident">config</span>().<span class="ident">get_int</span>(<span class="string">&quot;token&quot;</span>).<span class="ident">unwrap_or</span>(<span class="op">-</span><span class="number">1</span>);
+            <span class="prelude-val">Ok</span>(<span class="ident">rocket</span>.<span class="ident">manage</span>(<span class="ident">Token</span>(<span class="ident">token_val</span>)))
+        }))
+}</pre></div>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.Config.html" title='rocket::config::Config struct'>Config</a></td><td class='docblock-short'><p>Structure for Rocket application configuration.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ConfigBuilder.html" title='rocket::config::ConfigBuilder struct'>ConfigBuilder</a></td><td class='docblock-short'><p>Structure following the builder pattern for building <code>Config</code> structures.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Datetime.html" title='rocket::config::Datetime struct'>Datetime</a></td><td class='docblock-short'><p>A parsed TOML datetime value</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Limits.html" title='rocket::config::Limits struct'>Limits</a></td><td class='docblock-short'><p>Mapping from data type to size limits.</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.ConfigError.html" title='rocket::config::ConfigError enum'>ConfigError</a></td><td class='docblock-short'><p>The type of a configuration error.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.Environment.html" title='rocket::config::Environment enum'>Environment</a></td><td class='docblock-short'><p>An enum corresponding to the valid configuration environments.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.LoggingLevel.html" title='rocket::config::LoggingLevel enum'>LoggingLevel</a></td><td class='docblock-short'><p>Defines the different levels for log messages.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.Value.html" title='rocket::config::Value enum'>Value</a></td><td class='docblock-short'><p>Representation of a TOML value.</p>
+</td></tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table><tr class='module-item'><td><a class="type" href="type.Array.html" title='rocket::config::Array type'>Array</a></td><td class='docblock-short'><p>Type representing a TOML array, payload of the <code>Value::Array</code> variant</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Result.html" title='rocket::config::Result type'>Result</a></td><td class='docblock-short'><p>Wraps <code>std::result</code> with the error type of <a href="../../rocket/config/enum.ConfigError.html" title="`ConfigError`"><code>ConfigError</code></a>.</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Table.html" title='rocket::config::Table type'>Table</a></td><td class='docblock-short'><p>Type representing a TOML table, payload of the <code>Value::Table</code> variant</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "rocket";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

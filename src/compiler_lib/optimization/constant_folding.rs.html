@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `compiler-lib/src/optimization/constant_folding.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>constant_folding.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `compiler-lib/src/optimization/constant_folding.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>constant_folding.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -354,9 +354,45 @@
 <span id="354">354</span>
 <span id="355">355</span>
 <span id="356">356</span>
-</pre><pre class="rust ">
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">OptimizationResult</span>, <span class="ident">OptimizationResultCollector</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">firm</span>::<span class="ident">Program</span>;
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">dot</span>::{<span class="ident">default_label</span>, <span class="ident">Style</span>, <span class="ident">X11Color</span>},
+    <span class="ident">optimization</span>::{<span class="self">self</span>, <span class="ident">Outcome</span>, <span class="ident">OutcomeCollector</span>},
+};
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{
     <span class="ident">bindings</span>,
     <span class="ident">graph</span>::<span class="ident">Graph</span>,
@@ -367,24 +403,17 @@
 };
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::{<span class="ident">hash_map</span>::<span class="ident">HashMap</span>, <span class="ident">VecDeque</span>};
 
-<span class="kw">struct</span> <span class="ident">ConstantFolding</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ConstantFolding</span> {
     <span class="ident">values</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">Tarval</span><span class="op">&gt;</span>,
     <span class="ident">list</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span>,
     <span class="ident">graph</span>: <span class="ident">Graph</span>,
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run</span>(<span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="ident">Program</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">OptimizationResult</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">collector</span> <span class="op">=</span> <span class="ident">OptimizationResultCollector</span>::<span class="ident">new</span>();
-    <span class="kw">for</span> <span class="ident">class</span> <span class="kw">in</span> <span class="ident">program</span>.<span class="ident">classes</span>.<span class="ident">values</span>() {
-        <span class="kw">for</span> <span class="ident">method</span> <span class="kw">in</span> <span class="ident">class</span>.<span class="ident">borrow</span>().<span class="ident">methods</span>.<span class="ident">values</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">graph</span>) <span class="op">=</span> <span class="ident">method</span>.<span class="ident">borrow</span>().<span class="ident">graph</span> {
-                <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Graph for Method: {:?}&quot;</span>, <span class="ident">method</span>.<span class="ident">borrow</span>().<span class="ident">entity</span>.<span class="ident">name</span>());
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cf</span> <span class="op">=</span> <span class="ident">ConstantFolding</span>::<span class="ident">new</span>(<span class="ident">graph</span>.<span class="ident">into</span>());
-                <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">cf</span>.<span class="ident">run</span>());
-            }
-        }
+<span class="kw">impl</span> <span class="ident">optimization</span>::<span class="ident">Local</span> <span class="kw">for</span> <span class="ident">ConstantFolding</span> {
+    <span class="kw">fn</span> <span class="ident">optimize_function</span>(<span class="ident">graph</span>: <span class="ident">Graph</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">constant_folding</span> <span class="op">=</span> <span class="ident">ConstantFolding</span>::<span class="ident">new</span>(<span class="ident">graph</span>);
+        <span class="ident">constant_folding</span>.<span class="ident">run</span>()
     }
-    <span class="ident">collector</span>.<span class="ident">result</span>()
 }
 
 <span class="kw">impl</span> <span class="ident">ConstantFolding</span> {
@@ -399,6 +428,16 @@
         <span class="kw">for</span> <span class="ident">node</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">list</span> {
             <span class="ident">values</span>.<span class="ident">insert</span>(<span class="kw-2">*</span><span class="ident">node</span>, <span class="ident">Tarval</span>::<span class="ident">unknown</span>());
         }
+
+        <span class="macro">breakpoint</span><span class="macro">!</span>(<span class="string">&quot;Constant Folding: tarval initialization&quot;</span>, <span class="ident">graph</span>, <span class="kw-2">&amp;</span><span class="op">|</span><span class="ident">node</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">default_label</span>(<span class="ident">node</span>);
+
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">tarval</span>) <span class="op">=</span> <span class="ident">values</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>) {
+                <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>.<span class="ident">append</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n{:?}&quot;</span>, <span class="ident">tarval</span>));
+            }
+
+            <span class="ident">label</span>
+        });
 
         <span class="comment">// the first node is always the start _block_</span>
         <span class="comment">//   it also contains all const nodes</span>
@@ -424,7 +463,7 @@
     }
 
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cyclomatic_complexity</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">OptimizationResult</span> {
+    <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
         <span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">assure_outs</span>();
 
         <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cur</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">list</span>.<span class="ident">pop_front</span>() {
@@ -503,6 +542,23 @@
                     <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;unhandled {:?}&quot;</span>, <span class="ident">node</span>);
                 }
             }
+
+            <span class="macro">breakpoint</span><span class="macro">!</span>(<span class="string">&quot;Constant Folding: iteration&quot;</span>, <span class="self">self</span>.<span class="ident">graph</span>, <span class="kw-2">&amp;</span><span class="op">|</span><span class="ident">node</span><span class="op">|</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">default_label</span>(<span class="ident">node</span>);
+
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">tarval</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>) {
+                    <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>.<span class="ident">append</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n{:?}&quot;</span>, <span class="ident">tarval</span>));
+                }
+
+                <span class="kw">if</span> <span class="ident">node</span> <span class="op">==</span> <span class="ident">cur</span> {
+                    <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>
+                        .<span class="ident">style</span>(<span class="ident">Style</span>::<span class="ident">Filled</span>)
+                        .<span class="ident">fillcolor</span>(<span class="ident">X11Color</span>::<span class="ident">Blue</span>)
+                        .<span class="ident">fontcolor</span>(<span class="ident">X11Color</span>::<span class="ident">White</span>);
+                }
+
+                <span class="ident">label</span>
+            });
         }
 
         <span class="comment">// sort to have reproducible replacement order</span>
@@ -510,40 +566,40 @@
         <span class="ident">values</span>.<span class="ident">sort_by_key</span>(<span class="op">|</span>(<span class="ident">l</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="ident">l</span>.<span class="ident">node_id</span>());
 
         <span class="comment">// now apply the values</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">collector</span> <span class="op">=</span> <span class="ident">OptimizationResultCollector</span>::<span class="ident">new</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">collector</span> <span class="op">=</span> <span class="ident">OutcomeCollector</span>::<span class="ident">new</span>();
         <span class="kw">for</span> (<span class="ident">node</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="ident">values</span> {
             <span class="kw">if</span> <span class="ident">v</span>.<span class="ident">is_constant</span>() {
                 <span class="kw">if</span> <span class="ident">node</span>.<span class="ident">is_const</span>() {
                     <span class="comment">// no change necessary</span>
-                    <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">OptimizationResult</span>::<span class="ident">Unchanged</span>);
+                    <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">Outcome</span>::<span class="ident">Unchanged</span>);
                     <span class="kw">continue</span>;
                 }
-                <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">OptimizationResult</span>::<span class="ident">Changed</span>);
+                <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">Outcome</span>::<span class="ident">Changed</span>);
+
+                <span class="macro">breakpoint</span><span class="macro">!</span>(
+                    <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Constant Folding: exchange {} before&quot;</span>, <span class="ident">node</span>.<span class="ident">node_id</span>()),
+                    <span class="self">self</span>.<span class="ident">graph</span>,
+                    <span class="kw-2">&amp;</span><span class="op">|</span><span class="ident">cur</span><span class="op">|</span> {
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">default_label</span>(<span class="ident">cur</span>);
+                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">tarval</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">cur</span>) {
+                            <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>.<span class="ident">append</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n{:?}&quot;</span>, <span class="ident">tarval</span>));
+                        }
+
+                        <span class="kw">if</span> <span class="ident">cur</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">node</span> {
+                            <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>
+                                .<span class="ident">style</span>(<span class="ident">Style</span>::<span class="ident">Filled</span>)
+                                .<span class="ident">fillcolor</span>(<span class="ident">X11Color</span>::<span class="ident">Blue</span>)
+                                .<span class="ident">fontcolor</span>(<span class="ident">X11Color</span>::<span class="ident">White</span>)
+                        }
+
+                        <span class="ident">label</span>
+                    }
+                );
 
                 <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;EXCHANGE NODE {:?} val={:?}&quot;</span>, <span class="ident">node</span>, <span class="ident">v</span>);
                 <span class="kw">let</span> <span class="ident">const_node</span> <span class="op">=</span> <span class="ident">Node</span>::<span class="ident">Const</span>(<span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">new_const</span>(<span class="kw-2">*</span><span class="ident">v</span>));
 
                 <span class="kw">match</span> <span class="ident">node</span> {
-                    <span class="comment">/* IMPROVEMENT?
-                    This might be more elegant, but does not do the exact same:
-                    It fails if there are multiple projects to that pin!
-                    Node::Div(div) =&gt; {
-                        if Some(res) = div.out_proj_res() {
-                            Graph::exchange(res, const_node);
-                        }
-                        if Some(mem) = div.out_proj_m {
-                            Graph::exchange(mem, div.mem());
-                        }
-                    }
-                    Node::Mod(modulo) =&gt; {
-                        if Some(res) = modulo.out_proj_res() {
-                            Graph::exchange(res, const_node);
-                        }
-                        if Some(m) = modulo.out_proj_m() {
-                            Graph::exchange(m, modulo.mem());
-                        }
-                    }
-                    */</span>
                     <span class="ident">Node</span>::<span class="ident">Div</span>(<span class="ident">div</span>) <span class="op">=&gt;</span> {
                         <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="ident">node</span>.<span class="ident">out_nodes</span>() {
                             <span class="kw">match</span> <span class="ident">out_node</span> {
@@ -574,6 +630,18 @@
                         <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="ident">node</span>, <span class="kw-2">&amp;</span><span class="ident">const_node</span>);
                     }
                 }
+
+                <span class="macro">breakpoint</span><span class="macro">!</span>(
+                    <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Constant Folding: exchange {} after&quot;</span>, <span class="ident">node</span>.<span class="ident">node_id</span>()),
+                    <span class="self">self</span>.<span class="ident">graph</span>,
+                    <span class="kw-2">&amp;</span><span class="op">|</span><span class="ident">node</span><span class="op">|</span> {
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">default_label</span>(<span class="ident">node</span>);
+                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">tarval</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">values</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>) {
+                            <span class="ident">label</span> <span class="op">=</span> <span class="ident">label</span>.<span class="ident">append</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n{:?}&quot;</span>, <span class="ident">tarval</span>));
+                        }
+                        <span class="ident">label</span>
+                    }
+                );
             }
         }
 
@@ -711,5 +779,5 @@
     }
 
 }
-</pre>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../../";window.currentCrate = "compiler_lib";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../../";window.currentCrate = "compiler_lib";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script src="../../../source-files.js"></script><script src="../../../source-script.js"></script><script defer src="../../../search-index.js"></script></body></html>

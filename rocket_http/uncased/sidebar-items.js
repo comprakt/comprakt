@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["uncased_eq","Returns true if `s1` and `s2` are equal without considering case."]],"struct":[["Uncased","An uncased (case-preserving), owned or borrowed ASCII string."],["UncasedStr","A reference to an uncased (case-preserving) ASCII string. This is typically created from an `&str` as follows:"]]});

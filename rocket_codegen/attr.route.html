@@ -1,0 +1,127 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `route` attr in crate `rocket_codegen`."><meta name="keywords" content="rust, rustlang, rust-lang, route"><title>rocket_codegen::route - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="https://rocket.rs/v0.4/images/favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc attr"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../rocket_codegen/index.html'><img src='https://rocket.rs/v0.4/images/logo-boxed.png' alt='logo' width='100'></a><div class="sidebar-elems"><p class='location'><a href='index.html'>rocket_codegen</a></p><script>window.sidebarCurrent = {name: 'route', ty: 'attr', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/rocket_codegen/lib.rs.html#310-312' title='goto source code'>[src]</a></span><span class='in-band'>Attribute Macro <a href='index.html'>rocket_codegen</a>::<wbr><a class="attr" href=''>route</a></span></h1><pre class='rust attr'>#[route]</pre><div class='docblock'><p>Attribute to generate a <a href="../rocket/struct.Route.html"><code>Route</code></a> and associated metadata.</p>
+<p>This and all other route attributes can only be applied to free
+functions:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">get</span>(<span class="string">&quot;/&quot;</span>)]</span>
+<span class="kw">fn</span> <span class="ident">index</span>() <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
+    <span class="string">&quot;Hello, world!&quot;</span>
+}</pre></div>
+<p>There are 7 method-specific route attributes:</p>
+<ul>
+<li><a href="attr.get.html"><code>#[get]</code></a> - <code>GET</code> specific route</li>
+<li><a href="attr.put.html"><code>#[put]</code></a> - <code>PUT</code> specific route</li>
+<li><a href="attr.post.html"><code>#[post]</code></a> - <code>POST</code> specific route</li>
+<li><a href="attr.delete.html"><code>#[delete]</code></a> - <code>DELETE</code> specific route</li>
+<li><a href="attr.head.html"><code>#[head]</code></a> - <code>HEAD</code> specific route</li>
+<li><a href="attr.options.html"><code>#[options]</code></a> - <code>OPTIONS</code> specific route</li>
+<li><a href="attr.patch.html"><code>#[patch]</code></a> - <code>PATCH</code> specific route</li>
+</ul>
+<p>Additionally, <a href="attr.route.html"><code>#[route]</code></a> allows the method and path to be
+explicitly specified:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">route</span>(<span class="ident">GET</span>, <span class="ident">path</span> <span class="op">=</span> <span class="string">&quot;/&quot;</span>)]</span>
+<span class="kw">fn</span> <span class="ident">index</span>() <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
+    <span class="string">&quot;Hello, world!&quot;</span>
+}</pre></div>
+<h1 id="grammar" class="section-header"><a href="#grammar">Grammar</a></h1>
+<p>The grammar for all method-specific route attributes is defined as:</p>
+<pre><code class="language-text">route := '&quot;' path ('?' query)? '&quot;' (',' parameter)*
+
+path := ('/' segment)*
+
+query := segment ('&amp;' segment)*
+
+segment := URI_SEG
+         | SINGLE_PARAM
+         | MULTI_PARAM
+
+parameter := 'rank' '=' INTEGER
+           | 'format' '=' '&quot;' MEDIA_TYPE '&quot;'
+           | 'data' '=' '&quot;' SINGLE_PARAM '&quot;'
+
+SINGLE_PARAM := '&lt;' IDENT '&gt;'
+MULTI_PARAM := '&lt;' IDENT '..&gt;'
+
+URI_SEG := valid, non-percent-encoded HTTP URI segment
+MEDIA_TYPE := valid HTTP media type or known shorthand
+
+INTEGER := unsigned integer, as defined by Rust
+IDENT := valid identifier, as defined by Rust, except `_`
+</code></pre>
+<p>The generic route attribute is defined as:</p>
+<pre><code class="language-text">generic-route := METHOD ',' 'path' '=' route
+</code></pre>
+<h1 id="typing-requirements" class="section-header"><a href="#typing-requirements">Typing Requirements</a></h1>
+<p>Every identifier that appears in a dynamic parameter (<code>SINGLE_PARAM</code>
+or <code>MULTI_PARAM</code>) must appear as an argument to the function. For
+example, the following route requires the decorated function to have
+the arguments <code>foo</code>, <code>baz</code>, <code>msg</code>, <code>rest</code>, and <code>form</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">get</span>(<span class="string">&quot;/&lt;foo&gt;/bar/&lt;baz..&gt;?&lt;msg&gt;&amp;closed&amp;&lt;rest..&gt;&quot;</span>, <span class="ident">data</span> <span class="op">=</span> <span class="string">&quot;&lt;form&gt;&quot;</span>)]</span></pre></div>
+<p>The type of each function argument corresponding to a dynamic
+parameter is required to implement one of Rocket's guard traits. The
+exact trait that is required to be implemented depends on the kind
+of dynamic parameter (<code>SINGLE</code> or <code>MULTI</code>) and where in the route
+attribute the parameter appears. The table below summarizes trait
+requirements:</p>
+<table><thead><tr><th> position </th><th> kind        </th><th> trait             </th></tr></thead><tbody>
+<tr><td> path     </td><td> <code>&lt;ident&gt;</code>   </td><td> <a href="../rocket/request/trait.FromParam.html"><code>FromParam</code></a>     </td></tr>
+<tr><td> path     </td><td> <code>&lt;ident..&gt;</code> </td><td> <a href="../rocket/request/trait.FromSegments.html"><code>FromSegments</code></a>  </td></tr>
+<tr><td> query    </td><td> <code>&lt;ident&gt;</code>   </td><td> <a href="../rocket/request/form/trait.FromFormValue.html"><code>FromFormValue</code></a> </td></tr>
+<tr><td> query    </td><td> <code>&lt;ident..&gt;</code> </td><td> <a href="../rocket/request/trait.FromQuery.html"><code>FromQuery</code></a>     </td></tr>
+<tr><td> data     </td><td> <code>&lt;ident&gt;</code>   </td><td> <a href="../rocket/data/trait.FromData.html"><code>FromData</code></a>      </td></tr>
+</tbody></table>
+<p>The type of each function argument that <em>does not</em> have a
+corresponding dynamic parameter is required to implement the
+<a href="../rocket/request/trait.FromRequest.html"><code>FromRequest</code></a> trait.</p>
+<p>The return type of the decorated function must implement the
+<a href="../rocket/response/trait.Responder.html"><code>Responder</code></a> trait.</p>
+<h1 id="semantics" class="section-header"><a href="#semantics">Semantics</a></h1>
+<p>The attribute generates three items:</p>
+<ol>
+<li>
+<p>A route <a href="../rocket/trait.Handler.html"><code>Handler</code></a>.</p>
+<p>The generated handler validates and generates all arguments for
+the generated function according to the trait that their type
+must implement. The order in which arguments are processed is:</p>
+<ol>
+<li>
+<p>Request guards from left to right.</p>
+<p>If a request guard fails, the request is forwarded if the
+<a href="../rocket/enum.Outcome.html"><code>Outcome</code></a> is <code>Forward</code> or failed if the <a href="../rocket/enum.Outcome.html"><code>Outcome</code></a> is
+<code>Failure</code>. See <a href="../rocket/request/trait.FromRequest.html#outcomes"><code>FromRequest</code> Outcomes</a> for further
+detail.</p>
+</li>
+<li>
+<p>Path and query parameters from left to right as declared
+in the function argument list.</p>
+<p>If a path or query parameter guard fails, the request is
+forwarded.</p>
+</li>
+<li>
+<p>Data parameter, if any.</p>
+<p>If a data guard fails, the request is forwarded if the
+<a href="../rocket/enum.Outcome.html"><code>Outcome</code></a> is <code>Forward</code> or failed if the <a href="../rocket/enum.Outcome.html"><code>Outcome</code></a> is
+<code>Failure</code>. See <a href="../rocket/data/trait.FromData.html#outcomes"><code>FromData</code> Outcomes</a> for further detail.</p>
+</li>
+</ol>
+<p>If all validation succeeds, the decorated function is called.
+The returned value is used to generate a <a href="../rocket/struct.Response.html"><code>Response</code></a> via the
+type's <a href="../rocket/response/trait.Responder.html"><code>Responder</code></a> implementation.</p>
+</li>
+<li>
+<p>A static structure used by <a href="macro.routes.html"><code>routes!</code></a> to generate a <a href="../rocket/struct.Route.html"><code>Route</code></a>.</p>
+<p>The static structure (and resulting <a href="../rocket/struct.Route.html"><code>Route</code></a>) is populated
+with the name (the function's name), path, query, rank, and
+format from the route attribute. The handler is set to the
+generated handler.</p>
+</li>
+<li>
+<p>A macro used by <a href="macro.uri.html"><code>uri!</code></a> to type-check and generate an
+<a href="../rocket/http/uri/struct.Origin.html"><code>Origin</code></a>.</p>
+</li>
+</ol>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "rocket_codegen";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

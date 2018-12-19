@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `uri` macro in crate `rocket_codegen`."><meta name="keywords" content="rust, rustlang, rust-lang, uri"><title>rocket_codegen::uri - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="https://rocket.rs/v0.4/images/favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc macro"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../rocket_codegen/index.html'><img src='https://rocket.rs/v0.4/images/logo-boxed.png' alt='logo' width='100'></a><div class="sidebar-elems"><p class='location'><a href='index.html'>rocket_codegen</a></p><script>window.sidebarCurrent = {name: 'uri', ty: 'macro', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/rocket_codegen/lib.rs.html#964-966' title='goto source code'>[src]</a></span><span class='in-band'>Macro <a href='index.html'>rocket_codegen</a>::<wbr><a class="macro" href=''>uri</a></span></h1><pre class='rust macro'>uri!() { /* proc-macro */ }</pre><div class='docblock'><p>Type safe generation of route URIs.</p>
+<p>The <code>uri!</code> macro creates a type-safe, URL safe URI given a route and values
+for the route's URI parameters. The inputs to the macro are the path to a
+route, a colon, and one argument for each dynamic parameter (parameters in
+<code>&lt;&gt;</code>) in the route's path and query.</p>
+<p>For example, for the following route:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">get</span>(<span class="string">&quot;/person/&lt;name&gt;?&lt;age&gt;&quot;</span>)]</span>
+<span class="kw">fn</span> <span class="ident">person</span>(<span class="ident">name</span>: <span class="ident">String</span>, <span class="ident">age</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">String</span> {
+    ...
+}</pre></div>
+<p>A URI can be created as follows:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="comment">// with unnamed parameters, in route path declaration order</span>
+<span class="kw">let</span> <span class="ident">mike</span> <span class="op">=</span> <span class="macro">uri</span><span class="macro">!</span>(<span class="ident">person</span>: <span class="string">&quot;Mike Smith&quot;</span>, <span class="number">28</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">mike</span>.<span class="ident">to_string</span>(), <span class="string">&quot;/person/Mike%20Smith?age=28&quot;</span>);
+
+<span class="comment">// with named parameters, order irrelevant</span>
+<span class="kw">let</span> <span class="ident">mike</span> <span class="op">=</span> <span class="macro">uri</span><span class="macro">!</span>(<span class="ident">person</span>: <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Mike&quot;</span>, <span class="ident">age</span> <span class="op">=</span> <span class="number">28</span>);
+<span class="kw">let</span> <span class="ident">mike</span> <span class="op">=</span> <span class="macro">uri</span><span class="macro">!</span>(<span class="ident">person</span>: <span class="ident">age</span> <span class="op">=</span> <span class="number">28</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Mike&quot;</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">mike</span>.<span class="ident">to_string</span>(), <span class="string">&quot;/person/Mike?age=28&quot;</span>);
+
+<span class="comment">// with a specific mount-point</span>
+<span class="kw">let</span> <span class="ident">mike</span> <span class="op">=</span> <span class="macro">uri</span><span class="macro">!</span>(<span class="string">&quot;/api&quot;</span>, <span class="ident">person</span>: <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Mike&quot;</span>, <span class="ident">age</span> <span class="op">=</span> <span class="number">28</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">mike</span>.<span class="ident">to_string</span>(), <span class="string">&quot;/api/person/Mike?age=28&quot;</span>);
+
+<span class="comment">// with unnamed values ignored</span>
+<span class="kw">let</span> <span class="ident">mike</span> <span class="op">=</span> <span class="macro">uri</span><span class="macro">!</span>(<span class="ident">person</span>: <span class="string">&quot;Mike&quot;</span>, <span class="kw">_</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">mike</span>.<span class="ident">to_string</span>(), <span class="string">&quot;/person/Mike&quot;</span>);
+
+<span class="comment">// with named values ignored</span>
+<span class="kw">let</span> <span class="ident">mike</span> <span class="op">=</span> <span class="macro">uri</span><span class="macro">!</span>(<span class="ident">person</span>: <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Mike&quot;</span>, <span class="ident">age</span> <span class="op">=</span> <span class="kw">_</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">mike</span>.<span class="ident">to_string</span>(), <span class="string">&quot;/person/Mike&quot;</span>);</pre></div>
+<h2 id="grammar" class="section-header"><a href="#grammar">Grammar</a></h2>
+<p>The grammar for the <code>uri!</code> macro is:</p>
+<pre><code class="language-text">uri := (mount ',')? PATH (':' params)?
+
+mount = STRING
+params := unnamed | named
+unnamed := expr (',' expr)*
+named := IDENT = expr (',' named)?
+expr := EXPR | '_'
+
+EXPR := a valid Rust expression (examples: `foo()`, `12`, `&quot;hey&quot;`)
+IDENT := a valid Rust identifier (examples: `name`, `age`)
+STRING := an uncooked string literal, as defined by Rust (example: `&quot;hi&quot;`)
+PATH := a path, as defined by Rust (examples: `route`, `my_mod::route`)
+</code></pre>
+<h2 id="semantics" class="section-header"><a href="#semantics">Semantics</a></h2>
+<p>The <code>uri!</code> macro returns an <a href="../rocket/http/uri/struct.Origin.html"><code>Origin</code></a> structure with the URI of the
+supplied route interpolated with the given values. Note that <code>Origin</code>
+implements <code>Into&lt;Uri&gt;</code> (and by extension, <code>TryInto&lt;Uri&gt;</code>), so it can be
+converted into a <a href="../rocket/http/uri/enum.Uri.html"><code>Uri</code></a> using <code>.into()</code> as needed.</p>
+<p>A <code>uri!</code> invocation only typechecks if the type of every value in the
+invocation matches the type declared for the parameter in the given route,
+after conversion with <a href="../rocket/http/uri/trait.FromUriParam.html"><code>FromUriParam</code></a>, or if a value is ignored using <code>_</code>
+and the corresponding route type implements <a href="../rocket/http/uri/trait.Ignorable.html"><code>Ignorable</code></a>.</p>
+<p>Each value passed into <code>uri!</code> is rendered in its appropriate place in the
+URI using the <a href="../rocket/http/uri/trait.UriDisplay.html"><code>UriDisplay</code></a> implementation for the value's type. The
+<code>UriDisplay</code> implementation ensures that the rendered value is URI-safe.</p>
+<p>If a mount-point is provided, the mount-point is prepended to the route's
+URI.</p>
+<h3 id="conversion" class="section-header"><a href="#conversion">Conversion</a></h3>
+<p>The <a href="../rocket/http/uri/trait.FromUriParam.html"><code>FromUriParam</code></a> trait is used to typecheck and perform a conversion for
+each value. If a <code>FromUriParam&lt;S&gt;</code> implementation exists for a type <code>T</code>,
+then a value of type <code>S</code> can be used in <code>uri!</code> macro for a route URI
+parameter declared with a type of <code>T</code>. For example, the following
+implementation, provided by Rocket, allows an <code>&amp;str</code> to be used in a <code>uri!</code>
+invocation for route URI parameters declared as <code>String</code>:</p>
+
+<div class='information'><div class='tooltip ignore'>ⓘ<span class='tooltiptext'>This example is not tested</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered ignore">
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">FromUriParam</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">String</span> { .. }</pre></div>
+<h3 id="ignorables" class="section-header"><a href="#ignorables">Ignorables</a></h3>
+<p>Query parameters can be ignored using <code>_</code> in place of an expression. The
+corresponding type in the route URI must implement <a href="../rocket/http/uri/trait.Ignorable.html"><code>Ignorable</code></a>. Ignored
+parameters are not interpolated into the resulting <code>Origin</code>. Path parameters
+are not ignorable.</p>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "rocket_codegen";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

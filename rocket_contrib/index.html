@@ -1,0 +1,35 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `rocket_contrib` crate."><meta name="keywords" content="rust, rustlang, rust-lang, rocket_contrib"><title>rocket_contrib - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="https://rocket.rs/v0.4/images/favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../rocket_contrib/index.html'><img src='https://rocket.rs/v0.4/images/logo-boxed.png' alt='logo' width='100'></a><p class='location'>Crate rocket_contrib</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all rocket_contrib's items</p></a><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'rocket_contrib', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/rocket_contrib/lib.rs.html#1-56' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>rocket_contrib</a></span></h1><div class='docblock'><p>This crate contains officially sanctioned contributor libraries that provide
+functionality commonly used by Rocket applications.</p>
+<p>These libraries are always kept in-sync with the core Rocket library. They
+provide common, but not fundamental, abstractions to be used by Rocket
+applications.</p>
+<p>Each module in this library is held behind a feature flag, with the most
+common modules exposed by default. The present feature list is below, with
+an asterisk next to the features that are enabled by default:</p>
+<ul>
+<li><a href="../rocket_contrib/json/index.html">json*</a> - JSON (de)serialization</li>
+<li><a href="../rocket_contrib/serve/index.html">serve*</a> - Static File Serving</li>
+<li><a href="msgpack">msgpack</a> - MessagePack (de)serialization</li>
+<li><a href="templates">handlebars_templates</a> - Handlebars Templating</li>
+<li><a href="templates">tera_templates</a> - Tera Templating</li>
+<li><a href="uuid">uuid</a> - UUID (de)serialization</li>
+<li><a href="databases">${database}_pool</a> - Database Configuration and Pooling</li>
+<li><a href="helmet">helmet</a> - Fairing for Security and Privacy Headers</li>
+</ul>
+<p>The recommend way to include features from this crate via Cargo in your
+project is by adding a <code>[dependencies.rocket_contrib]</code> section to your
+<code>Cargo.toml</code> file, setting <code>default-features</code> to false, and specifying
+features manually. For example, to use the JSON module, you would add:</p>
+<pre><code class="language-toml">[dependencies.rocket_contrib]
+version = &quot;0.4.0&quot;
+default-features = false
+features = [&quot;json&quot;]
+</code></pre>
+<p>This crate is expected to grow with time, bringing in outside crates to be
+officially supported by Rocket.</p>
+</div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table><tr class='module-item'><td><a class="mod" href="json/index.html" title='rocket_contrib::json mod'>json</a></td><td class='docblock-short'><p>Automatic JSON (de)serialization support.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="serve/index.html" title='rocket_contrib::serve mod'>serve</a></td><td class='docblock-short'><p>Custom handler and options for static file serving.</p>
+</td></tr></table><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table><tr class='module-item'><td><a class="macro" href="macro.json.html" title='rocket_contrib::json macro'>json</a></td><td class='docblock-short'><p>A macro to create ad-hoc JSON serializable values using JSON syntax.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "rocket_contrib";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["InfoTxt",""],["ModeTxt",""],["NodeattrTxt",""],["OpcodeTxt",""]],"type":[["Type",""]]});

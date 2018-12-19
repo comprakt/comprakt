@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Graph",""],["NodeData",""]]});
+initSidebarItems({"struct":[["Graph",""]]});

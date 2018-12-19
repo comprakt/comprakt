@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `compiler-cli/src/main.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>main.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `compiler-cli/src/main.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>main.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -576,20 +576,7 @@
 <span id="576">576</span>
 <span id="577">577</span>
 <span id="578">578</span>
-<span id="579">579</span>
-<span id="580">580</span>
-<span id="581">581</span>
-<span id="582">582</span>
-<span id="583">583</span>
-<span id="584">584</span>
-<span id="585">585</span>
-<span id="586">586</span>
-<span id="587">587</span>
-<span id="588">588</span>
-<span id="589">589</span>
-<span id="590">590</span>
-<span id="591">591</span>
-</pre><pre class="rust ">
+</pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! A command-line interface for the [`compiler_lib`]. If you are using</span>
 <span class="doccomment">//! this crate programatically, you probably want to call it as follows:</span>
 <span class="doccomment">//!</span>
@@ -620,7 +607,6 @@
     <span class="ident">context</span>::<span class="ident">Context</span>,
     <span class="ident">firm</span>,
     <span class="ident">lexer</span>::{<span class="ident">Lexer</span>, <span class="ident">TokenKind</span>},
-    <span class="ident">optimization</span>::<span class="ident">GlobalOptimizationFlag</span>,
     <span class="ident">parser</span>::<span class="ident">Parser</span>,
     <span class="ident">print</span>::{<span class="self">self</span>, <span class="ident">lextest</span>},
     <span class="ident">semantics</span>,
@@ -640,8 +626,7 @@
 <span class="kw">use</span> <span class="ident">tempfile</span>::<span class="ident">tempdir</span>;
 <span class="kw">use</span> <span class="ident">termcolor</span>::{<span class="ident">ColorChoice</span>, <span class="ident">StandardStream</span>};
 
-<span class="kw">mod</span> <span class="ident">optimization_list</span>;
-<span class="kw">use</span> <span class="self">self</span>::<span class="ident">optimization_list</span>::<span class="kw-2">*</span>;
+<span class="kw">mod</span> <span class="ident">optimization_arg</span>;
 
 <span class="doccomment">/// An error generated by the cli interface of the compiler</span>
 <span class="doccomment">///</span>
@@ -664,8 +649,6 @@
     <span class="comment">// TODO: this whole linking shenanigans should be part of compiler-lib</span>
     <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;failed to link runtime using `cc`&quot;</span>)]</span>
     <span class="ident">LinkingFailed</span>,
-    <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;could not parse optimization flags&quot;</span>)]</span>
-    <span class="ident">InvalidOptimizationFlag</span>,
 }
 
 <span class="doccomment">/// Cli interface for the comprakt MiniJava compiler library</span>
@@ -720,7 +703,7 @@
     <span class="ident">CompileFirm</span>(<span class="ident">BinaryLoweringOptions</span>),
 }
 
-<span class="doccomment">/// Command-line options for the [`CliCommand::EmitAsm`] calls</span>
+<span class="doccomment">/// Command-line options for the [`CliCommand::EmitAsm`]  (`--emit-asm`) call.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">AsmLoweringOptions</span> {
     <span class="doccomment">/// Folder to dump graphs to</span>
@@ -735,13 +718,13 @@
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--emit-class-layouts&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-c&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">dump_class_layouts</span>: <span class="ident">bool</span>,
 
-    <span class="doccomment">/// Write primary output artifact to the given file or directory.</span>
+    <span class="doccomment">/// Write primary output artifact to the given file or directory</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--output&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-o&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="kw">pub</span> <span class="ident">output</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
-    <span class="doccomment">/// A list of optimizations to apply.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--optimizations&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-O&quot;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">optimizations</span>: <span class="ident">OptimizationList</span>,
+    <span class="doccomment">/// Optimization level that should be applied</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--optimization&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-O&quot;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;Moderate&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">optimizations</span>: <span class="ident">optimization_arg</span>::<span class="ident">Arg</span>,
 
     <span class="doccomment">/// A MiniJava input file</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
@@ -763,7 +746,8 @@
     }
 }
 
-<span class="doccomment">/// Command-line options for the [`CliCommand::CompileFirm`]</span>
+<span class="doccomment">/// Command-line options for the [`CliCommand::CompileFirm`] (`--compile-firm`)</span>
+<span class="doccomment">/// call.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BinaryLoweringOptions</span> {
     <span class="doccomment">/// Folder to dump graphs to</span>
@@ -786,19 +770,9 @@
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--output&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-o&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="kw">pub</span> <span class="ident">output</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
-    <span class="doccomment">/// A comma-separated list of optimizations to apply:</span>
-    <span class="doccomment">/// You can add flags to an optimization using colons after the</span>
-    <span class="doccomment">/// optimization name. Supported flags:</span>
-    <span class="doccomment">///   `MyOptimization:dy` =&gt; dump firm graph after the optimization ran</span>
-    <span class="doccomment">/// The optimizations are run as a fix-point iteration.</span>
-    <span class="doccomment">/// You can disable fix-point iteratiion by setting the environment variable</span>
-    <span class="doccomment">/// `COMPRAKT_OPTIMIZATION_NO_FIXPOINT` to `1`.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(
-        <span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--optimizations&quot;</span>,
-        <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-O&quot;</span>,
-        <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;ConstantFolding,UnreachableCodeElimination&quot;</span>
-    )]</span>
-    <span class="kw">pub</span> <span class="ident">optimizations</span>: <span class="ident">OptimizationList</span>,
+    <span class="doccomment">/// Optimization level that should be applied</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;--optimization&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;-O&quot;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;Moderate&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">optimizations</span>: <span class="ident">optimization_arg</span>::<span class="ident">Arg</span>,
 
     <span class="doccomment">/// A MiniJava input file</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
@@ -1181,5 +1155,5 @@
     <span class="macro">writeln</span><span class="macro">!</span>(<span class="ident">out</span>, <span class="string">&quot;EOF&quot;</span>)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }
-</pre>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "compiler_cli";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "compiler_cli";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-files.js"></script><script src="../../source-script.js"></script><script defer src="../../search-index.js"></script></body></html>

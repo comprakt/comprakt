@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["Bad",""],["Entity",""],["IrGraph",""],["IrLoop",""],["IrMax",""],["IrMode",""],["IrNode",""],["Tarval",""],["Type",""]],"type":[["Type",""]]});

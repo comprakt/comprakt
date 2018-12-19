@@ -1,0 +1,261 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `FromRequest` trait in crate `rocket`."><meta name="keywords" content="rust, rustlang, rust-lang, FromRequest"><title>rocket::request::FromRequest - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://rocket.rs/v0.4/images/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc trait"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../rocket/index.html'><img src='https://rocket.rs/v0.4/images/logo-boxed.png' alt='logo' width='100'></a><p class='location'>Trait FromRequest</p><div class="sidebar-elems"><div class="block items"><a class="sidebar-title" href="#associated-types">Associated Types</a><div class="sidebar-links"><a href="#associatedtype.Error">Error</a></div><a class="sidebar-title" href="#required-methods">Required Methods</a><div class="sidebar-links"><a href="#tymethod.from_request">from_request</a></div><a class="sidebar-title" href="#foreign-impls">Implementations on Foreign Types</a><div class="sidebar-links"><a href="#impl-FromRequest%3C%27a%2C%20%27r%3E">SocketAddr</a><a href="#impl-FromRequest%3C%27a%2C%20%27r%3E">Result&lt;T, T::Error&gt;</a><a href="#impl-FromRequest%3C%27a%2C%20%27r%3E">Option&lt;T&gt;</a></div><a class="sidebar-title" href="#implementors">Implementors</a></div><p class='location'><a href='../index.html'>rocket</a>::<wbr><a href='index.html'>request</a></p><script>window.sidebarCurrent = {name: 'FromRequest', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/rocket/request/from_request.rs.html#347-358' title='goto source code'>[src]</a></span><span class='in-band'>Trait <a href='../index.html'>rocket</a>::<wbr><a href='index.html'>request</a>::<wbr><a class="trait" href=''>FromRequest</a></span></h1><div class="docblock type-decl hidden-by-usual-hider"><pre class='rust trait'>pub trait FromRequest&lt;'a, 'r&gt;: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> {
+    type <a href='#associatedtype.Error' class="type">Error</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>;
+    fn <a href='#tymethod.from_request' class='fnname'>from_request</a>(request: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;;
+}</pre></div><div class='docblock'><p>Trait implemented by request guards to derive a value from incoming
+requests.</p>
+<h1 id="request-guards" class="section-header"><a href="#request-guards">Request Guards</a></h1>
+<p>A request guard is a type that represents an arbitrary validation policy.
+The validation policy is implemented through <code>FromRequest</code>. In other words,
+every type that implements <code>FromRequest</code> is a request guard.</p>
+<p>Request guards appear as inputs to handlers. An arbitrary number of request
+guards can appear as arguments in a route handler. Rocket will automatically
+invoke the <code>FromRequest</code> implementation for request guards before calling
+the handler. Rocket only dispatches requests to a handler when all of its
+guards pass.</p>
+<h2 id="example" class="section-header"><a href="#example">Example</a></h2>
+<p>The following dummy handler makes use of three request guards, <code>A</code>, <code>B</code>, and
+<code>C</code>. An input type can be identified as a request guard if it is not named
+in the route attribute. This is why, for instance, <code>param</code> is not a request
+guard.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">get</span>(<span class="string">&quot;/&lt;param&gt;&quot;</span>)]</span>
+<span class="kw">fn</span> <span class="ident">index</span>(<span class="ident">param</span>: <span class="ident">isize</span>, <span class="ident">a</span>: <span class="ident">A</span>, <span class="ident">b</span>: <span class="ident">B</span>, <span class="ident">c</span>: <span class="ident">C</span>) <span class="op">-&gt;</span> <span class="ident">T</span> { <span class="comment">/* ... */</span> }</pre></div>
+<p>Request guards always fire in left-to-right declaration order. In the
+example above, the order is <code>a</code> followed by <code>b</code> followed by <code>c</code>. Failure is
+short-circuiting; if one guard fails, the remaining are not attempted.</p>
+<h1 id="outcomes" class="section-header"><a href="#outcomes">Outcomes</a></h1>
+<p>The returned <a href="../../rocket/request/type.Outcome.html" title="`Outcome`"><code>Outcome</code></a> of a <code>from_request</code> call determines how the
+incoming request will be processed.</p>
+<ul>
+<li>
+<p><strong>Success</strong>(S)</p>
+<p>If the <code>Outcome</code> is <a href="../../rocket/outcome/enum.Outcome.html#Success.v" title="`Success`"><code>Success</code></a>, then the <code>Success</code> value will be used as
+the value for the corresponding parameter.  As long as all other guards
+succeed, the request will be handled.</p>
+</li>
+<li>
+<p><strong>Failure</strong>(Status, E)</p>
+<p>If the <code>Outcome</code> is <a href="../../rocket/outcome/enum.Outcome.html#Failure.v" title="`Failure`"><code>Failure</code></a>, the request will fail with the given
+status code and error. The designated error <a href="../../rocket/struct.Catcher.html"><code>Catcher</code></a> will be
+used to respond to the request. Note that users can request types of
+<code>Result&lt;S, E&gt;</code> and <code>Option&lt;S&gt;</code> to catch <code>Failure</code>s and retrieve the error
+value.</p>
+</li>
+<li>
+<p><strong>Forward</strong></p>
+<p>If the <code>Outcome</code> is <a href="../../rocket/outcome/enum.Outcome.html#Forward.v" title="`Forward`"><code>Forward</code></a>, the request will be forwarded to the next
+matching request. Note that users can request an <code>Option&lt;S&gt;</code> to catch
+<code>Forward</code>s.</p>
+</li>
+</ul>
+<h1 id="provided-implementations" class="section-header"><a href="#provided-implementations">Provided Implementations</a></h1>
+<p>Rocket implements <code>FromRequest</code> for several built-in types. Their behavior
+is documented here.</p>
+<ul>
+<li>
+<p><strong>Method</strong></p>
+<p>Extracts the <a href="../../rocket/http/enum.Method.html" title="`Method`"><code>Method</code></a> from the incoming request.</p>
+<p><em>This implementation always returns successfully.</em></p>
+</li>
+<li>
+<p><strong>&amp;Origin</strong></p>
+<p>Extracts the <a href="../../rocket/http/uri/struct.Origin.html" title="`Origin`"><code>Origin</code></a> URI from the incoming request.</p>
+<p><em>This implementation always returns successfully.</em></p>
+</li>
+<li>
+<p><strong>&amp;Route</strong></p>
+<p>Extracts the <a href="../../rocket/struct.Route.html" title="`Route`"><code>Route</code></a> from the request if one is available. If a route
+is not available, the request is forwarded.</p>
+<p>For information on when an <code>&amp;Route</code> is available, see
+<a href="../../rocket/struct.Request.html#method.route" title="`Request::route()`"><code>Request::route()</code></a>.</p>
+</li>
+<li>
+<p><strong>Cookies</strong></p>
+<p>Returns a borrow to the <a href="../../rocket/http/enum.Cookies.html" title="`Cookies`"><code>Cookies</code></a> in the incoming request. Note that
+<code>Cookies</code> implements internal mutability, so a handle to <code>Cookies</code>
+allows you to get <em>and</em> set cookies in the request.</p>
+<p><em>This implementation always returns successfully.</em></p>
+</li>
+<li>
+<p><strong>ContentType</strong></p>
+<p>Extracts the <a href="../../rocket/http/struct.ContentType.html" title="`ContentType`"><code>ContentType</code></a> from the incoming request. If the request
+didn't specify a Content-Type, the request is forwarded.</p>
+</li>
+<li>
+<p><strong>SocketAddr</strong></p>
+<p>Extracts the remote address of the incoming request as a <a href="https://doc.rust-lang.org/nightly/std/net/addr/enum.SocketAddr.html" title="`SocketAddr`"><code>SocketAddr</code></a>.
+If the remote address is not known, the request is forwarded.</p>
+<p><em>This implementation always returns successfully.</em></p>
+</li>
+<li>
+<p><strong>Option&lt;T&gt;</strong> <em>where</em> <strong>T: FromRequest</strong></p>
+<p>The type <code>T</code> is derived from the incoming request using <code>T</code>'s
+<code>FromRequest</code> implementation. If the derivation is a <code>Success</code>, the
+derived value is returned in <code>Some</code>. Otherwise, a <code>None</code> is returned.</p>
+<p><em>This implementation always returns successfully.</em></p>
+</li>
+<li>
+<p><strong>Result&lt;T, T::Error&gt;</strong> <em>where</em> <strong>T: FromRequest</strong></p>
+<p>The type <code>T</code> is derived from the incoming request using <code>T</code>'s
+<code>FromRequest</code> implementation. If derivation is a <code>Success</code>, the value is
+returned in <code>Ok</code>. If the derivation is a <code>Failure</code>, the error value is
+returned in <code>Err</code>. If the derivation is a <code>Forward</code>, the request is
+forwarded.</p>
+</li>
+</ul>
+<h1 id="example-1" class="section-header"><a href="#example-1">Example</a></h1>
+<p>Imagine you're running an authenticated API service that requires that some
+requests be sent along with a valid API key in a header field. You want to
+ensure that the handlers corresponding to these requests don't get called
+unless there is an API key in the request and the key is valid. The
+following example implements this using an <code>ApiKey</code> type and a <code>FromRequest</code>
+implementation for that type. The <code>ApiKey</code> type is then used in the
+<code>sensitive</code> handler.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">rocket</span>::<span class="ident">Outcome</span>;
+<span class="kw">use</span> <span class="ident">rocket</span>::<span class="ident">http</span>::<span class="ident">Status</span>;
+<span class="kw">use</span> <span class="ident">rocket</span>::<span class="ident">request</span>::{<span class="self">self</span>, <span class="ident">Request</span>, <span class="ident">FromRequest</span>};
+
+<span class="kw">struct</span> <span class="ident">ApiKey</span>(<span class="ident">String</span>);
+
+<span class="doccomment">/// Returns true if `key` is a valid API key string.</span>
+<span class="kw">fn</span> <span class="ident">is_valid</span>(<span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+    <span class="ident">key</span> <span class="op">==</span> <span class="string">&quot;valid_api_key&quot;</span>
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">enum</span> <span class="ident">ApiKeyError</span> {
+    <span class="ident">BadCount</span>,
+    <span class="ident">Missing</span>,
+    <span class="ident">Invalid</span>,
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;r</span><span class="op">&gt;</span> <span class="ident">FromRequest</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;r</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ApiKey</span> {
+    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">ApiKeyError</span>;
+
+    <span class="kw">fn</span> <span class="ident">from_request</span>(<span class="ident">request</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="lifetime">&#39;r</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">request</span>::<span class="ident">Outcome</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">headers</span>().<span class="ident">get</span>(<span class="string">&quot;x-api-key&quot;</span>).<span class="ident">collect</span>();
+        <span class="kw">match</span> <span class="ident">keys</span>.<span class="ident">len</span>() {
+            <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">Outcome</span>::<span class="ident">Failure</span>((<span class="ident">Status</span>::<span class="ident">BadRequest</span>, <span class="ident">ApiKeyError</span>::<span class="ident">Missing</span>)),
+            <span class="number">1</span> <span class="kw">if</span> <span class="ident">is_valid</span>(<span class="ident">keys</span>[<span class="number">0</span>]) <span class="op">=&gt;</span> <span class="ident">Outcome</span>::<span class="ident">Success</span>(<span class="ident">ApiKey</span>(<span class="ident">keys</span>[<span class="number">0</span>].<span class="ident">to_string</span>())),
+            <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">Outcome</span>::<span class="ident">Failure</span>((<span class="ident">Status</span>::<span class="ident">BadRequest</span>, <span class="ident">ApiKeyError</span>::<span class="ident">Invalid</span>)),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">Outcome</span>::<span class="ident">Failure</span>((<span class="ident">Status</span>::<span class="ident">BadRequest</span>, <span class="ident">ApiKeyError</span>::<span class="ident">BadCount</span>)),
+        }
+    }
+}
+
+<span class="attribute">#[<span class="ident">get</span>(<span class="string">&quot;/sensitive&quot;</span>)]</span>
+<span class="kw">fn</span> <span class="ident">sensitive</span>(<span class="ident">key</span>: <span class="ident">ApiKey</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
+    <span class="string">&quot;Sensitive data.&quot;</span>
+}
+</pre></div>
+<h1 id="request-local-state" class="section-header"><a href="#request-local-state">Request-Local State</a></h1>
+<p>Request guards that perform expensive operations, such as those that query a
+database or an external service, should use the <a href="https://rocket.rs/v0.4/guide/state/#request-local-state">request-local state</a> cache
+to store results if they might be invoked multiple times during the routing
+of a single request.</p>
+<p>For example, consider a pair of <code>User</code> and <code>Admin</code> guards and a pair of
+routes (<code>admin_dashboard</code> and <code>user_dashboard</code>):</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;r</span><span class="op">&gt;</span> <span class="ident">FromRequest</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;r</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">User</span> {
+    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> ();
+
+    <span class="kw">fn</span> <span class="ident">from_request</span>(<span class="ident">request</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="lifetime">&#39;r</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">request</span>::<span class="ident">Outcome</span><span class="op">&lt;</span><span class="ident">User</span>, ()<span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">db</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">guard</span>::<span class="op">&lt;</span><span class="ident">Database</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+        <span class="ident">request</span>.<span class="ident">cookies</span>()
+            .<span class="ident">get_private</span>(<span class="string">&quot;user_id&quot;</span>)
+            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">cookie</span><span class="op">|</span> <span class="ident">cookie</span>.<span class="ident">value</span>().<span class="ident">parse</span>().<span class="ident">ok</span>())
+            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">id</span><span class="op">|</span> <span class="ident">db</span>.<span class="ident">get_user</span>(<span class="ident">id</span>).<span class="ident">ok</span>())
+            .<span class="ident">or_forward</span>(())
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;r</span><span class="op">&gt;</span> <span class="ident">FromRequest</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;r</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Admin</span> {
+    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> ();
+
+    <span class="kw">fn</span> <span class="ident">from_request</span>(<span class="ident">request</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="lifetime">&#39;r</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">request</span>::<span class="ident">Outcome</span><span class="op">&lt;</span><span class="ident">Admin</span>, ()<span class="op">&gt;</span> {
+        <span class="comment">// This will unconditionally query the database!</span>
+        <span class="kw">let</span> <span class="ident">user</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">guard</span>::<span class="op">&lt;</span><span class="ident">User</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+        <span class="kw">if</span> <span class="ident">user</span>.<span class="ident">is_admin</span> {
+            <span class="ident">Outcome</span>::<span class="ident">Success</span>(<span class="ident">Admin</span> { <span class="ident">user</span> })
+        } <span class="kw">else</span> {
+            <span class="ident">Outcome</span>::<span class="ident">Forward</span>(())
+        }
+    }
+}
+
+<span class="attribute">#[<span class="ident">get</span>(<span class="string">&quot;/dashboard&quot;</span>)]</span>
+<span class="kw">fn</span> <span class="ident">admin_dashboard</span>(<span class="ident">admin</span>: <span class="ident">Admin</span>) { }
+
+<span class="attribute">#[<span class="ident">get</span>(<span class="string">&quot;/dashboard&quot;</span>, <span class="ident">rank</span> <span class="op">=</span> <span class="number">2</span>)]</span>
+<span class="kw">fn</span> <span class="ident">user_dashboard</span>(<span class="ident">user</span>: <span class="ident">User</span>) { }</pre></div>
+<p>When a non-admin user is logged in, the database will be queried twice: once
+via the <code>Admin</code> guard invoking the <code>User</code> guard, and a second time via the
+<code>User</code> guard directly. For cases like these, request-local state should be
+used, as illustrated below:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;r</span><span class="op">&gt;</span> <span class="ident">FromRequest</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;r</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">User</span> {
+    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="op">!</span>;
+
+    <span class="kw">fn</span> <span class="ident">from_request</span>(<span class="ident">request</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="lifetime">&#39;r</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">request</span>::<span class="ident">Outcome</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">User</span>, <span class="op">!</span><span class="op">&gt;</span> {
+        <span class="comment">// This closure will execute at most once per request, regardless of</span>
+        <span class="comment">// the number of times the `User` guard is executed.</span>
+        <span class="kw">let</span> <span class="ident">user_result</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">local_cache</span>(<span class="op">||</span> {
+            <span class="kw">let</span> <span class="ident">db</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">guard</span>::<span class="op">&lt;</span><span class="ident">Database</span><span class="op">&gt;</span>().<span class="ident">succeeded</span>()<span class="question-mark">?</span>;
+            <span class="ident">request</span>.<span class="ident">cookies</span>()
+                .<span class="ident">get_private</span>(<span class="string">&quot;user_id&quot;</span>)
+                .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">cookie</span><span class="op">|</span> <span class="ident">cookie</span>.<span class="ident">value</span>().<span class="ident">parse</span>().<span class="ident">ok</span>())
+                .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">id</span><span class="op">|</span> <span class="ident">db</span>.<span class="ident">get_user</span>(<span class="ident">id</span>).<span class="ident">ok</span>())
+        });
+
+        <span class="ident">user_result</span>.<span class="ident">as_ref</span>().<span class="ident">or_forward</span>(())
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;r</span><span class="op">&gt;</span> <span class="ident">FromRequest</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;r</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Admin</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="op">!</span>;
+
+    <span class="kw">fn</span> <span class="ident">from_request</span>(<span class="ident">request</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="lifetime">&#39;r</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">request</span>::<span class="ident">Outcome</span><span class="op">&lt;</span><span class="ident">Admin</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>, <span class="op">!</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">user</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">guard</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">User</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+        <span class="kw">if</span> <span class="ident">user</span>.<span class="ident">is_admin</span> {
+            <span class="ident">Outcome</span>::<span class="ident">Success</span>(<span class="ident">Admin</span> { <span class="ident">user</span> })
+        } <span class="kw">else</span> {
+            <span class="ident">Outcome</span>::<span class="ident">Forward</span>(())
+        }
+    }
+}</pre></div>
+<p>Notice that these request guards provide access to <em>borrowed</em> data (<code>&amp;'a User</code> and <code>Admin&lt;'a&gt;</code>) as the data is now owned by the request's cache.</p>
+</div>
+            <h2 id='associated-types' class='small-section-header'>Associated Types<a href='#associated-types' class='anchor'></a></h2><div class='methods'><h3 id='associatedtype.Error' class='method'><span id='Error.t' class='invisible'><code>type <a href='#associatedtype.Error' class="type">Error</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a></code></span></h3><div class='docblock'><p>The associated error to be returned if derivation fails.</p>
+</div></div><span class='loading-content'>Loading content...</span>
+            <h2 id='required-methods' class='small-section-header'>Required methods<a href='#required-methods' class='anchor'></a></h2><div class='methods'><h3 id='tymethod.from_request' class='method'><span id='from_request.v' class='invisible'><code>fn <a href='#tymethod.from_request' class='fnname'>from_request</a>(request: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code></span></h3><div class='docblock'><p>Derives an instance of <code>Self</code> from the incoming request metadata.</p>
+<p>If the derivation is successful, an outcome of <code>Success</code> is returned. If
+the derivation fails in an unrecoverable fashion, <code>Failure</code> is returned.
+<code>Forward</code> is returned to indicate that the request should be forwarded
+to other matching routes, if any.</p>
+</div></div><span class='loading-content'>Loading content...</span>
+            <h2 id='foreign-impls' class='small-section-header'>Implementations on Foreign Types<a href='#foreign-impls' class='anchor'></a></h2><h3 id='impl-FromRequest%3C%27a%2C%20%27r%3E' class='impl'><span class='in-band'><table class='table-display'><tbody><tr><td><code>impl&lt;'a, 'r&gt; <a class="trait" href="../../rocket/request/trait.FromRequest.html" title="trait rocket::request::FromRequest">FromRequest</a>&lt;'a, 'r&gt; for <a class="enum" href="https://doc.rust-lang.org/nightly/std/net/addr/enum.SocketAddr.html" title="enum std::net::addr::SocketAddr">SocketAddr</a></code><a href='#impl-FromRequest%3C%27a%2C%20%27r%3E' class='anchor'></a></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#417-426' title='goto source code'>[src]</a></span></td></tr></tbody></table></h3><div class='impl-items'><h4 id='associatedtype.Error-1' class="type"><span id='Error.t-1' class='invisible'><code>type <a href='#associatedtype.Error' class="type">Error</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.never.html">!</a></code></span></h4>
+<h4 id='method.from_request' class="method hidden"><span id='from_request.v-1' class='invisible'><table class='table-display'><tbody><tr><td><code>fn <a href='#method.from_request' class='fnname'>from_request</a>(request: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#420-425' title='goto source code'>[src]</a></td></tr></tbody></table></span></h4></div><h3 id='impl-FromRequest%3C%27a%2C%20%27r%3E-1' class='impl'><span class='in-band'><table class='table-display'><tbody><tr><td><code>impl&lt;'a, 'r, T:&nbsp;<a class="trait" href="../../rocket/request/trait.FromRequest.html" title="trait rocket::request::FromRequest">FromRequest</a>&lt;'a, 'r&gt;&gt; <a class="trait" href="../../rocket/request/trait.FromRequest.html" title="trait rocket::request::FromRequest">FromRequest</a>&lt;'a, 'r&gt; for <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, T::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code><a href='#impl-FromRequest%3C%27a%2C%20%27r%3E-1' class='anchor'></a></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#428-438' title='goto source code'>[src]</a></span></td></tr></tbody></table></h3><div class='impl-items'><h4 id='associatedtype.Error-2' class="type"><span id='Error.t-2' class='invisible'><code>type <a href='#associatedtype.Error' class="type">Error</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.never.html">!</a></code></span></h4>
+<h4 id='method.from_request-1' class="method hidden"><span id='from_request.v-2' class='invisible'><table class='table-display'><tbody><tr><td><code>fn <a href='#method.from_request' class='fnname'>from_request</a>(request: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#431-437' title='goto source code'>[src]</a></td></tr></tbody></table></span></h4></div><h3 id='impl-FromRequest%3C%27a%2C%20%27r%3E-2' class='impl'><span class='in-band'><table class='table-display'><tbody><tr><td><code>impl&lt;'a, 'r, T:&nbsp;<a class="trait" href="../../rocket/request/trait.FromRequest.html" title="trait rocket::request::FromRequest">FromRequest</a>&lt;'a, 'r&gt;&gt; <a class="trait" href="../../rocket/request/trait.FromRequest.html" title="trait rocket::request::FromRequest">FromRequest</a>&lt;'a, 'r&gt; for <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T&gt;</code><a href='#impl-FromRequest%3C%27a%2C%20%27r%3E-2' class='anchor'></a></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#440-449' title='goto source code'>[src]</a></span></td></tr></tbody></table></h3><div class='impl-items'><h4 id='associatedtype.Error-3' class="type"><span id='Error.t-3' class='invisible'><code>type <a href='#associatedtype.Error' class="type">Error</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.never.html">!</a></code></span></h4>
+<h4 id='method.from_request-2' class="method hidden"><span id='from_request.v-3' class='invisible'><table class='table-display'><tbody><tr><td><code>fn <a href='#method.from_request' class='fnname'>from_request</a>(request: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#443-448' title='goto source code'>[src]</a></td></tr></tbody></table></span></h4></div><span class='loading-content'>Loading content...</span>
+            <h2 id='implementors' class='small-section-header'>Implementors<a href='#implementors' class='anchor'></a></h2><div class='item-list' id='implementors-list'><h3 id='impl-FromRequest%3C%27a%2C%20%27r%3E-3' class='impl'><span class='in-band'><table class='table-display'><tbody><tr><td><code>impl&lt;'a, 'r&gt; FromRequest&lt;'a, 'r&gt; for &amp;'a <a class="struct" href="../../rocket/http/struct.Accept.html" title="struct rocket::http::Accept">Accept</a></code><a href='#impl-FromRequest%3C%27a%2C%20%27r%3E-3' class='anchor'></a></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#395-404' title='goto source code'>[src]</a></span></td></tr></tbody></table></h3><div class='impl-items'><h4 id='associatedtype.Error-4' class="type"><span id='Error.t-4' class='invisible'><code>type <a href='#associatedtype.Error-4' class="type">Error</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.never.html">!</a></code></span></h4>
+<h4 id='method.from_request-3' class="method hidden"><span id='from_request.v-4' class='invisible'><table class='table-display'><tbody><tr><td><code>fn <a href='#method.from_request-3' class='fnname'>from_request</a>(request: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#398-403' title='goto source code'>[src]</a></td></tr></tbody></table></span></h4></div><h3 id='impl-FromRequest%3C%27a%2C%20%27r%3E-4' class='impl'><span class='in-band'><table class='table-display'><tbody><tr><td><code>impl&lt;'a, 'r&gt; FromRequest&lt;'a, 'r&gt; for &amp;'a <a class="struct" href="../../rocket/http/struct.ContentType.html" title="struct rocket::http::ContentType">ContentType</a></code><a href='#impl-FromRequest%3C%27a%2C%20%27r%3E-4' class='anchor'></a></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#406-415' title='goto source code'>[src]</a></span></td></tr></tbody></table></h3><div class='impl-items'><h4 id='associatedtype.Error-5' class="type"><span id='Error.t-5' class='invisible'><code>type <a href='#associatedtype.Error-5' class="type">Error</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.never.html">!</a></code></span></h4>
+<h4 id='method.from_request-4' class="method hidden"><span id='from_request.v-5' class='invisible'><table class='table-display'><tbody><tr><td><code>fn <a href='#method.from_request-4' class='fnname'>from_request</a>(request: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#409-414' title='goto source code'>[src]</a></td></tr></tbody></table></span></h4></div><h3 id='impl-FromRequest%3C%27a%2C%20%27r%3E-5' class='impl'><span class='in-band'><table class='table-display'><tbody><tr><td><code>impl&lt;'a, 'r&gt; FromRequest&lt;'a, 'r&gt; for &amp;'a <a class="struct" href="../../rocket/http/uri/struct.Origin.html" title="struct rocket::http::uri::Origin">Origin</a>&lt;'a&gt;</code><a href='#impl-FromRequest%3C%27a%2C%20%27r%3E-5' class='anchor'></a></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#368-374' title='goto source code'>[src]</a></span></td></tr></tbody></table></h3><div class='impl-items'><h4 id='associatedtype.Error-6' class="type"><span id='Error.t-6' class='invisible'><code>type <a href='#associatedtype.Error-6' class="type">Error</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.never.html">!</a></code></span></h4>
+<h4 id='method.from_request-5' class="method hidden"><span id='from_request.v-6' class='invisible'><table class='table-display'><tbody><tr><td><code>fn <a href='#method.from_request-5' class='fnname'>from_request</a>(request: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#371-373' title='goto source code'>[src]</a></td></tr></tbody></table></span></h4></div><h3 id='impl-FromRequest%3C%27a%2C%20%27r%3E-6' class='impl'><span class='in-band'><table class='table-display'><tbody><tr><td><code>impl&lt;'a, 'r&gt; FromRequest&lt;'a, 'r&gt; for &amp;'r <a class="struct" href="../../rocket/struct.Route.html" title="struct rocket::Route">Route</a></code><a href='#impl-FromRequest%3C%27a%2C%20%27r%3E-6' class='anchor'></a></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#376-385' title='goto source code'>[src]</a></span></td></tr></tbody></table></h3><div class='impl-items'><h4 id='associatedtype.Error-7' class="type"><span id='Error.t-7' class='invisible'><code>type <a href='#associatedtype.Error-7' class="type">Error</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.never.html">!</a></code></span></h4>
+<h4 id='method.from_request-6' class="method hidden"><span id='from_request.v-7' class='invisible'><table class='table-display'><tbody><tr><td><code>fn <a href='#method.from_request-6' class='fnname'>from_request</a>(request: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#379-384' title='goto source code'>[src]</a></td></tr></tbody></table></span></h4></div><h3 id='impl-FromRequest%3C%27a%2C%20%27r%3E-7' class='impl'><span class='in-band'><table class='table-display'><tbody><tr><td><code>impl&lt;'a, 'r&gt; FromRequest&lt;'a, 'r&gt; for <a class="enum" href="../../rocket/http/enum.Cookies.html" title="enum rocket::http::Cookies">Cookies</a>&lt;'a&gt;</code><a href='#impl-FromRequest%3C%27a%2C%20%27r%3E-7' class='anchor'></a></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#387-393' title='goto source code'>[src]</a></span></td></tr></tbody></table></h3><div class='impl-items'><h4 id='associatedtype.Error-8' class="type"><span id='Error.t-8' class='invisible'><code>type <a href='#associatedtype.Error-8' class="type">Error</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.never.html">!</a></code></span></h4>
+<h4 id='method.from_request-7' class="method hidden"><span id='from_request.v-8' class='invisible'><table class='table-display'><tbody><tr><td><code>fn <a href='#method.from_request-7' class='fnname'>from_request</a>(request: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#390-392' title='goto source code'>[src]</a></td></tr></tbody></table></span></h4></div><h3 id='impl-FromRequest%3C%27a%2C%20%27r%3E-8' class='impl'><span class='in-band'><table class='table-display'><tbody><tr><td><code>impl&lt;'a, 'r&gt; FromRequest&lt;'a, 'r&gt; for <a class="enum" href="../../rocket/http/enum.Method.html" title="enum rocket::http::Method">Method</a></code><a href='#impl-FromRequest%3C%27a%2C%20%27r%3E-8' class='anchor'></a></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#360-366' title='goto source code'>[src]</a></span></td></tr></tbody></table></h3><div class='impl-items'><h4 id='associatedtype.Error-9' class="type"><span id='Error.t-9' class='invisible'><code>type <a href='#associatedtype.Error-9' class="type">Error</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.never.html">!</a></code></span></h4>
+<h4 id='method.from_request-8' class="method hidden"><span id='from_request.v-9' class='invisible'><table class='table-display'><tbody><tr><td><code>fn <a href='#method.from_request-8' class='fnname'>from_request</a>(request: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/from_request.rs.html#363-365' title='goto source code'>[src]</a></td></tr></tbody></table></span></h4></div><h3 id='impl-FromRequest%3C%27a%2C%20%27r%3E-9' class='impl'><span class='in-band'><table class='table-display'><tbody><tr><td><code>impl&lt;'a, 'r&gt; FromRequest&lt;'a, 'r&gt; for <a class="struct" href="../../rocket/response/struct.Flash.html" title="struct rocket::response::Flash">Flash</a>&lt;&amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;&gt;</code><a href='#impl-FromRequest%3C%27a%2C%20%27r%3E-9' class='anchor'></a></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/response/flash.rs.html#243-264' title='goto source code'>[src]</a></span></td></tr></tbody></table></h3><div class='docblock'><p>Retrieves a flash message from a flash cookie. If there is no flash cookie,
+or if the flash cookie is malformed, an empty <code>Err</code> is returned.</p>
+<p>The suggested use is through an <code>Option</code> and the <code>FlashMessage</code> type alias
+in <code>request</code>: <code>Option&lt;FlashMessage&gt;</code>.</p>
+</div><div class='impl-items'><h4 id='associatedtype.Error-10' class="type"><span id='Error.t-10' class='invisible'><code>type <a href='#associatedtype.Error-10' class="type">Error</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a></code></span></h4>
+<h4 id='method.from_request-9' class="method hidden"><span id='from_request.v-10' class='invisible'><table class='table-display'><tbody><tr><td><code>fn <a href='#method.from_request-9' class='fnname'>from_request</a>(req: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;Self, Self::<a class="type" href="../../rocket/request/trait.FromRequest.html#associatedtype.Error" title="type rocket::request::FromRequest::Error">Error</a>&gt;</code></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/response/flash.rs.html#246-263' title='goto source code'>[src]</a></td></tr></tbody></table></span></h4></div><h3 id='impl-FromRequest%3C%27a%2C%20%27r%3E-10' class='impl'><span class='in-band'><table class='table-display'><tbody><tr><td><code>impl&lt;'a, 'r, T:&nbsp;<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static&gt; FromRequest&lt;'a, 'r&gt; for <a class="struct" href="../../rocket/struct.State.html" title="struct rocket::State">State</a>&lt;'r, T&gt;</code><a href='#impl-FromRequest%3C%27a%2C%20%27r%3E-10' class='anchor'></a></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/state.rs.html#168-181' title='goto source code'>[src]</a></span></td></tr></tbody></table></h3><div class='impl-items'><h4 id='associatedtype.Error-11' class="type"><span id='Error.t-11' class='invisible'><code>type <a href='#associatedtype.Error-11' class="type">Error</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a></code></span></h4>
+<h4 id='method.from_request-10' class="method hidden"><span id='from_request.v-11' class='invisible'><table class='table-display'><tbody><tr><td><code>fn <a href='#method.from_request-10' class='fnname'>from_request</a>(req: &amp;'a <a class="struct" href="../../rocket/struct.Request.html" title="struct rocket::Request">Request</a>&lt;'r&gt;) -&gt; <a class="type" href="../../rocket/request/type.Outcome.html" title="type rocket::request::Outcome">Outcome</a>&lt;<a class="struct" href="../../rocket/struct.State.html" title="struct rocket::State">State</a>&lt;'r, T&gt;, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>&gt;</code></span></td><td><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/rocket/request/state.rs.html#172-180' title='goto source code'>[src]</a></td></tr></tbody></table></span></h4></div></div><span class='loading-content'>Loading content...</span><script type="text/javascript">window.inlined_types=new Set([]);</script><script type="text/javascript" async
+                         src="../../implementors/rocket/request/trait.FromRequest.js">
+                 </script></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "rocket";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

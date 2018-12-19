@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["Bool",""],["Char",""],["Double",""],["Float",""],["Int",""],["Long",""],["LongDouble",""],["LongLong",""],["Short",""]],"type":[["Type",""]]});

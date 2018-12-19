@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `compiler-lib/src/semantics.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>semantics.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `compiler-lib/src/semantics.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>semantics.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -430,23 +430,7 @@
 <span id="430">430</span>
 <span id="431">431</span>
 <span id="432">432</span>
-<span id="433">433</span>
-<span id="434">434</span>
-<span id="435">435</span>
-<span id="436">436</span>
-<span id="437">437</span>
-<span id="438">438</span>
-<span id="439">439</span>
-<span id="440">440</span>
-<span id="441">441</span>
-<span id="442">442</span>
-<span id="443">443</span>
-<span id="444">444</span>
-<span id="445">445</span>
-<span id="446">446</span>
-<span id="447">447</span>
-<span id="448">448</span>
-</pre><pre class="rust ">
+</pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">asciifile</span>::{<span class="ident">MaybeSpanned</span>, <span class="ident">Span</span>, <span class="ident">Spanned</span>},
     <span class="ident">ast</span>,
@@ -466,10 +450,7 @@
         <span class="ident">name</span>: <span class="ident">String</span>, <span class="comment">// name of the parameter class...</span>
     },
 
-    <span class="attribute">#[<span class="ident">fail</span>(
-        <span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;Usage of the parameter &#39;{}&#39; of the main function&quot;</span>,
-        <span class="ident">name</span>
-    )]</span>
+    <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;Usage of the parameter &#39;{}&#39; of the main function&quot;</span>, <span class="ident">name</span>)]</span>
     <span class="ident">MainMethodParamUsed</span> { <span class="ident">name</span>: <span class="ident">String</span> },
 
     <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;Only the &#39;main&#39; method can be static&quot;</span>)]</span>
@@ -522,8 +503,7 @@
 
     <span class="attribute">#[<span class="ident">fail</span>(
         <span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;invalid type: Expected expression of type &#39;{}&#39;, but was of type &#39;{}&#39;&quot;</span>,
-        <span class="ident">ty_expected</span>,
-        <span class="ident">ty_expr</span>
+        <span class="ident">ty_expected</span>, <span class="ident">ty_expr</span>
     )]</span>
     <span class="ident">InvalidType</span> {
         <span class="ident">ty_expected</span>: <span class="ident">String</span>,
@@ -539,24 +519,15 @@
     <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;cannot index non-array type &#39;{}&#39;&quot;</span>, <span class="ident">ty</span>)]</span>
     <span class="ident">CannotIndexNonArrayType</span> { <span class="ident">ty</span>: <span class="ident">String</span> },
 
-    <span class="attribute">#[<span class="ident">fail</span>(
-        <span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;method &#39;{}&#39; does not exist on type &#39;{}&#39;&quot;</span>,
-        <span class="ident">method_name</span>,
-        <span class="ident">ty</span>
-    )]</span>
+    <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;method &#39;{}&#39; does not exist on type &#39;{}&#39;&quot;</span>, <span class="ident">method_name</span>, <span class="ident">ty</span>)]</span>
     <span class="ident">MethodDoesNotExistOnType</span> { <span class="ident">method_name</span>: <span class="ident">String</span>, <span class="ident">ty</span>: <span class="ident">String</span> },
 
-    <span class="attribute">#[<span class="ident">fail</span>(
-        <span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;field &#39;{}&#39; does not exist on type &#39;{}&#39;&quot;</span>,
-        <span class="ident">field_name</span>,
-        <span class="ident">ty</span>
-    )]</span>
+    <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;field &#39;{}&#39; does not exist on type &#39;{}&#39;&quot;</span>, <span class="ident">field_name</span>, <span class="ident">ty</span>)]</span>
     <span class="ident">FieldDoesNotExistOnType</span> { <span class="ident">field_name</span>: <span class="ident">String</span>, <span class="ident">ty</span>: <span class="ident">String</span> },
 
     <span class="attribute">#[<span class="ident">fail</span>(
         <span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;method argument count does not match: Expected {} arguments, but found {}&quot;</span>,
-        <span class="ident">expected_args</span>,
-        <span class="ident">actual_args</span>
+        <span class="ident">expected_args</span>, <span class="ident">actual_args</span>
     )]</span>
     <span class="ident">MethodArgCountDoesNotMatch</span> {
         <span class="ident">expected_args</span>: <span class="ident">usize</span>,
@@ -565,18 +536,15 @@
 
     <span class="attribute">#[<span class="ident">fail</span>(
         <span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;cannot compare values of type &#39;{}&#39; with values of type &#39;{}&#39;&quot;</span>,
-        <span class="ident">ty1</span>,
-        <span class="ident">ty2</span>
+        <span class="ident">ty1</span>, <span class="ident">ty2</span>
     )]</span>
     <span class="ident">CannotCompareValuesOfType1WithType2</span> { <span class="ident">ty1</span>: <span class="ident">String</span>, <span class="ident">ty2</span>: <span class="ident">String</span> },
 
     <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;not a statement&quot;</span>)]</span>
     <span class="ident">NotAStatement</span>,
 
-    <span class="attribute">#[<span class="ident">fail</span>(
-        <span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;invalid assignment - can only assign to \
-                   local variables, parameters, field and array fields&quot;</span>
-    )]</span>
+    <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;invalid assignment - can only assign to \
+                      local variables, parameters, field and array fields&quot;</span>)]</span>
     <span class="ident">InvalidAssignment</span>,
 
     <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;Cannot write to read-only field &#39;{}&#39;&quot;</span>, <span class="ident">field_name</span>)]</span>
@@ -895,5 +863,5 @@
         <span class="macro">binop_test</span><span class="macro">!</span>(<span class="string">&quot;(new C())&quot;</span>, <span class="string">&quot;==&quot;</span>, <span class="string">&quot;(new D())&quot;</span>,                <span class="ident">Error</span>,  <span class="ident">eq_new_new_2types</span>);
     }
 }
-</pre>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "compiler_lib";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "compiler_lib";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-files.js"></script><script src="../../source-script.js"></script><script defer src="../../search-index.js"></script></body></html>

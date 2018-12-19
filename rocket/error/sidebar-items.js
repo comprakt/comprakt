@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["LaunchErrorKind","The kind of launch error that occurred."],["RouteUriError","Error returned by `set_uri()` on invalid URIs."]],"struct":[["LaunchError","An error that occurs during launch."]]});

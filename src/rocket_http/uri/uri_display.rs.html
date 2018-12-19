@@ -1,0 +1,1179 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/rocket_http-0.4.0/src/uri/uri_display.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>uri_display.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt</span>, <span class="ident">path</span>};
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">borrow</span>::<span class="ident">Cow</span>;
+
+<span class="kw">use</span> <span class="ident">RawStr</span>;
+<span class="kw">use</span> <span class="ident">uri</span>::{<span class="ident">Uri</span>, <span class="ident">UriPart</span>, <span class="ident">Path</span>, <span class="ident">Query</span>, <span class="ident">Formatter</span>};
+
+<span class="doccomment">/// Trait implemented by types that can be displayed as part of a URI in</span>
+<span class="doccomment">/// [`uri!`].</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Types implementing this trait can be displayed in a URI-safe manner. Unlike</span>
+<span class="doccomment">/// `Display`, the string written by a `UriDisplay` implementation must be</span>
+<span class="doccomment">/// URI-safe. In practice, this means that the string must either be</span>
+<span class="doccomment">/// percent-encoded or consist only of characters that are alphanumeric, &quot;-&quot;,</span>
+<span class="doccomment">/// &quot;.&quot;, &quot;_&quot;, or &quot;~&quot; - the &quot;unreserved&quot; characters.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Marker Generic: `Path`, `Query`</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// The [`UriPart`] parameter `P` in `UriDisplay&lt;P&gt;` must be either [`Path`] or</span>
+<span class="doccomment">/// [`Query`] (see the [`UriPart`] documentation for how this is enforced),</span>
+<span class="doccomment">/// resulting in either `UriDisplay&lt;Path&gt;` or `UriDisplay&lt;Query&gt;`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// As the names might imply, the `Path` version of the trait is used when</span>
+<span class="doccomment">/// displaying parameters in the path part of the URI while the `Query` version</span>
+<span class="doccomment">/// is used when display parameters in the query part of the URI. These distinct</span>
+<span class="doccomment">/// versions of the trait exist exactly to differentiate, at the type-level,</span>
+<span class="doccomment">/// where in the URI a value is to be written to, allowing for type safety in</span>
+<span class="doccomment">/// the face of differences between the two locations. For example, while it is</span>
+<span class="doccomment">/// valid to use a value of `None` in the query part, omitting the parameter</span>
+<span class="doccomment">/// entirely, doing so is _not_ valid in the path part. By differentiating in</span>
+<span class="doccomment">/// the type system, both of these conditions can be enforced appropriately</span>
+<span class="doccomment">/// through distinct implementations of `UriDisplay&lt;Path&gt;` and</span>
+<span class="doccomment">/// `UriDisplay&lt;Query&gt;`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Occasionally, the implementation of `UriDisplay` is independent of where the</span>
+<span class="doccomment">/// parameter is to be displayed. When this is the case, the parameter may be</span>
+<span class="doccomment">/// kept generic. That is, implementations can take the form:</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// # extern crate rocket;</span>
+<span class="doccomment">/// # use std::fmt;</span>
+<span class="doccomment">/// # use rocket::http::uri::{UriPart, UriDisplay, Formatter};</span>
+<span class="doccomment">/// # struct SomeType;</span>
+<span class="doccomment">/// impl&lt;P: UriPart&gt; UriDisplay&lt;P&gt; for SomeType</span>
+<span class="doccomment">/// # { fn fmt(&amp;self, f: &amp;mut Formatter&lt;P&gt;) -&gt; fmt::Result { Ok(()) } }</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// [`UriPart`]: uri::UriPart</span>
+<span class="doccomment">/// [`Path`]: uri::Path</span>
+<span class="doccomment">/// [`Query`]: uri::Query</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Code Generation</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// When the [`uri!`] macro is used to generate a URI for a route, the types for</span>
+<span class="doccomment">/// the route&#39;s _path_ URI parameters must implement `UriDisplay&lt;Path&gt;`, while</span>
+<span class="doccomment">/// types in the route&#39;s query parameters must implement `UriDisplay&lt;Query&gt;`.</span>
+<span class="doccomment">/// Any parameters ignored with `_` must be of a type that implements</span>
+<span class="doccomment">/// [`Ignorable`]. The `UriDisplay` implementation for these types is used when</span>
+<span class="doccomment">/// generating the URI.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// To illustrate `UriDisplay`&#39;s role in code generation for `uri!`, consider</span>
+<span class="doccomment">/// the following route:</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// # #![feature(proc_macro_hygiene, decl_macro)]</span>
+<span class="doccomment">/// # #[macro_use] extern crate rocket;</span>
+<span class="doccomment">/// #[get(&quot;/item/&lt;id&gt;?&lt;track&gt;&quot;)]</span>
+<span class="doccomment">/// fn get_item(id: i32, track: Option&lt;String&gt;) { /* .. */ }</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// A URI for this route can be generated as follows:</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// # #![feature(proc_macro_hygiene, decl_macro)]</span>
+<span class="doccomment">/// # #[macro_use] extern crate rocket;</span>
+<span class="doccomment">/// # type T = ();</span>
+<span class="doccomment">/// # #[get(&quot;/item/&lt;id&gt;?&lt;track&gt;&quot;)]</span>
+<span class="doccomment">/// # fn get_item(id: i32, track: Option&lt;String&gt;) { /* .. */ }</span>
+<span class="doccomment">/// #</span>
+<span class="doccomment">/// // With unnamed parameters.</span>
+<span class="doccomment">/// uri!(get_item: 100, &quot;inbound&quot;);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// // With named parameters.</span>
+<span class="doccomment">/// uri!(get_item: id = 100, track = &quot;inbound&quot;);</span>
+<span class="doccomment">/// uri!(get_item: track = &quot;inbound&quot;, id = 100);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// // Ignoring `track`.</span>
+<span class="doccomment">/// uri!(get_item: 100, _);</span>
+<span class="doccomment">/// uri!(get_item: id = 100, track = _);</span>
+<span class="doccomment">/// uri!(get_item: track = _, id = 100);</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// After verifying parameters and their types, Rocket will generate code</span>
+<span class="doccomment">/// similar (in spirit) to the following:</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// # extern crate rocket;</span>
+<span class="doccomment">/// # use rocket::http::uri::{UriDisplay, Path, Query, Origin};</span>
+<span class="doccomment">/// #</span>
+<span class="doccomment">/// Origin::parse(&amp;format!(&quot;/item/{}?track={}&quot;,</span>
+<span class="doccomment">///     &amp;100 as &amp;UriDisplay&lt;Path&gt;, &amp;&quot;inbound&quot; as &amp;UriDisplay&lt;Query&gt;));</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// For this expression to typecheck, `i32` must implement `UriDisplay&lt;Path&gt;`</span>
+<span class="doccomment">/// and `&amp;str` must implement `UriDisplay&lt;Query&gt;`. What&#39;s more, when `track` is</span>
+<span class="doccomment">/// ignored, `Option&lt;String&gt;` is required to implement [`Ignorable`]. As can be</span>
+<span class="doccomment">/// seen, the implementations will be used to display the value in a URI-safe</span>
+<span class="doccomment">/// manner.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// [`uri!`]: ../../../rocket_codegen/macro.uri.html</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Provided Implementations</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Rocket implements `UriDisplay&lt;P&gt;` for all `P: UriPart` for several built-in</span>
+<span class="doccomment">/// types.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///   * **i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32,</span>
+<span class="doccomment">///     f64, bool, IpAddr, Ipv4Addr, Ipv6Addr**</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     The implementation of `UriDisplay` for these types is identical to the</span>
+<span class="doccomment">///     `Display` implementation.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///   * **[`&amp;RawStr`](RawStr), `String`, `&amp;str`, `Cow&lt;str&gt;`**</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     The string is percent encoded.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///   * **`&amp;T`, `&amp;mut T`** _where_ **`T: UriDisplay`**</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     Uses the implementation of `UriDisplay` for `T`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Rocket implements `UriDisplay&lt;Path&gt;` (but not `UriDisplay&lt;Query&gt;`) for</span>
+<span class="doccomment">/// several built-in types.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///   * `T` for **`Option&lt;T&gt;`** _where_ **`T: UriDisplay&lt;Path&gt;`**</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     Uses the implementation of `UriDisplay` for `T::Target`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     When a type of `Option&lt;T&gt;` appears in a route path, use a type of `T` as</span>
+<span class="doccomment">///     the parameter in `uri!`. Note that `Option&lt;T&gt;` itself _does not_</span>
+<span class="doccomment">///     implement `UriDisplay&lt;Path&gt;`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///   * `T` for **`Result&lt;T, E&gt;`** _where_ **`T: UriDisplay&lt;Path&gt;`**</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     Uses the implementation of `UriDisplay` for `T::Target`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     When a type of `Result&lt;T, E&gt;` appears in a route path, use a type of `T`</span>
+<span class="doccomment">///     as the parameter in `uri!`. Note that `Result&lt;T, E&gt;` itself _does not_</span>
+<span class="doccomment">///     implement `UriDisplay&lt;Path&gt;`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Rocket implements `UriDisplay&lt;Query&gt;` (but not `UriDisplay&lt;Path&gt;`) for</span>
+<span class="doccomment">/// several built-in types.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///   * **`Form&lt;T&gt;`, `LenientForm&lt;T&gt;`** _where_ **`T: FromUriParam + FromForm`**</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     Uses the implementation of `UriDisplay` for `T::Target`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     In general, when a type of `Form&lt;T&gt;` is to be displayed as part of a</span>
+<span class="doccomment">///     URI&#39;s query, it suffices to derive `UriDisplay` for `T`. Note that any</span>
+<span class="doccomment">///     type that can be converted into a `T` using [`FromUriParam`] can be used</span>
+<span class="doccomment">///     in place of a `Form&lt;T&gt;` in a `uri!` invocation.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///   * **`Option&lt;T&gt;`** _where_ **`T: UriDisplay&lt;Query&gt;`**</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     If the `Option` is `Some`, uses the implementation of `UriDisplay` for</span>
+<span class="doccomment">///     `T`. Otherwise, nothing is rendered.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///   * **`Result&lt;T, E&gt;`** _where_ **`T: UriDisplay&lt;Query&gt;`**</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     If the `Result` is `Ok`, uses the implementation of `UriDisplay` for</span>
+<span class="doccomment">///     `T`. Otherwise, nothing is rendered.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// [`FromUriParam`]: uri::FromUriParam</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Deriving</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Manually implementing `UriDisplay` should be done with care. For most use</span>
+<span class="doccomment">/// cases, deriving `UriDisplay` will suffice:</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// # #[macro_use] extern crate rocket;</span>
+<span class="doccomment">/// # use rocket::http::uri::{UriDisplay, Query, Path};</span>
+<span class="doccomment">/// // Derives `UriDisplay&lt;Query&gt;`</span>
+<span class="doccomment">/// #[derive(UriDisplayQuery)]</span>
+<span class="doccomment">/// struct User {</span>
+<span class="doccomment">///     name: String,</span>
+<span class="doccomment">///     age: usize,</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// let user = User { name: &quot;Michael Smith&quot;.into(), age: 31 };</span>
+<span class="doccomment">/// let uri_string = format!(&quot;{}&quot;, &amp;user as &amp;UriDisplay&lt;Query&gt;);</span>
+<span class="doccomment">/// assert_eq!(uri_string, &quot;name=Michael%20Smith&amp;age=31&quot;);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// // Derives `UriDisplay&lt;Path&gt;`</span>
+<span class="doccomment">/// #[derive(UriDisplayPath)]</span>
+<span class="doccomment">/// struct Name(String);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// let name = Name(&quot;Bob Smith&quot;.into());</span>
+<span class="doccomment">/// let uri_string = format!(&quot;{}&quot;, &amp;name as &amp;UriDisplay&lt;Path&gt;);</span>
+<span class="doccomment">/// assert_eq!(uri_string, &quot;Bob%20Smith&quot;);</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// As long as every field in the structure (or enum) implements `UriDisplay`,</span>
+<span class="doccomment">/// the trait can be derived. The implementation calls</span>
+<span class="doccomment">/// [`Formatter::write_named_value()`] for every named field and</span>
+<span class="doccomment">/// [`Formatter::write_value()`] for every unnamed field. See the [`UriDisplay`</span>
+<span class="doccomment">/// derive] documentation for full details.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// [`Ignorable`]: uri::Ignorable</span>
+<span class="doccomment">/// [`UriDisplay` derive]: ../../../rocket_codegen/derive.UriDisplay.html</span>
+<span class="doccomment">/// [`Formatter::write_named_value()`]: uri::Formatter::write_named_value()</span>
+<span class="doccomment">/// [`Formatter::write_value()`]: uri::Formatter::write_value()</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Implementing</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Implementing `UriDisplay` is similar to implementing</span>
+<span class="doccomment">/// [`Display`](::std::fmt::Display) with the caveat that extra care must be</span>
+<span class="doccomment">/// taken to ensure that the written string is URI-safe. As mentioned before, in</span>
+<span class="doccomment">/// practice, this means that the string must either be percent-encoded or</span>
+<span class="doccomment">/// consist only of characters that are alphanumeric, &quot;-&quot;, &quot;.&quot;, &quot;_&quot;, or &quot;~&quot;.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// When manually implementing `UriDisplay` for your types, you should defer to</span>
+<span class="doccomment">/// existing implementations of `UriDisplay` as much as possible. In the example</span>
+<span class="doccomment">/// below, for instance, `Name`&#39;s implementation defers to `String`&#39;s</span>
+<span class="doccomment">/// implementation. To percent-encode a string, use</span>
+<span class="doccomment">/// [`Uri::percent_encode()`](uri::Uri::percent_encode()).</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ## Example</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// The following snippet consists of a `Name` type that implements both</span>
+<span class="doccomment">/// `FromParam` and `UriDisplay&lt;Path&gt;`. The `FromParam` implementation allows</span>
+<span class="doccomment">/// `Name` to be used as the target type of a dynamic parameter, while the</span>
+<span class="doccomment">/// `UriDisplay` implementation allows URIs to be generated for routes with</span>
+<span class="doccomment">/// `Name` as a dynamic path parameter type. Note the custom parsing in the</span>
+<span class="doccomment">/// `FromParam` implementation; as a result of this, a custom (reflexive)</span>
+<span class="doccomment">/// `UriDisplay` implementation is required.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// # #![feature(proc_macro_hygiene, decl_macro)]</span>
+<span class="doccomment">/// # #[macro_use] extern crate rocket;</span>
+<span class="doccomment">/// use rocket::http::RawStr;</span>
+<span class="doccomment">/// use rocket::request::FromParam;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// struct Name(String);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// const PREFIX: &amp;str = &quot;name:&quot;;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// impl&lt;&#39;r&gt; FromParam&lt;&#39;r&gt; for Name {</span>
+<span class="doccomment">///     type Error = &amp;&#39;r RawStr;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     /// Validates parameters that start with &#39;name:&#39;, extracting the text</span>
+<span class="doccomment">///     /// after &#39;name:&#39; as long as there is at least one character.</span>
+<span class="doccomment">///     fn from_param(param: &amp;&#39;r RawStr) -&gt; Result&lt;Self, Self::Error&gt; {</span>
+<span class="doccomment">///         let decoded = param.percent_decode().map_err(|_| param)?;</span>
+<span class="doccomment">///         if !decoded.starts_with(PREFIX) || decoded.len() &lt; (PREFIX.len() + 1) {</span>
+<span class="doccomment">///             return Err(param);</span>
+<span class="doccomment">///         }</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///         let real_name = decoded[PREFIX.len()..].to_string();</span>
+<span class="doccomment">///         Ok(Name(real_name))</span>
+<span class="doccomment">///     }</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// use std::fmt;</span>
+<span class="doccomment">/// use rocket::http::impl_from_uri_param_identity;</span>
+<span class="doccomment">/// use rocket::http::uri::{Formatter, FromUriParam, UriDisplay, Path};</span>
+<span class="doccomment">/// use rocket::response::Redirect;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// impl UriDisplay&lt;Path&gt; for Name {</span>
+<span class="doccomment">///     // Delegates to the `UriDisplay` implementation for `String` via the</span>
+<span class="doccomment">///     // call to `write_value` to ensure that the written string is</span>
+<span class="doccomment">///     // URI-safe. In this case, the string will be percent encoded.</span>
+<span class="doccomment">///     // Prefixes the inner name with `name:`.</span>
+<span class="doccomment">///     fn fmt(&amp;self, f: &amp;mut Formatter&lt;Path&gt;) -&gt; fmt::Result {</span>
+<span class="doccomment">///         f.write_value(&amp;format!(&quot;name:{}&quot;, self.0))</span>
+<span class="doccomment">///     }</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// impl_from_uri_param_identity!([Path] Name);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// #[get(&quot;/name/&lt;name&gt;&quot;)]</span>
+<span class="doccomment">/// fn redirector(name: Name) -&gt; Redirect {</span>
+<span class="doccomment">///     Redirect::to(uri!(real: name))</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// #[get(&quot;/&lt;name&gt;&quot;)]</span>
+<span class="doccomment">/// fn real(name: Name) -&gt; String {</span>
+<span class="doccomment">///     format!(&quot;Hello, {}!&quot;, name.0)</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// let uri = uri!(real: Name(&quot;Mike Smith&quot;.into()));</span>
+<span class="doccomment">/// assert_eq!(uri.path(), &quot;/name:Mike%20Smith&quot;);</span>
+<span class="doccomment">/// ```</span>
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">UriPart</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Formats `self` in a URI-safe manner using the given formatter.</span>
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span>;
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">P</span>: <span class="ident">UriPart</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> {
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="ident">UriDisplay</span>::<span class="ident">fmt</span>(<span class="kw-2">*</span><span class="self">self</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="op">&lt;</span><span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;&gt;</span>::<span class="ident">new</span>(<span class="ident">f</span>))
+    }
+}
+
+<span class="comment">// Direct implementations: these are the leaves of a call to `UriDisplay::fmt`.</span>
+
+<span class="doccomment">/// Percent-encodes the raw string.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">UriPart</span><span class="op">&gt;</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">str</span> {
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="ident">f</span>.<span class="ident">write_raw</span>(<span class="kw-2">&amp;</span><span class="ident">Uri</span>::<span class="ident">percent_encode</span>(<span class="self">self</span>))
+    }
+}
+
+<span class="doccomment">/// Percent-encodes each segment in the path and normalizes separators.</span>
+<span class="kw">impl</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">path</span>::<span class="ident">Path</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Component</span>;
+
+        <span class="kw">for</span> <span class="ident">component</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">components</span>() {
+            <span class="kw">match</span> <span class="ident">component</span> {
+                <span class="ident">Component</span>::<span class="ident">Prefix</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Component</span>::<span class="ident">RootDir</span> <span class="op">=&gt;</span> <span class="kw">continue</span>,
+                <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">f</span>.<span class="ident">write_value</span>(<span class="kw-2">&amp;</span><span class="ident">component</span>.<span class="ident">as_os_str</span>().<span class="ident">to_string_lossy</span>())<span class="question-mark">?</span>
+            }
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">impl_with_display</span> {
+    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">T</span>:<span class="ident">ty</span>),<span class="op">+</span>) <span class="op">=&gt;</span> {$(
+        <span class="doccomment">/// This implementation is identical to the `Display` implementation.</span>
+        <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">UriPart</span><span class="op">&gt;</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">T</span>  {
+            <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+            <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+                <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Write</span>;
+                <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>)
+            }
+        }
+    )<span class="op">+</span>}
+}
+
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">net</span>::{<span class="ident">IpAddr</span>, <span class="ident">Ipv4Addr</span>, <span class="ident">Ipv6Addr</span>};
+
+<span class="macro">impl_with_display</span><span class="macro">!</span> {
+    <span class="ident">i8</span>, <span class="ident">i16</span>, <span class="ident">i32</span>, <span class="ident">i64</span>, <span class="ident">i128</span>, <span class="ident">isize</span>,
+    <span class="ident">u8</span>, <span class="ident">u16</span>, <span class="ident">u32</span>, <span class="ident">u64</span>, <span class="ident">u128</span>, <span class="ident">usize</span>,
+    <span class="ident">f32</span>, <span class="ident">f64</span>, <span class="ident">bool</span>,
+    <span class="ident">IpAddr</span>, <span class="ident">Ipv4Addr</span>, <span class="ident">Ipv6Addr</span>
+}
+
+<span class="comment">// These are second level implementations: they all defer to an existing</span>
+<span class="comment">// implementation.</span>
+
+<span class="doccomment">/// Percent-encodes the raw string. Defers to `str`.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">UriPart</span><span class="op">&gt;</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawStr</span> {
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="self">self</span>.<span class="ident">as_str</span>().<span class="ident">fmt</span>(<span class="ident">f</span>)
+    }
+}
+
+<span class="doccomment">/// Percent-encodes the raw string. Defers to `str`.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">UriPart</span><span class="op">&gt;</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">String</span> {
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="self">self</span>.<span class="ident">as_str</span>().<span class="ident">fmt</span>(<span class="ident">f</span>)
+    }
+}
+
+<span class="doccomment">/// Percent-encodes the raw string. Defers to `str`.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">P</span>: <span class="ident">UriPart</span><span class="op">&gt;</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">str</span><span class="op">&gt;</span> {
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">fmt</span>(<span class="ident">f</span>)
+    }
+}
+
+<span class="doccomment">/// Percent-encodes each segment in the path and normalizes separators.</span>
+<span class="kw">impl</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">path</span>::<span class="ident">PathBuf</span> {
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="self">self</span>.<span class="ident">as_path</span>().<span class="ident">fmt</span>(<span class="ident">f</span>)
+    }
+}
+
+<span class="doccomment">/// Defers to the `UriDisplay&lt;P&gt;` implementation for `T`.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">P</span>: <span class="ident">UriPart</span>, <span class="ident">T</span>: <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">T</span> {
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="ident">UriDisplay</span>::<span class="ident">fmt</span>(<span class="kw-2">*</span><span class="self">self</span>, <span class="ident">f</span>)
+    }
+}
+
+<span class="doccomment">/// Defers to the `UriDisplay&lt;P&gt;` implementation for `T`.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">P</span>: <span class="ident">UriPart</span>, <span class="ident">T</span>: <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">T</span> {
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="ident">UriDisplay</span>::<span class="ident">fmt</span>(<span class="kw-2">*</span><span class="self">self</span>, <span class="ident">f</span>)
+    }
+}
+
+<span class="doccomment">/// Defers to the `UriDisplay&lt;Query&gt;` implementation for `T`.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">Query</span><span class="op">&gt;&gt;</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">Query</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">Query</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="prelude-val">Some</span>(<span class="ident">v</span>) <span class="op">=&gt;</span> <span class="ident">v</span>.<span class="ident">fmt</span>(<span class="ident">f</span>),
+            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(())
+        }
+    }
+}
+
+<span class="doccomment">/// Defers to the `UriDisplay&lt;Query&gt;` implementation for `T`.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">Query</span><span class="op">&gt;</span>, <span class="ident">E</span><span class="op">&gt;</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="ident">Query</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">E</span><span class="op">&gt;</span> {
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="ident">Query</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=&gt;</span> <span class="ident">v</span>.<span class="ident">fmt</span>(<span class="ident">f</span>),
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(())
+        }
+    }
+}
+
+<span class="comment">// And finally, the `Ignorable` trait, which has sugar of `_` in the `uri!`</span>
+<span class="comment">// macro, which expands to a typecheck.</span>
+
+<span class="doccomment">/// Trait implemented by types that can be ignored in `uri!`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// When a parameter is explicitly ignored in `uri!` by supplying `_` as the</span>
+<span class="doccomment">/// parameter&#39;s value, that parameter&#39;s type is required to implement this</span>
+<span class="doccomment">/// trait for the corresponding `UriPart`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// # #![feature(proc_macro_hygiene, decl_macro)]</span>
+<span class="doccomment">/// # #[macro_use] extern crate rocket;</span>
+<span class="doccomment">/// #[get(&quot;/item/&lt;id&gt;?&lt;track&gt;&quot;)]</span>
+<span class="doccomment">/// fn get_item(id: i32, track: Option&lt;u8&gt;) { /* .. */ }</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// // Ignore the `track` parameter: `Option&lt;u8&gt;` must be `Ignorable`.</span>
+<span class="doccomment">/// uri!(get_item: 100, _);</span>
+<span class="doccomment">/// uri!(get_item: id = 100, track = _);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// // Provide a value for `track`.</span>
+<span class="doccomment">/// uri!(get_item: 100, 4);</span>
+<span class="doccomment">/// uri!(get_item: id = 100, track = 4);</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Implementations</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Only `Option&lt;T&gt;` and `Result&lt;T, E&gt;` implement this trait. You may implement</span>
+<span class="doccomment">/// this trait for your own ignorable types as well:</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// # #[macro_use] extern crate rocket;</span>
+<span class="doccomment">/// use rocket::http::uri::{Ignorable, Query};</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # struct MyType;</span>
+<span class="doccomment">/// impl Ignorable&lt;Query&gt; for MyType { }</span>
+<span class="doccomment">/// ```</span>
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Ignorable</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">UriPart</span><span class="op">&gt;</span> { }
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Ignorable</span><span class="op">&lt;</span><span class="ident">Query</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> { }
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">E</span><span class="op">&gt;</span> <span class="ident">Ignorable</span><span class="op">&lt;</span><span class="ident">Query</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">E</span><span class="op">&gt;</span> { }
+
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">assert_ignorable</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">UriPart</span>, <span class="ident">T</span>: <span class="ident">Ignorable</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;&gt;</span>() {  }
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+<span class="kw">mod</span> <span class="ident">uri_display_tests</span> {
+    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>;
+    <span class="kw">use</span> <span class="ident">uri</span>::{<span class="ident">FromUriParam</span>, <span class="ident">UriDisplay</span>, <span class="ident">Query</span>, <span class="ident">Path</span>};
+
+    <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">uri_display</span> {
+        (<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">P</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">Target</span>:<span class="ident">ty</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">source</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> ({
+            <span class="kw">let</span> <span class="ident">tmp</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">source</span>;
+            <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">Target</span> <span class="kw">as</span> <span class="ident">FromUriParam</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">P</span>, <span class="kw">_</span><span class="op">&gt;&gt;</span>::<span class="ident">from_uri_param</span>(<span class="ident">tmp</span>);
+            <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">target</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="ident">dyn</span> <span class="ident">UriDisplay</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">P</span><span class="op">&gt;</span>)
+        })
+    }
+
+    <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">assert_display</span> {
+        (<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">P</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">Target</span>:<span class="ident">ty</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">source</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expected</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> ({
+            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">uri_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">P</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">Target</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">source</span>), <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expected</span>);
+        })
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">uri_display_encoding</span>() {
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="ident">String</span><span class="op">&gt;</span> <span class="string">&quot;hello&quot;</span>, <span class="string">&quot;hello&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="ident">String</span><span class="op">&gt;</span> <span class="string">&quot;hi hi&quot;</span>, <span class="string">&quot;hi%20hi&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> <span class="string">&quot;hi hi&quot;</span>, <span class="string">&quot;hi%20hi&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="string">&quot;hi hi&quot;</span>, <span class="string">&quot;hi%20hi&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="ident">usize</span><span class="op">&gt;</span> <span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="ident">u8</span><span class="op">&gt;</span> <span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="ident">i32</span><span class="op">&gt;</span> <span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="ident">isize</span><span class="op">&gt;</span> <span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">String</span><span class="op">&gt;</span> <span class="string">&quot;hello&quot;</span>, <span class="string">&quot;hello&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">String</span><span class="op">&gt;</span> <span class="string">&quot;hi hi&quot;</span>, <span class="string">&quot;hi%20hi&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> <span class="string">&quot;hi hi&quot;</span>, <span class="string">&quot;hi%20hi&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="string">&quot;hi hi&quot;</span>, <span class="string">&quot;hi%20hi&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">usize</span><span class="op">&gt;</span> <span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">u8</span><span class="op">&gt;</span> <span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">i32</span><span class="op">&gt;</span> <span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">isize</span><span class="op">&gt;</span> <span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="string">&quot;hi there&quot;</span>, <span class="string">&quot;hi%20there&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="ident">isize</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="ident">u8</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="string">&quot;hi there&quot;</span>, <span class="string">&quot;hi%20there&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">isize</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">u8</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="string">&quot;hi there&quot;</span>, <span class="string">&quot;hi%20there&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">isize</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="string">&quot;hi there&quot;</span>, <span class="string">&quot;hi%20there&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">isize</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">usize</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="string">&quot;hi there&quot;</span>, <span class="string">&quot;hi%20there&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">isize</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">String</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">usize</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="string">&quot;hi there&quot;</span>, <span class="string">&quot;hi%20there&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">isize</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">String</span><span class="op">&gt;&gt;</span> <span class="kw-2">&amp;</span><span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">paths</span>() {
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">path</span>::<span class="ident">PathBuf</span><span class="op">&gt;</span> <span class="string">&quot;hello&quot;</span>, <span class="string">&quot;hello&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">path</span>::<span class="ident">PathBuf</span><span class="op">&gt;</span> <span class="string">&quot;hi there&quot;</span>, <span class="string">&quot;hi%20there&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">path</span>::<span class="ident">PathBuf</span><span class="op">&gt;</span> <span class="string">&quot;hello/world&quot;</span>, <span class="string">&quot;hello/world&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">path</span>::<span class="ident">PathBuf</span><span class="op">&gt;</span> <span class="string">&quot;hello//world&quot;</span>, <span class="string">&quot;hello/world&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">path</span>::<span class="ident">PathBuf</span><span class="op">&gt;</span> <span class="string">&quot;hello/ world&quot;</span>, <span class="string">&quot;hello/%20world&quot;</span>);
+
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">path</span>::<span class="ident">PathBuf</span><span class="op">&gt;</span> <span class="string">&quot;hi/wo rld&quot;</span>, <span class="string">&quot;hi/wo%20rld&quot;</span>);
+
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">path</span>::<span class="ident">PathBuf</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="string">&quot;hi/wo rld&quot;</span>, <span class="string">&quot;hi/wo%20rld&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">path</span>::<span class="ident">PathBuf</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="string">&quot;hi there&quot;</span>, <span class="string">&quot;hi%20there&quot;</span>);
+    }
+
+    <span class="kw">struct</span> <span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">T</span>);
+
+    <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">A</span>, <span class="ident">T</span>: <span class="ident">FromUriParam</span><span class="op">&lt;</span><span class="ident">Query</span>, <span class="ident">A</span><span class="op">&gt;&gt;</span> <span class="ident">FromUriParam</span><span class="op">&lt;</span><span class="ident">Query</span>, <span class="ident">A</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+        <span class="kw">type</span> <span class="ident">Target</span> <span class="op">=</span> <span class="ident">T</span>::<span class="ident">Target</span>;
+
+        <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+        <span class="kw">fn</span> <span class="ident">from_uri_param</span>(<span class="ident">param</span>: <span class="ident">A</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Target</span> {
+            <span class="ident">T</span>::<span class="ident">from_uri_param</span>(<span class="ident">param</span>)
+        }
+    }
+
+    <span class="kw">impl</span> <span class="ident">FromUriParam</span><span class="op">&lt;</span><span class="ident">Path</span>, <span class="ident">usize</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+        <span class="kw">type</span> <span class="ident">Target</span> <span class="op">=</span> <span class="ident">usize</span>;
+
+        <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+        <span class="kw">fn</span> <span class="ident">from_uri_param</span>(<span class="ident">param</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Target</span> {
+            <span class="ident">param</span>
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">uri_display_encoding_wrapped</span>() {
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wrapper</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="string">&quot;hi there&quot;</span>, <span class="string">&quot;hi%20there&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wrapper</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span> <span class="string">&quot;hi there&quot;</span>, <span class="string">&quot;hi%20there&quot;</span>);
+
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">isize</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span> <span class="number">10</span>, <span class="string">&quot;10&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span> <span class="number">18</span>, <span class="string">&quot;18&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span> <span class="number">238</span>, <span class="string">&quot;238&quot;</span>);
+
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;&gt;</span>, <span class="ident">usize</span><span class="op">&gt;&gt;</span> <span class="number">238</span>, <span class="string">&quot;238&quot;</span>);
+        <span class="macro">assert_display</span><span class="macro">!</span>(<span class="op">&lt;</span><span class="ident">Path</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>, <span class="ident">usize</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span> <span class="number">123</span>, <span class="string">&quot;123&quot;</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">check_ignorables</span>() {
+        <span class="kw">use</span> <span class="ident">uri</span>::<span class="ident">assert_ignorable</span>;
+
+        <span class="ident">assert_ignorable</span>::<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;&gt;</span>();
+        <span class="ident">assert_ignorable</span>::<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>();
+        <span class="ident">assert_ignorable</span>::<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>, <span class="ident">usize</span><span class="op">&gt;&gt;</span>();
+        <span class="ident">assert_ignorable</span>::<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>, <span class="ident">usize</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>();
+        <span class="ident">assert_ignorable</span>::<span class="op">&lt;</span><span class="ident">Query</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wrapper</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;&gt;</span>, <span class="ident">usize</span><span class="op">&gt;&gt;</span>();
+    }
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../../";window.currentCrate = "rocket_http";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script src="../../../source-files.js"></script><script src="../../../source-script.js"></script><script defer src="../../../search-index.js"></script></body></html>

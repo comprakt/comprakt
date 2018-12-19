@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["Index",""],["Max",""],["Ptr",""]],"type":[["Type",""]]});

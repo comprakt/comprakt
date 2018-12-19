@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["Max",""],["Mem",""],["Size",""]],"type":[["Type",""]]});

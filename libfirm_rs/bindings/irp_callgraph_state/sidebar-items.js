@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["AndCalltreeConsistent",""],["Consistent",""],["Inconsistent",""],["None",""]],"type":[["Type",""]]});

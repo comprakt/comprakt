@@ -1,0 +1,63 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `impl_from_uri_param_identity` macro in crate `rocket`."><meta name="keywords" content="rust, rustlang, rust-lang, impl_from_uri_param_identity"><title>rocket::http::impl_from_uri_param_identity - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://rocket.rs/v0.4/images/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc macro"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../rocket/index.html'><img src='https://rocket.rs/v0.4/images/logo-boxed.png' alt='logo' width='100'></a><div class="sidebar-elems"><p class='location'><a href='../index.html'>rocket</a>::<wbr><a href='index.html'>http</a></p><script>window.sidebarCurrent = {name: 'impl_from_uri_param_identity', ty: 'macro', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/rocket_http/uri/from_uri_param.rs.html#280-285' title='goto source code'>[src]</a></span><span class='in-band'>Macro <a href='../index.html'>rocket</a>::<wbr><a href='index.html'>http</a>::<wbr><a class="macro" href=''>impl_from_uri_param_identity</a></span></h1><div class="docblock type-decl hidden-by-usual-hider"><div class="example-wrap"><pre class="rust macro">
+<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">impl_from_uri_param_identity</span> {
+    ( $ ( ( $ ( $ <span class="ident">l</span> : <span class="ident">tt</span> ) <span class="op">*</span> ) $ <span class="ident">T</span> : <span class="ident">ty</span> ) , <span class="op">*</span> ) <span class="op">=&gt;</span> { ... };
+    (
+$ ( [ $ <span class="ident">P</span> : <span class="ident">ty</span> ] ( $ ( $ <span class="ident">l</span> : <span class="ident">tt</span> ) <span class="op">*</span> ) $ <span class="ident">T</span> : <span class="ident">ty</span> ) , <span class="op">*</span> ) <span class="op">=&gt;</span> { ... };
+    (
+$ ( [ $ <span class="ident">P</span> : <span class="ident">ty</span> ] $ <span class="ident">T</span> : <span class="ident">ty</span> ) , <span class="op">*</span> ) <span class="op">=&gt;</span> { ... };
+    (
+$ ( $ <span class="ident">T</span> : <span class="ident">ty</span> ) , <span class="op">*</span> ) <span class="op">=&gt;</span> { ... };
+}</pre></div>
+</div><div class='docblock'><p>Macro to automatically generated <em>identity</em> <a href="../../rocket/http/uri/trait.FromUriParam.html"><code>FromUriParam</code></a> trait
+implementations.</p>
+<p>For a type <code>T</code>, the <em>identity</em> implementations of <code>FromUriParam</code> are:</p>
+<ul>
+<li><code>impl UriPart&gt; FromUriParam&lt;P, T&gt; for T</code></li>
+<li><code>impl&lt;'x&gt; FromUriParam&lt;P, &amp;'x T&gt; for T</code></li>
+<li><code>impl&lt;'x&gt; FromUriParam&lt;P, &amp;'x mut T&gt; for T</code></li>
+</ul>
+<p>where <code>P</code> is one of:</p>
+<ul>
+<li><code>P: UriPart</code> (the generic <code>P</code>)</li>
+<li><a href="../../rocket/http/uri/enum.Path.html"><code>Path</code></a></li>
+<li><a href="../../rocket/http/uri/enum.Query.html"><code>Query</code></a></li>
+</ul>
+<p>This macro can be invoked in four ways:</p>
+<ol>
+<li>
+<p><code>impl_from_uri_param_identity!(Type);</code></p>
+<p>Generates the three <em>identity</em> implementations for the generic <code>P</code>.</p>
+<ul>
+<li>Example: <code>impl_from_uri_param_identity!(MyType);</code></li>
+<li>Generates: <code>impl&lt;P: UriPart&gt; FromUriParam&lt;P, _&gt; for MyType { ... }</code></li>
+</ul>
+</li>
+<li>
+<p><code>impl_from_uri_param_identity!((generics*) Type);</code></p>
+<p>Generates the three <em>identity</em> implementations for the generic <code>P</code>,
+adding the tokens <code>generics</code> to the <code>impl</code> generics of the generated
+implementation.</p>
+<ul>
+<li>Example: <code>impl_from_uri_param_identity!(('a) MyType&lt;'a&gt;);</code></li>
+<li>Generates: <code>impl&lt;'a, P: UriPart&gt; FromUriParam&lt;P, _&gt; for MyType&lt;'a&gt; { ... }</code></li>
+</ul>
+</li>
+<li>
+<p><code>impl_from_uri_param_identity!([Part] Type);</code></p>
+<p>Generates the three <em>identity</em> implementations for the <code>UriPart</code>
+<code>Part</code>, where <code>Part</code> is a path to <a href="../../rocket/http/uri/enum.Path.html"><code>Path</code></a> or <a href="../../rocket/http/uri/enum.Query.html"><code>Query</code></a>.</p>
+<ul>
+<li>Example: <code>impl_from_uri_param_identity!([Path] MyType);</code></li>
+<li>Generates: <code>impl FromUriParam&lt;Path, _&gt; for MyType { ... }</code></li>
+</ul>
+</li>
+<li>
+<p><code>impl_from_uri_param_identity!([Part] (generics*) Type);</code></p>
+<p>See 2 and 3.</p>
+<ul>
+<li>Example: <code>impl_from_uri_param_identity!([Path] ('a) MyType&lt;'a&gt;);</code></li>
+<li>Generates: <code>impl&lt;'a&gt; FromUriParam&lt;Path, _&gt; for MyType&lt;'a&gt; { ... }</code></li>
+</ul>
+</li>
+</ol>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "rocket";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

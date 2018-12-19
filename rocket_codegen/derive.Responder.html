@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Responder` derive in crate `rocket_codegen`."><meta name="keywords" content="rust, rustlang, rust-lang, Responder"><title>rocket_codegen::Responder - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="https://rocket.rs/v0.4/images/favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc derive"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../rocket_codegen/index.html'><img src='https://rocket.rs/v0.4/images/logo-boxed.png' alt='logo' width='100'></a><div class="sidebar-elems"><p class='location'><a href='index.html'>rocket_codegen</a></p><script>window.sidebarCurrent = {name: 'Responder', ty: 'derive', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/rocket_codegen/lib.rs.html#639-641' title='goto source code'>[src]</a></span><span class='in-band'>Derive Macro <a href='index.html'>rocket_codegen</a>::<wbr><a class="derive" href=''>Responder</a></span></h1><pre class='rust derive'>#[derive(Responder)]
+{
+    // Attributes available to this derive:
+    #[response]
+}</pre><div class='docblock'><p>Derive for the <a href="../rocket/response/trait.Responder.html"><code>Responder</code></a> trait.</p>
+<p>The <a href="../rocket/response/trait.Responder.html"><code>Responder</code></a> derive can be applied to enums and structs with named
+fields. When applied to enums, variants must have at least one field. When
+applied to structs, the struct must have at least one field.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Responder</span>)]</span>
+<span class="kw">enum</span> <span class="ident">MyResponderA</span> {
+    <span class="ident">A</span>(<span class="ident">String</span>),
+    <span class="ident">B</span>(<span class="ident">File</span>, <span class="ident">ContentType</span>),
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Responder</span>)]</span>
+<span class="kw">struct</span> <span class="ident">MyResponderB</span> {
+    <span class="ident">inner</span>: <span class="ident">OtherResponder</span>,
+    <span class="ident">header</span>: <span class="ident">ContentType</span>,
+}</pre></div>
+<p>The derive generates an implementation of the <a href="../rocket/response/trait.Responder.html"><code>Responder</code></a> trait for the
+decorated enum or structure. The derive uses the <em>first</em> field of a variant
+or structure to generate a <a href="../rocket/struct.Response.html"><code>Response</code></a>. As such, the type of the first
+field must implement <a href="../rocket/response/trait.Responder.html"><code>Responder</code></a>. The remaining fields of a variant or
+structure are set as headers in the produced <a href="../rocket/struct.Response.html"><code>Response</code></a> using
+<a href="../rocket/response/struct.Response.html#method.set_header"><code>Response::set_header()</code></a>. As such, every other field (unless explicitly
+ignored, explained next) must implement <code>Into&lt;Header&gt;</code>.</p>
+<p>Except for the first field, fields decorated with <code>#[response(ignore)]</code> are
+ignored by the derive:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Responder</span>)]</span>
+<span class="kw">enum</span> <span class="ident">MyResponder</span> {
+    <span class="ident">A</span>(<span class="ident">String</span>),
+    <span class="ident">B</span>(<span class="ident">File</span>, <span class="ident">ContentType</span>, <span class="attribute">#[<span class="ident">response</span>(<span class="ident">ignore</span>)]</span> <span class="ident">Other</span>),
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Responder</span>)]</span>
+<span class="kw">struct</span> <span class="ident">MyOtherResponder</span> {
+    <span class="ident">inner</span>: <span class="ident">NamedFile</span>,
+    <span class="ident">header</span>: <span class="ident">ContentType</span>,
+    <span class="attribute">#[<span class="ident">response</span>(<span class="ident">ignore</span>)]</span>
+    <span class="ident">other</span>: <span class="ident">Other</span>,
+}</pre></div>
+<p>Decorating the first field with <code>#[response(ignore)]</code> has no effect.</p>
+<p>Additionally, the <code>response</code> attribute can be used on named structures and
+enum variants to override the status and/or content-type of the <a href="../rocket/struct.Response.html"><code>Response</code></a>
+produced by the generated implementation. The <code>response</code> attribute used in
+these positions has the following grammar:</p>
+<pre><code class="language-text">response := parameter (',' parameter)?
+
+parameter := 'status' '=' STATUS
+           | 'content_type' '=' CONTENT_TYPE
+
+STATUS := unsigned integer &gt;= 100 and &lt; 600
+CONTENT_TYPE := string literal, as defined by Rust, identifying a valid
+                Content-Type, as defined by Rocket
+</code></pre>
+<p>It can be used as follows:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Responder</span>)]</span>
+<span class="kw">enum</span> <span class="ident">Error</span> {
+    <span class="attribute">#[<span class="ident">response</span>(<span class="ident">status</span> <span class="op">=</span> <span class="number">500</span>, <span class="ident">content_type</span> <span class="op">=</span> <span class="string">&quot;json&quot;</span>)]</span>
+    <span class="ident">A</span>(<span class="ident">String</span>),
+    <span class="attribute">#[<span class="ident">response</span>(<span class="ident">status</span> <span class="op">=</span> <span class="number">404</span>)]</span>
+    <span class="ident">B</span>(<span class="ident">NamedFile</span>, <span class="ident">ContentType</span>),
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Responder</span>)]</span>
+<span class="attribute">#[<span class="ident">response</span>(<span class="ident">status</span> <span class="op">=</span> <span class="number">400</span>)]</span>
+<span class="kw">struct</span> <span class="ident">MyResponder</span> {
+    <span class="ident">inner</span>: <span class="ident">InnerResponder</span>,
+    <span class="ident">header</span>: <span class="ident">ContentType</span>,
+    <span class="attribute">#[<span class="ident">response</span>(<span class="ident">ignore</span>)]</span>
+    <span class="ident">other</span>: <span class="ident">Other</span>,
+}</pre></div>
+<p>The attribute accepts two key/value pairs: <code>status</code> and <code>content_type</code>. The
+value of <code>status</code> must be an unsigned integer representing a valid status
+code. The <a href="../rocket/struct.Response.html"><code>Response</code></a> produced from the generated implementation will have
+its status overriden to this value.</p>
+<p>The value of <code>content_type</code> must be a valid media-type in <code>top/sub</code> form or
+<code>shorthand</code> form. Examples include:</p>
+<ul>
+<li><code>&quot;text/html&quot;</code></li>
+<li><code>&quot;application/x-custom&quot;</code></li>
+<li><code>&quot;html&quot;</code></li>
+<li><code>&quot;json&quot;</code></li>
+<li><code>&quot;plain&quot;</code></li>
+<li><code>&quot;binary&quot;</code></li>
+</ul>
+<p>See <a href="../rocket/http/struct.ContentType.html#method.parse_flexible"><code>ContentType::parse_flexible()</code></a> for a full list of available
+shorthands. The <a href="../rocket/struct.Response.html"><code>Response</code></a> produced from the generated implementation will
+have its content-type overriden to this value.</p>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "rocket_codegen";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

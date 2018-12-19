@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Outcome","An enum representing success (`Success`), failure (`Failure`), or forwarding (`Forward`)."]],"trait":[["IntoOutcome","Conversion trait from some type into an Outcome type."]]});

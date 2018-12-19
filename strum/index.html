@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `strum` crate."><meta name="keywords" content="rust, rustlang, rust-lang, strum"><title>strum - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Crate strum</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all strum's items</p></a><div class="block items"><ul><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'strum', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/strum/lib.rs.html#1-671' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>strum</a></span></h1><div class='docblock'><h1 id="strum" class="section-header"><a href="#strum">Strum</a></h1>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `strum` crate."><meta name="keywords" content="rust, rustlang, rust-lang, strum"><title>strum - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Crate strum</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all strum's items</p></a><div class="block items"><ul><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'strum', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/strum/lib.rs.html#1-671' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>strum</a></span></h1><div class='docblock'><h1 id="strum" class="section-header"><a href="#strum">Strum</a></h1>
 <p><a href="https://travis-ci.org/Peternator7/strum"><img src="https://travis-ci.org/Peternator7/strum.svg?branch=master" alt="Build Status" /></a>
 <a href="https://crates.io/crates/strum"><img src="https://img.shields.io/crates/v/strum.svg" alt="Latest Version" /></a>
 <a href="https://docs.rs/strum"><img src="https://docs.rs/strum/badge.svg" alt="Rust Documentation" /></a></p>
@@ -13,11 +13,11 @@ strum_macros = &quot;0.11.0&quot;
 </code></pre>
 <p>And add these lines to the root of your project, either lib.rs or main.rs.</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="comment">// Strum contains all the trait definitions</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">strum</span>;
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
-<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">strum_macros</span>;</pre>
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">strum_macros</span>;</pre></div>
 <h1 id="strum-macros" class="section-header"><a href="#strum-macros">Strum Macros</a></h1>
 <p>Strum has implemented the following macros:</p>
 <ol>
@@ -30,7 +30,7 @@ they will be set to their default values upon deserialization.</p>
 found, the given variant will be returned and the input string will be captured in the parameter.</p>
 <p>Here is an example of the code generated by deriving <code>EnumString</code>.</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">EnumString</span>)]</span>
 <span class="kw">enum</span> <span class="ident">Color</span> {
     <span class="ident">Red</span>,
@@ -61,7 +61,7 @@ impl ::std::str::FromStr for Color {
         }
     }
 }
-*/</span></pre>
+*/</span></pre></div>
 <p>Note that the implementation of <code>FromStr</code> by default only matches on the name of the
 variant. There is an option to match on different case conversions through the
 <code>#[strum(serialize_all = &quot;snake_case&quot;)]</code> type attribute. See the <strong>Additional Attributes</strong>
@@ -79,7 +79,7 @@ behavior isn't desired, you should use <code>to_string</code>.</li>
 </ol>
 <p><strong><code>Display</code> should be preferred to <code>ToString</code>. All types that implement <code>::std::fmt::Display</code> have a default <code>ToString</code> implementation.</strong></p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="comment">// You need to bring the type into scope to use it!!!</span>
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">string</span>::<span class="ident">ToString</span>;
 
@@ -98,7 +98,7 @@ behavior isn't desired, you should use <code>to_string</code>.</li>
     <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;redred&quot;</span>), <span class="ident">red</span>.<span class="ident">to_string</span>());
 }
 
-<span class="kw">fn</span> <span class="ident">main</span> () { <span class="ident">debug_colors</span>(); }</pre>
+<span class="kw">fn</span> <span class="ident">main</span> () { <span class="ident">debug_colors</span>(); }</pre></div>
 </li>
 <li>
 <p><code>AsRefStr</code>: this derive implements <code>AsRef&lt;str&gt;</code> on your enum using the same rules as
@@ -110,7 +110,7 @@ a borrowed <code>str</code> instead of a <code>String</code> so you can save an 
 in some scenarios. This macro implements <code>strum::AsStaticRef&lt;str&gt;</code> which adds a method <code>.as_static()</code> that
 returns a <code>&amp;'static str</code>.</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">use</span> <span class="ident">strum</span>::<span class="ident">AsStaticRef</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">AsStaticStr</span>)]</span>
@@ -129,7 +129,7 @@ returns a <code>&amp;'static str</code>.</p>
 
 <span class="kw">fn</span> <span class="ident">main</span>() {
     <span class="ident">print_state</span>(<span class="kw-2">&amp;</span><span class="string">&quot;hello world&quot;</span>.<span class="ident">to_string</span>())
-}</pre>
+}</pre></div>
 </li>
 <li>
 <p><code>EnumIter</code>: iterate over the variants of an Enum. Any additional data on your variants will be
@@ -138,7 +138,7 @@ creates a new type called <code>YourEnumIter</code> that implements both <code>I
 You cannot derive <code>EnumIter</code> on any type with a lifetime bound (<code>&lt;'a&gt;</code>) because the iterator would surely
 create [unbounded lifetimes] (https://doc.rust-lang.org/nightly/nomicon/unbounded-lifetimes.html).</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="comment">// You need to bring the type into scope to use it!!!</span>
 <span class="kw">use</span> <span class="ident">strum</span>::<span class="ident">IntoEnumIterator</span>;
 
@@ -159,7 +159,7 @@ create [unbounded lifetimes] (https://doc.rust-lang.org/nightly/nomicon/unbounde
 
 <span class="kw">fn</span> <span class="ident">main</span>() {
     <span class="ident">debug_colors</span>();
-}</pre>
+}</pre></div>
 </li>
 <li>
 <p><code>EnumMessage</code>: encode strings into the enum itself. This macro implements
@@ -169,7 +169,7 @@ You can also provided a <code>detailed_message=&quot;...&quot;</code> attribute 
 seperate more detailed message than the first.</p>
 <p>The generated code will look something like:</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="comment">// You need to bring the type into scope to use it!!!</span>
 <span class="kw">use</span> <span class="ident">strum</span>::<span class="ident">EnumMessage</span>;
 
@@ -219,7 +219,7 @@ impl ::strum::EnumMessage for Color {
         }
     }
 }
-*/</span></pre>
+*/</span></pre></div>
 </li>
 <li>
 <p><code>EnumProperty</code>: Enables the encoding of arbitary constants into enum variants. This method
@@ -231,7 +231,7 @@ number of variants and properties, but scales linearly with the number of varian
 be the best choice in all situations.</p>
 <p>Here's an example:</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="comment">// You need to bring the type into scope to use it!!!</span>
 <span class="kw">use</span> <span class="ident">strum</span>::<span class="ident">EnumProperty</span>;
 
@@ -255,7 +255,7 @@ be the best choice in all situations.</p>
                                            , <span class="ident">my_color</span>.<span class="ident">get_str</span>(<span class="string">&quot;Red&quot;</span>).<span class="ident">unwrap</span>()
                                            , <span class="ident">my_color</span>.<span class="ident">get_str</span>(<span class="string">&quot;Green&quot;</span>).<span class="ident">unwrap</span>()
                                            , <span class="ident">my_color</span>.<span class="ident">get_str</span>(<span class="string">&quot;Blue&quot;</span>).<span class="ident">unwrap</span>());
-}</pre>
+}</pre></div>
 </li>
 <li>
 <p><code>EnumDiscriminants</code>: Given an enum named <code>MyEnum</code>, generates another enum called
@@ -266,7 +266,7 @@ non-<code>Default</code> fields. By default, the generated enum has the followin
 <code>#[strum_discriminants(derive(AdditionalDerive))]</code> attribute.</p>
 <p>Here's an example:</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 
 <span class="comment">// Bring trait into scope</span>
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">str</span>::<span class="ident">FromStr</span>;
@@ -287,11 +287,11 @@ non-<code>Default</code> fields. By default, the generated enum has the followin
         <span class="ident">MyEnumDiscriminants</span>::<span class="ident">Variant0</span>,
         <span class="ident">MyEnumDiscriminants</span>::<span class="ident">from_str</span>(<span class="string">&quot;Variant0&quot;</span>).<span class="ident">unwrap</span>()
     );
-}</pre>
+}</pre></div>
 <p>You can also rename the generated enum using the <code>#[strum_discriminants(name(OtherName))]</code>
 attribute:</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="comment">// You need to bring the type into scope to use it!!!</span>
 <span class="kw">use</span> <span class="ident">strum</span>::<span class="ident">IntoEnumIterator</span>;
 
@@ -308,7 +308,7 @@ attribute:</p>
         <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">MyVariants</span>::<span class="ident">Variant0</span>, <span class="ident">MyVariants</span>::<span class="ident">Variant1</span>],
         <span class="ident">MyVariants</span>::<span class="ident">iter</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>()
     );
-}</pre>
+}</pre></div>
 <p>The derived enum also has the following trait implementations:</p>
 <ul>
 <li><code>impl From&lt;MyEnum&gt; for MyEnumDiscriminants</code></li>
@@ -316,7 +316,7 @@ attribute:</p>
 </ul>
 <p>These allow you to get the <em>Discriminants</em> enum variant from the original enum:</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">strum</span>;
 <span class="attribute">#[<span class="ident">macro_use</span>]</span> <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">strum_macros</span>;
 
@@ -329,7 +329,7 @@ attribute:</p>
 
 <span class="kw">fn</span> <span class="ident">main</span>() {
     <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">MyVariants</span>::<span class="ident">Variant0</span>, <span class="ident">MyEnum</span>::<span class="ident">Variant0</span>(<span class="bool-val">true</span>).<span class="ident">into</span>());
-}</pre>
+}</pre></div>
 </li>
 </ol>
 <h1 id="additional-attributes" class="section-header"><a href="#additional-attributes">Additional Attributes</a></h1>
@@ -337,7 +337,7 @@ attribute:</p>
 <code>#[strum(serialize_all = &quot;snake_case&quot;)]</code> attribute can be used to change the case used when
 serializing to and deserializing from strings:</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">strum</span>;
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">strum_macros</span>;
@@ -366,7 +366,7 @@ serializing to and deserializing from strings:</p>
         <span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;bright&quot;</span>),
         <span class="ident">Brightness</span>::<span class="ident">BrightWhite</span>.<span class="ident">to_string</span>().<span class="ident">as_ref</span>()
     );
-}</pre>
+}</pre></div>
 <p>Custom attributes are applied to a variant by adding <code>#[strum(parameter=&quot;value&quot;)]</code> to the variant.</p>
 <ul>
 <li>
@@ -379,11 +379,11 @@ variant with a single piece of data that can be create from a <code>&amp;str</co
 The generated code will now return the variant with the input string captured as shown below
 instead of failing.</p>
 
-<div class='information'><div class='tooltip ignore'>ⓘ<span class='tooltiptext'>This example is not tested</span></div></div><pre class="rust rust-example-rendered ignore">
+<div class='information'><div class='tooltip ignore'>ⓘ<span class='tooltiptext'>This example is not tested</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered ignore">
 <span class="comment">// Replaces this:</span>
 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">strum</span>::<span class="ident">ParseError</span>::<span class="ident">VariantNotFound</span>)
 <span class="comment">// With this in generated code:</span>
-<span class="ident">default</span> <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Variant</span>(<span class="ident">default</span>.<span class="ident">into</span>()))</pre>
+<span class="ident">default</span> <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Variant</span>(<span class="ident">default</span>.<span class="ident">into</span>()))</pre></div>
 <p>The plugin will fail if the data doesn't implement From&lt;&amp;str&gt;. You can only have one <code>default</code>
 on your enum.</p>
 </li>
@@ -407,7 +407,7 @@ properties can be added in a single nested block.</p>
 <h1 id="examples" class="section-header"><a href="#examples">Examples</a></h1>
 <p>Using <code>EnumMessage</code> for quickly implementing <code>Error</code></p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">strum</span>;
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">strum_macros</span>;
@@ -433,10 +433,10 @@ properties can be added in a single nested block.</p>
     <span class="kw">fn</span> <span class="ident">description</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="ident">str</span> {
         <span class="self">self</span>.<span class="ident">get_detailed_message</span>().<span class="ident">unwrap</span>()
     }
-}</pre>
+}</pre></div>
 <p>Using <code>EnumString</code> to tokenize a series of inputs:</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">strum</span>;
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">strum_macros</span>;
@@ -463,60 +463,25 @@ properties can be added in a single nested block.</p>
                           <span class="ident">Tokens</span>::<span class="ident">Ident</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello_world&quot;</span>)),
                           <span class="ident">Tokens</span>::<span class="ident">OpenParen</span>,
                           <span class="ident">Tokens</span>::<span class="ident">CloseParen</span>]);
-}</pre>
+}</pre></div>
 <h1 id="debugging" class="section-header"><a href="#debugging">Debugging</a></h1>
 <p>To see the generated code, set the STRUM_DEBUG environment variable before compiling your code.
 <code>STRUM_DEBUG=1</code> will dump all of the generated code for every type. <code>STRUM_DEBUG=YourType</code> will
 only dump the code generated on a type named YourType.</p>
 </div><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="enum" href="enum.ParseError.html"
-                                  title='enum strum::ParseError'>ParseError</a></td>
-                           <td class='docblock-short'>
-                                <p>The ParseError enum is a collection of all the possible reasons
+<table><tr class='module-item'><td><a class="enum" href="enum.ParseError.html" title='strum::ParseError enum'>ParseError</a></td><td class='docblock-short'><p>The ParseError enum is a collection of all the possible reasons
 an enum can fail to parse from a string.</p>
-
-                           </td>
-                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.AsStaticRef.html"
-                                  title='trait strum::AsStaticRef'>AsStaticRef</a></td>
-                           <td class='docblock-short'>
-                                <p>A cheap reference-to-reference conversion. Used to convert a value to a
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.AsStaticRef.html" title='strum::AsStaticRef trait'>AsStaticRef</a></td><td class='docblock-short'><p>A cheap reference-to-reference conversion. Used to convert a value to a
 reference value with <code>'static</code> lifetime within generic code.</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.EnumMessage.html"
-                                  title='trait strum::EnumMessage'>EnumMessage</a></td>
-                           <td class='docblock-short'>
-                                <p>Associates additional pieces of information with an Enum. This can be
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.EnumMessage.html" title='strum::EnumMessage trait'>EnumMessage</a></td><td class='docblock-short'><p>Associates additional pieces of information with an Enum. This can be
 autoimplemented by deriving <code>EnumMessage</code> and annotating your variants with
 `#[strum(message=&quot;...&quot;)].</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.EnumProperty.html"
-                                  title='trait strum::EnumProperty'>EnumProperty</a></td>
-                           <td class='docblock-short'>
-                                <p>EnumProperty is a trait that makes it possible to store additional information
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.EnumProperty.html" title='strum::EnumProperty trait'>EnumProperty</a></td><td class='docblock-short'><p>EnumProperty is a trait that makes it possible to store additional information
 with enum variants. This trait is designed to be used with the macro of the same
 name in the <code>strum_macros</code> crate. Currently, the only string literals are supported
 in attributes, the other methods will be implemented as additional attribute types
 become stabilized.</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.IntoEnumIterator.html"
-                                  title='trait strum::IntoEnumIterator'>IntoEnumIterator</a></td>
-                           <td class='docblock-short'>
-                                <p>This trait designates that an <code>Enum</code> can be iterated over. It can
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.IntoEnumIterator.html" title='strum::IntoEnumIterator trait'>IntoEnumIterator</a></td><td class='docblock-short'><p>This trait designates that an <code>Enum</code> can be iterated over. It can
 be auto generated using <code>strum_macros</code> on your behalf.</p>
-
-                           </td>
-                       </tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "strum";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "strum";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>
