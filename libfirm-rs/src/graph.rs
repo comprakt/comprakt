@@ -219,7 +219,7 @@ unsafe extern "C" fn post_closure_handler(node: *mut bindings::ir_node, closure:
     }
 }
 
-#[derive(Debug,PartialEq,Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum VisitTime {
     BeforePredecessors,
     AfterPredecessors,
