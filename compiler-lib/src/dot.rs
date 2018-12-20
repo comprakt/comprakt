@@ -13,7 +13,7 @@ use std::{
 
 #[derive(Debug, Clone, Serialize)]
 pub struct GraphState {
-    name: String,
+    pub name: String,
     dot_content: String,
 }
 

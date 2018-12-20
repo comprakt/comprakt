@@ -54,7 +54,7 @@ use rocket::{
 use rocket_contrib::{json::Json, serve::StaticFiles};
 use serde_derive::Serialize;
 use std::{
-    collections::hash_map::HashMap,
+    collections::{HashMap, HashSet},
     io::Cursor,
     sync::{
         mpsc::{self, Receiver, Sender, SyncSender},
@@ -109,6 +109,7 @@ macro_rules! breakpoint {
 
 lazy_static::lazy_static! {
     static ref GUI: Mutex<Option<GuiThread>> = Mutex::new(None);
+    static ref FILTERS: Mutex<BreakpointFilters> = Mutex::new(BreakpointFilters::default());
 }
 
 fn gui_thread() -> &'static GUI {
@@ -136,14 +137,29 @@ pub fn pause(_breakpoint: Breakpoint, _program: HashMap<String, GraphState>) {}
 #[cfg(feature = "debugger_gui")]
 #[allow(clippy::implicit_hasher)]
 pub fn pause(breakpoint: Breakpoint, program: HashMap<String, GraphState>) {
+    let mut filters = FILTERS.lock().unwrap();
+
+    if filters.is_disabled(&breakpoint, &program) {
+        log::info!(
+            "ignoring disabled breakpoint\n    label: {}\n    file:  {}\n    line:  {}",
+            breakpoint.label,
+            breakpoint.file,
+            breakpoint.line
+        );
+
+        return;
+    }
+
+    let gui = gui_thread().lock().unwrap();
+
     log::info!(
         "waiting at breakpoint\n    label: {}\n    file:  {}\n    line:  {}",
         breakpoint.label,
         breakpoint.file,
         breakpoint.line
     );
+
     let state = CompiliationState::new(breakpoint, program);
-    let gui = gui_thread().lock().unwrap();
     let mut already_sent = false;
 
     loop {
@@ -154,6 +170,12 @@ pub fn pause(breakpoint: Breakpoint, program: HashMap<String, GraphState>) {
             .recv()
             .expect("failed to interact with debugger webserver");
 
+        // TODO: the control flow here is suboptimal. If the compiler is not
+        // at a breakpoint, the webserver will block on the GetCompilationState
+        // and AddFilter indefinitely until the request from the gui times out.
+        //
+        // We currently get away with this as the compiler is very fast and
+        // virtually always at a breakpoint.
         match msg {
             MsgToCompiler::Continue => break,
             MsgToCompiler::GetCompilationState { sender } => {
@@ -165,6 +187,116 @@ pub fn pause(breakpoint: Breakpoint, program: HashMap<String, GraphState>) {
                     .unwrap();
                 already_sent = true;
             }
+            MsgToCompiler::AddFilter { filter } => {
+                filters.add(filter);
+            }
+        }
+    }
+}
+
+struct BreakpointFilters {
+    filters: HashSet<Filter>,
+}
+
+impl BreakpointFilters {
+    pub fn new() -> Self {
+        Self {
+            filters: HashSet::new(),
+        }
+    }
+
+    pub fn add(&mut self, filter: Filter) -> &mut Self {
+        self.filters.insert(filter);
+        self
+    }
+
+    pub fn is_disabled(
+        &self,
+        breakpoint: &Breakpoint,
+        program: &HashMap<String, GraphState>,
+    ) -> bool {
+        //self.filters.iter().any(Filter::matches)
+        for filter in &self.filters {
+            if filter.matches(breakpoint, program) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+impl Default for BreakpointFilters {
+    fn default() -> Self {
+        let mut filters = BreakpointFilters::new();
+
+        if let Ok(labels) = std::env::var("FILTER_BREAKPOINT_LABEL") {
+            for label in labels.split(",") {
+                filters.add(Filter::breakpoint_label(label));
+            }
+        }
+
+        if let Ok(locations) = std::env::var("FILTER_BREAKPOINT_LOCATION") {
+            for location in locations.split(",") {
+                let parts = location.split(":").collect::<Vec<_>>();
+
+                if parts.len() != 2 {
+                    panic!(
+                        "'FILTER_BREAKPOINT_LOCATION' env variable has to be \
+                         in the format 'file:line'"
+                    );
+                }
+
+                filters.add(Filter::Location {
+                    file: parts[0].to_owned(),
+                    line: parts[1]
+                        .parse::<u32>()
+                        .expect("'FILTER_BREAKPOINT_LOCATION' contains invalid line number"),
+                });
+            }
+        }
+
+        if let Ok(names) = std::env::var("FILTER_GRAPH_NAME") {
+            for name in names.split(",") {
+                filters.add(Filter::graph(name));
+            }
+        } else {
+            filters
+                .add(Filter::graph("$WRAPPER$_mjrt_system_in_read"))
+                .add(Filter::graph("$WRAPPER$_mjrt_system_out_write"))
+                .add(Filter::graph("$WRAPPER$_mjrt_system_out_println"))
+                .add(Filter::graph("$WRAPPER$_mjrt_system_out_flush"));
+        }
+
+        filters
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Debug, Hash)]
+enum Filter {
+    Location { file: String, line: u32 },
+    Label { name: String },
+    Graph { name: String },
+}
+
+impl Filter {
+    fn graph(name: &str) -> Self {
+        Filter::Graph {
+            name: name.to_owned(),
+        }
+    }
+
+    fn breakpoint_label(name: &str) -> Self {
+        Filter::Label {
+            name: name.to_owned(),
+        }
+    }
+
+    fn matches(&self, breakpoint: &Breakpoint, program: &HashMap<String, GraphState>) -> bool {
+        match self {
+            Filter::Location { file, line } => breakpoint.line == *line && breakpoint.file == *file,
+            Filter::Graph { name } => program.values().any(|graph| graph.name == *name),
+            Filter::Label { name } => breakpoint.label == *name,
         }
     }
 }
@@ -174,7 +306,12 @@ enum MsgToCompiler {
     /// compilation
     Continue,
     ///
-    GetCompilationState { sender: Sender<MsgToGui> }, //DisableBreakpoint
+    GetCompilationState {
+        sender: Sender<MsgToGui>,
+    },
+    AddFilter {
+        filter: Filter,
+    },
 }
 
 enum MsgToGui {
@@ -251,12 +388,18 @@ impl Fairing for CORS {
     }
 }
 
-// TODO serving this via GET is not standard conform, but convenient during
-// development
 #[get("/breakpoint/continue")]
 fn breakpoint_continue(debugger: State<'_, DebuggerState>) -> Result<(), Status> {
     debugger.0.sender.send(MsgToCompiler::Continue).unwrap();
     Ok(())
+}
+
+fn add_filter(debugger: &State<'_, DebuggerState>, filter: Filter) {
+    debugger
+        .0
+        .sender
+        .send(MsgToCompiler::AddFilter { filter })
+        .unwrap();
 }
 
 fn check_updates(debugger: &State<'_, DebuggerState>) {
@@ -284,8 +427,6 @@ fn snapshot_at_index(
     index: usize,
     debugger: State<'_, DebuggerState>,
 ) -> Result<Json<Option<CompiliationState>>, Status> {
-    // we have a http server --> compiler channel, build a compiler --> http server
-    // channel that can be used for anwsering
     check_updates(&debugger);
     Ok(Json(
         debugger.0.breakpoints.read().unwrap().get(index).cloned(),
@@ -307,6 +448,28 @@ fn breakpoint_list(debugger: State<'_, DebuggerState>) -> Result<Json<Vec<Breakp
     ))
 }
 
+#[get("/breakpoint/filter/add/graph/<name>")]
+fn breakpoint_filter_name(debugger: State<'_, DebuggerState>, name: String) -> Result<(), Status> {
+    add_filter(&debugger, Filter::graph(&name));
+    Ok(())
+}
+
+#[get("/breakpoint/filter/add/label/<name>")]
+fn breakpoint_filter_label(debugger: State<'_, DebuggerState>, name: String) -> Result<(), Status> {
+    add_filter(&debugger, Filter::breakpoint_label(&name));
+    Ok(())
+}
+
+#[get("/breakpoint/filter/add/location/<file>/<line>")]
+fn breakpoint_filter_location(
+    debugger: State<'_, DebuggerState>,
+    file: String,
+    line: u32,
+) -> Result<(), Status> {
+    add_filter(&debugger, Filter::Location { file, line });
+    Ok(())
+}
+
 fn http_server(sender: SyncSender<MsgToCompiler>) {
     // TODO: compile static files into binary
     let static_files = format!(
@@ -321,7 +484,14 @@ fn http_server(sender: SyncSender<MsgToCompiler>) {
         .mount("/", StaticFiles::from(&static_files))
         .mount(
             "/",
-            rocket::routes![breakpoint_continue, breakpoint_list, snapshot_at_index],
+            rocket::routes![
+                breakpoint_continue,
+                breakpoint_list,
+                snapshot_at_index,
+                breakpoint_filter_location,
+                breakpoint_filter_label,
+                breakpoint_filter_name
+            ],
         )
         .manage(DebuggerState(Debugger::new(sender)))
         .launch();
