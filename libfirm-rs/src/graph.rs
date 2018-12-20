@@ -112,7 +112,7 @@ impl Graph {
     /// Has its own visited flag, so that it can be interleaved
     /// with the other walker. Does not use the link
     /// field.
-    pub fn walk_blocks<F>(&self, mut walker: F)
+    pub fn walk_blocks<F>(self, mut walker: F)
     where
         F: FnMut(VisitTime, &Block),
     {

@@ -44,14 +44,10 @@ pub struct Function {
 
 impl From<&firm::Method<'_, '_>> for Function {
     fn from(method: &firm::Method<'_, '_>) -> Self {
-        let graph: libfirm_rs::Graph = method
+        let graph: libfirm_rs::graph::Graph = method
             .graph
-            .expect(&format!(
-                "Cannot lower function without a graph {}",
-                method.def.name
-            ))
+            .unwrap_or_else(|| panic!("Cannot lower function without a graph {}", method.def.name))
             .into();
-        let graph: libfirm_rs::graph::Graph = graph.into();
 
         let returns = method.def.return_ty != CheckedType::Void;
         log::debug!("Generating block graph for {}", method.def.name);
@@ -244,7 +240,7 @@ impl BlockGraph {
                         Node::Phi(phi) => {
                             let multislot = local_block.new_terminating_multislot();
                             phi.preds()
-                                // What TODO with mem edges?
+                                // Mem edges are uninteresting across blocks
                                 .filter(|(_, value)| {
                                     value.mode() != unsafe { libfirm_rs::bindings::mode::M }
                                 })
@@ -275,18 +271,15 @@ impl BlockGraph {
 
                         _ => node_in_block
                             .in_nodes()
-                            // What TODO with mem edges?
+                            // Mem edges are uninteresting across blocks
                             .filter(|value| {
                                 value.mode() != unsafe { libfirm_rs::bindings::mode::M }
                             })
-                            .filter_map(|value| {
-                                if value.block() != *firm_block {
-                                    Some(value)
-                                } else {
-                                    // This is a value produced by our block, so no need to get
-                                    // it from somewhere
-                                    None
-                                }
+                            // If this is a value produced by our block, there is no need to
+                            // transfer it from somewhere else
+                            .filter(|value| {
+                                log::debug!("value: {:?}", value);
+                                value.block() != *firm_block
                             })
                             // Foreign values that are not phi, flow in from each cfg pred
                             // => values x cfg_preds
@@ -477,7 +470,6 @@ impl MutRc<BasicBlock> {
 
             MutRc::clone(slot)
         } else {
-            drop(possibly_existing_slot);
             drop(this);
             let slot = self
                 .new_multislot(terminates_in)
@@ -510,13 +502,11 @@ impl MutRc<BasicBlock> {
     }
 
     fn new_forwarding_slot(&self, target_slot: &ValueSlot) -> MutRc<ValueSlot> {
-        let local_slot = self.new_slot(
+        self.new_slot(
             target_slot.firm,
             MutWeak::clone(&target_slot.originates_in),
             MutWeak::clone(&target_slot.terminates_in),
-        );
-
-        local_slot
+        )
     }
 
     fn new_terminating_slot(
@@ -524,17 +514,13 @@ impl MutRc<BasicBlock> {
         value: libfirm_rs::nodes::Node,
         origin: MutWeak<BasicBlock>,
     ) -> MutRc<ValueSlot> {
-        let local_slot = self.new_slot(value, origin, MutRc::downgrade(self));
-
-        local_slot
+        self.new_slot(value, origin, MutRc::downgrade(self))
     }
 
     #[allow(dead_code)]
     fn new_private_slot(&self, value: libfirm_rs::nodes::Node) -> MutRc<ValueSlot> {
         assert_eq!(value.block(), self.borrow().firm);
-        let slot = self.new_slot(value, MutRc::downgrade(self), MutRc::downgrade(self));
-
-        slot
+        self.new_slot(value, MutRc::downgrade(self), MutRc::downgrade(self))
     }
 }
 

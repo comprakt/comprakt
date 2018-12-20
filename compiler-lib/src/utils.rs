@@ -109,10 +109,6 @@ pub mod cell {
             MutWeak(Rc::downgrade(&self.0))
         }
 
-        pub fn clone(&self) -> MutRc<T> {
-            MutRc(Rc::clone(&self.0))
-        }
-
         pub fn borrow(&self) -> Ref<'_, T> {
             self.0.borrow()
         }
@@ -122,13 +118,21 @@ pub mod cell {
         }
     }
 
-    impl<T> MutWeak<T> {
-        pub fn clone(&self) -> MutWeak<T> {
-            MutWeak(Weak::clone(&self.0))
+    impl<T> Clone for MutRc<T> {
+        fn clone(&self) -> MutRc<T> {
+            MutRc(Rc::clone(&self.0))
         }
+    }
 
+    impl<T> MutWeak<T> {
         pub fn upgrade(&self) -> Option<MutRc<T>> {
             Weak::upgrade(&self.0).map(MutRc)
+        }
+    }
+
+    impl<T> Clone for MutWeak<T> {
+        fn clone(&self) -> MutWeak<T> {
+            MutWeak(Weak::clone(&self.0))
         }
     }
 

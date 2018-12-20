@@ -1,8 +1,8 @@
 pub use crate::nodes_gen::*;
 use crate::{
+    entity::Entity,
     graph::{self, Graph},
     nodes_gen,
-    entity::Entity,
     value_nodes::ValueNode,
 };
 use libfirm_rs_bindings as bindings;
@@ -140,7 +140,6 @@ simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
 // TODO: should we use dynamic reverse edges instead of reverse
 simple_node_iterator!(OutNodeIterator, get_irn_n_outs, get_irn_out, u32);
 
-#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Node {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // k1 == k2 => hash(k1) == hash(k2)
@@ -154,6 +153,12 @@ impl Hash for Node {
 impl Hash for Block {
     fn hash<H: Hasher>(&self, state: &mut H) {
         NodeFactory::node(self.internal_ir_node()).hash(state)
+    }
+}
+
+impl PartialEq for Block {
+    fn eq(&self, other: &Self) -> bool {
+        NodeFactory::node(self.internal_ir_node()).eq(&NodeFactory::node(other.internal_ir_node()))
     }
 }
 
@@ -246,7 +251,7 @@ impl nodes_gen::Block {
         unsafe { bindings::get_Block_n_cfgpreds(self.internal_ir_node()) }
     }
 
-    pub fn cfg_preds(&self) -> impl Iterator<Item = nodes_gen::Block> {
+    pub fn cfg_preds(self) -> impl Iterator<Item = nodes_gen::Block> {
         BlockPredIterator::new(self.internal_ir_node()).filter_map(|node| match node {
             Node::Block(block) => Some(block),
             _ => None,

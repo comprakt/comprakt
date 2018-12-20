@@ -1,3 +1,4 @@
+#![allow(clippy::new_without_default_derive)]
 use libfirm_rs::nodes::NodeTrait;
 
 type Label = String;
@@ -133,11 +134,11 @@ impl Function {
 
 impl Block {
     fn emit_molki(&self, out: &mut impl io::Write) -> io::Result<()> {
-        writeln!(out, "{}:", self.label);
+        writeln!(out, "{}:", self.label)?;
         for i in &self.instrs {
-            write!(out, "\t");
+            write!(out, "\t")?;
             i.emit_molki(out)?;
-            writeln!(out, "");
+            writeln!(out)?;
         }
         Ok(())
     }
@@ -219,6 +220,7 @@ impl Program {
     pub fn new() -> Program {
         Program { functions: vec![] }
     }
+
     pub fn add_function(&mut self, f: Function) {
         assert!(!f.name.chars().any(|c| c.is_whitespace()));
         assert_eq!(f.issued_blocks, f.blocks.len());
@@ -322,6 +324,8 @@ impl From<lir::LIR> for Program {
 }
 
 #[cfg(test)]
+#[allow(clippy::print_stdout)]
+#[rustfmt::skip]
 mod tests {
     use super::*;
     #[test]
@@ -329,18 +333,18 @@ mod tests {
         let expected = r"
 .function fib 1 1
 entry:
-  /* some comment */
-  cmpq $1, %@0
-  jle fib_basecase
-  subq [ $1 | %@0 ] -> %@1
-  subq [ $2 | %@0 ] -> %@2
-  call fib [ %@1 ] -> %@3
-  call fib [ %@2 ] -> %@4
-  addq [ %@3 | %@4 ] -> %@r0
-  jmp end
+	/* some comment */
+	cmpq $1, %@0
+	jle fib_basecase
+	subq [ $1 | %@0 ] -> %@1
+	subq [ $2 | %@0 ] -> %@2
+	call fib [ %@1 ] -> %@3
+	call fib [ %@2 ] -> %@4
+	addq [ %@3 | %@4 ] -> %@r0
+	jmp end
 fib_basecase:
-  movq %@0, %@r0
-  jmp end
+	movq %@0, %@r0
+	jmp end
 end:
 .endfunction
          "
@@ -351,7 +355,7 @@ end:
 
         let mut entry = fib.begin_block("entry".to_owned());
         let mut fib_basecase = fib.begin_block("fib_basecase".to_owned());
-        let mut end = fib.begin_block("end".to_owned());
+        let end = fib.begin_block("end".to_owned());
 
         use self::{BinopKind::*, Instr::*};
 
