@@ -161,6 +161,23 @@ pub trait NodeTrait {
             );
         }
     }
+
+    /// Perform a DFS over all nodes within `block` starting at `self`,
+    /// plus the nodes that are just outside of the block.
+    /// The primary use case for this API is in codegen.
+    fn walk_dfs_in_block<Callback>(&self, block: Block, callback: &mut Callback)
+    where
+        Callback: FnMut(Node),
+    {
+        let this = NodeFactory::node(self.internal_ir_node());
+
+        if this.block() == block {
+            for operand in self.in_nodes() {
+                operand.walk_dfs_in_block(block, callback);
+            }
+        }
+        callback(this);
+    }
 }
 
 pub use self::graph::VisitTime;

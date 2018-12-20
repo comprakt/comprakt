@@ -105,9 +105,11 @@ pub struct BasicBlock {
     ///
     ///    * `succ_edge.register_transitions.len() == 1`
     ///
-    ///    * `succ_edge.register_transitions.[0].0 = <a value slot in this block>
+    ///    * `succ_edge.register_transitions.[0].0 = <a value slot in this
+    /// block>
     ///
-    ///    * `succ_edge.register_transitions.[0].0.firm = <this block's return node>
+    ///    * `succ_edge.register_transitions.[0].0.firm = <this block's return
+    /// node>
     ///
     ///    * `succ_edge.register_transitions.[0].1 = .0`
     ///
@@ -318,7 +320,6 @@ impl BlockGraph {
                             }),
                     }
                 }
-
             }
 
             VisitTime::AfterPredecessors => (),
@@ -329,8 +330,15 @@ impl BlockGraph {
         let mut multislot = end_block.new_terminating_multislot();
         for return_node in self.firm.end_block().cfg_pred_nodes() {
             log::debug!("return_node = {:?}", return_node);
-            log::debug!("return_node.edges = {:?}", end_block.borrow().preds.iter()
-                        .map(|x| format!("{:?}", upborrow!(upborrow!(x).source).firm)).collect::<Vec<_>>());
+            log::debug!(
+                "return_node.edges = {:?}",
+                end_block
+                    .borrow()
+                    .preds
+                    .iter()
+                    .map(|x| format!("{:?}", upborrow!(upborrow!(x).source).firm))
+                    .collect::<Vec<_>>()
+            );
             let block_with_return_node = self.get_block(return_node.block());
             block_with_return_node.borrow_mut().returns = true;
             let vs = multislot.add_possible_value(return_node, block_with_return_node.downgrade());
@@ -339,9 +347,7 @@ impl BlockGraph {
                 .find_incoming_edge_from(return_node.block())
                 .unwrap()
                 .add_incoming_value_flow(vs);
-
         }
-
     }
 
     fn gen_instrs(&mut self) {
@@ -351,19 +357,15 @@ impl BlockGraph {
 
             macro_rules! comment_instr {
                 ($($arg:expr),*) => {{
-                    molki::Instr::Comment(format!($($arg),*))
+                    instrs.push(molki::Instr::Comment(format!($($arg),*)));
                 }}
             }
 
             // LIR metadata dump
             for (num, multislot) in block.regs.iter().enumerate() {
-
-                instrs.push(comment_instr!("Slot {}:", num));
+                comment_instr!("Slot {}:", num);
                 for slot in multislot {
-                    instrs.push(comment_instr!(
-                        "\t=  {:?}",
-                        slot.borrow().firm
-                    ));
+                    comment_instr!("\t=  {:?}", slot.borrow().firm);
                 }
 
                 for edge in block.preds.iter() {
@@ -374,36 +376,62 @@ impl BlockGraph {
                         .iter()
                         .filter(|(_, dst)| dst.borrow().num == num)
                         .for_each(|(src, _)| {
-                            instrs.push(comment_instr!(
+                            comment_instr!(
                                 "\t<- {:?}({}): {:?}",
                                 upborrow!(src.borrow().allocated_in).firm,
                                 src.borrow().num,
                                 src.borrow().firm
-                            ));
+                            );
                         })
                 }
-
             }
 
             // LIR conversion
-            fn postorder_dfs_nodes_in_block<C: FnMut(libfirm_rs::nodes::Node)>(block: libfirm_rs::nodes::Block, node: libfirm_rs::nodes::Node, callback: &mut C) {
-                if node.block() == block {
-                    for operand in node.in_nodes() {
-                        postorder_dfs_nodes_in_block(block, operand, callback);
-                    }
-                }
-                callback(node);
-            }
+            // We compute the values required by our successors. That must be enough.
+            // for out_edge in &block.succs {
+            //     comment_instr!(
+            //         "succ edge {:?}->{:?}",
+            //         block.firm,
+            //         out_edge.borrow().target.borrow().firm
+            //     );
+            //     for (src_slot, _) in out_edge.borrow().register_transitions.iter() {
+            //         let value_computed_by_this_block = src_slot.borrow().firm;
+            //         comment_instr!(
+            //             "\tvisit value_computed_by_this_block={:?}",
+            //             value_computed_by_this_block
+            //         );
+            //         value_computed_by_this_block.walk_dfs_in_block(block.firm, &mut
+            // |operand| {             comment_instr!("\t\tvisit operand={:?}",
+            // operand);         });
+            //     }
+            // }
 
-            for out_edge in &block.succs {
-                instrs.push(comment_instr!("succ edge {:?}->{:?}", block.firm, out_edge.borrow().target.borrow().firm));
-                for (src_slot, _) in out_edge.borrow().register_transitions.iter() {
-                    let value_computed_by_this_block = src_slot.borrow().firm;
-                    instrs.push(comment_instr!("\tvisit value_computed_by_this_block={:?}", value_computed_by_this_block));
-                    postorder_dfs_nodes_in_block(block.firm, value_computed_by_this_block, &mut |operand| {
-                        instrs.push(comment_instr!("\t\tvisit operand={:?}", operand));
-                    });
-                }
+            use itertools::Itertools;
+
+            // let out_values = block.succs.iter()
+            //     .flat_map(|out_edge|
+            // out_edge.borrow().register_transitions.iter().collect::<Vec<_>>())
+            //     .unique_by(|(src_slot, _)| src_slot.borrow().firm)
+            //     .map(|(src_slot, _)| src_slot.borrow().firm);
+            let out_values = block
+                .succs
+                .iter()
+                .flat_map(move |out_edge| {
+                    out_edge
+                        .borrow()
+                        .register_transitions
+                        .iter()
+                        .map(|(src_slot, _)| src_slot.clone())
+                        .collect::<Vec<_>>()
+                })
+                .map(|src_slot| src_slot.borrow().firm)
+                .dedup();
+
+            for out_value in out_values {
+                comment_instr!("\tvisit out_value={:?}", out_value);
+                out_value.walk_dfs_in_block(block.firm, &mut |operand| {
+                    comment_instr!("\t\tvisit operand={:?}", operand);
+                });
             }
 
             drop(block);
