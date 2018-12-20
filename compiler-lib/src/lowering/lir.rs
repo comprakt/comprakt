@@ -269,6 +269,9 @@ impl BlockGraph {
                                 });
                         }
 
+                        // The end node is only for keep alive edges, which we don't care about
+                        Node::End(_) => (),
+
                         _ => node_in_block
                             .in_nodes()
                             // Mem edges are uninteresting across blocks
