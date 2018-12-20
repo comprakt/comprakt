@@ -294,7 +294,8 @@ impl nodes_gen::Block {
     }
 
     /// This block's CFG predecessor blocks.
-    /// NOTE: see cfg_pred_nodes for the difference between block and node CFG preds.
+    /// NOTE: see cfg_pred_nodes for the difference between block and node CFG
+    /// preds.
     pub fn cfg_preds(&self) -> impl Iterator<Item = nodes_gen::Block> {
         self.cfg_pred_nodes().map(|n| n.block())
     }
@@ -316,7 +317,6 @@ impl nodes_gen::Block {
     pub fn cfg_pred(self, idx: i32) -> Node {
         NodeFactory::node(unsafe { bindings::get_Block_cfgpred(self.internal_ir_node(), idx) })
     }
-
 }
 
 simple_node_iterator!(
