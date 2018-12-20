@@ -45,21 +45,23 @@
 //! message content is the current compiler state.
 
 use crate::dot::GraphState;
-use rocket::{get, http::Status, State};
+use rocket::{
+    fairing::{Fairing, Info, Kind},
+    get,
+    http::{ContentType, Header, Method, Status},
+    Request, Response, State,
+};
 use rocket_contrib::{json::Json, serve::StaticFiles};
 use serde_derive::Serialize;
 use std::{
     collections::hash_map::HashMap,
+    io::Cursor,
     sync::{
         mpsc::{self, Receiver, Sender, SyncSender},
         Mutex, RwLock,
     },
     thread::{self, JoinHandle},
 };
-use rocket::{Request, Response};
-use rocket::fairing::{Fairing, Info, Kind};
-use rocket::http::{Header, ContentType, Method};
-use std::io::Cursor;
 
 #[cfg(feature = "debugger_gui")]
 #[macro_export]
@@ -204,10 +206,7 @@ struct CompiliationState {
 
 impl CompiliationState {
     fn new(breakpoint: Breakpoint, graphs: HashMap<String, GraphState>) -> Self {
-        Self {
-            breakpoint,
-            graphs,
-        }
+        Self { breakpoint, graphs }
     }
 }
 
@@ -233,13 +232,16 @@ impl Fairing for CORS {
     fn info(&self) -> Info {
         Info {
             name: "Add CORS headers to requests",
-            kind: Kind::Response
+            kind: Kind::Response,
         }
     }
 
-    fn on_response(&self, request: &'_ Request, response: &'_ mut Response) {
+    fn on_response(&self, request: &'_ Request<'_>, response: &'_ mut Response<'_>) {
         response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
-        response.set_header(Header::new("Access-Control-Allow-Methods", "POST, GET, OPTIONS"));
+        response.set_header(Header::new(
+            "Access-Control-Allow-Methods",
+            "POST, GET, OPTIONS",
+        ));
         response.set_header(Header::new("Access-Control-Allow-Headers", "Content-Type"));
 
         if request.method() == Method::Options {
@@ -319,11 +321,7 @@ fn http_server(sender: SyncSender<MsgToCompiler>) {
         .mount("/", StaticFiles::from(&static_files))
         .mount(
             "/",
-            rocket::routes![
-                breakpoint_continue,
-                breakpoint_list,
-                snapshot_at_index
-            ],
+            rocket::routes![breakpoint_continue, breakpoint_list, snapshot_at_index],
         )
         .manage(DebuggerState(Debugger::new(sender)))
         .launch();

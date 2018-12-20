@@ -1,5 +1,5 @@
 use super::{Outcome, OutcomeCollector};
-use crate::optimization;
+use crate::{dot::*, optimization};
 use libfirm_rs::{
     graph::Graph,
     nodes::NodeTrait,
@@ -9,7 +9,6 @@ use libfirm_rs::{
 };
 use priority_queue::PriorityQueue;
 use std::collections::hash_map::HashMap;
-use crate::dot::*;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 struct Priority {
