@@ -7,6 +7,7 @@ use crate::{
 };
 use libfirm_rs_bindings as bindings;
 use std::{
+    collections::HashSet,
     fmt,
     hash::{Hash, Hasher},
 };
@@ -168,15 +169,33 @@ pub trait NodeTrait {
     fn walk_dfs_in_block<Callback>(&self, block: Block, callback: &mut Callback)
     where
         Callback: FnMut(Node),
+        Self: Sized,
     {
-        let this = NodeFactory::node(self.internal_ir_node());
-
-        if this.block() == block {
-            for operand in self.in_nodes() {
-                operand.walk_dfs_in_block(block, callback);
+        fn recurse<Callback>(
+            visited: &mut HashSet<Node>,
+            cur_node: Node,
+            block: Block,
+            callback: &mut Callback,
+        ) where
+            Callback: FnMut(Node),
+        {
+            if cur_node.block() == block {
+                for operand in cur_node.in_nodes() {
+                    // cannot filter before the loop because recurse adds to visited
+                    if visited.contains(&operand) {
+                        continue;
+                    }
+                    visited.insert(operand);
+                    recurse(visited, operand, block, callback);
+                }
             }
+            callback(cur_node);
         }
-        callback(this);
+
+        let mut visited = HashSet::new();
+
+        let this = NodeFactory::node(self.internal_ir_node());
+        recurse(&mut visited, this, block, callback);
     }
 }
 
