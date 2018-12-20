@@ -143,6 +143,7 @@ pub trait NodeTrait {
     fn walk<F>(&self, mut walker: F)
     where
         F: FnMut(graph::VisitTime, Node),
+        Self: Sized,
     {
         // We need the type ascription here, because otherwise rust infers `&mut F`,
         // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because

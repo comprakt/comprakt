@@ -132,6 +132,7 @@ impl Graph {
         }
     }
 
+
     pub fn exchange(prev: &impl NodeTrait, new: &impl NodeTrait) {
         unsafe {
             bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
@@ -218,7 +219,7 @@ unsafe extern "C" fn post_closure_handler(node: *mut bindings::ir_node, closure:
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,PartialEq,Eq)]
 pub enum VisitTime {
     BeforePredecessors,
     AfterPredecessors,
