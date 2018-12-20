@@ -133,6 +133,48 @@ pub trait NodeTrait {
 
     // TODO implement methods from
     // https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java
+
+    /// libifrm irg_walk wrapper
+    ///
+    /// Walks over the ir graph, starting at the this node and going to all
+    /// predecessors, i.e., dependencies (operands) of this node.
+    /// Note that this traversal crosses block boundaries, since blocks are
+    /// also just predecessors in the Graph.
+    fn walk<F>(&self, mut walker: F)
+    where
+        F: FnMut(graph::VisitTime, Node),
+    {
+        // We need the type ascription here, because otherwise rust infers `&mut F`,
+        // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
+        // `closure_handler` doesn't know the concrete `F`.
+        let mut fat_pointer: &mut dyn FnMut(graph::VisitTime, Node) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            use std::ffi::c_void;
+            bindings::irg_walk(
+                self.internal_ir_node(),
+                Some(pre_closure_handler),
+                Some(post_closure_handler),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+}
+
+pub use self::graph::VisitTime;
+use std::{ffi::c_void, mem};
+
+unsafe extern "C" fn pre_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, Node) = mem::transmute(closure);
+    closure(VisitTime::BeforePredecessors, NodeFactory::node(node));
+}
+
+unsafe extern "C" fn post_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, Node) = mem::transmute(closure);
+    closure(VisitTime::AfterPredecessors, NodeFactory::node(node));
 }
 
 simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
