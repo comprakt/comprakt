@@ -6,9 +6,11 @@ use crate::{
     type_checking::type_system::CheckedType,
     utils::cell::{MutRc, MutWeak},
 };
+use itertools::Itertools;
 use libfirm_rs::{
     graph::VisitTime,
     nodes::{Node, NodeTrait},
+    nodes,
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -77,6 +79,22 @@ pub struct BlockGraph {
     pub head: MutRc<BasicBlock>,
 }
 
+#[derive(Debug,Clone,Copy)]
+pub enum BasicBlockReturns {
+    No,
+    Void(nodes::Return),
+    Value(nodes::Return),
+}
+
+impl BasicBlockReturns {
+    fn as_option(self) -> Option<nodes::Return> {
+        match self {
+            BasicBlockReturns::No => None,
+            BasicBlockReturns::Void(r) | BasicBlockReturns::Value(r) => Some(r),
+        }
+    }
+}
+
 /// This is a vertex in the basic-block graph
 #[derive(Debug)]
 pub struct BasicBlock {
@@ -94,8 +112,10 @@ pub struct BasicBlock {
     /// The firm structure of this block
     pub firm: libfirm_rs::nodes::Block,
 
-    /// Whether the block contains a return node.
-    /// Blocks with `returns == true` have the following properties:
+    /// Whether the block contains a return node, and if so, whether it returns a value
+    /// or just terminates control flow plus the firm node.
+    ///
+    /// Blocks with `returns == BasicBlockReturns::Value` have the following properties:
     ///
     ///  * `succs.len() == 1`
     ///
@@ -109,7 +129,7 @@ pub struct BasicBlock {
     /// block>
     ///
     ///    * `succ_edge.register_transitions.[0].0.firm = <this block's return
-    /// node>
+    /// node's result value node>
     ///
     ///    * `succ_edge.register_transitions.[0].1 = .0`
     ///
@@ -117,7 +137,7 @@ pub struct BasicBlock {
     /// the FIRM in_nodes for each value in succs.
     /// SSA copy-propagation code can check `returns` to omit
     /// copy-down of `succ_edge`.
-    pub returns: bool,
+    pub returns: BasicBlockReturns,
 }
 
 /// TODO Tie to problames instruction stuff
@@ -340,13 +360,22 @@ impl BlockGraph {
                     .collect::<Vec<_>>()
             );
             let block_with_return_node = self.get_block(return_node.block());
-            block_with_return_node.borrow_mut().returns = true;
-            let vs = multislot.add_possible_value(return_node, block_with_return_node.downgrade());
-            end_block
-                .borrow()
-                .find_incoming_edge_from(return_node.block())
-                .unwrap()
-                .add_incoming_value_flow(vs);
+            let return_node = match return_node {
+                Node::Return(r) => r,
+                _ => panic!("unexpected return node"),
+            };
+            if return_node.n_res() == 0 {
+                block_with_return_node.borrow_mut().returns = BasicBlockReturns::Void(return_node);
+            } else {
+                block_with_return_node.borrow_mut().returns = BasicBlockReturns::Value(return_node);
+                debug_assert_eq!(1, return_node.n_res(), "MiniJava only supports a single return value");
+                let vs = multislot.add_possible_value(return_node.res(0), block_with_return_node.downgrade());
+                end_block
+                    .borrow()
+                    .find_incoming_edge_from(return_node.block())
+                    .unwrap()
+                    .add_incoming_value_flow(vs);
+            }
         }
     }
 
@@ -361,11 +390,14 @@ impl BlockGraph {
                 }}
             }
 
-            // LIR metadata dump
+            let mut computed: HashMap<Node, MutRc<ValueSlot>> = HashMap::new();
+
+            // LIR metadata dump + fill computed values
             for (num, multislot) in block.regs.iter().enumerate() {
                 comment_instr!("Slot {}:", num);
                 for slot in multislot {
                     comment_instr!("\t=  {:?}", slot.borrow().firm);
+                    computed.insert(slot.borrow().firm, MutRc::clone(slot));
                 }
 
                 for edge in block.preds.iter() {
@@ -387,32 +419,7 @@ impl BlockGraph {
             }
 
             // LIR conversion
-            // We compute the values required by our successors. That must be enough.
-            // for out_edge in &block.succs {
-            //     comment_instr!(
-            //         "succ edge {:?}->{:?}",
-            //         block.firm,
-            //         out_edge.borrow().target.borrow().firm
-            //     );
-            //     for (src_slot, _) in out_edge.borrow().register_transitions.iter() {
-            //         let value_computed_by_this_block = src_slot.borrow().firm;
-            //         comment_instr!(
-            //             "\tvisit value_computed_by_this_block={:?}",
-            //             value_computed_by_this_block
-            //         );
-            //         value_computed_by_this_block.walk_dfs_in_block(block.firm, &mut
-            // |operand| {             comment_instr!("\t\tvisit operand={:?}",
-            // operand);         });
-            //     }
-            // }
-
-            use itertools::Itertools;
-
-            // let out_values = block.succs.iter()
-            //     .flat_map(|out_edge|
-            // out_edge.borrow().register_transitions.iter().collect::<Vec<_>>())
-            //     .unique_by(|(src_slot, _)| src_slot.borrow().firm)
-            //     .map(|(src_slot, _)| src_slot.borrow().firm);
+            // We compute the values required by our successors.
             let out_values = block
                 .succs
                 .iter()
@@ -427,10 +434,15 @@ impl BlockGraph {
                 .map(|src_slot| src_slot.borrow().firm)
                 .dedup();
 
-            for out_value in out_values {
+            let return_node_opt = block.returns.as_option();
+
+            for out_value in return_node_opt.iter().map(|r| (*r).into()).chain(out_values) {
                 comment_instr!("\tvisit out_value={:?}", out_value);
                 out_value.walk_dfs_in_block(block.firm, &mut |operand| {
                     comment_instr!("\t\tvisit operand={:?}", operand);
+                    if computed.contains_key(&operand) {
+                        comment_instr!("\t\t\toperand is already computed in Slot #{:?}", &computed[&operand].borrow().num);
+                    }
                 });
             }
 
@@ -654,7 +666,8 @@ impl BasicBlock {
                     preds: Vec::new(),
                     succs: Vec::new(),
                     firm,
-                    returns: false, // set suring construct_flows
+                    // if No is not true, overridden in suring construct_flows
+                    returns: BasicBlockReturns::No,
                 })
             })
             .clone()

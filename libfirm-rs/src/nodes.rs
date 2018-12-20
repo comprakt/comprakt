@@ -373,3 +373,19 @@ impl fmt::Debug for nodes_gen::Address {
         )
     }
 }
+
+impl Return {
+    pub fn res(self, idx: i32) -> Node {
+        if cfg!(debug_assertions) {
+            assert!(idx >= 0);
+            assert!(idx < self.n_res());
+        }
+        let unwrapped = unsafe { bindings::get_Return_res(self.internal_ir_node(), idx) };
+        NodeFactory::node(unwrapped)
+    }
+
+    pub fn n_res(self) -> i32 {
+        unsafe { bindings::get_Return_n_ress(self.internal_ir_node()) }
+    }
+
+}
