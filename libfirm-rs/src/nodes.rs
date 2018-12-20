@@ -7,6 +7,7 @@ use crate::{
 };
 use libfirm_rs_bindings as bindings;
 use std::{
+    collections::HashSet,
     fmt,
     hash::{Hash, Hasher},
 };
@@ -131,6 +132,18 @@ pub trait NodeTrait {
         unsafe { bindings::is_Const(self.internal_ir_node()) != 0 }
     }
 
+    fn is_address(&self) -> bool {
+        unsafe { bindings::is_Address(self.internal_ir_node()) != 0 }
+    }
+
+    fn is_start(&self) -> bool {
+        unsafe { bindings::is_Start(self.internal_ir_node()) != 0 }
+    }
+
+    fn is_call(&self) -> bool {
+        unsafe { bindings::is_Call(self.internal_ir_node()) != 0 }
+    }
+
     // TODO implement methods from
     // https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java
 
@@ -160,6 +173,41 @@ pub trait NodeTrait {
                 thin_pointer as *mut &mut _ as *mut c_void,
             );
         }
+    }
+
+    /// Perform a DFS over all nodes within `block` starting at `self`,
+    /// plus the nodes that are just outside of the block.
+    /// The primary use case for this API is in codegen.
+    fn walk_dfs_in_block<Callback>(&self, block: Block, callback: &mut Callback)
+    where
+        Callback: FnMut(Node),
+        Self: Sized,
+    {
+        fn recurse<Callback>(
+            visited: &mut HashSet<Node>,
+            cur_node: Node,
+            block: Block,
+            callback: &mut Callback,
+        ) where
+            Callback: FnMut(Node),
+        {
+            if cur_node.block() == block {
+                for operand in cur_node.in_nodes() {
+                    // cannot filter before the loop because recurse adds to visited
+                    if visited.contains(&operand) {
+                        continue;
+                    }
+                    visited.insert(operand);
+                    recurse(visited, operand, block, callback);
+                }
+            }
+            callback(cur_node);
+        }
+
+        let mut visited = HashSet::new();
+
+        let this = NodeFactory::node(self.internal_ir_node());
+        recurse(&mut visited, this, block, callback);
     }
 }
 
@@ -255,6 +303,22 @@ impl fmt::Debug for nodes_gen::Call {
     }
 }
 
+impl Call {
+    pub fn n_params(self) -> i32 {
+        unsafe { bindings::get_Call_n_params(self.internal_ir_node()) }
+    }
+
+    pub fn param(self, idx: i32) -> Node {
+        unsafe { NodeFactory::node(bindings::get_Call_param(self.internal_ir_node(), idx)) }
+    }
+
+    pub fn params(self) -> impl Iterator<Item = Node> {
+        CallParamsIterator::new(self.internal_ir_node())
+    }
+}
+
+simple_node_iterator!(CallParamsIterator, get_Call_n_params, get_Call_param, i32);
+
 impl nodes_gen::Cond {
     pub fn out_proj_val(self, val: bool) -> Option<Proj> {
         if val {
@@ -335,5 +399,20 @@ impl fmt::Debug for nodes_gen::Address {
             self.entity().name_string(),
             self.node_id()
         )
+    }
+}
+
+impl Return {
+    pub fn res(self, idx: i32) -> Node {
+        if cfg!(debug_assertions) {
+            assert!(idx >= 0);
+            assert!(idx < self.n_res());
+        }
+        let unwrapped = unsafe { bindings::get_Return_res(self.internal_ir_node(), idx) };
+        NodeFactory::node(unwrapped)
+    }
+
+    pub fn n_res(self) -> i32 {
+        unsafe { bindings::get_Return_n_ress(self.internal_ir_node()) }
     }
 }

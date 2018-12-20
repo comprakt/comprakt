@@ -25,16 +25,22 @@ pub struct Block {
     instrs: Vec<Instr>,
 }
 
+use libfirm_rs::tarval::Tarval;
+
 #[derive(Debug, Clone, Copy)]
 pub enum Operand {
     Reg(Reg),
-    Imm(isize),
+    /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
+    /// lifetime of that pointer (the FIRM graph).
+    Imm(Tarval),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Reg {
     /// Magic register that contains the return value of a function call (rax).
     R0,
+    /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
+    /// lifetime of that pointer (the FIRM graph).
     N(usize),
 }
 
@@ -175,7 +181,7 @@ impl Instr {
             Cmpq { lhs, rhs } => write!(out, "cmpq {}, {}", lhs, rhs),
             Call { func, args, dst } => {
                 let args = args.iter().map(|a| format!("{}", a)).collect::<Vec<_>>();
-                write!(out, "call {} [ {} ]", func, args[..].join(","))?;
+                write!(out, "call {} [ {} ]", func, args[..].join(" | "))?;
                 if let Some(dst) = dst {
                     write!(out, " -> {}", dst)?;
                 }
@@ -202,7 +208,7 @@ impl std::fmt::Display for Operand {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Operand::Reg(reg) => write!(fmt, "{}", reg),
-            Operand::Imm(val) => write!(fmt, "${}", val),
+            Operand::Imm(val) => write!(fmt, "${}", val.get_long()), // TODO render suitable value
         }
     }
 }
@@ -292,10 +298,7 @@ impl From<lir::LIR> for Program {
     fn from(p: lir::LIR) -> Program {
         let mut mp = Program::new();
         for f in &p.functions {
-            let mf_name = match f.name.as_ref() {
-                "mj_main" => "minijava_main".to_owned(),
-                x => x.to_owned(),
-            };
+            let mf_name = f.name.to_owned();
             let mut mf = Function::new(mf_name, f.nargs, f.returns);
             let mut mblocks = HashMap::new();
             let mut is_entry_block = true;
@@ -330,6 +333,9 @@ mod tests {
     use super::*;
     #[test]
     fn works() {
+
+        libfirm_rs::init();
+
         let expected = r"
 .function fib 1 1
 entry:
@@ -361,7 +367,7 @@ end:
 
         entry.push(Comment("some comment".to_owned()));
         entry.push(Cmpq {
-            lhs: Operand::Imm(1),
+            lhs: Operand::Imm(Tarval::mj_int(1)),
             rhs: fib.arg_reg_operand(0),
         });
         entry.push(Jmp {
@@ -371,14 +377,14 @@ end:
         let r1 = fib.new_reg();
         entry.push(Binop {
             kind: Subq,
-            src1: Operand::Imm(1),
+            src1: Operand::Imm(Tarval::mj_int(1)),
             src2: fib.arg_reg(0).into_operand(),
             dst: Some(r1),
         });
         let r2 = fib.new_reg();
         entry.push(Binop {
             kind: Subq,
-            src1: Operand::Imm(2),
+            src1: Operand::Imm(Tarval::mj_int(2)),
             src2: fib.arg_reg(0).into_operand(),
             dst: Some(r2),
         });

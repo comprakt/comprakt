@@ -1,5 +1,6 @@
 //! Low level intermediate representation
 
+use super::gen_instr::GenInstrBlock;
 use crate::{
     firm,
     lowering::molki,
@@ -8,7 +9,7 @@ use crate::{
 };
 use libfirm_rs::{
     graph::VisitTime,
-    nodes::{Node, NodeTrait},
+    nodes::{self, Node, NodeTrait},
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -77,6 +78,22 @@ pub struct BlockGraph {
     pub head: MutRc<BasicBlock>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum BasicBlockReturns {
+    No,
+    Void(nodes::Return),
+    Value(nodes::Return),
+}
+
+impl BasicBlockReturns {
+    pub fn as_option(self) -> Option<nodes::Return> {
+        match self {
+            BasicBlockReturns::No => None,
+            BasicBlockReturns::Void(r) | BasicBlockReturns::Value(r) => Some(r),
+        }
+    }
+}
+
 /// This is a vertex in the basic-block graph
 #[derive(Debug)]
 pub struct BasicBlock {
@@ -93,6 +110,34 @@ pub struct BasicBlock {
 
     /// The firm structure of this block
     pub firm: libfirm_rs::nodes::Block,
+
+    /// Whether the block contains a return node, and if so, whether it returns
+    /// a value or just terminates control flow plus the firm node.
+    ///
+    /// Blocks with `returns == BasicBlockReturns::Value` have the following
+    /// properties:
+    ///
+    ///  * `succs.len() == 1`
+    ///
+    ///  * `let succ_edge = succs[0]`
+    ///
+    ///    * `succ_edge.target = <the end block>`
+    ///
+    ///    * `succ_edge.register_transitions.len() == 1`
+    ///
+    ///    * `succ_edge.register_transitions.[0].0 = <a value slot in this
+    /// block>
+    ///
+    ///    * `succ_edge.register_transitions.[0].0.firm = <this block's return
+    /// node's result value node>
+    ///
+    ///    * `succ_edge.register_transitions.[0].1 = .0`
+    ///
+    /// Above design enables codegen to simply iterate over
+    /// the FIRM in_nodes for each value in succs.
+    /// SSA copy-propagation code can check `returns` to omit
+    /// copy-down of `succ_edge`.
+    pub returns: BasicBlockReturns,
 }
 
 /// TODO Tie to problames instruction stuff
@@ -102,16 +147,16 @@ pub type Instruction = molki::Instr;
 #[derive(Debug)]
 pub struct ValueSlot {
     /// The slot number. Uniqe only per Block, not globally
-    num: usize,
+    pub(super) num: usize,
     /// The firm node that corresponds to this value
-    firm: Node,
+    pub(super) firm: Node,
 
     /// The block in which this slot is allocated
-    allocated_in: MutWeak<BasicBlock>,
+    pub(super) allocated_in: MutWeak<BasicBlock>,
     /// The block in which the value of this slot originates
-    originates_in: MutWeak<BasicBlock>,
+    pub(super) originates_in: MutWeak<BasicBlock>,
     /// The block in which this value is used
-    terminates_in: MutWeak<BasicBlock>,
+    pub(super) terminates_in: MutWeak<BasicBlock>,
 }
 
 /// This is currently unused (because the categorisations are wrong), but we
@@ -174,7 +219,7 @@ pub struct ControlFlowTransfer {
     ///
     /// The *swap problem* is handled by there being no semantic order between
     /// the register transitions.
-    register_transitions: Vec<(MutRc<ValueSlot>, MutRc<ValueSlot>)>,
+    pub(super) register_transitions: Vec<(MutRc<ValueSlot>, MutRc<ValueSlot>)>,
 
     source: MutWeak<BasicBlock>,
     pub target: MutRc<BasicBlock>,
@@ -299,40 +344,50 @@ impl BlockGraph {
 
             VisitTime::AfterPredecessors => (),
         });
+
+        // Special case for return nodes, see BasicBlock.return comment
+        let end_block = self.get_block(self.firm.end_block());
+        let multislot = end_block.new_terminating_multislot();
+        for return_node in self.firm.end_block().cfg_pred_nodes() {
+            log::debug!("return_node = {:?}", return_node);
+            log::debug!(
+                "return_node.edges = {:?}",
+                end_block
+                    .borrow()
+                    .preds
+                    .iter()
+                    .map(|x| format!("{:?}", upborrow!(upborrow!(x).source).firm))
+                    .collect::<Vec<_>>()
+            );
+            let block_with_return_node = self.get_block(return_node.block());
+            let return_node = match return_node {
+                Node::Return(r) => r,
+                _ => panic!("unexpected return node"),
+            };
+            if return_node.n_res() == 0 {
+                block_with_return_node.borrow_mut().returns = BasicBlockReturns::Void(return_node);
+            } else {
+                block_with_return_node.borrow_mut().returns = BasicBlockReturns::Value(return_node);
+                debug_assert_eq!(
+                    1,
+                    return_node.n_res(),
+                    "MiniJava only supports a single return value"
+                );
+                let vs = multislot
+                    .add_possible_value(return_node.res(0), block_with_return_node.downgrade());
+                end_block
+                    .borrow()
+                    .find_incoming_edge_from(return_node.block())
+                    .unwrap()
+                    .add_incoming_value_flow(vs);
+            }
+        }
     }
 
     fn gen_instrs(&mut self) {
-        for block in self.iter_blocks() {
-            let mut instrs = Vec::new();
-            let mut block = block.borrow_mut();
-            for (num, multislot) in block.regs.iter().enumerate() {
-                instrs.push(molki::Instr::Comment(format!("Slot {}:", num)));
-                for slot in multislot {
-                    instrs.push(molki::Instr::Comment(format!(
-                        "\t=  {:?}",
-                        slot.borrow().firm
-                    )));
-                }
-
-                for edge in block.preds.iter() {
-                    edge.upgrade()
-                        .unwrap()
-                        .borrow()
-                        .register_transitions
-                        .iter()
-                        .filter(|(_, dst)| dst.borrow().num == num)
-                        .for_each(|(src, _)| {
-                            instrs.push(molki::Instr::Comment(format!(
-                                "\t<- {:?}({}): {:?}",
-                                upborrow!(src.borrow().allocated_in).firm,
-                                src.borrow().num,
-                                src.borrow().firm
-                            )));
-                        })
-                }
-            }
-
-            block.code = instrs;
+        for lir_block in self.iter_blocks() {
+            log::debug!("GENINSTR block {:?}", lir_block.borrow().firm);
+            GenInstrBlock::fill_instrs(lir_block);
         }
     }
 
@@ -479,16 +534,19 @@ impl MutRc<BasicBlock> {
                 .add_possible_value(value, originates_in);
 
             // If the value is foreign, we need to "get it" from each blocks above us.
-            // Note: In libfirm, const nodes are all in the start block, no matter where
-            // they are used, however we don't want or need to transfer them down to the
-            // usage from the start block, so we can treat a const node as "originating
-            // here".
-            // DANGER: We cannot make this assumption if this node is used as input to a
-            // phi node in this block, because the value need to originate in the
+            //
+            // NOTE:
+            // In FIRM,const and address nodes are all in the start block, no
+            // matter where they are used, however we don't want or need to
+            // transfer them down to the usage from the start block, so we can
+            // treat a const node as "originating here".
+            // HOWEVER, we cannot make above assumption if this node is used as input to a
+            // Phi node in this block, because the value needs to originate in the
             // corresponding cfg_pred. However, when creating slots for the inputs of phi
             // nodes, this function (`MutRc<BasicBlock>::new_slot`), in not used. So the
             // assumption holds, but BE AWARE OF THIS when refactoring.
             let originates_here = slot.borrow().firm.is_const()
+                || slot.borrow().firm.is_address()
                 || upborrow!(slot.borrow().allocated_in).firm
                     == upborrow!(slot.borrow().originates_in).firm;
             if !originates_here {
@@ -520,8 +578,7 @@ impl MutRc<BasicBlock> {
         self.new_slot(value, origin, MutRc::downgrade(self))
     }
 
-    #[allow(dead_code)]
-    fn new_private_slot(&self, value: libfirm_rs::nodes::Node) -> MutRc<ValueSlot> {
+    pub(super) fn new_private_slot(&self, value: libfirm_rs::nodes::Node) -> MutRc<ValueSlot> {
         assert_eq!(value.block(), self.borrow().firm);
         self.new_slot(value, MutRc::downgrade(self), MutRc::downgrade(self))
     }
@@ -551,6 +608,8 @@ impl BasicBlock {
                     preds: Vec::new(),
                     succs: Vec::new(),
                     firm,
+                    // if No is not true, overridden in suring construct_flows
+                    returns: BasicBlockReturns::No,
                 })
             })
             .clone()

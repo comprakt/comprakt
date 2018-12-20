@@ -77,6 +77,22 @@ impl Ty {
     pub fn mode(self) -> mode::Type {
         unsafe { get_type_mode(self.into()) }
     }
+
+    pub fn is_method(self) -> bool {
+        unsafe { is_Method_type(self.0) != 0 }
+    }
+
+    // TOOO: move this to a newtype (but FunctionType name is already taken)
+    // BTW: FunctionType should be called MethodTypeBuilder
+    pub fn method_n_res(self) -> usize {
+        assert!(self.is_method());
+        unsafe { get_method_n_ress(self.0) }
+    }
+
+    pub fn method_res_ty(self, pos: usize) -> Ty {
+        assert!(self.is_method());
+        unsafe { get_method_res_type(self.0, pos) }.into()
+    }
 }
 
 pub struct PrimitiveType;
