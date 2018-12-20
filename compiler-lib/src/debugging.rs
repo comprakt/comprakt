@@ -215,14 +215,9 @@ impl BreakpointFilters {
         breakpoint: &Breakpoint,
         program: &HashMap<String, GraphState>,
     ) -> bool {
-        //self.filters.iter().any(Filter::matches)
-        for filter in &self.filters {
-            if filter.matches(breakpoint, program) {
-                return true;
-            }
-        }
-
-        return false;
+        self.filters
+            .iter()
+            .any(|filter| filter.matches(breakpoint, program))
     }
 }
 
