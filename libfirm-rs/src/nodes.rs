@@ -251,11 +251,18 @@ impl nodes_gen::Block {
         unsafe { bindings::get_Block_n_cfgpreds(self.internal_ir_node()) }
     }
 
-    pub fn cfg_preds(self) -> impl Iterator<Item = nodes_gen::Block> {
-        BlockPredIterator::new(self.internal_ir_node()).filter_map(|node| match node {
-            Node::Block(block) => Some(block),
-            _ => None,
-        })
+    /// This block's CFG predecessor blocks.
+    /// NOTE: see cfg_pred_nodes for the difference between block and node CFG preds.
+    pub fn cfg_preds(&self) -> impl Iterator<Item = nodes_gen::Block> {
+        self.cfg_pred_nodes().map(|n| n.block())
+    }
+
+    /// This block's CFG predecessor nodes.
+    /// NOTE: CFG predecessor node != predecessor block:
+    /// The predecessor node is a Jmp, Cond or Return whereas the
+    /// predecessor block is the predeceddor node's block.
+    pub fn cfg_pred_nodes(&self) -> impl Iterator<Item = nodes_gen::Node> {
+        BlockPredIterator::new(self.internal_ir_node())
     }
 
     pub fn keep_alive(self) {
@@ -267,12 +274,13 @@ impl nodes_gen::Block {
     pub fn cfg_pred(self, idx: i32) -> Node {
         NodeFactory::node(unsafe { bindings::get_Block_cfgpred(self.internal_ir_node(), idx) })
     }
+
 }
 
 simple_node_iterator!(
     BlockPredIterator,
     get_Block_n_cfgpreds,
-    get_Block_cfgpred_block,
+    get_Block_cfgpred,
     i32
 );
 
