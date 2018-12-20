@@ -144,6 +144,17 @@ impl Tarval {
         self.lattice_cmp(bindings::ir_relation::Equal, o)
             .is_bool_val(true)
     }
+
+    pub fn join(self, o: Tarval) -> Tarval {
+        use self::TarvalKind::*;
+        match (self.kind(), o.kind()) {
+            (Bad, _) | (_, Bad) => Tarval::bad(),
+            (Unknown, _) => o,
+            (_, Unknown) => self,
+            _ if self.lattice_eq(o) => self,
+            _ => Tarval::bad(),
+        }
+    }
 }
 
 impl PartialEq for Tarval {

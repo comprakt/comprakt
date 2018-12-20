@@ -1,15 +1,13 @@
 use super::{
     entity::Entity,
     nodes::NodeTrait,
-    nodes_gen::{Block, End, Node, NodeFactory, Proj, Start},
+    nodes_gen::{Block, End, Node, NodeFactory, Proj, ProjKind, Start},
+    value_nodes::ValueNode,
 };
 use libfirm_rs_bindings as bindings;
 use std::{
     ffi::{c_void, CString},
-    fs::File,
-    io::{BufWriter, Write},
     mem,
-    path::PathBuf,
 };
 
 impl From<crate::Graph> for Graph {
@@ -140,78 +138,57 @@ impl Graph {
         }
     }
 
+    // FIXME why does not work this with `&impl ValueNode`?
+    pub fn exchange_value(prev: &dyn ValueNode, new: &dyn ValueNode) {
+        let prev: Node = prev.into();
+        let new: Node = new.into();
+        use self::Node::*;
+        match prev {
+            /* IMPROVEMENT?
+            This might be more elegant, but does not do the exact same:
+            It fails if there are multiple projects to that pin!
+            Node::Div(div) => {
+                div.out_proj_res().then(|res| Graph::exchange(res, const_node))
+                div.out_proj_m().then(|mem| Graph::exchange(mem, div.mem()))
+            }
+            */
+            Div(node) => {
+                for out_node in node.out_nodes() {
+                    match out_node {
+                        Proj(res_proj, ProjKind::Div_Res(_)) => {
+                            Graph::exchange(&res_proj, &new);
+                        }
+                        Proj(m_proj, ProjKind::Div_M(_)) => {
+                            Graph::exchange(&m_proj, &node.mem());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Mod(node) => {
+                for out_node in node.out_nodes() {
+                    match out_node {
+                        Proj(res_proj, ProjKind::Mod_Res(_)) => {
+                            Graph::exchange(&res_proj, &new);
+                        }
+                        Proj(m_proj, ProjKind::Mod_M(_)) => {
+                            Graph::exchange(&m_proj, &node.mem());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            node => {
+                Graph::exchange(&node, &new);
+            }
+        }
+    }
+
     /// Replace the given node with a "bad" node, thus marking it and all the
     /// nodes dominated by it as unreachable. The whole subtree can then be
     /// removed using `Graph::remove_bads`.
     pub fn mark_as_bad(self, node: &impl NodeTrait) {
         Graph::exchange(node, &self.new_bad(unsafe { bindings::mode::b }))
-    }
-
-    pub fn dump_dot_data<T>(self, filename: &PathBuf, data: T)
-    where
-        T: Fn(Node) -> NodeData,
-    {
-        let write_file = File::create(filename).unwrap();
-        let mut writer = BufWriter::new(&write_file);
-
-        let mut list = Vec::new();
-        self.walk_topological(|node| {
-            list.push(*node);
-        });
-
-        writeln!(writer, "digraph G {{").unwrap();
-        for node in list.iter() {
-            let node_data = data(*node);
-            writeln!(
-                writer,
-                "{:?} [label=\"{}\", style={}, shape=box{}];",
-                node.node_id(),
-                node_data.text.replace("\"", "'").replace("\n", "\\n"),
-                if node_data.filled { "filled" } else { "none" },
-                if node_data.bold { ", penwidth=3" } else { "" },
-            )
-            .unwrap();
-
-            if !node.is_block() {
-                writeln!(
-                    writer,
-                    "{:?} -> {:?} [color=blue];",
-                    node.block().node_id(),
-                    node.node_id()
-                )
-                .unwrap();
-            }
-            for ref_node in node.in_nodes() {
-                writeln!(writer, "{:?} -> {:?};", ref_node.node_id(), node.node_id()).unwrap();
-            }
-        }
-        writeln!(writer, "}}").unwrap();
-
-        writer.flush().unwrap();
-    }
-}
-
-pub struct NodeData {
-    text: String,
-    filled: bool,
-    bold: bool,
-}
-
-impl NodeData {
-    pub fn new(text: String) -> NodeData {
-        NodeData {
-            text,
-            filled: false,
-            bold: false,
-        }
-    }
-
-    pub fn filled(&mut self, val: bool) {
-        self.filled = val;
-    }
-
-    pub fn bold(&mut self, val: bool) {
-        self.bold = val;
     }
 }
 

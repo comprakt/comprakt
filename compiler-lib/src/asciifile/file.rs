@@ -11,10 +11,7 @@ pub struct AsciiFile<'m> {
 
 #[derive(Debug, Fail)]
 pub enum EncodingError {
-    #[fail(
-        display = "input contains non-ascii character at {}",
-        position
-    )]
+    #[fail(display = "input contains non-ascii character at {}", position)]
     NotAscii { offset: usize, position: String },
 }
 

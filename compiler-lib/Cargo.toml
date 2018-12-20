@@ -24,6 +24,12 @@ libc = "0.2"
 log = "0.4"
 serde = "1.0"
 serde_derive = "1.0"
+priority-queue = "0.5.2"
+
+# for the gui debugger
+rocket = "0.4.0"
+rocket_contrib = "0.4.0"
+lazy_static = "1.2.0"
 
 [dev-dependencies]
 mjtest = { path = "../mjtest-rs" }
@@ -33,3 +39,10 @@ criterion = "0.2"
 [[bench]]
 name = "symtab_bench"
 harness = false
+
+[features]
+default = [ ]
+# This feature enables the `breakpoint!` macro, which
+# among other things, is used to implement the `gui`
+# flag in custom optimization sequences.
+debugger_gui = [ ]

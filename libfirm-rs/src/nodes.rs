@@ -2,10 +2,11 @@ pub use crate::nodes_gen::*;
 use crate::{
     graph::{self, Graph},
     nodes_gen,
+    entity::Entity,
+    value_nodes::ValueNode,
 };
 use libfirm_rs_bindings as bindings;
 use std::{
-    ffi::CStr,
     fmt,
     hash::{Hash, Hasher},
 };
@@ -70,6 +71,10 @@ simple_node_iterator!(PhiPredsIterator, get_Phi_n_preds, get_Phi_pred, i32);
 impl Proj {
     pub fn proj(self, num: u32, mode: bindings::mode::Type) -> Proj {
         Proj::new(unsafe { bindings::new_r_Proj(self.internal_ir_node(), mode, num) })
+    }
+
+    pub fn kind(self) -> ProjKind {
+        NodeFactory::proj_kind(self)
     }
 }
 
@@ -163,10 +168,36 @@ impl PartialEq for Node {
 
 impl Eq for Node {}
 
-// FIXME generate this
-impl Into<*mut bindings::ir_node> for Node {
-    fn into(self) -> *mut bindings::ir_node {
-        self.internal_ir_node()
+impl From<Node> for *mut bindings::ir_node {
+    fn from(n: Node) -> *mut bindings::ir_node {
+        n.internal_ir_node()
+    }
+}
+
+impl From<Box<dyn ValueNode>> for Node {
+    fn from(n: Box<dyn ValueNode>) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
+impl From<&Box<dyn ValueNode>> for Node {
+    fn from(n: &Box<dyn ValueNode>) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
+impl From<&dyn ValueNode> for Node {
+    fn from(n: &dyn ValueNode) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
+impl<T> From<&T> for Node
+where
+    T: ValueNode,
+{
+    fn from(n: &T) -> Node {
+        NodeFactory::node(n.internal_ir_node())
     }
 }
 
@@ -176,14 +207,36 @@ impl fmt::Debug for nodes_gen::Call {
     }
 }
 
-impl nodes_gen::Address {
-    pub fn entity(self) -> *mut bindings::ir_entity {
-        unsafe { bindings::get_Address_entity(self.internal_ir_node()) }
+impl nodes_gen::Cond {
+    pub fn out_proj_val(self, val: bool) -> Option<Proj> {
+        if val {
+            self.out_proj_true()
+        } else {
+            self.out_proj_false()
+        }
     }
 
-    pub fn set_entity(self, ir_entity: *mut bindings::ir_entity) {
+    pub fn out_proj_target_block(self, val: bool) -> Option<(Proj, Block)> {
+        self.out_proj_val(val).and_then(|proj| {
+            proj.out_nodes().next().map(|target_block| {
+                if let Node::Block(target_block) = target_block {
+                    (proj, target_block)
+                } else {
+                    unreachable!("Target of a Proj must be a Block")
+                }
+            })
+        })
+    }
+}
+
+impl nodes_gen::Address {
+    pub fn entity(self) -> Entity {
+        unsafe { bindings::get_Address_entity(self.internal_ir_node()).into() }
+    }
+
+    pub fn set_entity(self, ir_entity: Entity) {
         unsafe {
-            bindings::set_Address_entity(self.internal_ir_node(), ir_entity);
+            bindings::set_Address_entity(self.internal_ir_node(), ir_entity.into());
         }
     }
 }
@@ -220,8 +273,11 @@ simple_node_iterator!(
 
 impl fmt::Debug for nodes_gen::Address {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let entity = self.entity();
-        let entity_name = unsafe { CStr::from_ptr(bindings::get_entity_name(entity)) };
-        write!(f, "Address of {:?} {}", entity_name, self.node_id())
+        write!(
+            f,
+            "Address of {:?} {}",
+            self.entity().name_string(),
+            self.node_id()
+        )
     }
 }

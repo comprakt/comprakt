@@ -20,21 +20,14 @@ use std::{
 
 #[derive(Debug, Fail)]
 pub enum DataError {
-    #[fail(
-        display = "incorrect yaml front matter in test file {:?}",
-        path
-    )]
+    #[fail(display = "incorrect yaml front matter in test file {:?}", path)]
     InvalidFrontMatter { path: PathBuf },
     #[fail(
         display = "incorrect yaml in reference output file {:?} for test file {:?}",
-        yaml,
-        input
+        yaml, input
     )]
     InvalidYamlFile { input: PathBuf, yaml: PathBuf },
-    #[fail(
-        display = "no reference output for test file {:?} found",
-        path
-    )]
+    #[fail(display = "no reference output for test file {:?} found", path)]
     NoReferenceOutput { path: PathBuf },
 }
 

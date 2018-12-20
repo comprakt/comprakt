@@ -29,7 +29,7 @@ use failure::{Error, Fail};
 
 use crate::{
     lowering::{lir::LIR, molki},
-    optimization::{self, Optimization},
+    optimization,
     strtab::{StringTable, Symbol},
     type_checking::{
         type_analysis::TypeAnalysis,
@@ -56,7 +56,7 @@ pub struct Options {
     pub dump_firm_graph: bool,
     pub dump_class_layouts: bool,
     pub dump_assembler: Option<OutputSpecification>,
-    pub optimizations: Vec<Optimization>,
+    pub optimizations: optimization::Level,
 }
 
 #[derive(Debug, Fail)]
@@ -149,7 +149,7 @@ pub unsafe fn build<'src, 'ast>(
         }
     }
 
-    //optimization::run_all(&program, &opts.optimizations);
+    opts.optimizations.run_all(&program);
 
     // TODO Better seperation of modules
     let lir = LIR::from(&program);

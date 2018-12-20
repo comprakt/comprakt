@@ -25,6 +25,7 @@
 # ignore yaml stripped mini java files
 *.stripped
 *.reference
+*.normalized
 
 # ignore assembly tests by default
 assembly/

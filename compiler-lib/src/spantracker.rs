@@ -23,6 +23,8 @@ where
         }
     }
 
+    // TODO: fix and remove lint
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> EOFResult<Token<'f>> {
         self.peek()?;
         let next = self.lexer.next().ok_or(EOF)?;
