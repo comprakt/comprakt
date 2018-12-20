@@ -9,6 +9,7 @@ use libfirm_rs::{
 };
 use priority_queue::PriorityQueue;
 use std::collections::hash_map::HashMap;
+use crate::dot::*;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 struct Priority {
@@ -147,6 +148,27 @@ impl ConstantFolding {
     }
 
     fn update_node(&mut self, cur_node: Node, cur_lattice: CfLattice) -> CfLattice {
+        breakpoint!("Constant Folding: iteration", self.graph, &|node: Node| {
+            let mut label = default_label(node);
+
+            if let Some(tarval) = self.values.get(&node) {
+                label = label.append(format!("\n{:?}", tarval));
+            }
+
+            if node == cur_node {
+                label = label
+                    .style(Style::Filled)
+                    .fillcolor(X11Color::Blue)
+                    .fontcolor(X11Color::White);
+            }
+
+            if let Some(priority) = self.queue.get(&node) {
+                label = label.style(Style::Bold);
+            }
+
+            label
+        });
+
         let mut reachable = cur_lattice.reachable
             || if Node::is_block(cur_node) {
                 cur_node.in_nodes().any(|pred| self.lookup(pred).reachable)

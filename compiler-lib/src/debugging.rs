@@ -56,10 +56,10 @@ use std::{
     },
     thread::{self, JoinHandle},
 };
-
-lazy_static::lazy_static! {
-    static ref GUI: Mutex<Option<GuiThread>> = Mutex::new(None);
-}
+use rocket::{Request, Response};
+use rocket::fairing::{Fairing, Info, Kind};
+use rocket::http::{Header, ContentType, Method};
+use std::io::Cursor;
 
 #[cfg(feature = "debugger_gui")]
 #[macro_export]
@@ -103,6 +103,10 @@ macro_rules! breakpoint {
         let _ = &$prog;
         let _ = &$labels;
     }};
+}
+
+lazy_static::lazy_static! {
+    static ref GUI: Mutex<Option<GuiThread>> = Mutex::new(None);
 }
 
 fn gui_thread() -> &'static GUI {
@@ -195,14 +199,14 @@ pub struct Breakpoint {
 struct CompiliationState {
     breakpoint: Breakpoint,
     // maps function name to dot file
-    dot_files: HashMap<String, GraphState>,
+    graphs: HashMap<String, GraphState>,
 }
 
 impl CompiliationState {
-    fn new(breakpoint: Breakpoint, program: HashMap<String, GraphState>) -> Self {
+    fn new(breakpoint: Breakpoint, graphs: HashMap<String, GraphState>) -> Self {
         Self {
             breakpoint,
-            dot_files: program,
+            graphs,
         }
     }
 }
@@ -222,6 +226,28 @@ impl Debugger {
 }
 
 struct DebuggerState(Debugger);
+
+pub struct CORS();
+
+impl Fairing for CORS {
+    fn info(&self) -> Info {
+        Info {
+            name: "Add CORS headers to requests",
+            kind: Kind::Response
+        }
+    }
+
+    fn on_response(&self, request: &'_ Request, response: &'_ mut Response) {
+        response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
+        response.set_header(Header::new("Access-Control-Allow-Methods", "POST, GET, OPTIONS"));
+        response.set_header(Header::new("Access-Control-Allow-Headers", "Content-Type"));
+
+        if request.method() == Method::Options {
+            response.set_header(ContentType::Plain);
+            response.set_sized_body(Cursor::new(""));
+        }
+    }
+}
 
 // TODO serving this via GET is not standard conform, but convenient during
 // development
@@ -249,16 +275,6 @@ fn check_updates(debugger: &State<'_, DebuggerState>) {
             }
         }
     };
-}
-
-#[get("/snapshot/latest")]
-fn breakpoint(
-    debugger: State<'_, DebuggerState>,
-) -> Result<Json<Option<CompiliationState>>, Status> {
-    // we have a http server --> compiler channel, build a compiler --> http server
-    // channel that can be used for anwsering
-    check_updates(&debugger);
-    Ok(Json(debugger.0.breakpoints.read().unwrap().last().cloned()))
 }
 
 #[get("/snapshot/<index>")]
@@ -299,12 +315,12 @@ fn http_server(sender: SyncSender<MsgToCompiler>) {
     log::debug!("static files served from {}", static_files);
 
     rocket::ignite()
+        .attach(CORS())
         .mount("/", StaticFiles::from(&static_files))
         .mount(
             "/",
             rocket::routes![
                 breakpoint_continue,
-                breakpoint,
                 breakpoint_list,
                 snapshot_at_index
             ],

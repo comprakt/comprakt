@@ -13,9 +13,8 @@ use std::{
 
 #[derive(Debug, Clone, Serialize)]
 pub struct GraphState {
-    class_name: String,
-    method_name: String,
-    dot_file: String,
+    name: String,
+    dot_content: String,
 }
 
 pub fn default_label(node: Node) -> Label {
@@ -47,9 +46,8 @@ impl<'a, 'b> GraphData for Program<'a, 'b> {
                     dot_files.insert(
                         internal_name.clone(),
                         GraphState {
-                            class_name: class_name.to_string(),
-                            method_name: method_name.to_string(),
-                            dot_file: graph.into_dot_format_string(&internal_name, label_maker),
+                            name: format!("{}.{}", class_name, method_name),
+                            dot_content: graph.into_dot_format_string(&internal_name, label_maker),
                         },
                     );
                 }
@@ -66,13 +64,13 @@ impl<'a, 'b> GraphData for Graph {
         Self: Sized,
         T: LabelMaker,
     {
+        let name = self.entity().name_string();
         let mut dot_files = HashMap::new();
         dot_files.insert(
-            "unknown.unknown".to_string(),
+            name.clone(),
             GraphState {
-                class_name: "unknown".to_string(),
-                method_name: "unknown".to_string(),
-                dot_file: self.into_dot_format_string("unknown.unknown", label_maker),
+                name: name.clone(),
+                dot_content: self.into_dot_format_string(&name.clone(), label_maker),
             },
         );
         dot_files
