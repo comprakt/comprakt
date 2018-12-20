@@ -227,12 +227,19 @@ impl Default for BreakpointFilters {
 
         if let Ok(labels) = std::env::var("FILTER_BREAKPOINT_LABEL") {
             for label in labels.split(",") {
-                filters.add(Filter::breakpoint_label(label));
+                if label.trim() == "" {
+                    continue;
+                }
+                filters.add(Filter::breakpoint_label(label.trim()));
             }
         }
 
         if let Ok(locations) = std::env::var("FILTER_BREAKPOINT_LOCATION") {
             for location in locations.split(",") {
+                if location.trim() == "" {
+                    continue;
+                }
+
                 let parts = location.split(":").collect::<Vec<_>>();
 
                 if parts.len() != 2 {
@@ -243,8 +250,9 @@ impl Default for BreakpointFilters {
                 }
 
                 filters.add(Filter::Location {
-                    file: parts[0].to_owned(),
+                    file: parts[0].trim().to_owned(),
                     line: parts[1]
+                        .trim()
                         .parse::<u32>()
                         .expect("'FILTER_BREAKPOINT_LOCATION' contains invalid line number"),
                 });
@@ -253,7 +261,10 @@ impl Default for BreakpointFilters {
 
         if let Ok(names) = std::env::var("FILTER_GRAPH_NAME") {
             for name in names.split(",") {
-                filters.add(Filter::graph(name));
+                if name.trim() == "" {
+                    continue;
+                }
+                filters.add(Filter::graph(name.trim()));
             }
         } else {
             filters
