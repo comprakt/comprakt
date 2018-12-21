@@ -1,13 +1,12 @@
 use super::{
     entity::Entity,
-    nodes::{NodeTrait, Block, End, Node, NodeFactory, Proj, ProjKind, Start, NoMem},
+    nodes::{Block, End, NoMem, Node, NodeFactory, NodeTrait, Proj, ProjKind, Start},
     value_nodes::ValueNode,
 };
 use libfirm_rs_bindings as bindings;
 use std::{
     ffi::{c_void, CString},
-    mem,
-    ptr,
+    mem, ptr,
 };
 
 impl From<crate::Graph> for Graph {
@@ -76,7 +75,8 @@ impl Graph {
         let suffix = CString::new(suffix).unwrap();
         // use ir_dump_flags to change dump
         // use self::bindings::ir_dump_flags_t::*;
-        // unsafe { bindings::ir_set_dump_flags(IdxLabel | NumberLabel | KeepaliveEdges | BlocksAsSubgraphs | Iredges | AllAnchors | LdNames); }
+        // unsafe { bindings::ir_set_dump_flags(IdxLabel | NumberLabel | KeepaliveEdges
+        // | BlocksAsSubgraphs | Iredges | AllAnchors | LdNames); }
         unsafe { bindings::dump_ir_graph(self.irg, suffix.as_ptr()) }
     }
 
@@ -189,7 +189,7 @@ impl Graph {
         Graph::exchange(node, &self.new_bad(unsafe { bindings::mode::b }))
     }
 
-    pub fn copy_node<F>(&self, node: Node, mut copy_fn: F) -> Node
+    pub fn copy_node<F>(self, node: Node, mut copy_fn: F) -> Node
     where
         F: FnMut(Node) -> Node,
     {
@@ -207,7 +207,7 @@ impl Graph {
 
             let ins: Vec<_> = node
                 .in_nodes()
-                .map(|n| copy_fn(n))
+                .map(copy_fn)
                 .map(|n| n.internal_ir_node())
                 .collect();
 

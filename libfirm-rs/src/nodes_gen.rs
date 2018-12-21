@@ -66,6 +66,7 @@ pub enum Node {
     Unknown(Unknown),
 }
 
+#[allow(clippy::wrong_self_convention)]
 impl Node {
     pub fn is_add(node: Node) -> bool {
         match node {
@@ -5690,7 +5691,8 @@ impl Graph {
     /// * `irn_ptr` ptr
     /// * `mode` mode of the value to be loaded
     /// * `ty` The type of the object which is stored at ptr (need not match
-    /// with mode) * `flags` specifies alignment, volatility and pin state
+    ///   with mode)
+    /// * `flags` specifies alignment, volatility and pin state
     #[allow(clippy::style)]
     pub fn new_load(
         self,
@@ -6030,8 +6032,8 @@ impl Graph {
     /// * `irn_ptr` ptr
     /// * `irn_value` value
     /// * `ty` The type of the object which is stored at ptr (need not match
-    /// with value's type) * `flags` specifies alignment, volatility and
-    /// pin state
+    ///   with value's type)
+    /// * `flags` specifies alignment, volatility and pin state
     #[allow(clippy::style)]
     pub fn new_store(
         self,
@@ -6402,7 +6404,8 @@ impl Block {
     /// * `irn_ptr` ptr
     /// * `mode` mode of the value to be loaded
     /// * `ty` The type of the object which is stored at ptr (need not match
-    /// with mode) * `flags` specifies alignment, volatility and pin state
+    ///   with mode)
+    /// * `flags` specifies alignment, volatility and pin state
     #[allow(clippy::style)]
     pub fn new_load(
         self,
@@ -6649,8 +6652,8 @@ impl Block {
     /// * `irn_ptr` ptr
     /// * `irn_value` value
     /// * `ty` The type of the object which is stored at ptr (need not match
-    /// with value's type) * `flags` specifies alignment, volatility and
-    /// pin state
+    ///   with value's type)
+    /// * `flags` specifies alignment, volatility and pin state
     #[allow(clippy::style)]
     pub fn new_store(
         self,

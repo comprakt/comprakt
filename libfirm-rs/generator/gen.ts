@@ -341,6 +341,7 @@ function generateNodeEnum() {
 }
 
 function generateNodeIsAsNodeImpl() {
+    w.indent(`#[allow(clippy::wrong_self_convention)]`);
     w.indent(`impl Node {`);
     for (const node of nodes) {
         w.indent(`pub fn ${node.is_name}(node: Node) -> bool {`);

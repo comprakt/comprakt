@@ -167,12 +167,7 @@ impl Return {
     }
 }
 
-simple_node_iterator!(
-    ReturnResIterator,
-    get_Return_n_ress,
-    get_Return_res,
-    i32
-);
+simple_node_iterator!(ReturnResIterator, get_Return_n_ress, get_Return_res, i32);
 
 impl Block {
     pub fn cfg_preds(self) -> CfgPredsIterator {
@@ -248,7 +243,6 @@ impl Call {
 }
 
 simple_node_iterator!(CallArgsIterator, get_Call_n_params, get_Call_param, i32);
-
 
 // = Debug fmt =
 
