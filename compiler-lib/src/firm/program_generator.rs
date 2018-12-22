@@ -152,7 +152,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
                     let method_type = method_type.build(!method.is_main);
 
                     let method_name = if method.is_main {
-                        CString::new("mj_main").unwrap()
+                        CString::new("minijava_main").unwrap()
                     } else {
                         CString::new(format!("{}.M.{}", class_name_str, method.name)).unwrap()
                     };

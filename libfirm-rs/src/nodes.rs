@@ -132,6 +132,18 @@ pub trait NodeTrait {
         unsafe { bindings::is_Const(self.internal_ir_node()) != 0 }
     }
 
+    fn is_address(&self) -> bool {
+        unsafe { bindings::is_Address(self.internal_ir_node()) != 0 }
+    }
+
+    fn is_start(&self) -> bool {
+        unsafe { bindings::is_Start(self.internal_ir_node()) != 0 }
+    }
+
+    fn is_call(&self) -> bool {
+        unsafe { bindings::is_Call(self.internal_ir_node()) != 0 }
+    }
+
     // TODO implement methods from
     // https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java
 
@@ -291,6 +303,22 @@ impl fmt::Debug for nodes_gen::Call {
     }
 }
 
+impl Call {
+    pub fn n_params(self) -> i32 {
+        unsafe { bindings::get_Call_n_params(self.internal_ir_node()) }
+    }
+
+    pub fn param(self, idx: i32) -> Node {
+        unsafe { NodeFactory::node(bindings::get_Call_param(self.internal_ir_node(), idx)) }
+    }
+
+    pub fn params(self) -> impl Iterator<Item = Node> {
+        CallParamsIterator::new(self.internal_ir_node())
+    }
+}
+
+simple_node_iterator!(CallParamsIterator, get_Call_n_params, get_Call_param, i32);
+
 impl nodes_gen::Cond {
     pub fn out_proj_val(self, val: bool) -> Option<Proj> {
         if val {
@@ -387,5 +415,4 @@ impl Return {
     pub fn n_res(self) -> i32 {
         unsafe { bindings::get_Return_n_ress(self.internal_ir_node()) }
     }
-
 }

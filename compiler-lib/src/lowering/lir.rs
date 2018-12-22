@@ -8,9 +8,9 @@ use crate::{
 };
 use itertools::Itertools;
 use libfirm_rs::{
+    entity::Entity,
     graph::VisitTime,
-    nodes::{Node, NodeTrait},
-    nodes,
+    nodes::{self, Node, NodeTrait},
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -79,7 +79,7 @@ pub struct BlockGraph {
     pub head: MutRc<BasicBlock>,
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum BasicBlockReturns {
     No,
     Void(nodes::Return),
@@ -112,10 +112,11 @@ pub struct BasicBlock {
     /// The firm structure of this block
     pub firm: libfirm_rs::nodes::Block,
 
-    /// Whether the block contains a return node, and if so, whether it returns a value
-    /// or just terminates control flow plus the firm node.
+    /// Whether the block contains a return node, and if so, whether it returns
+    /// a value or just terminates control flow plus the firm node.
     ///
-    /// Blocks with `returns == BasicBlockReturns::Value` have the following properties:
+    /// Blocks with `returns == BasicBlockReturns::Value` have the following
+    /// properties:
     ///
     ///  * `succs.len() == 1`
     ///
@@ -368,8 +369,13 @@ impl BlockGraph {
                 block_with_return_node.borrow_mut().returns = BasicBlockReturns::Void(return_node);
             } else {
                 block_with_return_node.borrow_mut().returns = BasicBlockReturns::Value(return_node);
-                debug_assert_eq!(1, return_node.n_res(), "MiniJava only supports a single return value");
-                let vs = multislot.add_possible_value(return_node.res(0), block_with_return_node.downgrade());
+                debug_assert_eq!(
+                    1,
+                    return_node.n_res(),
+                    "MiniJava only supports a single return value"
+                );
+                let vs = multislot
+                    .add_possible_value(return_node.res(0), block_with_return_node.downgrade());
                 end_block
                     .borrow()
                     .find_incoming_edge_from(return_node.block())
@@ -381,8 +387,8 @@ impl BlockGraph {
 
     fn gen_instrs(&mut self) {
         for lir_block in self.iter_blocks() {
+            log::debug!("GENINSTR block {:?}", lir_block.borrow().firm);
             let mut instrs = Vec::new();
-            let block = lir_block.borrow();
 
             macro_rules! comment_instr {
                 ($($arg:expr),*) => {{
@@ -390,17 +396,30 @@ impl BlockGraph {
                 }}
             }
 
-            let mut computed: HashMap<Node, MutRc<ValueSlot>> = HashMap::new();
+            #[derive(Debug, Clone)]
+            enum Computed {
+                Void,
+                Value(MutRc<ValueSlot>),
+            }
+            impl Computed {
+                fn must_value(&self) -> std::cell::Ref<'_, ValueSlot> {
+                    match self {
+                        Computed::Value(vs) => vs.borrow(),
+                        x => panic!("computed must be a value"),
+                    }
+                }
+            }
+            let mut computed: HashMap<Node, Computed> = HashMap::new();
 
             // LIR metadata dump + fill computed values
-            for (num, multislot) in block.regs.iter().enumerate() {
+            for (num, multislot) in lir_block.borrow().regs.iter().enumerate() {
                 comment_instr!("Slot {}:", num);
                 for slot in multislot {
                     comment_instr!("\t=  {:?}", slot.borrow().firm);
-                    computed.insert(slot.borrow().firm, MutRc::clone(slot));
+                    //        computed.insert(slot.borrow().firm, MutRc::clone(slot));
                 }
 
-                for edge in block.preds.iter() {
+                for edge in lir_block.borrow().preds.iter() {
                     edge.upgrade()
                         .unwrap()
                         .borrow()
@@ -420,33 +439,201 @@ impl BlockGraph {
 
             // LIR conversion
             // We compute the values required by our successors.
-            let out_values = block
-                .succs
-                .iter()
-                .flat_map(move |out_edge| {
-                    out_edge
+            let values_to_compute = {
+                let mut v: Vec<Node> = Vec::new();
+
+                v.extend(
+                    lir_block
                         .borrow()
-                        .register_transitions
+                        .succs
                         .iter()
-                        .map(|(src_slot, _)| src_slot.clone())
-                        .collect::<Vec<_>>()
-                })
-                .map(|src_slot| src_slot.borrow().firm)
-                .dedup();
+                        .flat_map(move |out_edge| {
+                            out_edge
+                                .borrow()
+                                .register_transitions
+                                .iter()
+                                .map(|(src_slot, _)| src_slot.clone())
+                                .collect::<Vec<_>>()
+                        })
+                        .map(|src_slot| src_slot.borrow().firm)
+                        .dedup(),
+                );
 
-            let return_node_opt = block.returns.as_option();
+                v.extend(
+                    lir_block
+                        .borrow()
+                        .returns
+                        .as_option()
+                        .iter()
+                        .map(|r| Node::Return(*r)),
+                ); // Node::from missing
+                v
+            };
 
-            for out_value in return_node_opt.iter().map(|r| (*r).into()).chain(out_values) {
+            for out_value in values_to_compute {
                 comment_instr!("\tvisit out_value={:?}", out_value);
-                out_value.walk_dfs_in_block(block.firm, &mut |operand| {
+                // force copy because we borrow_mut lir_block when allocating private slots
+                // inside the closure
+                let lir_block_firm = lir_block.borrow().firm;
+                out_value.walk_dfs_in_block(lir_block_firm, &mut |operand| {
+                    log::debug!("visit operand={:?}", operand);
                     comment_instr!("\t\tvisit operand={:?}", operand);
                     if computed.contains_key(&operand) {
-                        comment_instr!("\t\t\toperand is already computed in Slot #{:?}", &computed[&operand].borrow().num);
+                        comment_instr!(
+                            "\t\t\toperand is already computed");
+                    } else {
+
+                        use self::molki::Instr;
+                        use self::molki::BinopKind::*;
+                        use self::molki::Reg;
+                        use self::molki::Operand;
+                        use libfirm_rs::mode;
+                        match operand {
+                            Node::Add(add) => {
+
+                                let src1 = {
+                                    let left = add.left();
+                                    if computed.contains_key(&left) {
+                                        let slot = computed[&left].must_value();
+                                        Reg::N(slot.num).into_operand()
+                                    } else {
+                                        let tv = match left {
+                                            Node::Const(c) => c.tarval(),
+                                            x => panic!("operands must have been computed or be const, error in DFS?"),
+                                        };
+                                        Operand::Imm(tv)
+                                    }
+                                };
+
+                                /// TODO dedup above
+                                let src2 = {
+                                    let right = add.right();
+                                    if computed.contains_key(&right) {
+                                        let slot = computed[&right].must_value();
+                                        Reg::N(slot.num).into_operand()
+                                    } else {
+                                        let tv = match right {
+                                            Node::Const(c) => c.tarval(),
+                                            x => panic!("operands must have been computed or be const, error in DFS?"),
+                                        };
+                                        Operand::Imm(tv)
+                                    }
+                                };
+
+                                let dst_slot = lir_block.new_private_slot(operand);
+                                let did_overwrite = computed.insert(operand, Computed::Value(MutRc::clone(&dst_slot)));
+                                assert!(did_overwrite.is_none());
+                                let dst = Some(Reg::N(dst_slot.borrow().num));
+                                instrs.push(Instr::Binop{ kind: Addq, src1, src2, dst});
+                            }
+                            Node::Return(ret) => {
+                                if ret.n_res() != 0 {
+                                    assert_eq!(ret.n_res(), 1);
+                                    log::debug!("{:?}", ret);
+                                    let retval_slot = &computed[&ret.res(0)].must_value();
+                                    log::debug!("{:?}", ret);
+
+                                    let src = Reg::N(retval_slot.num).into_operand();
+                                    let dst = Reg::R0;
+                                    instrs.push(Instr::Movq{ src, dst });
+                                } else {
+                                    comment_instr!("ret!");
+                                }
+                            },
+                            Node::Proj(proj, _kind) => {
+                                let pred = &proj.pred();
+                                if !computed.contains_key(&pred) {
+                                    unsafe {
+                                        debug_assert!(pred.is_address() || pred.is_start() || pred.mode() == mode::M || pred.mode() == mode::X, "predecessor must produce value");
+                                    }
+                                } else { // the normal case
+                                    // copy the value produced by predecessor
+                                    let pred_slot = computed[&pred].clone();
+                                    let did_overwrite = computed.insert(operand, pred_slot);
+                                    assert!(did_overwrite.is_none());
+                                }
+                            }
+                            Node::Call(call) => {
+                                log::debug!("call={:?}", call);
+                                let func: Entity = match call.ptr() {
+                                    Node::Address(addr) => addr.entity().into(),
+                                    x => panic!("call must go to an Address node, got {:?}", x),
+                                };
+                                assert!(func.ty().is_method());
+                                log::debug!("called func={:?}", func.ld_name());
+                                // extract the result (a tuple)
+                                // and extract that result tuple's 0th component if the function
+                                // returns
+
+                                let args = call.params().map(|node| {
+                                    log::debug!("\tparam node {:?}", node);
+                                    match node {
+                                        Node::Const(c) => Operand::Imm(c.tarval()),
+                                        x => {
+                                            // TODO following is practically dup of Add code above
+                                            let value_slot = &computed[&node].must_value();
+                                            let reg_num = value_slot.num;
+                                            Reg::N(reg_num).into_operand()
+                                        }
+                                    }
+                                }).collect();
+
+                                // TODO use type_system data here? need some cross reference...
+                                let n_res = func.ty().method_n_res();
+                                let dst = if n_res == 0 {
+                                    let did_overwrite = computed.insert(operand, Computed::Void);
+                                    assert!(did_overwrite.is_none());
+                                    None
+                                } else if n_res == 1 {
+                                    let dst_slot = lir_block.new_private_slot(operand);
+                                    let did_overwrite = computed.insert(operand, Computed::Value(MutRc::clone(&dst_slot)));
+                                    assert!(did_overwrite.is_none());
+                                    let num = dst_slot.borrow().num; // force copy, borrow checker...
+                                    Some(Reg::N(num))
+                                } else {
+                                    panic!("functions must return 0 or 1 result {:?}", n_res);
+                                };
+
+                                // the mapping below shouldn't exist
+                                // Molki call instrs should not simply take a string,
+                                // but an enum of 'user-defined-funtion' or 'runtime call'
+                                // as we already have in the type system
+                                // we can probably pass trhoguh that enum from the type
+                                // system up until the final codegen
+                                let func_name = match func.ld_name().to_str().unwrap() {
+                                    "mjrt_system_out_println" => "__stdlib_println",
+                                    "mjrt_system_out_write" => "__stdlib_write",
+                                    "mjrt_system_out_flush" => "__stdlib_flush",
+                                    "mjrt_system_in_read" => "__stdlib_read",
+                                    "mjrt_new" => "__stdlib_malloc",
+                                    // TODO exhaustive?
+                                    x => x,
+                                }.to_owned();
+                                instrs.push(Instr::Call {
+                                    func: func_name,
+                                    args: args,
+                                    dst,
+                                });
+
+                            }
+                            Node::Unknown(u) => {
+                                // TODO ??? this happens in the runtime function wrapper's
+                                // arguments
+                                //
+                                // write somehting to computed for now
+                                //
+                                 let dst_slot = lir_block.new_private_slot(operand);
+                                 let did_overwrite = computed.insert(operand, Computed::Value(MutRc::clone(&dst_slot)));
+                                 assert!(did_overwrite.is_none());
+                            }
+                            Node::Address(addr) => (), // ignored, only used by call node
+                            x => comment_instr!("\t\t\tunimplemented: {:?}", operand),
+                        }
+
                     }
                 });
             }
 
-            drop(block);
             lir_block.borrow_mut().code = instrs;
         }
     }
@@ -594,16 +781,17 @@ impl MutRc<BasicBlock> {
                 .add_possible_value(value, originates_in);
 
             // If the value is foreign, we need to "get it" from each blocks above us.
-            // Note: In libfirm, const nodes are all in the start block, no matter where
-            // they are used, however we don't want or need to transfer them down to the
-            // usage from the start block, so we can treat a const node as "originating
-            // here".
+            // Note: In libfirm, const and address nodes are all in the start block, no
+            // matter where they are used, however we don't want or need to
+            // transfer them down to the usage from the start block, so we can
+            // treat a const node as "originating here".
             // DANGER: We cannot make this assumption if this node is used as input to a
             // phi node in this block, because the value need to originate in the
             // corresponding cfg_pred. However, when creating slots for the inputs of phi
             // nodes, this function (`MutRc<BasicBlock>::new_slot`), in not used. So the
             // assumption holds, but BE AWARE OF THIS when refactoring.
-            let originates_here = slot.borrow().firm.is_const()
+            let originates_here = slot.borrow().firm.is_const() // don't flow Const nodes
+                || slot.borrow().firm.is_address() // don't flow Address nodes
                 || upborrow!(slot.borrow().allocated_in).firm
                     == upborrow!(slot.borrow().originates_in).firm;
             if !originates_here {
@@ -635,7 +823,6 @@ impl MutRc<BasicBlock> {
         self.new_slot(value, origin, MutRc::downgrade(self))
     }
 
-    #[allow(dead_code)]
     fn new_private_slot(&self, value: libfirm_rs::nodes::Node) -> MutRc<ValueSlot> {
         assert_eq!(value.block(), self.borrow().firm);
         self.new_slot(value, MutRc::downgrade(self), MutRc::downgrade(self))
