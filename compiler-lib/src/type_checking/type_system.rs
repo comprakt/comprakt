@@ -169,10 +169,12 @@ pub enum BuiltinMethodBody {
     SystemInRead,
 }
 
+pub type Body<'src, 'ast> = crate::asciifile::spanned::Spanned<'src, crate::ast::Block<'src>>;
+
 #[derive(Debug, Clone, Copy)]
 pub enum ClassMethodBody<'src, 'ast> {
     Builtin(BuiltinMethodBody),
-    AST(&'ast crate::asciifile::spanned::Spanned<'src, crate::ast::Block<'src>>),
+    AST(&'ast Body<'src, 'ast>),
 }
 
 #[derive(Debug)]

@@ -1,13 +1,42 @@
-use super::graph::Graph;
+use super::{
+    graph::Graph,
+    types::{Ty, TyTrait},
+};
 use libfirm_rs_bindings as bindings;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
 #[derive(Clone, Copy, From, Into)]
 pub struct Entity(*mut bindings::ir_entity);
 
 impl Entity {
+    pub fn new_entity(owning_ty: Ty, name: &str, ty: Ty) -> Entity {
+        unsafe {
+            let name_c = CString::new(name).unwrap();
+            let name_id = bindings::new_id_from_str(name_c.as_ptr());
+            let entity = bindings::new_entity(owning_ty.ir_type(), name_id, ty.ir_type());
+            Entity::new(entity)
+        }
+    }
+
+    // TODO check type of id
+    pub fn new_global(id: &CStr, ty: Ty) -> Entity {
+        Entity::new(unsafe {
+            let global_type = bindings::get_glob_type();
+            let name = bindings::new_id_from_str(id.as_ptr());
+            bindings::new_entity(global_type, name, ty.ir_type())
+        })
+    }
+
     pub fn new(ir_entity: *mut bindings::ir_entity) -> Entity {
         Entity(ir_entity)
+    }
+
+    pub fn ir_entity(self) -> *mut bindings::ir_entity {
+        self.0
+    }
+
+    pub fn ty(self) -> Ty {
+        unsafe { Ty::from_ir_type(bindings::get_entity_type(self.0)) }
     }
 
     pub fn name(self) -> &'static CStr {

@@ -33,6 +33,13 @@ impl Into<*const bindings::ir_graph> for Graph {
 }
 
 impl Graph {
+    pub fn function_with_entity(entity: Entity, num_slots: usize) -> Graph {
+        unsafe {
+            let irg = bindings::new_ir_graph(entity.ir_entity(), num_slots as i32);
+            Graph { irg }
+        }
+    }
+
     pub fn entity(self) -> Entity {
         unsafe { Entity::new(bindings::get_irg_entity(self.irg)) }
     }
@@ -82,6 +89,12 @@ impl Graph {
 
     pub fn assure_outs(self) {
         unsafe { bindings::assure_irg_outs(self.irg) }
+    }
+
+    pub fn finalize_construction(self) {
+        unsafe {
+            bindings::irg_finalize_cons(self.irg);
+        }
     }
 
     pub fn remove_bads(self) {
