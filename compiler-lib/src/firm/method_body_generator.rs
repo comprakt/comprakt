@@ -1,4 +1,7 @@
-use super::{get_firm_mode, size_of, ty_from_checked_type, Class, Runtime};
+use super::{
+    type_translation::{get_firm_mode, size_of, ty_from_checked_type},
+    Class, Runtime,
+};
 use crate::{
     asciifile::Spanned,
     ast::{self, BinaryOp},
@@ -8,7 +11,7 @@ use crate::{
         type_system::{BuiltinMethodBody, CheckedType, ClassMethodBody, ClassMethodDef},
     },
 };
-use libfirm_rs::{bindings::*, *};
+use libfirm_rs::{bindings::*, entity::Entity, types::*, *};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use strum_macros::EnumDiscriminants;
 
@@ -583,8 +586,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         elt_type: Ty,
     ) -> LValue {
         let array_type = &self.type_analysis.expr_info(target_expr).ty;
-        let firm_array_type =
-            ty_from_checked_type(array_type).expect("array type must have firm equivalent");
+        let firm_array_type = PointerTy::from(
+            ty_from_checked_type(array_type).expect("array type must have firm equivalent"),
+        )
+        .expect("must be pointer type")
+        .points_to();
 
         let target_expr = self
             .gen_expr(target_expr)
@@ -596,11 +602,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             .mature_entry();
 
         LValue::Array {
-            sel: self.graph.cur_block().new_sel(
-                &target_expr,
-                &idx_expr,
-                firm_array_type.points_to(),
-            ),
+            sel: self
+                .graph
+                .cur_block()
+                .new_sel(&target_expr, &idx_expr, firm_array_type),
             elt_type,
         }
     }

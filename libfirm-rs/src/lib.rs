@@ -9,7 +9,7 @@ extern crate derive_more;
 
 pub use libfirm_rs_bindings::mode;
 use libfirm_rs_bindings::*;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 pub mod entity;
 pub mod graph;
@@ -31,6 +31,12 @@ pub fn init() {
     });
 }
 
+use self::{
+    entity::Entity,
+    types::{ArrayTy, Ty, TyTrait},
+};
+
+/*
 #[derive(Clone, Copy)]
 pub struct Ty(*mut ir_type);
 
@@ -169,8 +175,8 @@ impl FunctionType {
         }
         Ty(ft)
     }
-}
-
+}*/
+/*
 #[derive(Clone, Copy, From, Into)]
 pub struct Entity(*mut ir_entity);
 
@@ -196,7 +202,7 @@ impl Entity {
         unsafe { CStr::from_ptr(get_entity_ld_name(self.0)) }
     }
 }
-
+*/
 #[derive(Clone, Copy, From, Into)]
 pub struct Ident(*mut ident);
 
@@ -222,6 +228,10 @@ pub struct Graph {
 }
 
 impl Graph {
+    pub fn new(irg: *mut ir_graph) -> Graph {
+        Graph { irg }
+    }
+
     /// Create a new function entity and initialize an ir_graph for it.
     /// The entity is registered with the `get_glob_type()`, hence the name
     /// must be mangled to avoid collisions with other classes' functions.
@@ -352,7 +362,7 @@ impl Block {
         .into()
     }
     pub fn new_sel<P: AsPointer, I: AsIndex>(self, p: &P, i: &I, array_type: Ty) -> Sel {
-        unsafe { new_r_Sel(self.0, p.as_pointer(), i.as_index(), array_type.into()) }.into()
+        unsafe { new_r_Sel(self.0, p.as_pointer(), i.as_index(), array_type.ir_type()) }.into()
     }
 
     /// FIXME: either generate methods for all `ir_op` or use `ir_op` as
@@ -475,7 +485,7 @@ impl Block {
                 mem.into(),
                 pointer.as_pointer(),
                 mode,
-                ty.into(),
+                ty.ir_type(),
                 flags,
             )
         }
@@ -497,7 +507,7 @@ impl Block {
                 mem.into(),
                 pointer.as_pointer(),
                 value.as_value_node(),
-                ty.into(),
+                ty.ir_type(),
                 flags,
             )
         }
@@ -522,7 +532,7 @@ impl Block {
                 func_addr.into(),
                 inputs.len() as i32,
                 inputs.as_ptr(),
-                func_addr.entity().ty().into(),
+                func_addr.entity().ty().ir_type(),
             )
         }
         .into()
@@ -718,8 +728,9 @@ impl AsIndex for *mut ir_node {
 pub struct Sel(*mut ir_node);
 
 impl Sel {
-    pub fn array_type(self) -> Ty {
-        unsafe { get_Sel_type(self.0) }.into()
+    pub fn array_type(self) -> ArrayTy {
+        types::ArrayTy::from(Ty::from_ir_type(unsafe { get_Sel_type(self.0) }))
+            .expect("must be array type")
     }
 
     pub fn gen_load(self, graph: Graph, elt_type: Ty) -> LoadValue {

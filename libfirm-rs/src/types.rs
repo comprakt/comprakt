@@ -81,7 +81,7 @@ impl Ty {
     }
 }
 
-trait TyTrait: Sized {
+pub trait TyTrait: Sized {
     fn ir_type(self) -> *mut bindings::ir_type;
 
     fn pointer(self) -> PointerTy {
@@ -155,13 +155,19 @@ impl PrimitiveTy {
 }
 
 impl ClassTy {
-    pub fn new_class_type(name: &str) -> ClassTy {
+    pub fn new(name: &str) -> ClassTy {
         ClassTy::from(Ty::from_ir_type(unsafe {
-            bindings::new_type_class(
-                CString::new(name).expect("CString::new failed").as_ptr() as *mut _
-            )
+            let name_c = CString::new(name).unwrap();
+            let name_id = bindings::new_id_from_str(name_c.as_ptr());
+            bindings::new_type_class(name_id)
         }))
         .expect("Expected class type")
+    }
+
+    pub fn default_layout(self) {
+        unsafe {
+            bindings::default_layout_compound_type(self.0);
+        }
     }
 }
 
@@ -187,6 +193,15 @@ impl MethodTyBuilder {
     pub fn set_res(&mut self, res: Ty) {
         self.result = Some(res);
     }
+
+    pub fn build_this_call(self) -> MethodTy {
+        self.build(true)
+    }
+
+    pub fn build_no_this_call(self) -> MethodTy {
+        self.build(false)
+    }
+
     pub fn build(self, is_this_call: bool) -> MethodTy {
         let ir_type = unsafe {
             bindings::new_type_method(
