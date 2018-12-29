@@ -18,11 +18,11 @@ impl Entity {
         }
     }
 
-    // TODO check type of id
-    pub fn new_global(id: &CStr, ty: Ty) -> Entity {
+    pub fn new_global(id: &str, ty: Ty) -> Entity {
         Entity::new(unsafe {
             let global_type = bindings::get_glob_type();
-            let name = bindings::new_id_from_str(id.as_ptr());
+            let name_c = CString::new(id).unwrap();
+            let name = bindings::new_id_from_str(name_c.as_ptr());
             bindings::new_entity(global_type, name, ty.ir_type())
         })
     }

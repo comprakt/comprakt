@@ -1,5 +1,4 @@
 use libfirm_rs::{entity::Entity, types::*};
-use std::ffi::CString;
 
 pub struct Runtime {
     pub system_out_println: Entity,
@@ -24,8 +23,7 @@ impl Runtime {
     pub fn new() -> Runtime {
         let dumpstack = {
             let t = MethodTyBuilder::new().build_no_this_call();
-            let id = CString::new("mjrt_dumpstack").unwrap();
-            Entity::new_global(&id, t.into())
+            Entity::new_global(&"mjrt_dumpstack", t.into())
         };
 
         let system_out_println = {
@@ -33,8 +31,7 @@ impl Runtime {
             let mut t = MethodTyBuilder::new();
             t.add_param(it.into());
             let t = t.build_no_this_call();
-            let id = CString::new("mjrt_system_out_println").unwrap();
-            Entity::new_global(&id, t.into())
+            Entity::new_global(&"mjrt_system_out_println", t.into())
         };
 
         let system_out_write = {
@@ -42,14 +39,12 @@ impl Runtime {
             let mut t = MethodTyBuilder::new();
             t.add_param(it.into());
             let t = t.build_no_this_call();
-            let id = CString::new("mjrt_system_out_write").unwrap();
-            Entity::new_global(&id, t.into())
+            Entity::new_global(&"mjrt_system_out_write", t.into())
         };
 
         let system_out_flush = {
             let t = MethodTyBuilder::new().build_no_this_call();
-            let id = CString::new("mjrt_system_out_flush").unwrap();
-            Entity::new_global(&id, t.into())
+            Entity::new_global(&"mjrt_system_out_flush", t.into())
         };
 
         let system_in_read = {
@@ -57,8 +52,7 @@ impl Runtime {
             let mut t = MethodTyBuilder::new();
             t.set_res(it.into());
             let t = t.build_no_this_call();
-            let id = CString::new("mjrt_system_in_read").unwrap();
-            Entity::new_global(&id, t.into())
+            Entity::new_global(&"mjrt_system_in_read", t.into())
         };
 
         let new = {
@@ -70,26 +64,22 @@ impl Runtime {
             t.set_res(loc.into());
 
             let t = t.build_no_this_call();
-            let id = CString::new("mjrt_new").unwrap();
-            Entity::new_global(&id, t.into())
+            Entity::new_global(&"mjrt_new", t.into())
         };
 
         let div_by_zero = {
             let t = MethodTyBuilder::new().build_no_this_call();
-            let id = CString::new("mjrt_div_by_zero").unwrap();
-            Entity::new_global(&id, t.into())
+            Entity::new_global(&"mjrt_div_by_zero", t.into())
         };
 
         let null_usage = {
             let t = MethodTyBuilder::new().build_no_this_call();
-            let id = CString::new("mjrt_null_usage").unwrap();
-            Entity::new_global(&id, t.into())
+            Entity::new_global(&"mjrt_null_usage", t.into())
         };
 
         let array_out_of_bounds = {
             let t = MethodTyBuilder::new().build_no_this_call();
-            let id = CString::new("mjrt_array_out_of_bounds").unwrap();
-            Entity::new_global(&id, t.into())
+            Entity::new_global(&"mjrt_array_out_of_bounds", t.into())
         };
 
         Runtime {

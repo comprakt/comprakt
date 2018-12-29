@@ -16,37 +16,30 @@
 //! pointers to the CString instances, hence the CString must be kept around
 //! for the lifetime of the graph. Otherwise rust would de allocate the CString
 //! to early!
+pub mod firm_program;
 pub mod method_body_generator;
 pub mod program_generator;
 pub mod runtime;
 mod type_translation;
 
 pub use self::{
-    method_body_generator::MethodBodyGenerator, program_generator::ProgramGenerator,
-    runtime::Runtime,
+    firm_program::*, method_body_generator::MethodBodyGenerator,
+    program_generator::ProgramGenerator, runtime::Runtime,
 };
 
 use failure::{Error, Fail};
 
 use crate::{
     optimization,
-    strtab::{StringTable, Symbol},
-    type_checking::{
-        type_analysis::TypeAnalysis,
-        type_system::{
-            ClassDef, ClassFieldDef, ClassMethodBody, ClassMethodDef, TypeSystem,
-        },
-    },
+    strtab::StringTable,
+    type_checking::{type_analysis::TypeAnalysis, type_system::TypeSystem},
     OutputSpecification,
 };
-use libfirm_rs::{bindings, entity::Entity, graph::Graph, types::TyTrait};
+use libfirm_rs::{bindings, types::TyTrait};
 use std::{
-    cell::RefCell,
-    collections::HashMap,
     ffi::{CStr, CString},
     fs,
     path::PathBuf,
-    rc::{Rc, Weak},
 };
 
 /// Enable or disable behaviour during the lowering phase
@@ -63,34 +56,6 @@ pub struct Options {
 pub enum FirmError {
     #[fail(display = "failed to write assembly to file {:?}", path)]
     EmitAsmFailure { path: PathBuf },
-}
-
-pub struct Program<'src, 'ast> {
-    pub classes: HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
-}
-
-pub struct Class<'src, 'ast> {
-    pub name: CString,
-    pub def: &'src ClassDef<'src, 'ast>,
-    pub entity: Entity,
-    pub fields: HashMap<Symbol<'src>, Rc<RefCell<Field<'src, 'ast>>>>,
-    pub methods: HashMap<Symbol<'src>, Rc<RefCell<Method<'src, 'ast>>>>,
-}
-
-pub struct Field<'src, 'ast> {
-    pub _name: CString,
-    pub _class: Weak<RefCell<Class<'src, 'ast>>>,
-    pub def: Rc<ClassFieldDef<'src>>,
-    pub entity: Entity,
-}
-
-pub struct Method<'src, 'ast> {
-    pub _name: CString,
-    pub _class: Weak<RefCell<Class<'src, 'ast>>>,
-    pub body: ClassMethodBody<'src, 'ast>,
-    pub def: Rc<ClassMethodDef<'src, 'ast>>,
-    pub entity: Entity,
-    pub graph: Option<Graph>,
 }
 
 unsafe fn setup() {
@@ -136,7 +101,7 @@ pub unsafe fn build<'src, 'ast>(
             bindings::dump_type_to_file(
                 libc::fopen(
                     opts.dump_folder
-                        .join(class.borrow().name.to_str().unwrap())
+                        .join(class.borrow().def.name.as_str())
                         .with_extension("layout")
                         .to_str()
                         .and_then(|s| CString::new(s).ok())
