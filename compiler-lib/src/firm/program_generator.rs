@@ -8,7 +8,7 @@ use crate::{
     },
     visitor::NodeKind,
 };
-use libfirm_rs::graph::Graph;
+use libfirm_rs::Graph;
 use log;
 use std::rc::Rc;
 

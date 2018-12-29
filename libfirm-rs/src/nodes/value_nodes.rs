@@ -23,6 +23,39 @@ pub trait ValueNode: NodeTrait {
     fn compute(&self, values: Vec<Tarval>) -> Tarval;
 }
 
+impl From<Box<dyn ValueNode>> for Node {
+    fn from(n: Box<dyn ValueNode>) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
+impl From<&Box<dyn ValueNode>> for Node {
+    fn from(n: &Box<dyn ValueNode>) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
+impl From<&dyn ValueNode> for Node {
+    fn from(n: &dyn ValueNode) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+/*
+impl<T: ValueNode> From<T> for Node {
+    fn from(n: T) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}*/
+
+impl<T> From<&T> for Node
+where
+    T: ValueNode,
+{
+    fn from(n: &T) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
 impl ValueNode for Const {
     fn value_nodes(&self) -> Vec<Box<dyn ValueNode>> {
         vec![]

@@ -15,7 +15,7 @@ use crate::{
         },
     },
 };
-use libfirm_rs::{bindings, entity::Entity, nodes::*, tarval::*, types::*, Graph, Mode};
+use libfirm_rs::{bindings, nodes::*, types::*, Entity, Graph, Mode, Tarval};
 use std::{collections::HashMap, rc::Rc};
 use strum_macros::EnumDiscriminants;
 

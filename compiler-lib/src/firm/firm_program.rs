@@ -6,9 +6,8 @@ use crate::{
     },
 };
 use libfirm_rs::{
-    entity::Entity,
-    graph::Graph,
     types::{ClassTy, MethodTyBuilder, PrimitiveTy},
+    Entity, Graph,
 };
 use std::{
     cell::RefCell,

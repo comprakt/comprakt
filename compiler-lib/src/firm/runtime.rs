@@ -1,4 +1,4 @@
-use libfirm_rs::{entity::Entity, types::*};
+use libfirm_rs::{types::*, Entity};
 
 pub struct Runtime {
     pub system_out_println: Entity,

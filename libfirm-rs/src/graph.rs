@@ -1,8 +1,7 @@
 use super::{
     entity::Entity,
     mode::Mode,
-    nodes::{Block, End, NoMem, Node, NodeFactory, NodeTrait, Proj, ProjKind, Start},
-    value_nodes::ValueNode,
+    nodes::{Block, End, NoMem, Node, NodeFactory, NodeTrait, Proj, ProjKind, Start, ValueNode},
 };
 use libfirm_rs_bindings as bindings;
 use std::{
@@ -229,33 +228,6 @@ impl Graph {
     }
 
     // == Construction ==
-    /*
-    pub fn value(self, slot_idx: usize, mode: Mode) -> Node {
-        NodeFactory::node(unsafe {
-            bindings::get_r_value(self.irg, slot_idx as i32, mode.libfirm_mode())
-        })
-    }
-
-    pub fn set_value(self, slot_idx: usize, val: Node) {
-        unsafe { bindings::set_r_value(self.irg, slot_idx as i32, val.internal_ir_node()) }
-    }
-
-    pub fn cur_store(self) -> Node {
-        NodeFactory::node(unsafe { bindings::get_r_store(self.irg) })
-    }
-
-    pub fn set_store(self, s: Node) {
-        unsafe { bindings::set_r_store(self.irg, s.into()) }
-    }
-
-    pub fn cur_block(self) -> Block {
-        Block::new(unsafe { bindings::get_r_cur_block(self.irg) }.into())
-    }
-
-    pub fn set_cur_block(self, block: Block) {
-        unsafe { bindings::set_r_cur_block(self.irg, block.into()) }
-    }
-    */
 
     pub fn new_imm_block(self, preds: &[Node]) -> Block {
         let block = Block::new(unsafe { bindings::new_r_immBlock(self.irg) });

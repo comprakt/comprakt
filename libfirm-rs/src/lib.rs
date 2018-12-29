@@ -1,27 +1,28 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 #![warn(clippy::print_stdout)]
 #![feature(range_contains)]
-pub use libfirm_rs_bindings as bindings;
+#![feature(uniform_paths)]
+
 #[macro_use]
 extern crate derive_more;
+pub use libfirm_rs_bindings as bindings;
 
-// extern crate libfirm_rs_bindings;
-
-pub mod entity;
-
+mod entity;
+mod graph;
+mod mode;
 pub mod nodes;
-
-pub mod graph;
-pub use self::graph::Graph;
-#[allow(dead_code)]
-pub mod nodes_gen;
+mod tarval;
 pub mod types;
 
-pub mod tarval;
-pub mod value_nodes;
+pub use self::{
+    entity::Entity,
+    graph::Graph,
+    mode::Mode,
+    tarval::{Tarval, TarvalKind},
+};
 
-mod mode;
-pub use self::mode::Mode;
+// uncomment for racer support:
+// extern crate libfirm_rs_bindings;
 
 use std::sync::Once;
 

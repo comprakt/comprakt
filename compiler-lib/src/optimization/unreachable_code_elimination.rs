@@ -1,9 +1,8 @@
 use crate::optimization::{self, Outcome};
 use libfirm_rs::{
     bindings,
-    graph::Graph,
-    nodes::NodeTrait,
-    nodes_gen::{Node, ProjKind},
+    nodes::{Node, NodeTrait, ProjKind},
+    Graph,
 };
 
 pub struct UnreachableCodeElimination {

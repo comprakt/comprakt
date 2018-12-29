@@ -1,7 +1,10 @@
 //! Converts FIRM or LIR graphs into dot graph description language for easy
 //! debugging.
 use crate::firm::FirmProgram;
-use libfirm_rs::{graph::Graph, nodes::NodeTrait, nodes_gen::Node};
+use libfirm_rs::{
+    nodes::{Node, NodeTrait},
+    Graph,
+};
 use serde_derive::Serialize;
 use std::{
     collections::hash_map::HashMap,

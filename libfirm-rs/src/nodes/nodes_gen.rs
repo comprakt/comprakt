@@ -1,14 +1,13 @@
 // This file is generated! Do not edit by hand!
 // Follow the instructions in the README on how to update this file.
-use super::{
-    entity::Entity,
-    graph::Graph,
-    mode::Mode,
+
+#![allow(dead_code)]
+use crate::{
+    bindings,
     nodes::{NodeDebug, NodeDebugOpts, NodeTrait},
-    tarval::Tarval,
     types::{Ty, TyTrait},
+    Entity, Graph, Mode, Tarval,
 };
-use libfirm_rs_bindings as bindings;
 use std::{collections::HashMap, fmt};
 #[derive(Clone, Copy)]
 pub enum Node {

@@ -1,11 +1,8 @@
 use super::{Outcome, OutcomeCollector};
 use crate::{dot::*, optimization};
 use libfirm_rs::{
-    graph::Graph,
-    nodes::NodeTrait,
-    nodes_gen::{Node, ProjKind},
-    tarval::{Tarval, TarvalKind},
-    value_nodes::try_as_value_node,
+    nodes::{try_as_value_node, Node, NodeTrait, ProjKind},
+    Graph, Tarval, TarvalKind,
 };
 use priority_queue::PriorityQueue;
 use std::collections::hash_map::HashMap;

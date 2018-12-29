@@ -1,5 +1,5 @@
 use crate::firm::FirmProgram;
-use libfirm_rs::{bindings, graph::Graph};
+use libfirm_rs::{bindings, Graph};
 use std::ffi::CString;
 
 mod constant_folding;

@@ -316,7 +316,7 @@ generateGraphImpl();
 generateBlockImpl();
 
 w.closeFile("nodes_gen.rs");
-w.save("../src/");
+w.save("../src/nodes/");
 
 exec("cargo fmt --package libfirm-rs", (err, stdout, stderr) => {
     if (err) { console.error(err); }
@@ -328,15 +328,14 @@ exec("cargo fmt --package libfirm-rs", (err, stdout, stderr) => {
 function generateHeader() {
     w.line("// This file is generated! Do not edit by hand!");
     w.line("// Follow the instructions in the README on how to update this file.");
-    w.line("use libfirm_rs_bindings as bindings;");
+    w.line("");
+    w.line("#![allow(dead_code)]");
     w.line("use std::collections::HashMap;");
-    w.line("use super::nodes::{NodeTrait, NodeDebug, NodeDebugOpts};");
-    w.line("use super::graph::Graph;");
-    w.line("use super::tarval::Tarval;");
-    w.line("use super::entity::Entity;");
-    w.line("use super::mode::Mode;");
-    w.line("use super::types::{Ty, TyTrait};");
     w.line("use std::fmt;");
+    w.line("use crate::bindings;");
+    w.line("use crate::nodes::{NodeTrait, NodeDebug, NodeDebugOpts};");
+    w.line("use crate::{Graph, Tarval, Entity, Mode};");
+    w.line("use crate::types::{Ty, TyTrait};");
 }
 
 function generateNodeEnum() {

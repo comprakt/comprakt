@@ -1,6 +1,5 @@
-pub use super::{mode::Mode, nodes_gen::*, value_nodes::*};
-use crate::entity::Entity;
-use libfirm_rs_bindings as bindings;
+use super::nodes_gen::*;
+use crate::{bindings, Entity, Mode};
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -129,33 +128,6 @@ impl Eq for Node {}
 impl From<Node> for *mut bindings::ir_node {
     fn from(n: Node) -> *mut bindings::ir_node {
         n.internal_ir_node()
-    }
-}
-
-impl From<Box<dyn ValueNode>> for Node {
-    fn from(n: Box<dyn ValueNode>) -> Node {
-        NodeFactory::node(n.internal_ir_node())
-    }
-}
-
-impl From<&Box<dyn ValueNode>> for Node {
-    fn from(n: &Box<dyn ValueNode>) -> Node {
-        NodeFactory::node(n.internal_ir_node())
-    }
-}
-
-impl From<&dyn ValueNode> for Node {
-    fn from(n: &dyn ValueNode) -> Node {
-        NodeFactory::node(n.internal_ir_node())
-    }
-}
-
-impl<T> From<&T> for Node
-where
-    T: ValueNode,
-{
-    fn from(n: &T) -> Node {
-        NodeFactory::node(n.internal_ir_node())
     }
 }
 

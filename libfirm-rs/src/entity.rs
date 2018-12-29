@@ -1,8 +1,8 @@
 use super::{
-    graph::Graph,
+    bindings,
     types::{Ty, TyTrait},
+    Graph,
 };
-use libfirm_rs_bindings as bindings;
 use std::ffi::{CStr, CString};
 
 #[derive(Clone, Copy, From, Into)]
