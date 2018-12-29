@@ -258,7 +258,7 @@ impl ConstantFolding {
             if let Ok(value_node) = try_as_value_node(*node) {
                 let const_node = self.graph.new_const(lattice.value);
                 log::debug!("EXCHANGE NODE {:?} val={:?}", node, lattice.value);
-                Graph::exchange_value(value_node.as_ref(), &const_node);
+                Graph::exchange_value(value_node, const_node);
                 collector.push(Outcome::Changed);
             } else if let (Node::Cond(cond), TarvalKind::Bool(val)) = (node, lattice.value.kind()) {
                 let (always_taken_path, target_block) = cond.out_proj_target_block(val).unwrap();
@@ -277,8 +277,8 @@ impl ConstantFolding {
 
                 let jmp = cond.block().new_jmp();
                 log::debug!("Replace {:?} with {:?} to {:?}", node, jmp, target_block);
-                Graph::exchange(&always_taken_path, &jmp);
-                self.graph.mark_as_bad(&dead_path);
+                Graph::exchange(always_taken_path, jmp);
+                self.graph.mark_as_bad(dead_path);
 
                 // We need this because if we have a while(true) loop, the code will be
                 // unreachable (libfirm-edge wise) from the end block (because the end
@@ -294,7 +294,7 @@ impl ConstantFolding {
         for block in &dangling_blocks {
             for (i, child) in block.out_nodes().enumerate() {
                 log::debug!("Mark block child #{} {:?} as bad", i, child);
-                self.graph.mark_as_bad(&child);
+                self.graph.mark_as_bad(child);
             }
         }
 
