@@ -1,3 +1,4 @@
+use super::Mode;
 use libfirm_rs_bindings as bindings;
 use std::ffi::CString;
 
@@ -106,8 +107,8 @@ pub trait TyTrait: Sized {
         unsafe { bindings::get_type_alignment(self.ir_type()) }
     }
 
-    fn mode(self) -> bindings::mode::Type {
-        unsafe { bindings::get_type_mode(self.ir_type()) }
+    fn mode(self) -> Mode {
+        Mode::from_libfirm(unsafe { bindings::get_type_mode(self.ir_type()) })
     }
 }
 
@@ -136,8 +137,8 @@ impl PrimitiveTy {
         PrimitiveTy::from(Ty::from_ir_type(ir_type)).expect("ir_type must a primitive type")
     }
 
-    pub fn from_mode(mode: *mut bindings::ir_mode) -> PrimitiveTy {
-        Self::from_ir_type(unsafe { bindings::new_type_primitive(mode) })
+    pub fn from_mode(mode: Mode) -> PrimitiveTy {
+        Self::from_ir_type(unsafe { bindings::new_type_primitive(mode.libfirm_mode()) })
     }
     pub fn i32() -> PrimitiveTy {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::Is) })

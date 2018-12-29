@@ -1,10 +1,6 @@
+use super::mode::Mode;
 use libfirm_rs_bindings as bindings;
 use std::{ffi::CStr, ptr};
-
-// TODO move together with modes once we have a place & abstraction for them
-pub fn mode_name(m: bindings::mode::Type) -> &'static CStr {
-    unsafe { CStr::from_ptr(bindings::get_mode_name(m)) }
-}
 
 #[derive(Clone, Copy, From, Into)]
 pub struct Tarval(*mut bindings::ir_tarval);
@@ -54,6 +50,16 @@ impl Tarval {
     }
 
     #[inline]
+    pub fn zero(mode: Mode) -> Tarval {
+        unsafe { bindings::new_tarval_from_long(0, mode.libfirm_mode()) }.into()
+    }
+
+    #[inline]
+    pub fn val(val: i64, mode: Mode) -> Tarval {
+        unsafe { bindings::new_tarval_from_long(val, mode.libfirm_mode()) }.into()
+    }
+
+    #[inline]
     pub fn is_bool_val(self, val: bool) -> bool {
         unsafe {
             ptr::eq(
@@ -92,8 +98,12 @@ impl Tarval {
     }
 
     #[inline]
-    pub fn mode(self) -> bindings::mode::Type {
-        unsafe { bindings::get_tarval_mode(self.0) }
+    pub fn mode(self) -> Mode {
+        Mode::from_libfirm(unsafe { bindings::get_tarval_mode(self.0) })
+    }
+
+    pub fn mode_ex(self) -> Mode {
+        Mode::from_libfirm(unsafe { bindings::get_tarval_mode(self.0) })
     }
 
     pub fn kind(self) -> TarvalKind {
@@ -111,17 +121,17 @@ impl Tarval {
     }
 
     #[inline]
-    pub fn cast(self, mode: bindings::mode::Type) -> Option<Tarval> {
+    pub fn cast(self, mode: Mode) -> Option<Tarval> {
         if self.can_be_cast_into(mode) {
-            Some(unsafe { bindings::tarval_convert_to(self.0, mode) }.into())
+            Some(unsafe { bindings::tarval_convert_to(self.0, mode.libfirm_mode()) }.into())
         } else {
             None
         }
     }
 
     #[inline]
-    pub fn can_be_cast_into(self, mode: bindings::mode::Type) -> bool {
-        unsafe { bindings::smaller_mode(self.mode(), mode) != 0 }
+    pub fn can_be_cast_into(self, mode: Mode) -> bool {
+        unsafe { bindings::smaller_mode(self.mode().libfirm_mode(), mode.libfirm_mode()) != 0 }
     }
 
     #[inline]
@@ -183,7 +193,7 @@ impl Debug for Tarval {
                 fmt,
                 "Tarval{{{}, mode: {}}}",
                 s,
-                mode_name(self.mode()).to_string_lossy()
+                self.mode_ex().name_string()
             )
         }
     }
@@ -197,8 +207,8 @@ macro_rules! assert_eq_modes {
             lhs.mode(),
             rhs.mode(),
             "modes do not match: {:?} != {:?}",
-            mode_name(lhs.mode()),
-            mode_name(rhs.mode())
+            lhs.mode_ex().name_string(),
+            rhs.mode_ex().name_string(),
         );
     }};
 }

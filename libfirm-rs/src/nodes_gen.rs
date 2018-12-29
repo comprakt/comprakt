@@ -3,8 +3,10 @@
 use super::{
     entity::Entity,
     graph::Graph,
+    mode::Mode,
     nodes::{NodeDebug, NodeDebugOpts, NodeTrait},
     tarval::Tarval,
+    types::{Ty, TyTrait},
 };
 use libfirm_rs_bindings as bindings;
 use std::{collections::HashMap, fmt};
@@ -1312,7 +1314,7 @@ impl Add {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Add_left(self.0, unwrapped);
@@ -1328,7 +1330,7 @@ impl Add {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Add_right(self.0, unwrapped);
@@ -1445,7 +1447,7 @@ impl Alloc {
 
     /// Sets memory dependency.
     #[allow(clippy::let_and_return)]
-    pub fn set_mem(self, val: Node) {
+    pub fn set_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Alloc_mem(self.0, unwrapped);
@@ -1461,7 +1463,7 @@ impl Alloc {
 
     /// Sets size of the block in bytes.
     #[allow(clippy::let_and_return)]
-    pub fn set_size(self, val: Node) {
+    pub fn set_size(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Alloc_size(self.0, unwrapped);
@@ -1490,8 +1492,8 @@ impl Alloc {
     }
 
     /// pointer to newly allocated memory.
-    pub fn new_proj_res(self, mode: bindings::mode::Type) -> Proj {
-        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
+    pub fn new_proj_res(self, mode: Mode) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode.libfirm_mode(), 1) })
     }
 
     /// memory result.
@@ -1563,7 +1565,7 @@ impl Anchor {
 
     /// Sets block the end node belongs to.
     #[allow(clippy::let_and_return)]
-    pub fn set_end_block(self, val: Node) {
+    pub fn set_end_block(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Anchor_end_block(self.0, unwrapped);
@@ -1579,7 +1581,7 @@ impl Anchor {
 
     /// Sets block the start node belongs to.
     #[allow(clippy::let_and_return)]
-    pub fn set_start_block(self, val: Node) {
+    pub fn set_start_block(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Anchor_start_block(self.0, unwrapped);
@@ -1595,7 +1597,7 @@ impl Anchor {
 
     /// Sets end node of this ir_graph.
     #[allow(clippy::let_and_return)]
-    pub fn set_end(self, val: Node) {
+    pub fn set_end(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Anchor_end(self.0, unwrapped);
@@ -1611,7 +1613,7 @@ impl Anchor {
 
     /// Sets start node of this ir_graph.
     #[allow(clippy::let_and_return)]
-    pub fn set_start(self, val: Node) {
+    pub fn set_start(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Anchor_start(self.0, unwrapped);
@@ -1627,7 +1629,7 @@ impl Anchor {
 
     /// Sets frame of this ir_graph.
     #[allow(clippy::let_and_return)]
-    pub fn set_frame(self, val: Node) {
+    pub fn set_frame(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Anchor_frame(self.0, unwrapped);
@@ -1643,7 +1645,7 @@ impl Anchor {
 
     /// Sets initial memory of this ir_graph.
     #[allow(clippy::let_and_return)]
-    pub fn set_initial_mem(self, val: Node) {
+    pub fn set_initial_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Anchor_initial_mem(self.0, unwrapped);
@@ -1659,7 +1661,7 @@ impl Anchor {
 
     /// Sets argument proj of the start node.
     #[allow(clippy::let_and_return)]
-    pub fn set_args(self, val: Node) {
+    pub fn set_args(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Anchor_args(self.0, unwrapped);
@@ -1675,7 +1677,7 @@ impl Anchor {
 
     /// Sets the only NoMem node of this ir_graph.
     #[allow(clippy::let_and_return)]
-    pub fn set_no_mem(self, val: Node) {
+    pub fn set_no_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Anchor_no_mem(self.0, unwrapped);
@@ -1726,7 +1728,7 @@ impl And {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_And_left(self.0, unwrapped);
@@ -1742,7 +1744,7 @@ impl And {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_And_right(self.0, unwrapped);
@@ -1848,7 +1850,7 @@ impl Bitcast {
 
     /// Sets operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_op(self, val: Node) {
+    pub fn set_op(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Bitcast_op(self.0, unwrapped);
@@ -1950,7 +1952,7 @@ impl Builtin {
 
     /// Sets memory dependency.
     #[allow(clippy::let_and_return)]
-    pub fn set_mem(self, val: Node) {
+    pub fn set_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Builtin_mem(self.0, unwrapped);
@@ -1975,15 +1977,15 @@ impl Builtin {
 
     /// Gets method type for the builtin call.
     #[allow(clippy::let_and_return)]
-    pub fn ty(self) -> *mut bindings::ir_type {
+    pub fn ty(self) -> Ty {
         let unwrapped = unsafe { bindings::get_Builtin_type(self.0) };
-        unwrapped
+        Ty::from_ir_type(unwrapped)
     }
 
     /// Sets method type for the builtin call.
     #[allow(clippy::let_and_return)]
-    pub fn set_ty(self, val: *mut bindings::ir_type) {
-        let unwrapped = val;
+    pub fn set_ty(self, val: Ty) {
+        let unwrapped = val.ir_type();
         unsafe {
             bindings::set_Builtin_type(self.0, unwrapped);
         }
@@ -2051,7 +2053,7 @@ impl Call {
 
     /// Sets memory dependency.
     #[allow(clippy::let_and_return)]
-    pub fn set_mem(self, val: Node) {
+    pub fn set_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Call_mem(self.0, unwrapped);
@@ -2067,7 +2069,7 @@ impl Call {
 
     /// Sets pointer to called code.
     #[allow(clippy::let_and_return)]
-    pub fn set_ptr(self, val: Node) {
+    pub fn set_ptr(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Call_ptr(self.0, unwrapped);
@@ -2076,15 +2078,15 @@ impl Call {
 
     /// Gets type of the call (usually type of the called procedure).
     #[allow(clippy::let_and_return)]
-    pub fn ty(self) -> *mut bindings::ir_type {
+    pub fn ty(self) -> Ty {
         let unwrapped = unsafe { bindings::get_Call_type(self.0) };
-        unwrapped
+        Ty::from_ir_type(unwrapped)
     }
 
     /// Sets type of the call (usually type of the called procedure).
     #[allow(clippy::let_and_return)]
-    pub fn set_ty(self, val: *mut bindings::ir_type) {
-        let unwrapped = val;
+    pub fn set_ty(self, val: Ty) {
+        let unwrapped = val.ir_type();
         unsafe {
             bindings::set_Call_type(self.0, unwrapped);
         }
@@ -2190,7 +2192,7 @@ impl Cmp {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Cmp_left(self.0, unwrapped);
@@ -2206,7 +2208,7 @@ impl Cmp {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Cmp_right(self.0, unwrapped);
@@ -2273,7 +2275,7 @@ impl Cond {
 
     /// Sets condition parameter.
     #[allow(clippy::let_and_return)]
-    pub fn set_selector(self, val: Node) {
+    pub fn set_selector(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Cond_selector(self.0, unwrapped);
@@ -2378,7 +2380,7 @@ impl Confirm {
 
     /// Sets value to express a constraint for.
     #[allow(clippy::let_and_return)]
-    pub fn set_value(self, val: Node) {
+    pub fn set_value(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Confirm_value(self.0, unwrapped);
@@ -2394,7 +2396,7 @@ impl Confirm {
 
     /// Sets value to compare against.
     #[allow(clippy::let_and_return)]
-    pub fn set_bound(self, val: Node) {
+    pub fn set_bound(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Confirm_bound(self.0, unwrapped);
@@ -2481,11 +2483,6 @@ impl NodeTrait for Const {
     }
 }
 
-impl NodeDebug for Const {
-    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        write!(f, "Const {}", self.node_id())
-    }
-}
 impl fmt::Debug for Const {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&self.debug_fmt(), f)
@@ -2512,7 +2509,7 @@ impl Conv {
 
     /// Sets operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_op(self, val: Node) {
+    pub fn set_op(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Conv_op(self.0, unwrapped);
@@ -2563,7 +2560,7 @@ impl CopyB {
 
     /// Sets memory dependency.
     #[allow(clippy::let_and_return)]
-    pub fn set_mem(self, val: Node) {
+    pub fn set_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_CopyB_mem(self.0, unwrapped);
@@ -2579,7 +2576,7 @@ impl CopyB {
 
     /// Sets destination address.
     #[allow(clippy::let_and_return)]
-    pub fn set_dst(self, val: Node) {
+    pub fn set_dst(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_CopyB_dst(self.0, unwrapped);
@@ -2595,7 +2592,7 @@ impl CopyB {
 
     /// Sets source address.
     #[allow(clippy::let_and_return)]
-    pub fn set_src(self, val: Node) {
+    pub fn set_src(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_CopyB_src(self.0, unwrapped);
@@ -2604,15 +2601,15 @@ impl CopyB {
 
     /// Gets type of copied data.
     #[allow(clippy::let_and_return)]
-    pub fn ty(self) -> *mut bindings::ir_type {
+    pub fn ty(self) -> Ty {
         let unwrapped = unsafe { bindings::get_CopyB_type(self.0) };
-        unwrapped
+        Ty::from_ir_type(unwrapped)
     }
 
     /// Sets type of copied data.
     #[allow(clippy::let_and_return)]
-    pub fn set_ty(self, val: *mut bindings::ir_type) {
-        let unwrapped = val;
+    pub fn set_ty(self, val: Ty) {
+        let unwrapped = val.ir_type();
         unsafe {
             bindings::set_CopyB_type(self.0, unwrapped);
         }
@@ -2716,7 +2713,7 @@ impl Div {
 
     /// Sets memory dependency.
     #[allow(clippy::let_and_return)]
-    pub fn set_mem(self, val: Node) {
+    pub fn set_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Div_mem(self.0, unwrapped);
@@ -2732,7 +2729,7 @@ impl Div {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Div_left(self.0, unwrapped);
@@ -2748,7 +2745,7 @@ impl Div {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Div_right(self.0, unwrapped);
@@ -2757,15 +2754,15 @@ impl Div {
 
     /// Gets mode of the result value.
     #[allow(clippy::let_and_return)]
-    pub fn resmode(self) -> *mut bindings::ir_mode {
+    pub fn resmode(self) -> Mode {
         let unwrapped = unsafe { bindings::get_Div_resmode(self.0) };
-        unwrapped
+        Mode::from_libfirm(unwrapped)
     }
 
     /// Sets mode of the result value.
     #[allow(clippy::let_and_return)]
-    pub fn set_resmode(self, val: *mut bindings::ir_mode) {
-        let unwrapped = val;
+    pub fn set_resmode(self, val: Mode) {
+        let unwrapped = val.libfirm_mode();
         unsafe {
             bindings::set_Div_resmode(self.0, unwrapped);
         }
@@ -2793,8 +2790,8 @@ impl Div {
     }
 
     /// result of computation.
-    pub fn new_proj_res(self, mode: bindings::mode::Type) -> Proj {
-        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
+    pub fn new_proj_res(self, mode: Mode) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode.libfirm_mode(), 1) })
     }
 
     /// control flow when no exception occurs.
@@ -2966,7 +2963,7 @@ impl Eor {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Eor_left(self.0, unwrapped);
@@ -2982,7 +2979,7 @@ impl Eor {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Eor_right(self.0, unwrapped);
@@ -3033,7 +3030,7 @@ impl Free {
 
     /// Sets memory dependency.
     #[allow(clippy::let_and_return)]
-    pub fn set_mem(self, val: Node) {
+    pub fn set_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Free_mem(self.0, unwrapped);
@@ -3049,7 +3046,7 @@ impl Free {
 
     /// Sets pointer to the object to free.
     #[allow(clippy::let_and_return)]
-    pub fn set_ptr(self, val: Node) {
+    pub fn set_ptr(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Free_ptr(self.0, unwrapped);
@@ -3102,7 +3099,7 @@ impl IJmp {
 
     /// Sets target address of the jump.
     #[allow(clippy::let_and_return)]
-    pub fn set_target(self, val: Node) {
+    pub fn set_target(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_IJmp_target(self.0, unwrapped);
@@ -3156,7 +3153,7 @@ impl Id {
 
     /// Sets the value which is returned unchanged.
     #[allow(clippy::let_and_return)]
-    pub fn set_pred(self, val: Node) {
+    pub fn set_pred(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Id_pred(self.0, unwrapped);
@@ -3242,7 +3239,7 @@ impl Load {
 
     /// Sets memory dependency.
     #[allow(clippy::let_and_return)]
-    pub fn set_mem(self, val: Node) {
+    pub fn set_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Load_mem(self.0, unwrapped);
@@ -3258,7 +3255,7 @@ impl Load {
 
     /// Sets address to load from.
     #[allow(clippy::let_and_return)]
-    pub fn set_ptr(self, val: Node) {
+    pub fn set_ptr(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Load_ptr(self.0, unwrapped);
@@ -3267,15 +3264,15 @@ impl Load {
 
     /// Gets mode of the value to be loaded.
     #[allow(clippy::let_and_return)]
-    pub fn mode(self) -> *mut bindings::ir_mode {
+    pub fn mode(self) -> Mode {
         let unwrapped = unsafe { bindings::get_Load_mode(self.0) };
-        unwrapped
+        Mode::from_libfirm(unwrapped)
     }
 
     /// Sets mode of the value to be loaded.
     #[allow(clippy::let_and_return)]
-    pub fn set_mode(self, val: *mut bindings::ir_mode) {
-        let unwrapped = val;
+    pub fn set_mode(self, val: Mode) {
+        let unwrapped = val.libfirm_mode();
         unsafe {
             bindings::set_Load_mode(self.0, unwrapped);
         }
@@ -3284,16 +3281,16 @@ impl Load {
     /// Gets The type of the object which is stored at ptr (need not match with
     /// mode).
     #[allow(clippy::let_and_return)]
-    pub fn ty(self) -> *mut bindings::ir_type {
+    pub fn ty(self) -> Ty {
         let unwrapped = unsafe { bindings::get_Load_type(self.0) };
-        unwrapped
+        Ty::from_ir_type(unwrapped)
     }
 
     /// Sets The type of the object which is stored at ptr (need not match with
     /// mode).
     #[allow(clippy::let_and_return)]
-    pub fn set_ty(self, val: *mut bindings::ir_type) {
-        let unwrapped = val;
+    pub fn set_ty(self, val: Ty) {
+        let unwrapped = val.ir_type();
         unsafe {
             bindings::set_Load_type(self.0, unwrapped);
         }
@@ -3339,8 +3336,8 @@ impl Load {
     }
 
     /// result of load operation.
-    pub fn new_proj_res(self, mode: bindings::mode::Type) -> Proj {
-        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
+    pub fn new_proj_res(self, mode: Mode) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode.libfirm_mode(), 1) })
     }
 
     /// control flow when no exception occurs.
@@ -3440,7 +3437,7 @@ impl Member {
 
     /// Sets pointer to object to select from.
     #[allow(clippy::let_and_return)]
-    pub fn set_ptr(self, val: Node) {
+    pub fn set_ptr(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Member_ptr(self.0, unwrapped);
@@ -3507,7 +3504,7 @@ impl Minus {
 
     /// Sets operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_op(self, val: Node) {
+    pub fn set_op(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Minus_op(self.0, unwrapped);
@@ -3565,7 +3562,7 @@ impl Mod {
 
     /// Sets memory dependency.
     #[allow(clippy::let_and_return)]
-    pub fn set_mem(self, val: Node) {
+    pub fn set_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Mod_mem(self.0, unwrapped);
@@ -3581,7 +3578,7 @@ impl Mod {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Mod_left(self.0, unwrapped);
@@ -3597,7 +3594,7 @@ impl Mod {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Mod_right(self.0, unwrapped);
@@ -3606,15 +3603,15 @@ impl Mod {
 
     /// Gets mode of the result.
     #[allow(clippy::let_and_return)]
-    pub fn resmode(self) -> *mut bindings::ir_mode {
+    pub fn resmode(self) -> Mode {
         let unwrapped = unsafe { bindings::get_Mod_resmode(self.0) };
-        unwrapped
+        Mode::from_libfirm(unwrapped)
     }
 
     /// Sets mode of the result.
     #[allow(clippy::let_and_return)]
-    pub fn set_resmode(self, val: *mut bindings::ir_mode) {
-        let unwrapped = val;
+    pub fn set_resmode(self, val: Mode) {
+        let unwrapped = val.libfirm_mode();
         unsafe {
             bindings::set_Mod_resmode(self.0, unwrapped);
         }
@@ -3626,8 +3623,8 @@ impl Mod {
     }
 
     /// result of computation.
-    pub fn new_proj_res(self, mode: bindings::mode::Type) -> Proj {
-        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
+    pub fn new_proj_res(self, mode: Mode) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode.libfirm_mode(), 1) })
     }
 
     /// control flow when no exception occurs.
@@ -3724,7 +3721,7 @@ impl Mul {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Mul_left(self.0, unwrapped);
@@ -3740,7 +3737,7 @@ impl Mul {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Mul_right(self.0, unwrapped);
@@ -3792,7 +3789,7 @@ impl Mulh {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Mulh_left(self.0, unwrapped);
@@ -3808,7 +3805,7 @@ impl Mulh {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Mulh_right(self.0, unwrapped);
@@ -3860,7 +3857,7 @@ impl Mux {
 
     /// Sets value making the output selection.
     #[allow(clippy::let_and_return)]
-    pub fn set_sel(self, val: Node) {
+    pub fn set_sel(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Mux_sel(self.0, unwrapped);
@@ -3876,7 +3873,7 @@ impl Mux {
 
     /// Sets selected if sel input is false.
     #[allow(clippy::let_and_return)]
-    pub fn set_false_(self, val: Node) {
+    pub fn set_false_(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Mux_false(self.0, unwrapped);
@@ -3892,7 +3889,7 @@ impl Mux {
 
     /// Sets selected if sel input is true.
     #[allow(clippy::let_and_return)]
-    pub fn set_true_(self, val: Node) {
+    pub fn set_true_(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Mux_true(self.0, unwrapped);
@@ -3978,7 +3975,7 @@ impl Not {
 
     /// Sets operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_op(self, val: Node) {
+    pub fn set_op(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Not_op(self.0, unwrapped);
@@ -4064,7 +4061,7 @@ impl Or {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Or_left(self.0, unwrapped);
@@ -4080,7 +4077,7 @@ impl Or {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Or_right(self.0, unwrapped);
@@ -4188,7 +4185,7 @@ impl Pin {
 
     /// Sets value which is pinned.
     #[allow(clippy::let_and_return)]
-    pub fn set_op(self, val: Node) {
+    pub fn set_op(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Pin_op(self.0, unwrapped);
@@ -4239,7 +4236,7 @@ impl Proj {
 
     /// Sets the tuple value from which a part is extracted.
     #[allow(clippy::let_and_return)]
-    pub fn set_pred(self, val: Node) {
+    pub fn set_pred(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Proj_pred(self.0, unwrapped);
@@ -4308,7 +4305,7 @@ impl Raise {
 
     /// Sets memory dependency.
     #[allow(clippy::let_and_return)]
-    pub fn set_mem(self, val: Node) {
+    pub fn set_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Raise_mem(self.0, unwrapped);
@@ -4324,7 +4321,7 @@ impl Raise {
 
     /// Sets pointer to exception object to be thrown.
     #[allow(clippy::let_and_return)]
-    pub fn set_exo_ptr(self, val: Node) {
+    pub fn set_exo_ptr(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Raise_exo_ptr(self.0, unwrapped);
@@ -4406,7 +4403,7 @@ impl Return {
 
     /// Sets memory dependency.
     #[allow(clippy::let_and_return)]
-    pub fn set_mem(self, val: Node) {
+    pub fn set_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Return_mem(self.0, unwrapped);
@@ -4460,7 +4457,7 @@ impl Sel {
 
     /// Sets pointer to array to select from.
     #[allow(clippy::let_and_return)]
-    pub fn set_ptr(self, val: Node) {
+    pub fn set_ptr(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Sel_ptr(self.0, unwrapped);
@@ -4476,7 +4473,7 @@ impl Sel {
 
     /// Sets index to select.
     #[allow(clippy::let_and_return)]
-    pub fn set_index(self, val: Node) {
+    pub fn set_index(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Sel_index(self.0, unwrapped);
@@ -4485,15 +4482,15 @@ impl Sel {
 
     /// Gets array type.
     #[allow(clippy::let_and_return)]
-    pub fn ty(self) -> *mut bindings::ir_type {
+    pub fn ty(self) -> Ty {
         let unwrapped = unsafe { bindings::get_Sel_type(self.0) };
-        unwrapped
+        Ty::from_ir_type(unwrapped)
     }
 
     /// Sets array type.
     #[allow(clippy::let_and_return)]
-    pub fn set_ty(self, val: *mut bindings::ir_type) {
-        let unwrapped = val;
+    pub fn set_ty(self, val: Ty) {
+        let unwrapped = val.ir_type();
         unsafe {
             bindings::set_Sel_type(self.0, unwrapped);
         }
@@ -4547,7 +4544,7 @@ impl Shl {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Shl_left(self.0, unwrapped);
@@ -4563,7 +4560,7 @@ impl Shl {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Shl_right(self.0, unwrapped);
@@ -4618,7 +4615,7 @@ impl Shr {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Shr_left(self.0, unwrapped);
@@ -4634,7 +4631,7 @@ impl Shr {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Shr_right(self.0, unwrapped);
@@ -4690,7 +4687,7 @@ impl Shrs {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Shrs_left(self.0, unwrapped);
@@ -4706,7 +4703,7 @@ impl Shrs {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Shrs_right(self.0, unwrapped);
@@ -4789,8 +4786,8 @@ impl Start {
     }
 
     /// frame base pointer.
-    pub fn new_proj_p_frame_base(self, mode: bindings::mode::Type) -> Proj {
-        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 1) })
+    pub fn new_proj_p_frame_base(self, mode: Mode) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode.libfirm_mode(), 1) })
     }
 
     /// function arguments.
@@ -4872,7 +4869,7 @@ impl Store {
 
     /// Sets memory dependency.
     #[allow(clippy::let_and_return)]
-    pub fn set_mem(self, val: Node) {
+    pub fn set_mem(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Store_mem(self.0, unwrapped);
@@ -4888,7 +4885,7 @@ impl Store {
 
     /// Sets address to store to.
     #[allow(clippy::let_and_return)]
-    pub fn set_ptr(self, val: Node) {
+    pub fn set_ptr(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Store_ptr(self.0, unwrapped);
@@ -4904,7 +4901,7 @@ impl Store {
 
     /// Sets value to store.
     #[allow(clippy::let_and_return)]
-    pub fn set_value(self, val: Node) {
+    pub fn set_value(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Store_value(self.0, unwrapped);
@@ -4914,16 +4911,16 @@ impl Store {
     /// Gets The type of the object which is stored at ptr (need not match with
     /// value's type).
     #[allow(clippy::let_and_return)]
-    pub fn ty(self) -> *mut bindings::ir_type {
+    pub fn ty(self) -> Ty {
         let unwrapped = unsafe { bindings::get_Store_type(self.0) };
-        unwrapped
+        Ty::from_ir_type(unwrapped)
     }
 
     /// Sets The type of the object which is stored at ptr (need not match with
     /// value's type).
     #[allow(clippy::let_and_return)]
-    pub fn set_ty(self, val: *mut bindings::ir_type) {
-        let unwrapped = val;
+    pub fn set_ty(self, val: Ty) {
+        let unwrapped = val.ir_type();
         unsafe {
             bindings::set_Store_type(self.0, unwrapped);
         }
@@ -5052,7 +5049,7 @@ impl Sub {
 
     /// Sets first operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_left(self, val: Node) {
+    pub fn set_left(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Sub_left(self.0, unwrapped);
@@ -5068,7 +5065,7 @@ impl Sub {
 
     /// Sets second operand.
     #[allow(clippy::let_and_return)]
-    pub fn set_right(self, val: Node) {
+    pub fn set_right(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Sub_right(self.0, unwrapped);
@@ -5122,7 +5119,7 @@ impl Switch {
 
     /// Sets input selector.
     #[allow(clippy::let_and_return)]
-    pub fn set_selector(self, val: Node) {
+    pub fn set_selector(self, val: impl NodeTrait) {
         let unwrapped = val.internal_ir_node();
         unsafe {
             bindings::set_Switch_selector(self.0, unwrapped);
@@ -5162,8 +5159,8 @@ impl Switch {
     }
 
     /// control flow if no other case matches.
-    pub fn new_proj_default(self, mode: bindings::mode::Type) -> Proj {
-        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode, 0) })
+    pub fn new_proj_default(self, mode: Mode) -> Proj {
+        Proj::new(unsafe { bindings::new_r_Proj(self.0, mode.libfirm_mode(), 0) })
     }
 
     /// control flow if no other case matches.
@@ -5326,7 +5323,7 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_add(self, block: Block, irn_left: Node, irn_right: Node) -> Add {
+    pub fn new_add(self, block: Block, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Add {
         let ir_node = unsafe {
             bindings::new_r_Add(
                 block.internal_ir_node(),
@@ -5349,8 +5346,8 @@ impl Graph {
     /// * `mode` mode of the operations result
     /// * `ty` type to operate on
     #[allow(clippy::style)]
-    pub fn new_align(self, mode: *mut bindings::ir_mode, ty: *mut bindings::ir_type) -> Align {
-        let ir_node = unsafe { bindings::new_r_Align(self.irg, mode, ty) };
+    pub fn new_align(self, mode: Mode, ty: Ty) -> Align {
+        let ir_node = unsafe { bindings::new_r_Align(self.irg, mode.libfirm_mode(), ty.ir_type()) };
         Align::new(ir_node)
     }
 
@@ -5363,8 +5360,8 @@ impl Graph {
     pub fn new_alloc(
         self,
         block: Block,
-        irn_mem: Node,
-        irn_size: Node,
+        irn_mem: impl NodeTrait,
+        irn_size: impl NodeTrait,
         alignment: ::std::os::raw::c_uint,
     ) -> Alloc {
         let ir_node = unsafe {
@@ -5383,7 +5380,7 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_and(self, block: Block, irn_left: Node, irn_right: Node) -> And {
+    pub fn new_and(self, block: Block, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> And {
         let ir_node = unsafe {
             bindings::new_r_And(
                 block.internal_ir_node(),
@@ -5397,8 +5394,8 @@ impl Graph {
     /// Creates a new Bad-node.
     /// * `mode` mode of the operations result
     #[allow(clippy::style)]
-    pub fn new_bad(self, mode: *mut bindings::ir_mode) -> Bad {
-        let ir_node = unsafe { bindings::new_r_Bad(self.irg, mode) };
+    pub fn new_bad(self, mode: Mode) -> Bad {
+        let ir_node = unsafe { bindings::new_r_Bad(self.irg, mode.libfirm_mode()) };
         Bad::new(ir_node)
     }
 
@@ -5407,9 +5404,13 @@ impl Graph {
     /// * `irn_op` op
     /// * `mode` mode of the operations result
     #[allow(clippy::style)]
-    pub fn new_bitcast(self, block: Block, irn_op: Node, mode: *mut bindings::ir_mode) -> Bitcast {
+    pub fn new_bitcast(self, block: Block, irn_op: impl NodeTrait, mode: Mode) -> Bitcast {
         let ir_node = unsafe {
-            bindings::new_r_Bitcast(block.internal_ir_node(), irn_op.internal_ir_node(), mode)
+            bindings::new_r_Bitcast(
+                block.internal_ir_node(),
+                irn_op.internal_ir_node(),
+                mode.libfirm_mode(),
+            )
         };
         Bitcast::new(ir_node)
     }
@@ -5417,7 +5418,7 @@ impl Graph {
     /// Creates a new Block-node.
     /// * `in_` additional inputs
     #[allow(clippy::style)]
-    pub fn new_block(self, in_: Vec<Node>) -> Block {
+    pub fn new_block(self, in_: &[Node]) -> Block {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe { bindings::new_r_Block(self.irg, in_.len() as i32, in_.as_ptr()) };
         Block::new(ir_node)
@@ -5433,10 +5434,10 @@ impl Graph {
     pub fn new_builtin(
         self,
         block: Block,
-        irn_mem: Node,
-        in_: Vec<Node>,
+        irn_mem: impl NodeTrait,
+        in_: &[Node],
         kind: bindings::ir_builtin_kind::Type,
-        ty: *mut bindings::ir_type,
+        ty: Ty,
     ) -> Builtin {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe {
@@ -5446,7 +5447,7 @@ impl Graph {
                 in_.len() as i32,
                 in_.as_ptr(),
                 kind,
-                ty,
+                ty.ir_type(),
             )
         };
         Builtin::new(ir_node)
@@ -5462,10 +5463,10 @@ impl Graph {
     pub fn new_call(
         self,
         block: Block,
-        irn_mem: Node,
-        irn_ptr: Node,
-        in_: Vec<Node>,
-        ty: *mut bindings::ir_type,
+        irn_mem: impl NodeTrait,
+        irn_ptr: impl NodeTrait,
+        in_: &[Node],
+        ty: Ty,
     ) -> Call {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe {
@@ -5475,7 +5476,7 @@ impl Graph {
                 irn_ptr.internal_ir_node(),
                 in_.len() as i32,
                 in_.as_ptr(),
-                ty,
+                ty.ir_type(),
             )
         };
         Call::new(ir_node)
@@ -5490,8 +5491,8 @@ impl Graph {
     pub fn new_cmp(
         self,
         block: Block,
-        irn_left: Node,
-        irn_right: Node,
+        irn_left: impl NodeTrait,
+        irn_right: impl NodeTrait,
         relation: bindings::ir_relation::Type,
     ) -> Cmp {
         let ir_node = unsafe {
@@ -5509,7 +5510,7 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_selector` selector
     #[allow(clippy::style)]
-    pub fn new_cond(self, block: Block, irn_selector: Node) -> Cond {
+    pub fn new_cond(self, block: Block, irn_selector: impl NodeTrait) -> Cond {
         let ir_node = unsafe {
             bindings::new_r_Cond(block.internal_ir_node(), irn_selector.internal_ir_node())
         };
@@ -5525,8 +5526,8 @@ impl Graph {
     pub fn new_confirm(
         self,
         block: Block,
-        irn_value: Node,
-        irn_bound: Node,
+        irn_value: impl NodeTrait,
+        irn_bound: impl NodeTrait,
         relation: bindings::ir_relation::Type,
     ) -> Confirm {
         let ir_node = unsafe {
@@ -5553,9 +5554,13 @@ impl Graph {
     /// * `irn_op` op
     /// * `mode` mode of the operations result
     #[allow(clippy::style)]
-    pub fn new_conv(self, block: Block, irn_op: Node, mode: *mut bindings::ir_mode) -> Conv {
+    pub fn new_conv(self, block: Block, irn_op: impl NodeTrait, mode: Mode) -> Conv {
         let ir_node = unsafe {
-            bindings::new_r_Conv(block.internal_ir_node(), irn_op.internal_ir_node(), mode)
+            bindings::new_r_Conv(
+                block.internal_ir_node(),
+                irn_op.internal_ir_node(),
+                mode.libfirm_mode(),
+            )
         };
         Conv::new(ir_node)
     }
@@ -5571,10 +5576,10 @@ impl Graph {
     pub fn new_copyb(
         self,
         block: Block,
-        irn_mem: Node,
-        irn_dst: Node,
-        irn_src: Node,
-        ty: *mut bindings::ir_type,
+        irn_mem: impl NodeTrait,
+        irn_dst: impl NodeTrait,
+        irn_src: impl NodeTrait,
+        ty: Ty,
         flags: bindings::ir_cons_flags::Type,
     ) -> CopyB {
         let ir_node = unsafe {
@@ -5583,7 +5588,7 @@ impl Graph {
                 irn_mem.internal_ir_node(),
                 irn_dst.internal_ir_node(),
                 irn_src.internal_ir_node(),
-                ty,
+                ty.ir_type(),
                 flags,
             )
         };
@@ -5600,9 +5605,9 @@ impl Graph {
     pub fn new_div(
         self,
         block: Block,
-        irn_mem: Node,
-        irn_left: Node,
-        irn_right: Node,
+        irn_mem: impl NodeTrait,
+        irn_left: impl NodeTrait,
+        irn_right: impl NodeTrait,
         pinned: i32,
     ) -> Div {
         let ir_node = unsafe {
@@ -5620,15 +5625,15 @@ impl Graph {
     /// Creates a new Dummy-node.
     /// * `mode` mode of the operations result
     #[allow(clippy::style)]
-    pub fn new_dummy(self, mode: *mut bindings::ir_mode) -> Dummy {
-        let ir_node = unsafe { bindings::new_r_Dummy(self.irg, mode) };
+    pub fn new_dummy(self, mode: Mode) -> Dummy {
+        let ir_node = unsafe { bindings::new_r_Dummy(self.irg, mode.libfirm_mode()) };
         Dummy::new(ir_node)
     }
 
     /// Creates a new End-node.
     /// * `in_` additional inputs
     #[allow(clippy::style)]
-    pub fn new_end(self, in_: Vec<Node>) -> End {
+    pub fn new_end(self, in_: &[Node]) -> End {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe { bindings::new_r_End(self.irg, in_.len() as i32, in_.as_ptr()) };
         End::new(ir_node)
@@ -5639,7 +5644,7 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_eor(self, block: Block, irn_left: Node, irn_right: Node) -> Eor {
+    pub fn new_eor(self, block: Block, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Eor {
         let ir_node = unsafe {
             bindings::new_r_Eor(
                 block.internal_ir_node(),
@@ -5655,7 +5660,7 @@ impl Graph {
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     #[allow(clippy::style)]
-    pub fn new_free(self, block: Block, irn_mem: Node, irn_ptr: Node) -> Free {
+    pub fn new_free(self, block: Block, irn_mem: impl NodeTrait, irn_ptr: impl NodeTrait) -> Free {
         let ir_node = unsafe {
             bindings::new_r_Free(
                 block.internal_ir_node(),
@@ -5670,7 +5675,7 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_target` target
     #[allow(clippy::style)]
-    pub fn new_ijmp(self, block: Block, irn_target: Node) -> IJmp {
+    pub fn new_ijmp(self, block: Block, irn_target: impl NodeTrait) -> IJmp {
         let ir_node = unsafe {
             bindings::new_r_IJmp(block.internal_ir_node(), irn_target.internal_ir_node())
         };
@@ -5697,10 +5702,10 @@ impl Graph {
     pub fn new_load(
         self,
         block: Block,
-        irn_mem: Node,
-        irn_ptr: Node,
-        mode: *mut bindings::ir_mode,
-        ty: *mut bindings::ir_type,
+        irn_mem: impl NodeTrait,
+        irn_ptr: impl NodeTrait,
+        mode: Mode,
+        ty: Ty,
         flags: bindings::ir_cons_flags::Type,
     ) -> Load {
         let ir_node = unsafe {
@@ -5708,8 +5713,8 @@ impl Graph {
                 block.internal_ir_node(),
                 irn_mem.internal_ir_node(),
                 irn_ptr.internal_ir_node(),
-                mode,
-                ty,
+                mode.libfirm_mode(),
+                ty.ir_type(),
                 flags,
             )
         };
@@ -5721,7 +5726,7 @@ impl Graph {
     /// * `irn_ptr` ptr
     /// * `entity` entity which is selected
     #[allow(clippy::style)]
-    pub fn new_member(self, block: Block, irn_ptr: Node, entity: Entity) -> Member {
+    pub fn new_member(self, block: Block, irn_ptr: impl NodeTrait, entity: Entity) -> Member {
         let ir_node = unsafe {
             bindings::new_r_Member(
                 block.internal_ir_node(),
@@ -5736,7 +5741,7 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_op` op
     #[allow(clippy::style)]
-    pub fn new_minus(self, block: Block, irn_op: Node) -> Minus {
+    pub fn new_minus(self, block: Block, irn_op: impl NodeTrait) -> Minus {
         let ir_node =
             unsafe { bindings::new_r_Minus(block.internal_ir_node(), irn_op.internal_ir_node()) };
         Minus::new(ir_node)
@@ -5752,9 +5757,9 @@ impl Graph {
     pub fn new_mod(
         self,
         block: Block,
-        irn_mem: Node,
-        irn_left: Node,
-        irn_right: Node,
+        irn_mem: impl NodeTrait,
+        irn_left: impl NodeTrait,
+        irn_right: impl NodeTrait,
         pinned: i32,
     ) -> Mod {
         let ir_node = unsafe {
@@ -5774,7 +5779,7 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_mul(self, block: Block, irn_left: Node, irn_right: Node) -> Mul {
+    pub fn new_mul(self, block: Block, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Mul {
         let ir_node = unsafe {
             bindings::new_r_Mul(
                 block.internal_ir_node(),
@@ -5790,7 +5795,12 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_mulh(self, block: Block, irn_left: Node, irn_right: Node) -> Mulh {
+    pub fn new_mulh(
+        self,
+        block: Block,
+        irn_left: impl NodeTrait,
+        irn_right: impl NodeTrait,
+    ) -> Mulh {
         let ir_node = unsafe {
             bindings::new_r_Mulh(
                 block.internal_ir_node(),
@@ -5807,7 +5817,13 @@ impl Graph {
     /// * `irn_false` false
     /// * `irn_true` true
     #[allow(clippy::style)]
-    pub fn new_mux(self, block: Block, irn_sel: Node, irn_false: Node, irn_true: Node) -> Mux {
+    pub fn new_mux(
+        self,
+        block: Block,
+        irn_sel: impl NodeTrait,
+        irn_false: impl NodeTrait,
+        irn_true: impl NodeTrait,
+    ) -> Mux {
         let ir_node = unsafe {
             bindings::new_r_Mux(
                 block.internal_ir_node(),
@@ -5830,7 +5846,7 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_op` op
     #[allow(clippy::style)]
-    pub fn new_not(self, block: Block, irn_op: Node) -> Not {
+    pub fn new_not(self, block: Block, irn_op: impl NodeTrait) -> Not {
         let ir_node =
             unsafe { bindings::new_r_Not(block.internal_ir_node(), irn_op.internal_ir_node()) };
         Not::new(ir_node)
@@ -5840,8 +5856,9 @@ impl Graph {
     /// * `mode` mode of the operations result
     /// * `entity` entity to operate on
     #[allow(clippy::style)]
-    pub fn new_offset(self, mode: *mut bindings::ir_mode, entity: Entity) -> Offset {
-        let ir_node = unsafe { bindings::new_r_Offset(self.irg, mode, entity.into()) };
+    pub fn new_offset(self, mode: Mode, entity: Entity) -> Offset {
+        let ir_node =
+            unsafe { bindings::new_r_Offset(self.irg, mode.libfirm_mode(), entity.into()) };
         Offset::new(ir_node)
     }
 
@@ -5850,7 +5867,7 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_or(self, block: Block, irn_left: Node, irn_right: Node) -> Or {
+    pub fn new_or(self, block: Block, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Or {
         let ir_node = unsafe {
             bindings::new_r_Or(
                 block.internal_ir_node(),
@@ -5866,14 +5883,14 @@ impl Graph {
     /// * `in_` additional inputs
     /// * `mode` mode of the operations result
     #[allow(clippy::style)]
-    pub fn new_phi(self, block: Block, in_: Vec<Node>, mode: *mut bindings::ir_mode) -> Phi {
+    pub fn new_phi(self, block: Block, in_: &[Node], mode: Mode) -> Phi {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe {
             bindings::new_r_Phi(
                 block.internal_ir_node(),
                 in_.len() as i32,
                 in_.as_ptr(),
-                mode,
+                mode.libfirm_mode(),
             )
         };
         Phi::new(ir_node)
@@ -5883,7 +5900,7 @@ impl Graph {
     /// * `block` The block.
     /// * `irn_op` op
     #[allow(clippy::style)]
-    pub fn new_pin(self, block: Block, irn_op: Node) -> Pin {
+    pub fn new_pin(self, block: Block, irn_op: impl NodeTrait) -> Pin {
         let ir_node =
             unsafe { bindings::new_r_Pin(block.internal_ir_node(), irn_op.internal_ir_node()) };
         Pin::new(ir_node)
@@ -5896,11 +5913,12 @@ impl Graph {
     #[allow(clippy::style)]
     pub fn new_proj(
         self,
-        irn_pred: Node,
-        mode: *mut bindings::ir_mode,
+        irn_pred: impl NodeTrait,
+        mode: Mode,
         num: ::std::os::raw::c_uint,
     ) -> Proj {
-        let ir_node = unsafe { bindings::new_r_Proj(irn_pred.internal_ir_node(), mode, num) };
+        let ir_node =
+            unsafe { bindings::new_r_Proj(irn_pred.internal_ir_node(), mode.libfirm_mode(), num) };
         Proj::new(ir_node)
     }
 
@@ -5909,7 +5927,12 @@ impl Graph {
     /// * `irn_mem` mem
     /// * `irn_exo_ptr` exo_ptr
     #[allow(clippy::style)]
-    pub fn new_raise(self, block: Block, irn_mem: Node, irn_exo_ptr: Node) -> Raise {
+    pub fn new_raise(
+        self,
+        block: Block,
+        irn_mem: impl NodeTrait,
+        irn_exo_ptr: impl NodeTrait,
+    ) -> Raise {
         let ir_node = unsafe {
             bindings::new_r_Raise(
                 block.internal_ir_node(),
@@ -5925,7 +5948,7 @@ impl Graph {
     /// * `irn_mem` mem
     /// * `in_` additional inputs
     #[allow(clippy::style)]
-    pub fn new_return(self, block: Block, irn_mem: Node, in_: Vec<Node>) -> Return {
+    pub fn new_return(self, block: Block, irn_mem: impl NodeTrait, in_: &[Node]) -> Return {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe {
             bindings::new_r_Return(
@@ -5947,16 +5970,16 @@ impl Graph {
     pub fn new_sel(
         self,
         block: Block,
-        irn_ptr: Node,
-        irn_index: Node,
-        ty: *mut bindings::ir_type,
+        irn_ptr: impl NodeTrait,
+        irn_index: impl NodeTrait,
+        ty: Ty,
     ) -> Sel {
         let ir_node = unsafe {
             bindings::new_r_Sel(
                 block.internal_ir_node(),
                 irn_ptr.internal_ir_node(),
                 irn_index.internal_ir_node(),
-                ty,
+                ty.ir_type(),
             )
         };
         Sel::new(ir_node)
@@ -5967,7 +5990,7 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_shl(self, block: Block, irn_left: Node, irn_right: Node) -> Shl {
+    pub fn new_shl(self, block: Block, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Shl {
         let ir_node = unsafe {
             bindings::new_r_Shl(
                 block.internal_ir_node(),
@@ -5983,7 +6006,7 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_shr(self, block: Block, irn_left: Node, irn_right: Node) -> Shr {
+    pub fn new_shr(self, block: Block, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Shr {
         let ir_node = unsafe {
             bindings::new_r_Shr(
                 block.internal_ir_node(),
@@ -5999,7 +6022,12 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_shrs(self, block: Block, irn_left: Node, irn_right: Node) -> Shrs {
+    pub fn new_shrs(
+        self,
+        block: Block,
+        irn_left: impl NodeTrait,
+        irn_right: impl NodeTrait,
+    ) -> Shrs {
         let ir_node = unsafe {
             bindings::new_r_Shrs(
                 block.internal_ir_node(),
@@ -6014,8 +6042,8 @@ impl Graph {
     /// * `mode` mode of the operations result
     /// * `ty` type to operate on
     #[allow(clippy::style)]
-    pub fn new_size(self, mode: *mut bindings::ir_mode, ty: *mut bindings::ir_type) -> Size {
-        let ir_node = unsafe { bindings::new_r_Size(self.irg, mode, ty) };
+    pub fn new_size(self, mode: Mode, ty: Ty) -> Size {
+        let ir_node = unsafe { bindings::new_r_Size(self.irg, mode.libfirm_mode(), ty.ir_type()) };
         Size::new(ir_node)
     }
 
@@ -6038,10 +6066,10 @@ impl Graph {
     pub fn new_store(
         self,
         block: Block,
-        irn_mem: Node,
-        irn_ptr: Node,
-        irn_value: Node,
-        ty: *mut bindings::ir_type,
+        irn_mem: impl NodeTrait,
+        irn_ptr: impl NodeTrait,
+        irn_value: impl NodeTrait,
+        ty: Ty,
         flags: bindings::ir_cons_flags::Type,
     ) -> Store {
         let ir_node = unsafe {
@@ -6050,7 +6078,7 @@ impl Graph {
                 irn_mem.internal_ir_node(),
                 irn_ptr.internal_ir_node(),
                 irn_value.internal_ir_node(),
-                ty,
+                ty.ir_type(),
                 flags,
             )
         };
@@ -6062,7 +6090,7 @@ impl Graph {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_sub(self, block: Block, irn_left: Node, irn_right: Node) -> Sub {
+    pub fn new_sub(self, block: Block, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Sub {
         let ir_node = unsafe {
             bindings::new_r_Sub(
                 block.internal_ir_node(),
@@ -6082,7 +6110,7 @@ impl Graph {
     pub fn new_switch(
         self,
         block: Block,
-        irn_selector: Node,
+        irn_selector: impl NodeTrait,
         n_outs: ::std::os::raw::c_uint,
         table: *mut bindings::ir_switch_table,
     ) -> Switch {
@@ -6101,7 +6129,7 @@ impl Graph {
     /// * `block` The block.
     /// * `in_` additional inputs
     #[allow(clippy::style)]
-    pub fn new_sync(self, block: Block, in_: Vec<Node>) -> Sync {
+    pub fn new_sync(self, block: Block, in_: &[Node]) -> Sync {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe {
             bindings::new_r_Sync(block.internal_ir_node(), in_.len() as i32, in_.as_ptr())
@@ -6113,7 +6141,7 @@ impl Graph {
     /// * `block` The block.
     /// * `in_` additional inputs
     #[allow(clippy::style)]
-    pub fn new_tuple(self, block: Block, in_: Vec<Node>) -> Tuple {
+    pub fn new_tuple(self, block: Block, in_: &[Node]) -> Tuple {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe {
             bindings::new_r_Tuple(block.internal_ir_node(), in_.len() as i32, in_.as_ptr())
@@ -6124,8 +6152,8 @@ impl Graph {
     /// Creates a new Unknown-node.
     /// * `mode` mode of the operations result
     #[allow(clippy::style)]
-    pub fn new_unknown(self, mode: *mut bindings::ir_mode) -> Unknown {
-        let ir_node = unsafe { bindings::new_r_Unknown(self.irg, mode) };
+    pub fn new_unknown(self, mode: Mode) -> Unknown {
+        let ir_node = unsafe { bindings::new_r_Unknown(self.irg, mode.libfirm_mode()) };
         Unknown::new(ir_node)
     }
 }
@@ -6135,7 +6163,7 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_add(self, irn_left: Node, irn_right: Node) -> Add {
+    pub fn new_add(self, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Add {
         let ir_node = unsafe {
             bindings::new_r_Add(
                 self.0,
@@ -6153,8 +6181,8 @@ impl Block {
     #[allow(clippy::style)]
     pub fn new_alloc(
         self,
-        irn_mem: Node,
-        irn_size: Node,
+        irn_mem: impl NodeTrait,
+        irn_size: impl NodeTrait,
         alignment: ::std::os::raw::c_uint,
     ) -> Alloc {
         let ir_node = unsafe {
@@ -6172,7 +6200,7 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_and(self, irn_left: Node, irn_right: Node) -> And {
+    pub fn new_and(self, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> And {
         let ir_node = unsafe {
             bindings::new_r_And(
                 self.0,
@@ -6187,8 +6215,10 @@ impl Block {
     /// * `irn_op` op
     /// * `mode` mode of the operations result
     #[allow(clippy::style)]
-    pub fn new_bitcast(self, irn_op: Node, mode: *mut bindings::ir_mode) -> Bitcast {
-        let ir_node = unsafe { bindings::new_r_Bitcast(self.0, irn_op.internal_ir_node(), mode) };
+    pub fn new_bitcast(self, irn_op: impl NodeTrait, mode: Mode) -> Bitcast {
+        let ir_node = unsafe {
+            bindings::new_r_Bitcast(self.0, irn_op.internal_ir_node(), mode.libfirm_mode())
+        };
         Bitcast::new(ir_node)
     }
 
@@ -6200,10 +6230,10 @@ impl Block {
     #[allow(clippy::style)]
     pub fn new_builtin(
         self,
-        irn_mem: Node,
-        in_: Vec<Node>,
+        irn_mem: impl NodeTrait,
+        in_: &[Node],
         kind: bindings::ir_builtin_kind::Type,
-        ty: *mut bindings::ir_type,
+        ty: Ty,
     ) -> Builtin {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe {
@@ -6213,7 +6243,7 @@ impl Block {
                 in_.len() as i32,
                 in_.as_ptr(),
                 kind,
-                ty,
+                ty.ir_type(),
             )
         };
         Builtin::new(ir_node)
@@ -6227,10 +6257,10 @@ impl Block {
     #[allow(clippy::style)]
     pub fn new_call(
         self,
-        irn_mem: Node,
-        irn_ptr: Node,
-        in_: Vec<Node>,
-        ty: *mut bindings::ir_type,
+        irn_mem: impl NodeTrait,
+        irn_ptr: impl NodeTrait,
+        in_: &[Node],
+        ty: Ty,
     ) -> Call {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe {
@@ -6240,7 +6270,7 @@ impl Block {
                 irn_ptr.internal_ir_node(),
                 in_.len() as i32,
                 in_.as_ptr(),
-                ty,
+                ty.ir_type(),
             )
         };
         Call::new(ir_node)
@@ -6253,8 +6283,8 @@ impl Block {
     #[allow(clippy::style)]
     pub fn new_cmp(
         self,
-        irn_left: Node,
-        irn_right: Node,
+        irn_left: impl NodeTrait,
+        irn_right: impl NodeTrait,
         relation: bindings::ir_relation::Type,
     ) -> Cmp {
         let ir_node = unsafe {
@@ -6271,7 +6301,7 @@ impl Block {
     /// Creates a new Cond-node.
     /// * `irn_selector` selector
     #[allow(clippy::style)]
-    pub fn new_cond(self, irn_selector: Node) -> Cond {
+    pub fn new_cond(self, irn_selector: impl NodeTrait) -> Cond {
         let ir_node = unsafe { bindings::new_r_Cond(self.0, irn_selector.internal_ir_node()) };
         Cond::new(ir_node)
     }
@@ -6283,8 +6313,8 @@ impl Block {
     #[allow(clippy::style)]
     pub fn new_confirm(
         self,
-        irn_value: Node,
-        irn_bound: Node,
+        irn_value: impl NodeTrait,
+        irn_bound: impl NodeTrait,
         relation: bindings::ir_relation::Type,
     ) -> Confirm {
         let ir_node = unsafe {
@@ -6302,8 +6332,9 @@ impl Block {
     /// * `irn_op` op
     /// * `mode` mode of the operations result
     #[allow(clippy::style)]
-    pub fn new_conv(self, irn_op: Node, mode: *mut bindings::ir_mode) -> Conv {
-        let ir_node = unsafe { bindings::new_r_Conv(self.0, irn_op.internal_ir_node(), mode) };
+    pub fn new_conv(self, irn_op: impl NodeTrait, mode: Mode) -> Conv {
+        let ir_node =
+            unsafe { bindings::new_r_Conv(self.0, irn_op.internal_ir_node(), mode.libfirm_mode()) };
         Conv::new(ir_node)
     }
 
@@ -6316,10 +6347,10 @@ impl Block {
     #[allow(clippy::style)]
     pub fn new_copyb(
         self,
-        irn_mem: Node,
-        irn_dst: Node,
-        irn_src: Node,
-        ty: *mut bindings::ir_type,
+        irn_mem: impl NodeTrait,
+        irn_dst: impl NodeTrait,
+        irn_src: impl NodeTrait,
+        ty: Ty,
         flags: bindings::ir_cons_flags::Type,
     ) -> CopyB {
         let ir_node = unsafe {
@@ -6328,7 +6359,7 @@ impl Block {
                 irn_mem.internal_ir_node(),
                 irn_dst.internal_ir_node(),
                 irn_src.internal_ir_node(),
-                ty,
+                ty.ir_type(),
                 flags,
             )
         };
@@ -6341,7 +6372,13 @@ impl Block {
     /// * `irn_right` right
     /// * `pinned` pinned state
     #[allow(clippy::style)]
-    pub fn new_div(self, irn_mem: Node, irn_left: Node, irn_right: Node, pinned: i32) -> Div {
+    pub fn new_div(
+        self,
+        irn_mem: impl NodeTrait,
+        irn_left: impl NodeTrait,
+        irn_right: impl NodeTrait,
+        pinned: i32,
+    ) -> Div {
         let ir_node = unsafe {
             bindings::new_r_Div(
                 self.0,
@@ -6358,7 +6395,7 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_eor(self, irn_left: Node, irn_right: Node) -> Eor {
+    pub fn new_eor(self, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Eor {
         let ir_node = unsafe {
             bindings::new_r_Eor(
                 self.0,
@@ -6373,7 +6410,7 @@ impl Block {
     /// * `irn_mem` mem
     /// * `irn_ptr` ptr
     #[allow(clippy::style)]
-    pub fn new_free(self, irn_mem: Node, irn_ptr: Node) -> Free {
+    pub fn new_free(self, irn_mem: impl NodeTrait, irn_ptr: impl NodeTrait) -> Free {
         let ir_node = unsafe {
             bindings::new_r_Free(
                 self.0,
@@ -6387,7 +6424,7 @@ impl Block {
     /// Creates a new IJmp-node.
     /// * `irn_target` target
     #[allow(clippy::style)]
-    pub fn new_ijmp(self, irn_target: Node) -> IJmp {
+    pub fn new_ijmp(self, irn_target: impl NodeTrait) -> IJmp {
         let ir_node = unsafe { bindings::new_r_IJmp(self.0, irn_target.internal_ir_node()) };
         IJmp::new(ir_node)
     }
@@ -6409,10 +6446,10 @@ impl Block {
     #[allow(clippy::style)]
     pub fn new_load(
         self,
-        irn_mem: Node,
-        irn_ptr: Node,
-        mode: *mut bindings::ir_mode,
-        ty: *mut bindings::ir_type,
+        irn_mem: impl NodeTrait,
+        irn_ptr: impl NodeTrait,
+        mode: Mode,
+        ty: Ty,
         flags: bindings::ir_cons_flags::Type,
     ) -> Load {
         let ir_node = unsafe {
@@ -6420,8 +6457,8 @@ impl Block {
                 self.0,
                 irn_mem.internal_ir_node(),
                 irn_ptr.internal_ir_node(),
-                mode,
-                ty,
+                mode.libfirm_mode(),
+                ty.ir_type(),
                 flags,
             )
         };
@@ -6432,7 +6469,7 @@ impl Block {
     /// * `irn_ptr` ptr
     /// * `entity` entity which is selected
     #[allow(clippy::style)]
-    pub fn new_member(self, irn_ptr: Node, entity: Entity) -> Member {
+    pub fn new_member(self, irn_ptr: impl NodeTrait, entity: Entity) -> Member {
         let ir_node =
             unsafe { bindings::new_r_Member(self.0, irn_ptr.internal_ir_node(), entity.into()) };
         Member::new(ir_node)
@@ -6441,7 +6478,7 @@ impl Block {
     /// Creates a new Minus-node.
     /// * `irn_op` op
     #[allow(clippy::style)]
-    pub fn new_minus(self, irn_op: Node) -> Minus {
+    pub fn new_minus(self, irn_op: impl NodeTrait) -> Minus {
         let ir_node = unsafe { bindings::new_r_Minus(self.0, irn_op.internal_ir_node()) };
         Minus::new(ir_node)
     }
@@ -6452,7 +6489,13 @@ impl Block {
     /// * `irn_right` right
     /// * `pinned` pinned state
     #[allow(clippy::style)]
-    pub fn new_mod(self, irn_mem: Node, irn_left: Node, irn_right: Node, pinned: i32) -> Mod {
+    pub fn new_mod(
+        self,
+        irn_mem: impl NodeTrait,
+        irn_left: impl NodeTrait,
+        irn_right: impl NodeTrait,
+        pinned: i32,
+    ) -> Mod {
         let ir_node = unsafe {
             bindings::new_r_Mod(
                 self.0,
@@ -6469,7 +6512,7 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_mul(self, irn_left: Node, irn_right: Node) -> Mul {
+    pub fn new_mul(self, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Mul {
         let ir_node = unsafe {
             bindings::new_r_Mul(
                 self.0,
@@ -6484,7 +6527,7 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_mulh(self, irn_left: Node, irn_right: Node) -> Mulh {
+    pub fn new_mulh(self, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Mulh {
         let ir_node = unsafe {
             bindings::new_r_Mulh(
                 self.0,
@@ -6500,7 +6543,12 @@ impl Block {
     /// * `irn_false` false
     /// * `irn_true` true
     #[allow(clippy::style)]
-    pub fn new_mux(self, irn_sel: Node, irn_false: Node, irn_true: Node) -> Mux {
+    pub fn new_mux(
+        self,
+        irn_sel: impl NodeTrait,
+        irn_false: impl NodeTrait,
+        irn_true: impl NodeTrait,
+    ) -> Mux {
         let ir_node = unsafe {
             bindings::new_r_Mux(
                 self.0,
@@ -6515,7 +6563,7 @@ impl Block {
     /// Creates a new Not-node.
     /// * `irn_op` op
     #[allow(clippy::style)]
-    pub fn new_not(self, irn_op: Node) -> Not {
+    pub fn new_not(self, irn_op: impl NodeTrait) -> Not {
         let ir_node = unsafe { bindings::new_r_Not(self.0, irn_op.internal_ir_node()) };
         Not::new(ir_node)
     }
@@ -6524,7 +6572,7 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_or(self, irn_left: Node, irn_right: Node) -> Or {
+    pub fn new_or(self, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Or {
         let ir_node = unsafe {
             bindings::new_r_Or(
                 self.0,
@@ -6539,16 +6587,18 @@ impl Block {
     /// * `in_` additional inputs
     /// * `mode` mode of the operations result
     #[allow(clippy::style)]
-    pub fn new_phi(self, in_: Vec<Node>, mode: *mut bindings::ir_mode) -> Phi {
+    pub fn new_phi(self, in_: &[Node], mode: Mode) -> Phi {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
-        let ir_node = unsafe { bindings::new_r_Phi(self.0, in_.len() as i32, in_.as_ptr(), mode) };
+        let ir_node = unsafe {
+            bindings::new_r_Phi(self.0, in_.len() as i32, in_.as_ptr(), mode.libfirm_mode())
+        };
         Phi::new(ir_node)
     }
 
     /// Creates a new Pin-node.
     /// * `irn_op` op
     #[allow(clippy::style)]
-    pub fn new_pin(self, irn_op: Node) -> Pin {
+    pub fn new_pin(self, irn_op: impl NodeTrait) -> Pin {
         let ir_node = unsafe { bindings::new_r_Pin(self.0, irn_op.internal_ir_node()) };
         Pin::new(ir_node)
     }
@@ -6557,7 +6607,7 @@ impl Block {
     /// * `irn_mem` mem
     /// * `irn_exo_ptr` exo_ptr
     #[allow(clippy::style)]
-    pub fn new_raise(self, irn_mem: Node, irn_exo_ptr: Node) -> Raise {
+    pub fn new_raise(self, irn_mem: impl NodeTrait, irn_exo_ptr: impl NodeTrait) -> Raise {
         let ir_node = unsafe {
             bindings::new_r_Raise(
                 self.0,
@@ -6572,7 +6622,7 @@ impl Block {
     /// * `irn_mem` mem
     /// * `in_` additional inputs
     #[allow(clippy::style)]
-    pub fn new_return(self, irn_mem: Node, in_: Vec<Node>) -> Return {
+    pub fn new_return(self, irn_mem: impl NodeTrait, in_: &[Node]) -> Return {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe {
             bindings::new_r_Return(
@@ -6590,13 +6640,13 @@ impl Block {
     /// * `irn_index` index
     /// * `ty` array type
     #[allow(clippy::style)]
-    pub fn new_sel(self, irn_ptr: Node, irn_index: Node, ty: *mut bindings::ir_type) -> Sel {
+    pub fn new_sel(self, irn_ptr: impl NodeTrait, irn_index: impl NodeTrait, ty: Ty) -> Sel {
         let ir_node = unsafe {
             bindings::new_r_Sel(
                 self.0,
                 irn_ptr.internal_ir_node(),
                 irn_index.internal_ir_node(),
-                ty,
+                ty.ir_type(),
             )
         };
         Sel::new(ir_node)
@@ -6606,7 +6656,7 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_shl(self, irn_left: Node, irn_right: Node) -> Shl {
+    pub fn new_shl(self, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Shl {
         let ir_node = unsafe {
             bindings::new_r_Shl(
                 self.0,
@@ -6621,7 +6671,7 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_shr(self, irn_left: Node, irn_right: Node) -> Shr {
+    pub fn new_shr(self, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Shr {
         let ir_node = unsafe {
             bindings::new_r_Shr(
                 self.0,
@@ -6636,7 +6686,7 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_shrs(self, irn_left: Node, irn_right: Node) -> Shrs {
+    pub fn new_shrs(self, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Shrs {
         let ir_node = unsafe {
             bindings::new_r_Shrs(
                 self.0,
@@ -6657,10 +6707,10 @@ impl Block {
     #[allow(clippy::style)]
     pub fn new_store(
         self,
-        irn_mem: Node,
-        irn_ptr: Node,
-        irn_value: Node,
-        ty: *mut bindings::ir_type,
+        irn_mem: impl NodeTrait,
+        irn_ptr: impl NodeTrait,
+        irn_value: impl NodeTrait,
+        ty: Ty,
         flags: bindings::ir_cons_flags::Type,
     ) -> Store {
         let ir_node = unsafe {
@@ -6669,7 +6719,7 @@ impl Block {
                 irn_mem.internal_ir_node(),
                 irn_ptr.internal_ir_node(),
                 irn_value.internal_ir_node(),
-                ty,
+                ty.ir_type(),
                 flags,
             )
         };
@@ -6680,7 +6730,7 @@ impl Block {
     /// * `irn_left` left
     /// * `irn_right` right
     #[allow(clippy::style)]
-    pub fn new_sub(self, irn_left: Node, irn_right: Node) -> Sub {
+    pub fn new_sub(self, irn_left: impl NodeTrait, irn_right: impl NodeTrait) -> Sub {
         let ir_node = unsafe {
             bindings::new_r_Sub(
                 self.0,
@@ -6698,7 +6748,7 @@ impl Block {
     #[allow(clippy::style)]
     pub fn new_switch(
         self,
-        irn_selector: Node,
+        irn_selector: impl NodeTrait,
         n_outs: ::std::os::raw::c_uint,
         table: *mut bindings::ir_switch_table,
     ) -> Switch {
@@ -6711,7 +6761,7 @@ impl Block {
     /// Creates a new Sync-node.
     /// * `in_` additional inputs
     #[allow(clippy::style)]
-    pub fn new_sync(self, in_: Vec<Node>) -> Sync {
+    pub fn new_sync(self, in_: &[Node]) -> Sync {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe { bindings::new_r_Sync(self.0, in_.len() as i32, in_.as_ptr()) };
         Sync::new(ir_node)
@@ -6720,7 +6770,7 @@ impl Block {
     /// Creates a new Tuple-node.
     /// * `in_` additional inputs
     #[allow(clippy::style)]
-    pub fn new_tuple(self, in_: Vec<Node>) -> Tuple {
+    pub fn new_tuple(self, in_: &[Node]) -> Tuple {
         let in_: Vec<*mut bindings::ir_node> = in_.iter().map(|v| v.internal_ir_node()).collect();
         let ir_node = unsafe { bindings::new_r_Tuple(self.0, in_.len() as i32, in_.as_ptr()) };
         Tuple::new(ir_node)

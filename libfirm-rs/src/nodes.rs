@@ -1,4 +1,4 @@
-pub use super::{nodes_gen::*, value_nodes::*};
+pub use super::{mode::Mode, nodes_gen::*, value_nodes::*};
 use crate::entity::Entity;
 use libfirm_rs_bindings as bindings;
 use std::{
@@ -63,8 +63,8 @@ pub trait NodeTrait {
         unsafe { bindings::keep_alive(self.internal_ir_node()) }
     }
 
-    fn mode(&self) -> bindings::mode::Type {
-        unsafe { bindings::get_irn_mode(self.internal_ir_node()) }
+    fn mode(&self) -> Mode {
+        Mode::from_libfirm(unsafe { bindings::get_irn_mode(self.internal_ir_node()) })
     }
 
     fn block(&self) -> Block {
@@ -173,6 +173,46 @@ impl Block {
     pub fn cfg_preds(self) -> CfgPredsIterator {
         CfgPredsIterator::new(self.internal_ir_node())
     }
+
+    pub fn mature(self) {
+        unsafe {
+            bindings::mature_immBlock(self.internal_ir_node());
+        }
+    }
+
+    pub fn value(self, slot_idx: usize, mode: Mode) -> Node {
+        NodeFactory::node(unsafe {
+            bindings::get_b_value(
+                self.internal_ir_node(),
+                slot_idx as i32,
+                mode.libfirm_mode(),
+            )
+        })
+    }
+
+    pub fn set_value(self, slot_idx: usize, val: impl NodeTrait) {
+        unsafe {
+            bindings::set_b_value(
+                self.internal_ir_node(),
+                slot_idx as i32,
+                val.internal_ir_node(),
+            )
+        }
+    }
+
+    pub fn cur_store(self) -> Node {
+        NodeFactory::node(unsafe { bindings::get_b_store(self.internal_ir_node()) })
+    }
+
+    pub fn set_store(self, s: impl NodeTrait) {
+        unsafe { bindings::set_b_store(self.internal_ir_node(), s.internal_ir_node()) }
+    }
+
+    pub fn imm_add_pred(&self, pred: impl NodeTrait) {
+        unsafe {
+            bindings::add_immBlock_pred(self.internal_ir_node(), pred.internal_ir_node());
+        }
+    }
 }
 
 simple_node_iterator!(
@@ -191,8 +231,10 @@ impl Phi {
 simple_node_iterator!(PhiPredsIterator, get_Phi_n_preds, get_Phi_pred, i32);
 
 impl Proj {
-    pub fn proj(self, num: u32, mode: bindings::mode::Type) -> Proj {
-        Proj::new(unsafe { bindings::new_r_Proj(self.internal_ir_node(), mode, num) })
+    pub fn new_proj(self, num: u32, mode: Mode) -> Proj {
+        Proj::new(unsafe {
+            bindings::new_r_Proj(self.internal_ir_node(), mode.libfirm_mode(), num)
+        })
     }
 }
 
@@ -298,14 +340,11 @@ impl<T: NodeDebug + Copy> fmt::Debug for NodeDebugFmt<T> {
 
 // = Debug fmt impls =
 
-/*
-impl NodeDebug for nodes_gen::Const {
+impl NodeDebug for Const {
     fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        let x = self.ptr().debug_fmt().short(true);
-        write!(f, "Const ", x, self.node_id())
+        write!(f, "Const {} ({:?})", self.node_id(), self.tarval())
     }
 }
-*/
 
 impl NodeDebug for Call {
     fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {

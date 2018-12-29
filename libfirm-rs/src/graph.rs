@@ -1,5 +1,6 @@
 use super::{
     entity::Entity,
+    mode::Mode,
     nodes::{Block, End, NoMem, Node, NodeFactory, NodeTrait, Proj, ProjKind, Start},
     value_nodes::ValueNode,
 };
@@ -8,12 +9,6 @@ use std::{
     ffi::{c_void, CString},
     mem, ptr,
 };
-
-impl From<crate::Graph> for Graph {
-    fn from(graph: crate::Graph) -> Graph {
-        Graph { irg: graph.irg }
-    }
-}
 
 #[derive(Clone, Copy)]
 pub struct Graph {
@@ -89,12 +84,6 @@ impl Graph {
 
     pub fn assure_outs(self) {
         unsafe { bindings::assure_irg_outs(self.irg) }
-    }
-
-    pub fn finalize_construction(self) {
-        unsafe {
-            bindings::irg_finalize_cons(self.irg);
-        }
     }
 
     pub fn remove_bads(self) {
@@ -199,7 +188,7 @@ impl Graph {
     /// nodes dominated by it as unreachable. The whole subtree can then be
     /// removed using `Graph::remove_bads`.
     pub fn mark_as_bad(self, node: &impl NodeTrait) {
-        Graph::exchange(node, &self.new_bad(unsafe { bindings::mode::b }))
+        Graph::exchange(node, &self.new_bad(Mode::b()))
     }
 
     pub fn copy_node<F>(self, node: Node, mut copy_fn: F) -> Node
@@ -236,6 +225,53 @@ impl Graph {
             bindings::copy_node_attr(self.irg, ptr, new_node_ptr);
 
             NodeFactory::node(new_node_ptr)
+        }
+    }
+
+    // == Construction ==
+    /*
+    pub fn value(self, slot_idx: usize, mode: Mode) -> Node {
+        NodeFactory::node(unsafe {
+            bindings::get_r_value(self.irg, slot_idx as i32, mode.libfirm_mode())
+        })
+    }
+
+    pub fn set_value(self, slot_idx: usize, val: Node) {
+        unsafe { bindings::set_r_value(self.irg, slot_idx as i32, val.internal_ir_node()) }
+    }
+
+    pub fn cur_store(self) -> Node {
+        NodeFactory::node(unsafe { bindings::get_r_store(self.irg) })
+    }
+
+    pub fn set_store(self, s: Node) {
+        unsafe { bindings::set_r_store(self.irg, s.into()) }
+    }
+
+    pub fn cur_block(self) -> Block {
+        Block::new(unsafe { bindings::get_r_cur_block(self.irg) }.into())
+    }
+
+    pub fn set_cur_block(self, block: Block) {
+        unsafe { bindings::set_r_cur_block(self.irg, block.into()) }
+    }
+    */
+
+    pub fn new_imm_block(self, preds: &[Node]) -> Block {
+        let block = Block::new(unsafe { bindings::new_r_immBlock(self.irg) });
+        for pred in preds {
+            block.imm_add_pred(*pred);
+        }
+        block
+    }
+
+    pub fn slots(self) -> i32 {
+        unsafe { bindings::get_irg_n_locs(self.irg) }
+    }
+
+    pub fn finalize_construction(self) {
+        unsafe {
+            bindings::irg_finalize_cons(self.irg);
         }
     }
 }

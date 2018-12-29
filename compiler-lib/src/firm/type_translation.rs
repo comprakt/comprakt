@@ -1,7 +1,7 @@
 use crate::type_checking::type_system::CheckedType;
 use libfirm_rs::{
-    bindings,
     types::{PrimitiveTy, Ty, TyTrait},
+    Mode,
 };
 
 /// `None` indicates that the given type is not convertible, which
@@ -23,17 +23,15 @@ pub fn ty_from_checked_type(ct: &CheckedType<'_>) -> Option<Ty> {
     Some(ty)
 }
 
-pub fn get_firm_mode(ty: &CheckedType<'_>) -> Option<bindings::mode::Type> {
+pub fn get_firm_mode(ty: &CheckedType<'_>) -> Option<Mode> {
     match ty {
-        CheckedType::Int => Some(unsafe { bindings::mode::Is }),
-        CheckedType::Boolean => Some(unsafe { bindings::mode::Bu }),
-        CheckedType::TypeRef(_) | CheckedType::Array(_) | CheckedType::Null => {
-            Some(unsafe { bindings::mode::P })
-        }
+        CheckedType::Int => Some(Mode::Is()),
+        CheckedType::Boolean => Some(Mode::Bu()),
+        CheckedType::TypeRef(_) | CheckedType::Array(_) | CheckedType::Null => Some(Mode::P()),
         CheckedType::Void | CheckedType::UnknownType(_) => None,
     }
 }
 
 pub fn size_of(ty: &CheckedType<'_>) -> Option<u32> {
-    get_firm_mode(ty).map(|mode| unsafe { bindings::get_mode_size_bytes(mode) })
+    get_firm_mode(ty).map(|mode| mode.size_bytes())
 }

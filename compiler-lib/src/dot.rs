@@ -1,7 +1,7 @@
 //! Converts FIRM or LIR graphs into dot graph description language for easy
 //! debugging.
-use crate::firm::Program;
-use libfirm_rs::{entity::Entity, graph::Graph, nodes::NodeTrait, nodes_gen::Node};
+use crate::firm::FirmProgram;
+use libfirm_rs::{graph::Graph, nodes::NodeTrait, nodes_gen::Node};
 use serde_derive::Serialize;
 use std::{
     collections::hash_map::HashMap,
@@ -31,7 +31,7 @@ pub trait GraphData {
         T: LabelMaker;
 }
 
-impl<'a, 'b> GraphData for Program<'a, 'b> {
+impl<'a, 'b> GraphData for FirmProgram<'a, 'b> {
     fn graph_data<T>(&self, label_maker: &T) -> HashMap<String, GraphState>
     where
         Self: Sized,
@@ -39,20 +39,18 @@ impl<'a, 'b> GraphData for Program<'a, 'b> {
     {
         let mut dot_files = HashMap::new();
 
-        for (class_name, class) in &self.classes {
-            for (method_name, method) in &class.borrow().methods {
-                if let Some(graph) = method.borrow().graph {
-                    let graph: Graph = graph.into();
-                    let internal_name = Entity::new(method.borrow().entity.into()).name_string();
-                    dot_files.insert(
-                        internal_name.clone(),
-                        GraphState {
-                            class_name: class_name.to_string(),
-                            method_name: method_name.to_string(),
-                            dot_file: graph.into_dot_format_string(&internal_name, label_maker),
-                        },
-                    );
-                }
+        for method in self.methods.values() {
+            let class = method.borrow().owning_class.upgrade().unwrap();
+            if let Some(graph) = method.borrow().graph {
+                let internal_name = method.borrow().entity.name_string();
+                dot_files.insert(
+                    internal_name.clone(),
+                    GraphState {
+                        class_name: class.borrow().def.name.to_string(),
+                        method_name: method.borrow().def.name.to_string(),
+                        dot_file: graph.into_dot_format_string(&internal_name, label_maker),
+                    },
+                );
             }
         }
 
