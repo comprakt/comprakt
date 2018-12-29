@@ -122,7 +122,7 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
         let field_entity = Entity::new_entity(
             class_type.into(),
             &format!("{}.F.{}", class.borrow().def.name, field.name),
-            field_type.into(),
+            field_type,
         );
 
         self.fields.insert(

@@ -65,13 +65,13 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     }
 
     pub fn gen_method(&mut self, body: &'ast ast::Block<'src>) {
-        let act_blck = self.graph.start_block();
-        self.set_graph_arg_vals(act_blck);
+        let act_block = self.graph.start_block();
+        self.set_graph_arg_vals(act_block);
 
-        let act_blck = self.gen_block(act_blck, body);
+        let act_block = self.gen_block(act_block, body);
 
-        if let ActiveBlock::Some(act_blck) = act_blck {
-            let ret = act_blck.new_return(act_blck.cur_store(), &[]);
+        if let ActiveBlock::Some(act_block) = act_block {
+            let ret = act_block.new_return(act_block.cur_store(), &[]);
             self.graph.end_block().imm_add_pred(ret);
         }
 
@@ -101,34 +101,34 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         }
     }
 
-    fn gen_block(&mut self, act_blck: Block, block: &'ast ast::Block<'src>) -> ActiveBlock {
+    fn gen_block(&mut self, act_block: Block, block: &'ast ast::Block<'src>) -> ActiveBlock {
         block.statements.iter().fold(
-            ActiveBlock::Some(act_blck),
-            |act_blck, stmt| match act_blck {
-                ActiveBlock::Some(act_blck) => self.gen_stmt(act_blck, &stmt),
+            ActiveBlock::Some(act_block),
+            |act_block, stmt| match act_block {
+                ActiveBlock::Some(act_block) => self.gen_stmt(act_block, &stmt),
                 ActiveBlock::None => ActiveBlock::None,
             },
         )
     }
 
-    fn gen_stmt(&mut self, act_blck: Block, stmt: &'ast ast::Stmt<'src>) -> ActiveBlock {
+    fn gen_stmt(&mut self, act_block: Block, stmt: &'ast ast::Stmt<'src>) -> ActiveBlock {
         use self::ast::Stmt::*;
         match &stmt {
-            Block(block) => self.gen_block(act_blck, block),
-            Expression(expr) => self.gen_expr(act_blck, expr).active_block(),
-            If(cond, then_arm, else_arm) => self.gen_if(act_blck, cond, then_arm, else_arm),
-            While(cond, body) => self.gen_while(act_blck, cond, body),
-            Return(res_expr) => self.gen_return(act_blck, res_expr),
+            Block(block) => self.gen_block(act_block, block),
+            Expression(expr) => self.gen_expr(act_block, expr).active_block(),
+            If(cond, then_arm, else_arm) => self.gen_if(act_block, cond, then_arm, else_arm),
+            While(cond, body) => self.gen_while(act_block, cond, body),
+            Return(res_expr) => self.gen_return(act_block, res_expr),
             LocalVariableDeclaration(_ty, _name, init_expr) => {
-                self.gen_var_decl(act_blck, stmt, init_expr)
+                self.gen_var_decl(act_block, stmt, init_expr)
             }
-            Empty => ActiveBlock::Some(act_blck),
+            Empty => ActiveBlock::Some(act_block),
         }
     }
 
     fn gen_var_decl(
         &mut self,
-        act_blck: Block,
+        act_block: Block,
         stmt: &'ast ast::Stmt<'src>,
         init_expr: &'ast Option<Box<Spanned<'src, ast::Expr<'src>>>>,
     ) -> ActiveBlock {
@@ -141,29 +141,30 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
         let var_slot = self.new_local_var(local_var_def.name, mode);
 
-        let (act_blck, initial_val) = if let Some(init_expr) = init_expr {
-            self.gen_expr(act_blck, init_expr).enforce_value(self.graph)
+        let (act_block, initial_val) = if let Some(init_expr) = init_expr {
+            self.gen_expr(act_block, init_expr)
+                .enforce_value(self.graph)
         } else {
-            (act_blck, self.graph.new_const(Tarval::zero(mode)).into())
+            (act_block, self.graph.new_const(Tarval::zero(mode)).into())
         };
 
-        act_blck.set_value(var_slot, initial_val);
+        act_block.set_value(var_slot, initial_val);
 
-        ActiveBlock::Some(act_blck)
+        ActiveBlock::Some(act_block)
     }
 
     fn gen_while(
         &mut self,
-        act_blck: Block,
+        act_block: Block,
         cond: &'ast ast::Expr<'src>,
         body: &'ast ast::Stmt<'src>,
     ) -> ActiveBlock {
         // We evaluate the condition
-        let header_block = self.graph.new_imm_block(&[act_blck.new_jmp().into()]);
+        let header_block = self.graph.new_imm_block(&[act_block.new_jmp().into()]);
         let CondProjection { tr, fls } = self.gen_expr(header_block, cond).enforce_cond(self.graph);
 
         // Run body if cond is true
-        let body_block = self.graph.new_block(&[tr.into()]);
+        let body_block = self.graph.new_block(&[tr]);
         if let ActiveBlock::Some(body_block) = self.gen_stmt(body_block, &*body) {
             // We jump back to the condition-check
             header_block.imm_add_pred(body_block.new_jmp());
@@ -172,20 +173,20 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         header_block.keep_alive(); // to keep endless loops
 
         // Leave loop if cond is false
-        let after_loop_block = self.graph.new_block(&[fls.into()]);
+        let after_loop_block = self.graph.new_block(&[fls]);
 
         ActiveBlock::Some(after_loop_block)
     }
 
     fn gen_if(
         &mut self,
-        act_blck: Block,
+        act_block: Block,
         cond: &'ast ast::Expr<'src>,
         then_arm: &'ast ast::Stmt<'src>,
         else_arm: &'ast Option<Box<Spanned<'src, ast::Stmt<'src>>>>,
     ) -> ActiveBlock {
         // We evaluate the condition
-        let CondProjection { tr, fls } = self.gen_expr(act_blck, cond).enforce_cond(self.graph);
+        let CondProjection { tr, fls } = self.gen_expr(act_block, cond).enforce_cond(self.graph);
 
         // If its true, we take the then_arm
         let then_block = self.gen_stmt(self.graph.new_block(&[tr]), &*then_arm);
@@ -214,21 +215,21 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_return(
         &mut self,
-        act_blck: Block,
+        act_block: Block,
         res_expr: &'ast Option<Box<Spanned<'src, ast::Expr<'src>>>>,
     ) -> ActiveBlock {
         let mut res = vec![];
-        let act_blck = if let Some(res_expr) = res_expr {
-            let (act_blck, val) = self
-                .gen_expr(act_blck, &*res_expr)
+        let act_block = if let Some(res_expr) = res_expr {
+            let (act_block, val) = self
+                .gen_expr(act_block, &*res_expr)
                 .enforce_value(self.graph);
             res.push(val);
-            act_blck
+            act_block
         } else {
-            act_blck
+            act_block
         };
 
-        let ret = act_blck.new_return(act_blck.cur_store(), &res);
+        let ret = act_block.new_return(act_block.cur_store(), &res);
         self.graph.end_block().imm_add_pred(ret);
 
         ActiveBlock::None
@@ -236,60 +237,60 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_static_fn_call(
         &mut self,
-        act_blck: Block,
+        act_block: Block,
         func: Entity,
         return_type: Option<Mode>,
         args: &[Node],
     ) -> ExprResult {
-        let call = act_blck.new_call(
-            act_blck.cur_store(),
+        let call = act_block.new_call(
+            act_block.cur_store(),
             self.graph.new_address(func),
             &args,
             func.ty(),
         );
 
-        act_blck.set_store(call.new_proj_m());
+        act_block.set_store(call.new_proj_m());
 
         use self::ExprResult::*;
         match return_type {
-            Some(mode) => Value(act_blck, call.new_proj_t_result().new_proj(0, mode).into()),
-            None => Void(act_blck),
+            Some(mode) => Value(act_block, call.new_proj_t_result().new_proj(0, mode).into()),
+            None => Void(act_block),
         }
     }
 
-    fn gen_expr_list<I>(&mut self, act_blck: Block, exprs: I) -> (Block, Vec<Node>)
+    fn gen_expr_list<I>(&mut self, act_block: Block, exprs: I) -> (Block, Vec<Node>)
     where
         I: Iterator<Item = &'ast ast::Expr<'src>>,
     {
         let mut result = vec![];
-        let act_blck = exprs.fold(act_blck, |act_blck, arg| {
-            let (act_blck, arg) = self.gen_expr(act_blck, arg).enforce_value(self.graph);
+        let act_block = exprs.fold(act_block, |act_block, arg| {
+            let (act_block, arg) = self.gen_expr(act_block, arg).enforce_value(self.graph);
             result.push(arg);
-            act_blck
+            act_block
         });
-        (act_blck, result)
+        (act_block, result)
     }
 
-    fn gen_expr(&mut self, act_blck: Block, expr: &'ast ast::Expr<'src>) -> ExprResult {
+    fn gen_expr(&mut self, act_block: Block, expr: &'ast ast::Expr<'src>) -> ExprResult {
         use self::{ast::Expr::*, ExprResult::*};
         match &expr {
             Int(literal) => {
                 let val = literal.parse().expect("Integer literal has to be valid");
-                Value(act_blck, self.graph.new_const(Tarval::mj_int(val)).into())
+                Value(act_block, self.graph.new_const(Tarval::mj_int(val)).into())
             }
             NegInt(literal) => {
                 let val = literal
                     .parse::<i32>()
                     .map_or_else(|_| -2_147_483_648, |v| -v);
                 Value(
-                    act_blck,
+                    act_block,
                     self.graph.new_const(Tarval::mj_int(i64::from(val))).into(),
                 )
             }
-            Boolean(value) => Value(act_blck, gen_const_bool(*value, self.graph)),
-            This => Value(act_blck, self.this(act_blck)),
+            Boolean(value) => Value(act_block, gen_const_bool(*value, self.graph)),
+            This => Value(act_block, self.this(act_block)),
             Null => Value(
-                act_blck,
+                act_block,
                 self.graph.new_const(Tarval::zero(Mode::P())).into(),
             ),
             Var(name) => {
@@ -305,7 +306,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                         log::debug!("gen assignable for var or param {}", **name);
                         let (slot, mode) = self.local_var(**name);
                         Assignable(
-                            act_blck,
+                            act_block,
                             LValue::Var {
                                 slot_idx: slot,
                                 mode,
@@ -315,8 +316,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     Field(field_def) => {
                         log::debug!("gen assignable for field {}", **name);
                         Assignable(
-                            act_blck,
-                            self.gen_field(self.this(act_blck), Rc::clone(field_def)),
+                            act_block,
+                            self.gen_field(self.this(act_block), Rc::clone(field_def)),
                         )
                     }
                     GlobalVar(..) | This(..) | ArrayAccess | Method(..) => {
@@ -329,75 +330,71 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     Some(RefInfo::Field(field_def)) => Rc::clone(field_def),
                     other => unreachable!("Got unexpected: {:?}", other),
                 };
-                let (act_blck, object_ptr) =
-                    self.gen_expr(act_blck, object).enforce_value(self.graph);
-                Assignable(act_blck, self.gen_field(object_ptr, field_def))
+                let (act_block, object_ptr) =
+                    self.gen_expr(act_block, object).enforce_value(self.graph);
+                Assignable(act_block, self.gen_field(object_ptr, field_def))
             }
-            Binary(op, lhs, rhs) => self.gen_binary_expr(act_blck, *op, lhs, rhs),
+            Binary(op, lhs, rhs) => self.gen_binary_expr(act_block, *op, lhs, rhs),
             Unary(ast::UnaryOp::Neg, expr) => {
-                let (act_blck, expr) = self.gen_expr(act_blck, expr).enforce_value(self.graph);
-                log::debug!("pre new_neg");
-                Value(act_blck, act_blck.new_minus(expr).into())
+                let (act_block, expr) = self.gen_expr(act_block, expr).enforce_value(self.graph);
+                Value(act_block, act_block.new_minus(expr).into())
             }
             Unary(ast::UnaryOp::Not, expr) => {
-                log::debug!("unary op");
-                let expr = self.gen_expr(act_blck, expr);
+                let expr = self.gen_expr(act_block, expr);
                 use self::ExprResult::*;
+
+                let gen_val = |(act_block, val): (Block, Node)| {
+                    // booleans are mode::Bu, hence XOR does the job.
+                    // could also use mode::Bi and -1 for true:
+                    // => could use Neg / Not, but would rely on 2's complement
+                    assert_eq!(val.mode(), Mode::Bu());
+
+                    Value(
+                        act_block,
+                        act_block
+                            .new_eor(val, gen_const_bool(true, self.graph))
+                            .into(),
+                    )
+                };
+
                 match expr {
                     Void(_) => panic!("type system should not allow !void"),
-                    Assignable(act_blck, _) | Value(act_blck, _) => {
-                        let (act_blck, val) = match expr {
-                            Assignable(act_blck, lvalue) => lvalue.gen_eval(act_blck),
-                            Value(act_blk, n) => (act_blk, n),
-                            Void(_) | Cond(..) => unreachable!(),
-                        };
-
-                        // booleansare mode::Bu, hence XOR does the job.
-                        // could also use mode::Bi and -1 for true:
-                        // => could use Neg / Not, but would rely on 2's complement
-                        // TODO assert_eq!(get_irn_mode(n), Mode::Bu().libfirm_mode());
-                        Value(
-                            act_blck,
-                            act_blck
-                                .new_eor(val, gen_const_bool(true, self.graph))
-                                .into(),
-                        )
-                    }
+                    Assignable(act_block, lvalue) => gen_val(lvalue.gen_eval(act_block)),
+                    Value(act_block, val) => gen_val((act_block, val)),
                     Cond(proj) => Cond(proj.flip()),
                 }
             }
-            MethodInvocation(_, _method, argument_list)
-            | ThisMethodInvocation(_method, argument_list) => {
+            MethodInvocation(_, _method, arguments) | ThisMethodInvocation(_method, arguments) => {
                 let class_method_def = match &self.type_analysis.expr_info(expr).ref_info {
                     Some(RefInfo::Method(class_method_def)) => Rc::clone(class_method_def),
                     _ => panic!("type analysis inconsistent"),
                 };
 
                 if let ClassMethodBody::Builtin(builtin) = &class_method_def.body {
-                    let (act_blck, args) =
-                        self.gen_expr_list(act_blck, argument_list.data.iter().map(|a| &a.data));
+                    let (act_block, args) =
+                        self.gen_expr_list(act_block, arguments.data.iter().map(|a| &a.data));
                     // ENHANCEMENT: @hediet: dedup builtin type definitions
                     return match builtin {
                         BuiltinMethodBody::SystemOutPrintln => self.gen_static_fn_call(
-                            act_blck,
+                            act_block,
                             self.runtime.system_out_println,
                             None,
                             &args,
                         ),
                         BuiltinMethodBody::SystemOutWrite => self.gen_static_fn_call(
-                            act_blck,
+                            act_block,
                             self.runtime.system_out_write,
                             None,
                             &args,
                         ),
                         BuiltinMethodBody::SystemOutFlush => self.gen_static_fn_call(
-                            act_blck,
+                            act_block,
                             self.runtime.system_out_flush,
                             None,
                             &args,
                         ),
                         BuiltinMethodBody::SystemInRead => self.gen_static_fn_call(
-                            act_blck,
+                            act_block,
                             self.runtime.system_in_read,
                             get_firm_mode(&CheckedType::Int),
                             &args,
@@ -406,22 +403,22 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 } else {
                     let method = self.program.method(class_method_def).unwrap();
 
-                    let (act_blck, target_obj) = match expr {
+                    let (act_block, target_obj) = match expr {
                         MethodInvocation(target_obj, ..) => self
-                            .gen_expr(act_blck, target_obj)
+                            .gen_expr(act_block, target_obj)
                             .enforce_value(self.graph),
-                        ThisMethodInvocation(..) => (act_blck, self.this(act_blck)),
+                        ThisMethodInvocation(..) => (act_block, self.this(act_block)),
                         _ => unreachable!(),
                     };
-                    let (act_blck, mut args) =
-                        self.gen_expr_list(act_blck, argument_list.data.iter().map(|a| &a.data));
+                    let (act_block, mut args) =
+                        self.gen_expr_list(act_block, arguments.data.iter().map(|a| &a.data));
                     args.insert(0, target_obj);
                     // IMPROVEMENT: get rid of insert
 
                     let return_type = get_firm_mode(&method.borrow().def.return_ty);
 
                     let entity = method.borrow().entity;
-                    self.gen_static_fn_call(act_blck, entity, return_type, &args)
+                    self.gen_static_fn_call(act_block, entity, return_type, &args)
                 }
             }
             ArrayAccess(target_expr, idx_expr) => {
@@ -435,16 +432,16 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 .expect("must be pointer type")
                 .points_to();
 
-                let (act_blck, target_expr) = self
-                    .gen_expr(act_blck, target_expr)
+                let (act_block, target_expr) = self
+                    .gen_expr(act_block, target_expr)
                     .enforce_value(self.graph);
-                let (act_blck, idx_expr) =
-                    self.gen_expr(act_blck, idx_expr).enforce_value(self.graph);
+                let (act_block, idx_expr) =
+                    self.gen_expr(act_block, idx_expr).enforce_value(self.graph);
 
                 Assignable(
-                    act_blck,
+                    act_block,
                     LValue::Array {
-                        sel: act_blck.new_sel(target_expr, idx_expr, firm_array_type),
+                        sel: act_block.new_sel(target_expr, idx_expr, firm_array_type),
                         elt_type,
                     },
                 )
@@ -462,17 +459,17 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let class = self.program.class(class_def).unwrap();
                 let size = i64::from(class.borrow().entity.ty().size());
 
-                let call = act_blck.new_call(
-                    act_blck.cur_store(),
+                let call = act_block.new_call(
+                    act_block.cur_store(),
                     self.graph.new_address(self.runtime.new),
                     &[self.graph.new_const(Tarval::mj_int(size)).into()],
                     self.runtime.new.ty(),
                 );
 
-                act_blck.set_store(call.new_proj_m());
+                act_block.set_store(call.new_proj_m());
 
                 Value(
-                    act_blck,
+                    act_block,
                     call.new_proj_t_result().new_proj(0, Mode::P()).into(),
                 )
             }
@@ -484,8 +481,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .inner_type()
                     .expect("type of array must have inner type");
 
-                let (act_blck, num_elts) =
-                    self.gen_expr(act_blck, num_expr).enforce_value(self.graph);
+                let (act_block, num_elts) =
+                    self.gen_expr(act_block, num_expr).enforce_value(self.graph);
 
                 let elt_size = self.graph.new_const(Tarval::mj_int(
                     size_of(new_array_type)
@@ -493,18 +490,18 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                         .expect("cannot allocate array of unsized type"),
                 ));
 
-                let alloc_size = act_blck.new_mul(num_elts, elt_size);
+                let alloc_size = act_block.new_mul(num_elts, elt_size);
 
-                let call = act_blck.new_call(
-                    act_blck.cur_store(),
+                let call = act_block.new_call(
+                    act_block.cur_store(),
                     self.graph.new_address(self.runtime.new),
                     &[alloc_size.into()],
                     self.runtime.new.ty(),
                 );
-                act_blck.set_store(call.new_proj_m());
+                act_block.set_store(call.new_proj_m());
 
                 Value(
-                    act_blck,
+                    act_block,
                     call.new_proj_t_result().new_proj(0, Mode::P()).into(),
                 )
             }
@@ -537,7 +534,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_binary_expr(
         &mut self,
-        act_blck: Block,
+        act_block: Block,
         op: BinaryOp,
         lhs: &'ast ast::Expr<'src>,
         rhs: &'ast ast::Expr<'src>,
@@ -547,49 +544,49 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         match op {
             op if Self::relation(op).is_some() => {
                 let relation = Self::relation(op).unwrap();
-                let (act_blck, lhs) = self.gen_expr(act_blck, lhs).enforce_value(self.graph);
-                let (act_blck, rhs) = self.gen_expr(act_blck, rhs).enforce_value(self.graph);
-                let cond = act_blck.new_cond(act_blck.new_cmp(lhs, rhs, relation));
+                let (act_block, lhs) = self.gen_expr(act_block, lhs).enforce_value(self.graph);
+                let (act_block, rhs) = self.gen_expr(act_block, rhs).enforce_value(self.graph);
+                let cond = act_block.new_cond(act_block.new_cmp(lhs, rhs, relation));
                 Cond(CondProjection::new(cond))
             }
             BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul => {
-                let (act_blck, lhs) = self.gen_expr(act_blck, lhs).enforce_value(self.graph);
-                let (act_blck, rhs) = self.gen_expr(act_blck, rhs).enforce_value(self.graph);
+                let (act_block, lhs) = self.gen_expr(act_block, lhs).enforce_value(self.graph);
+                let (act_block, rhs) = self.gen_expr(act_block, rhs).enforce_value(self.graph);
                 let node: Node = match op {
-                    BinaryOp::Add => act_blck.new_add(lhs, rhs).into(),
-                    BinaryOp::Sub => act_blck.new_sub(lhs, rhs).into(),
-                    BinaryOp::Mul => act_blck.new_mul(lhs, rhs).into(),
+                    BinaryOp::Add => act_block.new_add(lhs, rhs).into(),
+                    BinaryOp::Sub => act_block.new_sub(lhs, rhs).into(),
+                    BinaryOp::Mul => act_block.new_mul(lhs, rhs).into(),
                     _ => unreachable!(),
                 };
-                Value(act_blck, node)
+                Value(act_block, node)
             }
             BinaryOp::Div | BinaryOp::Mod => {
-                let (act_blck, lhs) = self.gen_expr(act_blck, lhs).enforce_value(self.graph);
-                let (act_blck, rhs) = self.gen_expr(act_blck, rhs).enforce_value(self.graph);
-                let mem = act_blck.cur_store();
+                let (act_block, lhs) = self.gen_expr(act_block, lhs).enforce_value(self.graph);
+                let (act_block, rhs) = self.gen_expr(act_block, rhs).enforce_value(self.graph);
+                let mem = act_block.cur_store();
 
-                let lhs = act_blck.new_conv(lhs, Mode::Ls());
-                let rhs = act_blck.new_conv(rhs, Mode::Ls());
+                let lhs = act_block.new_conv(lhs, Mode::Ls());
+                let rhs = act_block.new_conv(rhs, Mode::Ls());
 
                 let (res, mem) = match op {
                     BinaryOp::Div => {
                         log::debug!("Mode lhs: {:?}, rhs: {:?}", lhs.mode(), rhs.mode());
-                        let node = act_blck.new_div(mem, lhs, rhs, pinned);
+                        let node = act_block.new_div(mem, lhs, rhs, pinned);
                         (node.new_proj_res(Mode::Ls()), node.new_proj_m())
                     }
                     BinaryOp::Mod => {
-                        let node = act_blck.new_mod(mem, lhs, rhs, pinned);
+                        let node = act_block.new_mod(mem, lhs, rhs, pinned);
                         (node.new_proj_res(Mode::Ls()), node.new_proj_m())
                     }
                     _ => unreachable!(),
                 };
 
-                let res = act_blck.new_conv(res, Mode::Is());
-                act_blck.set_store(mem);
-                Value(act_blck, res.into())
+                let res = act_block.new_conv(res, Mode::Is());
+                act_block.set_store(mem);
+                Value(act_block, res.into())
             }
             BinaryOp::LogicalOr => {
-                let lhs = self.gen_expr(act_blck, lhs).enforce_cond(self.graph);
+                let lhs = self.gen_expr(act_block, lhs).enforce_cond(self.graph);
                 let false_block = self.graph.new_block(&[lhs.fls]);
                 let rhs = self.gen_expr(false_block, rhs).enforce_cond(self.graph);
                 // IMPROVEMENT: this block is unneccessary if we could return multiple tr nodes
@@ -600,7 +597,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 })
             }
             BinaryOp::LogicalAnd => {
-                let lhs = self.gen_expr(act_blck, lhs).enforce_cond(self.graph);
+                let lhs = self.gen_expr(act_block, lhs).enforce_cond(self.graph);
                 let lhs_true_block = self.graph.new_block(&[lhs.tr]);
                 let rhs = self.gen_expr(lhs_true_block, rhs).enforce_cond(self.graph);
                 // IMPROVEMENT: this block is unneccessary if we could return multiple fls nodes
@@ -611,9 +608,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 })
             }
             BinaryOp::Assign => {
-                let (act_blck, lvalue) = self.gen_expr(act_blck, lhs).expect_lvalue();
-                let (act_blck, value) = self.gen_expr(act_blck, rhs).enforce_value(self.graph);
-                ExprResult::value_tuple(lvalue.gen_assign(act_blck, value))
+                let (act_block, lvalue) = self.gen_expr(act_block, lhs).expect_lvalue();
+                let (act_block, value) = self.gen_expr(act_block, rhs).enforce_value(self.graph);
+                ExprResult::value_tuple(lvalue.gen_assign(act_block, value))
             }
             _ => unreachable!(),
         }
@@ -635,8 +632,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         }
     }
 
-    fn this(&self, act_blck: Block) -> Node {
-        act_blck.value(0, Mode::P())
+    fn this(&self, act_block: Block) -> Node {
+        act_block.value(0, Mode::P())
     }
 }
 
@@ -704,8 +701,8 @@ impl ExprResult {
         use self::ExprResult::*;
         match self {
             Void(..) => panic!("Tried to branch on result of void expr"),
-            Value(act_blck, node) => {
-                let cond = act_blck.new_cond(act_blck.new_cmp(
+            Value(act_block, node) => {
+                let cond = act_block.new_cond(act_block.new_cmp(
                     node,
                     gen_const_bool(true, graph),
                     bindings::ir_relation::Equal,
@@ -713,8 +710,8 @@ impl ExprResult {
 
                 CondProjection::new(cond)
             }
-            Assignable(act_blck, lval) => {
-                Self::value_tuple(lval.gen_eval(act_blck)).enforce_cond(graph)
+            Assignable(act_block, lval) => {
+                Self::value_tuple(lval.gen_eval(act_block)).enforce_cond(graph)
             }
             Cond(cp) => cp,
         }
@@ -726,15 +723,15 @@ impl ExprResult {
         use self::ExprResult::*;
         match self {
             Void(_) => panic!("Tried to get result value of void expr"),
-            Value(act_blck, val) => (act_blck, val),
-            Assignable(act_blck, lval) => lval.gen_eval(act_blck),
+            Value(act_block, val) => (act_block, val),
+            Assignable(act_block, lval) => lval.gen_eval(act_block),
             Cond(cp) => {
                 let CondProjection { tr, fls } = cp;
 
                 let false_ = gen_const_bool(false, graph);
                 let true_ = gen_const_bool(true, graph);
 
-                let phi_block = graph.new_block(&[fls.into(), tr.into()]);
+                let phi_block = graph.new_block(&[fls, tr]);
                 let phi = phi_block.new_phi(&[false_, true_], false_.mode());
 
                 (phi_block, phi.into())
@@ -746,7 +743,7 @@ impl ExprResult {
     fn expect_lvalue(self) -> (Block, LValue) {
         use self::ExprResult::*;
         match self {
-            Assignable(act_blck, lvalue) => (act_blck, lvalue),
+            Assignable(act_block, lvalue) => (act_block, lvalue),
             _ => panic!("cannot assign to {:?}", ExprResultDiscriminants::from(self)),
         }
     }
@@ -779,75 +776,75 @@ enum LValue {
 
 impl LValue {
     /// Evaluate the lvalue just as if it were handled as a normal expression
-    fn gen_eval(self, act_blck: Block) -> (Block, Node) {
+    fn gen_eval(self, act_block: Block) -> (Block, Node) {
         use self::LValue::*;
 
         match self {
-            Var { slot_idx, mode } => (act_blck, act_blck.value(slot_idx, mode)),
+            Var { slot_idx, mode } => (act_block, act_block.value(slot_idx, mode)),
             Array { sel, elt_type } => {
-                let load = act_blck.new_load(
-                    act_blck.cur_store(),
+                let load = act_block.new_load(
+                    act_block.cur_store(),
                     sel,
                     elt_type.mode(),
                     elt_type,
                     bindings::ir_cons_flags::None,
                 );
-                act_blck.set_store(load.new_proj_m());
-                (act_blck, load.new_proj_res(elt_type.mode()).into())
+                act_block.set_store(load.new_proj_m());
+                (act_block, load.new_proj_res(elt_type.mode()).into())
             }
             Field {
                 object,
                 field_mode,
                 field_entity,
             } => {
-                let member = act_blck.new_member(object, field_entity);
-                let load = act_blck.new_load(
-                    act_blck.cur_store(),
+                let member = act_block.new_member(object, field_entity);
+                let load = act_block.new_load(
+                    act_block.cur_store(),
                     member,
                     field_mode,
                     field_entity.ty(),
                     bindings::ir_cons_flags::None,
                 );
-                act_blck.set_store(load.new_proj_m());
-                (act_blck, load.new_proj_res(field_mode).into())
+                act_block.set_store(load.new_proj_m());
+                (act_block, load.new_proj_res(field_mode).into())
             }
         }
     }
 
     /// Store the given value at the location described by this lvalue
-    fn gen_assign(self, act_blck: Block, value: Node) -> (Block, Node) {
+    fn gen_assign(self, act_block: Block, value: Node) -> (Block, Node) {
         use self::LValue::*;
         match self {
             Var { slot_idx, mode: _ } => {
-                act_blck.set_value(slot_idx, value);
-                (act_blck, value)
+                act_block.set_value(slot_idx, value);
+                (act_block, value)
             }
             Array { sel, elt_type } => {
-                let store = act_blck.new_store(
-                    act_blck.cur_store(),
+                let store = act_block.new_store(
+                    act_block.cur_store(),
                     sel,
                     value,
                     elt_type,
                     bindings::ir_cons_flags::None,
                 );
-                act_blck.set_store(store.new_proj_m());
-                (act_blck, value)
+                act_block.set_store(store.new_proj_m());
+                (act_block, value)
             }
             Field {
                 object,
                 field_entity,
                 ..
             } => {
-                let member = act_blck.new_member(object, field_entity);
-                let store = act_blck.new_store(
-                    act_blck.cur_store(),
+                let member = act_block.new_member(object, field_entity);
+                let store = act_block.new_store(
+                    act_block.cur_store(),
                     member,
                     value,
                     field_entity.ty(),
                     bindings::ir_cons_flags::None,
                 );
-                act_blck.set_store(store.new_proj_m());
-                (act_blck, value)
+                act_block.set_store(store.new_proj_m());
+                (act_block, value)
             }
         }
     }

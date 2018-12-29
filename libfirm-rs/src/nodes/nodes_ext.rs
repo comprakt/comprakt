@@ -180,7 +180,7 @@ impl Block {
         unsafe { bindings::set_b_store(self.internal_ir_node(), s.internal_ir_node()) }
     }
 
-    pub fn imm_add_pred(&self, pred: impl NodeTrait) {
+    pub fn imm_add_pred(self, pred: impl NodeTrait) {
         unsafe {
             bindings::add_immBlock_pred(self.internal_ir_node(), pred.internal_ir_node());
         }
