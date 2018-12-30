@@ -95,7 +95,7 @@ impl Dot for Graph {
             let label = label_maker.label_for_node(*node);
             label.write_dot_format(writer);
 
-            if !node.is_block() {
+            if !Node::is_block(*node) {
                 writeln!(
                     writer,
                     "{:?} -> {:?} [color=blue];",

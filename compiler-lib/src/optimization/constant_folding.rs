@@ -148,7 +148,7 @@ impl ConstantFolding {
 
     fn update_node(&mut self, cur_node: Node, cur_lattice: CfLattice) -> CfLattice {
         let mut reachable = cur_lattice.reachable
-            || if cur_node.is_block() {
+            || if Node::is_block(cur_node) {
                 cur_node.in_nodes().any(|pred| self.lookup(pred).reachable)
                     || cur_node == self.start_block
             } else {
@@ -232,7 +232,7 @@ impl ConstantFolding {
                 collector.push(Outcome::Unchanged);
                 continue;
             }
-            if node.is_const() {
+            if Node::is_const(*node) {
                 collector.push(Outcome::Unchanged);
                 continue;
             }
@@ -247,7 +247,7 @@ impl ConstantFolding {
 
                 let (dead_path, nontarget_block) = cond.out_proj_target_block(!val).unwrap();
 
-                if nontarget_block.num_cfgpreds() <= 1 {
+                if nontarget_block.cfg_preds().len() <= 1 {
                     // If the unused_proj is the sole predecessor of its successor,
                     // mark the successor, eliminate it.
                     // One would think this happens automatically, but it doesn't:

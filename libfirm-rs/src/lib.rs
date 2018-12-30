@@ -1,8 +1,11 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 #![warn(clippy::print_stdout)]
+#![feature(range_contains)]
 pub use libfirm_rs_bindings as bindings;
 #[macro_use]
 extern crate derive_more;
+
+// extern crate libfirm_rs_bindings;
 
 pub use libfirm_rs_bindings::mode;
 use libfirm_rs_bindings::*;

@@ -1,3 +1,4 @@
+use super::graph::Graph;
 use libfirm_rs_bindings as bindings;
 use std::ffi::CStr;
 
@@ -19,5 +20,16 @@ impl Entity {
 
     pub fn ld_name(self) -> &'static CStr {
         unsafe { CStr::from_ptr(bindings::get_entity_ld_name(self.0)) }
+    }
+
+    pub fn graph(self) -> Option<Graph> {
+        unsafe {
+            let irg = bindings::get_entity_irg(self.0);
+            if irg.is_null() {
+                None
+            } else {
+                Some(Graph { irg })
+            }
+        }
     }
 }

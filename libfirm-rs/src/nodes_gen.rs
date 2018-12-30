@@ -1,6 +1,11 @@
 // This file is generated! Do not edit by hand!
 // Follow the instructions in the README on how to update this file.
-use super::{graph::Graph, nodes::NodeTrait, tarval::Tarval};
+use super::{
+    entity::Entity,
+    graph::Graph,
+    nodes::{NodeDebug, NodeDebugOpts, NodeTrait},
+    tarval::Tarval,
+};
 use libfirm_rs_bindings as bindings;
 use std::{collections::HashMap, fmt};
 #[derive(Clone, Copy)]
@@ -61,64 +66,722 @@ pub enum Node {
     Unknown(Unknown),
 }
 
+#[allow(clippy::wrong_self_convention)]
+impl Node {
+    pub fn is_add(node: Node) -> bool {
+        match node {
+            Node::Add(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_add(node: Node) -> Option<Add> {
+        match node {
+            Node::Add(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_address(node: Node) -> bool {
+        match node {
+            Node::Address(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_address(node: Node) -> Option<Address> {
+        match node {
+            Node::Address(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_align(node: Node) -> bool {
+        match node {
+            Node::Align(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_align(node: Node) -> Option<Align> {
+        match node {
+            Node::Align(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_alloc(node: Node) -> bool {
+        match node {
+            Node::Alloc(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_alloc(node: Node) -> Option<Alloc> {
+        match node {
+            Node::Alloc(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_anchor(node: Node) -> bool {
+        match node {
+            Node::Anchor(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_anchor(node: Node) -> Option<Anchor> {
+        match node {
+            Node::Anchor(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_and(node: Node) -> bool {
+        match node {
+            Node::And(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_and(node: Node) -> Option<And> {
+        match node {
+            Node::And(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_bad(node: Node) -> bool {
+        match node {
+            Node::Bad(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_bad(node: Node) -> Option<Bad> {
+        match node {
+            Node::Bad(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_bitcast(node: Node) -> bool {
+        match node {
+            Node::Bitcast(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_bitcast(node: Node) -> Option<Bitcast> {
+        match node {
+            Node::Bitcast(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_block(node: Node) -> bool {
+        match node {
+            Node::Block(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_block(node: Node) -> Option<Block> {
+        match node {
+            Node::Block(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_builtin(node: Node) -> bool {
+        match node {
+            Node::Builtin(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_builtin(node: Node) -> Option<Builtin> {
+        match node {
+            Node::Builtin(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_call(node: Node) -> bool {
+        match node {
+            Node::Call(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_call(node: Node) -> Option<Call> {
+        match node {
+            Node::Call(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_cmp(node: Node) -> bool {
+        match node {
+            Node::Cmp(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_cmp(node: Node) -> Option<Cmp> {
+        match node {
+            Node::Cmp(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_cond(node: Node) -> bool {
+        match node {
+            Node::Cond(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_cond(node: Node) -> Option<Cond> {
+        match node {
+            Node::Cond(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_confirm(node: Node) -> bool {
+        match node {
+            Node::Confirm(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_confirm(node: Node) -> Option<Confirm> {
+        match node {
+            Node::Confirm(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_const(node: Node) -> bool {
+        match node {
+            Node::Const(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_const(node: Node) -> Option<Const> {
+        match node {
+            Node::Const(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_conv(node: Node) -> bool {
+        match node {
+            Node::Conv(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_conv(node: Node) -> Option<Conv> {
+        match node {
+            Node::Conv(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_copyb(node: Node) -> bool {
+        match node {
+            Node::CopyB(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_copyb(node: Node) -> Option<CopyB> {
+        match node {
+            Node::CopyB(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_deleted(node: Node) -> bool {
+        match node {
+            Node::Deleted(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_deleted(node: Node) -> Option<Deleted> {
+        match node {
+            Node::Deleted(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_div(node: Node) -> bool {
+        match node {
+            Node::Div(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_div(node: Node) -> Option<Div> {
+        match node {
+            Node::Div(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_dummy(node: Node) -> bool {
+        match node {
+            Node::Dummy(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_dummy(node: Node) -> Option<Dummy> {
+        match node {
+            Node::Dummy(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_end(node: Node) -> bool {
+        match node {
+            Node::End(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_end(node: Node) -> Option<End> {
+        match node {
+            Node::End(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_eor(node: Node) -> bool {
+        match node {
+            Node::Eor(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_eor(node: Node) -> Option<Eor> {
+        match node {
+            Node::Eor(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_free(node: Node) -> bool {
+        match node {
+            Node::Free(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_free(node: Node) -> Option<Free> {
+        match node {
+            Node::Free(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_ijmp(node: Node) -> bool {
+        match node {
+            Node::IJmp(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_ijmp(node: Node) -> Option<IJmp> {
+        match node {
+            Node::IJmp(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_id(node: Node) -> bool {
+        match node {
+            Node::Id(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_id(node: Node) -> Option<Id> {
+        match node {
+            Node::Id(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_jmp(node: Node) -> bool {
+        match node {
+            Node::Jmp(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_jmp(node: Node) -> Option<Jmp> {
+        match node {
+            Node::Jmp(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_load(node: Node) -> bool {
+        match node {
+            Node::Load(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_load(node: Node) -> Option<Load> {
+        match node {
+            Node::Load(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_member(node: Node) -> bool {
+        match node {
+            Node::Member(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_member(node: Node) -> Option<Member> {
+        match node {
+            Node::Member(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_minus(node: Node) -> bool {
+        match node {
+            Node::Minus(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_minus(node: Node) -> Option<Minus> {
+        match node {
+            Node::Minus(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_mod(node: Node) -> bool {
+        match node {
+            Node::Mod(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_mod(node: Node) -> Option<Mod> {
+        match node {
+            Node::Mod(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_mul(node: Node) -> bool {
+        match node {
+            Node::Mul(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_mul(node: Node) -> Option<Mul> {
+        match node {
+            Node::Mul(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_mulh(node: Node) -> bool {
+        match node {
+            Node::Mulh(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_mulh(node: Node) -> Option<Mulh> {
+        match node {
+            Node::Mulh(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_mux(node: Node) -> bool {
+        match node {
+            Node::Mux(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_mux(node: Node) -> Option<Mux> {
+        match node {
+            Node::Mux(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_nomem(node: Node) -> bool {
+        match node {
+            Node::NoMem(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_nomem(node: Node) -> Option<NoMem> {
+        match node {
+            Node::NoMem(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_not(node: Node) -> bool {
+        match node {
+            Node::Not(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_not(node: Node) -> Option<Not> {
+        match node {
+            Node::Not(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_offset(node: Node) -> bool {
+        match node {
+            Node::Offset(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_offset(node: Node) -> Option<Offset> {
+        match node {
+            Node::Offset(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_or(node: Node) -> bool {
+        match node {
+            Node::Or(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_or(node: Node) -> Option<Or> {
+        match node {
+            Node::Or(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_phi(node: Node) -> bool {
+        match node {
+            Node::Phi(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_phi(node: Node) -> Option<Phi> {
+        match node {
+            Node::Phi(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_pin(node: Node) -> bool {
+        match node {
+            Node::Pin(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_pin(node: Node) -> Option<Pin> {
+        match node {
+            Node::Pin(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_proj(node: Node) -> bool {
+        match node {
+            Node::Proj(_node, _proj_kind) => true,
+            _ => false,
+        }
+    }
+    pub fn as_proj(node: Node) -> Option<Proj> {
+        match node {
+            Node::Proj(node, _proj_kind) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_raise(node: Node) -> bool {
+        match node {
+            Node::Raise(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_raise(node: Node) -> Option<Raise> {
+        match node {
+            Node::Raise(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_return(node: Node) -> bool {
+        match node {
+            Node::Return(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_return(node: Node) -> Option<Return> {
+        match node {
+            Node::Return(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_sel(node: Node) -> bool {
+        match node {
+            Node::Sel(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_sel(node: Node) -> Option<Sel> {
+        match node {
+            Node::Sel(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_shl(node: Node) -> bool {
+        match node {
+            Node::Shl(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_shl(node: Node) -> Option<Shl> {
+        match node {
+            Node::Shl(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_shr(node: Node) -> bool {
+        match node {
+            Node::Shr(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_shr(node: Node) -> Option<Shr> {
+        match node {
+            Node::Shr(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_shrs(node: Node) -> bool {
+        match node {
+            Node::Shrs(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_shrs(node: Node) -> Option<Shrs> {
+        match node {
+            Node::Shrs(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_size(node: Node) -> bool {
+        match node {
+            Node::Size(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_size(node: Node) -> Option<Size> {
+        match node {
+            Node::Size(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_start(node: Node) -> bool {
+        match node {
+            Node::Start(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_start(node: Node) -> Option<Start> {
+        match node {
+            Node::Start(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_store(node: Node) -> bool {
+        match node {
+            Node::Store(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_store(node: Node) -> Option<Store> {
+        match node {
+            Node::Store(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_sub(node: Node) -> bool {
+        match node {
+            Node::Sub(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_sub(node: Node) -> Option<Sub> {
+        match node {
+            Node::Sub(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_switch(node: Node) -> bool {
+        match node {
+            Node::Switch(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_switch(node: Node) -> Option<Switch> {
+        match node {
+            Node::Switch(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_sync(node: Node) -> bool {
+        match node {
+            Node::Sync(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_sync(node: Node) -> Option<Sync> {
+        match node {
+            Node::Sync(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_tuple(node: Node) -> bool {
+        match node {
+            Node::Tuple(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_tuple(node: Node) -> Option<Tuple> {
+        match node {
+            Node::Tuple(node) => Some(node),
+            _ => None,
+        }
+    }
+    pub fn is_unknown(node: Node) -> bool {
+        match node {
+            Node::Unknown(_node) => true,
+            _ => false,
+        }
+    }
+    pub fn as_unknown(node: Node) -> Option<Unknown> {
+        match node {
+            Node::Unknown(node) => Some(node),
+            _ => None,
+        }
+    }
+}
+impl NodeDebug for Node {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        match self {
+            Node::Add(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Address(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Align(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Alloc(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Anchor(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::And(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Bad(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Bitcast(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Block(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Builtin(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Call(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Cmp(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Cond(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Confirm(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Const(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Conv(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::CopyB(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Deleted(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Div(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Dummy(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::End(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Eor(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Free(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::IJmp(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Id(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Jmp(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Load(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Member(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Minus(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Mod(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Mul(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Mulh(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Mux(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::NoMem(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Not(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Offset(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Or(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Phi(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Pin(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Proj(node, proj_kind) => {
+                write!(f, "{}: {:?}", node.debug_fmt().with(opts), proj_kind)
+            }
+            Node::Raise(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Return(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Sel(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Shl(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Shr(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Shrs(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Size(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Start(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Store(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Sub(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Switch(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Sync(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Tuple(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+            Node::Unknown(node) => write!(f, "{}", node.debug_fmt().with(opts)),
+        }
+    }
+}
 impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Node::Add(node) => write!(f, "{:?}", node),
-            Node::Address(node) => write!(f, "{:?}", node),
-            Node::Align(node) => write!(f, "{:?}", node),
-            Node::Alloc(node) => write!(f, "{:?}", node),
-            Node::Anchor(node) => write!(f, "{:?}", node),
-            Node::And(node) => write!(f, "{:?}", node),
-            Node::Bad(node) => write!(f, "{:?}", node),
-            Node::Bitcast(node) => write!(f, "{:?}", node),
-            Node::Block(node) => write!(f, "{:?}", node),
-            Node::Builtin(node) => write!(f, "{:?}", node),
-            Node::Call(node) => write!(f, "{:?}", node),
-            Node::Cmp(node) => write!(f, "{:?}", node),
-            Node::Cond(node) => write!(f, "{:?}", node),
-            Node::Confirm(node) => write!(f, "{:?}", node),
-            Node::Const(node) => write!(f, "{:?}", node),
-            Node::Conv(node) => write!(f, "{:?}", node),
-            Node::CopyB(node) => write!(f, "{:?}", node),
-            Node::Deleted(node) => write!(f, "{:?}", node),
-            Node::Div(node) => write!(f, "{:?}", node),
-            Node::Dummy(node) => write!(f, "{:?}", node),
-            Node::End(node) => write!(f, "{:?}", node),
-            Node::Eor(node) => write!(f, "{:?}", node),
-            Node::Free(node) => write!(f, "{:?}", node),
-            Node::IJmp(node) => write!(f, "{:?}", node),
-            Node::Id(node) => write!(f, "{:?}", node),
-            Node::Jmp(node) => write!(f, "{:?}", node),
-            Node::Load(node) => write!(f, "{:?}", node),
-            Node::Member(node) => write!(f, "{:?}", node),
-            Node::Minus(node) => write!(f, "{:?}", node),
-            Node::Mod(node) => write!(f, "{:?}", node),
-            Node::Mul(node) => write!(f, "{:?}", node),
-            Node::Mulh(node) => write!(f, "{:?}", node),
-            Node::Mux(node) => write!(f, "{:?}", node),
-            Node::NoMem(node) => write!(f, "{:?}", node),
-            Node::Not(node) => write!(f, "{:?}", node),
-            Node::Offset(node) => write!(f, "{:?}", node),
-            Node::Or(node) => write!(f, "{:?}", node),
-            Node::Phi(node) => write!(f, "{:?}", node),
-            Node::Pin(node) => write!(f, "{:?}", node),
-            Node::Proj(node, proj_kind) => write!(f, "{:?}: {:?}", node, proj_kind),
-            Node::Raise(node) => write!(f, "{:?}", node),
-            Node::Return(node) => write!(f, "{:?}", node),
-            Node::Sel(node) => write!(f, "{:?}", node),
-            Node::Shl(node) => write!(f, "{:?}", node),
-            Node::Shr(node) => write!(f, "{:?}", node),
-            Node::Shrs(node) => write!(f, "{:?}", node),
-            Node::Size(node) => write!(f, "{:?}", node),
-            Node::Start(node) => write!(f, "{:?}", node),
-            Node::Store(node) => write!(f, "{:?}", node),
-            Node::Sub(node) => write!(f, "{:?}", node),
-            Node::Switch(node) => write!(f, "{:?}", node),
-            Node::Sync(node) => write!(f, "{:?}", node),
-            Node::Tuple(node) => write!(f, "{:?}", node),
-            Node::Unknown(node) => write!(f, "{:?}", node),
-        }
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 impl NodeTrait for Node {
@@ -199,6 +862,11 @@ pub enum ProjKind {
     Call_XRegular(Call),
     /// control flow when exception occurred
     Call_XExcept(Call),
+    Call_TResult_Arg(
+        /* arg_idx */ u32,
+        /* pred_pred */ Call,
+        /* pred */ Proj,
+    ),
     /// control flow if operand is "false" or "true"
     Cond_Val(bool, Cond),
     /// memory result
@@ -249,6 +917,84 @@ pub enum ProjKind {
     /// control flow if no other case matches
     Switch_Default(Switch),
     Other,
+}
+
+impl Proj {
+    pub fn kind(self) -> ProjKind {
+        let pred = self.pred();
+        match pred {
+            Node::Alloc(node) => match self.num() {
+                0 => ProjKind::Alloc_M(node),
+                1 => ProjKind::Alloc_Res(node),
+                _ => ProjKind::Other,
+            },
+            Node::Builtin(node) => match self.num() {
+                0 => ProjKind::Builtin_M(node),
+                _ => ProjKind::Other,
+            },
+            Node::Call(node) => match self.num() {
+                0 => ProjKind::Call_M(node),
+                1 => ProjKind::Call_TResult(node),
+                2 => ProjKind::Call_XRegular(node),
+                3 => ProjKind::Call_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Cond(node) => match self.num() {
+                0 => ProjKind::Cond_Val(false, node),
+                1 => ProjKind::Cond_Val(true, node),
+                _ => ProjKind::Other,
+            },
+            Node::Div(node) => match self.num() {
+                0 => ProjKind::Div_M(node),
+                1 => ProjKind::Div_Res(node),
+                2 => ProjKind::Div_XRegular(node),
+                3 => ProjKind::Div_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Load(node) => match self.num() {
+                0 => ProjKind::Load_M(node),
+                1 => ProjKind::Load_Res(node),
+                2 => ProjKind::Load_XRegular(node),
+                3 => ProjKind::Load_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Mod(node) => match self.num() {
+                0 => ProjKind::Mod_M(node),
+                1 => ProjKind::Mod_Res(node),
+                2 => ProjKind::Mod_XRegular(node),
+                3 => ProjKind::Mod_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Raise(node) => match self.num() {
+                0 => ProjKind::Raise_M(node),
+                1 => ProjKind::Raise_X(node),
+                _ => ProjKind::Other,
+            },
+            Node::Start(node) => match self.num() {
+                0 => ProjKind::Start_M(node),
+                1 => ProjKind::Start_PFrameBase(node),
+                2 => ProjKind::Start_TArgs(node),
+                _ => ProjKind::Other,
+            },
+            Node::Store(node) => match self.num() {
+                0 => ProjKind::Store_M(node),
+                1 => ProjKind::Store_XRegular(node),
+                2 => ProjKind::Store_XExcept(node),
+                _ => ProjKind::Other,
+            },
+            Node::Switch(node) => match self.num() {
+                0 => ProjKind::Switch_Default(node),
+                _ => ProjKind::Other,
+            },
+            Node::Proj(proj, ProjKind::Start_TArgs(start)) => {
+                ProjKind::Start_TArgs_Arg(self.num(), start, proj)
+            }
+            Node::Proj(proj, ProjKind::Call_TResult(call)) => {
+                ProjKind::Call_TResult_Arg(self.num(), call, proj)
+            }
+            _ => ProjKind::Other,
+        }
+    }
 }
 
 type NodeFactoryFn = fn(*mut bindings::ir_node) -> Node;
@@ -380,79 +1126,6 @@ impl NodeFactory {
         f(ir_node)
     }
 
-    pub fn proj_kind(proj: Proj) -> ProjKind {
-        let pred = proj.pred();
-        match pred {
-            Node::Alloc(node) => match proj.num() {
-                0 => ProjKind::Alloc_M(node),
-                1 => ProjKind::Alloc_Res(node),
-                _ => ProjKind::Other,
-            },
-            Node::Builtin(node) => match proj.num() {
-                0 => ProjKind::Builtin_M(node),
-                _ => ProjKind::Other,
-            },
-            Node::Call(node) => match proj.num() {
-                0 => ProjKind::Call_M(node),
-                1 => ProjKind::Call_TResult(node),
-                2 => ProjKind::Call_XRegular(node),
-                3 => ProjKind::Call_XExcept(node),
-                _ => ProjKind::Other,
-            },
-            Node::Cond(node) => match proj.num() {
-                0 => ProjKind::Cond_Val(false, node),
-                1 => ProjKind::Cond_Val(true, node),
-                _ => ProjKind::Other,
-            },
-            Node::Div(node) => match proj.num() {
-                0 => ProjKind::Div_M(node),
-                1 => ProjKind::Div_Res(node),
-                2 => ProjKind::Div_XRegular(node),
-                3 => ProjKind::Div_XExcept(node),
-                _ => ProjKind::Other,
-            },
-            Node::Load(node) => match proj.num() {
-                0 => ProjKind::Load_M(node),
-                1 => ProjKind::Load_Res(node),
-                2 => ProjKind::Load_XRegular(node),
-                3 => ProjKind::Load_XExcept(node),
-                _ => ProjKind::Other,
-            },
-            Node::Mod(node) => match proj.num() {
-                0 => ProjKind::Mod_M(node),
-                1 => ProjKind::Mod_Res(node),
-                2 => ProjKind::Mod_XRegular(node),
-                3 => ProjKind::Mod_XExcept(node),
-                _ => ProjKind::Other,
-            },
-            Node::Raise(node) => match proj.num() {
-                0 => ProjKind::Raise_M(node),
-                1 => ProjKind::Raise_X(node),
-                _ => ProjKind::Other,
-            },
-            Node::Start(node) => match proj.num() {
-                0 => ProjKind::Start_M(node),
-                1 => ProjKind::Start_PFrameBase(node),
-                2 => ProjKind::Start_TArgs(node),
-                _ => ProjKind::Other,
-            },
-            Node::Store(node) => match proj.num() {
-                0 => ProjKind::Store_M(node),
-                1 => ProjKind::Store_XRegular(node),
-                2 => ProjKind::Store_XExcept(node),
-                _ => ProjKind::Other,
-            },
-            Node::Switch(node) => match proj.num() {
-                0 => ProjKind::Switch_Default(node),
-                _ => ProjKind::Other,
-            },
-            Node::Proj(proj, ProjKind::Start_TArgs(start)) => {
-                ProjKind::Start_TArgs_Arg(proj.num(), start, proj)
-            }
-            _ => ProjKind::Other,
-        }
-    }
-
     fn create_add(ir_node: *mut bindings::ir_node) -> Node {
         Node::Add(Add(ir_node))
     }
@@ -572,7 +1245,7 @@ impl NodeFactory {
     }
     fn create_proj(ir_node: *mut bindings::ir_node) -> Node {
         let proj = Proj(ir_node);
-        Node::Proj(proj, Self::proj_kind(proj))
+        Node::Proj(proj, proj.kind())
     }
     fn create_raise(ir_node: *mut bindings::ir_node) -> Node {
         Node::Raise(Raise(ir_node))
@@ -675,9 +1348,14 @@ impl NodeTrait for Add {
     }
 }
 
+impl NodeDebug for Add {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Add {}", self.node_id())
+    }
+}
 impl fmt::Debug for Add {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Add {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Symbolic constant that represents the address of an entity (variable or
@@ -706,6 +1384,11 @@ impl NodeTrait for Address {
     }
 }
 
+impl fmt::Debug for Address {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.debug_fmt(), f)
+    }
+}
 /// A symbolic constant that represents the alignment of a type
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Align(*mut bindings::ir_node);
@@ -731,9 +1414,14 @@ impl NodeTrait for Align {
     }
 }
 
+impl NodeDebug for Align {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Align {}", self.node_id())
+    }
+}
 impl fmt::Debug for Align {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Align {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Allocates a block of memory on the stack.
@@ -839,9 +1527,14 @@ impl NodeTrait for Alloc {
     }
 }
 
+impl NodeDebug for Alloc {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Alloc {}", self.node_id())
+    }
+}
 impl fmt::Debug for Alloc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Alloc {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Utility node used to "hold" nodes in a graph that might possibly not be
@@ -1002,9 +1695,14 @@ impl NodeTrait for Anchor {
     }
 }
 
+impl NodeDebug for Anchor {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Anchor {}", self.node_id())
+    }
+}
 impl fmt::Debug for Anchor {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Anchor {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the result of a bitwise and operation of its operands
@@ -1064,9 +1762,14 @@ impl NodeTrait for And {
     }
 }
 
+impl NodeDebug for And {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "And {}", self.node_id())
+    }
+}
 impl fmt::Debug for And {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "And {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Bad nodes indicate invalid input, which is values which should never be
@@ -1113,9 +1816,14 @@ impl NodeTrait for Bad {
     }
 }
 
+impl NodeDebug for Bad {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Bad {}", self.node_id())
+    }
+}
 impl fmt::Debug for Bad {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Bad {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Converts a value between modes with different arithmetics but same
@@ -1160,9 +1868,14 @@ impl NodeTrait for Bitcast {
     }
 }
 
+impl NodeDebug for Bitcast {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Bitcast {}", self.node_id())
+    }
+}
 impl fmt::Debug for Bitcast {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Bitcast {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// A basic block
@@ -1179,15 +1892,15 @@ impl Block {
 
     /// Gets entity representing this block.
     #[allow(clippy::let_and_return)]
-    pub fn entity(self) -> *mut bindings::ir_entity {
+    pub fn entity(self) -> Entity {
         let unwrapped = unsafe { bindings::get_Block_entity(self.0) };
-        unwrapped
+        unwrapped.into()
     }
 
     /// Sets entity representing this block.
     #[allow(clippy::let_and_return)]
-    pub fn set_entity(self, val: *mut bindings::ir_entity) {
-        let unwrapped = val;
+    pub fn set_entity(self, val: Entity) {
+        let unwrapped = val.into();
         unsafe {
             bindings::set_Block_entity(self.0, unwrapped);
         }
@@ -1206,9 +1919,14 @@ impl NodeTrait for Block {
     }
 }
 
+impl NodeDebug for Block {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Block {}", self.node_id())
+    }
+}
 impl fmt::Debug for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Block {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// performs a backend-specific builtin.
@@ -1299,9 +2017,14 @@ impl NodeTrait for Builtin {
     }
 }
 
+impl NodeDebug for Builtin {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Builtin {}", self.node_id())
+    }
+}
 impl fmt::Debug for Builtin {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Builtin {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Calls other code. Control flow is transferred to ptr, additional
@@ -1440,6 +2163,11 @@ impl NodeTrait for Call {
     }
 }
 
+impl fmt::Debug for Call {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.debug_fmt(), f)
+    }
+}
 /// Compares its two operands and checks whether a specified
 /// relation (like less or equal) is fulfilled.
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -1514,9 +2242,14 @@ impl NodeTrait for Cmp {
     }
 }
 
+impl NodeDebug for Cmp {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Cmp {}", self.node_id())
+    }
+}
 impl fmt::Debug for Cmp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Cmp {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Conditionally change control flow.
@@ -1606,9 +2339,14 @@ impl NodeTrait for Cond {
     }
 }
 
+impl NodeDebug for Cond {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Cond {}", self.node_id())
+    }
+}
 impl fmt::Debug for Cond {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Cond {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Specifies constraints for a value. This allows explicit representation
@@ -1692,9 +2430,14 @@ impl NodeTrait for Confirm {
     }
 }
 
+impl NodeDebug for Confirm {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Confirm {}", self.node_id())
+    }
+}
 impl fmt::Debug for Confirm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Confirm {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns a constant value.
@@ -1738,9 +2481,14 @@ impl NodeTrait for Const {
     }
 }
 
+impl NodeDebug for Const {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Const {}", self.node_id())
+    }
+}
 impl fmt::Debug for Const {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Const {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Converts values between modes
@@ -1784,9 +2532,14 @@ impl NodeTrait for Conv {
     }
 }
 
+impl NodeDebug for Conv {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Conv {}", self.node_id())
+    }
+}
 impl fmt::Debug for Conv {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Conv {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Copies a block of memory with statically known size/type.
@@ -1896,9 +2649,14 @@ impl NodeTrait for CopyB {
     }
 }
 
+impl NodeDebug for CopyB {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "CopyB {}", self.node_id())
+    }
+}
 impl fmt::Debug for CopyB {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CopyB {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Internal node which is temporary set to nodes which are already removed
@@ -1927,9 +2685,14 @@ impl NodeTrait for Deleted {
     }
 }
 
+impl NodeDebug for Deleted {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Deleted {}", self.node_id())
+    }
+}
 impl fmt::Debug for Deleted {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Deleted {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the quotient of its 2 operands
@@ -2097,9 +2860,14 @@ impl NodeTrait for Div {
     }
 }
 
+impl NodeDebug for Div {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Div {}", self.node_id())
+    }
+}
 impl fmt::Debug for Div {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Div {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// A placeholder value. This is used when constructing cyclic graphs where
@@ -2129,9 +2897,14 @@ impl NodeTrait for Dummy {
     }
 }
 
+impl NodeDebug for Dummy {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Dummy {}", self.node_id())
+    }
+}
 impl fmt::Debug for Dummy {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Dummy {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Last node of a graph. It references nodes in endless loops (so called
@@ -2160,9 +2933,14 @@ impl NodeTrait for End {
     }
 }
 
+impl NodeDebug for End {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "End {}", self.node_id())
+    }
+}
 impl fmt::Debug for End {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "End {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the result of a bitwise exclusive or operation of its operands.
@@ -2224,9 +3002,14 @@ impl NodeTrait for Eor {
     }
 }
 
+impl NodeDebug for Eor {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Eor {}", self.node_id())
+    }
+}
 impl fmt::Debug for Eor {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Eor {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Frees a block of memory previously allocated by an Alloc node
@@ -2286,9 +3069,14 @@ impl NodeTrait for Free {
     }
 }
 
+impl NodeDebug for Free {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Free {}", self.node_id())
+    }
+}
 impl fmt::Debug for Free {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Free {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Jumps to the code in its argument. The code has to be in the same
@@ -2334,9 +3122,14 @@ impl NodeTrait for IJmp {
     }
 }
 
+impl NodeDebug for IJmp {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "IJmp {}", self.node_id())
+    }
+}
 impl fmt::Debug for IJmp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "IJmp {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns its operand unchanged.
@@ -2383,9 +3176,14 @@ impl NodeTrait for Id {
     }
 }
 
+impl NodeDebug for Id {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Id {}", self.node_id())
+    }
+}
 impl fmt::Debug for Id {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Id {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Jumps to the block connected through the out-value
@@ -2413,9 +3211,14 @@ impl NodeTrait for Jmp {
     }
 }
 
+impl NodeDebug for Jmp {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Jmp {}", self.node_id())
+    }
+}
 impl fmt::Debug for Jmp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Jmp {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Loads a value from memory (heap or stack).
@@ -2603,9 +3406,14 @@ impl NodeTrait for Load {
     }
 }
 
+impl NodeDebug for Load {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Load {}", self.node_id())
+    }
+}
 impl fmt::Debug for Load {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Load {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Computes the address of a compound type member given the base address
@@ -2641,15 +3449,15 @@ impl Member {
 
     /// Gets entity which is selected.
     #[allow(clippy::let_and_return)]
-    pub fn entity(self) -> *mut bindings::ir_entity {
+    pub fn entity(self) -> Entity {
         let unwrapped = unsafe { bindings::get_Member_entity(self.0) };
-        unwrapped
+        unwrapped.into()
     }
 
     /// Sets entity which is selected.
     #[allow(clippy::let_and_return)]
-    pub fn set_entity(self, val: *mut bindings::ir_entity) {
-        let unwrapped = val;
+    pub fn set_entity(self, val: Entity) {
+        let unwrapped = val.into();
         unsafe {
             bindings::set_Member_entity(self.0, unwrapped);
         }
@@ -2668,9 +3476,14 @@ impl NodeTrait for Member {
     }
 }
 
+impl NodeDebug for Member {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Member {}", self.node_id())
+    }
+}
 impl fmt::Debug for Member {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Member {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the additive inverse of its operand
@@ -2714,9 +3527,14 @@ impl NodeTrait for Minus {
     }
 }
 
+impl NodeDebug for Minus {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Minus {}", self.node_id())
+    }
+}
 impl fmt::Debug for Minus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Minus {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the remainder of its operands from an implied division.
@@ -2875,9 +3693,14 @@ impl NodeTrait for Mod {
     }
 }
 
+impl NodeDebug for Mod {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Mod {}", self.node_id())
+    }
+}
 impl fmt::Debug for Mod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Mod {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the product of its operands
@@ -2937,9 +3760,14 @@ impl NodeTrait for Mul {
     }
 }
 
+impl NodeDebug for Mul {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Mul {}", self.node_id())
+    }
+}
 impl fmt::Debug for Mul {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Mul {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the upper word of the product of its operands (the part which
@@ -3000,9 +3828,14 @@ impl NodeTrait for Mulh {
     }
 }
 
+impl NodeDebug for Mulh {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Mulh {}", self.node_id())
+    }
+}
 impl fmt::Debug for Mulh {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Mulh {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the false or true operand depending on the value of the sel
@@ -3079,9 +3912,14 @@ impl NodeTrait for Mux {
     }
 }
 
+impl NodeDebug for Mux {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Mux {}", self.node_id())
+    }
+}
 impl fmt::Debug for Mux {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Mux {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Placeholder node for cases where you don't need any memory input
@@ -3109,9 +3947,14 @@ impl NodeTrait for NoMem {
     }
 }
 
+impl NodeDebug for NoMem {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "NoMem {}", self.node_id())
+    }
+}
 impl fmt::Debug for NoMem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "NoMem {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the bitwise complement of a value. Works for boolean values, too.
@@ -3155,9 +3998,14 @@ impl NodeTrait for Not {
     }
 }
 
+impl NodeDebug for Not {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Not {}", self.node_id())
+    }
+}
 impl fmt::Debug for Not {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Not {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Symbolic constant that represents the offset of an entity in its owner type.
@@ -3185,9 +4033,14 @@ impl NodeTrait for Offset {
     }
 }
 
+impl NodeDebug for Offset {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Offset {}", self.node_id())
+    }
+}
 impl fmt::Debug for Offset {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Offset {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the result of a bitwise or operation of its operands
@@ -3247,9 +4100,14 @@ impl NodeTrait for Or {
     }
 }
 
+impl NodeDebug for Or {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Or {}", self.node_id())
+    }
+}
 impl fmt::Debug for Or {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Or {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Choose a value based on control flow. A phi node has 1 input for each
@@ -3297,9 +4155,14 @@ impl NodeTrait for Phi {
     }
 }
 
+impl NodeDebug for Phi {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Phi {}", self.node_id())
+    }
+}
 impl fmt::Debug for Phi {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Phi {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Pin the value of the node node in the current block. No users of the Pin
@@ -3345,9 +4208,14 @@ impl NodeTrait for Pin {
     }
 }
 
+impl NodeDebug for Pin {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Pin {}", self.node_id())
+    }
+}
 impl fmt::Debug for Pin {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Pin {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns an entry of a tuple value
@@ -3397,7 +4265,7 @@ impl Proj {
 
 impl Into<Node> for Proj {
     fn into(self) -> Node {
-        Node::Proj(self, NodeFactory::proj_kind(self))
+        Node::Proj(self, self.kind())
     }
 }
 
@@ -3407,9 +4275,14 @@ impl NodeTrait for Proj {
     }
 }
 
+impl NodeDebug for Proj {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Proj {}", self.node_id())
+    }
+}
 impl fmt::Debug for Proj {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Proj {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Raises an exception. Unconditional change of control flow. Writes an
@@ -3501,9 +4374,14 @@ impl NodeTrait for Raise {
     }
 }
 
+impl NodeDebug for Raise {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Raise {}", self.node_id())
+    }
+}
 impl fmt::Debug for Raise {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Raise {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns from the current function. Takes memory and return values as
@@ -3548,9 +4426,14 @@ impl NodeTrait for Return {
     }
 }
 
+impl NodeDebug for Return {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Return {}", self.node_id())
+    }
+}
 impl fmt::Debug for Return {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Return {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Computes the address of an array element from the array base pointer and
@@ -3629,9 +4512,14 @@ impl NodeTrait for Sel {
     }
 }
 
+impl NodeDebug for Sel {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Sel {}", self.node_id())
+    }
+}
 impl fmt::Debug for Sel {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Sel {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns its first operands bits shifted left by the amount of the 2nd
@@ -3695,9 +4583,14 @@ impl NodeTrait for Shl {
     }
 }
 
+impl NodeDebug for Shl {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Shl {}", self.node_id())
+    }
+}
 impl fmt::Debug for Shl {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Shl {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns its first operands bits shifted right by the amount of the 2nd
@@ -3761,9 +4654,14 @@ impl NodeTrait for Shr {
     }
 }
 
+impl NodeDebug for Shr {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Shr {}", self.node_id())
+    }
+}
 impl fmt::Debug for Shr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Shr {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns its first operands bits shifted right by the amount of the 2nd
@@ -3828,9 +4726,14 @@ impl NodeTrait for Shrs {
     }
 }
 
+impl NodeDebug for Shrs {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Shrs {}", self.node_id())
+    }
+}
 impl fmt::Debug for Shrs {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Shrs {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// A symbolic constant that represents the size of a type
@@ -3858,9 +4761,14 @@ impl NodeTrait for Size {
     }
 }
 
+impl NodeDebug for Size {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Size {}", self.node_id())
+    }
+}
 impl fmt::Debug for Size {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Size {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// The first node of a graph. Execution starts with this node.
@@ -3933,9 +4841,14 @@ impl NodeTrait for Start {
     }
 }
 
+impl NodeDebug for Start {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Start {}", self.node_id())
+    }
+}
 impl fmt::Debug for Start {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Start {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Stores a value into memory (heap or stack).
@@ -4108,9 +5021,14 @@ impl NodeTrait for Store {
     }
 }
 
+impl NodeDebug for Store {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Store {}", self.node_id())
+    }
+}
 impl fmt::Debug for Store {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Store {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// returns the difference of its operands
@@ -4170,9 +5088,14 @@ impl NodeTrait for Sub {
     }
 }
 
+impl NodeDebug for Sub {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Sub {}", self.node_id())
+    }
+}
 impl fmt::Debug for Sub {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Sub {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Change control flow. The destination is chosen based on an integer
@@ -4266,9 +5189,14 @@ impl NodeTrait for Switch {
     }
 }
 
+impl NodeDebug for Switch {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Switch {}", self.node_id())
+    }
+}
 impl fmt::Debug for Switch {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Switch {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// The Sync operation unifies several partial memory blocks. These blocks
@@ -4300,9 +5228,14 @@ impl NodeTrait for Sync {
     }
 }
 
+impl NodeDebug for Sync {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Sync {}", self.node_id())
+    }
+}
 impl fmt::Debug for Sync {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Sync {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Builds a Tuple from single values.
@@ -4337,9 +5270,14 @@ impl NodeTrait for Tuple {
     }
 }
 
+impl NodeDebug for Tuple {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Tuple {}", self.node_id())
+    }
+}
 impl fmt::Debug for Tuple {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Tuple {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 /// Returns an unknown (at compile- and runtime) value. It is a valid
@@ -4372,9 +5310,14 @@ impl NodeTrait for Unknown {
     }
 }
 
+impl NodeDebug for Unknown {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Unknown {}", self.node_id())
+    }
+}
 impl fmt::Debug for Unknown {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Unknown {}", self.node_id())
+        fmt::Display::fmt(&self.debug_fmt(), f)
     }
 }
 impl Graph {
@@ -4397,8 +5340,8 @@ impl Graph {
     /// Creates a new Address-node.
     /// * `entity` entity to operate on
     #[allow(clippy::style)]
-    pub fn new_address(self, entity: *mut bindings::ir_entity) -> Address {
-        let ir_node = unsafe { bindings::new_r_Address(self.irg, entity) };
+    pub fn new_address(self, entity: Entity) -> Address {
+        let ir_node = unsafe { bindings::new_r_Address(self.irg, entity.into()) };
         Address::new(ir_node)
     }
 
@@ -4748,7 +5691,8 @@ impl Graph {
     /// * `irn_ptr` ptr
     /// * `mode` mode of the value to be loaded
     /// * `ty` The type of the object which is stored at ptr (need not match
-    /// with mode) * `flags` specifies alignment, volatility and pin state
+    ///   with mode)
+    /// * `flags` specifies alignment, volatility and pin state
     #[allow(clippy::style)]
     pub fn new_load(
         self,
@@ -4777,14 +5721,13 @@ impl Graph {
     /// * `irn_ptr` ptr
     /// * `entity` entity which is selected
     #[allow(clippy::style)]
-    pub fn new_member(
-        self,
-        block: Block,
-        irn_ptr: Node,
-        entity: *mut bindings::ir_entity,
-    ) -> Member {
+    pub fn new_member(self, block: Block, irn_ptr: Node, entity: Entity) -> Member {
         let ir_node = unsafe {
-            bindings::new_r_Member(block.internal_ir_node(), irn_ptr.internal_ir_node(), entity)
+            bindings::new_r_Member(
+                block.internal_ir_node(),
+                irn_ptr.internal_ir_node(),
+                entity.into(),
+            )
         };
         Member::new(ir_node)
     }
@@ -4897,12 +5840,8 @@ impl Graph {
     /// * `mode` mode of the operations result
     /// * `entity` entity to operate on
     #[allow(clippy::style)]
-    pub fn new_offset(
-        self,
-        mode: *mut bindings::ir_mode,
-        entity: *mut bindings::ir_entity,
-    ) -> Offset {
-        let ir_node = unsafe { bindings::new_r_Offset(self.irg, mode, entity) };
+    pub fn new_offset(self, mode: *mut bindings::ir_mode, entity: Entity) -> Offset {
+        let ir_node = unsafe { bindings::new_r_Offset(self.irg, mode, entity.into()) };
         Offset::new(ir_node)
     }
 
@@ -5093,8 +6032,8 @@ impl Graph {
     /// * `irn_ptr` ptr
     /// * `irn_value` value
     /// * `ty` The type of the object which is stored at ptr (need not match
-    /// with value's type) * `flags` specifies alignment, volatility and
-    /// pin state
+    ///   with value's type)
+    /// * `flags` specifies alignment, volatility and pin state
     #[allow(clippy::style)]
     pub fn new_store(
         self,
@@ -5465,7 +6404,8 @@ impl Block {
     /// * `irn_ptr` ptr
     /// * `mode` mode of the value to be loaded
     /// * `ty` The type of the object which is stored at ptr (need not match
-    /// with mode) * `flags` specifies alignment, volatility and pin state
+    ///   with mode)
+    /// * `flags` specifies alignment, volatility and pin state
     #[allow(clippy::style)]
     pub fn new_load(
         self,
@@ -5492,8 +6432,9 @@ impl Block {
     /// * `irn_ptr` ptr
     /// * `entity` entity which is selected
     #[allow(clippy::style)]
-    pub fn new_member(self, irn_ptr: Node, entity: *mut bindings::ir_entity) -> Member {
-        let ir_node = unsafe { bindings::new_r_Member(self.0, irn_ptr.internal_ir_node(), entity) };
+    pub fn new_member(self, irn_ptr: Node, entity: Entity) -> Member {
+        let ir_node =
+            unsafe { bindings::new_r_Member(self.0, irn_ptr.internal_ir_node(), entity.into()) };
         Member::new(ir_node)
     }
 
@@ -5711,8 +6652,8 @@ impl Block {
     /// * `irn_ptr` ptr
     /// * `irn_value` value
     /// * `ty` The type of the object which is stored at ptr (need not match
-    /// with value's type) * `flags` specifies alignment, volatility and
-    /// pin state
+    ///   with value's type)
+    /// * `flags` specifies alignment, volatility and pin state
     #[allow(clippy::style)]
     pub fn new_store(
         self,
