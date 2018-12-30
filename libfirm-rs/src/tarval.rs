@@ -102,10 +102,6 @@ impl Tarval {
         Mode::from_libfirm(unsafe { bindings::get_tarval_mode(self.0) })
     }
 
-    pub fn mode_ex(self) -> Mode {
-        Mode::from_libfirm(unsafe { bindings::get_tarval_mode(self.0) })
-    }
-
     pub fn kind(self) -> TarvalKind {
         if self.is_bool_val(true) {
             TarvalKind::Bool(true)
@@ -189,12 +185,7 @@ impl Debug for Tarval {
             let s = CStr::from_ptr(v.as_ptr()).to_string_lossy();
             let s = s.trim_start_matches("<");
             let s = s.trim_end_matches(">");
-            write!(
-                fmt,
-                "Tarval{{{}, mode: {}}}",
-                s,
-                self.mode_ex().name_string()
-            )
+            write!(fmt, "Tarval{{{}, mode: {}}}", s, self.mode().name_string())
         }
     }
 }
@@ -207,8 +198,8 @@ macro_rules! assert_eq_modes {
             lhs.mode(),
             rhs.mode(),
             "modes do not match: {:?} != {:?}",
-            lhs.mode_ex().name_string(),
-            rhs.mode_ex().name_string(),
+            lhs.mode().name_string(),
+            rhs.mode().name_string(),
         );
     }};
 }
