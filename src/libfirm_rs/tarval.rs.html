@@ -291,14 +291,11 @@
 <span id="291">291</span>
 <span id="292">292</span>
 <span id="293">293</span>
+<span id="294">294</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">mode</span>::<span class="ident">Mode</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">ffi</span>::<span class="ident">CStr</span>, <span class="ident">ptr</span>};
-
-<span class="comment">// TODO move together with modes once we have a place &amp; abstraction for them</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mode_name</span>(<span class="ident">m</span>: <span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Type</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">CStr</span> {
-    <span class="kw">unsafe</span> { <span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">bindings</span>::<span class="ident">get_mode_name</span>(<span class="ident">m</span>)) }
-}
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">From</span>, <span class="ident">Into</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Tarval</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_tarval</span>);
@@ -348,6 +345,16 @@
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">zero</span>(<span class="ident">mode</span>: <span class="ident">Mode</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
+        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_tarval_from_long</span>(<span class="number">0</span>, <span class="ident">mode</span>.<span class="ident">libfirm_mode</span>()) }.<span class="ident">into</span>()
+    }
+
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">val</span>(<span class="ident">val</span>: <span class="ident">i64</span>, <span class="ident">mode</span>: <span class="ident">Mode</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
+        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_tarval_from_long</span>(<span class="ident">val</span>, <span class="ident">mode</span>.<span class="ident">libfirm_mode</span>()) }.<span class="ident">into</span>()
+    }
+
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_bool_val</span>(<span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
         <span class="kw">unsafe</span> {
             <span class="ident">ptr</span>::<span class="ident">eq</span>(
@@ -386,8 +393,8 @@
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mode</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Type</span> {
-        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_tarval_mode</span>(<span class="self">self</span>.<span class="number">0</span>) }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mode</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Mode</span> {
+        <span class="ident">Mode</span>::<span class="ident">from_libfirm</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_tarval_mode</span>(<span class="self">self</span>.<span class="number">0</span>) })
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">kind</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">TarvalKind</span> {
@@ -405,17 +412,17 @@
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">cast</span>(<span class="self">self</span>, <span class="ident">mode</span>: <span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Type</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Tarval</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">cast</span>(<span class="self">self</span>, <span class="ident">mode</span>: <span class="ident">Mode</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Tarval</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">can_be_cast_into</span>(<span class="ident">mode</span>) {
-            <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">tarval_convert_to</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mode</span>) }.<span class="ident">into</span>())
+            <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">tarval_convert_to</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">mode</span>.<span class="ident">libfirm_mode</span>()) }.<span class="ident">into</span>())
         } <span class="kw">else</span> {
             <span class="prelude-val">None</span>
         }
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">can_be_cast_into</span>(<span class="self">self</span>, <span class="ident">mode</span>: <span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Type</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">smaller_mode</span>(<span class="self">self</span>.<span class="ident">mode</span>(), <span class="ident">mode</span>) <span class="op">!=</span> <span class="number">0</span> }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">can_be_cast_into</span>(<span class="self">self</span>, <span class="ident">mode</span>: <span class="ident">Mode</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">smaller_mode</span>(<span class="self">self</span>.<span class="ident">mode</span>().<span class="ident">libfirm_mode</span>(), <span class="ident">mode</span>.<span class="ident">libfirm_mode</span>()) <span class="op">!=</span> <span class="number">0</span> }
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
@@ -473,12 +480,7 @@
             <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">v</span>.<span class="ident">as_ptr</span>()).<span class="ident">to_string_lossy</span>();
             <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">trim_start_matches</span>(<span class="string">&quot;&lt;&quot;</span>);
             <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">trim_end_matches</span>(<span class="string">&quot;&gt;&quot;</span>);
-            <span class="macro">write</span><span class="macro">!</span>(
-                <span class="ident">fmt</span>,
-                <span class="string">&quot;Tarval{{{}, mode: {}}}&quot;</span>,
-                <span class="ident">s</span>,
-                <span class="ident">mode_name</span>(<span class="self">self</span>.<span class="ident">mode</span>()).<span class="ident">to_string_lossy</span>()
-            )
+            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;Tarval{{{}, mode: {}}}&quot;</span>, <span class="ident">s</span>, <span class="self">self</span>.<span class="ident">mode</span>().<span class="ident">name_string</span>())
         }
     }
 }
@@ -491,8 +493,8 @@
             <span class="ident">lhs</span>.<span class="ident">mode</span>(),
             <span class="ident">rhs</span>.<span class="ident">mode</span>(),
             <span class="string">&quot;modes do not match: {:?} != {:?}&quot;</span>,
-            <span class="ident">mode_name</span>(<span class="ident">lhs</span>.<span class="ident">mode</span>()),
-            <span class="ident">mode_name</span>(<span class="ident">rhs</span>.<span class="ident">mode</span>())
+            <span class="ident">lhs</span>.<span class="ident">mode</span>().<span class="ident">name_string</span>(),
+            <span class="ident">rhs</span>.<span class="ident">mode</span>().<span class="ident">name_string</span>(),
         );
     }};
 }

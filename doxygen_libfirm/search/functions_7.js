@@ -32,6 +32,8 @@ var searchData=
   ['get_5fasm_5fn_5fconstraints',['get_ASM_n_constraints',['../a00009.html#gad03f6e9c515769481c7397e14d715310',1,'irnode.h']]],
   ['get_5fasm_5fn_5finputs',['get_ASM_n_inputs',['../a00009.html#ga31772ea0420aea70c534456def19b909',1,'get_ASM_n_inputs(ir_node const *node):&#160;gen_irnode.c'],['../a00009.html#ga31772ea0420aea70c534456def19b909',1,'get_ASM_n_inputs(ir_node const *node):&#160;gen_irnode.c']]],
   ['get_5fasm_5ftext',['get_ASM_text',['../a00009.html#gaadb875ca1c8a87b76c9ee5bc1c36691f',1,'get_ASM_text(const ir_node *node):&#160;gen_irnode.c'],['../a00009.html#gaadb875ca1c8a87b76c9ee5bc1c36691f',1,'get_ASM_text(const ir_node *node):&#160;gen_irnode.c']]],
+  ['get_5fb_5fstore',['get_b_store',['../a00146.html#gaf8eb91f8c15c4a70b4f4396c53148f8e',1,'ircons.h']]],
+  ['get_5fb_5fvalue',['get_b_value',['../a00146.html#ga8cc627bc5f57689aa9d00d5c5da7f392',1,'ircons.h']]],
   ['get_5fbinop_5fleft',['get_binop_left',['../a00159.html#ga33737280dcbd9239e0846832437f404f',1,'irnode.h']]],
   ['get_5fbinop_5fright',['get_binop_right',['../a00159.html#ga926c72018a92046ac8e40888f092467b',1,'irnode.h']]],
   ['get_5fbitcast_5fop',['get_Bitcast_op',['../a00195.html#ga90c71889b5485221527012987c9b2a1b',1,'get_Bitcast_op(const ir_node *node):&#160;gen_irnode.c'],['../a00195.html#ga90c71889b5485221527012987c9b2a1b',1,'get_Bitcast_op(const ir_node *node):&#160;gen_irnode.c']]],

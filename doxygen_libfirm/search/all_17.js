@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['xmalloc',['XMALLOC',['../a00134.html#ga4e8a21f1b2fc046e3791460217dc02ea',1,'XMALLOC():&#160;xmalloc.h'],['../a00134.html#ga42ccfa6fc49cc4ce90cc44cd05052490',1,'xmalloc(size_t size):&#160;xmalloc.h']]],
+  ['xmalloc',['xmalloc',['../a00134.html#ga42ccfa6fc49cc4ce90cc44cd05052490',1,'xmalloc(size_t size):&#160;xmalloc.h'],['../a00134.html#ga4e8a21f1b2fc046e3791460217dc02ea',1,'XMALLOC():&#160;xmalloc.h']]],
   ['xmallocf',['XMALLOCF',['../a00134.html#gafee72231d0bbb5e8dfc0b0f700f6df7f',1,'xmalloc.h']]],
   ['xmallocfz',['XMALLOCFZ',['../a00134.html#ga288dfb516d89b6eb8fe949033117c37b',1,'xmalloc.h']]],
   ['xmallocn',['XMALLOCN',['../a00134.html#ga58c49c3b37be8caf0fc100fbd477d1ea',1,'xmalloc.h']]],

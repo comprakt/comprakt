@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Ty",""]],"struct":[["ArrayTy",""],["ClassTy",""],["MethodTy",""],["MethodTyBuilder","Builder for new_type_method"],["OtherTy",""],["PointerTy",""],["PrimitiveTy",""],["SegmentTy",""],["StructTy",""],["UnionTy",""]]});
+initSidebarItems({"enum":[["Ty",""]],"struct":[["ArrayTy",""],["ClassTy",""],["MethodTy",""],["MethodTyBuilder","Builder for new_type_method"],["OtherTy",""],["PointerTy",""],["PrimitiveTy",""],["SegmentTy",""],["StructTy",""],["UnionTy",""]],"trait":[["TyTrait",""]]});

@@ -2,6 +2,8 @@ var a00146 =
 [
     [ "uninitialized_local_variable_func_t", "a00146.html#gaf88e1f2dfa54c46399b4ec95d1e7fe92", null ],
     [ "add_immBlock_pred", "a00146.html#ga5c32bc5bb0d66afc58ab36726d9c0d02", null ],
+    [ "get_b_store", "a00146.html#gaf8eb91f8c15c4a70b4f4396c53148f8e", null ],
+    [ "get_b_value", "a00146.html#ga8cc627bc5f57689aa9d00d5c5da7f392", null ],
     [ "get_cur_block", "a00146.html#gaa16d7b43eabdaacfeebe723f949a6415", null ],
     [ "get_current_ir_graph", "a00146.html#ga628a05cf4a5905e294ac10a806cd5776", null ],
     [ "get_r_cur_block", "a00146.html#ga6ac9c51a86089fb0a46d9d9860b4a05d", null ],
@@ -19,6 +21,8 @@ var a00146 =
     [ "new_immBlock", "a00146.html#ga61909db28409ef39b1a15fc2fecfd473", null ],
     [ "new_r_immBlock", "a00146.html#ga089af3b5b872df2ddcf5a474d2e5a6dd", null ],
     [ "new_rd_immBlock", "a00146.html#gaad694f0bea87147faac3198e5cdb4749", null ],
+    [ "set_b_store", "a00146.html#ga2fde5de0c90249c4afefbb7d56173f5a", null ],
+    [ "set_b_value", "a00146.html#ga7f50b1b22b54bb1cb31c1207c6af8d34", null ],
     [ "set_cur_block", "a00146.html#gaa7a7d46930d3d0350bad6674d00bdef3", null ],
     [ "set_current_ir_graph", "a00146.html#gaf20b84027fbbe268e4368de29ee922cf", null ],
     [ "set_r_cur_block", "a00146.html#ga8fd3f0cc6028c241d0995865c844c384", null ],

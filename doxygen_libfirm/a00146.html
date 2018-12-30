@@ -155,6 +155,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ga863674d8be1ec6af088068636804cd37"><td class="memItemLeft" align="right" valign="top"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#ga863674d8be1ec6af088068636804cd37">get_r_value</a> (<a class="el" href="a00154.html#gaf6a2a1e9e04e7719667f8b5945ecdd24">ir_graph</a> *irg, int pos, <a class="el" href="a00158.html#gabb45fd288af194763a5ff0e3666a4b88">ir_mode</a> *mode)</td></tr>
 <tr class="memdesc:ga863674d8be1ec6af088068636804cd37"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the current value of a local variable in given graph.  <a href="#ga863674d8be1ec6af088068636804cd37">More...</a><br/></td></tr>
 <tr class="separator:ga863674d8be1ec6af088068636804cd37"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga8cc627bc5f57689aa9d00d5c5da7f392"><td class="memItemLeft" align="right" valign="top"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#ga8cc627bc5f57689aa9d00d5c5da7f392">get_b_value</a> (<a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *block, int pos, <a class="el" href="a00158.html#gabb45fd288af194763a5ff0e3666a4b88">ir_mode</a> *mode)</td></tr>
+<tr class="memdesc:ga8cc627bc5f57689aa9d00d5c5da7f392"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the current value of a local variable in given block.  <a href="#ga8cc627bc5f57689aa9d00d5c5da7f392">More...</a><br/></td></tr>
+<tr class="separator:ga8cc627bc5f57689aa9d00d5c5da7f392"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gaa9ee986e439d6159b573d61051d00ca6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="a00158.html#gabb45fd288af194763a5ff0e3666a4b88">ir_mode</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#gaa9ee986e439d6159b573d61051d00ca6">ir_guess_mode</a> (int pos)</td></tr>
 <tr class="memdesc:gaa9ee986e439d6159b573d61051d00ca6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Try to guess the mode of a local variable.  <a href="#gaa9ee986e439d6159b573d61051d00ca6">More...</a><br/></td></tr>
 <tr class="separator:gaa9ee986e439d6159b573d61051d00ca6"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -167,18 +170,27 @@ Functions</h2></td></tr>
 <tr class="memitem:ga91d32c7eb23b5b5d2211f1ce010481a8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#ga91d32c7eb23b5b5d2211f1ce010481a8">set_r_value</a> (<a class="el" href="a00154.html#gaf6a2a1e9e04e7719667f8b5945ecdd24">ir_graph</a> *irg, int pos, <a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *value)</td></tr>
 <tr class="memdesc:ga91d32c7eb23b5b5d2211f1ce010481a8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets current value of a variable in a given graph.  <a href="#ga91d32c7eb23b5b5d2211f1ce010481a8">More...</a><br/></td></tr>
 <tr class="separator:ga91d32c7eb23b5b5d2211f1ce010481a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga7f50b1b22b54bb1cb31c1207c6af8d34"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#ga7f50b1b22b54bb1cb31c1207c6af8d34">set_b_value</a> (<a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *block, int pos, <a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *value)</td></tr>
+<tr class="memdesc:ga7f50b1b22b54bb1cb31c1207c6af8d34"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets current value of a variable in a given block.  <a href="#ga7f50b1b22b54bb1cb31c1207c6af8d34">More...</a><br/></td></tr>
+<tr class="separator:ga7f50b1b22b54bb1cb31c1207c6af8d34"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gafd30c492cd8a1179fc779cbe02058543"><td class="memItemLeft" align="right" valign="top"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#gafd30c492cd8a1179fc779cbe02058543">get_store</a> (void)</td></tr>
 <tr class="memdesc:gafd30c492cd8a1179fc779cbe02058543"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the current memory state.  <a href="#gafd30c492cd8a1179fc779cbe02058543">More...</a><br/></td></tr>
 <tr class="separator:gafd30c492cd8a1179fc779cbe02058543"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga5deb8a500f920d19d972db5a8b6fd660"><td class="memItemLeft" align="right" valign="top"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#ga5deb8a500f920d19d972db5a8b6fd660">get_r_store</a> (<a class="el" href="a00154.html#gaf6a2a1e9e04e7719667f8b5945ecdd24">ir_graph</a> *irg)</td></tr>
 <tr class="memdesc:ga5deb8a500f920d19d972db5a8b6fd660"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns current memory state for a given graph.  <a href="#ga5deb8a500f920d19d972db5a8b6fd660">More...</a><br/></td></tr>
 <tr class="separator:ga5deb8a500f920d19d972db5a8b6fd660"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gaf8eb91f8c15c4a70b4f4396c53148f8e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#gaf8eb91f8c15c4a70b4f4396c53148f8e">get_b_store</a> (<a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *block)</td></tr>
+<tr class="memdesc:gaf8eb91f8c15c4a70b4f4396c53148f8e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns current memory state for a given block.  <a href="#gaf8eb91f8c15c4a70b4f4396c53148f8e">More...</a><br/></td></tr>
+<tr class="separator:gaf8eb91f8c15c4a70b4f4396c53148f8e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga4ba3b9f913acac6affefed7e98b8bdcb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#ga4ba3b9f913acac6affefed7e98b8bdcb">set_store</a> (<a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *store)</td></tr>
 <tr class="memdesc:ga4ba3b9f913acac6affefed7e98b8bdcb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Memorize a new definition of the memory state.  <a href="#ga4ba3b9f913acac6affefed7e98b8bdcb">More...</a><br/></td></tr>
 <tr class="separator:ga4ba3b9f913acac6affefed7e98b8bdcb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gabdfb5e4e9a214bd7626be7af34252765"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#gabdfb5e4e9a214bd7626be7af34252765">set_r_store</a> (<a class="el" href="a00154.html#gaf6a2a1e9e04e7719667f8b5945ecdd24">ir_graph</a> *irg, <a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *store)</td></tr>
 <tr class="memdesc:gabdfb5e4e9a214bd7626be7af34252765"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets current memory state for a given graph.  <a href="#gabdfb5e4e9a214bd7626be7af34252765">More...</a><br/></td></tr>
 <tr class="separator:gabdfb5e4e9a214bd7626be7af34252765"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga2fde5de0c90249c4afefbb7d56173f5a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#ga2fde5de0c90249c4afefbb7d56173f5a">set_b_store</a> (<a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *block, <a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *store)</td></tr>
+<tr class="memdesc:ga2fde5de0c90249c4afefbb7d56173f5a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets current memory state for a given block.  <a href="#ga2fde5de0c90249c4afefbb7d56173f5a">More...</a><br/></td></tr>
+<tr class="separator:ga2fde5de0c90249c4afefbb7d56173f5a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gaa09b888c151f78ab4e4b87fcce9e1e10"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#gaa09b888c151f78ab4e4b87fcce9e1e10">keep_alive</a> (<a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *ka)</td></tr>
 <tr class="memdesc:gaa09b888c151f78ab4e4b87fcce9e1e10"><td class="mdescLeft">&#160;</td><td class="mdescRight">keep this node alive even if End is not control-reachable from it  <a href="#gaa09b888c151f78ab4e4b87fcce9e1e10">More...</a><br/></td></tr>
 <tr class="separator:gaa09b888c151f78ab4e4b87fcce9e1e10"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -252,6 +264,60 @@ Variables</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Add a control flow edge to an immature block. </p>
+
+</div>
+</div>
+<a class="anchor" id="gaf8eb91f8c15c4a70b4f4396c53148f8e"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a>* get_b_store </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td>
+          <td class="paramname"><em>block</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns current memory state for a given block. </p>
+<dl class="section see"><dt>See Also</dt><dd><a class="el" href="a00146.html#gafd30c492cd8a1179fc779cbe02058543" title="Returns the current memory state. ">get_store()</a> </dd></dl>
+
+</div>
+</div>
+<a class="anchor" id="ga8cc627bc5f57689aa9d00d5c5da7f392"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a>* get_b_value </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td>
+          <td class="paramname"><em>block</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>pos</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="a00158.html#gabb45fd288af194763a5ff0e3666a4b88">ir_mode</a> *&#160;</td>
+          <td class="paramname"><em>mode</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns the current value of a local variable in given block. </p>
+<dl class="section see"><dt>See Also</dt><dd><a class="el" href="a00146.html#gae6e0c5fd8de6634566cdffa47469f085" title="Returns the current value of a local variable. ">get_value()</a> </dd></dl>
 
 </div>
 </div>
@@ -641,6 +707,69 @@ Variables</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="ga2fde5de0c90249c4afefbb7d56173f5a"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void set_b_store </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td>
+          <td class="paramname"><em>block</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td>
+          <td class="paramname"><em>store</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Sets current memory state for a given block. </p>
+<dl class="section see"><dt>See Also</dt><dd><a class="el" href="a00146.html#ga4ba3b9f913acac6affefed7e98b8bdcb" title="Memorize a new definition of the memory state. ">set_store()</a> </dd></dl>
+
+</div>
+</div>
+<a class="anchor" id="ga7f50b1b22b54bb1cb31c1207c6af8d34"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void set_b_value </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td>
+          <td class="paramname"><em>block</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>pos</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td>
+          <td class="paramname"><em>value</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Sets current value of a variable in a given block. </p>
+
+</div>
+</div>
 <a class="anchor" id="gaa7a7d46930d3d0350bad6674d00bdef3"></a>
 <div class="memitem">
 <div class="memproto">
@@ -881,7 +1010,7 @@ Variables</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun Dec 30 2018 12:56:57 for libFirm by
+    <li class="footer">Generated on Sun Dec 30 2018 16:08:52 for libFirm by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.6 </li>
   </ul>

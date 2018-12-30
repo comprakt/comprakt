@@ -162,73 +162,6 @@
 <span id="162">162</span>
 <span id="163">163</span>
 <span id="164">164</span>
-<span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
-<span id="168">168</span>
-<span id="169">169</span>
-<span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
-<span id="173">173</span>
-<span id="174">174</span>
-<span id="175">175</span>
-<span id="176">176</span>
-<span id="177">177</span>
-<span id="178">178</span>
-<span id="179">179</span>
-<span id="180">180</span>
-<span id="181">181</span>
-<span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
-<span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
-<span id="215">215</span>
-<span id="216">216</span>
-<span id="217">217</span>
-<span id="218">218</span>
-<span id="219">219</span>
-<span id="220">220</span>
-<span id="221">221</span>
-<span id="222">222</span>
-<span id="223">223</span>
-<span id="224">224</span>
-<span id="225">225</span>
-<span id="226">226</span>
-<span id="227">227</span>
-<span id="228">228</span>
-<span id="229">229</span>
-<span id="230">230</span>
-<span id="231">231</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Lowers the output of the semantic analysis phase (AST, Type System, Type</span>
 <span class="doccomment">//! Analysis), into Firm for code generation.</span>
@@ -248,36 +181,30 @@
 <span class="doccomment">//! pointers to the CString instances, hence the CString must be kept around</span>
 <span class="doccomment">//! for the lifetime of the graph. Otherwise rust would de allocate the CString</span>
 <span class="doccomment">//! to early!</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">firm_program</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">method_body_generator</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">program_generator</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">runtime</span>;
+<span class="kw">mod</span> <span class="ident">type_translation</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::{
-    <span class="ident">method_body_generator</span>::<span class="ident">MethodBodyGenerator</span>, <span class="ident">program_generator</span>::<span class="ident">ProgramGenerator</span>,
-    <span class="ident">runtime</span>::<span class="ident">Runtime</span>,
+    <span class="ident">firm_program</span>::<span class="kw-2">*</span>, <span class="ident">method_body_generator</span>::<span class="ident">MethodBodyGenerator</span>,
+    <span class="ident">program_generator</span>::<span class="ident">ProgramGenerator</span>, <span class="ident">runtime</span>::<span class="ident">Runtime</span>,
 };
 
 <span class="kw">use</span> <span class="ident">failure</span>::{<span class="ident">Error</span>, <span class="ident">Fail</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">optimization</span>,
-    <span class="ident">strtab</span>::{<span class="ident">StringTable</span>, <span class="ident">Symbol</span>},
-    <span class="ident">type_checking</span>::{
-        <span class="ident">type_analysis</span>::<span class="ident">TypeAnalysis</span>,
-        <span class="ident">type_system</span>::{
-            <span class="ident">CheckedType</span>, <span class="ident">ClassDef</span>, <span class="ident">ClassFieldDef</span>, <span class="ident">ClassMethodBody</span>, <span class="ident">ClassMethodDef</span>, <span class="ident">TypeSystem</span>,
-        },
-    },
+    <span class="ident">strtab</span>::<span class="ident">StringTable</span>,
+    <span class="ident">type_checking</span>::{<span class="ident">type_analysis</span>::<span class="ident">TypeAnalysis</span>, <span class="ident">type_system</span>::<span class="ident">TypeSystem</span>},
     <span class="ident">OutputSpecification</span>,
 };
-<span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">bindings</span>::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
+<span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">bindings</span>, <span class="ident">types</span>::<span class="ident">TyTrait</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">cell</span>::<span class="ident">RefCell</span>,
-    <span class="ident">collections</span>::<span class="ident">HashMap</span>,
     <span class="ident">ffi</span>::{<span class="ident">CStr</span>, <span class="ident">CString</span>},
     <span class="ident">fs</span>,
     <span class="ident">path</span>::<span class="ident">PathBuf</span>,
-    <span class="ident">rc</span>::{<span class="ident">Rc</span>, <span class="ident">Weak</span>},
 };
 
 <span class="doccomment">/// Enable or disable behaviour during the lowering phase</span>
@@ -296,47 +223,19 @@
     <span class="ident">EmitAsmFailure</span> { <span class="ident">path</span>: <span class="ident">PathBuf</span> },
 }
 
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Program</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">classes</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;&gt;</span>,
-}
-
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">name</span>: <span class="ident">CString</span>,
-    <span class="kw">pub</span> <span class="ident">def</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">entity</span>: <span class="ident">Entity</span>,
-    <span class="kw">pub</span> <span class="ident">fields</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Field</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">methods</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>, <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;&gt;</span>,
-}
-
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Field</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">_name</span>: <span class="ident">CString</span>,
-    <span class="kw">pub</span> <span class="ident">_class</span>: <span class="ident">Weak</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">def</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassFieldDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">entity</span>: <span class="ident">Entity</span>,
-}
-
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">_name</span>: <span class="ident">CString</span>,
-    <span class="kw">pub</span> <span class="ident">_class</span>: <span class="ident">Weak</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Class</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">body</span>: <span class="ident">ClassMethodBody</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">def</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassMethodDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">entity</span>: <span class="ident">Entity</span>,
-    <span class="kw">pub</span> <span class="ident">graph</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Graph</span><span class="op">&gt;</span>,
-}
-
 <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">setup</span>() {
     <span class="ident">libfirm_rs</span>::<span class="ident">init</span>();
 
     <span class="comment">// this call panics on error</span>
-    <span class="kw">let</span> <span class="ident">triple</span> <span class="op">=</span> <span class="ident">ir_get_host_machine_triple</span>();
-    <span class="ident">ir_target_set_triple</span>(<span class="ident">triple</span>);
+    <span class="kw">let</span> <span class="ident">triple</span> <span class="op">=</span> <span class="ident">bindings</span>::<span class="ident">ir_get_host_machine_triple</span>();
+    <span class="ident">bindings</span>::<span class="ident">ir_target_set_triple</span>(<span class="ident">triple</span>);
 
     <span class="comment">// pic=1 means &#39;generate position independent code&#39;</span>
-    <span class="ident">ir_target_option</span>(<span class="ident">CString</span>::<span class="ident">new</span>(<span class="string">&quot;pic=1&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;CString::new failed&quot;</span>).<span class="ident">as_ptr</span>());
+    <span class="ident">bindings</span>::<span class="ident">ir_target_option</span>(<span class="ident">CString</span>::<span class="ident">new</span>(<span class="string">&quot;pic=1&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;CString::new failed&quot;</span>).<span class="ident">as_ptr</span>());
 
-    <span class="ident">ir_target_init</span>();
+    <span class="ident">bindings</span>::<span class="ident">ir_target_init</span>();
 
-    <span class="ident">set_optimize</span>(<span class="number">0</span>);
+    <span class="ident">bindings</span>::<span class="ident">set_optimize</span>(<span class="number">0</span>);
 }
 
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">build</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>(
@@ -354,20 +253,20 @@
     }
 
     <span class="kw">let</span> <span class="ident">dump_folder_cstr</span> <span class="op">=</span> <span class="ident">CString</span>::<span class="ident">new</span>(<span class="ident">opts</span>.<span class="ident">dump_folder</span>.<span class="ident">to_string_lossy</span>().<span class="ident">as_bytes</span>()).<span class="ident">unwrap</span>();
-    <span class="ident">ir_set_dump_path</span>(<span class="ident">dump_folder_cstr</span>.<span class="ident">as_ptr</span>());
+    <span class="ident">bindings</span>::<span class="ident">ir_set_dump_path</span>(<span class="ident">dump_folder_cstr</span>.<span class="ident">as_ptr</span>());
 
     <span class="kw">if</span> <span class="ident">opts</span>.<span class="ident">dump_firm_graph</span> {
         <span class="kw">let</span> <span class="ident">suffix</span> <span class="op">=</span> <span class="ident">CString</span>::<span class="ident">new</span>(<span class="string">&quot;high-level&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">dump_all_ir_graphs</span>(<span class="ident">suffix</span>.<span class="ident">as_ptr</span>());
+        <span class="ident">bindings</span>::<span class="ident">dump_all_ir_graphs</span>(<span class="ident">suffix</span>.<span class="ident">as_ptr</span>());
     }
 
     <span class="kw">if</span> <span class="ident">opts</span>.<span class="ident">dump_class_layouts</span> {
         <span class="kw">for</span> <span class="ident">class</span> <span class="kw">in</span> <span class="ident">program</span>.<span class="ident">classes</span>.<span class="ident">values</span>() {
             <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
-            <span class="ident">dump_type_to_file</span>(
+            <span class="ident">bindings</span>::<span class="ident">dump_type_to_file</span>(
                 <span class="ident">libc</span>::<span class="ident">fopen</span>(
                     <span class="ident">opts</span>.<span class="ident">dump_folder</span>
-                        .<span class="ident">join</span>(<span class="ident">class</span>.<span class="ident">borrow</span>().<span class="ident">name</span>.<span class="ident">to_str</span>().<span class="ident">unwrap</span>())
+                        .<span class="ident">join</span>(<span class="ident">class</span>.<span class="ident">borrow</span>().<span class="ident">def</span>.<span class="ident">name</span>.<span class="ident">as_str</span>())
                         .<span class="ident">with_extension</span>(<span class="string">&quot;layout&quot;</span>)
                         .<span class="ident">to_str</span>()
                         .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">CString</span>::<span class="ident">new</span>(<span class="ident">s</span>).<span class="ident">ok</span>())
@@ -375,22 +274,22 @@
                         .<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">i8</span>,
                     <span class="ident">CStr</span>::<span class="ident">from_bytes_with_nul</span>(<span class="string">b&quot;w\0&quot;</span>).<span class="ident">unwrap</span>().<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">i8</span>,
                 ) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">libfirm_rs</span>::<span class="ident">bindings</span>::<span class="ident">_IO_FILE</span>,
-                <span class="ident">class</span>.<span class="ident">borrow</span>().<span class="ident">entity</span>.<span class="ident">ty</span>().<span class="ident">into</span>(),
+                <span class="ident">class</span>.<span class="ident">borrow</span>().<span class="ident">entity</span>.<span class="ident">ty</span>().<span class="ident">ir_type</span>(),
             );
         }
     }
 
     <span class="ident">opts</span>.<span class="ident">optimizations</span>.<span class="ident">run_all</span>(<span class="kw-2">&amp;</span><span class="ident">program</span>);
 
-    <span class="ident">lower_highlevel</span>();
-    <span class="ident">be_lower_for_target</span>();
+    <span class="ident">bindings</span>::<span class="ident">lower_highlevel</span>();
+    <span class="ident">bindings</span>::<span class="ident">be_lower_for_target</span>();
 
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">output_spec</span>) <span class="op">=</span> <span class="ident">opts</span>.<span class="ident">dump_assembler</span> {
         <span class="comment">// TODO: real label</span>
         <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">CStr</span>::<span class="ident">from_bytes_with_nul</span>(<span class="string">b&quot;&lt;stdin&gt;\0&quot;</span>).<span class="ident">unwrap</span>().<span class="ident">as_ptr</span>();
 
         <span class="kw">match</span> <span class="ident">output_spec</span> {
-            <span class="ident">OutputSpecification</span>::<span class="ident">Stdout</span> <span class="op">=&gt;</span> <span class="ident">be_main</span>(<span class="ident">stdout</span>, <span class="ident">label</span>),
+            <span class="ident">OutputSpecification</span>::<span class="ident">Stdout</span> <span class="op">=&gt;</span> <span class="ident">bindings</span>::<span class="ident">be_main</span>(<span class="ident">bindings</span>::<span class="ident">stdout</span>, <span class="ident">label</span>),
             <span class="ident">OutputSpecification</span>::<span class="ident">File</span>(<span class="ident">path</span>) <span class="op">=&gt;</span> {
                 <span class="comment">// NOTE: we could also do:</span>
                 <span class="comment">// - open file with rust API</span>
@@ -413,7 +312,7 @@
                 }
 
                 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
-                <span class="ident">be_main</span>(<span class="ident">assembly_file</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">_IO_FILE</span>, <span class="ident">label</span>);
+                <span class="ident">bindings</span>::<span class="ident">be_main</span>(<span class="ident">assembly_file</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">_IO_FILE</span>, <span class="ident">label</span>);
 
                 <span class="ident">libc</span>::<span class="ident">fclose</span>(<span class="ident">assembly_file</span>);
             }
@@ -425,41 +324,8 @@
     <span class="comment">// in the head of this file.</span>
     <span class="ident">drop</span>(<span class="ident">program</span>);
 
-    <span class="ident">ir_finish</span>();
+    <span class="ident">bindings</span>::<span class="ident">ir_finish</span>();
     <span class="prelude-val">Ok</span>(())
-}
-
-<span class="doccomment">/// `None` indicates that the given type is not convertible, which</span>
-<span class="doccomment">/// is not necessarily an error (e.g. `void`)</span>
-<span class="kw">fn</span> <span class="ident">ty_from_checked_type</span>(<span class="ident">ct</span>: <span class="kw-2">&amp;</span><span class="ident">CheckedType</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ty</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">ct</span> {
-        <span class="ident">CheckedType</span>::<span class="ident">Int</span> <span class="op">=&gt;</span> <span class="ident">PrimitiveType</span>::<span class="ident">i32</span>(),
-        <span class="ident">CheckedType</span>::<span class="ident">Void</span> <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
-        <span class="ident">CheckedType</span>::<span class="ident">TypeRef</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">PrimitiveType</span>::<span class="ident">ptr</span>(),
-        <span class="ident">CheckedType</span>::<span class="ident">Array</span>(<span class="ident">checked_type</span>) <span class="op">=&gt;</span> <span class="ident">ty_from_checked_type</span>(<span class="ident">checked_type</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;Arrays are never of type `void`&quot;</span>)
-            .<span class="ident">array</span>()
-            .<span class="ident">pointer</span>(),
-        <span class="ident">CheckedType</span>::<span class="ident">Boolean</span> <span class="op">=&gt;</span> <span class="ident">PrimitiveType</span>::<span class="ident">bool</span>(),
-        <span class="ident">CheckedType</span>::<span class="ident">Null</span> <span class="op">=&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
-        <span class="ident">CheckedType</span>::<span class="ident">UnknownType</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
-    };
-    <span class="prelude-val">Some</span>(<span class="ident">ty</span>)
-}
-
-<span class="kw">fn</span> <span class="ident">get_firm_mode</span>(<span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">CheckedType</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">mode</span>::<span class="ident">Type</span><span class="op">&gt;</span> {
-    <span class="kw">match</span> <span class="ident">ty</span> {
-        <span class="ident">CheckedType</span>::<span class="ident">Int</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">mode</span>::<span class="ident">Is</span> }),
-        <span class="ident">CheckedType</span>::<span class="ident">Boolean</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">mode</span>::<span class="ident">Bu</span> }),
-        <span class="ident">CheckedType</span>::<span class="ident">TypeRef</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">CheckedType</span>::<span class="ident">Array</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">CheckedType</span>::<span class="ident">Null</span> <span class="op">=&gt;</span> {
-            <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">mode</span>::<span class="ident">P</span> })
-        }
-        <span class="ident">CheckedType</span>::<span class="ident">Void</span> <span class="op">|</span> <span class="ident">CheckedType</span>::<span class="ident">UnknownType</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
-    }
-}
-
-<span class="kw">fn</span> <span class="ident">size_of</span>(<span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">CheckedType</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
-    <span class="ident">get_firm_mode</span>(<span class="ident">ty</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">mode</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">get_mode_size_bytes</span>(<span class="ident">mode</span>) })
 }
 </pre></div>
 </section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../../";window.currentCrate = "compiler_lib";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script src="../../../source-files.js"></script><script src="../../../source-script.js"></script><script defer src="../../../search-index.js"></script></body></html>
