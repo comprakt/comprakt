@@ -1,4 +1,4 @@
-use crate::{nodes::*, tarval::Tarval};
+use crate::{bindings, nodes::*, tarval::Tarval};
 
 #[derive(Debug)]
 pub struct DowncastErr(Node);
@@ -21,6 +21,39 @@ macro_rules! downcast_node {
 pub trait ValueNode: NodeTrait {
     fn value_nodes(&self) -> Vec<Box<dyn ValueNode>>;
     fn compute(&self, values: Vec<Tarval>) -> Tarval;
+}
+
+impl From<Box<dyn ValueNode>> for Node {
+    fn from(n: Box<dyn ValueNode>) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
+impl From<&Box<dyn ValueNode>> for Node {
+    fn from(n: &Box<dyn ValueNode>) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
+impl From<&dyn ValueNode> for Node {
+    fn from(n: &dyn ValueNode) -> Node {
+        NodeFactory::node(n.internal_ir_node())
+    }
+}
+
+impl NodeTrait for Box<dyn ValueNode> {
+    fn internal_ir_node(&self) -> *mut bindings::ir_node {
+        self.as_ref().internal_ir_node()
+    }
+}
+
+impl ValueNode for Box<dyn ValueNode> {
+    fn value_nodes(&self) -> Vec<Box<dyn ValueNode>> {
+        self.as_ref().value_nodes()
+    }
+    fn compute(&self, values: Vec<Tarval>) -> Tarval {
+        self.as_ref().compute(values)
+    }
 }
 
 impl ValueNode for Const {

@@ -1,19 +1,13 @@
 use super::{
     entity::Entity,
-    nodes::{Block, End, NoMem, Node, NodeFactory, NodeTrait, Proj, ProjKind, Start},
-    value_nodes::ValueNode,
+    mode::Mode,
+    nodes::{Block, End, NoMem, Node, NodeFactory, NodeTrait, Proj, ProjKind, Start, ValueNode},
 };
 use libfirm_rs_bindings as bindings;
 use std::{
     ffi::{c_void, CString},
     mem, ptr,
 };
-
-impl From<crate::Graph> for Graph {
-    fn from(graph: crate::Graph) -> Graph {
-        Graph { irg: graph.irg }
-    }
-}
 
 #[derive(Clone, Copy)]
 pub struct Graph {
@@ -33,6 +27,13 @@ impl Into<*const bindings::ir_graph> for Graph {
 }
 
 impl Graph {
+    pub fn function_with_entity(entity: Entity, num_slots: usize) -> Graph {
+        unsafe {
+            let irg = bindings::new_ir_graph(entity.ir_entity(), num_slots as i32);
+            Graph { irg }
+        }
+    }
+
     pub fn entity(self) -> Entity {
         unsafe { Entity::new(bindings::get_irg_entity(self.irg)) }
     }
@@ -124,20 +125,13 @@ impl Graph {
         result
     }
 
-    pub fn exchange(prev: &impl NodeTrait, new: &impl NodeTrait) {
+    pub fn exchange(prev: impl NodeTrait, new: impl NodeTrait) {
         unsafe {
             bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
         }
     }
 
-    /*pub fn partition_block_by_node(node: &impl NodeTrait) {
-        unsafe {
-            bindings::part_block(node.internal_ir_node());
-        }
-    }*/
-
-    // FIXME why does not work this with `&impl ValueNode`?
-    pub fn exchange_value(prev: &dyn ValueNode, new: &dyn ValueNode) {
+    pub fn exchange_value(prev: impl ValueNode + Into<Node>, new: impl ValueNode + Into<Node>) {
         let prev: Node = prev.into();
         let new: Node = new.into();
         use self::Node::*;
@@ -154,10 +148,10 @@ impl Graph {
                 for out_node in node.out_nodes() {
                     match out_node {
                         Proj(res_proj, ProjKind::Div_Res(_)) => {
-                            Graph::exchange(&res_proj, &new);
+                            Graph::exchange(res_proj, new);
                         }
                         Proj(m_proj, ProjKind::Div_M(_)) => {
-                            Graph::exchange(&m_proj, &node.mem());
+                            Graph::exchange(m_proj, node.mem());
                         }
                         _ => {}
                     }
@@ -167,17 +161,17 @@ impl Graph {
                 for out_node in node.out_nodes() {
                     match out_node {
                         Proj(res_proj, ProjKind::Mod_Res(_)) => {
-                            Graph::exchange(&res_proj, &new);
+                            Graph::exchange(res_proj, new);
                         }
                         Proj(m_proj, ProjKind::Mod_M(_)) => {
-                            Graph::exchange(&m_proj, &node.mem());
+                            Graph::exchange(m_proj, node.mem());
                         }
                         _ => {}
                     }
                 }
             }
             node => {
-                Graph::exchange(&node, &new);
+                Graph::exchange(node, new);
             }
         }
     }
@@ -185,8 +179,8 @@ impl Graph {
     /// Replace the given node with a "bad" node, thus marking it and all the
     /// nodes dominated by it as unreachable. The whole subtree can then be
     /// removed using `Graph::remove_bads`.
-    pub fn mark_as_bad(self, node: &impl NodeTrait) {
-        Graph::exchange(node, &self.new_bad(unsafe { bindings::mode::b }))
+    pub fn mark_as_bad(self, node: impl NodeTrait) {
+        Graph::exchange(node, self.new_bad(Mode::b()))
     }
 
     pub fn copy_node<F>(self, node: Node, mut copy_fn: F) -> Node
@@ -223,6 +217,26 @@ impl Graph {
             bindings::copy_node_attr(self.irg, ptr, new_node_ptr);
 
             NodeFactory::node(new_node_ptr)
+        }
+    }
+
+    // == Construction ==
+
+    pub fn new_imm_block(self, preds: &[Node]) -> Block {
+        let block = Block::new(unsafe { bindings::new_r_immBlock(self.irg) });
+        for pred in preds {
+            block.imm_add_pred(*pred);
+        }
+        block
+    }
+
+    pub fn slots(self) -> i32 {
+        unsafe { bindings::get_irg_n_locs(self.irg) }
+    }
+
+    pub fn finalize_construction(self) {
+        unsafe {
+            bindings::irg_finalize_cons(self.irg);
         }
     }
 }

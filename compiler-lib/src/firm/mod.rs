@@ -16,36 +16,30 @@
 //! pointers to the CString instances, hence the CString must be kept around
 //! for the lifetime of the graph. Otherwise rust would de allocate the CString
 //! to early!
+pub mod firm_program;
 pub mod method_body_generator;
 pub mod program_generator;
 pub mod runtime;
+mod type_translation;
 
 pub use self::{
-    method_body_generator::MethodBodyGenerator, program_generator::ProgramGenerator,
-    runtime::Runtime,
+    firm_program::*, method_body_generator::MethodBodyGenerator,
+    program_generator::ProgramGenerator, runtime::Runtime,
 };
 
 use failure::{Error, Fail};
 
 use crate::{
     optimization,
-    strtab::{StringTable, Symbol},
-    type_checking::{
-        type_analysis::TypeAnalysis,
-        type_system::{
-            CheckedType, ClassDef, ClassFieldDef, ClassMethodBody, ClassMethodDef, TypeSystem,
-        },
-    },
+    strtab::StringTable,
+    type_checking::{type_analysis::TypeAnalysis, type_system::TypeSystem},
     OutputSpecification,
 };
-use libfirm_rs::{bindings::*, *};
+use libfirm_rs::{bindings, types::TyTrait};
 use std::{
-    cell::RefCell,
-    collections::HashMap,
     ffi::{CStr, CString},
     fs,
     path::PathBuf,
-    rc::{Rc, Weak},
 };
 
 /// Enable or disable behaviour during the lowering phase
@@ -64,47 +58,19 @@ pub enum FirmError {
     EmitAsmFailure { path: PathBuf },
 }
 
-pub struct Program<'src, 'ast> {
-    pub classes: HashMap<Symbol<'src>, Rc<RefCell<Class<'src, 'ast>>>>,
-}
-
-pub struct Class<'src, 'ast> {
-    pub name: CString,
-    pub def: &'src ClassDef<'src, 'ast>,
-    pub entity: Entity,
-    pub fields: HashMap<Symbol<'src>, Rc<RefCell<Field<'src, 'ast>>>>,
-    pub methods: HashMap<Symbol<'src>, Rc<RefCell<Method<'src, 'ast>>>>,
-}
-
-pub struct Field<'src, 'ast> {
-    pub _name: CString,
-    pub _class: Weak<RefCell<Class<'src, 'ast>>>,
-    pub def: Rc<ClassFieldDef<'src>>,
-    pub entity: Entity,
-}
-
-pub struct Method<'src, 'ast> {
-    pub _name: CString,
-    pub _class: Weak<RefCell<Class<'src, 'ast>>>,
-    pub body: ClassMethodBody<'src, 'ast>,
-    pub def: Rc<ClassMethodDef<'src, 'ast>>,
-    pub entity: Entity,
-    pub graph: Option<Graph>,
-}
-
 unsafe fn setup() {
     libfirm_rs::init();
 
     // this call panics on error
-    let triple = ir_get_host_machine_triple();
-    ir_target_set_triple(triple);
+    let triple = bindings::ir_get_host_machine_triple();
+    bindings::ir_target_set_triple(triple);
 
     // pic=1 means 'generate position independent code'
-    ir_target_option(CString::new("pic=1").expect("CString::new failed").as_ptr());
+    bindings::ir_target_option(CString::new("pic=1").expect("CString::new failed").as_ptr());
 
-    ir_target_init();
+    bindings::ir_target_init();
 
-    set_optimize(0);
+    bindings::set_optimize(0);
 }
 
 pub unsafe fn build<'src, 'ast>(
@@ -122,20 +88,20 @@ pub unsafe fn build<'src, 'ast>(
     }
 
     let dump_folder_cstr = CString::new(opts.dump_folder.to_string_lossy().as_bytes()).unwrap();
-    ir_set_dump_path(dump_folder_cstr.as_ptr());
+    bindings::ir_set_dump_path(dump_folder_cstr.as_ptr());
 
     if opts.dump_firm_graph {
         let suffix = CString::new("high-level").unwrap();
-        dump_all_ir_graphs(suffix.as_ptr());
+        bindings::dump_all_ir_graphs(suffix.as_ptr());
     }
 
     if opts.dump_class_layouts {
         for class in program.classes.values() {
             #[allow(clippy::cast_ptr_alignment)]
-            dump_type_to_file(
+            bindings::dump_type_to_file(
                 libc::fopen(
                     opts.dump_folder
-                        .join(class.borrow().name.to_str().unwrap())
+                        .join(class.borrow().def.name.as_str())
                         .with_extension("layout")
                         .to_str()
                         .and_then(|s| CString::new(s).ok())
@@ -143,22 +109,22 @@ pub unsafe fn build<'src, 'ast>(
                         .as_ptr() as *mut i8,
                     CStr::from_bytes_with_nul(b"w\0").unwrap().as_ptr() as *mut i8,
                 ) as *mut libfirm_rs::bindings::_IO_FILE,
-                class.borrow().entity.ty().into(),
+                class.borrow().entity.ty().ir_type(),
             );
         }
     }
 
     opts.optimizations.run_all(&program);
 
-    lower_highlevel();
-    be_lower_for_target();
+    bindings::lower_highlevel();
+    bindings::be_lower_for_target();
 
     if let Some(ref output_spec) = opts.dump_assembler {
         // TODO: real label
         let label = CStr::from_bytes_with_nul(b"<stdin>\0").unwrap().as_ptr();
 
         match output_spec {
-            OutputSpecification::Stdout => be_main(stdout, label),
+            OutputSpecification::Stdout => bindings::be_main(bindings::stdout, label),
             OutputSpecification::File(path) => {
                 // NOTE: we could also do:
                 // - open file with rust API
@@ -181,7 +147,7 @@ pub unsafe fn build<'src, 'ast>(
                 }
 
                 #[allow(clippy::cast_ptr_alignment)]
-                be_main(assembly_file as *mut _IO_FILE, label);
+                bindings::be_main(assembly_file as *mut bindings::_IO_FILE, label);
 
                 libc::fclose(assembly_file);
             }
@@ -193,39 +159,6 @@ pub unsafe fn build<'src, 'ast>(
     // in the head of this file.
     drop(program);
 
-    ir_finish();
+    bindings::ir_finish();
     Ok(())
-}
-
-/// `None` indicates that the given type is not convertible, which
-/// is not necessarily an error (e.g. `void`)
-fn ty_from_checked_type(ct: &CheckedType<'_>) -> Option<Ty> {
-    let ty = match ct {
-        CheckedType::Int => PrimitiveType::i32(),
-        CheckedType::Void => return None,
-        CheckedType::TypeRef(_) => PrimitiveType::ptr(),
-        CheckedType::Array(checked_type) => ty_from_checked_type(checked_type)
-            .expect("Arrays are never of type `void`")
-            .array()
-            .pointer(),
-        CheckedType::Boolean => PrimitiveType::bool(),
-        CheckedType::Null => unreachable!(),
-        CheckedType::UnknownType(_) => unreachable!(),
-    };
-    Some(ty)
-}
-
-fn get_firm_mode(ty: &CheckedType<'_>) -> Option<mode::Type> {
-    match ty {
-        CheckedType::Int => Some(unsafe { mode::Is }),
-        CheckedType::Boolean => Some(unsafe { mode::Bu }),
-        CheckedType::TypeRef(_) | CheckedType::Array(_) | CheckedType::Null => {
-            Some(unsafe { mode::P })
-        }
-        CheckedType::Void | CheckedType::UnknownType(_) => None,
-    }
-}
-
-fn size_of(ty: &CheckedType<'_>) -> Option<u32> {
-    get_firm_mode(ty).map(|mode| unsafe { get_mode_size_bytes(mode) })
 }

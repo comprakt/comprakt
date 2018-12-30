@@ -182,7 +182,6 @@ class NodeArgImpl extends NodeMemberImpl {
     }
 }
 
-
 interface TypeDef {
     wrap(expr: string): string,
     unwrap(expr: string): string,
@@ -195,8 +194,15 @@ const internal_ir_node = "internal_ir_node";
 const nodeType: TypeDef = ({
     wrap: (expr: string) => `NodeFactory::node(${expr})`,
     unwrap: (expr: string) => `${expr}.${internal_ir_node}()`,
-    rustInName: "Node",
+    rustInName: "impl NodeTrait",
     rustOutName: "Node",
+});
+
+const modeType: TypeDef = ({
+    rustInName: "Mode",
+    rustOutName: "Mode",
+    unwrap: (expr: string) => `${expr}.libfirm_mode()`,
+    wrap: (expr: string) => `Mode::from_libfirm(${expr})`,
 });
 
 function rawPointerType(name: string): TypeDef {
@@ -254,8 +260,13 @@ function lookupType(typeName: string) {
         "ir_volatility": rawType("bindings::ir_volatility::Type"),
         "ir_cons_flags": rawType("bindings::ir_cons_flags::Type"),
         "ir_align": rawType("bindings::ir_align::Type"),
-        "ir_type*": rawPointerType("ir_type"),
-        "ir_mode*": rawPointerType("ir_mode"),
+        "ir_type*": {
+            rustInName: "Ty",
+            rustOutName: "Ty",
+            unwrap: (expr: string) => `${expr}.ir_type()`,
+            wrap: (expr: string) => `Ty::from_ir_type(${expr})`,
+        },
+        "ir_mode*": modeType,
         "ir_switch_table*": rawPointerType("ir_switch_table"),
         "ir_asm_constraint*": rawPointerType("ir_asm_constraint"),
         "ident*": rawPointerType("ident"),
@@ -305,7 +316,7 @@ generateGraphImpl();
 generateBlockImpl();
 
 w.closeFile("nodes_gen.rs");
-w.save("../src/");
+w.save("../src/nodes/");
 
 exec("cargo fmt --package libfirm-rs", (err, stdout, stderr) => {
     if (err) { console.error(err); }
@@ -317,13 +328,14 @@ exec("cargo fmt --package libfirm-rs", (err, stdout, stderr) => {
 function generateHeader() {
     w.line("// This file is generated! Do not edit by hand!");
     w.line("// Follow the instructions in the README on how to update this file.");
-    w.line("use libfirm_rs_bindings as bindings;");
+    w.line("");
+    w.line("#![allow(dead_code)]");
     w.line("use std::collections::HashMap;");
-    w.line("use super::nodes::{NodeTrait, NodeDebug, NodeDebugOpts};");
-    w.line("use super::graph::Graph;");
-    w.line("use super::tarval::Tarval;");
-    w.line("use super::entity::Entity;");
     w.line("use std::fmt;");
+    w.line("use crate::bindings;");
+    w.line("use crate::nodes::{NodeTrait, NodeDebug, NodeDebugOpts};");
+    w.line("use crate::{Graph, Tarval, Entity, Mode};");
+    w.line("use crate::types::{Ty, TyTrait};");
 }
 
 function generateNodeEnum() {
@@ -341,7 +353,7 @@ function generateNodeEnum() {
 }
 
 function generateNodeIsAsNodeImpl() {
-    w.indent(`#[allow(clippy::wrong_self_convention)]`);
+    w.line(`#[allow(clippy::wrong_self_convention)]`);
     w.indent(`impl Node {`);
     for (const node of nodes) {
         w.indent(`pub fn ${node.is_name}(node: Node) -> bool {`);
@@ -522,7 +534,7 @@ function generateNodeImpl(node: NodeImpl) {
     // getter and setter for input nodes and attributes
     for (const input of node.attrOrInputs) {
         if (input.comment) { w.line(`/// Gets ${input.comment}.`); }
-        w.indent("#[allow(clippy::let_and_return)]");
+        w.line("#[allow(clippy::let_and_return)]");
         w.indent(`pub fn ${input.getterName}(self) -> ${input.type.rustOutName} {`);
         w.line(`let unwrapped = unsafe { bindings::get_${node.name}_${input.name}(self.0) };`);
         w.line(input.type.wrap("unwrapped"));
@@ -530,7 +542,7 @@ function generateNodeImpl(node: NodeImpl) {
         w.line();
 
         if (input.comment) { w.line(`/// Sets ${input.comment}.`); }
-        w.indent("#[allow(clippy::let_and_return)]");
+        w.line("#[allow(clippy::let_and_return)]");
         w.indent(`pub fn ${input.setterName}(self, val: ${input.type.rustInName}) {`);
         w.line(`let unwrapped = ${input.type.unwrap("val")};`);
         w.line(`unsafe { bindings::set_${node.name}_${input.name}(self.0, unwrapped); }`);
@@ -542,8 +554,8 @@ function generateNodeImpl(node: NodeImpl) {
     for (const out of node.outs) {
         if (out.comment) { w.line(`/// ${out.comment}.`); }
         const outMode = out.guessModeType();
-        let args = outMode ? "" : `, mode: bindings::mode::Type`;
-        let modeValue = outMode ? `${outMode}` : `mode`;
+        let args = outMode ? "" : `, mode: ${modeType.rustInName}`;
+        let modeValue = outMode ? `${outMode}` : modeType.unwrap(`mode`);
 
         w.indent(`pub fn ${out.new_proj_fnName}(self${args}) -> Proj {`);
         w.line(`Proj::new(unsafe { bindings::new_r_Proj(self.0, ${modeValue}, ${out.idx}) })`);
@@ -589,7 +601,7 @@ function generateNodeTraitImpl(node: NodeImpl) {
 }
 
 function generateNodeDebugImpl(node: NodeImpl) {
-    if (["Address", "Call"].indexOf(node.name) === -1) {
+    if (["Address", "Call", "Const"].indexOf(node.name) === -1) {
         w.indent(`impl NodeDebug for ${node.structName} {`);
         w.indent(`fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {`);
         w.line(`write!(f, "${node.name} {}", self.node_id())`);
@@ -650,7 +662,7 @@ function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") 
     let nextIsArray = false;
     for (const arg of node.args) {
         if (nextIsArray) {
-            params.push({ name: arg.argName, type: `Vec<Node>`, doc: arg.comment });
+            params.push({ name: arg.argName, type: `&[Node]`, doc: arg.comment });
             statements.push(`let ${arg.argName}: Vec<*mut bindings::ir_node> = ${arg.argName}.iter().map(|v| ${nodeType.unwrap(`v`)}).collect();`);
             args.push(`${arg.argName}.len() as i32`, `${arg.argName}.as_ptr()`);
             nextIsArray = false;
@@ -668,7 +680,7 @@ function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") 
         w.line(`/// * \`${param.name}\` ${param.doc}`);
     }
     const paramsStr = params.map(p => `${p.name}: ${p.type}`).join(", ");
-    w.indent("#[allow(clippy::style)]");
+    w.line("#[allow(clippy::style)]");
     w.indent(`pub fn ${node.new_name}(self, ${paramsStr}) -> ${node.structName} {`);
     for (const line of statements) { w.line(line); }
     w.line(`let ir_node = unsafe { bindings::new_r_${node.name}(${args.join(", ")}) };`);
