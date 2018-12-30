@@ -48,9 +48,9 @@ impl<'a, 'b> GraphData for FirmProgram<'a, 'b> {
                 dot_files.insert(
                     internal_name.clone(),
                     GraphState {
-                        class_name: format!(
-                            "{}.{}", 
-                            class.borrow().def.name.to_string(), 
+                        name: format!(
+                            "{}.{}",
+                            class.borrow().def.name.to_string(),
                             method.borrow().def.name.to_string()
                         ),
                         dot_content: graph.into_dot_format_string(&internal_name, label_maker),
