@@ -161,7 +161,7 @@ impl ConstantFolding {
                     .fontcolor(X11Color::White);
             }
 
-            if let Some(priority) = self.queue.get(&node) {
+            if let Some(_priority) = self.queue.get(&node) {
                 label = label.style(Style::Bold);
             }
 

@@ -226,7 +226,7 @@ impl Default for BreakpointFilters {
         let mut filters = BreakpointFilters::new();
 
         if let Ok(labels) = std::env::var("FILTER_BREAKPOINT_LABEL") {
-            for label in labels.split(",") {
+            for label in labels.split(',') {
                 if label.trim() == "" {
                     continue;
                 }
@@ -235,12 +235,12 @@ impl Default for BreakpointFilters {
         }
 
         if let Ok(locations) = std::env::var("FILTER_BREAKPOINT_LOCATION") {
-            for location in locations.split(",") {
+            for location in locations.split(',') {
                 if location.trim() == "" {
                     continue;
                 }
 
-                let parts = location.split(":").collect::<Vec<_>>();
+                let parts = location.split(':').collect::<Vec<_>>();
 
                 if parts.len() != 2 {
                     panic!(
@@ -260,7 +260,7 @@ impl Default for BreakpointFilters {
         }
 
         if let Ok(names) = std::env::var("FILTER_GRAPH_NAME") {
-            for name in names.split(",") {
+            for name in names.split(',') {
                 if name.trim() == "" {
                     continue;
                 }
