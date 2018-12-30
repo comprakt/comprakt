@@ -21,7 +21,20 @@
 <span id="21">21</span>
 <span id="22">22</span>
 <span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">graph</span>::<span class="ident">Graph</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>;
 
@@ -43,6 +56,17 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ld_name</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">CStr</span> {
         <span class="kw">unsafe</span> { <span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">bindings</span>::<span class="ident">get_entity_ld_name</span>(<span class="self">self</span>.<span class="number">0</span>)) }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">graph</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Graph</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="ident">irg</span> <span class="op">=</span> <span class="ident">bindings</span>::<span class="ident">get_entity_irg</span>(<span class="self">self</span>.<span class="number">0</span>);
+            <span class="kw">if</span> <span class="ident">irg</span>.<span class="ident">is_null</span>() {
+                <span class="prelude-val">None</span>
+            } <span class="kw">else</span> {
+                <span class="prelude-val">Some</span>(<span class="ident">Graph</span> { <span class="ident">irg</span> })
+            }
+        }
     }
 }
 </pre></div>

@@ -934,12 +934,18 @@
 <span id="934">934</span>
 <span id="935">935</span>
 <span id="936">936</span>
+<span id="937">937</span>
+<span id="938">938</span>
+<span id="939">939</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">not_unsafe_ptr_arg_deref</span>)]</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">clippy</span>::<span class="ident">print_stdout</span>)]</span>
+<span class="attribute">#![<span class="ident">feature</span>(<span class="ident">range_contains</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">derive_more</span>;
+
+<span class="comment">// extern crate libfirm_rs_bindings;</span>
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span>::<span class="ident">mode</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span>::<span class="kw-2">*</span>;

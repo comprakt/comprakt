@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["InNodeIterator",""],["OutNodeIterator",""],["PhiPredsIterator",""]],"trait":[["NodeTrait","A trait to abstract from Node enum and various *-Node structs."]]});
+initSidebarItems({"struct":[["CallArgsIterator",""],["CfgPredsIterator",""],["InNodeIterator",""],["NodeDebugFmt",""],["NodeDebugOpts",""],["OutNodeIterator",""],["PhiPredsIterator",""],["ReturnResIterator",""]],"trait":[["NodeDebug",""],["NodeTrait","A trait to abstract from Node enum and various *-Node structs."]]});

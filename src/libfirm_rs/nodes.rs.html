@@ -232,12 +232,105 @@
 <span id="232">232</span>
 <span id="233">233</span>
 <span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">entity</span>::<span class="ident">Entity</span>,
-    <span class="ident">nodes_gen</span>::{<span class="self">self</span>, <span class="ident">Block</span>, <span class="ident">Node</span>, <span class="ident">NodeFactory</span>, <span class="ident">Phi</span>, <span class="ident">Proj</span>, <span class="ident">ProjKind</span>},
-    <span class="ident">value_nodes</span>::<span class="ident">ValueNode</span>,
-};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">nodes_gen</span>::<span class="kw-2">*</span>, <span class="ident">value_nodes</span>::<span class="kw-2">*</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">entity</span>::<span class="ident">Entity</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fmt</span>,
@@ -258,6 +351,15 @@
                     <span class="ident">node</span>,
                     <span class="ident">len</span>: <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="macro-nonterminal">$</span><span class="macro-nonterminal">len_fn</span>(<span class="ident">node</span>) },
                     <span class="ident">cur</span>: <span class="number">0</span>,
+                }
+            }
+
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">idx</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">id_type</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> {
+                <span class="kw">if</span> (<span class="number">0</span>..<span class="self">self</span>.<span class="ident">len</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">index</span>) {
+                    <span class="kw">let</span> <span class="ident">out</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="macro-nonterminal">$</span><span class="macro-nonterminal">get_fn</span>(<span class="self">self</span>.<span class="ident">node</span>, <span class="ident">index</span>) };
+                    <span class="prelude-val">Some</span>(<span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">out</span>))
+                } <span class="kw">else</span> {
+                    <span class="prelude-val">None</span>
                 }
             }
         }
@@ -284,37 +386,13 @@
     };
 }
 
-<span class="kw">impl</span> <span class="ident">Block</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">keep_alive</span>(<span class="self">self</span>) {
-        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">keep_alive</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) }
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">num_cfgpreds</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
-        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Block_n_cfgpreds</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Phi</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">phi_preds</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">PhiPredsIterator</span> {
-        <span class="ident">PhiPredsIterator</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
-    }
-}
-
-<span class="macro">simple_node_iterator</span><span class="macro">!</span>(<span class="ident">PhiPredsIterator</span>, <span class="ident">get_Phi_n_preds</span>, <span class="ident">get_Phi_pred</span>, <span class="ident">i32</span>);
-
-<span class="kw">impl</span> <span class="ident">Proj</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">proj</span>(<span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>, <span class="ident">mode</span>: <span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Type</span>) <span class="op">-&gt;</span> <span class="ident">Proj</span> {
-        <span class="ident">Proj</span>::<span class="ident">new</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_r_Proj</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>(), <span class="ident">mode</span>, <span class="ident">num</span>) })
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">kind</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">ProjKind</span> {
-        <span class="ident">NodeFactory</span>::<span class="ident">proj_kind</span>(<span class="self">self</span>)
-    }
-}
-
 <span class="doccomment">/// A trait to abstract from Node enum and various *-Node structs.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">NodeTrait</span> {
     <span class="kw">fn</span> <span class="ident">internal_ir_node</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>;
+
+    <span class="kw">fn</span> <span class="ident">keep_alive</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">keep_alive</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) }
+    }
 
     <span class="kw">fn</span> <span class="ident">mode</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Type</span> {
         <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_irn_mode</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) }
@@ -322,10 +400,11 @@
 
     <span class="kw">fn</span> <span class="ident">block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Block</span> {
         <span class="kw">let</span> <span class="ident">block_ir_node</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_nodes_block</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) };
-        <span class="kw">match</span> <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">block_ir_node</span>) {
-            <span class="ident">Node</span>::<span class="ident">Block</span>(<span class="ident">block</span>) <span class="op">=&gt;</span> <span class="ident">block</span>,
-            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Expected block.&quot;</span>),
-        }
+        <span class="ident">Block</span>::<span class="ident">new</span>(<span class="ident">block_ir_node</span>)
+    }
+
+    <span class="kw">fn</span> <span class="ident">set_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="ident">Block</span>) {
+        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">set_nodes_block</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>(), <span class="ident">block</span>.<span class="ident">internal_ir_node</span>()) }
     }
 
     <span class="kw">fn</span> <span class="ident">out_nodes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">OutNodeIterator</span> {
@@ -336,22 +415,16 @@
         <span class="ident">InNodeIterator</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
     }
 
+    <span class="kw">fn</span> <span class="ident">set_in_nodes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">nodes</span>: <span class="kw-2">&amp;</span>[<span class="ident">Node</span>]) {
+        <span class="kw">let</span> <span class="ident">nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span><span class="op">&gt;</span> <span class="op">=</span>
+            <span class="ident">nodes</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">internal_ir_node</span>()).<span class="ident">collect</span>();
+        <span class="kw">unsafe</span> {
+            <span class="ident">bindings</span>::<span class="ident">set_irn_in</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>(), <span class="ident">nodes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>, <span class="ident">nodes</span>.<span class="ident">as_ptr</span>());
+        }
+    }
+
     <span class="kw">fn</span> <span class="ident">node_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">i64</span> {
         <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_irn_node_nr</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) }
-    }
-
-    <span class="comment">// TODO autogenerate</span>
-    <span class="kw">fn</span> <span class="ident">is_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">is_Block</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) <span class="op">!=</span> <span class="number">0</span> }
-    }
-
-    <span class="comment">// TODO autogenerate</span>
-    <span class="kw">fn</span> <span class="ident">is_jmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">is_Jmp</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) <span class="op">!=</span> <span class="number">0</span> }
-    }
-
-    <span class="kw">fn</span> <span class="ident">is_const</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">is_Const</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) <span class="op">!=</span> <span class="number">0</span> }
     }
 
     <span class="comment">// TODO implement methods from</span>
@@ -417,13 +490,50 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">nodes_gen</span>::<span class="ident">Call</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Call to {:?} {}&quot;</span>, <span class="self">self</span>.<span class="ident">ptr</span>(), <span class="self">self</span>.<span class="ident">node_id</span>())
+<span class="comment">// == Node extensions ==</span>
+
+<span class="kw">impl</span> <span class="ident">Return</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">return_res</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">ReturnResIterator</span> {
+        <span class="ident">ReturnResIterator</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
     }
 }
 
-<span class="kw">impl</span> <span class="ident">nodes_gen</span>::<span class="ident">Cond</span> {
+<span class="macro">simple_node_iterator</span><span class="macro">!</span>(<span class="ident">ReturnResIterator</span>, <span class="ident">get_Return_n_ress</span>, <span class="ident">get_Return_res</span>, <span class="ident">i32</span>);
+
+<span class="kw">impl</span> <span class="ident">Block</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">cfg_preds</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">CfgPredsIterator</span> {
+        <span class="ident">CfgPredsIterator</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
+    }
+}
+
+<span class="macro">simple_node_iterator</span><span class="macro">!</span>(
+    <span class="ident">CfgPredsIterator</span>,
+    <span class="ident">get_Block_n_cfgpreds</span>,
+    <span class="ident">get_Block_cfgpred</span>,
+    <span class="ident">i32</span>
+);
+
+<span class="kw">impl</span> <span class="ident">Phi</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">phi_preds</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">PhiPredsIterator</span> {
+        <span class="ident">PhiPredsIterator</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
+    }
+}
+
+<span class="macro">simple_node_iterator</span><span class="macro">!</span>(<span class="ident">PhiPredsIterator</span>, <span class="ident">get_Phi_n_preds</span>, <span class="ident">get_Phi_pred</span>, <span class="ident">i32</span>);
+
+<span class="kw">impl</span> <span class="ident">Proj</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">proj</span>(<span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>, <span class="ident">mode</span>: <span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Type</span>) <span class="op">-&gt;</span> <span class="ident">Proj</span> {
+        <span class="ident">Proj</span>::<span class="ident">new</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_r_Proj</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>(), <span class="ident">mode</span>, <span class="ident">num</span>) })
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Jmp</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_target_block</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Block</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">next</span>().<span class="ident">and_then</span>(<span class="ident">Node</span>::<span class="ident">as_block</span>)
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Cond</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_val</span>(<span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="ident">val</span> {
             <span class="self">self</span>.<span class="ident">out_proj_true</span>()
@@ -445,7 +555,7 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">nodes_gen</span>::<span class="ident">Address</span> {
+<span class="kw">impl</span> <span class="ident">Address</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">entity</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Entity</span> {
         <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Address_entity</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()).<span class="ident">into</span>() }
     }
@@ -457,14 +567,96 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">nodes_gen</span>::<span class="ident">Address</span> {
+<span class="kw">impl</span> <span class="ident">Call</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">args</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">CallArgsIterator</span> {
+        <span class="ident">CallArgsIterator</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
+    }
+}
+
+<span class="macro">simple_node_iterator</span><span class="macro">!</span>(<span class="ident">CallArgsIterator</span>, <span class="ident">get_Call_n_params</span>, <span class="ident">get_Call_param</span>, <span class="ident">i32</span>);
+
+<span class="comment">// = Debug fmt =</span>
+
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">NodeDebug</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>, <span class="ident">options</span>: <span class="ident">NodeDebugOpts</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span>;
+
+    <span class="kw">fn</span> <span class="ident">debug_fmt</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">NodeDebugFmt</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>
+    <span class="kw">where</span>
+        <span class="self">Self</span>: <span class="ident">Sized</span> <span class="op">+</span> <span class="ident">Copy</span>,
+    {
+        <span class="ident">NodeDebugFmt</span>(<span class="self">self</span>, <span class="ident">NodeDebugOpts</span>::<span class="ident">default</span>())
+    }
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Default</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NodeDebugOpts</span> {
+    <span class="ident">short</span>: <span class="ident">bool</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">NodeDebugOpts</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">short</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">short</span>
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_short</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="ident">short</span> <span class="op">=</span> <span class="ident">val</span>;
+        <span class="self">self</span>
+    }
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NodeDebugFmt</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">NodeDebug</span> <span class="op">+</span> <span class="ident">Sized</span> <span class="op">+</span> <span class="ident">Copy</span><span class="op">&gt;</span>(<span class="ident">T</span>, <span class="ident">NodeDebugOpts</span>);
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">NodeDebug</span> <span class="op">+</span> <span class="ident">Copy</span><span class="op">&gt;</span> <span class="ident">NodeDebugFmt</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">short</span>(<span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="ident">NodeDebugFmt</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="self">self</span>.<span class="number">1</span>.<span class="ident">with_short</span>(<span class="ident">val</span>))
+    }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with</span>(<span class="self">self</span>, <span class="ident">opts</span>: <span class="ident">NodeDebugOpts</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="ident">NodeDebugFmt</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">opts</span>)
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">NodeDebug</span> <span class="op">+</span> <span class="ident">Copy</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">NodeDebugFmt</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="macro">write</span><span class="macro">!</span>(
-            <span class="ident">f</span>,
-            <span class="string">&quot;Address of {:?} {}&quot;</span>,
-            <span class="self">self</span>.<span class="ident">entity</span>().<span class="ident">name_string</span>(),
-            <span class="self">self</span>.<span class="ident">node_id</span>()
-        )
+        <span class="ident">NodeDebug</span>::<span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, <span class="ident">f</span>, <span class="self">self</span>.<span class="number">1</span>)
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">NodeDebug</span> <span class="op">+</span> <span class="ident">Copy</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">NodeDebugFmt</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;NodeDebugFmt {:?}&quot;</span>, <span class="self">self</span>.<span class="number">1</span>)
+    }
+}
+
+<span class="comment">// = Debug fmt impls =</span>
+
+<span class="comment">/*
+impl NodeDebug for nodes_gen::Const {
+    fn fmt(&amp;self, f: &amp;mut fmt::Formatter, _opts: NodeDebugOpts) -&gt; fmt::Result {
+        let x = self.ptr().debug_fmt().short(true);
+        write!(f, &quot;Const &quot;, x, self.node_id())
+    }
+}
+*/</span>
+
+<span class="kw">impl</span> <span class="ident">NodeDebug</span> <span class="kw">for</span> <span class="ident">Call</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>, <span class="ident">_opts</span>: <span class="ident">NodeDebugOpts</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ptr</span>().<span class="ident">debug_fmt</span>().<span class="ident">short</span>(<span class="bool-val">true</span>);
+        <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Call to {} {}&quot;</span>, <span class="ident">x</span>, <span class="self">self</span>.<span class="ident">node_id</span>())
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">NodeDebug</span> <span class="kw">for</span> <span class="ident">Address</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>, <span class="ident">opts</span>: <span class="ident">NodeDebugOpts</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="kw">if</span> <span class="ident">opts</span>.<span class="ident">short</span> {
+            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;@{}&quot;</span>, <span class="self">self</span>.<span class="ident">entity</span>().<span class="ident">name_string</span>(),)
+        } <span class="kw">else</span> {
+            <span class="macro">write</span><span class="macro">!</span>(
+                <span class="ident">f</span>,
+                <span class="string">&quot;Address of {:?} {}&quot;</span>,
+                <span class="self">self</span>.<span class="ident">entity</span>().<span class="ident">name_string</span>(),
+                <span class="self">self</span>.<span class="ident">node_id</span>(),
+            )
+        }
     }
 }
 </pre></div>

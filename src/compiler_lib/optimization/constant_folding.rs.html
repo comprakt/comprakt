@@ -436,7 +436,7 @@
 
     <span class="kw">fn</span> <span class="ident">update_node</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">cur_node</span>: <span class="ident">Node</span>, <span class="ident">cur_lattice</span>: <span class="ident">CfLattice</span>) <span class="op">-&gt;</span> <span class="ident">CfLattice</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reachable</span> <span class="op">=</span> <span class="ident">cur_lattice</span>.<span class="ident">reachable</span>
-            <span class="op">||</span> <span class="kw">if</span> <span class="ident">cur_node</span>.<span class="ident">is_block</span>() {
+            <span class="op">||</span> <span class="kw">if</span> <span class="ident">Node</span>::<span class="ident">is_block</span>(<span class="ident">cur_node</span>) {
                 <span class="ident">cur_node</span>.<span class="ident">in_nodes</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">pred</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">pred</span>).<span class="ident">reachable</span>)
                     <span class="op">||</span> <span class="ident">cur_node</span> <span class="op">==</span> <span class="self">self</span>.<span class="ident">start_block</span>
             } <span class="kw">else</span> {
@@ -520,7 +520,7 @@
                 <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">Outcome</span>::<span class="ident">Unchanged</span>);
                 <span class="kw">continue</span>;
             }
-            <span class="kw">if</span> <span class="ident">node</span>.<span class="ident">is_const</span>() {
+            <span class="kw">if</span> <span class="ident">Node</span>::<span class="ident">is_const</span>(<span class="kw-2">*</span><span class="ident">node</span>) {
                 <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">Outcome</span>::<span class="ident">Unchanged</span>);
                 <span class="kw">continue</span>;
             }
@@ -535,7 +535,7 @@
 
                 <span class="kw">let</span> (<span class="ident">dead_path</span>, <span class="ident">nontarget_block</span>) <span class="op">=</span> <span class="ident">cond</span>.<span class="ident">out_proj_target_block</span>(<span class="op">!</span><span class="ident">val</span>).<span class="ident">unwrap</span>();
 
-                <span class="kw">if</span> <span class="ident">nontarget_block</span>.<span class="ident">num_cfgpreds</span>() <span class="op">&lt;=</span> <span class="number">1</span> {
+                <span class="kw">if</span> <span class="ident">nontarget_block</span>.<span class="ident">cfg_preds</span>().<span class="ident">len</span>() <span class="op">&lt;=</span> <span class="number">1</span> {
                     <span class="comment">// If the unused_proj is the sole predecessor of its successor,</span>
                     <span class="comment">// mark the successor, eliminate it.</span>
                     <span class="comment">// One would think this happens automatically, but it doesn&#39;t:</span>

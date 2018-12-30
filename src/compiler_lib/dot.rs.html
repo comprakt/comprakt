@@ -1047,7 +1047,7 @@
             <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">label_maker</span>.<span class="ident">label_for_node</span>(<span class="kw-2">*</span><span class="ident">node</span>);
             <span class="ident">label</span>.<span class="ident">write_dot_format</span>(<span class="ident">writer</span>);
 
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">node</span>.<span class="ident">is_block</span>() {
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">Node</span>::<span class="ident">is_block</span>(<span class="kw-2">*</span><span class="ident">node</span>) {
                 <span class="macro">writeln</span><span class="macro">!</span>(
                     <span class="ident">writer</span>,
                     <span class="string">&quot;{:?} -&gt; {:?} [color=blue];&quot;</span>,
