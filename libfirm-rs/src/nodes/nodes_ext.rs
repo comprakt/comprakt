@@ -1,5 +1,5 @@
 use super::nodes_gen::*;
-use crate::{bindings, Entity, Mode, graph};
+use crate::{bindings, graph, Entity, Mode};
 use std::{
     collections::HashSet,
     fmt,
@@ -106,61 +106,61 @@ pub trait NodeTrait {
     /// Note that this traversal crosses block boundaries, since blocks are
     /// also just predecessors in the Graph.
     fn walk<F>(&self, mut walker: F)
-        where
-            F: FnMut(graph::VisitTime, Node),
-            Self: Sized,
-            {
-                // We need the type ascription here, because otherwise rust infers `&mut F`,
-                // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
-                // `closure_handler` doesn't know the concrete `F`.
-                let mut fat_pointer: &mut dyn FnMut(graph::VisitTime, Node) = &mut walker;
-                let thin_pointer = &mut fat_pointer;
+    where
+        F: FnMut(graph::VisitTime, Node),
+        Self: Sized,
+    {
+        // We need the type ascription here, because otherwise rust infers `&mut F`,
+        // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
+        // `closure_handler` doesn't know the concrete `F`.
+        let mut fat_pointer: &mut dyn FnMut(graph::VisitTime, Node) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
 
-                unsafe {
-                    use std::ffi::c_void;
-                    bindings::irg_walk(
-                        self.internal_ir_node(),
-                        Some(pre_closure_handler),
-                        Some(post_closure_handler),
-                        thin_pointer as *mut &mut _ as *mut c_void,
-                        );
-                }
-            }
+        unsafe {
+            use std::ffi::c_void;
+            bindings::irg_walk(
+                self.internal_ir_node(),
+                Some(pre_closure_handler),
+                Some(post_closure_handler),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
 
     /// Perform a DFS over all nodes within `block` starting at `self`,
     /// plus the nodes that are just outside of the block.
     /// The primary use case for this API is in codegen.
     fn walk_dfs_in_block<Callback>(&self, block: Block, callback: &mut Callback)
-        where
+    where
+        Callback: FnMut(Node),
+        Self: Sized,
+    {
+        fn recurse<Callback>(
+            visited: &mut HashSet<Node>,
+            cur_node: Node,
+            block: Block,
+            callback: &mut Callback,
+        ) where
             Callback: FnMut(Node),
-            Self: Sized,
-            {
-                fn recurse<Callback>(
-                    visited: &mut HashSet<Node>,
-                    cur_node: Node,
-                    block: Block,
-                    callback: &mut Callback,
-                    ) where
-                    Callback: FnMut(Node),
-                {
-                    if cur_node.block() == block {
-                        for operand in cur_node.in_nodes() {
-                            // cannot filter before the loop because recurse adds to visited
-                            if visited.contains(&operand) {
-                                continue;
-                            }
-                            visited.insert(operand);
-                            recurse(visited, operand, block, callback);
-                        }
+        {
+            if cur_node.block() == block {
+                for operand in cur_node.in_nodes() {
+                    // cannot filter before the loop because recurse adds to visited
+                    if visited.contains(&operand) {
+                        continue;
                     }
-                    callback(cur_node);
+                    visited.insert(operand);
+                    recurse(visited, operand, block, callback);
                 }
-
-                let mut visited = HashSet::new();
-
-                let this = NodeFactory::node(self.internal_ir_node());
-                recurse(&mut visited, this, block, callback);
             }
+            callback(cur_node);
+        }
+
+        let mut visited = HashSet::new();
+
+        let this = NodeFactory::node(self.internal_ir_node());
+        recurse(&mut visited, this, block, callback);
+    }
 }
 
 pub use crate::graph::VisitTime;
@@ -237,7 +237,7 @@ impl Block {
                 self.internal_ir_node(),
                 slot_idx as i32,
                 mode.libfirm_mode(),
-                )
+            )
         })
     }
 
@@ -247,7 +247,7 @@ impl Block {
                 self.internal_ir_node(),
                 slot_idx as i32,
                 val.internal_ir_node(),
-                )
+            )
         }
     }
 
@@ -287,8 +287,17 @@ impl PartialEq for Block {
 }
 
 impl Phi {
-    pub fn phi_preds(self) -> PhiPredsIterator {
+    /// `Node` is the result of the phi node when entering this phi's block via
+    /// `Block`
+    pub fn preds(self) -> impl Iterator<Item = (Block, Node)> {
+        // From libfirm docs:
+        // A phi node has 1 input for each predecessor of its block. If a
+        // block is entered from its nth predecessor all phi nodes produce
+        // their nth input as result.
+        let block = self.block();
         PhiPredsIterator::new(self.internal_ir_node())
+            .enumerate()
+            .map(move |(i, pred)| (block.cfg_preds().idx(i as i32).unwrap().block(), pred))
     }
 }
 
@@ -356,11 +365,11 @@ pub trait NodeDebug {
     fn fmt(&self, f: &mut fmt::Formatter, options: NodeDebugOpts) -> fmt::Result;
 
     fn debug_fmt(self) -> NodeDebugFmt<Self>
-        where
-            Self: Sized + Copy,
-        {
-            NodeDebugFmt(self, NodeDebugOpts::default())
-        }
+    where
+        Self: Sized + Copy,
+    {
+        NodeDebugFmt(self, NodeDebugOpts::default())
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -427,7 +436,7 @@ impl NodeDebug for Address {
                 "Address of {:?} {}",
                 self.entity().name_string(),
                 self.node_id(),
-                )
+            )
         }
     }
 }

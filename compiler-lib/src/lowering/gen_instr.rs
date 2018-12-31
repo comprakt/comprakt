@@ -209,15 +209,13 @@ x => panic!("node must have been computed for {:?} or be const, error in DFS?", 
             Node::Proj(proj, _kind) => {
                 let pred = proj.pred();
                 if !self.is_computed(pred) {
-                    unsafe {
-                        debug_assert!(
-                            Node::is_address(pred)
-                                || Node::is_start(pred)
-                                || pred.mode() == mode::Mode::M()
-                                || pred.mode() == mode::Mode::X(),
-                            "predecessor must produce value"
-                        );
-                    }
+                    debug_assert!(
+                        Node::is_address(pred)
+                            || Node::is_start(pred)
+                            || pred.mode() == mode::Mode::M()
+                            || pred.mode() == mode::Mode::X(),
+                        "predecessor must produce value"
+                    );
                 } else {
                     // the normal case
                     // copy the value produced by predecessor

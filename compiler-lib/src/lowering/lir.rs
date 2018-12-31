@@ -9,8 +9,8 @@ use crate::{
 };
 use libfirm_rs::{
     graph::VisitTime,
-    nodes::{self, Node, NodeTrait},
     mode,
+    nodes::{self, Node, NodeTrait},
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -26,10 +26,8 @@ impl From<&firm::FirmProgram<'_, '_>> for LIR {
     fn from(prog: &firm::FirmProgram<'_, '_>) -> Self {
         let mut functions = Vec::new();
 
-        for class in prog.classes.values() {
-            for method in class.borrow().methods.values() {
-                functions.push((&*method.borrow()).into());
-            }
+        for method in prog.methods.values() {
+            functions.push((&*method.borrow()).into());
         }
 
         LIR { functions }
@@ -48,13 +46,12 @@ impl From<&firm::FirmMethod<'_, '_>> for Function {
     fn from(method: &firm::FirmMethod<'_, '_>) -> Self {
         let graph: libfirm_rs::graph::Graph = method
             .graph
-            .unwrap_or_else(|| panic!("Cannot lower function without a graph {}", method.def.name))
-            .into();
+            .unwrap_or_else(|| panic!("Cannot lower function without a graph {}", method.def.name));
 
         let returns = method.def.return_ty != CheckedType::Void;
         log::debug!("Generating block graph for {}", method.def.name);
         Function {
-            name: method._name.clone().into_string().unwrap(),
+            name: method.def.name.to_string(),
             nargs: method.def.params.len(),
             returns,
             graph: graph.into(),
@@ -245,7 +242,7 @@ impl BlockGraph {
                 let target = BasicBlock::skeleton_block(&mut blocks, *firm_target);
 
                 for firm_source in firm_target.cfg_preds() {
-                    let source = BasicBlock::skeleton_block(&mut blocks, firm_source);
+                    let source = BasicBlock::skeleton_block(&mut blocks, firm_source.block());
 
                     let edge = MutRc::new(ControlFlowTransfer {
                         register_transitions: Vec::new(),
@@ -287,9 +284,7 @@ impl BlockGraph {
                             let multislot = local_block.new_terminating_multislot();
                             phi.preds()
                                 // Mem edges are uninteresting across blocks
-                                .filter(|(_, value)| {
-                                    value.mode() != unsafe { libfirm_rs::bindings::mode::M }
-                                })
+                                .filter(|(_, value)| value.mode() != mode::Mode::M())
                                 // The next two 'maps' need to be seperated in two closures
                                 // because we wan't to selectively `move` `value` and
                                 // `multislot` into the closure, but take `self` by reference
@@ -321,9 +316,7 @@ impl BlockGraph {
                         _ => node_in_block
                             .in_nodes()
                             // Mem edges are uninteresting across blocks
-                            .filter(|value| {
-                                value.mode() != mode::Mode::M()
-                            })
+                            .filter(|value| value.mode() != mode::Mode::M())
                             // If this is a value produced by our block, there is no need to
                             // transfer it from somewhere else
                             .filter(|value| {
@@ -349,7 +342,7 @@ impl BlockGraph {
         // Special case for return nodes, see BasicBlock.return comment
         let end_block = self.get_block(self.firm.end_block());
         let multislot = end_block.new_terminating_multislot();
-        for return_node in self.firm.end_block().cfg_pred_nodes() {
+        for return_node in self.firm.end_block().cfg_preds() {
             log::debug!("return_node = {:?}", return_node);
             log::debug!(
                 "return_node.edges = {:?}",
@@ -374,8 +367,10 @@ impl BlockGraph {
                     return_node.return_res().len(),
                     "MiniJava only supports a single return value"
                 );
-                let vs = multislot
-                    .add_possible_value(return_node.return_res().idx(0).unwrap(), block_with_return_node.downgrade());
+                let vs = multislot.add_possible_value(
+                    return_node.return_res().idx(0).unwrap(),
+                    block_with_return_node.downgrade(),
+                );
                 end_block
                     .borrow()
                     .find_incoming_edge_from(return_node.block())
