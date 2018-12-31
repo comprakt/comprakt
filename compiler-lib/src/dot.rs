@@ -1,7 +1,10 @@
 //! Converts FIRM or LIR graphs into dot graph description language for easy
 //! debugging.
-use crate::firm::Program;
-use libfirm_rs::{entity::Entity, graph::Graph, nodes::NodeTrait, nodes_gen::Node};
+use crate::firm::FirmProgram;
+use libfirm_rs::{
+    nodes::{Node, NodeTrait},
+    Graph,
+};
 use serde_derive::Serialize;
 use std::{
     collections::hash_map::HashMap,
@@ -13,9 +16,8 @@ use std::{
 
 #[derive(Debug, Clone, Serialize)]
 pub struct GraphState {
-    class_name: String,
-    method_name: String,
-    dot_file: String,
+    pub name: String,
+    dot_content: String,
 }
 
 pub fn default_label(node: Node) -> Label {
@@ -31,7 +33,7 @@ pub trait GraphData {
         T: LabelMaker;
 }
 
-impl<'a, 'b> GraphData for Program<'a, 'b> {
+impl<'a, 'b> GraphData for FirmProgram<'a, 'b> {
     fn graph_data<T>(&self, label_maker: &T) -> HashMap<String, GraphState>
     where
         Self: Sized,
@@ -39,20 +41,21 @@ impl<'a, 'b> GraphData for Program<'a, 'b> {
     {
         let mut dot_files = HashMap::new();
 
-        for (class_name, class) in &self.classes {
-            for (method_name, method) in &class.borrow().methods {
-                if let Some(graph) = method.borrow().graph {
-                    let graph: Graph = graph.into();
-                    let internal_name = Entity::new(method.borrow().entity.into()).name_string();
-                    dot_files.insert(
-                        internal_name.clone(),
-                        GraphState {
-                            class_name: class_name.to_string(),
-                            method_name: method_name.to_string(),
-                            dot_file: graph.into_dot_format_string(&internal_name, label_maker),
-                        },
-                    );
-                }
+        for method in self.methods.values() {
+            let class = method.borrow().owning_class.upgrade().unwrap();
+            if let Some(graph) = method.borrow().graph {
+                let internal_name = method.borrow().entity.name_string();
+                dot_files.insert(
+                    internal_name.clone(),
+                    GraphState {
+                        name: format!(
+                            "{}.{}",
+                            class.borrow().def.name.to_string(),
+                            method.borrow().def.name.to_string()
+                        ),
+                        dot_content: graph.into_dot_format_string(&internal_name, label_maker),
+                    },
+                );
             }
         }
 
@@ -66,13 +69,13 @@ impl<'a, 'b> GraphData for Graph {
         Self: Sized,
         T: LabelMaker,
     {
+        let name = self.entity().name_string();
         let mut dot_files = HashMap::new();
         dot_files.insert(
-            "unknown.unknown".to_string(),
+            name.clone(),
             GraphState {
-                class_name: "unknown".to_string(),
-                method_name: "unknown".to_string(),
-                dot_file: self.into_dot_format_string("unknown.unknown", label_maker),
+                name: name.clone(),
+                dot_content: self.into_dot_format_string(&name.clone(), label_maker),
             },
         );
         dot_files
@@ -95,7 +98,7 @@ impl Dot for Graph {
             let label = label_maker.label_for_node(*node);
             label.write_dot_format(writer);
 
-            if !node.is_block() {
+            if !Node::is_block(*node) {
                 writeln!(
                     writer,
                     "{:?} -> {:?} [color=blue];",

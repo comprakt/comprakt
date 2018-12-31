@@ -52,6 +52,8 @@ class NodeImpl {
     public get variantName() { return this.name; }
     public get create_name() { return `create_${this.name.toLowerCase()}`; }
     public get new_name() { return `new_${this.name.toLowerCase()}`; }
+    public get is_name() { return `is_${this.name.toLowerCase()}`; }
+    public get as_name() { return `as_${this.name.toLowerCase()}`; }
 
     constructor(node: Node) {
         this.name = node.name;
@@ -180,7 +182,6 @@ class NodeArgImpl extends NodeMemberImpl {
     }
 }
 
-
 interface TypeDef {
     wrap(expr: string): string,
     unwrap(expr: string): string,
@@ -193,8 +194,15 @@ const internal_ir_node = "internal_ir_node";
 const nodeType: TypeDef = ({
     wrap: (expr: string) => `NodeFactory::node(${expr})`,
     unwrap: (expr: string) => `${expr}.${internal_ir_node}()`,
-    rustInName: "Node",
+    rustInName: "impl NodeTrait",
     rustOutName: "Node",
+});
+
+const modeType: TypeDef = ({
+    rustInName: "Mode",
+    rustOutName: "Mode",
+    unwrap: (expr: string) => `${expr}.libfirm_mode()`,
+    wrap: (expr: string) => `Mode::from_libfirm(${expr})`,
 });
 
 function rawPointerType(name: string): TypeDef {
@@ -212,10 +220,22 @@ function rawType(name: string): TypeDef {
 
 const notFoundTypes = new Array<string>();
 
+function intoRustType(name: string): TypeDef {
+    return {
+        rustInName: name,
+        rustOutName: name,
+        wrap: arg => `${arg}.into()`,
+        unwrap: arg => `${arg}.into()`,
+    };
+}
+
 function lookupType(typeName: string) {
     typeName = typeName.replace(/ /g, "");
     const types: { [key: string]: TypeDef } = {
         "ir_node*": nodeType,
+        "ir_node*const*": rawType("NodeList"),
+        "ir_entity*": intoRustType("Entity"),
+        "ir_tarval*": intoRustType("Tarval"),
         "int": ({
             wrap: (expr: string) => `${expr}`,
             unwrap: (expr: string) => expr,
@@ -240,20 +260,17 @@ function lookupType(typeName: string) {
         "ir_volatility": rawType("bindings::ir_volatility::Type"),
         "ir_cons_flags": rawType("bindings::ir_cons_flags::Type"),
         "ir_align": rawType("bindings::ir_align::Type"),
-        "ir_entity*": rawPointerType("ir_entity"),
-        "ir_type*": rawPointerType("ir_type"),
-        "ir_mode*": rawPointerType("ir_mode"),
-        "ir_tarval*": ({
-            rustInName: "Tarval",
-            rustOutName: "Tarval",
-            wrap: arg => `${arg}.into()`,
-            unwrap: arg => `${arg}.into()`,
-        }),
+        "ir_type*": {
+            rustInName: "Ty",
+            rustOutName: "Ty",
+            unwrap: (expr: string) => `${expr}.ir_type()`,
+            wrap: (expr: string) => `Ty::from_ir_type(${expr})`,
+        },
+        "ir_mode*": modeType,
         "ir_switch_table*": rawPointerType("ir_switch_table"),
         "ir_asm_constraint*": rawPointerType("ir_asm_constraint"),
         "ident*": rawPointerType("ident"),
         "ident**": rawType("*mut *mut bindings::ident"),
-        "ir_node*const*": rawType("NodeList")
     };
     const type = types[typeName];
     if (!type) {
@@ -276,18 +293,52 @@ if (notFoundTypes.length > 0) {
 
 const w = new CodeMaker();
 w.openFile("nodes_gen.rs");
+generateHeader();
 
-w.line("// This file is generated! Do not edit by hand!");
-w.line("// Follow the instructions in the README on how to update this file.");
-w.line("use libfirm_rs_bindings as bindings;");
-w.line("use std::collections::HashMap;");
-w.line("use super::nodes::NodeTrait;");
-w.line("use super::graph::Graph;");
-w.line("use super::tarval::Tarval;");
-w.line("use std::fmt;");
+generateNodeEnum();
+generateNodeIsAsNodeImpl();
+generateNodeDebug();
+generateNodeTrait();
 
-// generate Node enum
-{
+generateProjEnum();
+generateProjKindImpl();
+generateNodeFactory();
+
+for (const node of nodes) {
+    generateNodeStruct(node);
+    generateNodeImpl(node);
+    generateNodeInto(node);
+    generateNodeTraitImpl(node);
+    generateNodeDebugImpl(node);
+}
+
+generateGraphImpl();
+generateBlockImpl();
+
+w.closeFile("nodes_gen.rs");
+w.save("../src/nodes/");
+
+exec("cargo fmt --package libfirm-rs", (err, stdout, stderr) => {
+    if (err) { console.error(err); }
+    if (stderr) { console.error(stderr); }
+    if (stdout) { console.log(stdout); }
+});
+
+
+function generateHeader() {
+    w.line("// This file is generated! Do not edit by hand!");
+    w.line("// Follow the instructions in the README on how to update this file.");
+    w.line("");
+    w.line("#![allow(dead_code)]");
+    w.line("use std::collections::HashMap;");
+    w.line("use std::fmt;");
+    w.line("use crate::bindings;");
+    w.line("use crate::nodes::{NodeTrait, NodeDebug, NodeDebugOpts};");
+    w.line("use crate::{Graph, Tarval, Entity, Mode};");
+    w.line("use crate::types::{Ty, TyTrait};");
+}
+
+function generateNodeEnum() {
     w.line("#[derive(Clone, Copy)]");
     w.indent("pub enum Node {");
     for (const node of nodes) {
@@ -299,17 +350,33 @@ w.line("use std::fmt;");
     }
     w.unindent("}");
     w.line();
+}
 
-    // debug for node
-    w.indent(`impl fmt::Debug for Node {`);
-    w.indent(`fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {`);
+function generateNodeIsAsNodeImpl() {
+    w.line(`#[allow(clippy::wrong_self_convention)]`);
+    w.indent(`impl Node {`);
+    for (const node of nodes) {
+        w.indent(`pub fn ${node.is_name}(node: Node) -> bool {`);
+        w.line(`match node { Node::${node.variantName}(_node${node.isProj ? ", _proj_kind" : ""}) => true, _ => false }`);
+        w.unindent(`}`);
+
+        w.indent(`pub fn ${node.as_name}(node: Node) -> Option<${node.structName}> {`);
+        w.line(`match node { Node::${node.variantName}(node${node.isProj ? ", _proj_kind" : ""}) => Some(node), _ => None }`);
+        w.unindent(`}`);
+    }
+    w.unindent(`}`);
+}
+
+function generateNodeDebug() {
+    w.indent(`impl NodeDebug for Node {`);
+    w.indent(`fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {`);
     w.indent(`match self {`);
     for (const node of nodes) {
         w.indent(`Node::${node.variantName}(node${node.isProj ? ", proj_kind" : ""}) => {`);
         if (node.isProj) {
-            w.line(`write!(f, "{:?}: {:?}", node, proj_kind)`);
+            w.line(`write!(f, "{}: {:?}", node.debug_fmt().with(opts), proj_kind)`);
         } else {
-            w.line(`write!(f, "{:?}", node)`);
+            w.line(`write!(f, "{}", node.debug_fmt().with(opts))`);
         }
         w.unindent(`},`);
     }
@@ -317,6 +384,14 @@ w.line("use std::fmt;");
     w.unindent(`}`);
     w.unindent(`}`);
 
+    w.indent(`impl fmt::Debug for Node {`);
+    w.indent(`fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {`);
+    w.line(`fmt::Display::fmt(&self.debug_fmt(), f)`);
+    w.unindent(`}`);
+    w.unindent(`}`);
+}
+
+function generateNodeTrait() {
     w.indent(`impl NodeTrait for Node {`);
     w.indent(`fn ${internal_ir_node}(&self) -> ${ir_node_type} {`);
     w.indent(`match self {`);
@@ -329,30 +404,8 @@ w.line("use std::fmt;");
     w.line();
 }
 
-// generate Proj enum
-{
-    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq)]");
-    w.line("#[allow(non_camel_case_types)]");
-    w.indent("pub enum ProjKind {");
-    for (const node of nodes) {
-        for (const out of node.outs) {
-            const decl = out.projKind_variantDecl();
-            if (!decl) { continue; }
 
-            w.line(`/// ${decl.comment}`);
-            w.line(`${decl.decl},`);
-        }
-        if (node.name === "Start") {
-            w.line(`Start_TArgs_Arg(/* arg_idx */ u32, /* pred_pred */ Start, /* pred */ Proj),`);
-        }
-    }
-    w.line(`Other,`);
-    w.unindent("}");
-    w.line();
-}
-
-// generate NodeFactory to map ir_node to Node
-{
+function generateNodeFactory() {
     w.line("type NodeFactoryFn = fn(*mut bindings::ir_node) -> Node;");
     w.line(`pub struct NodeFactory(HashMap<u32, NodeFactoryFn>);`);
     w.line("#[allow(clippy::new_without_default_derive)]");
@@ -381,38 +434,13 @@ w.line("use std::fmt;");
     w.unindent("}");
     w.line();
 
-    // generate proj_kind function
-    w.indent(`pub fn proj_kind(proj: Proj) -> ProjKind {`);
-    {
-        w.line(`let pred = proj.pred();`);
-        w.indent(`match pred {`);
-        for (const predNode of nodes) {
-            if (predNode.isProj || predNode.outs.length === 0) continue;
-            w.line(`Node::${predNode.variantName}(node) => `);
-            w.indentation++;
-            w.indent(`match proj.num() {`);
-            let idx = 0;
-            for (const out of predNode.outs) {
-                w.line(`${idx} => ProjKind::${out.projKind_variantCtor("node")},`);
-                idx++;
-            }
-            w.line(`_ => ProjKind::Other,`);
-            w.unindent(`},`);
-            w.indentation--;
-        }
-        w.line(`Node::Proj(proj, ProjKind::Start_TArgs(start)) => ProjKind::Start_TArgs_Arg(proj.num(), start, proj),`);
-        w.line(`_ => ProjKind::Other,`);
-        w.unindent("}");
-    }
-    w.unindent(`}`);
-    w.line();
 
     // generate create_XYZ-Node functions
     for (const node of nodes) {
         w.indent(`fn ${node.create_name}(ir_node: ${ir_node_type}) -> Node {`);
         if (node.name === `Proj`) {
             w.line(`let proj = ${node.structName}(ir_node);`);
-            w.line(`Node::${node.name}(proj, Self::proj_kind(proj))`);
+            w.line(`Node::${node.name}(proj, proj.kind())`);
         }
         else {
             w.line(`Node::${node.name}(${node.structName}(ir_node))`);
@@ -424,8 +452,61 @@ w.line("use std::fmt;");
     w.line();
 }
 
-for (const node of nodes) {
-    // Node struct
+function generateProjEnum() {
+    w.line("#[derive(Debug, Clone, Copy, Eq, PartialEq)]");
+    w.line("#[allow(non_camel_case_types)]");
+    w.indent("pub enum ProjKind {");
+    for (const node of nodes) {
+        for (const out of node.outs) {
+            const decl = out.projKind_variantDecl();
+            if (!decl) { continue; }
+
+            w.line(`/// ${decl.comment}`);
+            w.line(`${decl.decl},`);
+        }
+        if (node.name === "Start") {
+            w.line(`Start_TArgs_Arg(/* arg_idx */ u32, /* pred_pred */ Start, /* pred */ Proj),`);
+        }
+        if (node.name === "Call") {
+            w.line(`Call_TResult_Arg(/* arg_idx */ u32, /* pred_pred */ Call, /* pred */ Proj),`);
+        }
+    }
+    w.line(`Other,`);
+    w.unindent("}");
+    w.line();
+}
+
+function generateProjKindImpl() {
+    w.indent(`impl Proj {`);
+    w.indent(`pub fn kind(self) -> ProjKind {`);
+    {
+        w.line(`let pred = self.pred();`);
+        w.indent(`match pred {`);
+        for (const predNode of nodes) {
+            if (predNode.isProj || predNode.outs.length === 0) continue;
+            w.line(`Node::${predNode.variantName}(node) => `);
+            w.indentation++;
+            w.indent(`match self.num() {`);
+            let idx = 0;
+            for (const out of predNode.outs) {
+                w.line(`${idx} => ProjKind::${out.projKind_variantCtor("node")},`);
+                idx++;
+            }
+            w.line(`_ => ProjKind::Other,`);
+            w.unindent(`},`);
+            w.indentation--;
+        }
+        w.line(`Node::Proj(proj, ProjKind::Start_TArgs(start)) => ProjKind::Start_TArgs_Arg(self.num(), start, proj),`);
+        w.line(`Node::Proj(proj, ProjKind::Call_TResult(call)) => ProjKind::Call_TResult_Arg(self.num(), call, proj),`);
+        w.line(`_ => ProjKind::Other,`);
+        w.unindent("}");
+    }
+    w.unindent(`}`);
+    w.unindent(`}`);
+    w.line();
+}
+
+function generateNodeStruct(node: NodeImpl) {
     if (node.doc) {
         for (const line of node.doc.split("\n")) {
             w.line(`/// ${line.trim()}`);
@@ -434,94 +515,127 @@ for (const node of nodes) {
     w.line("#[derive(Clone, Copy, Eq, PartialEq)]");
     w.line(`pub struct ${node.structName}(${ir_node_type});`);
     w.line();
+}
 
+function generateNodeImpl(node: NodeImpl) {
     w.indent(`impl ${node.structName} {`);
+
+    // new function
+    w.indent(`pub(crate) fn new(ir_node: ${ir_node_type}) -> Self {`);
     {
-        // new function
-        w.indent(`pub(crate) fn new(ir_node: ${ir_node_type}) -> Self {`);
-        {
-            w.indent(`if unsafe { bindings::is_${node.name}(ir_node) } == 0 {`);
-            w.line(`panic!("given ir_node is not a ${node.name}");`);
-            w.unindent(`}`);
-            w.line(`${node.structName}(ir_node)`);
-            w.unindent(`}`);
-        }
-        w.line();
-
-        // getter and setter for input nodes and attributes
-        for (const input of node.attrOrInputs) {
-            if (input.comment) { w.line(`/// Gets ${input.comment}.`); }
-            w.indent("#[allow(clippy::let_and_return)]");
-            w.indent(`pub fn ${input.getterName}(self) -> ${input.type.rustOutName} {`);
-            w.line(`let unwrapped = unsafe { bindings::get_${node.name}_${input.name}(self.0) };`);
-            w.line(input.type.wrap("unwrapped"));
-            w.unindent(`}`);
-            w.line();
-
-            if (input.comment) { w.line(`/// Sets ${input.comment}.`); }
-            w.indent("#[allow(clippy::let_and_return)]");
-            w.indent(`pub fn ${input.setterName}(self, val: ${input.type.rustInName}) {`);
-            w.line(`let unwrapped = ${input.type.unwrap("val")};`);
-            w.line(`unsafe { bindings::set_${node.name}_${input.name}(self.0, unwrapped); }`);
-            w.unindent(`}`);
-            w.line();
-        }
-
-        // projection functions
-        for (const out of node.outs) {
-            if (out.comment) { w.line(`/// ${out.comment}.`); }
-            const outMode = out.guessModeType();
-            let args = outMode ? "" : `, mode: bindings::mode::Type`;
-            let modeValue = outMode ? `${outMode}` : `mode`;
-
-            w.indent(`pub fn ${out.new_proj_fnName}(self${args}) -> Proj {`);
-            w.line(`Proj::new(unsafe { bindings::new_r_Proj(self.0, ${modeValue}, ${out.idx}) })`);
-            w.unindent(`}`);
-            w.line();
-        }
-
-        // projection reverse function
-        for (const out of node.outs) {
-            if (out.comment) { w.line(`/// ${out.comment}.`); }
-
-            w.indent(`pub fn ${out.out_proj_fnName}(self) -> Option<Proj> {`);
-            w.indent(`for out_node in self.out_nodes() {`);
-            w.indent(`if let Node::Proj(proj, ProjKind::${out.projKind_variantCtor("_")}) = out_node {`);
-            w.line(`return Some(proj);`);
-            w.unindent(`}`);
-            w.unindent(`}`);
-            w.line(`None`);
-            w.unindent(`}`);
-            w.line();
-        }
+        w.indent(`if unsafe { bindings::is_${node.name}(ir_node) } == 0 {`);
+        w.line(`panic!("given ir_node is not a ${node.name}");`);
+        w.unindent(`}`);
+        w.line(`${node.structName}(ir_node)`);
+        w.unindent(`}`);
     }
-    w.unindent(`}`);
     w.line();
 
-    // into Node
+    // getter and setter for input nodes and attributes
+    for (const input of node.attrOrInputs) {
+        if (input.comment) { w.line(`/// Gets ${input.comment}.`); }
+        w.line("#[allow(clippy::let_and_return)]");
+        w.indent(`pub fn ${input.getterName}(self) -> ${input.type.rustOutName} {`);
+        w.line(`let unwrapped = unsafe { bindings::get_${node.name}_${input.name}(self.0) };`);
+        w.line(input.type.wrap("unwrapped"));
+        w.unindent(`}`);
+        w.line();
+
+        if (input.comment) { w.line(`/// Sets ${input.comment}.`); }
+        w.line("#[allow(clippy::let_and_return)]");
+        w.indent(`pub fn ${input.setterName}(self, val: ${input.type.rustInName}) {`);
+        w.line(`let unwrapped = ${input.type.unwrap("val")};`);
+        w.line(`unsafe { bindings::set_${node.name}_${input.name}(self.0, unwrapped); }`);
+        w.unindent(`}`);
+        w.line();
+    }
+
+    // projection functions
+    for (const out of node.outs) {
+        if (out.comment) { w.line(`/// ${out.comment}.`); }
+        const outMode = out.guessModeType();
+        let args = outMode ? "" : `, mode: ${modeType.rustInName}`;
+        let modeValue = outMode ? `${outMode}` : modeType.unwrap(`mode`);
+
+        w.indent(`pub fn ${out.new_proj_fnName}(self${args}) -> Proj {`);
+        w.line(`Proj::new(unsafe { bindings::new_r_Proj(self.0, ${modeValue}, ${out.idx}) })`);
+        w.unindent(`}`);
+        w.line();
+    }
+
+    // projection reverse function
+    for (const out of node.outs) {
+        if (out.comment) { w.line(`/// ${out.comment}.`); }
+
+        w.indent(`pub fn ${out.out_proj_fnName}(self) -> Option<Proj> {`);
+        w.indent(`for out_node in self.out_nodes() {`);
+        w.indent(`if let Node::Proj(proj, ProjKind::${out.projKind_variantCtor("_")}) = out_node {`);
+        w.line(`return Some(proj);`);
+        w.unindent(`}`);
+        w.unindent(`}`);
+        w.line(`None`);
+        w.unindent(`}`);
+        w.line();
+    }
+
+    w.unindent(`}`);
+    w.line();
+}
+
+function generateNodeInto(node: NodeImpl) {
     w.indent(`impl Into<Node> for ${node.structName} {`);
     w.indent(`fn into(self) -> Node {`);
-    w.line(`Node::${node.variantName}(self${node.isProj ? ", NodeFactory::proj_kind(self)" : ""})`);
+    w.line(`Node::${node.variantName}(self${node.isProj ? ", self.kind()" : ""})`);
     w.unindent(`}`);
     w.unindent("}");
     w.line();
+}
 
-    // node Trait
+function generateNodeTraitImpl(node: NodeImpl) {
     w.indent(`impl NodeTrait for ${node.structName} {`);
     w.indent(`fn ${internal_ir_node}(&self) -> ${ir_node_type} {`);
     w.line(`self.0`);
     w.unindent(`}`);
     w.unindent("}");
     w.line();
+}
 
-    // Debug
-    if (["Address", "Call"].indexOf(node.name) === -1) {
-        w.indent(`impl fmt::Debug for ${node.structName} {`);
-        w.indent(`fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {`);
+function generateNodeDebugImpl(node: NodeImpl) {
+    if (["Address", "Call", "Const"].indexOf(node.name) === -1) {
+        w.indent(`impl NodeDebug for ${node.structName} {`);
+        w.indent(`fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {`);
         w.line(`write!(f, "${node.name} {}", self.node_id())`);
         w.unindent(`}`);
         w.unindent(`}`);
     }
+
+    w.indent(`impl fmt::Debug for ${node.structName} {`);
+    w.indent(`fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {`);
+    w.line(`fmt::Display::fmt(&self.debug_fmt(), f)`);
+    w.unindent(`}`);
+    w.unindent(`}`);
+}
+
+function generateGraphImpl() {
+    w.indent(`impl Graph {`);
+    {
+        for (const node of nodes) {
+            generateConstructionFunction(node, "graph");
+        }
+    }
+    w.unindent("}");
+    w.line();
+}
+
+function generateBlockImpl() {
+    w.indent(`impl Block {`);
+    {
+        for (const node of nodes) {
+            generateConstructionFunction(node, "block");
+        }
+    }
+    w.unindent("}");
+    w.line();
 }
 
 function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") {
@@ -548,7 +662,7 @@ function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") 
     let nextIsArray = false;
     for (const arg of node.args) {
         if (nextIsArray) {
-            params.push({ name: arg.argName, type: `Vec<Node>`, doc: arg.comment });
+            params.push({ name: arg.argName, type: `&[Node]`, doc: arg.comment });
             statements.push(`let ${arg.argName}: Vec<*mut bindings::ir_node> = ${arg.argName}.iter().map(|v| ${nodeType.unwrap(`v`)}).collect();`);
             args.push(`${arg.argName}.len() as i32`, `${arg.argName}.as_ptr()`);
             nextIsArray = false;
@@ -566,7 +680,7 @@ function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") 
         w.line(`/// * \`${param.name}\` ${param.doc}`);
     }
     const paramsStr = params.map(p => `${p.name}: ${p.type}`).join(", ");
-    w.indent("#[allow(clippy::style)]");
+    w.line("#[allow(clippy::style)]");
     w.indent(`pub fn ${node.new_name}(self, ${paramsStr}) -> ${node.structName} {`);
     for (const line of statements) { w.line(line); }
     w.line(`let ir_node = unsafe { bindings::new_r_${node.name}(${args.join(", ")}) };`);
@@ -574,31 +688,3 @@ function generateConstructionFunction(node: NodeImpl, context: "graph"|"block") 
     w.unindent(`}`);
     w.line();
 }
-
-// graph node construction functions
-w.indent(`impl Graph {`);
-{
-    for (const node of nodes) {
-        generateConstructionFunction(node, "graph");
-    }
-}
-w.unindent("}");
-w.line();
-
-w.indent(`impl Block {`);
-{
-    for (const node of nodes) {
-        generateConstructionFunction(node, "block");
-    }
-}
-w.unindent("}");
-w.line();
-
-w.closeFile("nodes_gen.rs");
-w.save("../src/");
-
-exec("cargo fmt --package libfirm-rs", (err, stdout, stderr) => {
-    if (err) { console.error(err); }
-    if (stderr) { console.error(stderr); }
-    if (stdout) { console.log(stdout); }
-});

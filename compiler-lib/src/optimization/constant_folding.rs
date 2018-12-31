@@ -1,11 +1,8 @@
 use super::{Outcome, OutcomeCollector};
-use crate::optimization;
+use crate::{dot::*, optimization};
 use libfirm_rs::{
-    graph::Graph,
-    nodes::NodeTrait,
-    nodes_gen::{Node, ProjKind},
-    tarval::{Tarval, TarvalKind},
-    value_nodes::try_as_value_node,
+    nodes::{try_as_value_node, Node, NodeTrait, ProjKind},
+    Graph, Tarval, TarvalKind,
 };
 use priority_queue::PriorityQueue;
 use std::collections::hash_map::HashMap;
@@ -147,8 +144,29 @@ impl ConstantFolding {
     }
 
     fn update_node(&mut self, cur_node: Node, cur_lattice: CfLattice) -> CfLattice {
+        breakpoint!("Constant Folding: iteration", self.graph, &|node: Node| {
+            let mut label = default_label(node);
+
+            if let Some(tarval) = self.values.get(&node) {
+                label = label.append(format!("\n{:?}", tarval));
+            }
+
+            if node == cur_node {
+                label = label
+                    .style(Style::Filled)
+                    .fillcolor(X11Color::Blue)
+                    .fontcolor(X11Color::White);
+            }
+
+            if let Some(_priority) = self.queue.get(&node) {
+                label = label.style(Style::Bold);
+            }
+
+            label
+        });
+
         let mut reachable = cur_lattice.reachable
-            || if cur_node.is_block() {
+            || if Node::is_block(cur_node) {
                 cur_node.in_nodes().any(|pred| self.lookup(pred).reachable)
                     || cur_node == self.start_block
             } else {
@@ -232,7 +250,7 @@ impl ConstantFolding {
                 collector.push(Outcome::Unchanged);
                 continue;
             }
-            if node.is_const() {
+            if Node::is_const(*node) {
                 collector.push(Outcome::Unchanged);
                 continue;
             }
@@ -240,14 +258,14 @@ impl ConstantFolding {
             if let Ok(value_node) = try_as_value_node(*node) {
                 let const_node = self.graph.new_const(lattice.value);
                 log::debug!("EXCHANGE NODE {:?} val={:?}", node, lattice.value);
-                Graph::exchange_value(value_node.as_ref(), &const_node);
+                Graph::exchange_value(value_node, const_node);
                 collector.push(Outcome::Changed);
             } else if let (Node::Cond(cond), TarvalKind::Bool(val)) = (node, lattice.value.kind()) {
                 let (always_taken_path, target_block) = cond.out_proj_target_block(val).unwrap();
 
                 let (dead_path, nontarget_block) = cond.out_proj_target_block(!val).unwrap();
 
-                if nontarget_block.num_cfgpreds() <= 1 {
+                if nontarget_block.cfg_preds().len() <= 1 {
                     // If the unused_proj is the sole predecessor of its successor,
                     // mark the successor, eliminate it.
                     // One would think this happens automatically, but it doesn't:
@@ -259,8 +277,8 @@ impl ConstantFolding {
 
                 let jmp = cond.block().new_jmp();
                 log::debug!("Replace {:?} with {:?} to {:?}", node, jmp, target_block);
-                Graph::exchange(&always_taken_path, &jmp);
-                self.graph.mark_as_bad(&dead_path);
+                Graph::exchange(always_taken_path, jmp);
+                self.graph.mark_as_bad(dead_path);
 
                 // We need this because if we have a while(true) loop, the code will be
                 // unreachable (libfirm-edge wise) from the end block (because the end
@@ -276,7 +294,7 @@ impl ConstantFolding {
         for block in &dangling_blocks {
             for (i, child) in block.out_nodes().enumerate() {
                 log::debug!("Mark block child #{} {:?} as bad", i, child);
-                self.graph.mark_as_bad(&child);
+                self.graph.mark_as_bad(child);
             }
         }
 

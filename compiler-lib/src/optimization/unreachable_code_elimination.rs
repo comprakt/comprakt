@@ -1,9 +1,8 @@
 use crate::optimization::{self, Outcome};
 use libfirm_rs::{
     bindings,
-    graph::Graph,
-    nodes::NodeTrait,
-    nodes_gen::{Node, ProjKind},
+    nodes::{Node, NodeTrait, ProjKind},
+    Graph,
 };
 
 pub struct UnreachableCodeElimination {
@@ -23,6 +22,7 @@ impl UnreachableCodeElimination {
     }
 
     fn run(&mut self) -> Outcome {
+        use self::{Node::*, ProjKind::*};
         unsafe {
             bindings::assure_irg_outs(self.graph.into());
         }
@@ -30,23 +30,17 @@ impl UnreachableCodeElimination {
         let mut replacements = Vec::new();
         let mut dangling_nontarget_blocks = Vec::new();
         self.graph.walk_topological(|node| {
-            if let Node::Cond(cond) = node {
-                if let Node::Const(c) = cond.selector() {
+            if let Cond(cond) = node {
+                if let Const(c) = cond.selector() {
                     let tarval = c.tarval();
 
                     let used_proj = node
                         .out_nodes()
                         .filter_map(|out_node| match out_node {
-                            Node::Proj(proj, ProjKind::Cond_Val(true, _))
-                                if tarval.is_bool_val(true) =>
-                            {
+                            Proj(proj, Cond_Val(val, _)) if tarval.is_bool_val(val) => Some(proj),
+                            /*Proj(proj, Cond_Val(false, _)) if tarval.is_bool_val(false) => {
                                 Some(proj)
-                            }
-                            Node::Proj(proj, ProjKind::Cond_Val(false, _))
-                                if tarval.is_bool_val(false) =>
-                            {
-                                Some(proj)
-                            }
+                            }*/
                             _ => None,
                         })
                         .next()
@@ -55,16 +49,13 @@ impl UnreachableCodeElimination {
                     let unused_proj = node
                         .out_nodes()
                         .filter_map(|out_node| match out_node {
-                            Node::Proj(proj, ProjKind::Cond_Val(true, _))
-                                if !tarval.is_bool_val(true) =>
-                            {
+                            Proj(proj, Cond_Val(true, _)) if !tarval.is_bool_val(true) => {
                                 Some(proj)
                             }
-                            Node::Proj(proj, ProjKind::Cond_Val(false, _))
-                                if tarval.is_bool_val(true) =>
-                            {
+                            Proj(proj, Cond_Val(false, _)) if tarval.is_bool_val(true) => {
                                 Some(proj)
                             }
+
                             _ => None,
                         })
                         .next()
@@ -101,7 +92,7 @@ impl UnreachableCodeElimination {
                     } else {
                         unreachable!("Target of a Proj must be a Block")
                     };
-                    if nontarget_block.num_cfgpreds() <= 1 {
+                    if nontarget_block.cfg_preds().len() <= 1 {
                         log::debug!("Mark nontarget block {:?} as dangling", nontarget_block);
                         dangling_nontarget_blocks.push(nontarget_block);
                     }
@@ -112,11 +103,11 @@ impl UnreachableCodeElimination {
         for (used_proj, jmp, unused_proj, target_block) in &replacements {
             // Now we replace the always-taken path with an unconditional jump ...
             log::debug!("Exchange unused proj {:?} with jmp {:?}", unused_proj, jmp,);
-            Graph::exchange(used_proj, jmp);
+            Graph::exchange(*used_proj, *jmp);
 
             // ... and mark the never-taken as "bad", so it will be later removed
             log::debug!("Mark unused proj {:?} as bad", unused_proj);
-            self.graph.mark_as_bad(unused_proj);
+            self.graph.mark_as_bad(*unused_proj);
 
             // We need this because if we have a while(true) loop, the code will be
             // unreachable (libfirm-edge wise) from the end block (because the end block is
@@ -129,7 +120,7 @@ impl UnreachableCodeElimination {
             let outs = nontarget_block.out_nodes().collect::<Vec<_>>();
             for (i, child) in outs.iter().enumerate() {
                 log::debug!("Mark Nontarget block child #{} {:?}", i, child);
-                self.graph.mark_as_bad(child);
+                self.graph.mark_as_bad(*child);
             }
         }
 
