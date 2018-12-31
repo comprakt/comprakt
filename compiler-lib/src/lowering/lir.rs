@@ -10,6 +10,7 @@ use crate::{
 use libfirm_rs::{
     graph::VisitTime,
     nodes::{self, Node, NodeTrait},
+    mode,
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -21,8 +22,8 @@ pub struct LIR {
     pub functions: Vec<Function>,
 }
 
-impl From<&firm::Program<'_, '_>> for LIR {
-    fn from(prog: &firm::Program<'_, '_>) -> Self {
+impl From<&firm::FirmProgram<'_, '_>> for LIR {
+    fn from(prog: &firm::FirmProgram<'_, '_>) -> Self {
         let mut functions = Vec::new();
 
         for class in prog.classes.values() {
@@ -43,8 +44,8 @@ pub struct Function {
     pub graph: BlockGraph,
 }
 
-impl From<&firm::Method<'_, '_>> for Function {
-    fn from(method: &firm::Method<'_, '_>) -> Self {
+impl From<&firm::FirmMethod<'_, '_>> for Function {
+    fn from(method: &firm::FirmMethod<'_, '_>) -> Self {
         let graph: libfirm_rs::graph::Graph = method
             .graph
             .unwrap_or_else(|| panic!("Cannot lower function without a graph {}", method.def.name))
@@ -321,7 +322,7 @@ impl BlockGraph {
                             .in_nodes()
                             // Mem edges are uninteresting across blocks
                             .filter(|value| {
-                                value.mode() != unsafe { libfirm_rs::bindings::mode::M }
+                                value.mode() != mode::Mode::M()
                             })
                             // If this is a value produced by our block, there is no need to
                             // transfer it from somewhere else
@@ -364,17 +365,17 @@ impl BlockGraph {
                 Node::Return(r) => r,
                 _ => panic!("unexpected return node"),
             };
-            if return_node.n_res() == 0 {
+            if return_node.return_res().len() == 0 {
                 block_with_return_node.borrow_mut().returns = BasicBlockReturns::Void(return_node);
             } else {
                 block_with_return_node.borrow_mut().returns = BasicBlockReturns::Value(return_node);
                 debug_assert_eq!(
                     1,
-                    return_node.n_res(),
+                    return_node.return_res().len(),
                     "MiniJava only supports a single return value"
                 );
                 let vs = multislot
-                    .add_possible_value(return_node.res(0), block_with_return_node.downgrade());
+                    .add_possible_value(return_node.return_res().idx(0).unwrap(), block_with_return_node.downgrade());
                 end_block
                     .borrow()
                     .find_incoming_edge_from(return_node.block())
@@ -545,8 +546,8 @@ impl MutRc<BasicBlock> {
             // corresponding cfg_pred. However, when creating slots for the inputs of phi
             // nodes, this function (`MutRc<BasicBlock>::new_slot`), in not used. So the
             // assumption holds, but BE AWARE OF THIS when refactoring.
-            let originates_here = slot.borrow().firm.is_const()
-                || slot.borrow().firm.is_address()
+            let originates_here = Node::is_const(slot.borrow().firm)
+                || Node::is_address(slot.borrow().firm)
                 || upborrow!(slot.borrow().allocated_in).firm
                     == upborrow!(slot.borrow().originates_in).firm;
             if !originates_here {

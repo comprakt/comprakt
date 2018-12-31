@@ -192,11 +192,11 @@ x => panic!("node must have been computed for {:?} or be const, error in DFS?", 
                 });
             }
             Node::Return(ret) => {
-                if ret.n_res() != 0 {
-                    assert_eq!(ret.n_res(), 1);
+                if ret.return_res().len() != 0 {
+                    assert_eq!(ret.return_res().len(), 1);
                     log::debug!("{:?}", ret);
                     let src = {
-                        let retval_slot = self.must_computed_slot(ret.res(0));
+                        let retval_slot = self.must_computed_slot(ret.return_res().idx(0).unwrap());
                         log::debug!("{:?}", ret);
                         Reg::N(retval_slot.num).into_operand()
                     };
@@ -211,10 +211,10 @@ x => panic!("node must have been computed for {:?} or be const, error in DFS?", 
                 if !self.is_computed(pred) {
                     unsafe {
                         debug_assert!(
-                            pred.is_address()
-                                || pred.is_start()
-                                || pred.mode() == mode::M
-                                || pred.mode() == mode::X,
+                            Node::is_address(pred)
+                                || Node::is_start(pred)
+                                || pred.mode() == mode::Mode::M()
+                                || pred.mode() == mode::Mode::X(),
                             "predecessor must produce value"
                         );
                     }
@@ -238,7 +238,7 @@ x => panic!("node must have been computed for {:?} or be const, error in DFS?", 
                 // returns
 
                 let args = call
-                    .params()
+                    .args()
                     .map(|node| {
                         log::debug!("\tparam node {:?}", node);
                         match node {
