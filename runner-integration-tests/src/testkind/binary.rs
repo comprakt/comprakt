@@ -1,4 +1,5 @@
 use crate::*;
+use compiler_lib::optimization;
 use serde_derive::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -70,7 +71,7 @@ impl BinaryTestData {
     }
 }
 
-pub fn exec_binary_test(input: PathBuf) {
+pub fn exec_binary_test(input: PathBuf, optimizations: optimization::Level) {
     let binary_path = input.with_extension("out");
     let setup = TestSpec {
         references: input.clone(),
@@ -83,7 +84,7 @@ pub fn exec_binary_test(input: PathBuf) {
     let metadata = assert_compiler_phase::<BinaryTestData>(
         CompilerCall::RawCompiler(CompilerPhase::Binary {
             output: binary_path.clone(),
-            optimizations: vec![],
+            optimizations,
             assembly: None,
         }),
         &setup,

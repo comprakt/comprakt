@@ -52,7 +52,7 @@ pub fn exec_timeout_test(input: PathBuf) {
     let test_data = assert_compiler_phase::<Data>(
         CompilerCall::RawCompiler(CompilerPhase::Binary {
             output: binary_path.clone(),
-            optimizations: vec![],
+            optimizations: optimization::Level::None,
             assembly: None,
         }),
         &TestSpec {

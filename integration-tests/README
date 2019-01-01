@@ -31,7 +31,8 @@ Overview
 | binary       | Assert stderr/stdout/exitcode for binary        |                      |
 |              | generation (a full compiler call). Run the      |                      |
 |              | generated binary and assert stderr/stdout       |                      |
-|              | and exitcode.                                   |                      |
+|              | and exitcode. Done twice, once with default     |                      |
+|              | optimizations, once unoptimized.                |                      |
 |--------------|-------------------------------------------------|----------------------|
 | timeout      | Assert stderr/stdout/exitcode for binary        |                      |
 |              | generation (a full compiler call). Run the      |                      |
@@ -212,9 +213,9 @@ Available YAML Fields
 Standard outputs of the compiler during compilation of
 the mini java program under test:
 
-- compiler_optimized_stderr (optional, default: "")
-- compiler_optimized_stdout (optional, default: "")
-- compiler_optimized_exitcode (optional, default: "0")
+- compiler_stderr (optional, default: "")
+- compiler_stdout (optional, default: "")
+- compiler_exitcode (optional, default: "0")
 
 Standard input and outputs of the generated binary itself. The program is run
 without a time limit!
