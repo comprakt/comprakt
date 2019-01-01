@@ -29,7 +29,7 @@ inspect-ast = { path = "../inspect-ast" }
 tempfile = "3.0"
 mjrt = { path = "../mjrt" }
 env_logger = "0.6"
-
+log = "0.4"
 
 [features]
 # Enable all UB-safe-making features by default.
