@@ -114,13 +114,20 @@ impl ConstantFolding {
     fn run(&mut self) {
         macro_rules! invalidate {
             ($node: expr) => {
-                self.queue.push(
-                    $node,
-                    Priority {
-                        topo_order: *self.node_topo_idx.get(&$node).unwrap(),
-                        priority: 0,
-                    },
-                );
+                let topo_order = self.node_topo_idx.get(&$node);
+                if let Some(topo_order) = topo_order {
+                    self.queue.push(
+                        $node,
+                        Priority {
+                            topo_order: *topo_order,
+                            priority: 0,
+                        },
+                    );
+                } else {
+                    // walk_topological only considers nodes reachable from end.
+                    // projs with no outs might not be reachable from end.
+                    log::debug!("Don't queue {:?} as it is not reachable from end", $node);
+                }
             };
         }
 
@@ -144,14 +151,14 @@ impl ConstantFolding {
     }
 
     fn update_node(&mut self, cur_node: Node, cur_lattice: CfLattice) -> CfLattice {
-        breakpoint!("Constant Folding: iteration", self.graph, &|node: Node| {
+        breakpoint!("Constant Folding: iteration", self.graph, &|node: &Node| {
             let mut label = default_label(node);
 
             if let Some(tarval) = self.values.get(&node) {
                 label = label.append(format!("\n{:?}", tarval));
             }
 
-            if node == cur_node {
+            if node == &cur_node {
                 label = label
                     .style(Style::Filled)
                     .fillcolor(X11Color::Blue)
