@@ -601,7 +601,7 @@ function generateNodeTraitImpl(node: NodeImpl) {
 }
 
 function generateNodeDebugImpl(node: NodeImpl) {
-    if (["Address", "Call", "Const"].indexOf(node.name) === -1) {
+    if (["Address", "Call", "Const", "Load", "Store", "Member"].indexOf(node.name) === -1) {
         w.indent(`impl NodeDebug for ${node.structName} {`);
         w.indent(`fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {`);
         w.line(`write!(f, "${node.name} {}", self.node_id())`);

@@ -340,9 +340,17 @@ impl NodeDebug for Const {
 }
 
 impl NodeDebug for Call {
-    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        let x = self.ptr().debug_fmt().short(true);
-        write!(f, "Call to {} {}", x, self.node_id())
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "Call {}", self.node_id())
+        } else {
+            write!(
+                f,
+                "Call to {} {}",
+                self.ptr().debug_fmt().short(true),
+                self.node_id()
+            )
+        }
     }
 }
 
@@ -356,6 +364,51 @@ impl NodeDebug for Address {
                 "Address of {:?} {}",
                 self.entity().name_string(),
                 self.node_id(),
+            )
+        }
+    }
+}
+
+impl NodeDebug for Member {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "@{}", self.entity().name_string(),)
+        } else {
+            write!(
+                f,
+                "Member ({:?}) {}",
+                self.entity().name_string(),
+                self.node_id(),
+            )
+        }
+    }
+}
+
+impl NodeDebug for Load {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "Load {}", self.node_id())
+        } else {
+            write!(
+                f,
+                "Load {} {}",
+                self.ptr().debug_fmt().short(true),
+                self.node_id()
+            )
+        }
+    }
+}
+
+impl NodeDebug for Store {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "Store {}", self.node_id())
+        } else {
+            write!(
+                f,
+                "Store {} {}",
+                self.ptr().debug_fmt().short(true),
+                self.node_id()
             )
         }
     }
