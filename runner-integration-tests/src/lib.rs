@@ -4,7 +4,7 @@ pub mod lookup;
 mod testkind;
 pub mod yaml;
 pub use self::{lookup::*, testkind::*};
-use compiler_lib::optimization::Optimization;
+use compiler_lib::optimization::Level;
 use difference::Changeset;
 use failure::Fail;
 use serde::de::DeserializeOwned;
@@ -32,7 +32,7 @@ pub enum CompilerPhase {
     Binary {
         output: PathBuf,
         assembly: Option<PathBuf>,
-        optimizations: Vec<Optimization>,
+        optimizations: Level,
     },
 }
 
@@ -71,19 +71,23 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
                 flags.push(path.as_os_str().to_os_string());
             }
 
-            if optimizations.is_empty() {
-                flags.push(OsString::from("-O"));
-                flags.push(OsString::from("None"));
-            } else {
-                let vals: String = optimizations
-                    .into_iter()
-                    .map(|opt| opt.kind.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
+            let optizimation_arg = match optimizations {
+                Level::Custom(passes) => {
+                    let vals: String = passes
+                        .into_iter()
+                        .map(|opt| opt.kind.to_string())
+                        .collect::<Vec<_>>()
+                        .join(",");
 
-                flags.push(OsString::from("-O"));
-                flags.push(OsString::from(format!("custom:{}", vals)));
-            }
+                    OsString::from(format!("custom:{}", vals))
+                }
+                Level::Aggressive => OsString::from("aggressive"),
+                Level::Moderate => OsString::from("moderate"),
+                Level::None => OsString::from("none"),
+            };
+
+            flags.push(OsString::from("-O"));
+            flags.push(optizimation_arg);
 
             return flags;
         }

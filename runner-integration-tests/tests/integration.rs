@@ -25,5 +25,6 @@ gen_semantic_integration_tests!();
 gen_ast_inspector_tests!();
 gen_assembly_integration_tests!();
 gen_binary_integration_tests!();
+gen_optimized_binary_integration_tests!();
 gen_timeout_integration_tests!();
 gen_optimization_integration_tests!();

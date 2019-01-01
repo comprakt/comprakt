@@ -1,5 +1,5 @@
 use crate::*;
-use compiler_lib::optimization;
+use compiler_lib::optimization::{self, Optimization};
 use serde_derive::Deserialize;
 use std::{
     fs::File,
@@ -152,16 +152,18 @@ pub fn exec_optimization_test(input: PathBuf) {
     let callinfo_actual = CompilerCall::RawCompiler(CompilerPhase::Binary {
         output: path_binary_optimized.clone(),
         assembly: Some(path_asm_optimized.clone()),
-        optimizations: test_data
-            .reference
-            .optimizations
-            .clone()
-            .iter()
-            .map(|kind| Optimization {
-                kind: *kind,
-                flags: vec![],
-            })
-            .collect(),
+        optimizations: optimization::Level::Custom(
+            test_data
+                .reference
+                .optimizations
+                .clone()
+                .iter()
+                .map(|kind| Optimization {
+                    kind: *kind,
+                    flags: vec![],
+                })
+                .collect(),
+        ),
     });
 
     let mut cmd_actual = compiler_call(callinfo_actual, &input_without_yaml_path);
@@ -208,7 +210,7 @@ pub fn exec_optimization_test(input: PathBuf) {
     let callinfo_reference = CompilerCall::RawCompiler(CompilerPhase::Binary {
         output: path_binary_reference.clone(),
         assembly: Some(path_asm_reference.clone()),
-        optimizations: vec![],
+        optimizations: optimization::Level::None,
     });
 
     let mut cmd_reference = compiler_call(callinfo_reference, &reference_input);
