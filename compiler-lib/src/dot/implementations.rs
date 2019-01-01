@@ -1,4 +1,4 @@
-use super::{dot_string, Dot, GraphData, GraphState, Label, LabelMaker, Named};
+use super::{dot_string, Color, Dot, GraphData, GraphState, Label, LabelMaker, Named, X11Color, Shape};
 use crate::firm::FirmProgram;
 use libfirm_rs::{
     nodes::{Node, NodeTrait},
@@ -93,7 +93,18 @@ impl Dot<Node> for Graph {
                 .unwrap();
             }
             for ref_node in node.in_nodes() {
-                writeln!(writer, "{:?} -> {:?};", ref_node.node_id(), node.node_id()).unwrap();
+                writeln!(
+                    writer,
+                    "{:?} -> {:?} [color={}];",
+                    ref_node.node_id(),
+                    node.node_id(),
+                    if ref_node.mode().is_mem() || node.mode().is_mem() {
+                        Color::X11Color(X11Color::Red)
+                    } else {
+                        Color::X11Color(X11Color::Black)
+                    }
+                )
+                .unwrap();
             }
         }
         writeln!(writer, "}}").unwrap();
@@ -146,7 +157,11 @@ where
 }
 
 pub fn default_label(node: &Node) -> Label {
-    Label::from_text(format!("{:?}", node))
+    let mut label = Label::from_text(format!("{:?}", node));
+    if Node::is_proj(*node) {
+        label = label.shape(Shape::Ellipse);
+    }
+    label
 }
 
 impl<S: BuildHasher> LabelMaker<Node> for HashMap<Node, Label, S> {

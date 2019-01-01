@@ -52,6 +52,10 @@ impl Mode {
     pub fn size_bytes(self) -> u32 {
         unsafe { bindings::get_mode_size_bytes(self.0) }
     }
+
+    pub fn is_mem(self) -> bool {
+        self == Mode::M()
+    }
 }
 
 use std::fmt::{self, Debug, Formatter};
