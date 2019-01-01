@@ -385,9 +385,11 @@
 <span id="385">385</span>
 <span id="386">386</span>
 <span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">compiler_lib</span>::<span class="ident">optimization</span>;
+<span class="kw">use</span> <span class="ident">compiler_lib</span>::<span class="ident">optimization</span>::{<span class="self">self</span>, <span class="ident">Optimization</span>};
 <span class="kw">use</span> <span class="ident">serde_derive</span>::<span class="ident">Deserialize</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fs</span>::<span class="ident">File</span>,
@@ -540,16 +542,18 @@
     <span class="kw">let</span> <span class="ident">callinfo_actual</span> <span class="op">=</span> <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Binary</span> {
         <span class="ident">output</span>: <span class="ident">path_binary_optimized</span>.<span class="ident">clone</span>(),
         <span class="ident">assembly</span>: <span class="prelude-val">Some</span>(<span class="ident">path_asm_optimized</span>.<span class="ident">clone</span>()),
-        <span class="ident">optimizations</span>: <span class="ident">test_data</span>
-            .<span class="ident">reference</span>
-            .<span class="ident">optimizations</span>
-            .<span class="ident">clone</span>()
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">kind</span><span class="op">|</span> <span class="ident">Optimization</span> {
-                <span class="ident">kind</span>: <span class="kw-2">*</span><span class="ident">kind</span>,
-                <span class="ident">flags</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-            })
-            .<span class="ident">collect</span>(),
+        <span class="ident">optimizations</span>: <span class="ident">optimization</span>::<span class="ident">Level</span>::<span class="ident">Custom</span>(
+            <span class="ident">test_data</span>
+                .<span class="ident">reference</span>
+                .<span class="ident">optimizations</span>
+                .<span class="ident">clone</span>()
+                .<span class="ident">iter</span>()
+                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">kind</span><span class="op">|</span> <span class="ident">Optimization</span> {
+                    <span class="ident">kind</span>: <span class="kw-2">*</span><span class="ident">kind</span>,
+                    <span class="ident">flags</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+                })
+                .<span class="ident">collect</span>(),
+        ),
     });
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd_actual</span> <span class="op">=</span> <span class="ident">compiler_call</span>(<span class="ident">callinfo_actual</span>, <span class="kw-2">&amp;</span><span class="ident">input_without_yaml_path</span>);
@@ -596,7 +600,7 @@
     <span class="kw">let</span> <span class="ident">callinfo_reference</span> <span class="op">=</span> <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Binary</span> {
         <span class="ident">output</span>: <span class="ident">path_binary_reference</span>.<span class="ident">clone</span>(),
         <span class="ident">assembly</span>: <span class="prelude-val">Some</span>(<span class="ident">path_asm_reference</span>.<span class="ident">clone</span>()),
-        <span class="ident">optimizations</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+        <span class="ident">optimizations</span>: <span class="ident">optimization</span>::<span class="ident">Level</span>::<span class="prelude-val">None</span>,
     });
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd_reference</span> <span class="op">=</span> <span class="ident">compiler_call</span>(<span class="ident">callinfo_reference</span>, <span class="kw-2">&amp;</span><span class="ident">reference_input</span>);
