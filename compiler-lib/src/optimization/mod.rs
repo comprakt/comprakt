@@ -2,6 +2,8 @@ use crate::firm::FirmProgram;
 use libfirm_rs::{bindings, Graph};
 use std::ffi::CString;
 
+mod inlining;
+use self::inlining::Inlining;
 mod constant_folding;
 use self::constant_folding::ConstantFolding;
 mod unreachable_code_elimination;
@@ -47,6 +49,7 @@ where
 pub enum Kind {
     ConstantFolding,
     UnreachableCodeElimination,
+    Inline,
 }
 
 impl Kind {
@@ -54,6 +57,7 @@ impl Kind {
         match self {
             Kind::ConstantFolding => ConstantFolding::optimize(program),
             Kind::UnreachableCodeElimination => UnreachableCodeElimination::optimize(program),
+            Kind::Inline => Inlining::optimize(program),
         }
     }
 }
