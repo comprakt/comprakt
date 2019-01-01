@@ -6,8 +6,6 @@ mod inlining;
 use self::inlining::Inlining;
 mod constant_folding;
 use self::constant_folding::ConstantFolding;
-mod unreachable_code_elimination;
-use self::unreachable_code_elimination::UnreachableCodeElimination;
 
 /// An optimization that optimizes the whole program by examining all function
 /// graphs at once.
@@ -48,7 +46,6 @@ where
 )]
 pub enum Kind {
     ConstantFolding,
-    UnreachableCodeElimination,
     Inline,
 }
 
@@ -56,7 +53,6 @@ impl Kind {
     fn run(self, program: &FirmProgram<'_, '_>) -> Outcome {
         match self {
             Kind::ConstantFolding => ConstantFolding::optimize(program),
-            Kind::UnreachableCodeElimination => UnreachableCodeElimination::optimize(program),
             Kind::Inline => Inlining::optimize(program),
         }
     }

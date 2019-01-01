@@ -1,6 +1,6 @@
 ---
-# NOTE: We need to constant fold first, since true is modeled as "1 != 0" 
-optimizations: [ConstantFolding,UnreachableCodeElimination]
+# NOTE: We need to constant fold first, since true is modeled as "1 != 0"
+optimizations: [ConstantFolding]
 expect:
     identical-to:
         is: |
@@ -9,7 +9,7 @@ expect:
               System.out.println(1);
             }
           }
-        
+
 stdout:
     is: "1\n"
 ---
