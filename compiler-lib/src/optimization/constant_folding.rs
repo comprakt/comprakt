@@ -155,7 +155,11 @@ impl ConstantFolding {
             let mut label = default_label(node);
 
             if let Some(tarval) = self.values.get(&node) {
-                label = label.append(format!("\n{:?}", tarval));
+                label = label.append(format!(
+                    "\n{} {:?}",
+                    if tarval.reachable { &"[R]" } else { &"[ ]" },
+                    tarval.value,
+                ));
             }
 
             if node == &cur_node {
@@ -180,20 +184,17 @@ impl ConstantFolding {
                 self.lookup(cur_node.block().into()).reachable
             };
 
-        let mut value = Tarval::bad();
-
         use self::{Node::*, ProjKind::*};
-        match cur_node {
-            Cond(cond) => {
-                value = self.lookup(cond.selector()).value;
-            }
+        let value = match cur_node {
+            Cond(cond) => self.lookup(cond.selector()).value,
             Proj(_, Cond_Val(val, cond)) => {
                 if self.lookup(cond.into()).value.is_bool_val(!val) {
                     reachable = false;
                 }
+                Tarval::bad()
             }
             Phi(phi) => {
-                value = phi.in_nodes().zip(phi.block().in_nodes()).fold(
+                phi.in_nodes().zip(phi.block().in_nodes()).fold(
                     Tarval::unknown(),
                     |val, (pred, block)| {
                         // only consider reachable blocks for phi inputs
@@ -226,21 +227,37 @@ impl ConstantFolding {
             }
             _ => {
                 if let Ok(value_node) = try_as_value_node(cur_node) {
+                    // value of we cannot compute the result
+                    let mut fallback_tarval = Tarval::unknown();
                     let values: Vec<_> = value_node
                         .value_nodes()
                         .iter()
-                        .map(|n| self.lookup(n.into()).value)
+                        .map(|n| {
+                            let val = self.lookup(n.into()).value;
+                            if val.is_unknown() || val.is_bad() {
+                                fallback_tarval = fallback_tarval.join(val);
+                                None
+                            } else {
+                                Some(val)
+                            }
+                        })
                         .collect();
-                    value = if values.iter().any(|n| n.is_bad()) {
-                        Tarval::bad()
-                    } else if values.iter().any(|n| n.is_unknown()) {
-                        Tarval::unknown()
-                    } else {
-                        value_node.compute(values)
-                    };
+
+                    let result = value_node.compute(&values[..]);
+                    log::debug!(
+                        "compute {:?}({:?}) = {:?}, fallback: {:?}",
+                        cur_node,
+                        values,
+                        result,
+                        fallback_tarval
+                    );
+
+                    result.unwrap_or(fallback_tarval)
+                } else {
+                    Tarval::bad()
                 }
             }
-        }
+        };
 
         CfLattice { reachable, value }
     }
