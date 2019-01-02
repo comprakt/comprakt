@@ -1,5 +1,5 @@
 use super::nodes_gen::*;
-use crate::{bindings, Entity, Mode};
+use crate::{bindings, Entity, Graph, Mode};
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -79,6 +79,21 @@ pub trait NodeTrait {
         OutNodeIterator::new(self.internal_ir_node())
     }
 
+    fn all_out_projs(&self) -> Vec<Proj> {
+        let mut result = Vec::new();
+        self.collect_all_out_projs(&mut result);
+        result
+    }
+
+    fn collect_all_out_projs(&self, projs: &mut Vec<Proj>) {
+        for n in self.out_nodes() {
+            if let Node::Proj(proj, _) = n {
+                projs.push(proj);
+                proj.collect_all_out_projs(projs);
+            }
+        }
+    }
+
     fn in_nodes(&self) -> InNodeIterator {
         InNodeIterator::new(self.internal_ir_node())
     }
@@ -93,6 +108,12 @@ pub trait NodeTrait {
 
     fn node_id(&self) -> i64 {
         unsafe { bindings::get_irn_node_nr(self.internal_ir_node()) }
+    }
+
+    fn graph(&self) -> Graph {
+        Graph {
+            irg: unsafe { bindings::get_irn_irg(self.internal_ir_node()) },
+        }
     }
 
     // TODO implement methods from
@@ -319,9 +340,17 @@ impl NodeDebug for Const {
 }
 
 impl NodeDebug for Call {
-    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        let x = self.ptr().debug_fmt().short(true);
-        write!(f, "Call to {} {}", x, self.node_id())
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "Call {}", self.node_id())
+        } else {
+            write!(
+                f,
+                "Call to {} {}",
+                self.ptr().debug_fmt().short(true),
+                self.node_id()
+            )
+        }
     }
 }
 
@@ -335,6 +364,51 @@ impl NodeDebug for Address {
                 "Address of {:?} {}",
                 self.entity().name_string(),
                 self.node_id(),
+            )
+        }
+    }
+}
+
+impl NodeDebug for Member {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "@{}", self.entity().name_string(),)
+        } else {
+            write!(
+                f,
+                "Member ({:?}) {}",
+                self.entity().name_string(),
+                self.node_id(),
+            )
+        }
+    }
+}
+
+impl NodeDebug for Load {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "Load {}", self.node_id())
+        } else {
+            write!(
+                f,
+                "Load {} {}",
+                self.ptr().debug_fmt().short(true),
+                self.node_id()
+            )
+        }
+    }
+}
+
+impl NodeDebug for Store {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "Store {}", self.node_id())
+        } else {
+            write!(
+                f,
+                "Store {} {}",
+                self.ptr().debug_fmt().short(true),
+                self.node_id()
             )
         }
     }

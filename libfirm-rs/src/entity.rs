@@ -3,7 +3,10 @@ use super::{
     types::{Ty, TyTrait},
     Graph,
 };
-use std::ffi::{CStr, CString};
+use std::{
+    ffi::{CStr, CString},
+    hash::{Hash, Hasher},
+};
 
 #[derive(Clone, Copy, From, Into)]
 pub struct Entity(*mut bindings::ir_entity);
@@ -62,3 +65,18 @@ impl Entity {
         }
     }
 }
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for Entity {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.ir_entity().hash(state);
+    }
+}
+
+impl PartialEq for Entity {
+    fn eq(&self, other: &Self) -> bool {
+        self.ir_entity() == other.ir_entity()
+    }
+}
+
+impl Eq for Entity {}

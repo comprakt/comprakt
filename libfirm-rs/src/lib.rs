@@ -1,7 +1,6 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 #![warn(clippy::print_stdout)]
 #![feature(range_contains)]
-#![feature(uniform_paths)]
 
 #[macro_use]
 extern crate derive_more;
