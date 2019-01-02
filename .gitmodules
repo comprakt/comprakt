@@ -3,7 +3,7 @@
 	url = https://git.scc.kit.edu/IPDSnelting/mjtest-tests.git
 [submodule "libfirm-rs-bindings/libfirm"]
 	path = libfirm-rs-bindings/libfirm
-	url = http://pp.info.uni-karlsruhe.de/git/libfirm.git
+	url = https://github.com/comprakt/libfirm.git
 	branch = set_b_value
 [submodule "compiler-lib/debugger-gui"]
 	path = compiler-lib/debugger-gui
