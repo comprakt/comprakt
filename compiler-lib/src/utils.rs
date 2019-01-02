@@ -116,6 +116,10 @@ pub mod cell {
         pub fn borrow_mut(&self) -> RefMut<'_, T> {
             self.0.borrow_mut()
         }
+
+        pub fn ptr_eq(this: &MutRc<T>, other: &MutRc<T>) -> bool {
+            Rc::ptr_eq(&this.0, &other.0)
+        }
     }
 
     impl<T> Clone for MutRc<T> {
@@ -127,6 +131,10 @@ pub mod cell {
     impl<T> MutWeak<T> {
         pub fn upgrade(&self) -> Option<MutRc<T>> {
             Weak::upgrade(&self.0).map(MutRc)
+        }
+
+        pub fn ptr_eq(this: &MutWeak<T>, other: &MutWeak<T>) -> bool {
+            Weak::ptr_eq(&this.0, &other.0)
         }
     }
 

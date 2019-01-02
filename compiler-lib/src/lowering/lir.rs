@@ -486,6 +486,42 @@ impl MutRc<ControlFlowTransfer> {
             .register_transitions
             .push((source_slot, target_slot));
     }
+
+    /// Do there exist multiple incoming flows for the target slot of `flow_idx`
+    /// in the target block?
+    pub fn must_copy_in_source(&self, flow_idx: usize) -> bool {
+        let target_slot_num = self.borrow().register_transitions[flow_idx].1.borrow().num;
+
+        self.borrow()
+            .target
+            .borrow()
+            .preds
+            .iter()
+            .filter(|pred| !MutWeak::ptr_eq(pred, &self.downgrade()))
+            .any(|pred| {
+                upborrow!(pred)
+                    .register_transitions
+                    .iter()
+                    .any(|(_, other_target_slot)| other_target_slot.borrow().num == target_slot_num)
+            })
+    }
+
+    /// Do there exist multiple outgoing flows for the source slot of `flow_idx`
+    /// in the source block?
+    pub fn must_copy_in_target(&self, flow_idx: usize) -> bool {
+        let source_slot_num = self.borrow().register_transitions[flow_idx].0.borrow().num;
+
+        upborrow!(self.borrow().source)
+            .succs
+            .iter()
+            .filter(|succ| !MutRc::ptr_eq(succ, self))
+            .any(|succ| {
+                succ.borrow()
+                    .register_transitions
+                    .iter()
+                    .any(|(other_source_slot, _)| other_source_slot.borrow().num == source_slot_num)
+            })
+    }
 }
 
 impl MutRc<BasicBlock> {
@@ -498,9 +534,9 @@ impl MutRc<BasicBlock> {
     }
 
     /// TODO This function makes the assupmtion that is not used for `value`s
-    /// that are the inputs to phi nodes (instead
-    /// `new_multislot`, `add_possible_value` and `add_incoming_value_flow` are
-    /// used seperately in that case). BE AWARE OF THIS when refactoring
+    /// that are the inputs to phi nodes (instead `new_multislot`,
+    /// `add_possible_value` and `add_incoming_value_flow` are used seperately
+    /// in that case). BE AWARE OF THIS when refactoring
     fn new_slot(
         &self,
         value: libfirm_rs::nodes::Node,

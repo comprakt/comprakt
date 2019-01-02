@@ -15,6 +15,7 @@
 #![feature(result_map_or_else)]
 #![feature(proc_macro_hygiene, decl_macro)]
 #![feature(try_trait)]
+#![feature(weak_ptr_eq)]
 #[macro_use]
 extern crate derive_more;
 
