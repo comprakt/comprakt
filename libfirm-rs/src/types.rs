@@ -88,13 +88,6 @@ impl Ty {
             false
         }
     }
-
-    // TOOO: move this to a newtype (but FunctionType name is already taken)
-    // BTW: FunctionType should be called MethodTypeBuilder
-    pub fn method_n_res(self) -> usize {
-        debug_assert!(self.is_method());
-        unsafe { bindings::get_method_n_ress(self.ir_type()) }
-    }
 }
 
 pub trait TyTrait: Sized {
@@ -184,6 +177,12 @@ impl ClassTy {
         unsafe {
             bindings::default_layout_compound_type(self.0);
         }
+    }
+}
+
+impl MethodTy {
+    pub fn n_res(self) -> usize {
+        unsafe { bindings::get_method_n_ress(self.ir_type()) }
     }
 }
 

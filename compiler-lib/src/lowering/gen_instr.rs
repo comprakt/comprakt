@@ -4,6 +4,7 @@ use itertools::Itertools;
 use libfirm_rs::{
     Entity,
     nodes::{Node, NodeTrait},
+    types::Ty,
 };
 use std::collections::HashMap;
 use strum_macros::*;
@@ -252,7 +253,11 @@ x => panic!("node must have been computed for {:?} or be const, error in DFS?", 
                     .collect();
 
                 // TODO use type_system data here? need some cross reference...
-                let n_res = func.ty().method_n_res();
+                let n_res = if let Ty::Method(ty) = func.ty() {
+                    ty.n_res()
+                } else {
+                    panic!("The type of a function is a method type");
+                };
                 let dst = if n_res == 0 {
                     self.mark_computed(node, Computed::Void);
                     None
