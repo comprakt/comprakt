@@ -1,4 +1,6 @@
-use super::{dot_string, Color, Dot, GraphData, GraphState, Label, LabelMaker, Named, X11Color, Shape};
+use super::{
+    dot_string, Color, Dot, GraphData, GraphState, Label, LabelMaker, Named, Shape, X11Color,
+};
 use crate::firm::FirmProgram;
 use libfirm_rs::{
     nodes::{Node, NodeTrait},
