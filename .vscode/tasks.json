@@ -1,0 +1,42 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "type": "shell",
+  "options": {
+    "shell": {
+      "executable": "C:\\Windows\\System32\\bash.exe",
+      "args": ["--login", "-c"]
+    }
+  },
+  "presentation": {
+    "echo": true,
+    "reveal": "always",
+    "focus": false,
+    "panel": "shared",
+    "showReuseMessage": true,
+    "clear": true
+  },
+
+  "problemMatcher": ["$rustc"],
+  "tasks": [
+    {
+      "label": "runs",
+      "command": "cargo",
+      "args": ["test", "--test", "integration", "binary::while"],
+      "group": {
+        "kind": "test",
+        "isDefault": true,
+      }
+    },
+    {
+      "label": "build",
+      "command": "cargo",
+      "args": ["build"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}

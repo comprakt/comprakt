@@ -1,0 +1,130 @@
+/*
+ * Reads a brainfuck program (of no more than 1024 instructions) from stdin and executes it.
+ *
+ * Examples:
+ *     Read two chars, add their ASCII values, print the result: ,>,<[->+<]>.
+ *     Hello World: ++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.
+ */
+
+class Brainfuck {
+
+    public int RIGHT; /* > */
+    public int LEFT; /* < */
+    public int INCREMENT; /* + */
+    public int DECREMENT; /* - */
+    public int WRITE; /* . */
+    public int READ; /* , */
+    public int LOOP_START; /* [ */
+    public int LOOP_END; /* ] */
+
+    public int NEWLINE; /* \n */
+
+    public int[] data;
+    public int dataSize;
+    public int dataPtr;
+
+    public int[] instructions;
+    public int instructionsSize;
+    public int instructionPtr;
+
+    public void init() {
+        RIGHT = 62;
+        LEFT = 60;
+        INCREMENT = 43;
+        DECREMENT = 45;
+        WRITE = 46;
+        READ = 44;
+        LOOP_START = 91;
+        LOOP_END = 93;
+
+        NEWLINE = 10;
+
+        dataSize = 30000;
+        data = new int[dataSize];
+        dataPtr = 0;
+        instructionsSize = 1024;
+        instructions = new int[instructionsSize];
+    }
+
+    public int read() throws Exception {
+        int result = NEWLINE;
+
+        while (result == NEWLINE) {
+            result = System.in.read();
+        }
+
+        return result;
+    }
+
+    public void fuck() throws Exception {
+        instructionPtr = 0;
+
+        while (instructionPtr < instructionsSize && instructions[instructionPtr] != 0) {
+            int instruction = instructions[instructionPtr];
+
+            if (instruction == RIGHT) {
+                dataPtr = (dataPtr + 1) % dataSize;
+            } else if(instruction == LEFT) {
+                dataPtr = (dataPtr - 1) % dataSize;
+            } else if (instruction == INCREMENT) {
+                data[dataPtr] = data[dataPtr] + 1;
+            } else if (instruction == DECREMENT) {
+                data[dataPtr] = data[dataPtr] - 1;
+            } else if (instruction == READ) {
+                data[dataPtr] = read();
+            } else if (instruction == WRITE) {
+                System.out.write(data[dataPtr]);
+                System.out.flush();
+            } else if (instruction == LOOP_START && data[dataPtr] == 0) {
+                int index = instructionPtr + 1;
+                int count = 0;
+
+                while (! (instructions[index] == LOOP_END && count == 0)) {
+                    if (instructions[index] == LOOP_START) {
+                        count = count + 1;
+                    } else if (instructions[index] == LOOP_END) {
+                        count = count - 1;
+                    }
+
+                    index = index + 1;
+                }
+
+                instructionPtr = index;
+            } else if (instruction == LOOP_END && data[dataPtr] != 0) {
+                int index = instructionPtr - 1;
+                int count = 0;
+
+                while (! (instructions[index] == LOOP_START && count == 0)) {
+                    if (instructions[index] == LOOP_END) {
+                        count = count + 1;
+                    } else if (instructions[index] == LOOP_START) {
+                        count = count - 1;
+                    }
+
+                    index = index - 1;
+                }
+
+                instructionPtr = index;
+            }
+
+            instructionPtr = instructionPtr + 1;
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        Brainfuck fuck = new Brainfuck();
+        fuck.init();
+
+        int index = 0;
+        int instruction = System.in.read();
+fuck.dataSize = 10;
+        /* while (index < fuck.instructionsSize && instruction != fuck.NEWLINE) { */
+            fuck.instructions[index] = instruction;
+            instruction = System.in.read();
+
+            index = index + 1;
+        /* } */
+
+        fuck.fuck();
+    }
+}

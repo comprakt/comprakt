@@ -1,0 +1,43 @@
+
+
+class Main {
+    public static void main(String[] args) throws Exception {
+        Main m = new Main();
+        m.init();
+        m.run();
+    }
+
+    public int pi;
+
+    public void init() {
+        pi = ggT(7, 3);
+        ggT2(1);
+    }
+
+    public void run() {
+        int x = System.in.read();
+        int y = System.in.read();
+        if (max(x, y) == max(pi, 3)) {
+            System.out.println(100);
+        }
+    }
+
+    public int max(int a, int b) {
+        if (a > b) return a;
+        return b;
+    }
+
+    public int min(int a, int b) {
+        if (a > b) return b;
+        return a;
+    }
+
+    public int ggT(int a, int b) {
+        return max(a, b);
+        /* return ggT2(max(a, b)); */
+    }
+
+    public int ggT2(int x) {
+        return ggT(min(x, x), min(x, x));
+    }
+}

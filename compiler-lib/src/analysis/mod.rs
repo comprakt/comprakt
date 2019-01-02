@@ -17,8 +17,7 @@ impl<'prog, 'src, 'ast> CallGraph<'prog, 'src, 'ast> {
     }
 
     pub fn construct(&self) -> G<FirmMethodP<'src, 'ast>, Call> {
-        // Vec<Call>
-        let mut map = HashMap::new(); // : HashMap<RefEq<FirmMethodP<'src, 'ast>>, _>
+        let mut map = HashMap::new();
         let mut g = G::new();
         for method in self.program.methods.values() {
             map.insert(RefEq(Rc::clone(method)), g.add_node(Rc::clone(method)));

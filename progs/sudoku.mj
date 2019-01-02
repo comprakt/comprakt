@@ -1,0 +1,160 @@
+class Main {
+
+	public static void main(String[] args) {
+		Sudoku sudoku = new Sudoku();
+		sudoku.init(4);
+		/* sudoku.fix(0, 0, 1); */
+		if (sudoku.solve()) {
+			sudoku.show();
+		}
+	}
+
+}
+
+
+class Sudoku {
+
+	public void init(int dim) {
+		_M_dim = dim;
+		int size = _M_dim * _M_dim * _M_dim * _M_dim;
+		_M_board = new int[size];
+		_M_fixed = new boolean[size];
+		int idx = 0;
+		while (idx < size) {
+			_M_board[idx] = 0;
+			_M_fixed[idx] = false;
+			idx = idx + 1;
+		}
+	}
+
+	public void fix(int i, int j, int value) {
+		int idx = _M_getIndex(i, j);
+		_M_board[idx] = value;
+		_M_fixed[idx] = true;
+	}
+
+	public void show() {
+		int digits = _M_dim * _M_dim;
+		int i = 0;
+		while (i < digits) {
+			if ((i > 0) && (i % _M_dim == 0)) {
+				System.out.write(10);
+			}
+			int j = 0;
+			while (j < digits) {
+				if (j % _M_dim == 0) {
+					System.out.write(32);
+				}
+				System.out.write(32);
+				int d = _M_board[_M_getIndex(i, j)];
+				if (d < 10) {
+					d = d + 48;
+				} else {
+					d = 97 + d - 10;
+				}
+				System.out.write(d);
+				j = j + 1;
+			}
+			System.out.write(10);
+			i = i + 1;
+		}
+	}
+
+	public int _M_dim;
+	public int[] _M_board;
+	public boolean[] _M_fixed;
+
+	public void _M_printRow() {
+		int i = 0;
+		while (i < _M_dim) {
+			System.out.write(43);
+			int j = 0;
+			while (j < _M_dim) {
+				System.out.write(45);
+				System.out.write(45);
+				j = j + 1;
+			}
+			i = i + 1;
+		}
+		System.out.write(43);
+		System.out.write(10);
+	}
+
+	public boolean solve() {
+		int digits = _M_dim * _M_dim;
+		int size = digits * digits;
+		int idx = 0;
+		while (idx < size) {
+			int i = idx / digits;
+			int j = idx % digits;
+			if (_M_fixed[idx]) {
+				idx = idx + 1;
+			} else {
+				int k = _M_board[idx];
+				if (k == 0) {
+					k = 1;
+				}
+				while (_M_isInRow(i, k) || _M_isInColumn(j, k) || _M_isInSquare(i / _M_dim, j / _M_dim, k)) {
+					k = k + 1;
+				}
+				if (k <= digits) {
+					_M_board[idx] = k;
+					idx = idx + 1;
+				} else {
+					_M_board[idx] = 0;
+					if (idx == 0) { return false; }
+					idx = idx - 1;
+					while (_M_fixed[idx]) {
+						if (idx == 0) { return false; }
+						idx = idx - 1;
+					}
+				}
+			}
+		}
+		return true;
+	}
+
+	public int _M_getIndex(int i, int j) {
+		return _M_dim * _M_dim * i + j;
+	}
+
+	public boolean _M_isInRow(int row, int value) {
+		int digits = _M_dim * _M_dim;
+		int j = 0;
+		while (j < digits) {
+			if (_M_board[_M_getIndex(row, j)] == value) {
+				return true;
+			}
+			j = j + 1;
+		}
+		return false;
+	}
+
+	public boolean _M_isInColumn(int col, int value) {
+		int digits = _M_dim * _M_dim;
+		int i = 0;
+		while (i < digits) {
+			if (_M_board[_M_getIndex(i, col)] == value) {
+				return true;
+			}
+			i = i + 1;
+		}
+		return false;
+	}
+
+	public boolean _M_isInSquare(int n, int m, int value) {
+		int i = n * _M_dim;
+		while (i < n + _M_dim) {
+			int j = m * _M_dim;
+			while (j < m + _M_dim) {
+				if (_M_board[_M_getIndex(i, j)] == value) {
+					return true;
+				}
+				j = j + 1;
+			}
+			i = i + 1;
+		}
+		return false;
+	}
+
+}

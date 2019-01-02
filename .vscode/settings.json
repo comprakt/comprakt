@@ -1,0 +1,76 @@
+{
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.associations": {
+    "*.mj": "java"
+  },
+  "commentAnchors.workspace.excludeFiles": "**/{node_modules,.git,.idea,target,out,build,vendor,libfirm}/**/*",
+  "commentAnchors.workspace.matchFiles": "**/*.rs",
+  "commentAnchors.tags.list": [
+    {
+      "tag": "ANCHOR",
+      "iconColor": "default",
+      "highlightColor": "#A8C023",
+      "scope": "file"
+    },
+    {
+      "tag": "MY",
+      "iconColor": "blue",
+      "highlightColor": "#3ea8ff",
+      "scope": "workspace"
+    },
+    {
+      "tag": "TODO",
+      "iconColor": "blue",
+      "highlightColor": "#3ea8ff",
+      "scope": "workspace",
+      "enabled": false
+    },
+    {
+      "tag": "FIXME",
+      "iconColor": "red",
+      "highlightColor": "#F44336",
+      "scope": "workspace",
+      "enabled": false
+    },
+    {
+      "tag": "STUB",
+      "iconColor": "purple",
+      "highlightColor": "#BA68C8",
+      "scope": "file",
+      "enabled": false
+    },
+    {
+      "tag": "NOTE",
+      "iconColor": "orange",
+      "highlightColor": "#FFB300",
+      "scope": "file",
+      "enabled": false
+    },
+    {
+      "tag": "REVIEW",
+      "iconColor": "green",
+      "highlightColor": "#64DD17",
+      "scope": "workspace",
+      "enabled": false
+    },
+    {
+      "tag": "SECTION",
+      "iconColor": "blurple",
+      "highlightColor": "#896afc",
+      "scope": "workspace",
+      "isRegion": true,
+      "enabled": false
+    }
+  ],
+  "rust-client.revealOutputChannelOn": "warn",
+  "rust-client.updateOnStartup": true,
+  "rust.clippy_preference": "off",
+  "rust.goto_def_racer_fallback": true,
+  "rust-assist.diagnosticsOnStartup": false,
+  "rust-assist.diagnosticsOnSave": false,
+  "rust.show_warnings": false,
+  "[rust]": {
+    "editor.formatOnSave": false
+  }
+}

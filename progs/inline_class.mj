@@ -1,0 +1,56 @@
+class Main {
+    public static void main(String[] args) throws Exception {
+        new Main().run();
+    }
+
+    public void fies() {
+        Worker a = new Worker();
+        Worker b = new Worker();
+        Worker c = new Worker();
+        a.w = b;
+        b.x = 10;
+        System.out.println(a.w.x);
+        b.x = 11;
+        System.out.println(a.w.x);
+    }
+
+    public void run() {
+        Worker w = new Worker();
+        /*w.init(); w.work(); */
+        w.x = 10;
+        w.y = 11;
+
+        while (w.x < w.y) {
+            int wx = w.x;
+            w.x = w.y;
+            w.y = wx;
+        }
+
+        w.x = w.y;
+
+        Worker x;
+        if (1 < 2) {
+            x = new Worker();
+        } else {
+            x = w;
+        }
+
+        System.out.println(x.x);
+    }
+}
+
+class Worker {
+    public int x;
+    public int y;
+    public Worker w;
+    /*public void init() {
+        x = 10;
+    }
+
+    public void work() {
+        int i = 0;
+        while (i < x) {
+            i++;
+        }
+    }*/
+}

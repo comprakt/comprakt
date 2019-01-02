@@ -1,0 +1,17 @@
+class Main {
+    public static void main(String[] args) throws Exception {
+        new Main().foo(10);
+    }
+
+    public int foo(int x) {
+        int test = 10;
+        if (foo(10) == 0 && false) {
+            System.out.println(0);
+            test = 100;
+        }
+        System.out.println(test);
+
+        int i = x * (1 - 1);
+        return i;
+    }
+}
