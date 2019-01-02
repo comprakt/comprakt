@@ -179,6 +179,39 @@
 <span id="179">179</span>
 <span id="180">180</span>
 <span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">type_translation</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -197,56 +230,44 @@
     <span class="ident">rc</span>::{<span class="ident">Rc</span>, <span class="ident">Weak</span>},
 };
 
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">FirmEntity</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
+    <span class="ident">Method</span>(<span class="ident">FirmMethodP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>),
+    <span class="ident">Class</span>(<span class="ident">FirmClassP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>),
+    <span class="ident">Field</span>(<span class="ident">FirmFieldP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>),
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">FirmEntity</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="kw">use</span> <span class="self">self</span>::<span class="ident">FirmEntity</span>::<span class="kw-2">*</span>;
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">Method</span>(<span class="ident">m</span>) <span class="op">=&gt;</span> <span class="ident">Method</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">m</span>)),
+            <span class="ident">Class</span>(<span class="ident">m</span>) <span class="op">=&gt;</span> <span class="ident">Class</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">m</span>)),
+            <span class="ident">Field</span>(<span class="ident">m</span>) <span class="op">=&gt;</span> <span class="ident">Field</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">m</span>)),
+        }
+    }
+}
+
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">classes</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">RefEq</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>, <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmClass</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">fields</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">RefEq</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassFieldDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>, <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmField</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">methods</span>:
-        <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">RefEq</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassMethodDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>, <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmMethod</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">classes</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">RefEq</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>, <span class="ident">FirmClassP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">fields</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">RefEq</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassFieldDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>, <span class="ident">FirmFieldP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">methods</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">RefEq</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassMethodDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>, <span class="ident">FirmMethodP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">entities</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Entity</span>, <span class="ident">FirmEntity</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> <span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">field</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">field_def</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassFieldDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmField</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>, ()<span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">fields</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">RefEq</span>(<span class="ident">field_def</span>)) {
-            <span class="prelude-val">Some</span>(<span class="ident">field</span>) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">field</span>)),
-            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(()),
-        }
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">method</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">method_def</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassMethodDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmMethod</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>, ()<span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">methods</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">RefEq</span>(<span class="ident">method_def</span>)) {
-            <span class="prelude-val">Some</span>(<span class="ident">method</span>) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">method</span>)),
-            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(()),
-        }
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">class</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">class</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmClass</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>, ()<span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">classes</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">RefEq</span>(<span class="ident">class</span>)) {
-            <span class="prelude-val">Some</span>(<span class="ident">class</span>) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">class</span>)),
-            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(()),
-        }
-    }
-}
-
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">FirmClassP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmClass</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>;
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FirmClass</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="ident">def</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">entity</span>: <span class="ident">Entity</span>,
 }
 
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">FirmFieldP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmField</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>;
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FirmField</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="ident">owning_class</span>: <span class="ident">Weak</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmClass</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">def</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassFieldDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>,
     <span class="kw">pub</span> <span class="ident">entity</span>: <span class="ident">Entity</span>,
 }
 
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">FirmMethodP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmMethod</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>;
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FirmMethod</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="ident">owning_class</span>: <span class="ident">Weak</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmClass</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">body</span>: <span class="ident">ClassMethodBody</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
@@ -261,6 +282,7 @@
             <span class="ident">classes</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
             <span class="ident">fields</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
             <span class="ident">methods</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
+            <span class="ident">entities</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
         };
         <span class="ident">program</span>.<span class="ident">add_type_system</span>(<span class="ident">type_system</span>);
         <span class="ident">program</span>
@@ -288,7 +310,10 @@
             }
 
             <span class="ident">class_type</span>.<span class="ident">default_layout</span>();
-            <span class="self">self</span>.<span class="ident">classes</span>.<span class="ident">insert</span>(<span class="ident">RefEq</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">class</span>)), <span class="ident">firm_class</span>);
+            <span class="self">self</span>.<span class="ident">classes</span>
+                .<span class="ident">insert</span>(<span class="ident">RefEq</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">class</span>)), <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">firm_class</span>));
+            <span class="self">self</span>.<span class="ident">entities</span>
+                .<span class="ident">insert</span>(<span class="ident">class_entity</span>, <span class="ident">FirmEntity</span>::<span class="ident">Class</span>(<span class="ident">firm_class</span>));
         }
     }
 
@@ -306,21 +331,21 @@
             <span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}.F.{}&quot;</span>, <span class="ident">class</span>.<span class="ident">borrow</span>().<span class="ident">def</span>.<span class="ident">name</span>, <span class="ident">field</span>.<span class="ident">name</span>),
             <span class="ident">field_type</span>,
         );
+        <span class="kw">let</span> <span class="ident">firm_field</span> <span class="op">=</span> <span class="ident">Rc</span>::<span class="ident">new</span>(<span class="ident">RefCell</span>::<span class="ident">new</span>(<span class="ident">FirmField</span> {
+            <span class="ident">owning_class</span>: <span class="ident">Rc</span>::<span class="ident">downgrade</span>(<span class="kw-2">&amp;</span><span class="ident">class</span>),
+            <span class="ident">def</span>: <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>),
+            <span class="ident">entity</span>: <span class="ident">field_entity</span>,
+        }));
 
-        <span class="self">self</span>.<span class="ident">fields</span>.<span class="ident">insert</span>(
-            <span class="ident">RefEq</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>)),
-            <span class="ident">Rc</span>::<span class="ident">new</span>(<span class="ident">RefCell</span>::<span class="ident">new</span>(<span class="ident">FirmField</span> {
-                <span class="ident">owning_class</span>: <span class="ident">Rc</span>::<span class="ident">downgrade</span>(<span class="kw-2">&amp;</span><span class="ident">class</span>),
-                <span class="ident">def</span>: <span class="ident">field</span>,
-                <span class="ident">entity</span>: <span class="ident">field_entity</span>,
-            })),
-        );
+        <span class="self">self</span>.<span class="ident">fields</span>.<span class="ident">insert</span>(<span class="ident">RefEq</span>(<span class="ident">field</span>), <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">firm_field</span>));
+        <span class="self">self</span>.<span class="ident">entities</span>
+            .<span class="ident">insert</span>(<span class="ident">field_entity</span>, <span class="ident">FirmEntity</span>::<span class="ident">Field</span>(<span class="ident">firm_field</span>));
     }
 
     <span class="kw">fn</span> <span class="ident">add_method</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">class_type</span>: <span class="ident">ClassTy</span>,
-        <span class="ident">class</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">FirmClass</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">class</span>: <span class="ident">FirmClassP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
         <span class="ident">method</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassMethodDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
     ) {
         <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">method</span>.<span class="ident">is_static</span> <span class="op">||</span> (<span class="ident">method</span>.<span class="ident">is_static</span> <span class="op">&amp;&amp;</span> <span class="ident">method</span>.<span class="ident">is_main</span>));
@@ -349,16 +374,57 @@
 
         <span class="kw">let</span> <span class="ident">method_entity</span> <span class="op">=</span> <span class="ident">Entity</span>::<span class="ident">new_entity</span>(<span class="ident">class_type</span>.<span class="ident">into</span>(), <span class="kw-2">&amp;</span><span class="ident">method_name</span>, <span class="ident">method_type</span>.<span class="ident">into</span>());
 
-        <span class="self">self</span>.<span class="ident">methods</span>.<span class="ident">insert</span>(
-            <span class="ident">RefEq</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">method</span>)),
-            <span class="ident">Rc</span>::<span class="ident">new</span>(<span class="ident">RefCell</span>::<span class="ident">new</span>(<span class="ident">FirmMethod</span> {
-                <span class="ident">owning_class</span>: <span class="ident">Rc</span>::<span class="ident">downgrade</span>(<span class="kw-2">&amp;</span><span class="ident">class</span>),
-                <span class="ident">def</span>: <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">method</span>),
-                <span class="ident">entity</span>: <span class="ident">method_entity</span>,
-                <span class="ident">graph</span>: <span class="prelude-val">None</span>,
-                <span class="ident">body</span>: <span class="ident">method</span>.<span class="ident">body</span>,
-            })),
-        );
+        <span class="kw">let</span> <span class="ident">firm_method</span> <span class="op">=</span> <span class="ident">Rc</span>::<span class="ident">new</span>(<span class="ident">RefCell</span>::<span class="ident">new</span>(<span class="ident">FirmMethod</span> {
+            <span class="ident">owning_class</span>: <span class="ident">Rc</span>::<span class="ident">downgrade</span>(<span class="kw-2">&amp;</span><span class="ident">class</span>),
+            <span class="ident">def</span>: <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">method</span>),
+            <span class="ident">entity</span>: <span class="ident">method_entity</span>,
+            <span class="ident">graph</span>: <span class="prelude-val">None</span>,
+            <span class="ident">body</span>: <span class="ident">method</span>.<span class="ident">body</span>,
+        }));
+
+        <span class="self">self</span>.<span class="ident">methods</span>
+            .<span class="ident">insert</span>(<span class="ident">RefEq</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">method</span>)), <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">firm_method</span>));
+
+        <span class="self">self</span>.<span class="ident">entities</span>
+            .<span class="ident">insert</span>(<span class="ident">method_entity</span>, <span class="ident">FirmEntity</span>::<span class="ident">Method</span>(<span class="ident">firm_method</span>));
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">field</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">field_def</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassFieldDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;&gt;</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FirmFieldP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>, ()<span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">fields</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">RefEq</span>(<span class="ident">field_def</span>)) {
+            <span class="prelude-val">Some</span>(<span class="ident">field</span>) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">field</span>)),
+            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(()),
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">method</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">method_def</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassMethodDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>,
+    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FirmMethodP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>, ()<span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">methods</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">RefEq</span>(<span class="ident">method_def</span>)) {
+            <span class="prelude-val">Some</span>(<span class="ident">method</span>) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">method</span>)),
+            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(()),
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">class</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">class</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">ClassDef</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FirmClassP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>, ()<span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">classes</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">RefEq</span>(<span class="ident">class</span>)) {
+            <span class="prelude-val">Some</span>(<span class="ident">class</span>) <span class="op">=&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">class</span>)),
+            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="prelude-val">Err</span>(()),
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">by_entity</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">entity</span>: <span class="ident">Entity</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">FirmEntity</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">entities</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">entity</span>) {
+            <span class="prelude-val">Some</span>(<span class="ident">firm_entity</span>) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">firm_entity</span>.<span class="ident">clone</span>()),
+            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">method_by_entity</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">entity</span>: <span class="ident">Entity</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">FirmMethodP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">by_entity</span>(<span class="ident">entity</span>) {
+            <span class="prelude-val">Some</span>(<span class="ident">FirmEntity</span>::<span class="ident">Method</span>(<span class="ident">firm_method</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">firm_method</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        }
     }
 }
 </pre></div>

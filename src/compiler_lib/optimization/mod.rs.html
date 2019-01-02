@@ -188,10 +188,10 @@
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">bindings</span>, <span class="ident">Graph</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CString</span>;
 
+<span class="kw">mod</span> <span class="ident">inlining</span>;
+<span class="kw">use</span> <span class="self">self</span>::<span class="ident">inlining</span>::<span class="ident">Inlining</span>;
 <span class="kw">mod</span> <span class="ident">constant_folding</span>;
 <span class="kw">use</span> <span class="self">self</span>::<span class="ident">constant_folding</span>::<span class="ident">ConstantFolding</span>;
-<span class="kw">mod</span> <span class="ident">unreachable_code_elimination</span>;
-<span class="kw">use</span> <span class="self">self</span>::<span class="ident">unreachable_code_elimination</span>::<span class="ident">UnreachableCodeElimination</span>;
 
 <span class="doccomment">/// An optimization that optimizes the whole program by examining all function</span>
 <span class="doccomment">/// graphs at once.</span>
@@ -232,14 +232,14 @@
 )]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Kind</span> {
     <span class="ident">ConstantFolding</span>,
-    <span class="ident">UnreachableCodeElimination</span>,
+    <span class="ident">Inline</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Kind</span> {
     <span class="kw">fn</span> <span class="ident">run</span>(<span class="self">self</span>, <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Kind</span>::<span class="ident">ConstantFolding</span> <span class="op">=&gt;</span> <span class="ident">ConstantFolding</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
-            <span class="ident">Kind</span>::<span class="ident">UnreachableCodeElimination</span> <span class="op">=&gt;</span> <span class="ident">UnreachableCodeElimination</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
+            <span class="ident">Kind</span>::<span class="ident">Inline</span> <span class="op">=&gt;</span> <span class="ident">Inlining</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
         }
     }
 }
