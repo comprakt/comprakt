@@ -254,7 +254,7 @@ x => panic!("node must have been computed for {:?} or be const, error in DFS?", 
 
                 // TODO use type_system data here? need some cross reference...
                 let n_res = if let Ty::Method(ty) = func.ty() {
-                    ty.n_res()
+                    ty.res_count()
                 } else {
                     panic!("The type of a function is a method type");
                 };

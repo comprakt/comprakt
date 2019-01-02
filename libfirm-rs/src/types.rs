@@ -181,7 +181,7 @@ impl ClassTy {
 }
 
 impl MethodTy {
-    pub fn n_res(self) -> usize {
+    pub fn res_count(self) -> usize {
         unsafe { bindings::get_method_n_ress(self.ir_type()) }
     }
 }
