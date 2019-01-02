@@ -63,13 +63,16 @@ impl GenInstrBlock {
                     .borrow()
                     .register_transitions
                     .iter()
-                    .filter(|(_, dst)| dst.borrow().num == num)
-                    .for_each(|(src, _)| {
+                    .enumerate()
+                    .filter(|(_, (_, dst))| dst.borrow().num == num)
+                    .for_each(|(idx, (src, _))| {
                         self.comment(format_args!(
-                            "\t<- {:?}({}): {:?}",
+                            "\t<- {:?}({}): {:?} [copy up={} down={}]",
                             upborrow!(src.borrow().allocated_in).firm,
                             src.borrow().num,
-                            src.borrow().firm
+                            src.borrow().firm,
+                            edge.upgrade().unwrap().must_copy_in_source(idx),
+                            edge.upgrade().unwrap().must_copy_in_target(idx),
                         ));
                     })
             }
