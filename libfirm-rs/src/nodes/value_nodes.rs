@@ -1,8 +1,4 @@
-use crate::{
-    bindings,
-    nodes::*,
-    tarval::{Tarval, TarvalKind},
-};
+use crate::{bindings, nodes::*, tarval::Tarval};
 
 #[derive(Debug)]
 pub struct DowncastErr(Node);
@@ -24,7 +20,7 @@ macro_rules! downcast_node {
 
 pub trait ValueNode: NodeTrait {
     fn value_nodes(&self) -> Vec<Box<dyn ValueNode>>;
-    fn compute(&self, values: &[Option<Tarval>]) -> Option<Tarval>;
+    fn compute(&self, values: Vec<Tarval>) -> Tarval;
 }
 
 impl From<Box<dyn ValueNode>> for Node {
@@ -55,7 +51,7 @@ impl ValueNode for Box<dyn ValueNode> {
     fn value_nodes(&self) -> Vec<Box<dyn ValueNode>> {
         self.as_ref().value_nodes()
     }
-    fn compute(&self, values: &[Option<Tarval>]) -> Option<Tarval> {
+    fn compute(&self, values: Vec<Tarval>) -> Tarval {
         self.as_ref().compute(values)
     }
 }
@@ -65,9 +61,9 @@ impl ValueNode for Const {
         vec![]
     }
 
-    fn compute(&self, values: &[Option<Tarval>]) -> Option<Tarval> {
+    fn compute(&self, values: Vec<Tarval>) -> Tarval {
         assert!(values.is_empty());
-        Some(self.tarval())
+        self.tarval()
     }
 }
 
@@ -78,13 +74,8 @@ impl ValueNode for Phi {
             .collect()
     }
 
-    fn compute(&self, values: &[Option<Tarval>]) -> Option<Tarval> {
-        values
-            .iter()
-            .fold(Some(Tarval::unknown()), |acc, val| match (acc, val) {
-                (Some(acc), Some(val)) => Some(acc.join(*val)),
-                _ => None,
-            })
+    fn compute(&self, values: Vec<Tarval>) -> Tarval {
+        values.iter().fold(Tarval::unknown(), |a, b| a.join(*b))
     }
 }
 
@@ -97,12 +88,12 @@ impl ValueNode for Proj {
         }
     }
 
-    fn compute(&self, values: &[Option<Tarval>]) -> Option<Tarval> {
+    fn compute(&self, values: Vec<Tarval>) -> Tarval {
         assert!(values.len() <= 1);
         if values.len() == 1 {
             values[0]
         } else {
-            None
+            Tarval::bad()
         }
     }
 }
@@ -134,9 +125,9 @@ macro_rules! empty_value_node_impl {
                 vec![]
             }
 
-            fn compute(&self, values: &[Option<Tarval>]) -> Option<Tarval> {
+            fn compute(&self, values: Vec<Tarval>) -> Tarval {
                 assert!(values.len() == 0);
-                None
+                Tarval::bad()
             }
         }
     };
@@ -161,7 +152,7 @@ empty_value_node_impl!(Size);
 pub trait BinOp {
     fn left(&self) -> Box<dyn ValueNode>;
     fn right(&self) -> Box<dyn ValueNode>;
-    fn compute(&self, left: Option<Tarval>, right: Option<Tarval>) -> Option<Tarval>;
+    fn compute(&self, left: Tarval, right: Tarval) -> Tarval;
 }
 
 macro_rules! binop_impl {
@@ -173,7 +164,7 @@ macro_rules! binop_impl {
             fn right(&self) -> Box<dyn ValueNode> {
                 try_as_value_node($node_ty::right(*self)).unwrap()
             }
-            fn compute(&self, left: Option<Tarval>, right: Option<Tarval>) -> Option<Tarval> {
+            fn compute(&self, left: Tarval, right: Tarval) -> Tarval {
                 $compute(self, left, right)
             }
         }
@@ -183,7 +174,7 @@ macro_rules! binop_impl {
                 vec![BinOp::left(self), BinOp::right(self)]
             }
 
-            fn compute(&self, values: &[Option<Tarval>]) -> Option<Tarval> {
+            fn compute(&self, values: Vec<Tarval>) -> Tarval {
                 assert!(values.len() == 2);
                 BinOp::compute(self, values[0], values[1])
             }
@@ -191,39 +182,13 @@ macro_rules! binop_impl {
     };
 }
 
-macro_rules! all_some {
-    ($($var_name: ident),*; $expr: expr) => {
-        if let ($(Some($var_name)),*) = ($($var_name),*) {
-            Some($expr)
-        } else {
-            None
-        }
-    };
-}
-
-binop_impl!(Add, |_n, l, r| all_some!(l, r; l + r));
-binop_impl!(Sub, |_n, l, r| all_some!(l, r; l - r));
-binop_impl!(Mul, |_n, l: Option<Tarval>, r: Option<Tarval>| {
-    if let Some(val) = l {
-        if let TarvalKind::Long(0) = val.kind() {
-            return Some(val);
-        }
-    }
-    if let Some(val) = r {
-        if let TarvalKind::Long(0) = val.kind() {
-            return Some(val);
-        }
-    }
-    all_some!(l, r; l * r)
-});
-binop_impl!(Div, |_n, l, r| all_some!(l, r; l / r));
-binop_impl!(Mod, |_n, l, r| all_some!(l, r; l % r));
-binop_impl!(Eor, |_n, l, r| all_some!(l, r; l ^ r));
-binop_impl!(Cmp, |n: &Cmp, l: Option<Tarval>, r| all_some!(
-    l,
-    r;
-    l.lattice_cmp(n.relation(), r)
-));
+binop_impl!(Add, |_n, l, r| l + r);
+binop_impl!(Sub, |_n, l, r| l - r);
+binop_impl!(Mul, |_n, l, r| l * r);
+binop_impl!(Div, |_n, l, r| l / r);
+binop_impl!(Mod, |_n, l, r| l % r);
+binop_impl!(Eor, |_n, l, r| l ^ r);
+binop_impl!(Cmp, |n: &Cmp, l: Tarval, r| l.lattice_cmp(n.relation(), r));
 
 downcast_node!(try_as_bin_op, BinOp, [Add, Sub, Mul, Div, Mod, Eor, Cmp]);
 
@@ -231,7 +196,7 @@ downcast_node!(try_as_bin_op, BinOp, [Add, Sub, Mul, Div, Mod, Eor, Cmp]);
 
 pub trait UnaryOp {
     fn operand(&self) -> Box<dyn ValueNode>;
-    fn compute(&self, val: Option<Tarval>) -> Option<Tarval>;
+    fn compute(&self, val: Tarval) -> Tarval;
 }
 
 macro_rules! unaryop_impl {
@@ -240,7 +205,7 @@ macro_rules! unaryop_impl {
             fn operand(&self) -> Box<dyn ValueNode> {
                 try_as_value_node(self.op()).unwrap()
             }
-            fn compute(&self, val: Option<Tarval>) -> Option<Tarval> {
+            fn compute(&self, val: Tarval) -> Tarval {
                 $compute(self, val)
             }
         }
@@ -250,7 +215,7 @@ macro_rules! unaryop_impl {
                 vec![self.operand()]
             }
 
-            fn compute(&self, values: &[Option<Tarval>]) -> Option<Tarval> {
+            fn compute(&self, values: Vec<Tarval>) -> Tarval {
                 assert!(values.len() == 1);
                 UnaryOp::compute(self, values[0])
             }
@@ -258,17 +223,8 @@ macro_rules! unaryop_impl {
     };
 }
 
-unaryop_impl!(Minus, |_n, val: Option<Tarval>| if let Some(val) = val {
-    Some(-val)
-} else {
-    None
-});
-unaryop_impl!(
-    Conv,
-    |n: &Conv, val: Option<Tarval>| if let Some(val) = val {
-        val.cast(n.mode())
-    } else {
-        None
-    }
-);
+unaryop_impl!(Minus, |_n, val: Tarval| -val);
+unaryop_impl!(Conv, |n: &Conv, val: Tarval| val
+    .cast(n.mode())
+    .unwrap_or_else(Tarval::bad));
 downcast_node!(try_as_unary_op, UnaryOp, [Minus, Conv]);
