@@ -25,7 +25,7 @@ pub struct Block {
     instrs: Vec<Instr>,
 }
 
-use libfirm_rs::tarval::Tarval;
+use libfirm_rs::Tarval;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Operand {

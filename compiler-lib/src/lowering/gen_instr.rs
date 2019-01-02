@@ -2,7 +2,7 @@ use super::{lir::*, molki};
 use crate::utils::cell::{MutRc, MutWeak};
 use itertools::Itertools;
 use libfirm_rs::{
-    entity::Entity,
+    Entity,
     nodes::{Node, NodeTrait},
 };
 use std::collections::HashMap;
@@ -146,7 +146,7 @@ impl GenInstrBlock {
         }
 
         use self::molki::{BinopKind::*, Instr, Operand, Reg};
-        use libfirm_rs::mode;
+        use libfirm_rs::Mode;
         match node {
             Node::Add(add) => {
                 let src1 =
@@ -212,8 +212,8 @@ x => panic!("node must have been computed for {:?} or be const, error in DFS?", 
                     debug_assert!(
                         Node::is_address(pred)
                             || Node::is_start(pred)
-                            || pred.mode() == mode::Mode::M()
-                            || pred.mode() == mode::Mode::X(),
+                            || pred.mode() == Mode::M()
+                            || pred.mode() == Mode::X(),
                         "predecessor must produce value"
                     );
                 } else {

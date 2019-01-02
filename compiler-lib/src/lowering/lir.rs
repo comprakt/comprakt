@@ -8,8 +8,8 @@ use crate::{
     utils::cell::{MutRc, MutWeak},
 };
 use libfirm_rs::{
-    graph::VisitTime,
-    mode,
+    VisitTime,
+    Mode,
     nodes::{self, Node, NodeTrait},
 };
 use std::{
@@ -44,7 +44,7 @@ pub struct Function {
 
 impl From<&firm::FirmMethod<'_, '_>> for Function {
     fn from(method: &firm::FirmMethod<'_, '_>) -> Self {
-        let graph: libfirm_rs::graph::Graph = method
+        let graph: libfirm_rs::Graph = method
             .graph
             .unwrap_or_else(|| panic!("Cannot lower function without a graph {}", method.def.name));
 
@@ -71,7 +71,7 @@ impl From<&firm::FirmMethod<'_, '_>> for Function {
 /// being phi-nodes pointing to some far
 /// away firm-node.
 pub struct BlockGraph {
-    pub firm: libfirm_rs::graph::Graph,
+    pub firm: libfirm_rs::Graph,
     blocks: HashMap<libfirm_rs::nodes::Block, MutRc<BasicBlock>>,
     pub head: MutRc<BasicBlock>,
 }
@@ -223,8 +223,8 @@ pub struct ControlFlowTransfer {
     pub target: MutRc<BasicBlock>,
 }
 
-impl From<libfirm_rs::graph::Graph> for BlockGraph {
-    fn from(firm_graph: libfirm_rs::graph::Graph) -> Self {
+impl From<libfirm_rs::Graph> for BlockGraph {
+    fn from(firm_graph: libfirm_rs::Graph) -> Self {
         let mut graph = Self::build_skeleton(firm_graph);
         graph.construct_flows();
         graph.gen_instrs();
@@ -233,7 +233,7 @@ impl From<libfirm_rs::graph::Graph> for BlockGraph {
 }
 
 impl BlockGraph {
-    fn build_skeleton(firm_graph: libfirm_rs::graph::Graph) -> Self {
+    fn build_skeleton(firm_graph: libfirm_rs::Graph) -> Self {
         let mut blocks = HashMap::new();
 
         // This is basically a `for each edge "firm_target -> firm_source"`
@@ -284,7 +284,7 @@ impl BlockGraph {
                             let multislot = local_block.new_terminating_multislot();
                             phi.preds()
                                 // Mem edges are uninteresting across blocks
-                                .filter(|(_, value)| value.mode() != mode::Mode::M())
+                                .filter(|(_, value)| value.mode() != Mode::M())
                                 // The next two 'maps' need to be seperated in two closures
                                 // because we wan't to selectively `move` `value` and
                                 // `multislot` into the closure, but take `self` by reference
@@ -316,7 +316,7 @@ impl BlockGraph {
                         _ => node_in_block
                             .in_nodes()
                             // Mem edges are uninteresting across blocks
-                            .filter(|value| value.mode() != mode::Mode::M())
+                            .filter(|value| value.mode() != Mode::M())
                             // If this is a value produced by our block, there is no need to
                             // transfer it from somewhere else
                             .filter(|value| {

@@ -7,16 +7,16 @@
 extern crate derive_more;
 pub use libfirm_rs_bindings as bindings;
 
-pub mod entity;
-pub mod graph;
-pub mod mode;
+mod entity;
+mod graph;
+mod mode;
 pub mod nodes;
-pub mod tarval;
+mod tarval;
 pub mod types;
 
 pub use self::{
     entity::Entity,
-    graph::Graph,
+    graph::{Graph, VisitTime},
     mode::Mode,
     tarval::{Tarval, TarvalKind},
 };
