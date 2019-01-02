@@ -98,13 +98,25 @@ pub enum Cond {
 #[derive(Debug, Display, Clone)]
 pub enum BinopKind {
     #[display(fmt = "addq")]
-    Addq,
+    Add,
     #[display(fmt = "subq")]
-    Subq,
+    Sub,
+    // We only multiply signed integers, so we can always use `imul`
+    #[display(fmt = "imul")]
+    Mul,
+    #[display(fmt = "andq")]
+    And,
+    #[display(fmt = "orq")]
+    Or,
 }
 
 #[derive(Debug, Display)]
-pub enum UnopKind {}
+pub enum UnopKind {
+    #[display(fmt = "negq")]
+    Neg,
+    #[display(fmt = "notq")]
+    Not,
+}
 
 #[derive(Debug, Display, Clone)]
 pub enum DivKind {

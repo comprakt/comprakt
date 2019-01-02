@@ -2,9 +2,9 @@ use super::{lir::*, molki};
 use crate::utils::cell::{MutRc, MutWeak};
 use itertools::Itertools;
 use libfirm_rs::{
-    Entity,
     nodes::{Node, NodeTrait},
     types::Ty,
+    Entity,
 };
 use std::collections::HashMap;
 use strum_macros::*;
@@ -146,51 +146,82 @@ impl GenInstrBlock {
             return;
         }
 
-        use self::molki::{BinopKind::*, Instr, Operand, Reg};
+        use self::molki::{BinopKind::*, DivKind::*, Instr, Operand, Reg};
         use libfirm_rs::Mode;
-        match node {
-            Node::Add(add) => {
-                let src1 =
-                    {
-                        let left = add.left();
-                        if self.is_computed(left) {
-                            let slot = self.must_computed_slot(left);
-                            Reg::N(slot.num).into_operand()
-                        } else {
-                            let tv = match left {
-                            Node::Const(c) => c.tarval(),
-                            x =>
-panic!("node must have been computed for {:?} or be const, error in DFS?", x),
-                        };
-                            Operand::Imm(tv)
-                        }
+        macro_rules! binop_operand {
+            ($side:ident, $op:expr) => {{
+                let $side = $op.$side();
+                if self.is_computed($side) {
+                    let slot = self.must_computed_slot($side);
+                    Reg::N(slot.num).into_operand()
+                } else {
+                    let tv = match $side {
+                        Node::Const(c) => c.tarval(),
+                        x => panic!(
+                            "node must have been computed for {:?} or be const, error in DFS?",
+                            x
+                        ),
                     };
-
-                // TODO dedup above
-                let src2 =
-                    {
-                        let right = add.right();
-                        if self.is_computed(right) {
-                            let slot = self.must_computed_slot(right);
-                            Reg::N(slot.num).into_operand()
-                        } else {
-                            let tv = match right {
-                            Node::Const(c) => c.tarval(),
-x => panic!("node must have been computed for {:?} or be const, error in DFS?", x),
-                        };
-                            Operand::Imm(tv)
-                        }
-                    };
-
-                let dst_slot = block.new_private_slot(node); // internal borrow_mut
-                self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
-                let dst = Some(Reg::N(dst_slot.borrow().num));
+                    Operand::Imm(tv)
+                }
+            }}
+        }
+        macro_rules! gen_binop_with_dst {
+            ($kind:ident, $op:expr, $block:expr, $node:expr) => {
+                let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
                 self.instrs.push(Instr::Binop {
-                    kind: Addq,
+                    kind: $kind,
                     src1,
                     src2,
-                    dst,
+                    dst: Some(dst),
                 });
+            };
+            (DIV, $kind:ident, $op:expr, $block:expr, $node:expr) => {
+                let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
+                self.instrs.push(Instr::Divop {
+                    kind: $kind,
+                    src1,
+                    src2,
+                    dst1: dst,
+                    // We don't need the second register.
+                    // Just write the mod result in a arbitrary register. This will hopefully be
+                    // taken care of by the register allocator
+                    dst2: Reg::N(usize::max_value()),
+                });
+            };
+            (MOD, $kind:ident, $op:expr, $block:expr, $node:expr) => {
+                let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
+                self.instrs.push(Instr::Divop {
+                    kind: $kind,
+                    src1,
+                    src2,
+                    // We don't need the first register.
+                    // Just write the mod result in a arbitrary register. This will hopefully be
+                    // taken care of by the register allocator
+                    dst1: Reg::N(usize::max_value()),
+                    dst2: dst,
+                });
+            };
+            (@INTERNAL, $op:expr, $block:expr, $node:expr) => {{
+                let src1 = binop_operand!(left, $op);
+                let src2 = binop_operand!(right, $op);
+
+                let dst_slot = $block.new_private_slot($node); // internal borrow_mut
+                self.mark_computed($node, Computed::Value(MutRc::clone(&dst_slot)));
+                let dst = Reg::N(dst_slot.borrow().num);
+                (src1, src2, dst)
+            }};
+        }
+        match node {
+            Node::Add(add) => gen_binop_with_dst!(Add, add, block, node),
+            Node::Sub(sub) => gen_binop_with_dst!(Sub, sub, block, node),
+            Node::Mul(mul) => gen_binop_with_dst!(Mul, mul, block, node),
+            Node::Div(div) => gen_binop_with_dst!(DIV, IDiv, div, block, node),
+            Node::Mod(mod_) => gen_binop_with_dst!(MOD, IDiv, mod_, block, node),
+            Node::And(and) => gen_binop_with_dst!(And, and, block, node),
+            Node::Or(or) => gen_binop_with_dst!(Or, or, block, node),
+            Node::Not(_) | Node::Minus(_) => {
+                // FIXME: No matching commands in molki
             }
             Node::Return(ret) => {
                 if ret.return_res().len() != 0 {

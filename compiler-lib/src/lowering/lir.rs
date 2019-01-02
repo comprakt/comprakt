@@ -8,9 +8,8 @@ use crate::{
     utils::cell::{MutRc, MutWeak},
 };
 use libfirm_rs::{
-    VisitTime,
-    Mode,
     nodes::{self, Node, NodeTrait},
+    Mode, VisitTime,
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
