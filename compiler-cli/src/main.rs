@@ -213,13 +213,40 @@ impl Into<firm::Options> for BinaryLoweringOptions {
 }
 
 fn main() {
-    env_logger::init();
+    build_logger().init();
 
     let cmd = CliCommand::from_args();
 
     if let Err(msg) = run_compiler(&cmd) {
         exit_with_error(&msg);
     }
+}
+
+use env_logger::{
+    fmt::{Color, Formatter},
+    Builder,
+};
+fn build_logger() -> Builder {
+    let mut builder = Builder::from_default_env();
+    builder.format(
+        |buf: &mut Formatter, record: &log::Record<'_>| -> std::io::Result<()> {
+            let mut line_style = buf.style();
+            line_style.set_color(Color::Black).set_intense(true);
+
+            writeln!(
+                buf,
+                "[{:<5}]\t\t{}\t\t{}",
+                buf.default_styled_level(record.level()),
+                record.args(),
+                line_style.value(format!(
+                    "({}:{})",
+                    record.file().unwrap_or(&"unknown"),
+                    record.line().unwrap_or(0)
+                ))
+            )
+        },
+    );
+    builder
 }
 
 /// Execute the command specified by [`CliCommand`]. This takes over the

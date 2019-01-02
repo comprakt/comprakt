@@ -14,9 +14,11 @@
 #![feature(custom_attribute)]
 #![feature(result_map_or_else)]
 #![feature(proc_macro_hygiene, decl_macro)]
+#![feature(try_trait)]
 #[macro_use]
 extern crate derive_more;
 
+mod analysis;
 pub mod asciifile;
 #[macro_use]
 mod utils;

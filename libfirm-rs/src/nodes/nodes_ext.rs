@@ -1,5 +1,5 @@
 use super::nodes_gen::*;
-use crate::{bindings, graph, Entity, Mode};
+use crate::{bindings, Entity, Graph, Mode};
 use std::{
     collections::HashSet,
     fmt,
@@ -80,6 +80,21 @@ pub trait NodeTrait {
         OutNodeIterator::new(self.internal_ir_node())
     }
 
+    fn all_out_projs(&self) -> Vec<Proj> {
+        let mut result = Vec::new();
+        self.collect_all_out_projs(&mut result);
+        result
+    }
+
+    fn collect_all_out_projs(&self, projs: &mut Vec<Proj>) {
+        for n in self.out_nodes() {
+            if let Node::Proj(proj, _) = n {
+                projs.push(proj);
+                proj.collect_all_out_projs(projs);
+            }
+        }
+    }
+
     fn in_nodes(&self) -> InNodeIterator {
         InNodeIterator::new(self.internal_ir_node())
     }
@@ -96,6 +111,12 @@ pub trait NodeTrait {
         unsafe { bindings::get_irn_node_nr(self.internal_ir_node()) }
     }
 
+    fn graph(&self) -> Graph {
+        Graph {
+            irg: unsafe { bindings::get_irn_irg(self.internal_ir_node()) },
+        }
+    }
+
     // TODO implement methods from
     // https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java
 
@@ -107,13 +128,13 @@ pub trait NodeTrait {
     /// also just predecessors in the Graph.
     fn walk<F>(&self, mut walker: F)
     where
-        F: FnMut(graph::VisitTime, Node),
+        F: FnMut(VisitTime, Node),
         Self: Sized,
     {
         // We need the type ascription here, because otherwise rust infers `&mut F`,
         // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
         // `closure_handler` doesn't know the concrete `F`.
-        let mut fat_pointer: &mut dyn FnMut(graph::VisitTime, Node) = &mut walker;
+        let mut fat_pointer: &mut dyn FnMut(VisitTime, Node) = &mut walker;
         let thin_pointer = &mut fat_pointer;
 
         unsafe {
@@ -163,7 +184,7 @@ pub trait NodeTrait {
     }
 }
 
-pub use crate::graph::VisitTime;
+pub use crate::VisitTime;
 use std::{ffi::c_void, mem};
 
 unsafe extern "C" fn pre_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
@@ -420,9 +441,17 @@ impl NodeDebug for Const {
 }
 
 impl NodeDebug for Call {
-    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        let x = self.ptr().debug_fmt().short(true);
-        write!(f, "Call to {} {}", x, self.node_id())
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "Call {}", self.node_id())
+        } else {
+            write!(
+                f,
+                "Call to {} {}",
+                self.ptr().debug_fmt().short(true),
+                self.node_id()
+            )
+        }
     }
 }
 
@@ -436,6 +465,51 @@ impl NodeDebug for Address {
                 "Address of {:?} {}",
                 self.entity().name_string(),
                 self.node_id(),
+            )
+        }
+    }
+}
+
+impl NodeDebug for Member {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "@{}", self.entity().name_string(),)
+        } else {
+            write!(
+                f,
+                "Member ({:?}) {}",
+                self.entity().name_string(),
+                self.node_id(),
+            )
+        }
+    }
+}
+
+impl NodeDebug for Load {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "Load {}", self.node_id())
+        } else {
+            write!(
+                f,
+                "Load {} {}",
+                self.ptr().debug_fmt().short(true),
+                self.node_id()
+            )
+        }
+    }
+}
+
+impl NodeDebug for Store {
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "Store {}", self.node_id())
+        } else {
+            write!(
+                f,
+                "Store {} {}",
+                self.ptr().debug_fmt().short(true),
+                self.node_id()
             )
         }
     }

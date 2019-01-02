@@ -3402,11 +3402,6 @@ impl NodeTrait for Load {
     }
 }
 
-impl NodeDebug for Load {
-    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        write!(f, "Load {}", self.node_id())
-    }
-}
 impl fmt::Debug for Load {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&self.debug_fmt(), f)
@@ -3472,11 +3467,6 @@ impl NodeTrait for Member {
     }
 }
 
-impl NodeDebug for Member {
-    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        write!(f, "Member {}", self.node_id())
-    }
-}
 impl fmt::Debug for Member {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&self.debug_fmt(), f)
@@ -5017,11 +5007,6 @@ impl NodeTrait for Store {
     }
 }
 
-impl NodeDebug for Store {
-    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        write!(f, "Store {}", self.node_id())
-    }
-}
 impl fmt::Debug for Store {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&self.debug_fmt(), f)

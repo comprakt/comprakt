@@ -139,6 +139,8 @@ impl GenInstrBlock {
         });
     }
 
+    //FIXME: Just for faster dev, delete this later!!!
+    #[allow(clippy::cyclomatic_complexity)]
     fn gen_value_walk_callback(&mut self, block: MutRc<BasicBlock>, node: Node) {
         log::debug!("visit node={:?}", node);
         if self.is_computed(node) {
@@ -167,7 +169,7 @@ impl GenInstrBlock {
             }}
         }
         macro_rules! gen_binop_with_dst {
-            ($kind:ident, $op:expr, $block:expr, $node:expr) => {
+            ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
                 self.instrs.push(Instr::Binop {
                     kind: $kind,
@@ -175,8 +177,8 @@ impl GenInstrBlock {
                     src2,
                     dst: Some(dst),
                 });
-            };
-            (DIV, $kind:ident, $op:expr, $block:expr, $node:expr) => {
+            }};
+            (DIV, $kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
                 self.instrs.push(Instr::Divop {
                     kind: $kind,
@@ -188,8 +190,8 @@ impl GenInstrBlock {
                     // taken care of by the register allocator
                     dst2: Reg::N(usize::max_value()),
                 });
-            };
-            (MOD, $kind:ident, $op:expr, $block:expr, $node:expr) => {
+            }};
+            (MOD, $kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
                 self.instrs.push(Instr::Divop {
                     kind: $kind,
@@ -201,7 +203,7 @@ impl GenInstrBlock {
                     dst1: Reg::N(usize::max_value()),
                     dst2: dst,
                 });
-            };
+            }};
             (@INTERNAL, $op:expr, $block:expr, $node:expr) => {{
                 let src1 = binop_operand!(left, $op);
                 let src2 = binop_operand!(right, $op);

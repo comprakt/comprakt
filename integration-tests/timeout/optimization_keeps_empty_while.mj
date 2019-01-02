@@ -1,5 +1,5 @@
 ---
-optimizations: [ConstantFolding,UnreachableCodeElimination]
+optimizations: [ConstantFolding]
 ---
 class EmptyWhile {
   public static void main(String[] args) {

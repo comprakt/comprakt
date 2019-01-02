@@ -25,6 +25,7 @@ log = "0.4"
 serde = "1.0"
 serde_derive = "1.0"
 priority-queue = "0.5.2"
+petgraph = "0.4.13"
 
 # for the gui debugger
 rocket = "0.4.0"

@@ -1,14 +1,14 @@
 ---
-optimizations: [ConstantFolding,UnreachableCodeElimination]
+optimizations: [ConstantFolding]
 expect:
     identical-to:
         is: |
           class Simple {
-          
+
             public int optimizeMe() {
               return 1;
             }
-          
+
             public static void main(String[] args) {
               Simple baby = new Simple();
               int bobby_brown = baby.optimizeMe();
@@ -24,7 +24,7 @@ class Simple {
 
   public int optimizeMe() {
     int x = 1;
-    
+
     while(false) {
        x = 2 - x;
     }

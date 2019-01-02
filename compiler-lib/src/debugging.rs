@@ -141,10 +141,10 @@ pub fn pause(breakpoint: Breakpoint, program: HashMap<String, GraphState>) {
 
     if filters.is_disabled(&breakpoint, &program) {
         log::info!(
-            "ignoring disabled breakpoint\n    label: {}\n    file:  {}\n    line:  {}",
+            "ignoring disabled breakpoint {} ({}:{})",
             breakpoint.label,
             breakpoint.file,
-            breakpoint.line
+            breakpoint.line,
         );
 
         return;
@@ -152,11 +152,11 @@ pub fn pause(breakpoint: Breakpoint, program: HashMap<String, GraphState>) {
 
     let gui = gui_thread().lock().unwrap();
 
-    log::info!(
-        "waiting at breakpoint\n    label: {}\n    file:  {}\n    line:  {}",
+    log::warn!(
+        "[waiting at breakpoint] {} ({}:{})",
         breakpoint.label,
         breakpoint.file,
-        breakpoint.line
+        breakpoint.line,
     );
 
     let state = CompiliationState::new(breakpoint, program);
