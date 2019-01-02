@@ -125,7 +125,6 @@ simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
 // TODO: should we use dynamic reverse edges instead of reverse
 simple_node_iterator!(OutNodeIterator, get_irn_n_outs, get_irn_out, u32);
 
-#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Node {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // k1 == k2 => hash(k1) == hash(k2)
