@@ -224,6 +224,7 @@ pub struct ControlFlowTransfer {
 
 impl From<libfirm_rs::Graph> for BlockGraph {
     fn from(firm_graph: libfirm_rs::Graph) -> Self {
+        firm_graph.assure_outs();
         let mut graph = Self::build_skeleton(firm_graph);
         graph.construct_flows();
         graph.gen_instrs();
