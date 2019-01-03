@@ -6,6 +6,8 @@ mod inlining;
 use self::inlining::Inlining;
 mod constant_folding;
 use self::constant_folding::ConstantFolding;
+mod jump_threading;
+use self::jump_threading::JumpThreading;
 
 /// An optimization that optimizes the whole program by examining all function
 /// graphs at once.
@@ -47,6 +49,7 @@ where
 pub enum Kind {
     ConstantFolding,
     Inline,
+    JumpThreading,
 }
 
 impl Kind {
@@ -54,6 +57,7 @@ impl Kind {
         match self {
             Kind::ConstantFolding => ConstantFolding::optimize(program),
             Kind::Inline => Inlining::optimize(program),
+            Kind::JumpThreading => JumpThreading::optimize(program),
         }
     }
 }
