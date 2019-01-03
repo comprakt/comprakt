@@ -1,4 +1,4 @@
-use super::{lir::*, molki};
+use super::{lir::*, molki::{self, Instr, Operand, Reg}};
 use crate::utils::cell::{MutRc, MutWeak};
 use itertools::Itertools;
 use libfirm_rs::{
@@ -139,6 +139,13 @@ impl GenInstrBlock {
         });
     }
 
+    fn gen_dst_reg(&mut self, block: MutRc<BasicBlock>, node: Node) -> Reg {
+        let dst_slot = block.new_private_slot(node); // internal borrow_mut
+        self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
+        let slot_num = dst_slot.borrow().num;
+        Reg::N(slot_num)
+    }
+
     //FIXME: Just for faster dev, delete this later!!!
     #[allow(clippy::cyclomatic_complexity)]
     fn gen_value_walk_callback(&mut self, block: MutRc<BasicBlock>, node: Node) {
@@ -148,7 +155,7 @@ impl GenInstrBlock {
             return;
         }
 
-        use self::molki::{BasicKind::*, BinopKind::*, DivKind::*, Instr, Operand, Reg};
+        use self::molki::{BasicKind::*, BinopKind::*, DivKind::*};
         use libfirm_rs::Mode;
         macro_rules! binop_operand {
             ($side:ident, $op:expr) => {{
@@ -207,10 +214,7 @@ impl GenInstrBlock {
             (@INTERNAL, $op:expr, $block:expr, $node:expr) => {{
                 let src1 = binop_operand!(left, $op);
                 let src2 = binop_operand!(right, $op);
-
-                let dst_slot = $block.new_private_slot($node); // internal borrow_mut
-                self.mark_computed($node, Computed::Value(MutRc::clone(&dst_slot)));
-                let dst = Reg::N(dst_slot.borrow().num);
+                let dst = self.gen_dst_reg($block, $node);
                 (src1, src2, dst)
             }};
         }
@@ -223,9 +227,7 @@ impl GenInstrBlock {
             Node::And(and) => gen_binop_with_dst!(And, and, block, node),
             Node::Or(or) => gen_binop_with_dst!(Or, or, block, node),
             Node::Not(_) | Node::Minus(_) => {
-                let dst_slot = block.new_private_slot(node); // internal borrow_mut
-                self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
-                let dst = Reg::N(dst_slot.borrow().num);
+                let dst = self.gen_dst_reg(block, node);
                 let kind = if let Node::Not(_) = node { Not } else { Neg };
                 self.instrs.push(Instr::Basic {
                     kind,
@@ -306,10 +308,7 @@ impl GenInstrBlock {
                     self.mark_computed(node, Computed::Void);
                     None
                 } else if n_res == 1 {
-                    let dst_slot = block.new_private_slot(node); // internal borrow_mut
-                    self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
-                    let num = dst_slot.borrow().num; // force copy, borrow checker...
-                    Some(Reg::N(num))
+                    Some(self.gen_dst_reg(block, node))
                 } else {
                     panic!("functions must return 0 or 1 result {:?}", n_res);
                 };
