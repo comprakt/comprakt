@@ -148,7 +148,7 @@ impl GenInstrBlock {
             return;
         }
 
-        use self::molki::{BinopKind::*, DivKind::*, Instr, Operand, Reg};
+        use self::molki::{BasicKind::*, BinopKind::*, DivKind::*, Instr, Operand, Reg};
         use libfirm_rs::Mode;
         macro_rules! binop_operand {
             ($side:ident, $op:expr) => {{
@@ -223,22 +223,33 @@ impl GenInstrBlock {
             Node::And(and) => gen_binop_with_dst!(And, and, block, node),
             Node::Or(or) => gen_binop_with_dst!(Or, or, block, node),
             Node::Not(_) | Node::Minus(_) => {
-                // FIXME: No matching commands in molki
+                let dst_slot = block.new_private_slot(node); // internal borrow_mut
+                self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
+                let dst = Reg::N(dst_slot.borrow().num);
+                let kind = if let Node::Not(_) = node { Not } else { Neg };
+                self.instrs.push(Instr::Basic {
+                    kind,
+                    op: Some(dst.into_operand()),
+                });
             }
             Node::Return(ret) => {
                 if ret.return_res().len() != 0 {
                     assert_eq!(ret.return_res().len(), 1);
                     log::debug!("{:?}", ret);
-                    let src = {
-                        let retval_slot = self.must_computed_slot(ret.return_res().idx(0).unwrap());
-                        log::debug!("{:?}", ret);
-                        Reg::N(retval_slot.num).into_operand()
+                    let src = match ret.return_res().idx(0).unwrap() {
+                        Node::Const(c) => Operand::Imm(c.tarval()),
+                        n => {
+                            let retval_slot = self.must_computed_slot(n);
+                            Reg::N(retval_slot.num).into_operand()
+                        }
                     };
                     let dst = Reg::R0;
                     self.instrs.push(Instr::Movq { src, dst });
-                } else {
-                    self.comment(format_args!("ret"));
                 }
+                self.instrs.push(Instr::Basic {
+                    kind: Ret,
+                    op: None,
+                });
             }
             Node::Proj(proj, _kind) => {
                 let pred = proj.pred();

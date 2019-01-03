@@ -65,6 +65,10 @@ pub enum Instr {
         dst1: Reg,
         dst2: Reg,
     },
+    Basic {
+        kind: BasicKind,
+        op: Option<Operand>,
+    },
     Cmpq {
         lhs: Operand,
         rhs: Operand,
@@ -128,6 +132,16 @@ pub enum DivKind {
     IDiv,
 }
 
+#[derive(Debug, Display, Clone)]
+pub enum BasicKind {
+    #[display(fmt = "ret")]
+    Ret,
+    #[display(fmt = "notq")]
+    Not,
+    #[display(fmt = "negq")]
+    Neg,
+}
+
 use std::io;
 
 impl Program {
@@ -189,6 +203,13 @@ impl Instr {
                 "{} [ {} | {} ] -> [ {} | {} ]",
                 kind, src1, src2, dst1, dst2
             ),
+            Basic { kind, op } => {
+                if let Some(op) = op {
+                    write!(out, "{} {}", kind, op)
+                } else {
+                    write!(out, "{}", kind)
+                }
+            }
             Movq { src, dst } => write!(out, "movq {}, {}", src, dst),
             Cmpq { lhs, rhs } => write!(out, "cmpq {}, {}", lhs, rhs),
             Call { func, args, dst } => {
