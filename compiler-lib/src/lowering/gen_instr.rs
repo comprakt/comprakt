@@ -1,4 +1,7 @@
-use super::{lir::*, molki::{self, Instr, Operand, Reg}};
+use super::{
+    lir::*,
+    molki::{self, Instr, Operand, Reg},
+};
 use crate::utils::cell::{MutRc, MutWeak};
 use itertools::Itertools;
 use libfirm_rs::{
