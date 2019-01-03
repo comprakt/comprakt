@@ -77,6 +77,7 @@ pub trait NodeTrait {
     }
 
     fn out_nodes(&self) -> OutNodeIterator {
+        self.graph().assure_outs();
         OutNodeIterator::new(self.internal_ir_node())
     }
 
