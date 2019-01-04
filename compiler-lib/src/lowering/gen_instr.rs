@@ -30,23 +30,43 @@ impl Computed {
 }
 
 pub struct GenInstrBlock {
-    instrs: Vec<Instruction>,
+    code: Code,
     computed: HashMap<Node, Computed>,
+}
+
+#[derive(Default)]
+pub struct Code {
+    copy_in: Vec<Instruction>,
+    body: Vec<Instruction>,
+    copy_out: Vec<Instruction>,
+    leave: Vec<Instruction>,
+}
+
+impl Code {
+    fn instrs(self) -> Vec<Instruction> {
+        let mut instrs = self.copy_in;
+        instrs.extend(self.body);
+        instrs.extend(self.copy_out);
+        instrs.extend(self.leave);
+        instrs
+    }
 }
 
 impl GenInstrBlock {
     pub fn fill_instrs(block: MutRc<BasicBlock>) {
         let mut b = GenInstrBlock {
-            instrs: Vec::new(),
+            code: Code::default(),
             computed: HashMap::new(),
         };
         b.gen(MutRc::clone(&block));
-        let GenInstrBlock { instrs, .. } = b;
-        block.borrow_mut().code = instrs;
+        let GenInstrBlock { code, .. } = b;
+        block.borrow_mut().code = code.instrs();
     }
 
     fn comment(&mut self, args: std::fmt::Arguments<'_>) {
-        self.instrs.push(molki::Instr::Comment(format!("{}", args)));
+        self.code
+            .body
+            .push(molki::Instr::Comment(format!("{}", args)));
     }
 
     fn gen(&mut self, block: MutRc<BasicBlock>) {
@@ -213,7 +233,7 @@ impl GenInstrBlock {
         macro_rules! gen_binop_with_dst {
             ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
-                self.instrs.push(Instr::Binop {
+                self.code.body.push(Instr::Binop {
                     kind: $kind,
                     src1,
                     src2,
@@ -222,7 +242,7 @@ impl GenInstrBlock {
             }};
             (DIV, $kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
-                self.instrs.push(Instr::Divop {
+                self.code.body.push(Instr::Divop {
                     kind: $kind,
                     src1,
                     src2,
@@ -235,7 +255,7 @@ impl GenInstrBlock {
             }};
             (MOD, $kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
-                self.instrs.push(Instr::Divop {
+                self.code.body.push(Instr::Divop {
                     kind: $kind,
                     src1,
                     src2,
@@ -265,7 +285,7 @@ impl GenInstrBlock {
             Node::Not(_) | Node::Minus(_) => {
                 let dst = self.gen_dst_reg(block, node);
                 let kind = if let Node::Not(_) = node { Not } else { Neg };
-                self.instrs.push(Instr::Basic {
+                self.code.body.push(Instr::Basic {
                     kind,
                     op: Some(dst.into_operand()),
                 });
@@ -286,9 +306,9 @@ impl GenInstrBlock {
                         }
                     };
                     let dst = Reg::R0.into_operand();
-                    self.instrs.push(Instr::Movq { src, dst });
+                    self.code.body.push(Instr::Movq { src, dst });
                 }
-                self.instrs.push(Instr::Basic {
+                self.code.body.push(Instr::Basic {
                     kind: Ret,
                     op: None,
                 });
@@ -358,7 +378,7 @@ impl GenInstrBlock {
                 };
 
                 let func_name = func.ld_name().to_str().unwrap().to_owned();
-                self.instrs.push(Instr::Call {
+                self.code.body.push(Instr::Call {
                     func: func_name,
                     args,
                     dst,
@@ -381,7 +401,7 @@ impl GenInstrBlock {
                     offset: 0,
                     reg: Reg::N(addr_num),
                 };
-                self.instrs.push(Instr::Movq { src, dst })
+                self.code.body.push(Instr::Movq { src, dst })
             }
             Node::Store(store) => {
                 let src = match store.value() {
@@ -399,7 +419,7 @@ impl GenInstrBlock {
                     offset: 0,
                     reg: Reg::N(addr_num),
                 };
-                self.instrs.push(Instr::Movq { src, dst });
+                self.code.body.push(Instr::Movq { src, dst });
                 let dst_slot = block.new_private_slot(node); // interanl borrow_mut
                 self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
             }
