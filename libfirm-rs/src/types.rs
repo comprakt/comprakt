@@ -93,14 +93,14 @@ impl Ty {
 pub trait TyTrait: Sized {
     fn ir_type(self) -> *mut bindings::ir_type;
 
-    fn pointer(self) -> PointerTy {
+    fn wrap_in_pointer(self) -> PointerTy {
         PointerTy::from(Ty::from_ir_type(unsafe {
             bindings::new_type_pointer(self.ir_type())
         }))
         .expect("must return pointer type")
     }
 
-    fn array(self) -> ArrayTy {
+    fn wrap_in_array(self) -> ArrayTy {
         ArrayTy::from(Ty::from_ir_type(unsafe {
             bindings::new_type_array(self.ir_type(), 0)
         }))
