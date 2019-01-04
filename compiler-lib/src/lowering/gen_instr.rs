@@ -225,6 +225,7 @@ impl GenInstrBlock {
             }};
         }
         match node {
+            Node::Start(_) => (), //Nothing to see here
             Node::Add(add) => gen_binop_with_dst!(Add, add, block, node),
             Node::Sub(sub) => gen_binop_with_dst!(Sub, sub, block, node),
             Node::Mul(mul) => gen_binop_with_dst!(Mul, mul, block, node),
@@ -240,6 +241,7 @@ impl GenInstrBlock {
                     op: Some(dst.into_operand()),
                 });
             }
+            Node::Const(_) => log::debug!("Const node: will be computed JIT"),
             Node::Return(ret) => {
                 if ret.return_res().len() != 0 {
                     assert_eq!(ret.return_res().len(), 1);
