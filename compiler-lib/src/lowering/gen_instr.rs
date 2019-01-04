@@ -5,7 +5,7 @@ use super::{
 use crate::utils::cell::{MutRc, MutWeak};
 use itertools::Itertools;
 use libfirm_rs::{
-    nodes::{Node, NodeTrait},
+    nodes::{Node, NodeTrait, ProjKind},
     types::Ty,
     Entity,
 };
@@ -259,9 +259,38 @@ impl GenInstrBlock {
                     op: None,
                 });
             }
-            Node::Proj(proj, _kind) => {
+            Node::Proj(proj, kind) => {
                 let pred = proj.pred();
                 if !self.is_computed(pred) {
+                    if let ProjKind::Start_TArgs(_) = kind {
+                        log::debug!("Compute Start_TArgs");
+                        let mut dst_reg = None;
+                        let mut pop_instrs = node
+                            .out_nodes()
+                            .enumerate()
+                            .filter_map(|(i, node)| {
+                                if let Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) = node {
+                                    dst_reg = Some(dst_reg.unwrap_or(
+                                        self.gen_dst_reg(block.clone(), node).into_operand(),
+                                    ));
+                                    if i == idx as usize {
+                                        let instr = Some(Instr::Basic {
+                                            kind: Pop,
+                                            op: dst_reg,
+                                        });
+                                        dst_reg = None;
+                                        instr
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
+                        self.instrs.append(&mut pop_instrs);
+                    }
+                    self.mark_computed(node, Computed::Void);
                     debug_assert!(
                         Node::is_address(pred)
                             || Node::is_start(pred)

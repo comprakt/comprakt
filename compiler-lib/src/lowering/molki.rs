@@ -144,6 +144,8 @@ pub enum BasicKind {
     Not,
     #[display(fmt = "negq")]
     Neg,
+    #[display(fmt = "popq")]
+    Pop,
 }
 
 use std::io;
