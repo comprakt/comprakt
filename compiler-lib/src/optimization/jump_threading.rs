@@ -47,7 +47,7 @@
 use super::Outcome;
 use crate::{dot::*, optimization};
 use libfirm_rs::{
-    nodes::{Node, NodeTrait},
+    nodes::{Node, NodeTrait, ProjKind},
     Graph,
 };
 use std::collections::HashSet;
@@ -259,6 +259,97 @@ impl JumpThreading {
                         }
                     } else {
                         log::debug!("ignoring reducable jump without a target block");
+                    }
+                }
+                Node::Proj(_proj, ProjKind::Cond_Val(arm, cond)) => {
+                    self.graph.assure_outs();
+                    match (
+                        cond.out_proj_target_block(arm),
+                        cond.out_proj_target_block(!arm),
+                    ) {
+                        (
+                            Some((self_proj, target_block)),
+                            Some((other_proj, other_target_block)),
+                        ) => {
+                            if target_block == other_target_block {
+                                // we now know, that the conditional jump is useless
+                                // as both paths (true and false) target the same block,
+                                // remove it!
+                                let cond_block = cond.block();
+                                let new_jmp = Node::Jmp(cond_block.new_jmp());
+
+                                let mut new_inputs = target_block.in_nodes().collect::<Vec<_>>();
+                                new_inputs.push(new_jmp);
+                                target_block.set_in_nodes(&new_inputs);
+
+                                breakpoint!(
+                                    &format!("Adding {:?} around unnecessary {:?}", new_jmp, cond),
+                                    self.graph,
+                                    &|rendered: &Node| {
+                                        let mut label = default_label(rendered);
+
+                                        match rendered {
+                                            Node::Cond(some_cond) if some_cond == &cond => {
+                                                label = label
+                                                    .style(Style::Filled)
+                                                    .fillcolor(X11Color::Orange)
+                                                    .fontcolor(X11Color::White);
+                                            }
+                                            Node::Proj(proj, _)
+                                                if proj == &self_proj || proj == &other_proj =>
+                                            {
+                                                label = label
+                                                    .style(Style::Filled)
+                                                    .fillcolor(X11Color::Orange)
+                                                    .fontcolor(X11Color::White);
+                                            }
+                                            jmp if jmp == &new_jmp => {
+                                                label = label
+                                                    .style(Style::Filled)
+                                                    .fillcolor(X11Color::Red)
+                                                    .fontcolor(X11Color::White);
+                                            }
+                                            _ => {}
+                                        }
+
+                                        label
+                                    }
+                                );
+
+                                // remove the elements that are marked as bad from the work list,
+                                // queue the inserted jump instead
+                                worklist = worklist
+                                    .into_iter()
+                                    .filter(|node| {
+                                        if node != &Node::Cond(cond) {
+                                            return false;
+                                        }
+
+                                        match node {
+                                            Node::Proj(proj, _)
+                                                if proj == &self_proj || proj == &other_proj =>
+                                            {
+                                                false
+                                            }
+                                            _ => true,
+                                        }
+                                    })
+                                    .collect();
+
+                                // mark the cond as bad, it will be removed
+                                // with all nodes it dominates (which is exactly the
+                                // cond + both CondVal projections)
+                                self.graph.mark_as_bad(cond);
+                                self.graph.remove_bads();
+                                num_eliminated += 1;
+
+                                worklist.push(new_jmp);
+                            }
+                        }
+
+                        _ => {
+                            log::debug!("skipping incomplete conditional structure");
+                        }
                     }
                 }
                 Node::Block(block) => {
