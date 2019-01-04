@@ -83,7 +83,15 @@ pub unsafe fn build<'src, 'ast>(
 ) -> Result<(), Error> {
     setup();
 
-    let rt = std::rc::Rc::new(Runtime::new(box runtime::Molki)); // FIXME constant
+    // FIXME
+    let emit_molki = std::env::var("EMIT_ASM_MOLKI").is_ok();
+    let rt = if emit_molki {
+        Runtime::new(box runtime::Molki)
+    } else {
+        Runtime::new(box runtime::Mjrt)
+    };
+    let rt = std::rc::Rc::new(rt);
+
     let generator = ProgramGenerator::new(rt, type_system, type_analysis, strtab);
     let program = generator.generate();
 
@@ -125,8 +133,13 @@ pub unsafe fn build<'src, 'ast>(
 
     // TODO Better seperation of modules
     let lir = LIR::from(&program);
-    let molki = molki::Program::from(lir);
-    molki.emit_molki(&mut std::io::stdout()).unwrap();
+
+    // FIXME
+    if emit_molki {
+        let molki = molki::Program::from(lir);
+        molki.emit_molki(&mut std::io::stdout()).unwrap();
+        return Ok(());
+    }
 
     bindings::lower_highlevel();
     bindings::be_lower_for_target();

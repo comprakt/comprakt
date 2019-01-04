@@ -115,11 +115,14 @@ pub enum CliCommand {
     },
     /// Output x86-assembler and optionally the firm graph in various stages.
     /// Defaults to writing to standard out.
+    /// If environment variable EMIT_ASM_MOLKI is set, molki assembly
+    /// is emitted instead.
     #[structopt(name = "--emit-asm")]
     EmitAsm(AsmLoweringOptions),
 
     /// Output an executable. Defaults to 'a.out' in the current working
     /// directory.
+    /// Environment variable EMIT_ASM_MOLKI must not be set.
     #[structopt(name = "--compile-firm")]
     CompileFirm(BinaryLoweringOptions),
 }
