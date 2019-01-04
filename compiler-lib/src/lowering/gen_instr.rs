@@ -271,9 +271,9 @@ impl GenInstrBlock {
                         .enumerate()
                         .filter_map(|(i, node)| {
                             if let Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) = node {
-                                dst_reg = Some(dst_reg.unwrap_or(
-                                    self.gen_dst_reg(block.clone(), node).into_operand(),
-                                ));
+                                dst_reg = Some(dst_reg.unwrap_or_else(|| {
+                                    self.gen_dst_reg(block.clone(), node).into_operand()
+                                }));
                                 if i == idx as usize {
                                     let instr = Some(Instr::Basic {
                                         kind: Pop,

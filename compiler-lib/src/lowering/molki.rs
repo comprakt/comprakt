@@ -456,7 +456,7 @@ end:
 
         fib_basecase.push(Movq {
             src: fib.arg_reg(0).into_operand(),
-            dst: Reg::R0,
+            dst: Reg::R0.into_operand(),
         });
         fib_basecase.push(Jmp {
             cond: Cond::True,
