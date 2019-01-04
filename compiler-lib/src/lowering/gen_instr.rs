@@ -261,37 +261,36 @@ impl GenInstrBlock {
                     op: None,
                 });
             }
+            Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) => (),
             Node::Proj(proj, kind) => {
-                let pred = proj.pred();
                 if let ProjKind::Start_TArgs(_) = kind {
                     log::debug!("Compute Start_TArgs");
-                    let mut dst_reg = None;
-                    let mut pop_instrs = node
-                        .out_nodes()
-                        .enumerate()
-                        .filter_map(|(i, node)| {
-                            if let Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) = node {
-                                dst_reg = Some(dst_reg.unwrap_or_else(|| {
-                                    self.gen_dst_reg(block.clone(), node).into_operand()
-                                }));
-                                if i == idx as usize {
-                                    let instr = Some(Instr::Basic {
-                                        kind: Pop,
-                                        op: dst_reg,
-                                    });
-                                    dst_reg = None;
-                                    instr
-                                } else {
-                                    None
+                    let mut out_nodes = node.out_nodes().peekable();
+                    log::debug!("NUM: {}", proj.num());
+                    // FIXME: This doesn't work as long as we don't know how many arguments the
+                    // callee has. Replace proj.num() with |callee.args()| and it'll work.
+                    for i in 0..proj.num() {
+                        let node = out_nodes.peek();
+                        log::debug!("Compute Start_TArgs_Arg: {}: {:?}", i, node);
+                        let mut dst_reg = None;
+                        if let Some(n) = node {
+                            if let Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) = n {
+                                if i == *idx {
+                                    dst_reg = Some(
+                                        self.gen_dst_reg(block.clone(), n.clone()).into_operand(),
+                                    );
+                                    out_nodes.next();
                                 }
-                            } else {
-                                None
                             }
-                        })
-                        .collect();
-                    self.instrs.append(&mut pop_instrs);
+                        }
+                        self.instrs.push(Instr::Basic {
+                            kind: Pop,
+                            op: dst_reg.or_else(|| Some(Reg::N(usize::max_value()).into_operand())),
+                        });
+                    }
                     self.mark_computed(node, Computed::Void);
                 }
+                let pred = proj.pred();
                 if !self.is_computed(pred) {
                     debug_assert!(
                         Node::is_address(pred)
