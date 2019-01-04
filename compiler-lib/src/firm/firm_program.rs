@@ -113,7 +113,7 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
 
         let field_entity = Entity::new_entity(
             class_type.into(),
-            &format!("{}.F.{}", class.borrow().def.name, field.name),
+            &format!("{}$F${}", class.borrow().def.name, field.name),
             field_type,
         );
         let firm_field = Rc::new(RefCell::new(FirmField {
@@ -154,7 +154,7 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
         let method_name = if method.is_main {
             "mj_main".to_owned()
         } else {
-            format!("{}.M.{}", class.borrow().def.name, method.name)
+            format!("{}$M${}", class.borrow().def.name, method.name)
         };
 
         let method_entity = Entity::new_entity(class_type.into(), &method_name, method_type.into());

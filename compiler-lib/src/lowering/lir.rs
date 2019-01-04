@@ -35,6 +35,7 @@ impl From<&firm::FirmProgram<'_, '_>> for LIR {
 
 #[derive(Debug)]
 pub struct Function {
+    /// The mangled name of the function.
     pub name: String,
     pub nargs: usize,
     pub returns: bool,
@@ -50,7 +51,7 @@ impl From<&firm::FirmMethod<'_, '_>> for Function {
         let returns = method.def.return_ty != CheckedType::Void;
         log::debug!("Generating block graph for {}", method.def.name);
         Function {
-            name: method.def.name.to_string(),
+            name: method.entity.ld_name().to_str().unwrap().to_owned(),
             nargs: method.def.params.len(),
             returns,
             graph: graph.into(),
