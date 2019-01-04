@@ -29,6 +29,10 @@ use libfirm_rs::Tarval;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Operand {
+    Addr {
+        offset: isize,
+        reg: Reg,
+    },
     Reg(Reg),
     /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
     /// lifetime of that pointer (the FIRM graph).
@@ -240,6 +244,7 @@ impl Instr {
 impl std::fmt::Display for Operand {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Operand::Addr { offset, reg } => write!(fmt, "{}({})", offset, reg),
             Operand::Reg(reg) => write!(fmt, "{}", reg),
             Operand::Imm(val) => write!(fmt, "${}", val.get_long()), // TODO render suitable value
         }

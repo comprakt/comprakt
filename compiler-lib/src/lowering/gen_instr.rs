@@ -351,6 +351,15 @@ impl GenInstrBlock {
                 self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
             }
             Node::Address(_) => (), // ignored, only used by call node
+            Node::Load(load) => {
+                let dst = self.gen_dst_reg(block, node);
+                let addr_num = self.must_computed_slot(load.ptr()).num;
+                let src = Operand::Addr {
+                    offset: 0,
+                    reg: Reg::N(addr_num),
+                };
+                self.instrs.push(Instr::Movq { src, dst })
+            }
             x => self.comment(format_args!("\t\t\tunimplemented: {:?}", x)),
         }
     }
