@@ -787,6 +787,17 @@ pub struct MultiSlotBuilder {
     terminates_in: MutWeak<BasicBlock>,
 }
 
+impl Drop for MultiSlotBuilder {
+    fn drop(&mut self) {
+        let allocated_in = self.allocated_in.upgrade().unwrap();
+        let mut allocated_in = allocated_in.borrow_mut();
+        assert_eq!(allocated_in.regs.len(), self.num + 1);
+        if allocated_in.regs[self.num].is_empty() {
+            allocated_in.regs.pop();
+        }
+    }
+}
+
 impl MultiSlotBuilder {
     fn new(allocated_in: MutRc<BasicBlock>, terminates_in: MutWeak<BasicBlock>) -> Self {
         let num = allocated_in.borrow().regs.len();
