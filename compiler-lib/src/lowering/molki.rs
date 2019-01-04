@@ -79,7 +79,7 @@ pub enum Instr {
     },
     Movq {
         src: Operand,
-        dst: Reg,
+        dst: Operand,
     },
     /// If dst is None, result is in register r0, which cannot be accessed
     /// using molki register names.

@@ -251,7 +251,7 @@ impl GenInstrBlock {
                             Reg::N(retval_slot.num).into_operand()
                         }
                     };
-                    let dst = Reg::R0;
+                    let dst = Reg::R0.into_operand();
                     self.instrs.push(Instr::Movq { src, dst });
                 }
                 self.instrs.push(Instr::Basic {
@@ -352,13 +352,30 @@ impl GenInstrBlock {
             }
             Node::Address(_) => (), // ignored, only used by call node
             Node::Load(load) => {
-                let dst = self.gen_dst_reg(block, node);
+                let dst = self.gen_dst_reg(block, node).into_operand();
                 let addr_num = self.must_computed_slot(load.ptr()).num;
                 let src = Operand::Addr {
                     offset: 0,
                     reg: Reg::N(addr_num),
                 };
                 self.instrs.push(Instr::Movq { src, dst })
+            }
+            Node::Store(store) => {
+                let src = match store.value() {
+                    Node::Const(c) => Operand::Imm(c.tarval()),
+                    n => {
+                        let slot = self.must_computed_slot(n);
+                        Reg::N(slot.num).into_operand()
+                    }
+                };
+                let addr_num = self.must_computed_slot(store.ptr()).num;
+                let dst = Operand::Addr {
+                    offset: 0,
+                    reg: Reg::N(addr_num),
+                };
+                self.instrs.push(Instr::Movq { src, dst });
+                let dst_slot = block.new_private_slot(node); // interanl borrow_mut
+                self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
             }
             x => self.comment(format_args!("\t\t\tunimplemented: {:?}", x)),
         }
