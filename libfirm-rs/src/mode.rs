@@ -56,6 +56,10 @@ impl Mode {
     pub fn is_mem(self) -> bool {
         self == Mode::M()
     }
+
+    pub fn reference_offset_mode(self) -> Mode {
+        Mode::from_libfirm(unsafe { bindings::get_reference_offset_mode(self.0) })
+    }
 }
 
 use std::fmt::{self, Debug, Formatter};

@@ -4,7 +4,7 @@ use std::ffi::CString;
 
 macro_rules! gen_e {
     ($name:ident; $($var:ident($ty:ident)),*) => {
-        #[derive(Clone, Copy)]
+        #[derive(Clone, Copy, Debug)]
         pub enum $name {
             $(
                 $var($ty),
@@ -20,7 +20,7 @@ macro_rules! gen_e {
         }
 
         $(
-            #[derive(Clone, Copy)]
+            #[derive(Clone, Copy, Debug)]
             pub struct $ty(*mut bindings::ir_type);
             impl $ty {
                 pub fn from(ty: $name) -> Option<Self> {

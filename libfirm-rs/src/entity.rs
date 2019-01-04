@@ -64,6 +64,10 @@ impl Entity {
             }
         }
     }
+
+    pub fn offset(self) -> i32 {
+        unsafe { bindings::get_entity_offset(self.0) }
+    }
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
