@@ -53,10 +53,8 @@ impl GenInstrBlock {
         // LIR metadata dump + fill computed values
         for (num, multislot) in block.borrow().regs.iter().enumerate() {
             self.comment(format_args!("Slot {}:", num));
-            for slot in multislot {
-                self.comment(format_args!("\t=  {:?}", slot.borrow().firm));
-            }
 
+            // "Input slots"
             for edge in block.borrow().preds.iter() {
                 edge.upgrade()
                     .unwrap()
@@ -65,14 +63,48 @@ impl GenInstrBlock {
                     .iter()
                     .enumerate()
                     .filter(|(_, (_, dst))| dst.borrow().num == num)
-                    .for_each(|(idx, (src, _))| {
+                    .filter(|(idx, _)| {
+                        let edge = edge.upgrade().unwrap();
+                        let must_copy_in_source = edge.must_copy_in_source(*idx);
+                        assert!(
+                            // "must_copy_in_source => !must_copy_in_target"
+                            !must_copy_in_source || !edge.must_copy_in_target(*idx),
+                            "possible lost-copy detected"
+                        );
+
+                        // We copy everything that doesn't have to be copied in `source` in `target`
+                        // (this includes everything that *has* to be copied in `target`), as
+                        // demonstrated by the above assertion
+                        !must_copy_in_source
+                    })
+                    .for_each(|(_, (src, _))| {
                         self.comment(format_args!(
-                            "\t<- {:?}({}): {:?} [copy up={} down={}]",
+                            "\t<- {:?}({}): {:?}",
                             upborrow!(src.borrow().allocated_in).firm,
                             src.borrow().num,
                             src.borrow().firm,
-                            edge.upgrade().unwrap().must_copy_in_source(idx),
-                            edge.upgrade().unwrap().must_copy_in_target(idx),
+                        ));
+                    })
+            }
+
+            for slot in multislot {
+                self.comment(format_args!("\t=  {:?}", slot.borrow().firm));
+            }
+
+            // "Output slots"
+            for edge in block.borrow().succs.iter() {
+                edge.borrow()
+                    .register_transitions
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, (src, _))| src.borrow().num == num)
+                    .filter(|(idx, _)| edge.must_copy_in_source(*idx))
+                    .for_each(|(_, (_, dst))| {
+                        self.comment(format_args!(
+                            "\t-> {:?}({}): {:?}",
+                            upborrow!(dst.borrow().allocated_in).firm,
+                            dst.borrow().num,
+                            dst.borrow().firm,
                         ));
                     })
             }
