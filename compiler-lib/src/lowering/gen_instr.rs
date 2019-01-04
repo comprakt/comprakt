@@ -350,22 +350,7 @@ impl GenInstrBlock {
                     panic!("functions must return 0 or 1 result {:?}", n_res);
                 };
 
-                // the mapping below shouldn't exist
-                // Molki call instrs should not simply take a string,
-                // but an enum of 'user-defined-funtion' or 'runtime call'
-                // as we already have in the type system
-                // we can probably pass trhoguh that enum from the type
-                // system up until the final codegen
-                let func_name = match func.ld_name().to_str().unwrap() {
-                    "mjrt_system_out_println" => "__stdlib_println",
-                    "mjrt_system_out_write" => "__stdlib_write",
-                    "mjrt_system_out_flush" => "__stdlib_flush",
-                    "mjrt_system_in_read" => "__stdlib_read",
-                    "mjrt_new" => "__stdlib_malloc",
-                    // TODO exhaustive?
-                    x => x,
-                }
-                .to_owned();
+                let func_name = func.ld_name().to_str().unwrap().to_owned();
                 self.instrs.push(Instr::Call {
                     func: func_name,
                     args,

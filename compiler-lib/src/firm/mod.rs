@@ -83,7 +83,8 @@ pub unsafe fn build<'src, 'ast>(
 ) -> Result<(), Error> {
     setup();
 
-    let generator = ProgramGenerator::new(type_system, type_analysis, strtab);
+    let rt = std::rc::Rc::new(Runtime::new(box runtime::Molki)); // FIXME constant
+    let generator = ProgramGenerator::new(rt, type_system, type_analysis, strtab);
     let program = generator.generate();
 
     // FIXME: This function maybe has to be moved after the optimizations

@@ -1,4 +1,4 @@
-use super::{firm_program::*, MethodBodyGenerator, Runtime};
+use super::{firm_program::*, runtime::Runtime, MethodBodyGenerator};
 use crate::{
     ast,
     strtab::StringTable,
@@ -13,7 +13,7 @@ use log;
 use std::rc::Rc;
 
 pub struct ProgramGenerator<'src, 'ast> {
-    runtime: Runtime,
+    runtime: Rc<Runtime>,
     type_system: &'src TypeSystem<'src, 'ast>,
     type_analysis: &'src TypeAnalysis<'src, 'ast>,
     strtab: &'src mut StringTable<'src>,
@@ -21,12 +21,13 @@ pub struct ProgramGenerator<'src, 'ast> {
 
 impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
     pub fn new(
+        runtime: Rc<Runtime>,
         type_system: &'src TypeSystem<'src, 'ast>,
         type_analysis: &'src TypeAnalysis<'src, 'ast>,
         strtab: &'src mut StringTable<'src>,
     ) -> Self {
         Self {
-            runtime: Runtime::new(),
+            runtime,
             type_system,
             type_analysis,
             strtab,
@@ -34,7 +35,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
     }
 
     pub fn generate(mut self) -> FirmProgram<'src, 'ast> {
-        let program = FirmProgram::new(self.type_system);
+        let program = FirmProgram::new(self.type_system, Rc::clone(&self.runtime));
 
         for method in program.methods.values() {
             log::debug!("generate method body for {:?}", method.borrow().def.name);
