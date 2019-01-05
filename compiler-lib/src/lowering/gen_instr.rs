@@ -82,8 +82,15 @@ impl GenInstrBlock {
                     })
             }
 
-            for slot in multislot {
-                self.comment(format_args!("\t=  {:?}", slot.borrow().firm));
+            match multislot {
+                MultiSlot::Single(slot) => {
+                    self.comment(format_args!("\t=  {:?}", slot.borrow().firm))
+                }
+                MultiSlot::Multi { slots, .. } => {
+                    for slot in slots {
+                        self.comment(format_args!("\t=  {:?}", slot.borrow().firm));
+                    }
+                }
             }
 
             // "Output slots"

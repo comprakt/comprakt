@@ -104,7 +104,7 @@ pub struct Code {
 #[derive(Debug)]
 pub struct BasicBlock {
     /// The Pseudo-registers used by the Block
-    pub regs: Vec<Vec<MutRc<ValueSlot>>>,
+    pub regs: Vec<MultiSlot>,
     /// The instructions (using arbitrarily many registers) of the block
     pub code: Code,
     /// Control flow-transfers *to* this block.
@@ -146,6 +146,15 @@ pub struct BasicBlock {
     pub returns: BasicBlockReturns,
 
     graph: MutWeak<BlockGraph>,
+}
+
+#[derive(Debug)]
+pub enum MultiSlot {
+    Single(MutRc<ValueSlot>),
+    Multi {
+        phi: nodes::Phi,
+        slots: Vec<MutRc<ValueSlot>>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -219,7 +228,7 @@ pub enum Leave {
 #[derive(Debug, Clone)]
 pub struct CopyPropagation {
     pub(super) src: MutRc<ValueSlot>,
-    pub (super) dst: MutRc<ValueSlot>,
+    pub(super) dst: MutRc<ValueSlot>,
 }
 
 #[derive(Debug, Clone)]
@@ -496,6 +505,7 @@ impl MutRc<BlockGraph> {
                 VisitTime::AfterPredecessors => (),
             });
 
+        /*
         // Special case for return nodes, see BasicBlock.return comment
         let end_block = self.borrow().get_block(self.borrow().firm.end_block());
         let multislot = end_block.new_terminating_multislot();
@@ -535,6 +545,7 @@ impl MutRc<BlockGraph> {
                     .add_incoming_value_flow(vs);
             }
         }
+         */
     }
 }
 
@@ -641,14 +652,12 @@ impl MutRc<ControlFlowTransfer> {
 
 impl MutRc<BasicBlock> {
     fn new_multislot(&self, terminates_in: MutWeak<BasicBlock>) -> MultiSlotBuilder {
-        MultiSlotBuilder::new(MutRc::clone(self), terminates_in)
-    }
-    fn new_terminating_multislot(&self) -> MultiSlotBuilder {
-        self.new_multislot(MutRc::downgrade(self))
+        MultiSlotBuilder::new(None, MutRc::clone(self), terminates_in)
     }
 
     fn new_terminating_multislot_from_phi(&self, phi: nodes::Phi) {
-        let multislot = self.new_terminating_multislot();
+        let mut multislot =
+            MultiSlotBuilder::new(Some(phi), MutRc::clone(self), MutRc::downgrade(self));
         phi.preds()
             // Mem edges are uninteresting across blocks
             .filter(|(_, value)| value.mode() != Mode::M())
@@ -685,14 +694,17 @@ impl MutRc<BasicBlock> {
         value: libfirm_rs::nodes::Node,
         terminates_in: MutWeak<BasicBlock>,
     ) -> MutRc<ValueSlot> {
+        assert!(!Node::is_phi(value));
+
         let this = self.borrow();
         let possibly_existing_slot = this
             .regs
             .iter()
-            .filter_map(|multislot| multislot.iter().find(|slot| slot.borrow().firm == value))
+            .filter_map(|multislot| match multislot {
+                MultiSlot::Single(slot) if slot.borrow().firm == value => Some(slot),
+                _ => None,
+            })
             .next();
-
-        assert!(!Node::is_phi(value));
 
         if let Some(slot) = possibly_existing_slot {
             log::debug!(
@@ -790,6 +802,8 @@ impl BasicBlock {
 #[derive(Debug)]
 pub struct MultiSlotBuilder {
     num: usize,
+    slots: Vec<MutRc<ValueSlot>>,
+    phi: Option<nodes::Phi>,
     allocated_in: MutWeak<BasicBlock>,
     terminates_in: MutWeak<BasicBlock>,
 }
@@ -798,37 +812,44 @@ impl Drop for MultiSlotBuilder {
     fn drop(&mut self) {
         let allocated_in = self.allocated_in.upgrade().unwrap();
         let mut allocated_in = allocated_in.borrow_mut();
-        assert_eq!(allocated_in.regs.len(), self.num + 1);
-        if allocated_in.regs[self.num].is_empty() {
-            allocated_in.regs.pop();
-        }
+        assert_eq!(allocated_in.regs.len(), self.num);
+        allocated_in.regs.push(if let Some(phi) = self.phi {
+            MultiSlot::Multi {
+                phi,
+                slots: self.slots.clone(),
+            }
+        } else {
+            assert_eq!(self.slots.len(), 1);
+            MultiSlot::Single(self.slots[0].clone())
+        });
     }
 }
 
 impl MultiSlotBuilder {
-    fn new(allocated_in: MutRc<BasicBlock>, terminates_in: MutWeak<BasicBlock>) -> Self {
+    fn new(
+        phi: Option<nodes::Phi>,
+        allocated_in: MutRc<BasicBlock>,
+        terminates_in: MutWeak<BasicBlock>,
+    ) -> Self {
         let num = allocated_in.borrow().regs.len();
-        allocated_in.borrow_mut().regs.push(Vec::new());
         MultiSlotBuilder {
             num,
+            slots: Vec::new(),
+            phi,
             allocated_in: MutRc::downgrade(&allocated_in),
             terminates_in,
         }
     }
 
     fn add_possible_value(
-        &self,
+        &mut self,
         value: libfirm_rs::nodes::Node,
         originates_in: MutWeak<BasicBlock>,
     ) -> MutRc<ValueSlot> {
-        assert!(upborrow!(self.allocated_in).regs.get(self.num).is_some());
-
         {
             let allocated_in = MutWeak::upgrade(&self.allocated_in).unwrap();
             let allocated_in = allocated_in.borrow();
-            let is_duplicate = allocated_in.regs[self.num]
-                .iter()
-                .any(|slot| slot.borrow().firm == value);
+            let is_duplicate = self.slots.iter().any(|slot| slot.borrow().firm == value);
 
             assert!(!is_duplicate);
         }
@@ -849,7 +870,7 @@ impl MultiSlotBuilder {
         );
 
         let slot = MutRc::new(slot);
-        upborrow!(mut self.allocated_in).regs[self.num].push(MutRc::clone(&slot));
+        self.slots.push(MutRc::clone(&slot));
 
         slot
     }
