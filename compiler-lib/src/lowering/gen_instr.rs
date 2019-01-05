@@ -166,20 +166,17 @@ impl GenInstrBlock {
         macro_rules! binop_operand {
             ($side:ident, $op:expr) => {{
                 let $side = $op.$side();
-                if self.is_computed($side) {
-                    let slot = self.must_computed_slot($side);
-                    Reg::N(slot.num).into_operand()
-                } else {
-                    let tv = match $side {
-                        Node::Const(c) => c.tarval(),
-                        x => panic!(
-                            "node must have been computed for {:?} or be const, error in DFS?",
-                            x
-                        ),
-                    };
-                    Operand::Imm(tv)
+                match $side {
+                    Node::Const(c) => Operand::Imm(c.tarval()),
+                    Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
+                        Reg::N(idx as usize).into_operand()
+                    }
+                    n => {
+                        let slot = self.must_computed_slot(n);
+                        Reg::N(slot.num).into_operand()
+                    }
                 }
-            }}
+            }};
         }
         macro_rules! gen_binop_with_dst {
             ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
@@ -248,6 +245,9 @@ impl GenInstrBlock {
                     log::debug!("{:?}", ret);
                     let src = match ret.return_res().idx(0).unwrap() {
                         Node::Const(c) => Operand::Imm(c.tarval()),
+                        Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
+                            Reg::N(idx as usize).into_operand()
+                        }
                         n => {
                             let retval_slot = self.must_computed_slot(n);
                             Reg::N(retval_slot.num).into_operand()
@@ -297,6 +297,9 @@ impl GenInstrBlock {
                         log::debug!("\tparam node {:?}", node);
                         match node {
                             Node::Const(c) => Operand::Imm(c.tarval()),
+                            Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
+                                Reg::N(idx as usize).into_operand()
+                            }
                             x => {
                                 // TODO following is practically dup of Add code above
                                 let value_slot = self.must_computed_slot(x);
@@ -351,6 +354,9 @@ impl GenInstrBlock {
             Node::Store(store) => {
                 let src = match store.value() {
                     Node::Const(c) => Operand::Imm(c.tarval()),
+                    Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
+                        Reg::N(idx as usize).into_operand()
+                    }
                     n => {
                         let slot = self.must_computed_slot(n);
                         Reg::N(slot.num).into_operand()
