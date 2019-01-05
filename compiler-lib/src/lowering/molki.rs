@@ -343,7 +343,7 @@ impl From<lir::LIR> for Program {
             let mut mblocks = HashMap::new();
             let mut is_entry_block = true;
 
-            for block in f.graph.iter_blocks() {
+            for block in f.graph.borrow().iter_blocks() {
                 let mut mblock = mf.begin_block(format!(".L{}", block.borrow().firm.node_id()));
                 //for instr in &block.borrow().code {
                 //    // mblock.push(instr.clone());

@@ -129,6 +129,10 @@ pub mod cell {
     }
 
     impl<T> MutWeak<T> {
+        pub fn new() -> Self {
+            MutWeak(Weak::new())
+        }
+
         pub fn upgrade(&self) -> Option<MutRc<T>> {
             Weak::upgrade(&self.0).map(MutRc)
         }

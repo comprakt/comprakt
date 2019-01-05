@@ -39,7 +39,7 @@ pub struct Function {
     pub name: String,
     pub nargs: usize,
     pub returns: bool,
-    pub graph: BlockGraph,
+    pub graph: MutRc<BlockGraph>,
 }
 
 impl From<&firm::FirmMethod<'_, '_>> for Function {
@@ -144,6 +144,8 @@ pub struct BasicBlock {
     /// SSA copy-propagation code can check `returns` to omit
     /// copy-down of `succ_edge`.
     pub returns: BasicBlockReturns,
+
+    graph: MutWeak<BlockGraph>,
 }
 
 #[derive(Debug, Clone)]
@@ -354,18 +356,18 @@ pub struct ControlFlowTransfer {
     pub target: MutRc<BasicBlock>,
 }
 
-impl From<libfirm_rs::Graph> for BlockGraph {
+impl From<libfirm_rs::Graph> for MutRc<BlockGraph> {
     fn from(firm_graph: libfirm_rs::Graph) -> Self {
         firm_graph.assure_outs();
-        let mut graph = Self::build_skeleton(firm_graph);
+        let mut graph = BlockGraph::build_skeleton(firm_graph);
         graph.construct_flows();
-        graph.gen_instrs();
+        graph.borrow_mut().gen_instrs();
         graph
     }
 }
 
 impl BlockGraph {
-    fn build_skeleton(firm_graph: libfirm_rs::Graph) -> Self {
+    fn build_skeleton(firm_graph: libfirm_rs::Graph) -> MutRc<Self> {
         let mut blocks = HashMap::new();
 
         // This is basically a `for each edge "firm_target -> firm_source"`
@@ -396,134 +398,17 @@ impl BlockGraph {
                 .expect("All blocks (including start block) should have been generated"),
         );
 
-        BlockGraph {
+        let graph = MutRc::new(BlockGraph {
             firm: firm_graph,
             blocks,
             head,
-        }
-    }
-
-    fn construct_flows(&mut self) {
-        self.firm.walk_blocks(|visit, firm_block| match visit {
-            VisitTime::BeforePredecessors => {
-                log::debug!("VISIT {:?}", firm_block);
-                let local_block = self.get_block(*firm_block);
-
-                // Foreign values are the green points in yComp (inter-block edges)
-                for node_in_block in firm_block.out_nodes() {
-                    match node_in_block {
-                        Node::Phi(phi) => {
-                            let multislot = local_block.new_terminating_multislot();
-                            phi.preds()
-                                // Mem edges are uninteresting across blocks
-                                .filter(|(_, value)| value.mode() != Mode::M())
-                                // The next two 'maps' need to be seperated in two closures
-                                // because we wan't to selectively `move` `value` and
-                                // `multislot` into the closure, but take `self` by reference
-                                .map(|(cfg_pred, value)| {
-                                    (
-                                        cfg_pred,
-                                        value,
-                                        MutRc::downgrade(&self.get_block(value.block())),
-                                    )
-                                })
-                                .map(move |(cfg_pred, value, original_block)| {
-                                    (
-                                        cfg_pred,
-                                        multislot.add_possible_value(value, original_block),
-                                    )
-                                })
-                                .for_each(|(cfg_pred, value_slot)| {
-                                    local_block
-                                        .borrow()
-                                        .find_incoming_edge_from(cfg_pred)
-                                        .unwrap()
-                                        .add_incoming_value_flow(value_slot);
-                                });
-                        }
-
-                        // The end node is only for keep alive edges, which we don't care about
-                        Node::End(_) => (),
-
-                        _ => node_in_block
-                            .in_nodes()
-                            // Mem edges are uninteresting across blocks
-                            .filter(|value| value.mode() != Mode::M())
-                            // If this is a value produced by our block, there is no need to
-                            // transfer it from somewhere else
-                            .filter(|value| {
-                                log::debug!("value: {:?}", value);
-                                value.block() != *firm_block
-                            })
-                            // Foreign values that are not phi, flow in from each cfg pred
-                            // => values x cfg_preds
-                            .for_each(|value| {
-                                // Do this here, because we don't want to move `self` or
-                                // `local_block` into closure
-                                let original_block = self.get_block(value.block());
-                                let local_block = MutRc::clone(&local_block);
-                                local_block.new_terminating_slot(value, original_block.downgrade());
-                            }),
-                    }
-                }
-            }
-
-            VisitTime::AfterPredecessors => (),
         });
 
-        // Special case for return nodes, see BasicBlock.return comment
-        let end_block = self.get_block(self.firm.end_block());
-        let multislot = end_block.new_terminating_multislot();
-        for return_node in self.firm.end_block().cfg_preds() {
-            log::debug!("return_node = {:?}", return_node);
-            log::debug!(
-                "return_node.edges = {:?}",
-                end_block
-                    .borrow()
-                    .preds
-                    .iter()
-                    .map(|x| format!("{:?}", upborrow!(upborrow!(x).source).firm))
-                    .collect::<Vec<_>>()
-            );
-            let block_with_return_node = self.get_block(return_node.block());
-            let return_node = match return_node {
-                Node::Return(r) => r,
-                _ => panic!("unexpected return node"),
-            };
-            if return_node.return_res().len() == 0 {
-                block_with_return_node.borrow_mut().returns = BasicBlockReturns::Void(return_node);
-            } else {
-                block_with_return_node.borrow_mut().returns = BasicBlockReturns::Value(return_node);
-                debug_assert_eq!(
-                    1,
-                    return_node.return_res().len(),
-                    "MiniJava only supports a single return value"
-                );
-                let vs = multislot.add_possible_value(
-                    return_node.return_res().idx(0).unwrap(),
-                    block_with_return_node.downgrade(),
-                );
-                end_block
-                    .borrow()
-                    .find_incoming_edge_from(return_node.block())
-                    .unwrap()
-                    .add_incoming_value_flow(vs);
-            }
+        for block in graph.borrow().iter_blocks() {
+            block.borrow_mut().graph = MutRc::downgrade(&graph)
         }
-    }
 
-    fn gen_instrs(&mut self) {
-        for lir_block in self.iter_blocks() {
-            log::debug!("GENINSTR block {:?}", lir_block.borrow().firm);
-            GenInstrBlock::fill_instrs(lir_block);
-        }
-    }
-
-    fn get_block(&self, firm_block: libfirm_rs::nodes::Block) -> MutRc<BasicBlock> {
-        self.blocks
-            .get(&firm_block)
-            .expect("BlockGraph is incomplete")
-            .clone()
+        graph
     }
 
     /// Iterate over all basic blocks in `self` in a breadth-first manner (in
@@ -552,6 +437,104 @@ impl BlockGraph {
                 .map(MutRc::clone)
                 .collect::<Vec<_>>()
         })
+    }
+
+    fn gen_instrs(&mut self) {
+        for lir_block in self.iter_blocks() {
+            log::debug!("GENINSTR block {:?}", lir_block.borrow().firm);
+            GenInstrBlock::fill_instrs(lir_block);
+        }
+    }
+
+    fn get_block(&self, firm_block: libfirm_rs::nodes::Block) -> MutRc<BasicBlock> {
+        self.blocks
+            .get(&firm_block)
+            .expect("BlockGraph is incomplete")
+            .clone()
+    }
+}
+
+impl MutRc<BlockGraph> {
+    fn construct_flows(&mut self) {
+        self.borrow()
+            .firm
+            .walk_blocks(|visit, firm_block| match visit {
+                VisitTime::BeforePredecessors => {
+                    log::debug!("VISIT {:?}", firm_block);
+                    let local_block = self.borrow().get_block(*firm_block);
+
+                    // Foreign values are the green points in yComp (inter-block edges)
+                    for node_in_block in firm_block.out_nodes() {
+                        match node_in_block {
+                            Node::Phi(phi) => local_block.new_terminating_multislot_from_phi(phi),
+
+                            // The end node is only for keep alive edges, which we don't care about
+                            Node::End(_) => (),
+
+                            _ => node_in_block
+                                .in_nodes()
+                                // Mem edges are uninteresting across blocks
+                                .filter(|value| value.mode() != Mode::M())
+                                // If this is a value produced by our block, there is no need to
+                                // transfer it from somewhere else
+                                .filter(|value| {
+                                    log::debug!("value: {:?}", value);
+                                    value.block() != *firm_block
+                                })
+                                // Foreign values that are not phi, flow in from each cfg pred
+                                // => values x cfg_preds
+                                .for_each(|value| {
+                                    // Do this here, because we don't want to move `local_block`
+                                    // into closure
+                                    let local_block = MutRc::clone(&local_block);
+                                    local_block.new_terminating_slot(value);
+                                }),
+                        }
+                    }
+                }
+
+                VisitTime::AfterPredecessors => (),
+            });
+
+        // Special case for return nodes, see BasicBlock.return comment
+        let end_block = self.borrow().get_block(self.borrow().firm.end_block());
+        let multislot = end_block.new_terminating_multislot();
+        for return_node in self.borrow().firm.end_block().cfg_preds() {
+            log::debug!("return_node = {:?}", return_node);
+            log::debug!(
+                "return_node.edges = {:?}",
+                end_block
+                    .borrow()
+                    .preds
+                    .iter()
+                    .map(|x| format!("{:?}", upborrow!(upborrow!(x).source).firm))
+                    .collect::<Vec<_>>()
+            );
+            let block_with_return_node = self.borrow().get_block(return_node.block());
+            let return_node = match return_node {
+                Node::Return(r) => r,
+                _ => panic!("unexpected return node"),
+            };
+            if return_node.return_res().len() == 0 {
+                block_with_return_node.borrow_mut().returns = BasicBlockReturns::Void(return_node);
+            } else {
+                block_with_return_node.borrow_mut().returns = BasicBlockReturns::Value(return_node);
+                debug_assert_eq!(
+                    1,
+                    return_node.return_res().len(),
+                    "MiniJava only supports a single return value"
+                );
+                let vs = multislot.add_possible_value(
+                    return_node.return_res().idx(0).unwrap(),
+                    block_with_return_node.downgrade(),
+                );
+                end_block
+                    .borrow()
+                    .find_incoming_edge_from(return_node.block())
+                    .unwrap()
+                    .add_incoming_value_flow(vs);
+            }
+        }
     }
 }
 
@@ -660,9 +643,37 @@ impl MutRc<BasicBlock> {
     fn new_multislot(&self, terminates_in: MutWeak<BasicBlock>) -> MultiSlotBuilder {
         MultiSlotBuilder::new(MutRc::clone(self), terminates_in)
     }
-
     fn new_terminating_multislot(&self) -> MultiSlotBuilder {
         self.new_multislot(MutRc::downgrade(self))
+    }
+
+    fn new_terminating_multislot_from_phi(&self, phi: nodes::Phi) {
+        let multislot = self.new_terminating_multislot();
+        phi.preds()
+            // Mem edges are uninteresting across blocks
+            .filter(|(_, value)| value.mode() != Mode::M())
+            // The next two 'maps' need to be seperated in two closures
+            // because we wan't to selectively `move` `value` and
+            // `multislot` into the closure, but take `self` by reference
+            .map(|(cfg_pred, value)| {
+                (
+                    cfg_pred,
+                    value,
+                    MutRc::downgrade(&upborrow!(self.borrow().graph).get_block(value.block())),
+                )
+            })
+            .map(move |(cfg_pred, value, original_block)| {
+                (
+                    cfg_pred,
+                    multislot.add_possible_value(value, original_block),
+                )
+            })
+            .for_each(|(cfg_pred, value_slot)| {
+                self.borrow()
+                    .find_incoming_edge_from(cfg_pred)
+                    .unwrap()
+                    .add_incoming_value_flow(value_slot);
+            });
     }
 
     /// TODO This function makes the assupmtion that is not used for `value`s
@@ -672,7 +683,6 @@ impl MutRc<BasicBlock> {
     fn new_slot(
         &self,
         value: libfirm_rs::nodes::Node,
-        originates_in: MutWeak<BasicBlock>,
         terminates_in: MutWeak<BasicBlock>,
     ) -> MutRc<ValueSlot> {
         let this = self.borrow();
@@ -681,6 +691,8 @@ impl MutRc<BasicBlock> {
             .iter()
             .filter_map(|multislot| multislot.iter().find(|slot| slot.borrow().firm == value))
             .next();
+
+        assert!(!Node::is_phi(value));
 
         if let Some(slot) = possibly_existing_slot {
             log::debug!(
@@ -693,9 +705,11 @@ impl MutRc<BasicBlock> {
             MutRc::clone(slot)
         } else {
             drop(this);
+            let originates_in = upborrow!(self.borrow().graph).get_block(value.block());
+
             let slot = self
                 .new_multislot(terminates_in)
-                .add_possible_value(value, originates_in);
+                .add_possible_value(value, originates_in.downgrade());
 
             // If the value is foreign, we need to "get it" from each blocks above us.
             //
@@ -727,24 +741,16 @@ impl MutRc<BasicBlock> {
     }
 
     fn new_forwarding_slot(&self, target_slot: &ValueSlot) -> MutRc<ValueSlot> {
-        self.new_slot(
-            target_slot.firm,
-            MutWeak::clone(&target_slot.originates_in),
-            MutWeak::clone(&target_slot.terminates_in),
-        )
+        self.new_slot(target_slot.firm, MutWeak::clone(&target_slot.terminates_in))
     }
 
-    fn new_terminating_slot(
-        &self,
-        value: libfirm_rs::nodes::Node,
-        origin: MutWeak<BasicBlock>,
-    ) -> MutRc<ValueSlot> {
-        self.new_slot(value, origin, MutRc::downgrade(self))
+    fn new_terminating_slot(&self, value: libfirm_rs::nodes::Node) -> MutRc<ValueSlot> {
+        self.new_slot(value, MutRc::downgrade(self))
     }
 
     pub(super) fn new_private_slot(&self, value: libfirm_rs::nodes::Node) -> MutRc<ValueSlot> {
         assert_eq!(value.block(), self.borrow().firm);
-        self.new_slot(value, MutRc::downgrade(self), MutRc::downgrade(self))
+        self.new_slot(value, MutRc::downgrade(self))
     }
 }
 
@@ -774,6 +780,7 @@ impl BasicBlock {
                     firm,
                     // if No is not true, overridden in suring construct_flows
                     returns: BasicBlockReturns::No,
+                    graph: MutWeak::new(),
                 })
             })
             .clone()
