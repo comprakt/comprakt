@@ -1,5 +1,5 @@
 use super::lir::*;
-use crate::utils::cell::{MutRc, MutWeak};
+use crate::utils::cell::MutRc;
 use itertools::Itertools;
 use libfirm_rs::{
     nodes::{Node, NodeTrait, ProjKind},
@@ -188,7 +188,7 @@ impl GenInstrBlock {
             return;
         }
 
-        use self::{BasicKind::*, BinopKind::*, DivKind::*};
+        use self::{BinopKind::*, UnopKind::*};
         use libfirm_rs::Mode;
         macro_rules! binop_operand {
             ($side:ident, $op:expr) => {{
@@ -210,19 +210,17 @@ impl GenInstrBlock {
                     dst,
                 });
             }};
-            (DIV, $kind:ident, $op:expr, $block:expr, $node:expr) => {{
+            (@DIV, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
-                self.code.body.push(Instruction::Divop {
-                    kind: $kind,
+                self.code.body.push(Instruction::Div {
                     src1,
                     src2,
                     dst,
                 });
             }};
-            (MOD, $kind:ident, $op:expr, $block:expr, $node:expr) => {{
+            (@MOD, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
                 self.code.body.push(Instruction::Mod {
-                    kind: $kind,
                     src1,
                     src2,
                     dst,
@@ -240,16 +238,16 @@ impl GenInstrBlock {
             Node::Add(add) => gen_binop_with_dst!(Add, add, block, node),
             Node::Sub(sub) => gen_binop_with_dst!(Sub, sub, block, node),
             Node::Mul(mul) => gen_binop_with_dst!(Mul, mul, block, node),
-            Node::Div(div) => gen_binop_with_dst!(DIV, IDiv, div, block, node),
-            Node::Mod(mod_) => gen_binop_with_dst!(MOD, IDiv, mod_, block, node),
+            Node::Div(div) => gen_binop_with_dst!(@DIV, div, block, node),
+            Node::Mod(mod_) => gen_binop_with_dst!(@MOD, mod_, block, node),
             Node::And(and) => gen_binop_with_dst!(And, and, block, node),
             Node::Or(or) => gen_binop_with_dst!(Or, or, block, node),
             Node::Not(_) | Node::Minus(_) => {
                 let dst = self.gen_dst_slot(block, node);
                 let kind = if let Node::Not(_) = node { Not } else { Neg };
-                self.code.body.push(Instruction::Basic {
+                self.code.body.push(Instruction::Unop {
                     kind,
-                    op: Some(Operand::Slot(dst)),
+                    op: Operand::Slot(dst),
                 });
             }
             Node::Const(_) => log::debug!("Const node: will be computed JIT"),
@@ -276,7 +274,7 @@ impl GenInstrBlock {
                 self.code.leave.push(Leave::Jmp { target });
             }
             Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) => (),
-            Node::Proj(proj, kind) => {
+            Node::Proj(proj, _kind) => {
                 let pred = proj.pred();
                 if !self.is_computed(pred) {
                     debug_assert!(

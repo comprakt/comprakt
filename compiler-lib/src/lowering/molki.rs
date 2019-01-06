@@ -1,5 +1,7 @@
 #![allow(clippy::new_without_default_derive)]
-use libfirm_rs::nodes::NodeTrait;
+use crate::{lowering::lir, utils::cell::MutRc};
+use libfirm_rs::{nodes::NodeTrait, Tarval};
+use std::{collections::HashMap, io};
 
 type Label = String;
 
@@ -24,8 +26,6 @@ pub struct Block {
     label: Label,
     instrs: Vec<Instr>,
 }
-
-use libfirm_rs::Tarval;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Operand {
@@ -60,18 +60,17 @@ pub enum Instr {
         kind: BinopKind,
         src1: Operand,
         src2: Operand,
-        dst: Option<Reg>,
+        dst: Reg,
     },
     Divop {
-        kind: DivKind,
         src1: Operand,
         src2: Operand,
         dst1: Reg,
         dst2: Reg,
     },
-    Basic {
-        kind: BasicKind,
-        op: Option<Operand>,
+    Unop {
+        kind: UnopKind,
+        op: Operand,
     },
     Cmpq {
         lhs: Operand,
@@ -118,37 +117,13 @@ pub enum BinopKind {
     Or,
 }
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, Clone)]
 pub enum UnopKind {
     #[display(fmt = "negq")]
     Neg,
     #[display(fmt = "notq")]
     Not,
 }
-
-#[derive(Debug, Display, Clone)]
-pub enum DivKind {
-    /// unsigned
-    #[display(fmt = "div")]
-    Div,
-    /// signed
-    #[display(fmt = "idiv")]
-    IDiv,
-}
-
-#[derive(Debug, Display, Clone)]
-pub enum BasicKind {
-    #[display(fmt = "ret")]
-    Ret,
-    #[display(fmt = "notq")]
-    Not,
-    #[display(fmt = "negq")]
-    Neg,
-    #[display(fmt = "popq")]
-    Pop,
-}
-
-use std::io;
 
 impl Program {
     pub fn emit_molki(&self, out: &mut impl io::Write) -> io::Result<()> {
@@ -192,30 +167,20 @@ impl Instr {
                 src2,
                 dst,
             } => {
-                write!(out, "{} [ {} | {} ]", kind, src1, src2)?;
-                if let Some(dst) = dst {
-                    write!(out, " -> {}", dst)?;
-                }
+                write!(out, "{} [ {} | {} ] -> {}", kind, src1, src2, dst)?;
                 Ok(())
             }
             Divop {
-                kind,
                 src1,
                 src2,
                 dst1,
                 dst2,
             } => write!(
                 out,
-                "{} [ {} | {} ] -> [ {} | {} ]",
-                kind, src1, src2, dst1, dst2
+                "idivq [ {} | {} ] -> [ {} | {} ]",
+                src1, src2, dst1, dst2
             ),
-            Basic { kind, op } => {
-                if let Some(op) = op {
-                    write!(out, "{} {}", kind, op)
-                } else {
-                    write!(out, "{}", kind)
-                }
-            }
+            Unop { kind, op } => write!(out, "{} {}", kind, op),
             Movq { src, dst } => write!(out, "movq {}, {}", src, dst),
             Cmpq { lhs, rhs } => write!(out, "cmpq {}, {}", lhs, rhs),
             Call { func, args, dst } => {
@@ -330,9 +295,6 @@ impl Block {
         self.instrs.push(instr);
     }
 }
-
-use crate::lowering::lir;
-use std::collections::HashMap;
 
 impl From<lir::LIR> for Program {
     fn from(p: lir::LIR) -> Program {
