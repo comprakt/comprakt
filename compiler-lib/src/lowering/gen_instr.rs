@@ -32,12 +32,12 @@ pub struct GenInstrBlock {
 }
 
 impl GenInstrBlock {
-    pub fn fill_instrs(block: MutRc<BasicBlock>) {
+    pub fn fill_instrs(graph: &BlockGraph, block: MutRc<BasicBlock>) {
         let mut b = GenInstrBlock {
             code: Code::default(),
             computed: HashMap::new(),
         };
-        b.gen(MutRc::clone(&block));
+        b.gen(graph, MutRc::clone(&block));
         let GenInstrBlock { code, .. } = b;
         block.borrow_mut().code = code;
     }
@@ -48,7 +48,7 @@ impl GenInstrBlock {
             .push(Instruction::Comment(format!("{}", args)));
     }
 
-    fn gen(&mut self, block: MutRc<BasicBlock>) {
+    fn gen(&mut self, graph: &BlockGraph, block: MutRc<BasicBlock>) {
         // LIR metadata dump + fill computed values
         for (num, multislot) in block.borrow().regs.iter().enumerate() {
             self.comment(format_args!("Slot {}:", num));
@@ -143,7 +143,7 @@ impl GenInstrBlock {
 
         for out_value in values_to_compute {
             self.comment(format_args!("\tgen code for out_value={:?}", out_value));
-            self.gen_value(MutRc::clone(&block), out_value);
+            self.gen_value(graph, MutRc::clone(&block), out_value);
         }
     }
 
@@ -166,12 +166,12 @@ impl GenInstrBlock {
         debug_assert!(did_overwrite.is_none(), "duplicate computed for {:?}", node);
     }
 
-    fn gen_value(&mut self, block: MutRc<BasicBlock>, out_value: Node) {
+    fn gen_value(&mut self, graph: &BlockGraph, block: MutRc<BasicBlock>, out_value: Node) {
         // force copy because we borrow_mut block when allocating private slots
         // inside the closure
         let block_firm = block.borrow().firm;
         out_value.walk_dfs_in_block(block_firm, &mut |n| {
-            self.gen_value_walk_callback(MutRc::clone(&block), n)
+            self.gen_value_walk_callback(graph, MutRc::clone(&block), n)
         });
     }
 
@@ -183,7 +183,12 @@ impl GenInstrBlock {
 
     //FIXME: Just for faster dev, delete this later!!!
     #[allow(clippy::cyclomatic_complexity)]
-    fn gen_value_walk_callback(&mut self, block: MutRc<BasicBlock>, node: Node) {
+    fn gen_value_walk_callback(
+        &mut self,
+        graph: &BlockGraph,
+        block: MutRc<BasicBlock>,
+        node: Node,
+    ) {
         log::debug!("visit node={:?}", node);
         if self.is_computed(node) {
             log::debug!("\tnode is already computed");
