@@ -196,8 +196,9 @@ pub enum Instruction {
 pub enum Leave {
     CondJmp {
         lhs: Operand,
+        lhs_target: MutRc<BasicBlock>,
         rhs: Operand,
-        target: MutRc<BasicBlock>,
+        rhs_target: MutRc<BasicBlock>,
     },
     Jmp {
         target: MutRc<BasicBlock>,
