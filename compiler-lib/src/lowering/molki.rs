@@ -39,6 +39,21 @@ pub enum Operand {
     Imm(Tarval),
 }
 
+impl Operand {
+    fn from(op: lir::Operand, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
+        use super::lir::Operand::*;
+        match op {
+            Slot(slot) => Reg::from(slot, slot_reg_map).into_operand(),
+            Imm(val) => Operand::Imm(val),
+            Addr { base, offset } => Operand::Addr {
+                offset,
+                reg: Reg::from(base, slot_reg_map),
+            },
+            Param { idx } => Reg::N(idx as usize).into_operand(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Reg {
     /// Magic register that contains the return value of a function call (rax).
@@ -46,6 +61,16 @@ pub enum Reg {
     /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
     /// lifetime of that pointer (the FIRM graph).
     N(usize),
+}
+
+impl Reg {
+    fn from(op: MutRc<lir::ValueSlot>, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
+        Reg::N(
+            *slot_reg_map
+                .get(&(upborrow!(op.borrow().allocated_in).num, op.borrow().num))
+                .expect("No register for ValueSlot"),
+        )
+    }
 }
 
 impl Reg {
@@ -94,12 +119,74 @@ pub enum Instr {
     Comment(String),
 }
 
+impl Instr {
+    fn from(instr: lir::Instruction, slot_reg_map: &HashMap<(i64, usize), usize>) -> Instr {
+        use super::lir::Instruction::*;
+        match instr {
+            Binop {
+                kind,
+                src1,
+                src2,
+                dst,
+            } => Instr::Binop {
+                kind: kind.into(),
+                src1: Operand::from(src1, slot_reg_map),
+                src2: Operand::from(src2, slot_reg_map),
+                dst: Reg::from(dst, slot_reg_map),
+            },
+            Div { src1, src2, dst } => Instr::Divop {
+                src1: Operand::from(src1, slot_reg_map),
+                src2: Operand::from(src2, slot_reg_map),
+                dst1: Reg::from(dst, slot_reg_map),
+                dst2: Reg::N(usize::max_value()),
+            },
+            Mod { src1, src2, dst } => Instr::Divop {
+                src1: Operand::from(src1, slot_reg_map),
+                src2: Operand::from(src2, slot_reg_map),
+                dst1: Reg::N(usize::max_value()),
+                dst2: Reg::from(dst, slot_reg_map),
+            },
+            Unop { kind, op } => Instr::Unop {
+                kind: kind.into(),
+                op: Operand::from(op, slot_reg_map),
+            },
+            Movq { src, dst } => Instr::Movq {
+                src: Operand::from(src, slot_reg_map),
+                dst: Operand::from(dst, slot_reg_map),
+            },
+            Call { func, args, dst } => Instr::Call {
+                func,
+                args: args
+                    .into_iter()
+                    .map(|arg| Operand::from(arg, slot_reg_map))
+                    .collect(),
+                dst: dst.map(|dst| Reg::from(dst, slot_reg_map)),
+            },
+            LoadParam { idx, dst } => Instr::Movq {
+                src: Reg::N(idx).into_operand(),
+                dst: Reg::from(dst, slot_reg_map).into_operand(),
+            },
+            Comment(c) => Instr::Comment(c),
+        }
+    }
+}
+
 #[derive(Debug, Display, Clone)]
 pub enum Cond {
     #[display(fmt = "jmp")]
     True,
     #[display(fmt = "jle")]
     LessEqual,
+}
+
+impl From<lir::Cond> for Cond {
+    fn from(op: lir::Cond) -> Self {
+        use super::lir::Cond::*;
+        match op {
+            True => Cond::True,
+            LessEqual => Cond::LessEqual,
+        }
+    }
 }
 
 #[derive(Debug, Display, Clone)]
@@ -117,12 +204,35 @@ pub enum BinopKind {
     Or,
 }
 
+impl From<lir::BinopKind> for BinopKind {
+    fn from(bk: lir::BinopKind) -> Self {
+        use super::lir::BinopKind::*;
+        match bk {
+            Add => BinopKind::Add,
+            Sub => BinopKind::Sub,
+            Mul => BinopKind::Mul,
+            And => BinopKind::And,
+            Or => BinopKind::Or,
+        }
+    }
+}
+
 #[derive(Debug, Display, Clone)]
 pub enum UnopKind {
     #[display(fmt = "negq")]
     Neg,
     #[display(fmt = "notq")]
     Not,
+}
+
+impl From<lir::UnopKind> for UnopKind {
+    fn from(bk: lir::UnopKind) -> Self {
+        use super::lir::UnopKind::*;
+        match bk {
+            Neg => UnopKind::Neg,
+            Not => UnopKind::Not,
+        }
+    }
 }
 
 impl Program {
@@ -294,22 +404,126 @@ impl Block {
     pub fn push(&mut self, instr: Instr) {
         self.instrs.push(instr);
     }
+    pub fn append(&mut self, instrs: &mut Vec<Instr>) {
+        self.instrs.append(instrs);
+    }
+}
+
+fn gen_label(block: libfirm_rs::nodes::Block) -> String {
+    format!(".L{}", block.node_id())
+}
+
+fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) -> Vec<Instr> {
+    use super::lir::Leave::*;
+    match leave {
+        CondJmp {
+            lhs,
+            lhs_target,
+            rhs,
+            rhs_target,
+        } => vec![
+            Instr::Cmpq {
+                lhs: Operand::from(lhs.clone(), slot_reg_map),
+                rhs: Operand::from(rhs.clone(), slot_reg_map),
+            },
+            Instr::Jmp {
+                target: gen_label(lhs_target.borrow().firm),
+                cond: Cond::LessEqual,
+            },
+            Instr::Jmp {
+                target: gen_label(rhs_target.borrow().firm),
+                cond: Cond::True,
+            },
+        ],
+        Jmp { target } => vec![Instr::Jmp {
+            target: gen_label(target.borrow().firm),
+            cond: Cond::True,
+        }],
+        Return { value, end_block } => {
+            let mut ret = vec![];
+            if let Some(value) = value {
+                ret.push(Instr::Movq {
+                    src: Operand::from(value.clone(), slot_reg_map),
+                    dst: Reg::R0.into_operand(),
+                });
+            }
+            ret.push(Instr::Jmp {
+                target: gen_label(end_block.borrow().firm),
+                cond: Cond::True,
+            });
+            ret
+        }
+    }
 }
 
 impl From<lir::LIR> for Program {
     fn from(p: lir::LIR) -> Program {
         let mut mp = Program::new();
         for f in &p.functions {
+            let mut slot_reg_map = HashMap::new();
+            f.graph
+                .borrow()
+                .iter_blocks()
+                .flat_map(|b| {
+                    // FIXME: EndBlock has `regs: [[]]`
+                    // log::debug!("{:#?}", b.borrow());
+                    b.borrow()
+                        .regs
+                        .iter()
+                        .map(|multi_slot| {
+                            let slot = multi_slot[0].borrow();
+                            (upborrow!(slot.allocated_in).num, slot.num)
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .enumerate()
+                .for_each(|(i, key)| {
+                    slot_reg_map.entry(key).or_insert(i + f.nargs);
+                });
             let mf_name = f.name.to_owned();
             let mut mf = Function::new(mf_name, f.nargs, f.returns);
             let mut mblocks = HashMap::new();
             let mut is_entry_block = true;
 
             for block in f.graph.borrow().iter_blocks() {
-                let mut mblock = mf.begin_block(format!(".L{}", block.borrow().firm.node_id()));
-                //for instr in &block.borrow().code {
-                //    // mblock.push(instr.clone());
-                //}
+                let mut mblock = mf.begin_block(gen_label(block.borrow().firm));
+                let code = &block.borrow().code;
+                mblock.append(
+                    &mut code
+                        .copy_in
+                        .iter()
+                        .map(|cp| Instr::Movq {
+                            src: Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
+                            dst: Reg::from(cp.dst.clone(), &slot_reg_map).into_operand(),
+                        })
+                        .collect(),
+                );
+                mblock.append(
+                    &mut code
+                        .body
+                        .iter()
+                        .cloned()
+                        .map(|instr| Instr::from(instr, &slot_reg_map))
+                        .collect(),
+                );
+                mblock.append(
+                    &mut code
+                        .copy_out
+                        .iter()
+                        .map(|cp| Instr::Movq {
+                            src: Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
+                            dst: Reg::from(cp.dst.clone(), &slot_reg_map).into_operand(),
+                        })
+                        .collect(),
+                );
+                mblock.append(
+                    &mut code
+                        .leave
+                        .iter()
+                        .flat_map(|instr| gen_leave(instr, &slot_reg_map))
+                        .collect(),
+                );
+
                 // TODO assert that there is a jump at the end of each instr list
                 mblocks.insert(block.borrow().firm, (mblock, is_entry_block));
                 is_entry_block = false;

@@ -51,7 +51,7 @@ impl From<&firm::FirmMethod<'_, '_>> for Function {
         log::debug!("Generating block graph for {}", method.def.name);
         Function {
             name: method.entity.ld_name().to_str().unwrap().to_owned(),
-            nargs: method.def.params.len(),
+            nargs: method.def.params.len() + if method.def.is_static { 0 } else { 1 },
             returns,
             graph: graph.into(),
         }
@@ -103,6 +103,8 @@ pub struct Code {
 /// This is a vertex in the basic-block graph
 #[derive(Debug)]
 pub struct BasicBlock {
+    /// Unique number for the BasicBlock
+    pub num: i64,
     /// The Pseudo-registers used by the Block
     pub regs: Vec<Vec<MutRc<ValueSlot>>>,
     /// The instructions (using arbitrarily many registers) of the block
@@ -771,6 +773,7 @@ impl BasicBlock {
             .entry(firm)
             .or_insert_with(|| {
                 MutRc::new(BasicBlock {
+                    num: firm.node_id(),
                     regs: Vec::new(),
                     code: Code::default(),
                     preds: Vec::new(),
