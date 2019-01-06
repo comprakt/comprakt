@@ -6,6 +6,7 @@ mod implementations;
 
 pub use self::{colors::*, implementations::*};
 
+use itertools::Itertools;
 use serde_derive::Serialize;
 use std::{
     collections::hash_map::HashMap,
@@ -39,7 +40,7 @@ pub trait LabelMaker<TNode> {
 pub struct Label {
     text: LabelText,
     id: String,
-    style: Option<Style>,
+    style: Option<Vec<Style>>,
     fillcolor: Option<Color>,
     fontcolor: Option<Color>,
     shape: Option<Shape>,
@@ -195,6 +196,11 @@ impl Label {
     }
 
     pub fn style(mut self, val: Style) -> Self {
+        self.style = Some(vec![val]);
+        self
+    }
+
+    pub fn styles(mut self, val: Vec<Style>) -> Self {
         self.style = Some(val);
         self
     }
@@ -264,7 +270,13 @@ impl Label {
             },
             style = {
                 self.style
-                    .map(|v| format!(",style={}", v.to_string().to_lowercase()))
+                    .clone()
+                    .map(|v| {
+                        format!(
+                            ",style=\"{}\"",
+                            v.iter().map(|v| v.to_string().to_lowercase()).join(",")
+                        )
+                    })
                     .unwrap_or_else(|| "".to_string())
             },
             fillcolor = {
@@ -309,5 +321,5 @@ impl Label {
 }
 
 pub fn dot_string(string: &str) -> String {
-    format!("\"{}\"", string.replace("\"", "'").replace("\n", "\\n"))
+    format!("\"{}\"", string.replace("\"", "\\\"").replace("\n", "\\n"))
 }
