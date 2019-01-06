@@ -145,7 +145,7 @@ pub struct BasicBlock {
     /// copy-down of `succ_edge`.
     pub returns: BasicBlockReturns,
 
-    graph: MutWeak<BlockGraph>,
+    pub graph: MutWeak<BlockGraph>,
 }
 
 #[derive(Debug)]
@@ -481,7 +481,7 @@ impl BlockGraph {
         }
     }
 
-    fn get_block(&self, firm_block: libfirm_rs::nodes::Block) -> MutRc<BasicBlock> {
+    pub fn get_block(&self, firm_block: libfirm_rs::nodes::Block) -> MutRc<BasicBlock> {
         self.blocks
             .get(&firm_block)
             .expect("BlockGraph is incomplete")
@@ -570,7 +570,7 @@ impl MutRc<BlockGraph> {
                     .add_incoming_value_flow(vs);
             }
         }
-         */
+        */
     }
 }
 
