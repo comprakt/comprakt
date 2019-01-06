@@ -524,7 +524,7 @@ impl BlockGraph {
     fn gen_instrs(&mut self) {
         for lir_block in self.iter_blocks() {
             log::debug!("GENINSTR block {:?}", lir_block.borrow().firm);
-            GenInstrBlock::fill_instrs(lir_block);
+            GenInstrBlock::fill_instrs(self, lir_block);
         }
     }
 
