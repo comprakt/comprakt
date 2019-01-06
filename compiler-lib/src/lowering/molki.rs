@@ -466,19 +466,25 @@ impl From<lir::LIR> for Program {
                 .iter_blocks()
                 .flat_map(|b| {
                     // FIXME: EndBlock has `regs: [[]]`
-                    // log::debug!("{:#?}", b.borrow());
+                    log::debug!("{:#?}", b.borrow());
                     b.borrow()
                         .regs
                         .iter()
                         .map(|multi_slot| {
-                            let slot = multi_slot[0].borrow();
-                            (upborrow!(slot.allocated_in).num, slot.num)
+                            if multi_slot.is_empty() {
+                                None
+                            } else {
+                                let slot = multi_slot[0].borrow();
+                                Some((upborrow!(slot.allocated_in).num, slot.num))
+                            }
                         })
                         .collect::<Vec<_>>()
                 })
                 .enumerate()
                 .for_each(|(i, key)| {
-                    slot_reg_map.entry(key).or_insert(i + f.nargs);
+                    if let Some(key) = key {
+                        slot_reg_map.entry(key).or_insert(i + f.nargs);
+                    }
                 });
             let mf_name = f.name.to_owned();
             let mut mf = Function::new(mf_name, f.nargs, f.returns);
