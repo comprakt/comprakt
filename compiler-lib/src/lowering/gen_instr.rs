@@ -31,24 +31,6 @@ pub struct GenInstrBlock {
     computed: HashMap<Node, Computed>,
 }
 
-#[derive(Default)]
-pub struct Code {
-    copy_in: Vec<Instruction>,
-    body: Vec<Instruction>,
-    copy_out: Vec<Instruction>,
-    leave: Vec<Instruction>,
-}
-
-impl Code {
-    fn instrs(self) -> Vec<Instruction> {
-        let mut instrs = self.copy_in;
-        instrs.extend(self.body);
-        instrs.extend(self.copy_out);
-        instrs.extend(self.leave);
-        instrs
-    }
-}
-
 impl GenInstrBlock {
     pub fn fill_instrs(block: MutRc<BasicBlock>) {
         let mut b = GenInstrBlock {
@@ -57,7 +39,7 @@ impl GenInstrBlock {
         };
         b.gen(MutRc::clone(&block));
         let GenInstrBlock { code, .. } = b;
-        block.borrow_mut().code = code.instrs();
+        block.borrow_mut().code = code;
     }
 
     fn comment(&mut self, args: std::fmt::Arguments<'_>) {

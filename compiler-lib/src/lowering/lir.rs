@@ -92,13 +92,21 @@ impl BasicBlockReturns {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct Code {
+    pub(super) copy_in: Vec<CopyPropagation>,
+    pub(super) body: Vec<Instruction>,
+    pub(super) copy_out: Vec<CopyPropagation>,
+    pub(super) leave: Vec<Instruction>,
+}
+
 /// This is a vertex in the basic-block graph
 #[derive(Debug)]
 pub struct BasicBlock {
     /// The Pseudo-registers used by the Block
     pub regs: Vec<Vec<MutRc<ValueSlot>>>,
     /// The instructions (using arbitrarily many registers) of the block
-    pub code: Vec<Instruction>,
+    pub code: Code,
     /// Control flow-transfers *to* this block.
     /// Usually at most 2
     pub preds: Vec<MutWeak<ControlFlowTransfer>>,
@@ -187,11 +195,24 @@ pub enum Instruction {
         /// TODO Must only be Operand::Slot or Operand::Imm ?
         value: Option<Operand>,
     },
+    /// Loads parameter `#{idx}` into value slot `dst`.
     LoadParam {
         idx: usize,
         dst: Option<MutRc<ValueSlot>>,
     },
+    CopyPropagation(CopyPropagation),
     Comment(String),
+}
+
+/// The representation of a single element in
+/// ControlFlowTransfer.register_transitions. The consumer of the LIR
+/// (a register allocator / target arch code generator) emits the
+/// concrete instructions to flow values from one basic block to the other.
+/// It will commonly have to choose between using registers or spill code.
+#[derive(Debug, Clone)]
+pub struct CopyPropagation {
+    src: MutRc<ValueSlot>,
+    dst: MutRc<ValueSlot>,
 }
 
 #[derive(Debug, Clone)]
@@ -742,7 +763,7 @@ impl BasicBlock {
             .or_insert_with(|| {
                 MutRc::new(BasicBlock {
                     regs: Vec::new(),
-                    code: Vec::new(),
+                    code: Code::default(),
                     preds: Vec::new(),
                     succs: Vec::new(),
                     firm,

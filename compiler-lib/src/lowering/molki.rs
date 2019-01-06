@@ -345,9 +345,9 @@ impl From<lir::LIR> for Program {
 
             for block in f.graph.iter_blocks() {
                 let mut mblock = mf.begin_block(format!(".L{}", block.borrow().firm.node_id()));
-                for instr in &block.borrow().code {
-                    // mblock.push(instr.clone());
-                }
+                //for instr in &block.borrow().code {
+                //    // mblock.push(instr.clone());
+                //}
                 // TODO assert that there is a jump at the end of each instr list
                 mblocks.insert(block.borrow().firm, (mblock, is_entry_block));
                 is_entry_block = false;
