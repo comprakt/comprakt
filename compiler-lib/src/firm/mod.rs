@@ -31,7 +31,11 @@ pub use self::{
 use failure::{Error, Fail};
 
 use crate::{
-    lowering::{lir::LIR, molki},
+    breakpoint, dot,
+    lowering::{
+        lir::{self, LIR},
+        molki,
+    },
     optimization,
     strtab::StringTable,
     type_checking::{type_analysis::TypeAnalysis, type_system::TypeSystem},
@@ -133,6 +137,10 @@ pub unsafe fn build<'src, 'ast>(
 
     // TODO Better seperation of modules
     let lir = LIR::from(&program);
+
+    breakpoint!("LIR representation", lir, &|block: &lir::BasicBlock| {
+        dot::default_lir_label(block)
+    });
 
     // FIXME
     if emit_molki {

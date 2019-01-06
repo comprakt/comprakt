@@ -181,9 +181,8 @@ pub enum Shape {
     Folder,
     Box3D,
     Component,
-    /* Must specify the record shape with a Label.
-     * Record
-     * MRecord */
+    Record,
+    MRecord,
 }
 
 impl Label {

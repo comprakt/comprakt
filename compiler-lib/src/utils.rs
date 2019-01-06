@@ -150,11 +150,15 @@ pub mod cell {
 
     macro_rules! upborrow {
         ($mut_weak: expr) => {
-            MutWeak::upgrade(&$mut_weak).unwrap().borrow()
+            crate::utils::cell::MutWeak::upgrade(&$mut_weak)
+                .unwrap()
+                .borrow()
         };
 
         (mut $mut_weak: expr) => {
-            MutWeak::upgrade(&$mut_weak).unwrap().borrow_mut()
+            crate::utils::cell::MutWeak::upgrade(&$mut_weak)
+                .unwrap()
+                .borrow_mut()
         };
     }
 

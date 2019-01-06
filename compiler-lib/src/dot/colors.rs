@@ -1,3 +1,5 @@
+use strum::IntoEnumIterator;
+
 #[derive(Debug, Clone, Copy)]
 pub enum Color {
     Hsv(f32, f32, f32),
@@ -21,7 +23,33 @@ impl Color {
     }
 }
 
-#[derive(Display, Debug, Clone, Copy)]
+impl From<usize> for Color {
+    fn from(num: usize) -> Self {
+        [
+            X11Color::Red,
+            X11Color::Blue,
+            X11Color::Green,
+            X11Color::Yellow,
+            X11Color::Pink,
+            X11Color::Orange,
+            X11Color::Purple,
+            X11Color::Azure,
+            X11Color::Brown,
+            X11Color::Black,
+            X11Color::White,
+        ]
+        .iter()
+        .cloned()
+        .chain(X11Color::iter())
+        .cycle()
+        .nth(num)
+        .unwrap()
+        .clone()
+        .into()
+    }
+}
+
+#[derive(Display, Debug, Clone, Copy, strum_macros::EnumIter)]
 pub enum X11Color {
     AliceBlue,
     AntiqueWhite,

@@ -72,7 +72,7 @@ impl From<&firm::FirmMethod<'_, '_>> for Function {
 /// away firm-node.
 pub struct BlockGraph {
     pub firm: libfirm_rs::Graph,
-    blocks: HashMap<libfirm_rs::nodes::Block, MutRc<BasicBlock>>,
+    pub blocks: HashMap<libfirm_rs::nodes::Block, MutRc<BasicBlock>>,
     pub head: MutRc<BasicBlock>,
     pub end_block: MutRc<BasicBlock>,
 }
@@ -95,10 +95,10 @@ impl BasicBlockReturns {
 
 #[derive(Debug, Default)]
 pub struct Code {
-    pub(super) copy_in: Vec<CopyPropagation>,
-    pub(super) body: Vec<Instruction>,
-    pub(super) copy_out: Vec<CopyPropagation>,
-    pub(super) leave: Vec<Leave>,
+    pub copy_in: Vec<CopyPropagation>,
+    pub body: Vec<Instruction>,
+    pub copy_out: Vec<CopyPropagation>,
+    pub leave: Vec<Leave>,
 }
 
 /// This is a vertex in the basic-block graph
@@ -283,7 +283,7 @@ pub enum Cond {
 #[derive(Debug)]
 pub struct ValueSlot {
     /// The slot number. Uniqe only per Block, not globally
-    pub(super) num: usize,
+    pub num: usize,
     /// The firm node that corresponds to this value
     pub(super) firm: Node,
 
@@ -355,7 +355,7 @@ pub struct ControlFlowTransfer {
     ///
     /// The *swap problem* is handled by there being no semantic order between
     /// the register transitions.
-    pub(super) register_transitions: Vec<(MutRc<ValueSlot>, MutRc<ValueSlot>)>,
+    pub register_transitions: Vec<(MutRc<ValueSlot>, MutRc<ValueSlot>)>,
 
     source: MutWeak<BasicBlock>,
     pub target: MutRc<BasicBlock>,
