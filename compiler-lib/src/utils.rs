@@ -182,7 +182,7 @@ pub mod cell {
         T: fmt::Debug,
     {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            upborrow!(self).fmt(f)
+            write!(f, "MutWeak")
         }
     }
 }
