@@ -219,7 +219,7 @@ pub enum Leave {
 #[derive(Debug, Clone)]
 pub struct CopyPropagation {
     pub(super) src: MutRc<ValueSlot>,
-    pub (super) dst: MutRc<ValueSlot>,
+    pub(super) dst: MutRc<ValueSlot>,
 }
 
 #[derive(Debug, Clone)]
