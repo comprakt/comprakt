@@ -402,7 +402,7 @@ impl BlockGraph {
         });
 
         // patch up the weak-ref in each block's graph member
-        for (_, block) in &block_graph.borrow_mut().blocks {
+        for block in block_graph.borrow_mut().blocks.values() {
             block.borrow_mut().graph = block_graph.downgrade();
         }
 

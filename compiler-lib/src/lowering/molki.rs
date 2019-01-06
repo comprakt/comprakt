@@ -601,14 +601,14 @@ end:
             kind: Sub,
             src1: Operand::Imm(Tarval::mj_int(1)),
             src2: fib.arg_reg(0).into_operand(),
-            dst: Some(r1),
+            dst: r1,
         });
         let r2 = fib.new_reg();
         entry.push(Binop {
             kind: Sub,
             src1: Operand::Imm(Tarval::mj_int(2)),
             src2: fib.arg_reg(0).into_operand(),
-            dst: Some(r2),
+            dst: r2,
         });
 
         let r3 = fib.new_reg();
@@ -628,7 +628,7 @@ end:
             kind: Add,
             src1: r3.into_operand(),
             src2: r4.into_operand(),
-            dst: Some(Reg::R0),
+            dst: Reg::R0,
         });
         entry.push(Jmp {
             cond: Cond::True,

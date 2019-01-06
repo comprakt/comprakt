@@ -265,7 +265,7 @@ pub fn default_label(node: &Node) -> Label {
 }
 
 pub fn default_lir_label(block: &BasicBlock) -> Label {
-    let mut label = Label::from_text(format!(
+    Label::from_text(format!(
         "Basic Block {:?}\n{}\\l",
         block.firm.node_id(),
         block
@@ -274,8 +274,7 @@ pub fn default_lir_label(block: &BasicBlock) -> Label {
             .iter()
             .map(|instr| format!("{:?}", instr))
             .join("\\l")
-    ));
-    label
+    ))
 }
 
 impl<S: BuildHasher> LabelMaker<Node> for HashMap<Node, Label, S> {

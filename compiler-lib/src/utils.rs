@@ -138,13 +138,19 @@ pub mod cell {
         }
 
         pub fn new() -> Self {
-            MutWeak(Weak::new())
+            Self::default()
         }
     }
 
     impl<T> Clone for MutWeak<T> {
         fn clone(&self) -> MutWeak<T> {
             MutWeak(Weak::clone(&self.0))
+        }
+    }
+
+    impl<T> Default for MutWeak<T> {
+        fn default() -> MutWeak<T> {
+            MutWeak(Weak::new())
         }
     }
 
