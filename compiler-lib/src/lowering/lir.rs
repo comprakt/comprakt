@@ -3,7 +3,6 @@
 use super::gen_instr::GenInstrBlock;
 use crate::{
     firm,
-    lowering::molki,
     type_checking::type_system::CheckedType,
     utils::cell::{MutRc, MutWeak},
 };
@@ -192,23 +191,21 @@ pub enum Instruction {
         src2: Operand,
         dst: MutRc<MultiSlot>,
     },
-    Divop {
-        kind: DivKind,
+    Div {
         src1: Operand,
         src2: Operand,
         /// The division result value slot. The remainder is discarded.
         dst: MutRc<MultiSlot>,
     },
     Mod {
-        kind: DivKind,
         src1: Operand,
         src2: Operand,
         /// The remainder result value slot. The division result is discarded.
         dst: MutRc<MultiSlot>,
     },
-    Basic {
-        kind: BasicKind,
-        op: Option<Operand>,
+    Unop {
+        kind: UnopKind,
+        op: Operand,
     },
     Movq {
         src: Operand,
@@ -224,7 +221,7 @@ pub enum Instruction {
     /// Loads parameter `#{idx}` into value slot `dst`.
     LoadParam {
         idx: usize,
-        dst: Option<MutRc<MultiSlot>>,
+        dst: MutRc<MultiSlot>,
     },
     Comment(String),
 }
@@ -288,24 +285,10 @@ pub enum BinopKind {
     Or,
 }
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, Clone)]
 pub enum UnopKind {
     Neg,
     Not,
-}
-
-#[derive(Debug, Display, Clone)]
-pub enum DivKind {
-    /// unsigned
-    Div,
-    /// signed
-    IDiv,
-}
-
-#[derive(Debug, Display, Clone)]
-pub enum BasicKind {
-    Not,
-    Neg,
 }
 
 #[derive(Debug, Display, Clone)]
