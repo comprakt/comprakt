@@ -9,7 +9,7 @@ use crate::{
 };
 use libfirm_rs::{
     nodes::{self, Node, NodeTrait},
-    Mode, VisitTime,
+    Mode, Tarval, VisitTime,
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -138,8 +138,113 @@ pub struct BasicBlock {
     pub returns: BasicBlockReturns,
 }
 
-/// TODO Tie to problames instruction stuff
-pub type Instruction = molki::Instr;
+#[derive(Debug, Clone)]
+pub enum Instruction {
+    Binop {
+        kind: BinopKind,
+        src1: Operand,
+        src2: Operand,
+        dst: MutRc<ValueSlot>,
+    },
+    Divop {
+        kind: DivKind,
+        src1: Operand,
+        src2: Operand,
+        /// The division result value slot. The remainder is discarded.
+        dst: MutRc<ValueSlot>,
+    },
+    Mod {
+        kind: DivKind,
+        src1: Operand,
+        src2: Operand,
+        /// The remainder result value slot. The division result is discarded.
+        dst: MutRc<ValueSlot>,
+    },
+    Basic {
+        kind: BasicKind,
+        op: Option<Operand>,
+    },
+    Cmpq {
+        lhs: Operand,
+        rhs: Operand,
+    },
+    Movq {
+        src: Operand,
+        dst: Operand,
+    },
+    /// If dst is None, result is in register r0, which cannot be accessed
+    /// using molki register names.
+    Call {
+        func: String,
+        args: Vec<Operand>,
+        dst: Option<MutRc<ValueSlot>>,
+    },
+    Jmp {
+        target: MutRc<BasicBlock>,
+        cond: Cond,
+    },
+    Return {
+        /// TODO Must only be Operand::Slot or Operand::Imm ?
+        value: Option<Operand>,
+    },
+    LoadParam {
+        idx: usize,
+        dst: Option<MutRc<ValueSlot>>,
+    },
+    Comment(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum Operand {
+    Slot(MutRc<ValueSlot>),
+    /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
+    /// lifetime of that pointer (the FIRM graph).
+    Imm(Tarval),
+    Addr {
+        base: MutRc<ValueSlot>,
+        offset: isize,
+    },
+    /// only readable!
+    Param {
+        idx: u32,
+    },
+}
+
+#[derive(Debug, Display, Clone)]
+pub enum BinopKind {
+    Add,
+    Sub,
+    // We only multiply signed integers, so we can always use `imul`
+    Mul,
+    And,
+    Or,
+}
+
+#[derive(Debug, Display)]
+pub enum UnopKind {
+    Neg,
+    Not,
+}
+
+#[derive(Debug, Display, Clone)]
+pub enum DivKind {
+    /// unsigned
+    Div,
+    /// signed
+    IDiv,
+}
+
+#[derive(Debug, Display, Clone)]
+pub enum BasicKind {
+    Not,
+    Neg,
+}
+
+#[derive(Debug, Display, Clone)]
+pub enum Cond {
+    True,
+    LessEqual,
+}
 
 /// An abstract pseudo-register
 #[derive(Debug)]

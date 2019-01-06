@@ -1,7 +1,4 @@
-use super::{
-    lir::*,
-    molki::{self, Instr, Operand, Reg},
-};
+use super::lir::*;
 use crate::utils::cell::{MutRc, MutWeak};
 use itertools::Itertools;
 use libfirm_rs::{
@@ -18,9 +15,9 @@ enum Computed {
     Value(MutRc<ValueSlot>),
 }
 impl Computed {
-    fn must_value(&self) -> std::cell::Ref<'_, ValueSlot> {
+    fn must_value(&self) -> MutRc<ValueSlot> {
         match self {
-            Computed::Value(vs) => vs.borrow(),
+            Computed::Value(vs) => MutRc::clone(vs),
             x => panic!(
                 "computed must be a value, got {:?}",
                 ComputedDiscriminants::from(x)
@@ -66,7 +63,7 @@ impl GenInstrBlock {
     fn comment(&mut self, args: std::fmt::Arguments<'_>) {
         self.code
             .body
-            .push(molki::Instr::Comment(format!("{}", args)));
+            .push(Instruction::Comment(format!("{}", args)));
     }
 
     fn gen(&mut self, block: MutRc<BasicBlock>) {
@@ -179,7 +176,7 @@ impl GenInstrBlock {
             .unwrap_or_else(|| panic!("must have computed value for node {:?}", node))
     }
 
-    fn must_computed_slot(&self, node: Node) -> std::cell::Ref<'_, ValueSlot> {
+    fn must_computed_slot(&self, node: Node) -> MutRc<ValueSlot> {
         self.must_computed(node).must_value()
     }
 
@@ -197,11 +194,10 @@ impl GenInstrBlock {
         });
     }
 
-    fn gen_dst_reg(&mut self, block: MutRc<BasicBlock>, node: Node) -> Reg {
+    fn gen_dst_slot(&mut self, block: MutRc<BasicBlock>, node: Node) -> MutRc<ValueSlot> {
         let dst_slot = block.new_private_slot(node); // internal borrow_mut
         self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
-        let slot_num = dst_slot.borrow().num;
-        Reg::N(slot_num)
+        dst_slot
     }
 
     //FIXME: Just for faster dev, delete this later!!!
@@ -213,63 +209,50 @@ impl GenInstrBlock {
             return;
         }
 
-        use self::molki::{BasicKind::*, BinopKind::*, DivKind::*};
+        use self::{BasicKind::*, BinopKind::*, DivKind::*};
         use libfirm_rs::Mode;
         macro_rules! binop_operand {
             ($side:ident, $op:expr) => {{
                 let $side = $op.$side();
                 match $side {
                     Node::Const(c) => Operand::Imm(c.tarval()),
-                    Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
-                        Reg::N(idx as usize).into_operand()
-                    }
-                    n => {
-                        let slot = self.must_computed_slot(n);
-                        Reg::N(slot.num).into_operand()
-                    }
+                    Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => Operand::Param { idx },
+                    n => Operand::Slot(self.must_computed_slot(n)),
                 }
             }};
         }
         macro_rules! gen_binop_with_dst {
             ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
-                self.code.body.push(Instr::Binop {
+                self.code.body.push(Instruction::Binop {
                     kind: $kind,
                     src1,
                     src2,
-                    dst: Some(dst),
+                    dst,
                 });
             }};
             (DIV, $kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
-                self.code.body.push(Instr::Divop {
+                self.code.body.push(Instruction::Divop {
                     kind: $kind,
                     src1,
                     src2,
-                    dst1: dst,
-                    // We don't need the second register.
-                    // Just write the mod result in a arbitrary register. This will hopefully be
-                    // taken care of by the register allocator
-                    dst2: Reg::N(usize::max_value()),
+                    dst,
                 });
             }};
             (MOD, $kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
-                self.code.body.push(Instr::Divop {
+                self.code.body.push(Instruction::Mod {
                     kind: $kind,
                     src1,
                     src2,
-                    // We don't need the first register.
-                    // Just write the mod result in a arbitrary register. This will hopefully be
-                    // taken care of by the register allocator
-                    dst1: Reg::N(usize::max_value()),
-                    dst2: dst,
+                    dst,
                 });
             }};
             (@INTERNAL, $op:expr, $block:expr, $node:expr) => {{
                 let src1 = binop_operand!(left, $op);
                 let src2 = binop_operand!(right, $op);
-                let dst = self.gen_dst_reg($block, $node);
+                let dst = self.gen_dst_slot($block, $node);
                 (src1, src2, dst)
             }};
         }
@@ -283,35 +266,29 @@ impl GenInstrBlock {
             Node::And(and) => gen_binop_with_dst!(And, and, block, node),
             Node::Or(or) => gen_binop_with_dst!(Or, or, block, node),
             Node::Not(_) | Node::Minus(_) => {
-                let dst = self.gen_dst_reg(block, node);
+                let dst = self.gen_dst_slot(block, node);
                 let kind = if let Node::Not(_) = node { Not } else { Neg };
-                self.code.body.push(Instr::Basic {
+                self.code.body.push(Instruction::Basic {
                     kind,
-                    op: Some(dst.into_operand()),
+                    op: Some(Operand::Slot(dst)),
                 });
             }
             Node::Const(_) => log::debug!("Const node: will be computed JIT"),
             Node::Return(ret) => {
-                if ret.return_res().len() != 0 {
+                let value: Option<Operand> = if ret.return_res().len() != 0 {
                     assert_eq!(ret.return_res().len(), 1);
                     log::debug!("{:?}", ret);
-                    let src = match ret.return_res().idx(0).unwrap() {
-                        Node::Const(c) => Operand::Imm(c.tarval()),
+                    match ret.return_res().idx(0).unwrap() {
+                        Node::Const(c) => Some(Operand::Imm(c.tarval())),
                         Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
-                            Reg::N(idx as usize).into_operand()
+                            Some(Operand::Param { idx })
                         }
-                        n => {
-                            let retval_slot = self.must_computed_slot(n);
-                            Reg::N(retval_slot.num).into_operand()
-                        }
-                    };
-                    let dst = Reg::R0.into_operand();
-                    self.code.body.push(Instr::Movq { src, dst });
-                }
-                self.code.body.push(Instr::Basic {
-                    kind: Ret,
-                    op: None,
-                });
+                        n => Some(Operand::Slot(self.must_computed_slot(n))),
+                    }
+                } else {
+                    None
+                };
+                self.code.body.push(Instruction::Return { value });
             }
             Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) => (),
             Node::Proj(proj, kind) => {
@@ -350,13 +327,11 @@ impl GenInstrBlock {
                         match node {
                             Node::Const(c) => Operand::Imm(c.tarval()),
                             Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
-                                Reg::N(idx as usize).into_operand()
+                                Operand::Param { idx }
                             }
                             x => {
                                 // TODO following is practically dup of Add code above
-                                let value_slot = self.must_computed_slot(x);
-                                let reg_num = value_slot.num;
-                                Reg::N(reg_num).into_operand()
+                                Operand::Slot(self.must_computed_slot(x))
                             }
                         }
                     })
@@ -372,13 +347,13 @@ impl GenInstrBlock {
                     self.mark_computed(node, Computed::Void);
                     None
                 } else if n_res == 1 {
-                    Some(self.gen_dst_reg(block, node))
+                    Some(self.gen_dst_slot(block, node))
                 } else {
                     panic!("functions must return 0 or 1 result {:?}", n_res);
                 };
 
                 let func_name = func.ld_name().to_str().unwrap().to_owned();
-                self.code.body.push(Instr::Call {
+                self.code.body.push(Instruction::Call {
                     func: func_name,
                     args,
                     dst,
@@ -395,31 +370,20 @@ impl GenInstrBlock {
             }
             Node::Address(_) => (), // ignored, only used by call node
             Node::Load(load) => {
-                let dst = self.gen_dst_reg(block, node).into_operand();
-                let addr_num = self.must_computed_slot(load.ptr()).num;
-                let src = Operand::Addr {
-                    offset: 0,
-                    reg: Reg::N(addr_num),
-                };
-                self.code.body.push(Instr::Movq { src, dst })
+                let dst = Operand::Slot(self.gen_dst_slot(block, node));
+                let base = self.must_computed_slot(load.ptr());
+                let src = Operand::Addr { offset: 0, base };
+                self.code.body.push(Instruction::Movq { src, dst })
             }
             Node::Store(store) => {
                 let src = match store.value() {
                     Node::Const(c) => Operand::Imm(c.tarval()),
-                    Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
-                        Reg::N(idx as usize).into_operand()
-                    }
-                    n => {
-                        let slot = self.must_computed_slot(n);
-                        Reg::N(slot.num).into_operand()
-                    }
+                    Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => Operand::Param { idx },
+                    n => Operand::Slot(self.must_computed_slot(n)),
                 };
-                let addr_num = self.must_computed_slot(store.ptr()).num;
-                let dst = Operand::Addr {
-                    offset: 0,
-                    reg: Reg::N(addr_num),
-                };
-                self.code.body.push(Instr::Movq { src, dst });
+                let base = self.must_computed_slot(store.ptr());
+                let dst = Operand::Addr { offset: 0, base };
+                self.code.body.push(Instruction::Movq { src, dst });
                 let dst_slot = block.new_private_slot(node); // interanl borrow_mut
                 self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
             }
