@@ -154,6 +154,12 @@ pub mod cell {
         }
     }
 
+    impl<T> Default for MutWeak<T> {
+        fn default() -> MutWeak<T> {
+            MutWeak(Weak::new())
+        }
+    }
+
     macro_rules! upborrow {
         ($mut_weak: expr) => {
             crate::utils::cell::MutWeak::upgrade(&$mut_weak)

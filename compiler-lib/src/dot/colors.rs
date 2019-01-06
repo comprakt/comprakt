@@ -44,7 +44,6 @@ impl From<usize> for Color {
         .cycle()
         .nth(num)
         .unwrap()
-        .clone()
         .into()
     }
 }

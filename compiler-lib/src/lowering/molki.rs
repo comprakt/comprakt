@@ -64,10 +64,10 @@ pub enum Reg {
 }
 
 impl Reg {
-    fn from(op: MutRc<lir::ValueSlot>, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
+    fn from(op: MutRc<lir::MultiSlot>, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
         Reg::N(
             *slot_reg_map
-                .get(&(upborrow!(op.borrow().allocated_in).num, op.borrow().num))
+                .get(&(upborrow!(op.borrow().allocated_in()).num, op.borrow().num()))
                 .expect("No register for ValueSlot"),
         )
     }
@@ -471,20 +471,16 @@ impl From<lir::LIR> for Program {
                         .regs
                         .iter()
                         .map(|multi_slot| {
-                            if multi_slot.is_empty() {
-                                None
-                            } else {
-                                let slot = multi_slot[0].borrow();
-                                Some((upborrow!(slot.allocated_in).num, slot.num))
-                            }
+                            (
+                                upborrow!(multi_slot.borrow().allocated_in()).num,
+                                multi_slot.borrow().num(),
+                            )
                         })
                         .collect::<Vec<_>>()
                 })
                 .enumerate()
                 .for_each(|(i, key)| {
-                    if let Some(key) = key {
-                        slot_reg_map.entry(key).or_insert(i + f.nargs);
-                    }
+                    slot_reg_map.entry(key).or_insert(i + f.nargs);
                 });
             let mf_name = f.name.to_owned();
             let mut mf = Function::new(mf_name, f.nargs, f.returns);
@@ -500,7 +496,12 @@ impl From<lir::LIR> for Program {
                         .iter()
                         .map(|cp| Instr::Movq {
                             src: Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
-                            dst: Reg::from(cp.dst.clone(), &slot_reg_map).into_operand(),
+                            dst: Reg::from(
+                                upborrow!(cp.dst.borrow().allocated_in).regs[cp.dst.borrow().num]
+                                    .clone(),
+                                &slot_reg_map,
+                            )
+                            .into_operand(),
                         })
                         .collect(),
                 );
@@ -518,7 +519,12 @@ impl From<lir::LIR> for Program {
                         .iter()
                         .map(|cp| Instr::Movq {
                             src: Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
-                            dst: Reg::from(cp.dst.clone(), &slot_reg_map).into_operand(),
+                            dst: Reg::from(
+                                upborrow!(cp.dst.borrow().allocated_in).regs[cp.dst.borrow().num]
+                                    .clone(),
+                                &slot_reg_map,
+                            )
+                            .into_operand(),
                         })
                         .collect(),
                 );
@@ -561,18 +567,18 @@ mod tests {
         let expected = r"
 .function fib 1 1
 entry:
-	/* some comment */
-	cmpq $1, %@0
-	jle fib_basecase
-	subq [ $1 | %@0 ] -> %@1
-	subq [ $2 | %@0 ] -> %@2
-	call fib [ %@1 ] -> %@3
-	call fib [ %@2 ] -> %@4
-	addq [ %@3 | %@4 ] -> %@r0
-	jmp end
+  /* some comment */
+  cmpq $1, %@0
+  jle fib_basecase
+  subq [ $1 | %@0 ] -> %@1
+  subq [ $2 | %@0 ] -> %@2
+  call fib [ %@1 ] -> %@3
+  call fib [ %@2 ] -> %@4
+  addq [ %@3 | %@4 ] -> %@r0
+  jmp end
 fib_basecase:
-	movq %@0, %@r0
-	jmp end
+  movq %@0, %@r0
+  jmp end
 end:
 .endfunction
          "
@@ -601,14 +607,14 @@ end:
             kind: Sub,
             src1: Operand::Imm(Tarval::mj_int(1)),
             src2: fib.arg_reg(0).into_operand(),
-            dst: Some(r1),
+            dst: r1,
         });
         let r2 = fib.new_reg();
         entry.push(Binop {
             kind: Sub,
             src1: Operand::Imm(Tarval::mj_int(2)),
             src2: fib.arg_reg(0).into_operand(),
-            dst: Some(r2),
+            dst: r2,
         });
 
         let r3 = fib.new_reg();
@@ -628,7 +634,7 @@ end:
             kind: Add,
             src1: r3.into_operand(),
             src2: r4.into_operand(),
-            dst: Some(Reg::R0),
+            dst: Reg::R0,
         });
         entry.push(Jmp {
             cond: Cond::True,

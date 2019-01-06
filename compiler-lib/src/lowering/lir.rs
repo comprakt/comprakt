@@ -436,6 +436,7 @@ impl BlockGraph {
             end_block,
         });
 
+        // patch up the weak-ref in each block's graph member
         for block in graph.borrow().iter_blocks() {
             block.borrow_mut().graph = MutRc::downgrade(&graph)
         }
