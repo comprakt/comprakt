@@ -274,7 +274,8 @@ impl GenInstrBlock {
                 } else {
                     None
                 };
-                self.code.leave.push(Leave::Return { value });
+                let end_block = MutRc::clone(&graph.end_block);
+                self.code.leave.push(Leave::Return { value, end_block });
             }
             Node::Jmp(jmp) => {
                 let firm_target_block = jmp.out_target_block().unwrap();
