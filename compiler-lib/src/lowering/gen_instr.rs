@@ -264,6 +264,11 @@ impl GenInstrBlock {
                 };
                 self.code.leave.push(Leave::Return { value });
             }
+            Node::Jmp(jmp) => {
+                let firm_target_block = jmp.out_target_block().unwrap();
+                let target = upborrow!(block.borrow().graph).get_block(firm_target_block);
+                self.code.leave.push(Leave::Jmp { target });
+            }
             Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) => (),
             Node::Proj(proj, kind) => {
                 let pred = proj.pred();

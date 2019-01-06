@@ -528,7 +528,7 @@ impl BlockGraph {
         }
     }
 
-    fn get_block(&self, firm_block: libfirm_rs::nodes::Block) -> MutRc<BasicBlock> {
+    pub(super) fn get_block(&self, firm_block: libfirm_rs::nodes::Block) -> MutRc<BasicBlock> {
         self.blocks
             .get(&firm_block)
             .expect("BlockGraph is incomplete")
