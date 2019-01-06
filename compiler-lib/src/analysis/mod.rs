@@ -7,6 +7,8 @@ use libfirm_rs::{
 use petgraph::Graph as G;
 use std::{collections::HashMap, rc::Rc};
 
+mod bounds;
+
 pub struct CallGraph<'prog, 'src, 'ast> {
     program: &'prog FirmProgram<'src, 'ast>,
 }
