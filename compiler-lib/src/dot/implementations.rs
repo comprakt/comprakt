@@ -1,5 +1,5 @@
 use super::{
-    dot_string, Color, Dot, GraphData, GraphState, Label, LabelMaker, Named, Shape, X11Color,
+    dot_string, Color, Dot, GraphData, GraphState, Label, LabelMaker, Named, Shape, Style, X11Color,
 };
 use crate::{
     firm::FirmProgram,
@@ -220,19 +220,18 @@ impl Dot<BasicBlock> for lir::BlockGraph {
 
                     writeln!(
                         writer,
-                        " {:?} -> {:?} [label=\"  {}>{}\", color=\"{};0.5:{}\", fontcolor={}];",
-                        block.firm.node_id(),
-                        control_flow_transfer
+                        " {block_out}:out{out_slot} -> {block_in}:in{in_slot} [color=\"{color_out};0.5:{color_in}\"];",
+                        block_out = block.firm.node_id(),
+                        block_in = control_flow_transfer
                             .borrow()
                             .target
                             .borrow()
                             .firm
                             .node_id(),
-                        source_num,
-                        target_num,
-                        Color::from(source_num),
-                        Color::from(target_num),
-                        Color::from(source_num),
+                        out_slot = source_num,
+                        in_slot = target_num,
+                        color_out = Color::from(source_num),
+                        color_in = Color::from(target_num),
                     )
                     .unwrap();
                 }
@@ -265,16 +264,37 @@ pub fn default_label(node: &Node) -> Label {
 }
 
 pub fn default_lir_label(block: &BasicBlock) -> Label {
-    Label::from_text(format!(
-        "Basic Block {:?}\n{}\\l",
-        block.firm.node_id(),
-        block
+    lir_box(
+        block,
+        &block
             .code
             .body
             .iter()
             .map(|instr| format!("{:?}", instr))
             .join("\\l")
+    )
+}
+
+pub fn lir_box(block: &BasicBlock, body: &str) -> Label {
+    let pins = 0..block.regs.len();
+
+    Label::from_text(format!(
+        r#"{{{{{input_slots}}}|<header> Block {block_id}|<code>{code}|{{{out_slots}}}}}"#,
+        block_id = block.firm.node_id(),
+        code = escape_record_content(body),
+        input_slots = pins.clone()
+            .map(|index| format!("<in{idx}>{idx}", idx = index))
+            .join("|"),
+        out_slots = pins
+            .map(|index| format!("<out{idx}>{idx}", idx = index))
+            .join("|"),
     ))
+        .shape(Shape::Record)
+        .styles(vec![Style::Rounded, Style::Filled])
+}
+
+pub fn escape_record_content(text: &str) -> String {
+    text.replace("|", "\\|").replace("{", "\\{")
 }
 
 impl<S: BuildHasher> LabelMaker<Node> for HashMap<Node, Label, S> {
