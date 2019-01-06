@@ -136,6 +136,10 @@ pub mod cell {
         pub fn ptr_eq(this: &MutWeak<T>, other: &MutWeak<T>) -> bool {
             Weak::ptr_eq(&this.0, &other.0)
         }
+
+        pub fn new() -> Self {
+            MutWeak(Weak::new())
+        }
     }
 
     impl<T> Clone for MutWeak<T> {

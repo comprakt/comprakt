@@ -39,7 +39,7 @@ pub struct Function {
     pub name: String,
     pub nargs: usize,
     pub returns: bool,
-    pub graph: BlockGraph,
+    pub graph: MutRc<BlockGraph>,
 }
 
 impl From<&firm::FirmMethod<'_, '_>> for Function {
@@ -144,6 +144,8 @@ pub struct BasicBlock {
     /// SSA copy-propagation code can check `returns` to omit
     /// copy-down of `succ_edge`.
     pub returns: BasicBlockReturns,
+
+    pub graph: MutWeak<BlockGraph>,
 }
 
 #[derive(Debug, Clone)]
@@ -354,18 +356,18 @@ pub struct ControlFlowTransfer {
     pub target: MutRc<BasicBlock>,
 }
 
-impl From<libfirm_rs::Graph> for BlockGraph {
+impl From<libfirm_rs::Graph> for MutRc<BlockGraph> {
     fn from(firm_graph: libfirm_rs::Graph) -> Self {
         firm_graph.assure_outs();
-        let mut graph = Self::build_skeleton(firm_graph);
-        graph.construct_flows();
-        graph.gen_instrs();
+        let graph = BlockGraph::build_skeleton(firm_graph);
+        graph.borrow_mut().construct_flows();
+        graph.borrow_mut().gen_instrs();
         graph
     }
 }
 
 impl BlockGraph {
-    fn build_skeleton(firm_graph: libfirm_rs::Graph) -> Self {
+    fn build_skeleton(firm_graph: libfirm_rs::Graph) -> MutRc<Self> {
         let mut blocks = HashMap::new();
 
         // This is basically a `for each edge "firm_target -> firm_source"`
@@ -396,11 +398,18 @@ impl BlockGraph {
                 .expect("All blocks (including start block) should have been generated"),
         );
 
-        BlockGraph {
+        let block_graph = MutRc::new(BlockGraph {
             firm: firm_graph,
             blocks,
             head,
+        });
+
+        // patch up the weak-ref in each block's graph member
+        for (_, block) in &block_graph.borrow_mut().blocks {
+            block.borrow_mut().graph = block_graph.downgrade();
         }
+
+        block_graph
     }
 
     fn construct_flows(&mut self) {
@@ -774,6 +783,7 @@ impl BasicBlock {
                     firm,
                     // if No is not true, overridden in suring construct_flows
                     returns: BasicBlockReturns::No,
+                    graph: MutWeak::new(), // will be patched up by caller
                 })
             })
             .clone()
