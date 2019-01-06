@@ -74,6 +74,7 @@ pub struct BlockGraph {
     pub firm: libfirm_rs::Graph,
     blocks: HashMap<libfirm_rs::nodes::Block, MutRc<BasicBlock>>,
     pub head: MutRc<BasicBlock>,
+    pub end_block: MutRc<BasicBlock>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -208,6 +209,10 @@ pub enum Leave {
     Return {
         /// TODO Must only be Operand::Slot or Operand::Imm ?
         value: Option<Operand>,
+        /// The end block of the BlockGraph that this Return returns from.
+        /// Depending on how the target arch code generator implements function
+        /// returns, this pointer might be very convenient.
+        end_block: MutRc<BasicBlock>,
     },
 }
 
@@ -398,10 +403,17 @@ impl BlockGraph {
                 .expect("All blocks (including start block) should have been generated"),
         );
 
+        let end_block = MutRc::clone(
+            blocks
+                .get(&firm_graph.end_block())
+                .expect("All blocks (including end block) should have been generated"),
+        );
+
         let block_graph = MutRc::new(BlockGraph {
             firm: firm_graph,
             blocks,
             head,
+            end_block,
         });
 
         // patch up the weak-ref in each block's graph member
