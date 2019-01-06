@@ -122,6 +122,10 @@ pub mod cell {
         pub fn ptr_eq(this: &MutRc<T>, other: &MutRc<T>) -> bool {
             Rc::ptr_eq(&this.0, &other.0)
         }
+
+        pub fn into_raw(&self) -> *const RefCell<T> {
+            Rc::into_raw(Rc::clone(&self.0))
+        }
     }
 
     impl<T> Clone for MutRc<T> {
