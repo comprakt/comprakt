@@ -97,7 +97,7 @@ pub struct Code {
     pub(super) copy_in: Vec<CopyPropagation>,
     pub(super) body: Vec<Instruction>,
     pub(super) copy_out: Vec<CopyPropagation>,
-    pub(super) leave: Vec<Instruction>,
+    pub(super) leave: Vec<Leave>,
 }
 
 /// This is a vertex in the basic-block graph
@@ -172,10 +172,6 @@ pub enum Instruction {
         kind: BasicKind,
         op: Option<Operand>,
     },
-    Cmpq {
-        lhs: Operand,
-        rhs: Operand,
-    },
     Movq {
         src: Operand,
         dst: Operand,
@@ -187,21 +183,29 @@ pub enum Instruction {
         args: Vec<Operand>,
         dst: Option<MutRc<ValueSlot>>,
     },
-    Jmp {
-        target: MutRc<BasicBlock>,
-        cond: Cond,
-    },
-    Return {
-        /// TODO Must only be Operand::Slot or Operand::Imm ?
-        value: Option<Operand>,
-    },
     /// Loads parameter `#{idx}` into value slot `dst`.
     LoadParam {
         idx: usize,
         dst: Option<MutRc<ValueSlot>>,
     },
-    CopyPropagation(CopyPropagation),
     Comment(String),
+}
+
+/// Instructions that are at the end of a basic block.
+#[derive(Debug, Clone)]
+pub enum Leave {
+    CondJmp {
+        lhs: Operand,
+        rhs: Operand,
+        target: MutRc<BasicBlock>,
+    },
+    Jmp {
+        target: MutRc<BasicBlock>,
+    },
+    Return {
+        /// TODO Must only be Operand::Slot or Operand::Imm ?
+        value: Option<Operand>,
+    },
 }
 
 /// The representation of a single element in

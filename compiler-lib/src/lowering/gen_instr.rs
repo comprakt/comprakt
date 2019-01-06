@@ -262,7 +262,7 @@ impl GenInstrBlock {
                 } else {
                     None
                 };
-                self.code.body.push(Instruction::Return { value });
+                self.code.leave.push(Leave::Return { value });
             }
             Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) => (),
             Node::Proj(proj, kind) => {
