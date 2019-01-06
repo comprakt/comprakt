@@ -76,13 +76,9 @@ impl GenInstrBlock {
                         // demonstrated by the above assertion
                         !must_copy_in_source
                     })
-                    .for_each(|(_, (src, _))| {
-                        self.comment(format_args!(
-                            "\t<- {:?}({}): {:?}",
-                            upborrow!(src.borrow().allocated_in).firm,
-                            src.borrow().num,
-                            src.borrow().firm,
-                        ));
+                    .for_each(|(_, (src, dst))| {
+                        let (src, dst) = (MutRc::clone(src), MutRc::clone(dst));
+                        self.code.copy_in.push(CopyPropagation { src, dst });
                     })
             }
 
@@ -98,13 +94,9 @@ impl GenInstrBlock {
                     .enumerate()
                     .filter(|(_, (src, _))| src.borrow().num == num)
                     .filter(|(idx, _)| edge.must_copy_in_source(*idx))
-                    .for_each(|(_, (_, dst))| {
-                        self.comment(format_args!(
-                            "\t-> {:?}({}): {:?}",
-                            upborrow!(dst.borrow().allocated_in).firm,
-                            dst.borrow().num,
-                            dst.borrow().firm,
-                        ));
+                    .for_each(|(_, (src, dst))| {
+                        let (src, dst) = (MutRc::clone(src), MutRc::clone(dst));
+                        self.code.copy_out.push(CopyPropagation { src, dst });
                     })
             }
         }

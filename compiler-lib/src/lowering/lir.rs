@@ -211,8 +211,8 @@ pub enum Instruction {
 /// It will commonly have to choose between using registers or spill code.
 #[derive(Debug, Clone)]
 pub struct CopyPropagation {
-    src: MutRc<ValueSlot>,
-    dst: MutRc<ValueSlot>,
+    pub(super) src: MutRc<ValueSlot>,
+    pub (super) dst: MutRc<ValueSlot>,
 }
 
 #[derive(Debug, Clone)]
