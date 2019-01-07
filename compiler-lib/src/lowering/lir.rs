@@ -221,7 +221,43 @@ pub enum Instruction {
         idx: usize,
         dst: MutRc<MultiSlot>,
     },
+    StoreMem {
+        src: Operand,
+        dst: AddressComputation,
+    },
+    LoadMem {
+        src: AddressComputation,
+        dst: MutRc<MultiSlot>,
+    },
     Comment(String),
+}
+
+/// This implements address computation, see
+/// http://www.c-jump.com/CIS77/CPU/x86/lecture.html#X77_0110_scaled_indexed
+#[derive(Debug, Clone)]
+pub struct AddressComputation { // offset(base, index, stride) = offset + base + index * stride
+    pub offset: isize,
+    pub base: Operand,
+    pub index: IndexComputation,
+}
+
+/// Index of AddressComputation variant of the Instruction enum.
+#[derive(Debug, Clone)]
+pub enum IndexComputation {
+    Displacement(Operand, Stride),
+    Zero,
+}
+
+#[derive(Debug, Display, Clone)]
+pub enum Stride {
+    #[display(fmt = "1")]
+    One,
+    #[display(fmt = "2")]
+    Two,
+    #[display(fmt = "4")]
+    Four,
+    #[display(fmt = "8")]
+    Eight,
 }
 
 /// Instructions that are at the end of a basic block.
@@ -263,10 +299,6 @@ pub enum Operand {
     /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
     /// lifetime of that pointer (the FIRM graph).
     Imm(Tarval),
-    Addr {
-        base: MutRc<MultiSlot>,
-        offset: isize,
-    },
     /// only readable!
     Param {
         idx: u32,

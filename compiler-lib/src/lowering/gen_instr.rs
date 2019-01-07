@@ -3,7 +3,7 @@ use crate::utils::cell::MutRc;
 use itertools::Itertools;
 use libfirm_rs::{
     nodes::{Node, NodeTrait, ProjKind},
-    types::Ty,
+    types::{Ty, TyTrait},
     Entity,
 };
 use std::collections::HashMap;

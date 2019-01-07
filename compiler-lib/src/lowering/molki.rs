@@ -29,10 +29,6 @@ pub struct Block {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Operand {
-    Addr {
-        offset: isize,
-        reg: Reg,
-    },
     Reg(Reg),
     /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
     /// lifetime of that pointer (the FIRM graph).
@@ -45,10 +41,6 @@ impl Operand {
         match op {
             Slot(slot) => Reg::from(slot, slot_reg_map).into_operand(),
             Imm(val) => Operand::Imm(val),
-            Addr { base, offset } => Operand::Addr {
-                offset,
-                reg: Reg::from(base, slot_reg_map),
-            },
             Param { idx } => Reg::N(idx as usize).into_operand(),
         }
     }
@@ -321,7 +313,6 @@ impl Instr {
 impl std::fmt::Display for Operand {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Operand::Addr { offset, reg } => write!(fmt, "{}({})", offset, reg),
             Operand::Reg(reg) => write!(fmt, "{}", reg),
             Operand::Imm(val) => write!(fmt, "${}", val.get_long()), // TODO render suitable value
         }
