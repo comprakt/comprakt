@@ -181,8 +181,14 @@ impl GenInstrBlock {
         dst_slot
     }
 
-    //FIXME: Just for faster dev, delete this later!!!
-    #[allow(clippy::cyclomatic_complexity)]
+    fn gen_operand_jit(&self, node: Node) -> Operand {
+        match node {
+            Node::Const(c) => Operand::Imm(c.tarval()),
+            Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => Operand::Param { idx },
+            n => Operand::Slot(self.must_computed_slot(n)),
+        }
+    }
+
     fn gen_value_walk_callback(
         &mut self,
         graph: &BlockGraph,
@@ -199,12 +205,8 @@ impl GenInstrBlock {
         use libfirm_rs::Mode;
         macro_rules! binop_operand {
             ($side:ident, $op:expr) => {{
-                let $side = $op.$side();
-                match $side {
-                    Node::Const(c) => Operand::Imm(c.tarval()),
-                    Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => Operand::Param { idx },
-                    n => Operand::Slot(self.must_computed_slot(n)),
-                }
+                let side = $op.$side();
+                self.gen_operand_jit(side)
             }};
         }
         macro_rules! gen_binop_with_dst {
@@ -241,7 +243,11 @@ impl GenInstrBlock {
             }};
         }
         match node {
-            Node::Start(_) => (), //Nothing to see here
+            Node::Start(_)
+            | Node::Const(_)
+            | Node::Proj(_, ProjKind::Start_TArgs_Arg(..))
+            | Node::Address(_) => (), // ignored, computed JIT
+
             Node::Add(add) => gen_binop_with_dst!(Add, add, block, node),
             Node::Sub(sub) => gen_binop_with_dst!(Sub, sub, block, node),
             Node::Mul(mul) => gen_binop_with_dst!(Mul, mul, block, node),
@@ -257,18 +263,11 @@ impl GenInstrBlock {
                     op: Operand::Slot(dst),
                 });
             }
-            Node::Const(_) => log::debug!("Const node: will be computed JIT"),
             Node::Return(ret) => {
                 let value: Option<Operand> = if ret.return_res().len() != 0 {
                     assert_eq!(ret.return_res().len(), 1);
                     log::debug!("{:?}", ret);
-                    match ret.return_res().idx(0).unwrap() {
-                        Node::Const(c) => Some(Operand::Imm(c.tarval())),
-                        Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
-                            Some(Operand::Param { idx })
-                        }
-                        n => Some(Operand::Slot(self.must_computed_slot(n))),
-                    }
+                    Some(self.gen_operand_jit(ret.return_res().idx(0).unwrap()))
                 } else {
                     None
                 };
@@ -280,7 +279,6 @@ impl GenInstrBlock {
                 let target = upborrow!(block.borrow().graph).get_block(firm_target_block);
                 self.code.leave.push(Leave::Jmp { target });
             }
-            Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) => (),
             Node::Proj(proj, _kind) => {
                 let pred = proj.pred();
                 if !self.is_computed(pred) {
@@ -314,16 +312,7 @@ impl GenInstrBlock {
                     .args()
                     .map(|node| {
                         log::debug!("\tparam node {:?}", node);
-                        match node {
-                            Node::Const(c) => Operand::Imm(c.tarval()),
-                            Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
-                                Operand::Param { idx }
-                            }
-                            x => {
-                                // TODO following is practically dup of Add code above
-                                Operand::Slot(self.must_computed_slot(x))
-                            }
-                        }
+                        self.gen_operand_jit(node)
                     })
                     .collect();
 
@@ -358,7 +347,6 @@ impl GenInstrBlock {
                 let dst_slot = block.new_private_slot(node); // interanl borrow_mut
                 self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
             }
-            Node::Address(_) => (), // ignored, only used by call node
             Node::Load(load) => {
                 let dst = Operand::Slot(self.gen_dst_slot(block, node));
                 let base = self.must_computed_slot(load.ptr());
@@ -366,11 +354,7 @@ impl GenInstrBlock {
                 self.code.body.push(Instruction::Movq { src, dst })
             }
             Node::Store(store) => {
-                let src = match store.value() {
-                    Node::Const(c) => Operand::Imm(c.tarval()),
-                    Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => Operand::Param { idx },
-                    n => Operand::Slot(self.must_computed_slot(n)),
-                };
+                let src = self.gen_operand_jit(store.value());
                 let base = self.must_computed_slot(store.ptr());
                 let dst = Operand::Addr { offset: 0, base };
                 self.code.body.push(Instruction::Movq { src, dst });

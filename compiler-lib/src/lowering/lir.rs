@@ -61,14 +61,10 @@ impl From<&firm::FirmMethod<'_, '_>> for Function {
 #[derive(Debug)]
 /// A graph of basic blocks. Each block is a list of instructions and a set of
 /// pseudo-registers called `ValueSlots`. This is a more localized
-/// represantation of SSA, as the value
-/// slots (or variable names) are
-/// namespaced per block (and can only be
-/// refered to by adjacent blocks) and
-/// the sources of the values are
-/// annotated on each edge, instead of
-/// being phi-nodes pointing to some far
-/// away firm-node.
+/// represantation of SSA, as the value slots (or variable names) are namespaced
+/// per block (and can only be refered to by adjacent blocks) and the sources of
+/// the values are annotated on each edge, instead of being phi-nodes pointing
+/// to some far away firm-node.
 pub struct BlockGraph {
     pub firm: libfirm_rs::Graph,
     pub blocks: HashMap<libfirm_rs::nodes::Block, MutRc<BasicBlock>>,

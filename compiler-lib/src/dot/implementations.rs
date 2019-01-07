@@ -220,7 +220,8 @@ impl Dot<BasicBlock> for lir::BlockGraph {
 
                     writeln!(
                         writer,
-                        " {block_out}:out{out_slot} -> {block_in}:in{in_slot} [color=\"{color_out};0.5:{color_in}\"];",
+                        " {block_out}:out{out_slot} -> {block_in}:in{in_slot} \
+                         [color=\"{color_out};0.5:{color_in}\"];",
                         block_out = block.firm.node_id(),
                         block_in = control_flow_transfer
                             .borrow()
@@ -271,7 +272,7 @@ pub fn default_lir_label(block: &BasicBlock) -> Label {
             .body
             .iter()
             .map(|instr| format!("{:?}", instr))
-            .join("\\l")
+            .join("\\l"),
     )
 }
 
@@ -282,15 +283,16 @@ pub fn lir_box(block: &BasicBlock, body: &str) -> Label {
         r#"{{{{{input_slots}}}|<header> Block {block_id}|<code>{code}|{{{out_slots}}}}}"#,
         block_id = block.firm.node_id(),
         code = escape_record_content(body),
-        input_slots = pins.clone()
+        input_slots = pins
+            .clone()
             .map(|index| format!("<in{idx}>{idx}", idx = index))
             .join("|"),
         out_slots = pins
             .map(|index| format!("<out{idx}>{idx}", idx = index))
             .join("|"),
     ))
-        .shape(Shape::Record)
-        .styles(vec![Style::Rounded, Style::Filled])
+    .shape(Shape::Record)
+    .styles(vec![Style::Rounded, Style::Filled])
 }
 
 pub fn escape_record_content(text: &str) -> String {
