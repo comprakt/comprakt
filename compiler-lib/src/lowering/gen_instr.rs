@@ -389,13 +389,16 @@ impl GenInstrBlock {
                     IndexComputation::Zero
                 } else {
                     let idx = self.gen_operand_jit(sel.index());
-                    IndexComputation::Displacement(idx, match elem_size {
-                        1 => Stride::One,
-                        2 => Stride::Two,
-                        4 => Stride::Four,
-                        8 => Stride::Eight,
-                        _ => unreachable!("Unexpected element size: {}", elem_size)
-                    })
+                    IndexComputation::Displacement(
+                        idx,
+                        match elem_size {
+                            1 => Stride::One,
+                            2 => Stride::Two,
+                            4 => Stride::Four,
+                            8 => Stride::Eight,
+                            _ => unreachable!("Unexpected element size: {}", elem_size),
+                        },
+                    )
                 };
 
                 AddressComputation {
@@ -404,7 +407,7 @@ impl GenInstrBlock {
                     index,
                 }
             }
-            _ => unreachable!("Load/Store nodes only have Sel and Member nodes as input")
+            _ => unreachable!("Load/Store nodes only have Sel and Member nodes as input"),
         }
     }
 }

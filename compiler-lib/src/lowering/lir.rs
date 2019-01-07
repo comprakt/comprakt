@@ -235,7 +235,8 @@ pub enum Instruction {
 /// This implements address computation, see
 /// http://www.c-jump.com/CIS77/CPU/x86/lecture.html#X77_0110_scaled_indexed
 #[derive(Debug, Clone)]
-pub struct AddressComputation { // offset(base, index, stride) = offset + base + index * stride
+pub struct AddressComputation {
+    // offset(base, index, stride) = offset + base + index * stride
     pub offset: isize,
     pub base: Operand,
     pub index: IndexComputation,

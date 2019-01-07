@@ -112,7 +112,8 @@ pub enum Instr {
 }
 
 #[derive(Debug, Clone)]
-pub struct AddressComputation { // offset(base, index, stride) = offset + base + index * stride
+pub struct AddressComputation {
+    // offset(base, index, stride) = offset + base + index * stride
     pub offset: isize,
     pub base: Operand,
     pub index: IndexComputation,
@@ -138,7 +139,9 @@ impl IndexComputation {
     fn from(op: lir::IndexComputation, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
         use super::lir::IndexComputation::*;
         match op {
-            Displacement(op, s) => IndexComputation::Displacement(Operand::from(op, slot_reg_map), s),
+            Displacement(op, s) => {
+                IndexComputation::Displacement(Operand::from(op, slot_reg_map), s)
+            }
             Zero => IndexComputation::Zero,
         }
     }
@@ -523,7 +526,7 @@ impl From<lir::LIR> for Program {
                 .iter_blocks()
                 .flat_map(|b| {
                     // FIXME: EndBlock has `regs: [[]]`
-                    log::debug!("{:#?}", b.borrow());
+                    // log::debug!("{:#?}", b.borrow());
                     b.borrow()
                         .regs
                         .iter()
@@ -555,13 +558,18 @@ impl From<lir::LIR> for Program {
                         .copy_in
                         .iter()
                         .map(|cp| Instr::Movq {
-                            src: MoveOperand::Operand(Reg::from(cp.src.clone(), &slot_reg_map).into_operand()),
-                            dst: MoveOperand::Operand(Reg::from(
-                                upborrow!(cp.dst.borrow().allocated_in).regs[cp.dst.borrow().num]
-                                    .clone(),
-                                &slot_reg_map,
-                            )
-                            .into_operand()),
+                            src: MoveOperand::Operand(
+                                Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
+                            ),
+                            dst: MoveOperand::Operand(
+                                Reg::from(
+                                    upborrow!(cp.dst.borrow().allocated_in).regs
+                                        [cp.dst.borrow().num]
+                                        .clone(),
+                                    &slot_reg_map,
+                                )
+                                .into_operand(),
+                            ),
                         })
                         .collect(),
                 );
@@ -578,13 +586,18 @@ impl From<lir::LIR> for Program {
                         .copy_out
                         .iter()
                         .map(|cp| Instr::Movq {
-                            src: MoveOperand::Operand(Reg::from(cp.src.clone(), &slot_reg_map).into_operand()),
-                            dst: MoveOperand::Operand(Reg::from(
-                                upborrow!(cp.dst.borrow().allocated_in).regs[cp.dst.borrow().num]
-                                    .clone(),
-                                &slot_reg_map,
-                            )
-                            .into_operand()),
+                            src: MoveOperand::Operand(
+                                Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
+                            ),
+                            dst: MoveOperand::Operand(
+                                Reg::from(
+                                    upborrow!(cp.dst.borrow().allocated_in).regs
+                                        [cp.dst.borrow().num]
+                                        .clone(),
+                                    &slot_reg_map,
+                                )
+                                .into_operand(),
+                            ),
                         })
                         .collect(),
                 );
