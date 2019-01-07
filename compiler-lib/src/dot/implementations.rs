@@ -267,12 +267,15 @@ pub fn default_label(node: &Node) -> Label {
 pub fn default_lir_label(block: &BasicBlock) -> Label {
     lir_box(
         block,
-        &block
-            .code
-            .body
-            .iter()
-            .map(|instr| format!("{:?}", instr))
-            .join("\\l"),
+        &format!(
+            "{}\\l",
+            block
+                .code
+                .body
+                .iter()
+                .map(|instr| format!("{:?}", instr))
+                .join("\\l")
+        ),
     )
 }
 
@@ -296,7 +299,11 @@ pub fn lir_box(block: &BasicBlock, body: &str) -> Label {
 }
 
 pub fn escape_record_content(text: &str) -> String {
-    text.replace("|", "\\|").replace("{", "\\{")
+    text.replace("|", "\\|")
+        .replace("{", "\\{")
+        .replace("}", "\\}")
+        .replace("<", "\\<")
+        .replace(">", "\\>")
 }
 
 impl<S: BuildHasher> LabelMaker<Node> for HashMap<Node, Label, S> {
