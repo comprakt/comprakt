@@ -17,7 +17,6 @@
 //! for the lifetime of the graph. Otherwise rust would de allocate the CString
 //! to early!
 pub mod firm_program;
-mod lower;
 pub mod method_body_generator;
 pub mod program_generator;
 pub mod runtime;
@@ -98,9 +97,6 @@ pub unsafe fn build<'src, 'ast>(
 
     let generator = ProgramGenerator::new(rt, type_system, type_analysis, strtab);
     let program = generator.generate();
-
-    // FIXME: This function maybe has to be moved after the optimizations
-    lower::lower_ir_nodes(&program);
 
     if !opts.dump_folder.exists() {
         fs::create_dir_all(&opts.dump_folder).expect("Failed to create output directory");
