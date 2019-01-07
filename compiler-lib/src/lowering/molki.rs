@@ -94,8 +94,8 @@ pub enum Instr {
         rhs: Operand,
     },
     Movq {
-        src: Operand,
-        dst: Operand,
+        src: MoveOperand,
+        dst: MoveOperand,
     },
     /// If dst is None, result is in register r0, which cannot be accessed
     /// using molki register names.
@@ -109,6 +109,12 @@ pub enum Instr {
         cond: Cond,
     },
     Comment(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum MoveOperand {
+    Operand(Operand),
+    Address(AddressComputation),
 }
 
 impl Instr {
@@ -143,8 +149,8 @@ impl Instr {
                 op: Operand::from(op, slot_reg_map),
             },
             Movq { src, dst } => Instr::Movq {
-                src: Operand::from(src, slot_reg_map),
-                dst: Operand::from(dst, slot_reg_map),
+                src: MoveOperand::Operand(Operand::from(src, slot_reg_map)),
+                dst: MoveOperand::Operand(Operand::from(dst, slot_reg_map)),
             },
             Call { func, args, dst } => Instr::Call {
                 func,
@@ -155,8 +161,8 @@ impl Instr {
                 dst: dst.map(|dst| Reg::from(dst, slot_reg_map)),
             },
             LoadParam { idx, dst } => Instr::Movq {
-                src: Reg::N(idx).into_operand(),
-                dst: Reg::from(dst, slot_reg_map).into_operand(),
+                src: MoveOperand::Operand(Reg::N(idx).into_operand()),
+                dst: MoveOperand::Operand(Reg::from(dst, slot_reg_map).into_operand()),
             },
             Comment(c) => Instr::Comment(c),
         }
@@ -328,6 +334,15 @@ impl std::fmt::Display for Reg {
     }
 }
 
+impl std::fmt::Display for MoveOperand {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MoveOperand::Operand(op) => write!(fmt, "{}", op),
+            MoveOperand::Address(addr) => write!(fmt, "{}", addr),
+        }
+    }
+}
+
 impl Program {
     pub fn new() -> Program {
         Program { functions: vec![] }
@@ -434,8 +449,8 @@ fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) ->
             let mut ret = vec![];
             if let Some(value) = value {
                 ret.push(Instr::Movq {
-                    src: Operand::from(value.clone(), slot_reg_map),
-                    dst: Reg::R0.into_operand(),
+                    src: MoveOperand::Operand(Operand::from(value.clone(), slot_reg_map)),
+                    dst: MoveOperand::Operand(Reg::R0.into_operand()),
                 });
             }
             ret.push(Instr::Jmp {
@@ -489,13 +504,13 @@ impl From<lir::LIR> for Program {
                         .copy_in
                         .iter()
                         .map(|cp| Instr::Movq {
-                            src: Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
-                            dst: Reg::from(
+                            src: MoveOperand::Operand(Reg::from(cp.src.clone(), &slot_reg_map).into_operand()),
+                            dst: MoveOperand::Operand(Reg::from(
                                 upborrow!(cp.dst.borrow().allocated_in).regs[cp.dst.borrow().num]
                                     .clone(),
                                 &slot_reg_map,
                             )
-                            .into_operand(),
+                            .into_operand()),
                         })
                         .collect(),
                 );
@@ -512,13 +527,13 @@ impl From<lir::LIR> for Program {
                         .copy_out
                         .iter()
                         .map(|cp| Instr::Movq {
-                            src: Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
-                            dst: Reg::from(
+                            src: MoveOperand::Operand(Reg::from(cp.src.clone(), &slot_reg_map).into_operand()),
+                            dst: MoveOperand::Operand(Reg::from(
                                 upborrow!(cp.dst.borrow().allocated_in).regs[cp.dst.borrow().num]
                                     .clone(),
                                 &slot_reg_map,
                             )
-                            .into_operand(),
+                            .into_operand()),
                         })
                         .collect(),
                 );
@@ -637,8 +652,8 @@ end:
         fib.complete_entry_block(entry);
 
         fib_basecase.push(Movq {
-            src: fib.arg_reg(0).into_operand(),
-            dst: Reg::R0.into_operand(),
+            src: MoveOperand::Operand(fib.arg_reg(0).into_operand()),
+            dst: MoveOperand::Operand(Reg::R0.into_operand()),
         });
         fib_basecase.push(Jmp {
             cond: Cond::True,
