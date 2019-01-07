@@ -1,6 +1,6 @@
 #![allow(clippy::new_without_default_derive)]
 use crate::{lowering::lir, utils::cell::MutRc};
-use libfirm_rs::{nodes::NodeTrait, Tarval};
+use libfirm_rs::Tarval;
 use std::{collections::HashMap, io};
 
 type Label = String;
@@ -409,8 +409,8 @@ impl Block {
     }
 }
 
-fn gen_label(block: libfirm_rs::nodes::Block) -> String {
-    format!(".L{}", block.node_id())
+fn gen_label(block: &MutRc<lir::BasicBlock>) -> String {
+    format!(".L{}", block.borrow().num)
 }
 
 fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) -> Vec<Instr> {
@@ -427,16 +427,16 @@ fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) ->
                 rhs: Operand::from(rhs.clone(), slot_reg_map),
             },
             Instr::Jmp {
-                target: gen_label(lhs_target.borrow().firm),
+                target: gen_label(lhs_target),
                 cond: Cond::LessEqual,
             },
             Instr::Jmp {
-                target: gen_label(rhs_target.borrow().firm),
+                target: gen_label(rhs_target),
                 cond: Cond::True,
             },
         ],
         Jmp { target } => vec![Instr::Jmp {
-            target: gen_label(target.borrow().firm),
+            target: gen_label(target),
             cond: Cond::True,
         }],
         Return { value, end_block } => {
@@ -448,7 +448,7 @@ fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) ->
                 });
             }
             ret.push(Instr::Jmp {
-                target: gen_label(end_block.borrow().firm),
+                target: gen_label(end_block),
                 cond: Cond::True,
             });
             ret
@@ -492,7 +492,7 @@ impl From<lir::LIR> for Program {
             let mut is_entry_block = true;
 
             for block in f.graph.borrow().iter_blocks() {
-                let mut mblock = mf.begin_block(gen_label(block.borrow().firm));
+                let mut mblock = mf.begin_block(gen_label(&block));
                 let code = &block.borrow().code;
                 mblock.append(
                     &mut code
