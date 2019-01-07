@@ -348,20 +348,63 @@ impl GenInstrBlock {
                 self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
             }
             Node::Load(load) => {
-                let dst = Operand::Slot(self.gen_dst_slot(block, node));
-                let base = self.must_computed_slot(load.ptr());
-                let src = Operand::Addr { offset: 0, base };
-                self.code.body.push(Instruction::Movq { src, dst })
+                let src = self.gen_address_computation(load.ptr());
+                let dst = self.gen_dst_slot(block, node);
+                self.code.body.push(Instruction::LoadMem { src, dst });
             }
             Node::Store(store) => {
                 let src = self.gen_operand_jit(store.value());
-                let base = self.must_computed_slot(store.ptr());
-                let dst = Operand::Addr { offset: 0, base };
-                self.code.body.push(Instruction::Movq { src, dst });
+                let dst = self.gen_address_computation(store.ptr());
+                self.code.body.push(Instruction::StoreMem { src, dst });
                 let dst_slot = block.new_private_slot(node); // interanl borrow_mut
                 self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
             }
             x => self.comment(format_args!("\t\t\tunimplemented: {:?}", x)),
+        }
+    }
+
+    fn gen_address_computation(&self, node: Node) -> AddressComputation {
+        match node {
+            Node::Member(member) => {
+                let base = self.gen_operand_jit(member.ptr());
+                let index = IndexComputation::Zero;
+                let offset = member.entity().offset() as isize;
+
+                AddressComputation {
+                    offset,
+                    base,
+                    index,
+                }
+            }
+            Node::Sel(sel) => {
+                let base = self.gen_operand_jit(sel.ptr());
+                let elem_ty = if let Ty::Array(arr) = sel.ty() {
+                    arr.element_type()
+                } else {
+                    unreachable!("Sel has always ArrayTy");
+                };
+                let elem_size = elem_ty.size();
+
+                let index = if elem_size == 0 {
+                    IndexComputation::Zero
+                } else {
+                    let idx = self.gen_operand_jit(sel.index());
+                    IndexComputation::Displacement(idx, match elem_size {
+                        1 => Stride::One,
+                        2 => Stride::Two,
+                        4 => Stride::Four,
+                        8 => Stride::Eight,
+                        _ => unreachable!("Unexpected element size: {}", elem_size)
+                    })
+                };
+
+                AddressComputation {
+                    offset: 0,
+                    base,
+                    index,
+                }
+            }
+            _ => unreachable!("Load/Store nodes only have Sel and Member nodes as input")
         }
     }
 }
