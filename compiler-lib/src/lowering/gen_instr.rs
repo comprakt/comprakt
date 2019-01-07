@@ -12,10 +12,10 @@ use strum_macros::*;
 #[derive(Debug, Clone, EnumDiscriminants)]
 enum Computed {
     Void,
-    Value(MutRc<ValueSlot>),
+    Value(MutRc<MultiSlot>),
 }
 impl Computed {
-    fn must_value(&self) -> MutRc<ValueSlot> {
+    fn must_value(&self) -> MutRc<MultiSlot> {
         match self {
             Computed::Value(vs) => MutRc::clone(vs),
             x => panic!(
@@ -82,8 +82,15 @@ impl GenInstrBlock {
                     })
             }
 
-            for slot in multislot {
-                self.comment(format_args!("\t=  {:?}", slot.borrow().firm));
+            match &*multislot.borrow() {
+                MultiSlot::Single(slot) => {
+                    self.comment(format_args!("\t=  {:?}", slot.borrow().firm))
+                }
+                MultiSlot::Multi { ref slots, .. } => {
+                    for slot in slots {
+                        self.comment(format_args!("\t=  {:?}", slot.borrow().firm));
+                    }
+                }
             }
 
             // "Output slots"
@@ -92,7 +99,7 @@ impl GenInstrBlock {
                     .register_transitions
                     .iter()
                     .enumerate()
-                    .filter(|(_, (src, _))| src.borrow().num == num)
+                    .filter(|(_, (src, _))| src.borrow().num() == num)
                     .filter(|(idx, _)| edge.must_copy_in_source(*idx))
                     .for_each(|(_, (src, dst))| {
                         let (src, dst) = (MutRc::clone(src), MutRc::clone(dst));
@@ -119,7 +126,7 @@ impl GenInstrBlock {
                             .map(|(src_slot, _)| src_slot.clone())
                             .collect::<Vec<_>>()
                     })
-                    .map(|src_slot| src_slot.borrow().firm)
+                    .map(|src_slot| src_slot.borrow().firm())
                     .dedup(),
             );
 
@@ -150,7 +157,7 @@ impl GenInstrBlock {
             .unwrap_or_else(|| panic!("must have computed value for node {:?}", node))
     }
 
-    fn must_computed_slot(&self, node: Node) -> MutRc<ValueSlot> {
+    fn must_computed_slot(&self, node: Node) -> MutRc<MultiSlot> {
         self.must_computed(node).must_value()
     }
 
@@ -168,7 +175,7 @@ impl GenInstrBlock {
         });
     }
 
-    fn gen_dst_slot(&mut self, block: MutRc<BasicBlock>, node: Node) -> MutRc<ValueSlot> {
+    fn gen_dst_slot(&mut self, block: MutRc<BasicBlock>, node: Node) -> MutRc<MultiSlot> {
         let dst_slot = block.new_private_slot(node); // internal borrow_mut
         self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
         dst_slot

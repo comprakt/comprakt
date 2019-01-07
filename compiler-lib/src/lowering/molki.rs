@@ -64,10 +64,10 @@ pub enum Reg {
 }
 
 impl Reg {
-    fn from(op: MutRc<lir::ValueSlot>, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
+    fn from(op: MutRc<lir::MultiSlot>, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
         Reg::N(
             *slot_reg_map
-                .get(&(upborrow!(op.borrow().allocated_in).num, op.borrow().num))
+                .get(&(upborrow!(op.borrow().allocated_in()).num, op.borrow().num()))
                 .expect("No register for ValueSlot"),
         )
     }
@@ -470,13 +470,12 @@ impl From<lir::LIR> for Program {
                     b.borrow()
                         .regs
                         .iter()
-                        .map(|multi_slot| {
-                            if multi_slot.is_empty() {
-                                None
-                            } else {
-                                let slot = multi_slot[0].borrow();
-                                Some((upborrow!(slot.allocated_in).num, slot.num))
-                            }
+                        .map(|multi_slot| match &*multi_slot.borrow() {
+                            lir::MultiSlot::Multi { slots, .. } if slots.is_empty() => None,
+                            _ => Some((
+                                upborrow!(multi_slot.borrow().allocated_in()).num,
+                                multi_slot.borrow().num(),
+                            )),
                         })
                         .collect::<Vec<_>>()
                 })
@@ -500,7 +499,12 @@ impl From<lir::LIR> for Program {
                         .iter()
                         .map(|cp| Instr::Movq {
                             src: Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
-                            dst: Reg::from(cp.dst.clone(), &slot_reg_map).into_operand(),
+                            dst: Reg::from(
+                                upborrow!(cp.dst.borrow().allocated_in).regs[cp.dst.borrow().num]
+                                    .clone(),
+                                &slot_reg_map,
+                            )
+                            .into_operand(),
                         })
                         .collect(),
                 );
@@ -518,7 +522,12 @@ impl From<lir::LIR> for Program {
                         .iter()
                         .map(|cp| Instr::Movq {
                             src: Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
-                            dst: Reg::from(cp.dst.clone(), &slot_reg_map).into_operand(),
+                            dst: Reg::from(
+                                upborrow!(cp.dst.borrow().allocated_in).regs[cp.dst.borrow().num]
+                                    .clone(),
+                                &slot_reg_map,
+                            )
+                            .into_operand(),
                         })
                         .collect(),
                 );
@@ -561,18 +570,18 @@ mod tests {
         let expected = r"
 .function fib 1 1
 entry:
-	/* some comment */
-	cmpq $1, %@0
-	jle fib_basecase
-	subq [ $1 | %@0 ] -> %@1
-	subq [ $2 | %@0 ] -> %@2
-	call fib [ %@1 ] -> %@3
-	call fib [ %@2 ] -> %@4
-	addq [ %@3 | %@4 ] -> %@r0
-	jmp end
+  /* some comment */
+  cmpq $1, %@0
+  jle fib_basecase
+  subq [ $1 | %@0 ] -> %@1
+  subq [ $2 | %@0 ] -> %@2
+  call fib [ %@1 ] -> %@3
+  call fib [ %@2 ] -> %@4
+  addq [ %@3 | %@4 ] -> %@r0
+  jmp end
 fib_basecase:
-	movq %@0, %@r0
-	jmp end
+  movq %@0, %@r0
+  jmp end
 end:
 .endfunction
          "

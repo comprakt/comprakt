@@ -215,7 +215,7 @@ impl Dot<BasicBlock> for lir::BlockGraph {
                 for (source_slot, target_slot) in
                     &control_flow_transfer.borrow().register_transitions
                 {
-                    let source_num = source_slot.borrow().num;
+                    let source_num = source_slot.borrow().num();
                     let target_num = target_slot.borrow().num;
 
                     writeln!(

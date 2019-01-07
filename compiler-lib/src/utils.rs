@@ -10,18 +10,20 @@ macro_rules! matches {
 }
 
 macro_rules! assert_matches {
-    ($expression: expr, $( $pattern: pat )|*) => {{
+    ($expression: expr, $( $pattern: pat )|* $(if $guard:expr)?) => {{
         if cfg!(debug_assertions) {
             match $expression {
-                $( $pattern )|* => (),
-                expression => panic!(
-                    r#"assertion failed: `(if let pattern = expression), {}:{}:{}`
+                $( $pattern )|* $(if $guard)? => (),
+                ref expression => panic!(
+                    r#"assertion failed: `(expression =~ pattern, if guard ), {}:{}:{}`
 pattern: `{}`,
+guard: `{}`,
 expression: `{:?}`"#,
                     file!(),
                     line!(),
                     column!(),
                     stringify!($( $pattern )|*),
+                    stringify!($( $guard )?),
                     expression
                 ),
             }
@@ -120,6 +122,10 @@ pub mod cell {
         pub fn ptr_eq(this: &MutRc<T>, other: &MutRc<T>) -> bool {
             Rc::ptr_eq(&this.0, &other.0)
         }
+
+        pub fn into_raw(&self) -> *const RefCell<T> {
+            Rc::into_raw(Rc::clone(&self.0))
+        }
     }
 
     impl<T> Clone for MutRc<T> {
@@ -129,16 +135,16 @@ pub mod cell {
     }
 
     impl<T> MutWeak<T> {
+        pub fn new() -> Self {
+            MutWeak(Weak::new())
+        }
+
         pub fn upgrade(&self) -> Option<MutRc<T>> {
             Weak::upgrade(&self.0).map(MutRc)
         }
 
         pub fn ptr_eq(this: &MutWeak<T>, other: &MutWeak<T>) -> bool {
             Weak::ptr_eq(&this.0, &other.0)
-        }
-
-        pub fn new() -> Self {
-            Self::default()
         }
     }
 

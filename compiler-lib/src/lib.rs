@@ -16,6 +16,7 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 #![feature(try_trait)]
 #![feature(weak_ptr_eq)]
+#![feature(type_ascription)]
 #[macro_use]
 extern crate derive_more;
 
