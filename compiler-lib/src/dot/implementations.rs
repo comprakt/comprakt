@@ -183,7 +183,6 @@ impl Dot<BasicBlock> for lir::Function {
         T: LabelMaker<BasicBlock>,
     {
         self.graph
-            .borrow()
             .into_dot_format(writer, graph_name, label_maker)
     }
 }
@@ -195,9 +194,8 @@ impl Dot<BasicBlock> for lir::BlockGraph {
         T: LabelMaker<BasicBlock>,
     {
         writeln!(writer, "digraph {} {{", dot_string(graph_name)).unwrap();
-        for block_rc in self.blocks.values() {
-            let block = block_rc.borrow();
-            let label = label_maker.label_for_node(&block);
+        for block in self.blocks.values() {
+            let label = label_maker.label_for_node(block);
             label.write_dot_format(block.firm.node_id(), writer);
 
             log::debug!(
@@ -209,14 +207,14 @@ impl Dot<BasicBlock> for lir::BlockGraph {
             for control_flow_transfer in &block.succs {
                 log::debug!(
                     "num transfers: {}",
-                    control_flow_transfer.borrow().register_transitions.len(),
+                    control_flow_transfer.register_transitions.len(),
                 );
 
                 for (source_slot, target_slot) in
-                    &control_flow_transfer.borrow().register_transitions
+                    &control_flow_transfer.register_transitions
                 {
-                    let source_num = source_slot.borrow().num();
-                    let target_num = target_slot.borrow().num;
+                    let source_num = source_slot.num();
+                    let target_num = target_slot.num;
 
                     writeln!(
                         writer,
@@ -224,9 +222,7 @@ impl Dot<BasicBlock> for lir::BlockGraph {
                          [color=\"{color_out};0.5:{color_in}\"];",
                         block_out = block.firm.node_id(),
                         block_in = control_flow_transfer
-                            .borrow()
                             .target
-                            .borrow()
                             .firm
                             .node_id(),
                         out_slot = source_num,

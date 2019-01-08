@@ -1,7 +1,8 @@
 #![allow(clippy::new_without_default_derive)]
-use crate::{lowering::lir, utils::cell::MutRc};
+use crate::{lowering::lir};
 use libfirm_rs::Tarval;
 use std::{collections::HashMap, io};
+use super::lir_allocator::Ptr;
 
 type Label = String;
 
@@ -56,10 +57,10 @@ pub enum Reg {
 }
 
 impl Reg {
-    fn from(op: MutRc<lir::MultiSlot>, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
+    fn from(op: Ptr<lir::MultiSlot>, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
         Reg::N(
             *slot_reg_map
-                .get(&(upborrow!(op.borrow().allocated_in()).num, op.borrow().num()))
+                .get(&(op.allocated_in().num, op.num()))
                 .expect("No register for ValueSlot"),
         )
     }
@@ -441,8 +442,9 @@ impl Block {
     }
 }
 
-fn gen_label(block: &MutRc<lir::BasicBlock>) -> String {
-    format!(".L{}", block.borrow().num)
+#[inline]
+fn gen_label(block: &Ptr<lir::BasicBlock>) -> String {
+    format!(".L{}", block.num)
 }
 
 fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) -> Vec<Instr> {
@@ -455,8 +457,8 @@ fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) ->
             rhs_target,
         } => vec![
             Instr::Cmpq {
-                lhs: Operand::from(lhs.clone(), slot_reg_map),
-                rhs: Operand::from(rhs.clone(), slot_reg_map),
+                lhs: Operand::from(*lhs, slot_reg_map),
+                rhs: Operand::from(*rhs, slot_reg_map),
             },
             Instr::Jmp {
                 target: gen_label(lhs_target),
@@ -475,7 +477,7 @@ fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) ->
             let mut ret = vec![];
             if let Some(value) = value {
                 ret.push(Instr::Movq {
-                    src: MoveOperand::Operand(Operand::from(value.clone(), slot_reg_map)),
+                    src: MoveOperand::Operand(Operand::from(*value, slot_reg_map)),
                     dst: MoveOperand::Operand(Reg::R0.into_operand()),
                 });
             }
@@ -494,19 +496,18 @@ impl From<lir::LIR> for Program {
         for f in &p.functions {
             let mut slot_reg_map = HashMap::new();
             f.graph
-                .borrow()
                 .iter_blocks()
                 .flat_map(|b| {
                     // FIXME: EndBlock has `regs: [[]]`
                     // log::debug!("{:#?}", b.borrow());
-                    b.borrow()
+                    b
                         .regs
                         .iter()
-                        .map(|multi_slot| match &*multi_slot.borrow() {
+                        .map(|multi_slot| match &(**multi_slot) {
                             lir::MultiSlot::Multi { slots, .. } if slots.is_empty() => None,
                             _ => Some((
-                                upborrow!(multi_slot.borrow().allocated_in()).num,
-                                multi_slot.borrow().num(),
+                                multi_slot.allocated_in().num,
+                                multi_slot.num(),
                             )),
                         })
                         .collect::<Vec<_>>()
@@ -522,22 +523,22 @@ impl From<lir::LIR> for Program {
             let mut mblocks = HashMap::new();
             let mut is_entry_block = true;
 
-            for block in f.graph.borrow().iter_blocks() {
+            for block in f.graph.iter_blocks() {
                 let mut mblock = mf.begin_block(gen_label(&block));
-                let code = &block.borrow().code;
+                let code = &block.code;
                 mblock.append(
                     &mut code
                         .copy_in
                         .iter()
                         .map(|cp| Instr::Movq {
                             src: MoveOperand::Operand(
-                                Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
+                                Reg::from(cp.src, &slot_reg_map).into_operand(),
                             ),
                             dst: MoveOperand::Operand(
                                 Reg::from(
-                                    upborrow!(cp.dst.borrow().allocated_in).regs
-                                        [cp.dst.borrow().num]
-                                        .clone(),
+                                    cp.dst.allocated_in.regs
+                                        [cp.dst.num]
+                                        ,
                                     &slot_reg_map,
                                 )
                                 .into_operand(),
@@ -559,13 +560,13 @@ impl From<lir::LIR> for Program {
                         .iter()
                         .map(|cp| Instr::Movq {
                             src: MoveOperand::Operand(
-                                Reg::from(cp.src.clone(), &slot_reg_map).into_operand(),
+                                Reg::from(cp.src, &slot_reg_map).into_operand(),
                             ),
                             dst: MoveOperand::Operand(
                                 Reg::from(
-                                    upborrow!(cp.dst.borrow().allocated_in).regs
-                                        [cp.dst.borrow().num]
-                                        .clone(),
+                                    cp.dst.allocated_in.regs
+                                        [cp.dst.num]
+                                        ,
                                     &slot_reg_map,
                                 )
                                 .into_operand(),
@@ -582,7 +583,7 @@ impl From<lir::LIR> for Program {
                 );
 
                 // TODO assert that there is a jump at the end of each instr list
-                mblocks.insert(block.borrow().firm, (mblock, is_entry_block));
+                mblocks.insert(block.firm, (mblock, is_entry_block));
                 is_entry_block = false;
             }
 

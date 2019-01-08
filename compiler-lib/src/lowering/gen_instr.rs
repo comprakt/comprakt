@@ -1,5 +1,4 @@
 use super::lir::*;
-use crate::utils::cell::MutRc;
 use itertools::Itertools;
 use libfirm_rs::{
     nodes::{Node, NodeTrait, ProjKind},
@@ -8,16 +7,18 @@ use libfirm_rs::{
 };
 use std::collections::HashMap;
 use strum_macros::*;
+use super::lir_allocator::Ptr;
+use super::lir::Allocator;
 
 #[derive(Debug, Clone, EnumDiscriminants)]
 enum Computed {
     Void,
-    Value(MutRc<MultiSlot>),
+    Value(Ptr<MultiSlot>),
 }
 impl Computed {
-    fn must_value(&self) -> MutRc<MultiSlot> {
+    fn must_value(&self) -> Ptr<MultiSlot> {
         match self {
-            Computed::Value(vs) => MutRc::clone(vs),
+            Computed::Value(vs) => *vs,
             x => panic!(
                 "computed must be a value, got {:?}",
                 ComputedDiscriminants::from(x)
@@ -32,14 +33,14 @@ pub struct GenInstrBlock {
 }
 
 impl GenInstrBlock {
-    pub fn fill_instrs(graph: &BlockGraph, block: MutRc<BasicBlock>) {
+    pub(super) fn fill_instrs(graph: &BlockGraph, mut block: Ptr<BasicBlock>, alloc: &Allocator) {
         let mut b = GenInstrBlock {
             code: Code::default(),
             computed: HashMap::new(),
         };
-        b.gen(graph, MutRc::clone(&block));
+        b.gen(graph, block, alloc);
         let GenInstrBlock { code, .. } = b;
-        block.borrow_mut().code = code;
+        block.code = code;
     }
 
     fn comment(&mut self, args: std::fmt::Arguments<'_>) {
@@ -48,22 +49,19 @@ impl GenInstrBlock {
             .push(Instruction::Comment(format!("{}", args)));
     }
 
-    fn gen(&mut self, graph: &BlockGraph, block: MutRc<BasicBlock>) {
+    fn gen(&mut self, graph: &BlockGraph, block: Ptr<BasicBlock>, alloc: &Allocator) {
         // LIR metadata dump + fill computed values
-        for (num, multislot) in block.borrow().regs.iter().enumerate() {
+        for (num, multislot) in block.regs.iter().enumerate() {
             self.comment(format_args!("Slot {}:", num));
 
             // "Input slots"
-            for edge in block.borrow().preds.iter() {
-                edge.upgrade()
-                    .unwrap()
-                    .borrow()
+            for edge in block.preds.iter() {
+                edge
                     .register_transitions
                     .iter()
                     .enumerate()
-                    .filter(|(_, (_, dst))| dst.borrow().num == num)
+                    .filter(|(_, (_, dst))| dst.num == num)
                     .filter(|(idx, _)| {
-                        let edge = edge.upgrade().unwrap();
                         let must_copy_in_source = edge.must_copy_in_source(*idx);
                         assert!(
                             // "must_copy_in_source => !must_copy_in_target"
@@ -77,32 +75,32 @@ impl GenInstrBlock {
                         !must_copy_in_source
                     })
                     .for_each(|(_, (src, dst))| {
-                        let (src, dst) = (MutRc::clone(src), MutRc::clone(dst));
+                        let (src, dst) = (*src, *dst);
                         self.code.copy_in.push(CopyPropagation { src, dst });
                     })
             }
 
-            match &*multislot.borrow() {
+            match &(**multislot) {
                 MultiSlot::Single(slot) => {
-                    self.comment(format_args!("\t=  {:?}", slot.borrow().firm))
+                    self.comment(format_args!("\t=  {:?}", slot.firm))
                 }
                 MultiSlot::Multi { ref slots, .. } => {
                     for slot in slots {
-                        self.comment(format_args!("\t=  {:?}", slot.borrow().firm));
+                        self.comment(format_args!("\t=  {:?}", slot.firm));
                     }
                 }
             }
 
             // "Output slots"
-            for edge in block.borrow().succs.iter() {
-                edge.borrow()
+            for edge in block.succs.iter() {
+                edge
                     .register_transitions
                     .iter()
                     .enumerate()
-                    .filter(|(_, (src, _))| src.borrow().num() == num)
+                    .filter(|(_, (src, _))| src.num() == num)
                     .filter(|(idx, _)| edge.must_copy_in_source(*idx))
                     .for_each(|(_, (src, dst))| {
-                        let (src, dst) = (MutRc::clone(src), MutRc::clone(dst));
+                        let (src, dst) = (*src, *dst);
                         self.code.copy_out.push(CopyPropagation { src, dst });
                     })
             }
@@ -115,24 +113,21 @@ impl GenInstrBlock {
 
             v.extend(
                 block
-                    .borrow()
                     .succs
                     .iter()
                     .flat_map(move |out_edge| {
                         out_edge
-                            .borrow()
                             .register_transitions
                             .iter()
                             .map(|(src_slot, _)| src_slot.clone())
                             .collect::<Vec<_>>()
                     })
-                    .map(|src_slot| src_slot.borrow().firm())
+                    .map(|src_slot| src_slot.firm())
                     .dedup(),
             );
 
             v.extend(
                 block
-                    .borrow()
                     .returns
                     .as_option()
                     .iter()
@@ -143,7 +138,7 @@ impl GenInstrBlock {
 
         for out_value in values_to_compute {
             self.comment(format_args!("\tgen code for out_value={:?}", out_value));
-            self.gen_value(graph, MutRc::clone(&block), out_value);
+            self.gen_value(graph, block, alloc, out_value);
         }
     }
 
@@ -157,7 +152,7 @@ impl GenInstrBlock {
             .unwrap_or_else(|| panic!("must have computed value for node {:?}", node))
     }
 
-    fn must_computed_slot(&self, node: Node) -> MutRc<MultiSlot> {
+    fn must_computed_slot(&self, node: Node) -> Ptr<MultiSlot> {
         self.must_computed(node).must_value()
     }
 
@@ -166,18 +161,15 @@ impl GenInstrBlock {
         debug_assert!(did_overwrite.is_none(), "duplicate computed for {:?}", node);
     }
 
-    fn gen_value(&mut self, graph: &BlockGraph, block: MutRc<BasicBlock>, out_value: Node) {
-        // force copy because we borrow_mut block when allocating private slots
-        // inside the closure
-        let block_firm = block.borrow().firm;
-        out_value.walk_dfs_in_block(block_firm, &mut |n| {
-            self.gen_value_walk_callback(graph, MutRc::clone(&block), n)
+    fn gen_value(&mut self, graph: &BlockGraph, block: Ptr<BasicBlock>, alloc: &Allocator, out_value: Node) {
+        out_value.walk_dfs_in_block(block.firm, &mut |n| {
+            self.gen_value_walk_callback(graph, block, alloc, n)
         });
     }
 
-    fn gen_dst_slot(&mut self, block: MutRc<BasicBlock>, node: Node) -> MutRc<MultiSlot> {
-        let dst_slot = block.new_private_slot(node); // internal borrow_mut
-        self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
+    fn gen_dst_slot(&mut self, block: Ptr<BasicBlock>, node: Node, alloc: &Allocator) -> Ptr<MultiSlot> {
+        let dst_slot = block.new_private_slot(node, alloc);
+        self.mark_computed(node, Computed::Value(dst_slot));
         dst_slot
     }
 
@@ -192,7 +184,8 @@ impl GenInstrBlock {
     fn gen_value_walk_callback(
         &mut self,
         graph: &BlockGraph,
-        block: MutRc<BasicBlock>,
+        block: Ptr<BasicBlock>,
+        alloc: &Allocator,
         node: Node,
     ) {
         log::debug!("visit node={:?}", node);
@@ -238,7 +231,7 @@ impl GenInstrBlock {
             (@INTERNAL, $op:expr, $block:expr, $node:expr) => {{
                 let src1 = binop_operand!(left, $op);
                 let src2 = binop_operand!(right, $op);
-                let dst = self.gen_dst_slot($block, $node);
+                let dst = self.gen_dst_slot($block, $node, alloc);
                 (src1, src2, dst)
             }};
         }
@@ -256,7 +249,7 @@ impl GenInstrBlock {
             Node::And(and) => gen_binop_with_dst!(And, and, block, node),
             Node::Or(or) => gen_binop_with_dst!(Or, or, block, node),
             Node::Not(_) | Node::Minus(_) => {
-                let dst = self.gen_dst_slot(block, node);
+                let dst = self.gen_dst_slot(block, node, alloc);
                 let kind = if let Node::Not(_) = node { Not } else { Neg };
                 self.code.body.push(Instruction::Unop {
                     kind,
@@ -271,12 +264,12 @@ impl GenInstrBlock {
                 } else {
                     None
                 };
-                let end_block = MutRc::clone(&graph.end_block);
+                let end_block = graph.end_block;
                 self.code.leave.push(Leave::Return { value, end_block });
             }
             Node::Jmp(jmp) => {
                 let firm_target_block = jmp.out_target_block().unwrap();
-                let target = upborrow!(block.borrow().graph).get_block(firm_target_block);
+                let target = block.graph.get_block(firm_target_block);
                 self.code.leave.push(Leave::Jmp { target });
             }
             Node::Proj(proj, _kind) => {
@@ -326,7 +319,7 @@ impl GenInstrBlock {
                     self.mark_computed(node, Computed::Void);
                     None
                 } else if n_res == 1 {
-                    Some(self.gen_dst_slot(block, node))
+                    Some(self.gen_dst_slot(block, node, alloc))
                 } else {
                     panic!("functions must return 0 or 1 result {:?}", n_res);
                 };
@@ -344,20 +337,20 @@ impl GenInstrBlock {
                 //
                 // write somehting to computed for now
                 //
-                let dst_slot = block.new_private_slot(node); // interanl borrow_mut
-                self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
+                let dst_slot = block.new_private_slot(node, alloc);
+                self.mark_computed(node, Computed::Value(dst_slot));
             }
             Node::Load(load) => {
                 let src = self.gen_address_computation(load.ptr());
-                let dst = self.gen_dst_slot(block, node);
+                let dst = self.gen_dst_slot(block, node, alloc);
                 self.code.body.push(Instruction::LoadMem { src, dst });
             }
             Node::Store(store) => {
                 let src = self.gen_operand_jit(store.value());
                 let dst = self.gen_address_computation(store.ptr());
                 self.code.body.push(Instruction::StoreMem { src, dst });
-                let dst_slot = block.new_private_slot(node); // interanl borrow_mut
-                self.mark_computed(node, Computed::Value(MutRc::clone(&dst_slot)));
+                let dst_slot = block.new_private_slot(node, alloc);
+                self.mark_computed(node, Computed::Value(dst_slot));
             }
             x => self.comment(format_args!("\t\t\tunimplemented: {:?}", x)),
         }

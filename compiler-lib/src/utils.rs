@@ -160,6 +160,7 @@ pub mod cell {
         }
     }
 
+    #[macro_export]
     macro_rules! upborrow {
         ($mut_weak: expr) => {
             crate::utils::cell::MutWeak::upgrade(&$mut_weak)
