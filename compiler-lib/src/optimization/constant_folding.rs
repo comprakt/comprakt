@@ -1,7 +1,7 @@
 use super::{Outcome, OutcomeCollector};
 use crate::{dot::*, optimization};
 use libfirm_rs::{
-    nodes::{try_as_value_node, Node, NodeTrait, ProjKind},
+    nodes::{try_as_value_node, Block, Node, NodeTrait, ProjKind},
     Graph, Tarval, TarvalKind,
 };
 use priority_queue::PriorityQueue;
@@ -38,6 +38,8 @@ pub struct ConstantFolding {
     values: HashMap<Node, CfLattice>,
     queue: PriorityQueue<Node, Priority>,
     node_topo_idx: HashMap<Node, u32>,
+    // this field is for debugging only.
+    cur_node: Option<Node>,
     graph: Graph,
     start_block: Node,
     // duplicates are not that important for the inner list as there are at most less than 10.
@@ -58,6 +60,8 @@ impl ConstantFolding {
         let mut topo_order = 0;
         let mut node_topo_idx = HashMap::new();
         let mut values = HashMap::new();
+
+        graph.assure_outs();
 
         graph.walk_topological(|node| {
             topo_order += 1;
@@ -81,7 +85,6 @@ impl ConstantFolding {
                 },
             );
         });
-        graph.assure_outs();
 
         let start_block = graph.start().block().into();
 
@@ -99,6 +102,7 @@ impl ConstantFolding {
             graph,
             node_topo_idx,
             start_block,
+            cur_node: None,
             deps: HashMap::new(),
         }
     }
@@ -133,6 +137,7 @@ impl ConstantFolding {
 
         while let Some((cur_node, _priority)) = self.queue.pop() {
             let cur_lattice = self.lookup(cur_node);
+            self.cur_node = Some(cur_node);
             let updated_lattice = self.update_node(cur_node, cur_lattice);
             if updated_lattice != cur_lattice {
                 if let Some(deps) = self.deps.get(&cur_node) {
@@ -148,6 +153,32 @@ impl ConstantFolding {
                 self.update(cur_node, updated_lattice);
             }
         }
+
+        self.cur_node = None;
+    }
+
+    // for debugging purposes
+    fn dump_dot(&mut self) -> String {
+        self.graph.into_dot_format_string("test", &|node: &Node| {
+            let mut label = default_label(node);
+
+            if let Some(tarval) = self.values.get(&node) {
+                label = label.append(format!("\n{:?}", tarval));
+            }
+
+            if Some(*node) == self.cur_node {
+                label = label
+                    .style(Style::Filled)
+                    .fillcolor(X11Color::Blue)
+                    .fontcolor(X11Color::White);
+            }
+
+            if let Some(_priority) = self.queue.get(&node) {
+                label = label.style(Style::Bold);
+            }
+
+            label
+        })
     }
 
     fn update_node(&mut self, cur_node: Node, cur_lattice: CfLattice) -> CfLattice {
@@ -250,7 +281,7 @@ impl ConstantFolding {
         let mut values = self.values.iter().collect::<Vec<_>>();
         values.sort_by_key(|(l, _)| l.node_id());
 
-        let mut dangling_blocks = Vec::new();
+        let mut to_be_marked_as_bad: Vec<Block> = Vec::new();
 
         for (node, lattice) in values {
             if !lattice.value.is_constant() {
@@ -261,51 +292,54 @@ impl ConstantFolding {
                 collector.push(Outcome::Unchanged);
                 continue;
             }
-
             if let Ok(value_node) = try_as_value_node(*node) {
                 let const_node = self.graph.new_const(lattice.value);
-                log::debug!("EXCHANGE NODE {:?} val={:?}", node, lattice.value);
+                log::debug!("exchange value {:?} with {:?}", node, lattice.value);
                 Graph::exchange_value(value_node, const_node);
                 collector.push(Outcome::Changed);
             } else if let (Node::Cond(cond), TarvalKind::Bool(val)) = (node, lattice.value.kind()) {
-                let (always_taken_path, target_block) = cond.out_proj_target_block(val).unwrap();
-
-                let (dead_path, nontarget_block) = cond.out_proj_target_block(!val).unwrap();
+                let (always_taken_path, target_block, _target_block_idx) =
+                    cond.out_proj_target_block(val).unwrap();
+                let (dead_path, nontarget_block, _nontarget_block_idx) =
+                    cond.out_proj_target_block(!val).unwrap();
 
                 if nontarget_block.cfg_preds().len() <= 1 {
-                    // If the unused_proj is the sole predecessor of its successor,
-                    // mark the successor, eliminate it.
-                    // One would think this happens automatically, but it doesn't:
-                    // The successor block (if(f?) it contains a Jmp), is kept alive
-                    // somehow, causing be_lower_for_target to fail
-                    log::debug!("Mark nontarget_block {:?} as dangling", nontarget_block);
-                    dangling_blocks.push(nontarget_block);
+                    log::debug!(
+                        "Schedule nontarget_block {:?} and its children to be marked as bad",
+                        nontarget_block
+                    );
+                    to_be_marked_as_bad.push(nontarget_block);
                 }
 
                 let jmp = cond.block().new_jmp();
-                log::debug!("Replace {:?} with {:?} to {:?}", node, jmp, target_block);
-                Graph::exchange(always_taken_path, jmp);
-                self.graph.mark_as_bad(dead_path);
 
-                // We need this because if we have a while(true) loop, the code will be
-                // unreachable (libfirm-edge wise) from the end block (because the end
-                // block is never reached control-flow wise), but
-                // libfirm needs to find the loop (and it starts
-                // searching from the end
-                // block)
+                log::debug!(
+                    "Replace {:?} with {:?} to {:?}",
+                    always_taken_path,
+                    jmp,
+                    target_block
+                );
+
+                self.graph.mark_as_bad(dead_path);
+                self.graph.mark_as_bad(*cond);
+
+                Graph::exchange(always_taken_path, jmp);
+
                 target_block.keep_alive();
                 collector.push(Outcome::Changed);
             }
         }
 
-        for block in &dangling_blocks {
-            for (i, child) in block.out_nodes().enumerate() {
-                log::debug!("Mark block child #{} {:?} as bad", i, child);
+        for block in &to_be_marked_as_bad {
+            for child in block.out_nodes() {
+                log::debug!("Mark block child {:?} as bad", child);
                 self.graph.mark_as_bad(child);
             }
+            self.graph.mark_as_bad(*block);
         }
 
         self.graph.remove_bads();
+        self.graph.remove_unreachable_code();
 
         collector.result()
     }
