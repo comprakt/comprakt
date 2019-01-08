@@ -8,7 +8,7 @@ mod register;
 
 use self::register::Amd64Reg;
 
-enum Instruction {
+pub enum Instruction {
     Movq { src: MoveOperand, dst: MoveOperand },
     Push { src: Operand },
     Pop { dst: Operand },
@@ -18,7 +18,7 @@ enum Instruction {
     Ret,
 }
 
-enum Operand {
+pub enum Operand {
     LirOperand(lir::Operand),
     Reg(Amd64Reg),
 }
@@ -32,11 +32,12 @@ impl std::fmt::Display for Operand {
     }
 }
 
-enum MoveOperand {
+pub enum MoveOperand {
     Operand(Operand),
     Addr(lir::AddressComputation<Operand>),
 }
 
+#[derive(Copy, Clone)]
 pub enum CallingConv {
     X86_64,
     Stack,

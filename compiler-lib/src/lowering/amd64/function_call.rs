@@ -16,7 +16,7 @@ macro_rules! save_regs {
 type Label = String;
 
 #[derive(Default)]
-struct FunctionCall {
+pub struct FunctionCall {
     arg_save: Vec<Instruction>,
     setup: Vec<Instruction>,
     label: Label,
@@ -118,7 +118,7 @@ impl FunctionCall {
     }
 }
 
-struct Function {
+pub struct Function {
     /// Number of arguments
     nargs: usize,
     /// Calling convention
