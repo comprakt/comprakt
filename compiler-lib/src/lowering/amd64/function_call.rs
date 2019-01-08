@@ -179,6 +179,19 @@ impl Function {
         });
     }
 
+    /// When the `idx`th arg is in a register, this register will be returned,
+    /// otherwise None.
+    pub fn arg_in_reg(&self, idx: usize) -> Option<Amd64Reg> {
+        if idx < 6 {
+            match self.cconv {
+                CallingConv::Stack => None,
+                CallingConv::X86_64 => Some(Amd64Reg::arg(idx)),
+            }
+        } else {
+            None
+        }
+    }
+
     /// Depending on the calling convention some args are in registers. This
     /// function returns the Movq instruction from either a register or an
     /// address into the dst.
@@ -188,17 +201,12 @@ impl Function {
     }
 
     fn arg_from_reg(&self, idx: usize, dst: &lir::Operand) -> Option<Instruction> {
-        if idx < 6 {
-            match self.cconv {
-                CallingConv::Stack => None,
-                CallingConv::X86_64 => Some(Instruction::Movq {
-                    src: MoveOperand::Operand(Operand::Reg(Amd64Reg::arg(idx))),
-                    dst: MoveOperand::Operand(Operand::LirOperand(dst.clone())),
-                }),
-            }
-        } else {
-            None
-        }
+        self.arg_in_reg(idx).and_then(|reg| {
+            Some(Instruction::Movq {
+                src: MoveOperand::Operand(Operand::Reg(reg)),
+                dst: MoveOperand::Operand(Operand::LirOperand(dst.clone())),
+            })
+        })
     }
 
     fn arg_from_stack(&self, idx: usize, dst: &lir::Operand) -> Instruction {

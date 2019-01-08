@@ -66,7 +66,7 @@ impl Amd64Reg {
     }
 
     /// This function returns the next unreserved register. This function
-    /// should be used by the register allocator to always use the registers
+    /// is used by the register allocator to always use the registers
     /// in the same order. That is:
     ///
     /// - Caller-Save registers
@@ -80,6 +80,10 @@ impl Amd64Reg {
     ///     - %r10, %r11
     /// - Callee-Save registers
     ///   - %rbx, %r12-r15
+    ///
+    /// This funtion returns `None` when the `idx` (plus the number of reserved function
+    /// arguments) points to one of the registers %rbp, %rsp or %rax or is
+    /// greater or equals 16 (number of total registers)
     #[rustfmt::skip]
     fn reg(idx: usize, nargs: usize, cconv: CallingConv) -> Option<Self> {
         let offset = if let CallingConv::Stack = cconv {
@@ -141,10 +145,10 @@ impl RegisterAllocator {
         }
     }
 
-    /// Inserts a register into the `free_list`
+    /// Inserts a register into the `free_list`. Also registers which were not
+    /// initially in the free_list can be inserted. This can be useful for
+    /// function argument registers, that won't get used anymore.
     pub fn free_reg(&mut self, reg: Amd64Reg) {
-        self.free_list
-            .insert(reg, true)
-            .expect("Register is not in the free_list");
+        self.free_list.insert(reg, true);
     }
 }
