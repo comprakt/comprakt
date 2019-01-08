@@ -48,13 +48,10 @@ impl optimization::Interprocedural for Inlining {
             }
         }
 
+        log::debug!("Inline finished");
+
         Outcome::Unchanged
     }
-}
-
-struct Inline {
-    graph: Graph,
-    marked: HashMap<Node, bool>,
 }
 
 #[derive(Debug, Display)]
@@ -66,43 +63,40 @@ impl From<std::option::NoneError> for InlineError {
     }
 }
 
+struct Inline {
+    graph: Graph,
+}
+
 impl Inline {
     pub fn inline(call: Call) -> Result<(), InlineError> {
         let graph = call.graph();
         graph.assure_outs();
-        let mut i = Self::new(graph);
-        i.internal_inline(call)
+
+        let mut i = Inline { graph };
+        i.inline_with_context(call)
     }
 
-    fn new(graph: Graph) -> Self {
-        let mut marked = HashMap::new();
-        for n in graph.nodes().iter() {
-            marked.insert(*n, false);
-        }
-
-        Inline { graph, marked }
-    }
-
-    fn internal_inline(&mut self, call: Call) -> Result<(), InlineError> {
+    fn inline_with_context(&mut self, call: Call) -> Result<(), InlineError> {
         let graph = self.graph;
         let proj_m = call.out_proj_m().unwrap();
-        let proj_first_result = call.out_proj_t_result().and_then(|r| r.out_nodes().idx(0));
-        let has_result = proj_first_result.is_some();
+        let call_result = call.out_proj_t_result().and_then(|r| r.out_nodes().idx(0));
 
-        log::debug!("Call to inline: {:?}, has result: {}", call, has_result);
+        log::debug!("Call to inline: {:?}, result: {:?}", call, call_result);
 
         let address = Node::as_address(call.ptr())?;
         let entity = address.entity();
         let graph_to_inline: Graph = entity.graph()?;
 
         let (block, target_block) = self.split_block_at(graph, call.into());
-
-        //self.text.insert(block.into(), "new block".into());
-        self.marked.insert(target_block.into(), true);
+        log::debug!("Block splitted into {:?} and {:?}", block, target_block);
 
         let mut map = HashMap::new();
         map.insert(graph_to_inline.start().block().into(), block.into());
-
+        struct Return {
+            jmp: Jmp,
+            res: Option<Node>,
+            mem: Node,
+        };
         let returns: Vec<_> = graph_to_inline
             .end()
             .block()
@@ -113,51 +107,40 @@ impl Inline {
                     Node::as_return(self.copy(ret, &mut map, call, graph.start_block())).unwrap();
                 let res = updated_ret.return_res().idx(0);
                 let mem = updated_ret.mem();
-                let block = updated_ret.block();
-                log::debug!("res: {:?}, mem: {:?}, block: {:?}", res, mem, block);
+                let ret_block = updated_ret.block();
+                log::debug!("Return {:?} with mem {:?} from {:?}", res, mem, ret_block);
+
+                log::debug!("Delete copied return {:?}", updated_ret);
                 graph.mark_as_bad(updated_ret);
 
-                self.marked.insert(block.into(), true);
-                self.marked.insert(updated_ret.into(), true);
-                (block.new_jmp(), res, mem)
+                Return {
+                    jmp: ret_block.new_jmp(),
+                    res,
+                    mem,
+                }
             })
             .collect();
 
-        let jmps: Vec<Node> = returns
-            .iter()
-            .map(|(jmp, _res, _mem)| {
-                let n: Node = (*jmp).into();
-                n
-            })
-            .collect();
-        target_block.set_in_nodes(&jmps[..]);
+        let jmps: Vec<Node> = returns.iter().map(|r| Node::from(r.jmp)).collect();
+        log::debug!("Set jmp targets of {:?} to {:?}", jmps, target_block);
+        target_block.set_in_nodes(&jmps);
 
-        let mems: Vec<Node> = returns.iter().map(|(_jmp, _res, mem)| *mem).collect();
-        let mode = mems[0].mode();
-        let new_mem = if mems.len() == 1 {
-            mems[0]
-        } else {
-            target_block.new_phi(&mems[..], mode).into()
-        };
+        let mems: Vec<Node> = returns.iter().map(|r| r.mem).collect();
+        let new_mem = target_block.phi_or_node(&mems);
+        log::debug!("Exchange call mem {:?} with mem {:?}", proj_m, new_mem);
         Graph::exchange(proj_m, new_mem);
-        if has_result {
-            let ress: Vec<_> = returns
-                .iter()
-                .map(|(_jmp, res, _mem)| res.unwrap())
-                .collect();
-            let ress_mode = ress[0].mode();
-            let new_res = if ress.len() == 1 {
-                ress[0]
-            } else {
-                target_block.new_phi(&ress[..], ress_mode).into()
-            };
-            Graph::exchange(proj_first_result.unwrap(), new_res);
+
+        if let Some(call_result) = call_result {
+            let ress: Vec<_> = returns.iter().map(|r| r.res.unwrap()).collect();
+            let new_res = target_block.phi_or_node(&ress);
+            log::debug!("Exchange call res {:?} with res {:?}", call_result, new_res);
+            Graph::exchange(call_result, new_res);
         }
 
+        log::debug!("Delete {:?}", call);
         graph.mark_as_bad(call);
-        graph.remove_bads();
 
-        graph.dump("inline");
+        graph.remove_bads();
 
         Ok(())
     }
@@ -177,8 +160,9 @@ impl Inline {
             // no_mem must be set
             graph.no_mem().set_block(new_block);
 
-            // for some reason, this projs are not considered in out_nodes.
-            // graph.frame().set_block(new_block);
+            // these projs must be set manually
+            graph.frame().set_block(new_block);
+            graph.args().set_block(new_block);
 
             // all address and const nodes must have the start block as predecessor.
             for node in block.out_nodes() {
@@ -192,22 +176,23 @@ impl Inline {
     }
 
     fn move_node(&self, node: Node, from_block: Block, to_block: Block) {
+        if Node::is_block(node) || node.block() != from_block {
+            return;
+        }
+
         log::debug!(
             "Move node {:?} from {:?} to {:?}",
             node,
             from_block,
             to_block
         );
-        if Node::is_block(node) || node.block() != from_block {
-            return;
+
+        for proj in node.all_out_projs() {
+            log::debug!("... considering {:?}", proj);
+            proj.set_block(to_block);
         }
 
         node.set_block(to_block);
-
-        for proj in node.all_out_projs() {
-            log::debug!("... considering proj {:?}", proj);
-            proj.set_block(to_block);
-        }
 
         for in_node in node.in_nodes() {
             self.move_node(in_node, from_block, to_block);
@@ -233,12 +218,12 @@ impl Inline {
             _ => {}
         }
 
-        let graph = self.graph;
-        let new_node = graph.copy_node(old, |n| match old {
+        let new_node = self.graph.copy_node(old, |n| match old {
             Node::Address(_) if Node::is_block(n) => start_block.into(),
             Node::Const(_) if Node::is_block(n) => start_block.into(),
             _ => self.copy(n, map, call_to_inline, start_block),
         });
+        log::debug!("Copied {:?} to {:?}", old, new_node);
 
         map.insert(old, new_node);
         new_node
