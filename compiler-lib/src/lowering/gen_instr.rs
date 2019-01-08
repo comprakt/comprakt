@@ -363,7 +363,7 @@ impl GenInstrBlock {
         }
     }
 
-    fn gen_address_computation(&self, node: Node) -> AddressComputation {
+    fn gen_address_computation(&self, node: Node) -> AddressComputation<Operand> {
         match node {
             Node::Member(member) => {
                 let base = self.gen_operand_jit(member.ptr());

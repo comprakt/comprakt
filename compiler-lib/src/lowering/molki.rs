@@ -112,45 +112,9 @@ pub enum Instr {
 }
 
 #[derive(Debug, Clone)]
-pub struct AddressComputation {
-    // offset(base, index, stride) = offset + base + index * stride
-    pub offset: isize,
-    pub base: Operand,
-    pub index: IndexComputation,
-}
-
-impl AddressComputation {
-    fn from(ac: lir::AddressComputation, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
-        AddressComputation {
-            offset: ac.offset,
-            base: Operand::from(ac.base, slot_reg_map),
-            index: IndexComputation::from(ac.index, slot_reg_map),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum IndexComputation {
-    Displacement(Operand, lir::Stride),
-    Zero,
-}
-
-impl IndexComputation {
-    fn from(op: lir::IndexComputation, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
-        use super::lir::IndexComputation::*;
-        match op {
-            Displacement(op, s) => {
-                IndexComputation::Displacement(Operand::from(op, slot_reg_map), s)
-            }
-            Zero => IndexComputation::Zero,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub enum MoveOperand {
     Operand(Operand),
-    Address(AddressComputation),
+    Address(lir::AddressComputation<Operand>),
 }
 
 impl Instr {
@@ -202,10 +166,28 @@ impl Instr {
             },
             StoreMem { src, dst } => Instr::Movq {
                 src: MoveOperand::Operand(Operand::from(src, slot_reg_map)),
-                dst: MoveOperand::Address(AddressComputation::from(dst, slot_reg_map)),
+                dst: MoveOperand::Address(lir::AddressComputation {
+                    offset: dst.offset,
+                    base: Operand::from(dst.base, slot_reg_map),
+                    index: match dst.index {
+                        lir::IndexComputation::Zero => lir::IndexComputation::Zero,
+                        lir::IndexComputation::Displacement(op, s) => {
+                            lir::IndexComputation::Displacement(Operand::from(op, slot_reg_map), s)
+                        }
+                    },
+                }),
             },
             LoadMem { src, dst } => Instr::Movq {
-                src: MoveOperand::Address(AddressComputation::from(src, slot_reg_map)),
+                src: MoveOperand::Address(lir::AddressComputation {
+                    offset: src.offset,
+                    base: Operand::from(src.base, slot_reg_map),
+                    index: match src.index {
+                        lir::IndexComputation::Zero => lir::IndexComputation::Zero,
+                        lir::IndexComputation::Displacement(op, s) => {
+                            lir::IndexComputation::Displacement(Operand::from(op, slot_reg_map), s)
+                        }
+                    },
+                }),
                 dst: MoveOperand::Operand(Reg::from(dst, slot_reg_map).into_operand()),
             },
             Comment(c) => Instr::Comment(c),
@@ -384,16 +366,6 @@ impl std::fmt::Display for MoveOperand {
             MoveOperand::Operand(op) => write!(fmt, "{}", op),
             MoveOperand::Address(addr) => write!(fmt, "{}", addr),
         }
-    }
-}
-
-impl std::fmt::Display for AddressComputation {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let index = match &self.index {
-            IndexComputation::Zero => String::new(),
-            IndexComputation::Displacement(op, stride) => format!(", {}, {}", op, stride),
-        };
-        write!(fmt, "{}({}{})", self.offset, self.base, index)
     }
 }
 

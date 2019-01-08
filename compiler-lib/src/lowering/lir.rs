@@ -12,6 +12,7 @@ use libfirm_rs::{
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    fmt::Display,
     marker::PhantomData,
 };
 
@@ -223,10 +224,10 @@ pub enum Instruction {
     },
     StoreMem {
         src: Operand,
-        dst: AddressComputation,
+        dst: AddressComputation<Operand>,
     },
     LoadMem {
-        src: AddressComputation,
+        src: AddressComputation<Operand>,
         dst: MutRc<MultiSlot>,
     },
     Comment(String),
@@ -235,17 +236,27 @@ pub enum Instruction {
 /// This implements address computation, see
 /// http://www.c-jump.com/CIS77/CPU/x86/lecture.html#X77_0110_scaled_indexed
 #[derive(Debug, Clone)]
-pub struct AddressComputation {
+pub struct AddressComputation<Op: Display> {
     // offset(base, index, stride) = offset + base + index * stride
     pub offset: isize,
-    pub base: Operand,
-    pub index: IndexComputation,
+    pub base: Op,
+    pub index: IndexComputation<Op>,
+}
+
+impl<Op: Display> std::fmt::Display for AddressComputation<Op> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let index = match &self.index {
+            IndexComputation::Zero => String::new(),
+            IndexComputation::Displacement(op, stride) => format!(", {}, {}", op, stride),
+        };
+        write!(fmt, "{}({}{})", self.offset, self.base, index)
+    }
 }
 
 /// Index of AddressComputation variant of the Instruction enum.
 #[derive(Debug, Clone)]
-pub enum IndexComputation {
-    Displacement(Operand, Stride),
+pub enum IndexComputation<Op: Display> {
+    Displacement(Op, Stride),
     Zero,
 }
 
@@ -294,16 +305,17 @@ pub struct CopyPropagation {
     pub(super) dst: MutRc<ValueSlot>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Display, Clone)]
 pub enum Operand {
+    #[display(fmt = "Slot")]
     Slot(MutRc<MultiSlot>),
     /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
     /// lifetime of that pointer (the FIRM graph).
+    #[display(fmt = "Imm")]
     Imm(Tarval),
     /// only readable!
-    Param {
-        idx: u32,
-    },
+    #[display(fmt = "Param: {}", idx)]
+    Param { idx: u32 },
 }
 
 #[derive(Debug, Display, Clone)]
@@ -982,6 +994,7 @@ impl MultiSlotBuilder {
         slot
     }
 
+    #[allow(clippy::let_and_return)]
     fn get_multislot(mut self) -> MutRc<MultiSlot> {
         let num = self.num;
         let allocated_in = MutWeak::upgrade(&self.allocated_in).unwrap();
