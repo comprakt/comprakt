@@ -760,9 +760,7 @@ impl NodeDebug for Node {
             Node::Or(node) => write!(f, "{}", node.debug_fmt().with(opts)),
             Node::Phi(node) => write!(f, "{}", node.debug_fmt().with(opts)),
             Node::Pin(node) => write!(f, "{}", node.debug_fmt().with(opts)),
-            Node::Proj(node, proj_kind) => {
-                write!(f, "{}: {:?}", node.debug_fmt().with(opts), proj_kind)
-            }
+            Node::Proj(node, _proj_kind) => write!(f, "{}", node.debug_fmt().with(opts)),
             Node::Raise(node) => write!(f, "{}", node.debug_fmt().with(opts)),
             Node::Return(node) => write!(f, "{}", node.debug_fmt().with(opts)),
             Node::Sel(node) => write!(f, "{}", node.debug_fmt().with(opts)),
@@ -1337,9 +1335,9 @@ impl Add {
     }
 }
 
-impl Into<Node> for Add {
-    fn into(self) -> Node {
-        Node::Add(self)
+impl From<Add> for Node {
+    fn from(node: Add) -> Node {
+        Node::Add(node)
     }
 }
 
@@ -1373,9 +1371,9 @@ impl Address {
     }
 }
 
-impl Into<Node> for Address {
-    fn into(self) -> Node {
-        Node::Address(self)
+impl From<Address> for Node {
+    fn from(node: Address) -> Node {
+        Node::Address(node)
     }
 }
 
@@ -1403,9 +1401,9 @@ impl Align {
     }
 }
 
-impl Into<Node> for Align {
-    fn into(self) -> Node {
-        Node::Align(self)
+impl From<Align> for Node {
+    fn from(node: Align) -> Node {
+        Node::Align(node)
     }
 }
 
@@ -1516,9 +1514,9 @@ impl Alloc {
     }
 }
 
-impl Into<Node> for Alloc {
-    fn into(self) -> Node {
-        Node::Alloc(self)
+impl From<Alloc> for Node {
+    fn from(node: Alloc) -> Node {
+        Node::Alloc(node)
     }
 }
 
@@ -1684,9 +1682,9 @@ impl Anchor {
     }
 }
 
-impl Into<Node> for Anchor {
-    fn into(self) -> Node {
-        Node::Anchor(self)
+impl From<Anchor> for Node {
+    fn from(node: Anchor) -> Node {
+        Node::Anchor(node)
     }
 }
 
@@ -1751,9 +1749,9 @@ impl And {
     }
 }
 
-impl Into<Node> for And {
-    fn into(self) -> Node {
-        Node::And(self)
+impl From<And> for Node {
+    fn from(node: And) -> Node {
+        Node::And(node)
     }
 }
 
@@ -1805,9 +1803,9 @@ impl Bad {
     }
 }
 
-impl Into<Node> for Bad {
-    fn into(self) -> Node {
-        Node::Bad(self)
+impl From<Bad> for Node {
+    fn from(node: Bad) -> Node {
+        Node::Bad(node)
     }
 }
 
@@ -1857,9 +1855,9 @@ impl Bitcast {
     }
 }
 
-impl Into<Node> for Bitcast {
-    fn into(self) -> Node {
-        Node::Bitcast(self)
+impl From<Bitcast> for Node {
+    fn from(node: Bitcast) -> Node {
+        Node::Bitcast(node)
     }
 }
 
@@ -1908,9 +1906,9 @@ impl Block {
     }
 }
 
-impl Into<Node> for Block {
-    fn into(self) -> Node {
-        Node::Block(self)
+impl From<Block> for Node {
+    fn from(node: Block) -> Node {
+        Node::Block(node)
     }
 }
 
@@ -2006,9 +2004,9 @@ impl Builtin {
     }
 }
 
-impl Into<Node> for Builtin {
-    fn into(self) -> Node {
-        Node::Builtin(self)
+impl From<Builtin> for Node {
+    fn from(node: Builtin) -> Node {
+        Node::Builtin(node)
     }
 }
 
@@ -2152,9 +2150,9 @@ impl Call {
     }
 }
 
-impl Into<Node> for Call {
-    fn into(self) -> Node {
-        Node::Call(self)
+impl From<Call> for Node {
+    fn from(node: Call) -> Node {
+        Node::Call(node)
     }
 }
 
@@ -2231,9 +2229,9 @@ impl Cmp {
     }
 }
 
-impl Into<Node> for Cmp {
-    fn into(self) -> Node {
-        Node::Cmp(self)
+impl From<Cmp> for Node {
+    fn from(node: Cmp) -> Node {
+        Node::Cmp(node)
     }
 }
 
@@ -2328,9 +2326,9 @@ impl Cond {
     }
 }
 
-impl Into<Node> for Cond {
-    fn into(self) -> Node {
-        Node::Cond(self)
+impl From<Cond> for Node {
+    fn from(node: Cond) -> Node {
+        Node::Cond(node)
     }
 }
 
@@ -2419,9 +2417,9 @@ impl Confirm {
     }
 }
 
-impl Into<Node> for Confirm {
-    fn into(self) -> Node {
-        Node::Confirm(self)
+impl From<Confirm> for Node {
+    fn from(node: Confirm) -> Node {
+        Node::Confirm(node)
     }
 }
 
@@ -2470,9 +2468,9 @@ impl Const {
     }
 }
 
-impl Into<Node> for Const {
-    fn into(self) -> Node {
-        Node::Const(self)
+impl From<Const> for Node {
+    fn from(node: Const) -> Node {
+        Node::Const(node)
     }
 }
 
@@ -2516,9 +2514,9 @@ impl Conv {
     }
 }
 
-impl Into<Node> for Conv {
-    fn into(self) -> Node {
-        Node::Conv(self)
+impl From<Conv> for Node {
+    fn from(node: Conv) -> Node {
+        Node::Conv(node)
     }
 }
 
@@ -2633,9 +2631,9 @@ impl CopyB {
     }
 }
 
-impl Into<Node> for CopyB {
-    fn into(self) -> Node {
-        Node::CopyB(self)
+impl From<CopyB> for Node {
+    fn from(node: CopyB) -> Node {
+        Node::CopyB(node)
     }
 }
 
@@ -2669,9 +2667,9 @@ impl Deleted {
     }
 }
 
-impl Into<Node> for Deleted {
-    fn into(self) -> Node {
-        Node::Deleted(self)
+impl From<Deleted> for Node {
+    fn from(node: Deleted) -> Node {
+        Node::Deleted(node)
     }
 }
 
@@ -2844,9 +2842,9 @@ impl Div {
     }
 }
 
-impl Into<Node> for Div {
-    fn into(self) -> Node {
-        Node::Div(self)
+impl From<Div> for Node {
+    fn from(node: Div) -> Node {
+        Node::Div(node)
     }
 }
 
@@ -2881,9 +2879,9 @@ impl Dummy {
     }
 }
 
-impl Into<Node> for Dummy {
-    fn into(self) -> Node {
-        Node::Dummy(self)
+impl From<Dummy> for Node {
+    fn from(node: Dummy) -> Node {
+        Node::Dummy(node)
     }
 }
 
@@ -2917,9 +2915,9 @@ impl End {
     }
 }
 
-impl Into<Node> for End {
-    fn into(self) -> Node {
-        Node::End(self)
+impl From<End> for Node {
+    fn from(node: End) -> Node {
+        Node::End(node)
     }
 }
 
@@ -2986,9 +2984,9 @@ impl Eor {
     }
 }
 
-impl Into<Node> for Eor {
-    fn into(self) -> Node {
-        Node::Eor(self)
+impl From<Eor> for Node {
+    fn from(node: Eor) -> Node {
+        Node::Eor(node)
     }
 }
 
@@ -3053,9 +3051,9 @@ impl Free {
     }
 }
 
-impl Into<Node> for Free {
-    fn into(self) -> Node {
-        Node::Free(self)
+impl From<Free> for Node {
+    fn from(node: Free) -> Node {
+        Node::Free(node)
     }
 }
 
@@ -3106,9 +3104,9 @@ impl IJmp {
     }
 }
 
-impl Into<Node> for IJmp {
-    fn into(self) -> Node {
-        Node::IJmp(self)
+impl From<IJmp> for Node {
+    fn from(node: IJmp) -> Node {
+        Node::IJmp(node)
     }
 }
 
@@ -3160,9 +3158,9 @@ impl Id {
     }
 }
 
-impl Into<Node> for Id {
-    fn into(self) -> Node {
-        Node::Id(self)
+impl From<Id> for Node {
+    fn from(node: Id) -> Node {
+        Node::Id(node)
     }
 }
 
@@ -3195,9 +3193,9 @@ impl Jmp {
     }
 }
 
-impl Into<Node> for Jmp {
-    fn into(self) -> Node {
-        Node::Jmp(self)
+impl From<Jmp> for Node {
+    fn from(node: Jmp) -> Node {
+        Node::Jmp(node)
     }
 }
 
@@ -3390,9 +3388,9 @@ impl Load {
     }
 }
 
-impl Into<Node> for Load {
-    fn into(self) -> Node {
-        Node::Load(self)
+impl From<Load> for Node {
+    fn from(node: Load) -> Node {
+        Node::Load(node)
     }
 }
 
@@ -3455,9 +3453,9 @@ impl Member {
     }
 }
 
-impl Into<Node> for Member {
-    fn into(self) -> Node {
-        Node::Member(self)
+impl From<Member> for Node {
+    fn from(node: Member) -> Node {
+        Node::Member(node)
     }
 }
 
@@ -3501,9 +3499,9 @@ impl Minus {
     }
 }
 
-impl Into<Node> for Minus {
-    fn into(self) -> Node {
-        Node::Minus(self)
+impl From<Minus> for Node {
+    fn from(node: Minus) -> Node {
+        Node::Minus(node)
     }
 }
 
@@ -3667,9 +3665,9 @@ impl Mod {
     }
 }
 
-impl Into<Node> for Mod {
-    fn into(self) -> Node {
-        Node::Mod(self)
+impl From<Mod> for Node {
+    fn from(node: Mod) -> Node {
+        Node::Mod(node)
     }
 }
 
@@ -3734,9 +3732,9 @@ impl Mul {
     }
 }
 
-impl Into<Node> for Mul {
-    fn into(self) -> Node {
-        Node::Mul(self)
+impl From<Mul> for Node {
+    fn from(node: Mul) -> Node {
+        Node::Mul(node)
     }
 }
 
@@ -3802,9 +3800,9 @@ impl Mulh {
     }
 }
 
-impl Into<Node> for Mulh {
-    fn into(self) -> Node {
-        Node::Mulh(self)
+impl From<Mulh> for Node {
+    fn from(node: Mulh) -> Node {
+        Node::Mulh(node)
     }
 }
 
@@ -3886,9 +3884,9 @@ impl Mux {
     }
 }
 
-impl Into<Node> for Mux {
-    fn into(self) -> Node {
-        Node::Mux(self)
+impl From<Mux> for Node {
+    fn from(node: Mux) -> Node {
+        Node::Mux(node)
     }
 }
 
@@ -3921,9 +3919,9 @@ impl NoMem {
     }
 }
 
-impl Into<Node> for NoMem {
-    fn into(self) -> Node {
-        Node::NoMem(self)
+impl From<NoMem> for Node {
+    fn from(node: NoMem) -> Node {
+        Node::NoMem(node)
     }
 }
 
@@ -3972,9 +3970,9 @@ impl Not {
     }
 }
 
-impl Into<Node> for Not {
-    fn into(self) -> Node {
-        Node::Not(self)
+impl From<Not> for Node {
+    fn from(node: Not) -> Node {
+        Node::Not(node)
     }
 }
 
@@ -4007,9 +4005,9 @@ impl Offset {
     }
 }
 
-impl Into<Node> for Offset {
-    fn into(self) -> Node {
-        Node::Offset(self)
+impl From<Offset> for Node {
+    fn from(node: Offset) -> Node {
+        Node::Offset(node)
     }
 }
 
@@ -4074,9 +4072,9 @@ impl Or {
     }
 }
 
-impl Into<Node> for Or {
-    fn into(self) -> Node {
-        Node::Or(self)
+impl From<Or> for Node {
+    fn from(node: Or) -> Node {
+        Node::Or(node)
     }
 }
 
@@ -4129,9 +4127,9 @@ impl Phi {
     }
 }
 
-impl Into<Node> for Phi {
-    fn into(self) -> Node {
-        Node::Phi(self)
+impl From<Phi> for Node {
+    fn from(node: Phi) -> Node {
+        Node::Phi(node)
     }
 }
 
@@ -4182,9 +4180,9 @@ impl Pin {
     }
 }
 
-impl Into<Node> for Pin {
-    fn into(self) -> Node {
-        Node::Pin(self)
+impl From<Pin> for Node {
+    fn from(node: Pin) -> Node {
+        Node::Pin(node)
     }
 }
 
@@ -4249,9 +4247,9 @@ impl Proj {
     }
 }
 
-impl Into<Node> for Proj {
-    fn into(self) -> Node {
-        Node::Proj(self, self.kind())
+impl From<Proj> for Node {
+    fn from(node: Proj) -> Node {
+        Node::Proj(node, node.kind())
     }
 }
 
@@ -4261,11 +4259,6 @@ impl NodeTrait for Proj {
     }
 }
 
-impl NodeDebug for Proj {
-    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        write!(f, "Proj {}", self.node_id())
-    }
-}
 impl fmt::Debug for Proj {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&self.debug_fmt(), f)
@@ -4348,9 +4341,9 @@ impl Raise {
     }
 }
 
-impl Into<Node> for Raise {
-    fn into(self) -> Node {
-        Node::Raise(self)
+impl From<Raise> for Node {
+    fn from(node: Raise) -> Node {
+        Node::Raise(node)
     }
 }
 
@@ -4400,9 +4393,9 @@ impl Return {
     }
 }
 
-impl Into<Node> for Return {
-    fn into(self) -> Node {
-        Node::Return(self)
+impl From<Return> for Node {
+    fn from(node: Return) -> Node {
+        Node::Return(node)
     }
 }
 
@@ -4486,9 +4479,9 @@ impl Sel {
     }
 }
 
-impl Into<Node> for Sel {
-    fn into(self) -> Node {
-        Node::Sel(self)
+impl From<Sel> for Node {
+    fn from(node: Sel) -> Node {
+        Node::Sel(node)
     }
 }
 
@@ -4557,9 +4550,9 @@ impl Shl {
     }
 }
 
-impl Into<Node> for Shl {
-    fn into(self) -> Node {
-        Node::Shl(self)
+impl From<Shl> for Node {
+    fn from(node: Shl) -> Node {
+        Node::Shl(node)
     }
 }
 
@@ -4628,9 +4621,9 @@ impl Shr {
     }
 }
 
-impl Into<Node> for Shr {
-    fn into(self) -> Node {
-        Node::Shr(self)
+impl From<Shr> for Node {
+    fn from(node: Shr) -> Node {
+        Node::Shr(node)
     }
 }
 
@@ -4700,9 +4693,9 @@ impl Shrs {
     }
 }
 
-impl Into<Node> for Shrs {
-    fn into(self) -> Node {
-        Node::Shrs(self)
+impl From<Shrs> for Node {
+    fn from(node: Shrs) -> Node {
+        Node::Shrs(node)
     }
 }
 
@@ -4735,9 +4728,9 @@ impl Size {
     }
 }
 
-impl Into<Node> for Size {
-    fn into(self) -> Node {
-        Node::Size(self)
+impl From<Size> for Node {
+    fn from(node: Size) -> Node {
+        Node::Size(node)
     }
 }
 
@@ -4815,9 +4808,9 @@ impl Start {
     }
 }
 
-impl Into<Node> for Start {
-    fn into(self) -> Node {
-        Node::Start(self)
+impl From<Start> for Node {
+    fn from(node: Start) -> Node {
+        Node::Start(node)
     }
 }
 
@@ -4995,9 +4988,9 @@ impl Store {
     }
 }
 
-impl Into<Node> for Store {
-    fn into(self) -> Node {
-        Node::Store(self)
+impl From<Store> for Node {
+    fn from(node: Store) -> Node {
+        Node::Store(node)
     }
 }
 
@@ -5057,9 +5050,9 @@ impl Sub {
     }
 }
 
-impl Into<Node> for Sub {
-    fn into(self) -> Node {
-        Node::Sub(self)
+impl From<Sub> for Node {
+    fn from(node: Sub) -> Node {
+        Node::Sub(node)
     }
 }
 
@@ -5158,9 +5151,9 @@ impl Switch {
     }
 }
 
-impl Into<Node> for Switch {
-    fn into(self) -> Node {
-        Node::Switch(self)
+impl From<Switch> for Node {
+    fn from(node: Switch) -> Node {
+        Node::Switch(node)
     }
 }
 
@@ -5197,9 +5190,9 @@ impl Sync {
     }
 }
 
-impl Into<Node> for Sync {
-    fn into(self) -> Node {
-        Node::Sync(self)
+impl From<Sync> for Node {
+    fn from(node: Sync) -> Node {
+        Node::Sync(node)
     }
 }
 
@@ -5239,9 +5232,9 @@ impl Tuple {
     }
 }
 
-impl Into<Node> for Tuple {
-    fn into(self) -> Node {
-        Node::Tuple(self)
+impl From<Tuple> for Node {
+    fn from(node: Tuple) -> Node {
+        Node::Tuple(node)
     }
 }
 
@@ -5279,9 +5272,9 @@ impl Unknown {
     }
 }
 
-impl Into<Node> for Unknown {
-    fn into(self) -> Node {
-        Node::Unknown(self)
+impl From<Unknown> for Node {
+    fn from(node: Unknown) -> Node {
+        Node::Unknown(node)
     }
 }
 

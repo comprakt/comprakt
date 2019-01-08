@@ -89,6 +89,10 @@ impl Graph {
         unsafe { bindings::remove_bads(self.irg) }
     }
 
+    pub fn remove_unreachable_code(self) {
+        unsafe { bindings::remove_unreachable_code(self.irg) }
+    }
+
     /// Walks over all reachable nodes in the graph, ensuring that nodes inside
     /// a basic block are visited in topological order.
     ///

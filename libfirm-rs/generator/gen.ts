@@ -372,12 +372,8 @@ function generateNodeDebug() {
     w.indent(`fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {`);
     w.indent(`match self {`);
     for (const node of nodes) {
-        w.indent(`Node::${node.variantName}(node${node.isProj ? ", proj_kind" : ""}) => {`);
-        if (node.isProj) {
-            w.line(`write!(f, "{}: {:?}", node.debug_fmt().with(opts), proj_kind)`);
-        } else {
-            w.line(`write!(f, "{}", node.debug_fmt().with(opts))`);
-        }
+        w.indent(`Node::${node.variantName}(node${node.isProj ? ", _proj_kind" : ""}) => {`);
+        w.line(`write!(f, "{}", node.debug_fmt().with(opts))`);
         w.unindent(`},`);
     }
     w.unindent(`}`);
@@ -583,9 +579,9 @@ function generateNodeImpl(node: NodeImpl) {
 }
 
 function generateNodeInto(node: NodeImpl) {
-    w.indent(`impl Into<Node> for ${node.structName} {`);
-    w.indent(`fn into(self) -> Node {`);
-    w.line(`Node::${node.variantName}(self${node.isProj ? ", self.kind()" : ""})`);
+    w.indent(`impl From<${node.structName}> for Node {`);
+    w.indent(`fn from(node: ${node.structName}) -> Node {`);
+    w.line(`Node::${node.variantName}(node${node.isProj ? ", node.kind()" : ""})`);
     w.unindent(`}`);
     w.unindent("}");
     w.line();
@@ -601,7 +597,7 @@ function generateNodeTraitImpl(node: NodeImpl) {
 }
 
 function generateNodeDebugImpl(node: NodeImpl) {
-    if (["Address", "Call", "Const", "Load", "Store", "Member"].indexOf(node.name) === -1) {
+    if (["Address", "Call", "Const", "Load", "Store", "Member", "Proj"].indexOf(node.name) === -1) {
         w.indent(`impl NodeDebug for ${node.structName} {`);
         w.indent(`fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {`);
         w.line(`write!(f, "${node.name} {}", self.node_id())`);
