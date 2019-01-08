@@ -1,4 +1,7 @@
-use super::lir::*;
+use super::{
+    lir::{Allocator, *},
+    lir_allocator::Ptr,
+};
 use itertools::Itertools;
 use libfirm_rs::{
     nodes::{Node, NodeTrait, ProjKind},
@@ -7,8 +10,6 @@ use libfirm_rs::{
 };
 use std::collections::HashMap;
 use strum_macros::*;
-use super::lir_allocator::Ptr;
-use super::lir::Allocator;
 
 #[derive(Debug, Clone, EnumDiscriminants)]
 enum Computed {
@@ -56,8 +57,7 @@ impl GenInstrBlock {
 
             // "Input slots"
             for edge in block.preds.iter() {
-                edge
-                    .register_transitions
+                edge.register_transitions
                     .iter()
                     .enumerate()
                     .filter(|(_, (_, dst))| dst.num == num)
@@ -81,9 +81,7 @@ impl GenInstrBlock {
             }
 
             match &(**multislot) {
-                MultiSlot::Single(slot) => {
-                    self.comment(format_args!("\t=  {:?}", slot.firm))
-                }
+                MultiSlot::Single(slot) => self.comment(format_args!("\t=  {:?}", slot.firm)),
                 MultiSlot::Multi { ref slots, .. } => {
                     for slot in slots {
                         self.comment(format_args!("\t=  {:?}", slot.firm));
@@ -93,8 +91,7 @@ impl GenInstrBlock {
 
             // "Output slots"
             for edge in block.succs.iter() {
-                edge
-                    .register_transitions
+                edge.register_transitions
                     .iter()
                     .enumerate()
                     .filter(|(_, (src, _))| src.num() == num)
@@ -126,13 +123,7 @@ impl GenInstrBlock {
                     .dedup(),
             );
 
-            v.extend(
-                block
-                    .returns
-                    .as_option()
-                    .iter()
-                    .map(|r| Node::Return(*r)),
-            ); // Node::from missing
+            v.extend(block.returns.as_option().iter().map(|r| Node::Return(*r)));
             v
         };
 
@@ -161,13 +152,24 @@ impl GenInstrBlock {
         debug_assert!(did_overwrite.is_none(), "duplicate computed for {:?}", node);
     }
 
-    fn gen_value(&mut self, graph: &BlockGraph, block: Ptr<BasicBlock>, alloc: &Allocator, out_value: Node) {
+    fn gen_value(
+        &mut self,
+        graph: &BlockGraph,
+        block: Ptr<BasicBlock>,
+        alloc: &Allocator,
+        out_value: Node,
+    ) {
         out_value.walk_dfs_in_block(block.firm, &mut |n| {
             self.gen_value_walk_callback(graph, block, alloc, n)
         });
     }
 
-    fn gen_dst_slot(&mut self, block: Ptr<BasicBlock>, node: Node, alloc: &Allocator) -> Ptr<MultiSlot> {
+    fn gen_dst_slot(
+        &mut self,
+        block: Ptr<BasicBlock>,
+        node: Node,
+        alloc: &Allocator,
+    ) -> Ptr<MultiSlot> {
         let dst_slot = block.new_private_slot(node, alloc);
         self.mark_computed(node, Computed::Value(dst_slot));
         dst_slot

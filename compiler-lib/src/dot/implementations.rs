@@ -182,8 +182,7 @@ impl Dot<BasicBlock> for lir::Function {
         Self: Sized,
         T: LabelMaker<BasicBlock>,
     {
-        self.graph
-            .into_dot_format(writer, graph_name, label_maker)
+        self.graph.into_dot_format(writer, graph_name, label_maker)
     }
 }
 
@@ -210,9 +209,7 @@ impl Dot<BasicBlock> for lir::BlockGraph {
                     control_flow_transfer.register_transitions.len(),
                 );
 
-                for (source_slot, target_slot) in
-                    &control_flow_transfer.register_transitions
-                {
+                for (source_slot, target_slot) in &control_flow_transfer.register_transitions {
                     let source_num = source_slot.num();
                     let target_num = target_slot.num;
 
@@ -221,10 +218,7 @@ impl Dot<BasicBlock> for lir::BlockGraph {
                         " {block_out}:out{out_slot} -> {block_in}:in{in_slot} \
                          [color=\"{color_out};0.5:{color_in}\"];",
                         block_out = block.firm.node_id(),
-                        block_in = control_flow_transfer
-                            .target
-                            .firm
-                            .node_id(),
+                        block_in = control_flow_transfer.target.firm.node_id(),
                         out_slot = source_num,
                         in_slot = target_num,
                         color_out = Color::from(source_num),

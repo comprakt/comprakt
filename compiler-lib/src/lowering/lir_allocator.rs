@@ -1,5 +1,7 @@
-use std::ops::{Deref,DerefMut};
-use std::cell::RefCell;
+use std::{
+    cell::RefCell,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Debug)]
 pub struct Allocator<T> {
@@ -14,7 +16,7 @@ impl<T> Default for Allocator<T> {
     }
 }
 
-#[derive(Debug )]
+#[derive(Debug)]
 pub struct Ptr<T>(*mut T);
 
 impl<T> Clone for Ptr<T> {
@@ -40,9 +42,9 @@ impl<T> Deref for Ptr<T> {
     }
 }
 
-impl <T> DerefMut for Ptr<T> {
+impl<T> DerefMut for Ptr<T> {
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { &mut(*self.0) }
+        unsafe { &mut (*self.0) }
     }
 }
 
@@ -71,4 +73,3 @@ mod tests {
         assert_eq!(*ptr2, 42);
     }
 }
-

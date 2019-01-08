@@ -1,11 +1,10 @@
 //! Low level intermediate representation
 
-use super::gen_instr::GenInstrBlock;
-use crate::{
-    firm,
-    type_checking::type_system::CheckedType,
+use super::{
+    gen_instr::GenInstrBlock,
+    lir_allocator::{self, Ptr},
 };
-use super::lir_allocator::{self,Ptr};
+use crate::{firm, type_checking::type_system::CheckedType};
 
 use libfirm_rs::{
     nodes::{self, Node, NodeTrait},
@@ -17,7 +16,7 @@ use std::{
     marker::PhantomData,
 };
 
-#[derive(Debug,Default)]
+#[derive(Debug, Default)]
 pub(super) struct Allocator {
     graphs: lir_allocator::Allocator<BlockGraph>,
     blocks: lir_allocator::Allocator<BasicBlock>,
@@ -59,7 +58,10 @@ impl From<&firm::FirmProgram<'_, '_>> for LIR {
             functions.push(function);
         }
 
-        LIR { allocator, functions }
+        LIR {
+            allocator,
+            functions,
+        }
     }
 }
 
@@ -472,7 +474,8 @@ impl BlockGraph {
                 let mut target = BasicBlock::skeleton_block(&mut blocks, *firm_target, alloc);
 
                 for firm_source in firm_target.cfg_preds() {
-                    let mut source = BasicBlock::skeleton_block(&mut blocks, firm_source.block(), alloc);
+                    let mut source =
+                        BasicBlock::skeleton_block(&mut blocks, firm_source.block(), alloc);
 
                     let edge = alloc.transfer(ControlFlowTransfer {
                         register_transitions: Vec::new(),
@@ -488,17 +491,13 @@ impl BlockGraph {
             VisitTime::AfterPredecessors => (),
         });
 
-        let head =
-            *blocks
-                .get(&firm_graph.start_block())
-                .expect("All blocks (including start block) should have been generated")
-        ;
+        let head = *blocks
+            .get(&firm_graph.start_block())
+            .expect("All blocks (including start block) should have been generated");
 
-        let end_block = 
-            *blocks
-                .get(&firm_graph.end_block())
-                .expect("All blocks (including end block) should have been generated")
-        ;
+        let end_block = *blocks
+            .get(&firm_graph.end_block())
+            .expect("All blocks (including end block) should have been generated");
 
         let graph = alloc.graph(BlockGraph {
             firm: firm_graph,
@@ -530,12 +529,9 @@ impl BlockGraph {
 
     /// Iterate over all control flow transfers in `self` in a breadth-first
     /// manner
-    pub fn iter_control_flows<'g>(
-        &'g self,
-    ) -> impl Iterator<Item = Ptr<ControlFlowTransfer>> + 'g {
-        self.iter_blocks().flat_map(|block| {
-            block.succs.iter().map(|x| *x).collect::<Vec<_>>()
-        })
+    pub fn iter_control_flows<'g>(&'g self) -> impl Iterator<Item = Ptr<ControlFlowTransfer>> + 'g {
+        self.iter_blocks()
+            .flat_map(|block| block.succs.iter().map(|x| *x).collect::<Vec<_>>())
     }
 
     fn gen_instrs(&mut self, alloc: &Allocator) {
@@ -555,43 +551,41 @@ impl BlockGraph {
 
 impl BlockGraph {
     fn construct_flows(&mut self, alloc: &Allocator) {
-        self
-            .firm
-            .walk_blocks(|visit, firm_block| match visit {
-                VisitTime::BeforePredecessors => {
-                    log::debug!("VISIT {:?}", firm_block);
-                    let local_block = self.get_block(*firm_block);
+        self.firm.walk_blocks(|visit, firm_block| match visit {
+            VisitTime::BeforePredecessors => {
+                log::debug!("VISIT {:?}", firm_block);
+                let local_block = self.get_block(*firm_block);
 
-                    // Foreign values are the green points in yComp (inter-block edges)
-                    for node_in_block in firm_block.out_nodes() {
-                        match node_in_block {
-                            // The end node is only for keep alive edges, which we don't care about
-                            Node::End(_) => (),
+                // Foreign values are the green points in yComp (inter-block edges)
+                for node_in_block in firm_block.out_nodes() {
+                    match node_in_block {
+                        // The end node is only for keep alive edges, which we don't care about
+                        Node::End(_) => (),
 
-                            Node::Phi(_) => {
-                                local_block.new_terminating_slot(node_in_block, alloc);
-                            }
-
-                            _ => node_in_block
-                                .in_nodes()
-                                // Mem edges are uninteresting across blocks
-                                .filter(|value| value.mode() != Mode::M())
-                                // If this is a value produced by our block, there is no need to
-                                // transfer it from somewhere else
-                                .filter(|value| value.block() != *firm_block)
-                                // Foreign values that are not phi, flow in from each cfg pred
-                                // => values x cfg_preds
-                                .for_each(|value| {
-                                    // Do this here, because we don't want to move `local_block`
-                                    // into closure
-                                    local_block.new_terminating_slot(value, alloc);
-                                }),
+                        Node::Phi(_) => {
+                            local_block.new_terminating_slot(node_in_block, alloc);
                         }
+
+                        _ => node_in_block
+                            .in_nodes()
+                            // Mem edges are uninteresting across blocks
+                            .filter(|value| value.mode() != Mode::M())
+                            // If this is a value produced by our block, there is no need to
+                            // transfer it from somewhere else
+                            .filter(|value| value.block() != *firm_block)
+                            // Foreign values that are not phi, flow in from each cfg pred
+                            // => values x cfg_preds
+                            .for_each(|value| {
+                                // Do this here, because we don't want to move `local_block`
+                                // into closure
+                                local_block.new_terminating_slot(value, alloc);
+                            }),
                     }
                 }
+            }
 
-                VisitTime::AfterPredecessors => (),
-            });
+            VisitTime::AfterPredecessors => (),
+        });
 
         /* TODO Reenable: Like phi nodes, but without phi
         // Special case for return nodes, see BasicBlock.return comment
@@ -684,12 +678,7 @@ impl Ptr<ControlFlowTransfer> {
                 );
                 if let MultiSlot::Multi { slots, .. } = &**multislot {
                     for slot in slots.iter() {
-                        log::debug!(
-                            "\t\t\t {:?} := {:?} @ {:?}",
-                            slot.num,
-                            slot.firm,
-                            slot
-                        );
+                        log::debug!("\t\t\t {:?} := {:?} @ {:?}", slot.num, slot.firm, slot);
                     }
                 }
             }
@@ -712,9 +701,7 @@ impl Ptr<ControlFlowTransfer> {
             return;
         }
 
-        let source_slot = self
-            .source
-            .new_forwarding_slot(&target_slot, alloc);
+        let source_slot = self.source.new_forwarding_slot(&target_slot, alloc);
 
         log::debug!(
             "\tTRANS: from='{:?}' to='{:?}' value='{:?}'",
@@ -726,18 +713,14 @@ impl Ptr<ControlFlowTransfer> {
             MultiSlot::Single(slot) => assert_eq!(slot.firm, target_slot.firm),
             MultiSlot::Multi { phi, .. } if Node::Phi(*phi) == target_slot.firm => (),
             MultiSlot::Multi { slots, .. } => assert!(
-                slots
-                    .iter()
-                    .any(|slot| slot.firm == target_slot.firm),
+                slots.iter().any(|slot| slot.firm == target_slot.firm),
                 "{:?} does not contain slot with firm == {:?}",
                 slots.iter().map(|slot| slot.firm).collect(): Vec<_>,
                 target_slot.firm
             ),
         }
 
-        self.
-            register_transitions
-            .push((source_slot, target_slot));
+        self.register_transitions.push((source_slot, target_slot));
     }
 
     /// Do there exist multiple incoming flows for the target slot of `flow_idx`
@@ -745,13 +728,12 @@ impl Ptr<ControlFlowTransfer> {
     pub fn must_copy_in_source(self, flow_idx: usize) -> bool {
         let target_slot_num = self.register_transitions[flow_idx].1.num;
 
-        self
-            .target
+        self.target
             .preds
             .iter()
             .filter(|pred| !Ptr::ptr_eq(**pred, self))
             .any(|pred| {
-                    self.register_transitions
+                self.register_transitions
                     .iter()
                     .any(|(_, other_target_slot)| other_target_slot.num == target_slot_num)
             })
@@ -760,21 +742,16 @@ impl Ptr<ControlFlowTransfer> {
     /// Do there exist multiple outgoing flows for the source slot of `flow_idx`
     /// in the source block?
     pub fn must_copy_in_target(&self, flow_idx: usize) -> bool {
-        let source_slot_num = self.register_transitions[flow_idx]
-            .0
-            .num();
+        let source_slot_num = self.register_transitions[flow_idx].0.num();
 
         self.source
             .succs
             .iter()
             .filter(|succ| !Ptr::ptr_eq(**succ, *self))
             .any(|succ| {
-                succ
-                    .register_transitions
+                succ.register_transitions
                     .iter()
-                    .any(|(other_source_slot, _)| {
-                        other_source_slot.num() == source_slot_num
-                    })
+                    .any(|(other_source_slot, _)| other_source_slot.num() == source_slot_num)
             })
     }
 }
@@ -785,7 +762,11 @@ impl Ptr<BasicBlock> {
     }
 
     #[allow(dead_code)]
-    fn new_terminating_multislot_from_phi(self, phi: nodes::Phi, alloc: &Allocator) -> Ptr<MultiSlot> {
+    fn new_terminating_multislot_from_phi(
+        self,
+        phi: nodes::Phi,
+        alloc: &Allocator,
+    ) -> Ptr<MultiSlot> {
         self.new_multislot_from_phi(phi, self, alloc)
     }
 
@@ -804,13 +785,7 @@ impl Ptr<BasicBlock> {
             // The next two 'maps' need to be seperated in two closures
             // because we wan't to selectively `move` `value` and
             // `multislot` into the closure, but take `self` by reference
-            .map(|(cfg_pred, value)| {
-                (
-                    cfg_pred,
-                    value,
-                    self.graph.get_block(value.block()),
-                )
-            })
+            .map(|(cfg_pred, value)| (cfg_pred, value, self.graph.get_block(value.block())))
             .map(|(cfg_pred, value, original_block)| {
                 (
                     cfg_pred,
@@ -818,8 +793,7 @@ impl Ptr<BasicBlock> {
                 )
             })
             .for_each(|(cfg_pred, value_slot)| {
-                self
-                    .find_incoming_edge_from(cfg_pred)
+                self.find_incoming_edge_from(cfg_pred)
                     .unwrap()
                     .add_incoming_value_flow(value_slot, alloc);
             });
@@ -886,12 +860,10 @@ impl Ptr<BasicBlock> {
                     // assumption holds, but BE AWARE OF THIS when refactoring.
                     let originates_here = Node::is_const(slot.firm)
                         || Node::is_address(slot.firm)
-                        || slot.allocated_in.firm
-                            == slot.originates_in.firm;
+                        || slot.allocated_in.firm == slot.originates_in.firm;
                     if !originates_here {
                         for incoming_edge in &self.preds {
-                            incoming_edge
-                                .add_incoming_value_flow(slot, alloc);
+                            incoming_edge.add_incoming_value_flow(slot, alloc);
                         }
                     }
 
@@ -905,11 +877,19 @@ impl Ptr<BasicBlock> {
         self.new_slot(target_slot.firm, target_slot.terminates_in, alloc)
     }
 
-    fn new_terminating_slot(self, value: libfirm_rs::nodes::Node, alloc: &Allocator) -> Ptr<MultiSlot> {
+    fn new_terminating_slot(
+        self,
+        value: libfirm_rs::nodes::Node,
+        alloc: &Allocator,
+    ) -> Ptr<MultiSlot> {
         self.new_slot(value, self, alloc)
     }
 
-    pub(super) fn new_private_slot(self, value: libfirm_rs::nodes::Node, alloc: &Allocator) -> Ptr<MultiSlot> {
+    pub(super) fn new_private_slot(
+        self,
+        value: libfirm_rs::nodes::Node,
+        alloc: &Allocator,
+    ) -> Ptr<MultiSlot> {
         assert_eq!(value.block(), self.firm);
         self.new_slot(value, self, alloc)
     }

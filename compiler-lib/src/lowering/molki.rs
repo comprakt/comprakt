@@ -1,8 +1,8 @@
 #![allow(clippy::new_without_default_derive)]
-use crate::{lowering::lir};
+use super::lir_allocator::Ptr;
+use crate::lowering::lir;
 use libfirm_rs::Tarval;
 use std::{collections::HashMap, io};
-use super::lir_allocator::Ptr;
 
 type Label = String;
 
@@ -500,15 +500,11 @@ impl From<lir::LIR> for Program {
                 .flat_map(|b| {
                     // FIXME: EndBlock has `regs: [[]]`
                     // log::debug!("{:#?}", b.borrow());
-                    b
-                        .regs
+                    b.regs
                         .iter()
                         .map(|multi_slot| match &(**multi_slot) {
                             lir::MultiSlot::Multi { slots, .. } if slots.is_empty() => None,
-                            _ => Some((
-                                multi_slot.allocated_in().num,
-                                multi_slot.num(),
-                            )),
+                            _ => Some((multi_slot.allocated_in().num, multi_slot.num())),
                         })
                         .collect::<Vec<_>>()
                 })
@@ -535,13 +531,8 @@ impl From<lir::LIR> for Program {
                                 Reg::from(cp.src, &slot_reg_map).into_operand(),
                             ),
                             dst: MoveOperand::Operand(
-                                Reg::from(
-                                    cp.dst.allocated_in.regs
-                                        [cp.dst.num]
-                                        ,
-                                    &slot_reg_map,
-                                )
-                                .into_operand(),
+                                Reg::from(cp.dst.allocated_in.regs[cp.dst.num], &slot_reg_map)
+                                    .into_operand(),
                             ),
                         })
                         .collect(),
@@ -563,13 +554,8 @@ impl From<lir::LIR> for Program {
                                 Reg::from(cp.src, &slot_reg_map).into_operand(),
                             ),
                             dst: MoveOperand::Operand(
-                                Reg::from(
-                                    cp.dst.allocated_in.regs
-                                        [cp.dst.num]
-                                        ,
-                                    &slot_reg_map,
-                                )
-                                .into_operand(),
+                                Reg::from(cp.dst.allocated_in.regs[cp.dst.num], &slot_reg_map)
+                                    .into_operand(),
                             ),
                         })
                         .collect(),
