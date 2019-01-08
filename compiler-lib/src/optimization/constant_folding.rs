@@ -157,7 +157,8 @@ impl ConstantFolding {
         self.cur_node = None;
     }
 
-    // for debugging purposes
+    // for debugging purposes. Code will be removed/improved later.
+    /*
     fn dump_dot(&mut self) -> String {
         self.graph.into_dot_format_string("test", &|node: &Node| {
             let mut label = default_label(node);
@@ -180,6 +181,7 @@ impl ConstantFolding {
             label
         })
     }
+    */
 
     fn update_node(&mut self, cur_node: Node, cur_lattice: CfLattice) -> CfLattice {
         breakpoint!("Constant Folding: iteration", self.graph, &|node: &Node| {
