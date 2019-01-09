@@ -7,11 +7,13 @@ use super::{
 use crate::{firm, type_checking::type_system::CheckedType};
 
 use libfirm_rs::{
+    bindings,
     nodes::{self, Node, NodeTrait},
     Mode, Tarval, VisitTime,
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    convert::TryFrom,
     fmt::Display,
     marker::PhantomData,
 };
@@ -260,14 +262,45 @@ pub enum Stride {
     Eight,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum CondOp {
+    Equals,
+    NotEquals,
+    LessThan,
+    GreaterThan,
+    LessEquals,
+    GreaterEquals,
+    /* Zero
+     * Nonzero
+     * Negative
+     * Nonnegative */
+}
+
+impl TryFrom<bindings::ir_relation::Type> for CondOp {
+    type Error = bindings::ir_relation::Type;
+    fn try_from(r: bindings::ir_relation::Type) -> Result<Self, Self::Error> {
+        let ok = match r {
+            bindings::ir_relation::Equal => CondOp::Equals,
+            bindings::ir_relation::LessGreater => CondOp::NotEquals,
+            bindings::ir_relation::Less => CondOp::LessThan,
+            bindings::ir_relation::Greater => CondOp::GreaterThan,
+            bindings::ir_relation::LessEqual => CondOp::LessEquals,
+            bindings::ir_relation::GreaterEqual => CondOp::GreaterEquals,
+            x => return Err(x),
+        };
+        Ok(ok)
+    }
+}
+
 /// Instructions that are at the end of a basic block.
 #[derive(Debug, Clone)]
 pub enum Leave {
     CondJmp {
+        op: CondOp,
         lhs: Operand,
-        lhs_target: Ptr<BasicBlock>,
         rhs: Operand,
-        rhs_target: Ptr<BasicBlock>,
+        true_target: Ptr<BasicBlock>,
+        false_target: Ptr<BasicBlock>,
     },
     Jmp {
         target: Ptr<BasicBlock>,

@@ -107,9 +107,15 @@ pub enum Instr {
     },
     Jmp {
         target: Label,
-        cond: Cond,
+        kind: JmpKind,
     },
     Comment(String),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum JmpKind {
+    Unconditional,
+    Conditional(lir::CondOp),
 }
 
 #[derive(Debug, Clone)]
@@ -326,11 +332,16 @@ impl Instr {
                 }
                 Ok(())
             }
-            Jmp { target, cond } => {
-                use self::Cond::*;
-                let instr = match cond {
-                    True => "jmp",
-                    LessEqual => "jle",
+            Jmp { target, kind } => {
+                use self::{lir::CondOp::*, JmpKind::*};
+                let instr = match kind {
+                    Unconditional => "jmp",
+                    Conditional(Equals) => "je",
+                    Conditional(NotEquals) => "jne",
+                    Conditional(LessThan) => "jl",
+                    Conditional(LessEquals) => "jle",
+                    Conditional(GreaterThan) => "jg",
+                    Conditional(GreaterEquals) => "jge",
                 };
                 write!(out, "{} {}", instr, target)
             }
@@ -451,27 +462,28 @@ fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) ->
     use super::lir::Leave::*;
     match leave {
         CondJmp {
+            op,
             lhs,
-            lhs_target,
             rhs,
-            rhs_target,
+            true_target,
+            false_target,
         } => vec![
             Instr::Cmpq {
                 lhs: Operand::from(*lhs, slot_reg_map),
                 rhs: Operand::from(*rhs, slot_reg_map),
             },
             Instr::Jmp {
-                target: gen_label(lhs_target),
-                cond: Cond::LessEqual,
+                target: gen_label(true_target),
+                kind: JmpKind::Conditional(*op),
             },
             Instr::Jmp {
-                target: gen_label(rhs_target),
-                cond: Cond::True,
+                target: gen_label(false_target),
+                kind: JmpKind::Unconditional,
             },
         ],
         Jmp { target } => vec![Instr::Jmp {
             target: gen_label(target),
-            cond: Cond::True,
+            kind: JmpKind::Unconditional,
         }],
         Return { value, end_block } => {
             let mut ret = vec![];
@@ -483,7 +495,7 @@ fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) ->
             }
             ret.push(Instr::Jmp {
                 target: gen_label(end_block),
-                cond: Cond::True,
+                kind: JmpKind::Unconditional,
             });
             ret
         }

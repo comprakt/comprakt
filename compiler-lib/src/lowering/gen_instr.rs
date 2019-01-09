@@ -8,7 +8,7 @@ use libfirm_rs::{
     types::{Ty, TyTrait},
     Entity,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::TryInto};
 use strum_macros::*;
 
 #[derive(Debug, Clone, EnumDiscriminants)]
@@ -130,6 +130,15 @@ impl GenInstrBlock {
                 .collect::<Vec<_>>();
             log::debug!("block {:?} return nodes: {:?}", block.firm, return_nodes);
             v.extend(return_nodes);
+
+            let cond_nodes = block
+                .firm
+                .out_nodes()
+                .filter(|n| Node::is_cond(*n))
+                .collect::<Vec<_>>();
+            log::debug!("block {:?} cond nodes: {:?}", block.firm, cond_nodes);
+            v.extend(cond_nodes);
+
             v
         };
 
@@ -297,6 +306,49 @@ impl GenInstrBlock {
                     self.mark_computed(node, pred_slot);
                 }
             }
+
+            // Cmp and Cond are handled together
+            Node::Cmp(cmp) => {
+                let succs = cmp.out_nodes().collect::<Vec<_>>();
+                assert_eq!(1, succs.len());
+                match succs[0] {
+                    Node::Cond(_) => (),
+                    x => panic!(
+                        "{:?} expected to be followed by Cond node, but got {:?}",
+                        cmp, x
+                    ),
+                }
+            }
+            Node::Cond(cond) => {
+                let preds = cond.in_nodes().collect::<Vec<_>>();
+                assert_eq!(1, preds.len());
+                let cmp = match preds[0] {
+                    Node::Cmp(cmp) => cmp,
+                    x => panic!(
+                        "{:?} expected to be preceded by Cmp node, but got {:?}",
+                        cond, x
+                    ),
+                };
+                let op: CondOp = cmp.relation().try_into().unwrap();
+                let lhs = self.gen_operand_jit(cmp.left());
+                let rhs = self.gen_operand_jit(cmp.right());
+                macro_rules! cond_target {
+                    ($branch:expr) => {{
+                        let (_, block) = cond.out_proj_target_block($branch).unwrap();
+                        graph.get_block(block)
+                    }};
+                }
+                let true_target = cond_target!(true);
+                let false_target = cond_target!(false);
+                self.code.leave.push(Leave::CondJmp {
+                    op,
+                    lhs,
+                    rhs,
+                    true_target,
+                    false_target,
+                });
+            }
+
             Node::Call(call) => {
                 log::debug!("call={:?}", call);
                 let func: Entity = match call.ptr() {
