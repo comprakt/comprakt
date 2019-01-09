@@ -1,5 +1,5 @@
 //! Replaces chains of blocks that only contain a jump with a single
-//! jump.
+//! jump. That's more like a control flow optimization than jump threading.
 //!
 //! "Compilers have been implementing Jump Threading for a long time, and
 //! little scientific attention has been devoted to it because it is a
@@ -47,13 +47,16 @@
 use super::Outcome;
 use crate::{dot::*, optimization};
 use libfirm_rs::{
-    nodes::{Node, NodeTrait, ProjKind},
+    nodes::{self, Node, NodeTrait, ProjKind},
     Graph,
 };
-use std::collections::HashSet;
+use std::collections::{VecDeque, HashSet};
 
 pub struct JumpThreading {
     graph: Graph,
+    worklist: VecDeque<Node>,
+    visited: HashSet<Node>,
+    num_eliminated: u32
 }
 
 impl optimization::Local for JumpThreading {
@@ -65,28 +68,37 @@ impl optimization::Local for JumpThreading {
 impl JumpThreading {
     fn new(graph: Graph) -> Self {
         graph.assure_outs();
-        Self { graph }
+        Self { graph ,
+            worklist: VecDeque::new(),
+            visited: HashSet::new(),
+            num_eliminated: 0
+        }
     }
 
     fn run(&mut self) -> Outcome {
-        let mut worklist = vec![Node::Block(self.graph.end_block())];
-        let mut visited = HashSet::new();
-        let mut num_eliminated = 0;
+        self.worklist.push_back(Node::Block(self.graph.end_block()));
 
-        while let Some(current) = worklist.pop() {
-            if visited.contains(&current) {
-                breakpoint!("Jump Threading: break", self.graph, &|node: &Node| {
-                    let mut label = default_label(node);
+        while let Some(current) = self.worklist.pop_front() {
+            if self.visited.contains(&current) {
+                breakpoint!(
+                    &format!(
+                        "Jump Threading: stopping recursion on second visit of {:?}",
+                        current
+                    ),
+                    self.graph,
+                    &|node: &Node| {
+                        let mut label = default_label(node);
 
-                    if node == &current {
-                        label = label
-                            .style(Style::Filled)
-                            .fillcolor(X11Color::Yellow)
-                            .fontcolor(X11Color::White);
+                        if node == &current {
+                            label = label
+                                .style(Style::Filled)
+                                .fillcolor(X11Color::Yellow)
+                                .fontcolor(X11Color::White);
+                        }
+
+                        label
                     }
-
-                    label
-                });
+                );
                 continue;
             }
 
@@ -103,275 +115,167 @@ impl JumpThreading {
                 label
             });
 
-            match current {
-                Node::Jmp(jmp) => {
-                    // In theory, we have to recompute the outs after each
-                    // rewiring. But given the access pattern in the code
-                    // below, recomputing once per iteration is sufficient.
-                    //
-                    // Note that this is necessary for the correctness of
-                    // - block.out_nodes()
-                    // - jmp.out_target_block()
-                    self.graph.assure_outs();
-
-                    breakpoint!("Jump Threading: is jump!", self.graph, &|node: &Node| {
-                        let mut label = default_label(node);
-
-                        if node == &current {
-                            label = label
-                                .style(Style::Filled)
-                                .fillcolor(X11Color::Pink)
-                                .fontcolor(X11Color::White);
-                        }
-
-                        label
-                    });
-
-                    let block = current.block();
-                    let block_node = Node::Block(block);
-
-                    if block.out_nodes().len() == 1 {
-                        // the block contains only a single node,
-                        // which we know is the Jmp Node, so the block
-                        // can be removed
-                        breakpoint!("Block can be removed!", self.graph, &|node: &Node| {
-                            let mut label = default_label(node);
-
-                            if node == &current || node == &block_node {
-                                label = label
-                                    .style(Style::Filled)
-                                    .fillcolor(X11Color::Orange)
-                                    .fontcolor(X11Color::White);
-                            }
-
-                            label
-                        });
-                    }
-
-                    if let Some(target_block) = jmp.out_target_block() {
-                        let mut new_inputs = target_block
-                            .in_nodes()
-                            .filter(|pred| {
-                                // remove the unecessary jump from the input edges of the target
-                                // block
-                                pred != &Node::Jmp(jmp)
-                            })
-                            .collect::<Vec<_>>();
-
-                        // we can only deal with some predecessors, only change
-                        // the graph when we know how to deal with every predecessor
-                        if block.cfg_preds().all(|node| match node {
-                            Node::Jmp(_) | Node::Proj(_, _) => true,
-                            unsupported => {
-                                log::debug!(
-                                    "skipping jump threading opportunity \
-                                     because of unsupported predecessor variant {:?}",
-                                    unsupported
-                                );
-                                false
-                            }
-                        }) {
-                            // rewire the block and add its children to
-                            // the list of nodes that should be visited
-                            for node in block.cfg_preds() {
-                                match node {
-                                    Node::Jmp(pred_jmp) => {
-                                        log::debug!(
-                                            "Rewiring {:?} to directly point to {:?}",
-                                            pred_jmp,
-                                            target_block
-                                        );
-
-                                        new_inputs.push(node);
-                                        target_block.set_in_nodes(&new_inputs);
-
-                                        breakpoint!(
-                                            &format!(
-                                                "Rewiring {:?} to directly point to {:?}",
-                                                pred_jmp, target_block
-                                            ),
-                                            self.graph,
-                                            &|rendered: &Node| {
-                                                let mut label = default_label(rendered);
-
-                                                if rendered == &node
-                                                    || rendered == &Node::Block(target_block)
-                                                {
-                                                    label = label
-                                                        .style(Style::Filled)
-                                                        .fillcolor(X11Color::Brown)
-                                                        .fontcolor(X11Color::White);
-                                                }
-
-                                                label
-                                            }
-                                        );
-                                    }
-                                    Node::Proj(proj, _kind) => {
-                                        log::debug!(
-                                            "Rewiring {:?} to directly point to {:?}",
-                                            proj,
-                                            target_block
-                                        );
-
-                                        new_inputs.push(node);
-                                        target_block.set_in_nodes(&new_inputs);
-
-                                        breakpoint!(
-                                            &format!(
-                                                "Rewiring {:?} to directly point to {:?}",
-                                                proj, target_block
-                                            ),
-                                            self.graph,
-                                            &|rendered: &Node| {
-                                                let mut label = default_label(rendered);
-
-                                                if rendered == &node
-                                                    || rendered == &Node::Block(target_block)
-                                                {
-                                                    label = label
-                                                        .style(Style::Filled)
-                                                        .fillcolor(X11Color::Brown)
-                                                        .fontcolor(X11Color::White);
-                                                }
-
-                                                label
-                                            }
-                                        );
-                                    }
-                                    _ => unreachable!(),
-                                }
-
-                                worklist.push(node);
-                            }
-
-                            // mark the block as bad, it will be removed
-                            // with all nodes it dominates (which is only the
-                            // currently observed, unnecessary jmp)
-                            // TODO: Is this necessary?
-                            self.graph.mark_as_bad(block_node);
-                            self.graph.remove_bads();
-                            num_eliminated += 1;
-                        } else {
-                            // queueing the Jmp node failed because of an unknown predecessor,
-                            // treat it like all other nodes
-                            worklist.push(Node::Block(current.block()));
-                        }
-                    } else {
-                        log::debug!("ignoring reducable jump without a target block");
-                    }
-                }
-                Node::Proj(_proj, ProjKind::Cond_Val(arm, cond)) => {
-                    self.graph.assure_outs();
-                    match (
-                        cond.out_proj_target_block(arm),
-                        cond.out_proj_target_block(!arm),
-                    ) {
-                        (
-                            Some((self_proj, target_block)),
-                            Some((other_proj, other_target_block)),
-                        ) => {
-                            if target_block == other_target_block {
-                                // we now know, that the conditional jump is useless
-                                // as both paths (true and false) target the same block,
-                                // remove it!
-                                let cond_block = cond.block();
-                                let new_jmp = Node::Jmp(cond_block.new_jmp());
-
-                                let mut new_inputs = target_block.in_nodes().collect::<Vec<_>>();
-                                new_inputs.push(new_jmp);
-                                target_block.set_in_nodes(&new_inputs);
-
-                                breakpoint!(
-                                    &format!("Adding {:?} around unnecessary {:?}", new_jmp, cond),
-                                    self.graph,
-                                    &|rendered: &Node| {
-                                        let mut label = default_label(rendered);
-
-                                        match rendered {
-                                            Node::Cond(some_cond) if some_cond == &cond => {
-                                                label = label
-                                                    .style(Style::Filled)
-                                                    .fillcolor(X11Color::Orange)
-                                                    .fontcolor(X11Color::White);
-                                            }
-                                            Node::Proj(proj, _)
-                                                if proj == &self_proj || proj == &other_proj =>
-                                            {
-                                                label = label
-                                                    .style(Style::Filled)
-                                                    .fillcolor(X11Color::Orange)
-                                                    .fontcolor(X11Color::White);
-                                            }
-                                            jmp if jmp == &new_jmp => {
-                                                label = label
-                                                    .style(Style::Filled)
-                                                    .fillcolor(X11Color::Red)
-                                                    .fontcolor(X11Color::White);
-                                            }
-                                            _ => {}
-                                        }
-
-                                        label
-                                    }
-                                );
-
-                                // remove the elements that are marked as bad from the work list,
-                                // queue the inserted jump instead
-                                worklist = worklist
-                                    .into_iter()
-                                    .filter(|node| {
-                                        if node != &Node::Cond(cond) {
-                                            return false;
-                                        }
-
-                                        match node {
-                                            Node::Proj(proj, _)
-                                                if proj == &self_proj || proj == &other_proj =>
-                                            {
-                                                false
-                                            }
-                                            _ => true,
-                                        }
-                                    })
-                                    .collect();
-
-                                // mark the cond as bad, it will be removed
-                                // with all nodes it dominates (which is exactly the
-                                // cond + both CondVal projections)
-                                self.graph.mark_as_bad(cond);
-                                self.graph.remove_bads();
-                                num_eliminated += 1;
-
-                                worklist.push(new_jmp);
-                            }
-                        }
-
-                        _ => {
-                            log::debug!("skipping incomplete conditional structure");
-                        }
-                    }
-                }
-                Node::Block(block) => {
-                    // add all nodes that jump to the current block
-                    // to the work list
-                    worklist.extend(block.cfg_preds());
-                }
-                _ => {
-                    // we don't care about this node, walk over it,
-                    // maybe the next block is a block with a single
-                    // jump.
-                    worklist.push(Node::Block(current.block()));
-                }
-            }
-
-            visited.insert(current);
+            self.visit_node(current);
+            self.visited.insert(current);
         }
 
-        if num_eliminated > 0 {
+        if self.num_eliminated > 0 {
             Outcome::Changed
         } else {
             Outcome::Unchanged
         }
     }
+
+    fn visit_node(&mut self, current: Node) {
+        match current {
+            Node::Block(block) => {
+                // we are only interested in nodes that can jump from a basic block to another basic
+                // block. More specifically: Projs of a Cond and Jmps.
+                self.worklist.extend(block.cfg_preds());
+            }
+            Node::Proj(..) => {
+                self.visit_proj(current);
+            }
+            _ => {
+                // we are only interested in nodes that can jump from a basic block to another basic
+                // block, skip all contents of the current block, go directly to the block node
+                self.worklist.push_back(Node::Block(current.block()));
+            }
+        }
+    }
+
+    /// Try to replace an unnecessary conditional jump with an
+    /// unconditional jump. A conditional jump is unnecessary if:
+    ///
+    /// (1) true projection and false projection jump to the same
+    ///     target block [using input array element `i` and `j`].
+    /// (2) For all phi nodes in the target block, the `i`-th and `j`-th
+    ///     value have to be identical
+    /// (3) The true and false projection have to be the successors
+    ///     of the same cond node. This is guaranteed in our implementation
+    ///     since we do not use switch nodes.
+    ///
+    ///
+    /// This is a sketch of the structure we are trying to match:
+    ///
+    /// ```
+    ///     Predecessor Block
+    ///      |           |
+    ///     Cond       Other Nodes are
+    ///    /    \      possible/allowed
+    /// Proj   Proj
+    /// True   False 
+    ///   |     |
+    /// in[i]   in[j]
+    ///   |     |
+    /// Current Block --- Other Nodes are possible/allowed
+    ///  |      |
+    ///  Phi 0  Phi N # forall phi in Current Block: phi[i] == phi[j]
+    /// ```
+    ///
+    /// To replace a conditional jump with an unconditional jump, we:
+    ///
+    /// (1) Reuse the `i`-th element of the input array and phi nodes
+    ///     for the jump node. There is no need to adapt the phi nodes
+    ///     since the value at `i` is still correct.
+    /// (2) Remove index `j` from the input array and all phi nodes.
+    ///     Since `j` is not guranteed to be the last input element,
+    ///     this means we might have to "compact" the arrays by moving
+    ///     indices `x > j` to `x - 1`.
+    fn visit_proj(&mut self, current: Node) {
+        if let Some(unnecessary_cond) = self.match_unnecessary_cond(current) {
+        } else {
+            // we are only interested in nodes that can jump from a basic block to another basic
+            // block, skip all contents of the current block, go directly to the block node
+            self.worklist.push_back(Node::Block(current.block()));
+        }
+    }
+    
+    fn match_unnecessary_cond(&mut self, current: Node) -> Option<UnnecessaryCond> {
+        let (arm, cond) = if let Node::Proj(_proj, ProjKind::Cond_Val(arm, cond)) = current {
+            (arm, cond)
+        } else {
+            log::debug!("skipping {:?} which is not a projection of a conditional", current);
+             return None;
+        };
+
+        self.graph.assure_outs();
+
+        let (self_proj, target_block) = if let Some(out) = cond.out_proj_target_block(arm) {
+            out
+        } else {
+            log::debug!("skipping {:?} with missing target for '{}' proj", cond, arm);
+             return None;
+        };
+
+        let (other_proj, other_target_block) = if let Some(out) = cond.out_proj_target_block(!arm) {
+            out
+        } else {
+            log::debug!("skipping {:?} with missing target for '{}' proj", cond, !arm);
+             return None;
+        };
+
+        if target_block != other_target_block {
+            log::debug!("skipping {:?} with projections {:?} and {:?} since they have different target blocks ({:?}, resp. {:?})", cond, self_proj, other_proj, target_block, other_target_block);
+             return None;
+        }
+
+        let index_self_proj = target_block.in_nodes().position(|node| node == current).unwrap();
+        let index_other_proj = target_block.in_nodes().position(|node| match node {
+                                                                    Node::Proj(proj_node, _) =>  proj_node == other_proj,
+                                                                    _ => false
+                                                                }).unwrap();
+
+        for phi in target_block.phis() {
+            let phi_preds = phi.phi_preds().collect::<Vec<_>>();
+            if phi_preds[index_self_proj] != phi_preds[index_other_proj] {
+                log::debug!("skipping {:?} since {:?} has different definitions for path through {:?} (definition at {:?}) and path through {:?} (definition at {:?})", cond, phi, self_proj, phi_preds[index_self_proj], other_proj, phi_preds[index_other_proj]);
+                 return None;
+            }
+        }
+
+        breakpoint!(&format!("Jump Threading: detected unnecessary cond {:?}", cond), self.graph, &|rendered: &Node| {
+            let mut label = default_label(rendered);
+
+            match rendered {
+                Node::Cond(some_cond) if some_cond == &cond => {
+                    label = label
+                        .style(Style::Filled)
+                        .fillcolor(X11Color::Orange)
+                        .fontcolor(X11Color::White);
+                }
+                Node::Proj(proj, _)
+                    if proj == &self_proj || proj == &other_proj =>
+                {
+                    label = label
+                        .style(Style::Filled)
+                        .fillcolor(X11Color::Orange)
+                        .fontcolor(X11Color::White);
+                }
+                Node::Block(block) if block == &target_block => {
+                    label = label
+                        .style(Style::Filled)
+                        .fillcolor(X11Color::Pink)
+                        .fontcolor(X11Color::White);
+                }
+                _ => {}
+            }
+
+            label
+        });
+
+        Some(UnnecessaryCond {
+            proj_current: self_proj,
+            proj_other: other_proj,
+            cond,
+            target_block
+        })
+    }
+}
+
+struct UnnecessaryCond {
+    cond: nodes::Cond,
+    proj_current: nodes::Proj,
+    proj_other: nodes::Proj,
+    target_block: nodes::Block,
 }
