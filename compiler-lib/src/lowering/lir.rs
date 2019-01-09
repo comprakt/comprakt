@@ -804,7 +804,6 @@ impl Ptr<BasicBlock> {
         value: libfirm_rs::nodes::Node,
         alloc: &Allocator,
     ) -> Ptr<MultiSlot> {
-        assert_eq!(value.block(), self.firm);
         self.new_slot(value, self, alloc)
     }
 }
