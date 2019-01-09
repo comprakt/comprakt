@@ -173,17 +173,32 @@ impl JumpThreading {
     ///  Phi 0  Phi N # forall phi in Current Block: phi[i] == phi[j]
     /// ```
     ///
-    /// To replace a conditional jump with an unconditional jump, we:
-    ///
-    /// (1) Reuse the `i`-th element of the input array and phi nodes
-    ///     for the jump node. There is no need to adapt the phi nodes
-    ///     since the value at `i` is still correct.
-    /// (2) Remove index `j` from the input array and all phi nodes.
-    ///     Since `j` is not guranteed to be the last input element,
-    ///     this means we might have to "compact" the arrays by moving
-    ///     indices `x > j` to `x - 1`.
     fn visit_proj(&mut self, current: Node) {
         if let Some(unnecessary_cond) = self.match_unnecessary_cond(current) {
+            // To replace a conditional jump with an unconditional jump, we:
+            //
+            // (1) Reuse the `i`-th element of the input array and phi nodes
+            //     for the jump node. There is no need to adapt the phi nodes
+            //     since the value at `i` is still correct.
+            // (2) Remove index `j` from the input array and all phi nodes.
+            //     (Since `j` is not guranteed to be the last input element,
+            //     this means we have to "compact" the arrays by moving
+            //     indices `x > j` to `x - 1`, but thats done by the vector
+            //     implementation for us.)
+            let jmp = unnecessary_cond.cond.block().new_jmp();
+            let target_block_preds = unnecessary_cond.target_block.in_nodes();
+            target_block_preds[unnecessary_cond.proj_current.0] = jmp;
+
+            // remove index of second projection, called step (2) above
+            let idx = unnecessary_cond.proj_other.0;
+            for phi in target_block.phis() {
+                let phi_preds = phi.phi_preds().collect::<Vec<_>>();
+                phi_preds.remove(idx);
+                phi.set_in_nodes(&phi_preds);
+            }
+
+            target_block_preds.remove(idx);
+            unnecessary_cond.target_block.set_in_nodes(&target_block_preds);
         } else {
             // we are only interested in nodes that can jump from a basic block to another basic
             // block, skip all contents of the current block, go directly to the block node
@@ -265,8 +280,8 @@ impl JumpThreading {
         });
 
         Some(UnnecessaryCond {
-            proj_current: self_proj,
-            proj_other: other_proj,
+            proj_current: (index_self_proj, self_proj),
+            proj_other: (index_other_proj, other_proj),
             cond,
             target_block
         })
@@ -275,7 +290,7 @@ impl JumpThreading {
 
 struct UnnecessaryCond {
     cond: nodes::Cond,
-    proj_current: nodes::Proj,
-    proj_other: nodes::Proj,
+    proj_current: (usize, nodes::Proj),
+    proj_other: (usize, nodes::Proj),
     target_block: nodes::Block,
 }
