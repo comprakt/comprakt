@@ -54,6 +54,45 @@ macro_rules! simple_node_iterator {
     };
 }
 
+macro_rules! linked_list_iterator {
+    ($iter_name: ident, $item: ident, $head_fn: ident, $next_fn: ident) => {
+        pub struct $iter_name {
+            cur: Option<$item>,
+        }
+
+        impl $iter_name {
+            fn new(node: *mut bindings::ir_node) -> Self {
+                Self {
+                    cur: $iter_name::raw_to_option(unsafe { bindings::$head_fn(node) }),
+                }
+            }
+
+            fn raw_to_option(raw: *mut bindings::ir_node) -> Option<$item> {
+                if raw == std::ptr::null_mut() {
+                    None
+                } else {
+                    Some($item::new(raw))
+                }
+            }
+        }
+
+        impl Iterator for $iter_name {
+            type Item = $item;
+
+            fn next(&mut self) -> Option<$item> {
+                let out = self.cur;
+
+                if let Some(node) = self.cur {
+                    self.cur = $iter_name::raw_to_option(unsafe {
+                        bindings::$next_fn(node.internal_ir_node())
+                    });
+                }
+                out
+            }
+        }
+    };
+}
+
 /// A trait to abstract from Node enum and various *-Node structs.
 pub trait NodeTrait {
     fn internal_ir_node(&self) -> *mut bindings::ir_node;
@@ -77,6 +116,10 @@ pub trait NodeTrait {
 
     fn out_nodes(&self) -> OutNodeIterator {
         OutNodeIterator::new(self.internal_ir_node())
+    }
+
+    fn phis(&self) -> PhisOfBlockIterator {
+        PhisOfBlockIterator::new(self.internal_ir_node())
     }
 
     fn all_out_projs(&self) -> Vec<Proj> {
@@ -124,6 +167,8 @@ simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
 
 // TODO: should we use dynamic reverse edges instead of reverse
 simple_node_iterator!(OutNodeIterator, get_irn_n_outs, get_irn_out, u32);
+
+linked_list_iterator!(PhisOfBlockIterator, Phi, get_Block_phis, get_Phi_next);
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Node {
