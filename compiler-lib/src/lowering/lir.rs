@@ -733,7 +733,7 @@ impl Ptr<ControlFlowTransfer> {
             .iter()
             .filter(|pred| !Ptr::ptr_eq(**pred, self))
             .any(|pred| {
-                self.register_transitions
+                pred.register_transitions
                     .iter()
                     .any(|(_, other_target_slot)| other_target_slot.num == target_slot_num)
             })
