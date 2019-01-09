@@ -118,10 +118,6 @@ pub trait NodeTrait {
         OutNodeIterator::new(self.internal_ir_node())
     }
 
-    fn phis(&self) -> PhisOfBlockIterator {
-        PhisOfBlockIterator::new(self.internal_ir_node())
-    }
-
     fn all_out_projs(&self) -> Vec<Proj> {
         let mut result = Vec::new();
         self.collect_all_out_projs(&mut result);
@@ -210,6 +206,10 @@ simple_node_iterator!(ReturnResIterator, get_Return_n_ress, get_Return_res, i32)
 impl Block {
     pub fn cfg_preds(self) -> CfgPredsIterator {
         CfgPredsIterator::new(self.internal_ir_node())
+    }
+
+    fn phis(&self) -> PhisOfBlockIterator {
+        PhisOfBlockIterator::new(self.internal_ir_node())
     }
 
     pub fn mature(self) {
