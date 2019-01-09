@@ -123,7 +123,13 @@ impl GenInstrBlock {
                     .dedup(),
             );
 
-            v.extend(block.returns.as_option().iter().map(|r| Node::Return(*r)));
+            let return_nodes = block
+                .firm
+                .out_nodes()
+                .filter(|n| Node::is_return(*n))
+                .collect::<Vec<_>>();
+            log::debug!("block {:?} return nodes: {:?}", block.firm, return_nodes);
+            v.extend(return_nodes);
             v
         };
 

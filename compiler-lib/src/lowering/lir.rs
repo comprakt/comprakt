@@ -105,22 +105,6 @@ pub struct BlockGraph {
     pub end_block: Ptr<BasicBlock>,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum BasicBlockReturns {
-    No,
-    Void(nodes::Return),
-    Value(nodes::Return),
-}
-
-impl BasicBlockReturns {
-    pub fn as_option(self) -> Option<nodes::Return> {
-        match self {
-            BasicBlockReturns::No => None,
-            BasicBlockReturns::Void(r) | BasicBlockReturns::Value(r) => Some(r),
-        }
-    }
-}
-
 #[derive(Debug, Default)]
 pub struct Code {
     pub copy_in: Vec<CopyPropagation>,
@@ -147,34 +131,6 @@ pub struct BasicBlock {
 
     /// The firm structure of this block
     pub firm: libfirm_rs::nodes::Block,
-
-    /// Whether the block contains a return node, and if so, whether it returns
-    /// a value or just terminates control flow plus the firm node.
-    ///
-    /// Blocks with `returns == BasicBlockReturns::Value` have the following
-    /// properties:
-    ///
-    ///  * `succs.len() == 1`
-    ///
-    ///  * `let succ_edge = succs[0]`
-    ///
-    ///    * `succ_edge.target = <the end block>`
-    ///
-    ///    * `succ_edge.register_transitions.len() == 1`
-    ///
-    ///    * `succ_edge.register_transitions.[0].0 = <a value slot in this
-    /// block>
-    ///
-    ///    * `succ_edge.register_transitions.[0].0.firm = <this block's return
-    /// node's result value node>
-    ///
-    ///    * `succ_edge.register_transitions.[0].1 = .0`
-    ///
-    /// Above design enables codegen to simply iterate over
-    /// the FIRM in_nodes for each value in succs.
-    /// SSA copy-propagation code can check `returns` to omit
-    /// copy-down of `succ_edge`.
-    pub returns: BasicBlockReturns,
 
     pub graph: Ptr<BlockGraph>,
 }
@@ -586,48 +542,6 @@ impl BlockGraph {
 
             VisitTime::AfterPredecessors => (),
         });
-
-        /* TODO Reenable: Like phi nodes, but without phi
-        // Special case for return nodes, see BasicBlock.return comment
-        let end_block = self.borrow().get_block(self.borrow().firm.end_block());
-        let multislot = end_block.new_terminating_multislot();
-        for return_node in self.borrow().firm.end_block().cfg_preds() {
-            log::debug!("return_node = {:?}", return_node);
-            log::debug!(
-                "return_node.edges = {:?}",
-                end_block
-                    .borrow()
-                    .preds
-                    .iter()
-                    .map(|x| format!("{:?}", upborrow!(upborrow!(x).source).firm))
-                    .collect::<Vec<_>>()
-            );
-            let block_with_return_node = self.borrow().get_block(return_node.block());
-            let return_node = match return_node {
-                Node::Return(r) => r,
-                _ => panic!("unexpected return node"),
-            };
-            if return_node.return_res().len() == 0 {
-                block_with_return_node.borrow_mut().returns = BasicBlockReturns::Void(return_node);
-            } else {
-                block_with_return_node.borrow_mut().returns = BasicBlockReturns::Value(return_node);
-                debug_assert_eq!(
-                    1,
-                    return_node.return_res().len(),
-                    "MiniJava only supports a single return value"
-                );
-                let vs = multislot.add_possible_value(
-                    return_node.return_res().idx(0).unwrap(),
-                    block_with_return_node.downgrade(),
-                );
-                end_block
-                    .borrow()
-                    .find_incoming_edge_from(return_node.block())
-                    .unwrap()
-                    .add_incoming_value_flow(vs);
-            }
-        }
-        */
     }
 }
 
@@ -921,8 +835,6 @@ impl BasicBlock {
                     preds: Vec::new(),
                     succs: Vec::new(),
                     firm,
-                    // if No is not true, overridden in suring construct_flows
-                    returns: BasicBlockReturns::No,
                     graph: Ptr::null(), // will be patched up by caller
                 })
             })
