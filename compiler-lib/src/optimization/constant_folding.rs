@@ -342,6 +342,7 @@ impl ConstantFolding {
 
         self.graph.remove_bads();
         self.graph.remove_unreachable_code();
+        self.graph.remove_bads();
 
         collector.result()
     }
