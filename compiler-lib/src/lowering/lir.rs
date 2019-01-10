@@ -228,11 +228,6 @@ pub enum Instruction {
         args: Vec<Operand>,
         dst: Option<Ptr<MultiSlot>>,
     },
-    /// Loads parameter `#{idx}` into value slot `dst`.
-    LoadParam {
-        idx: usize,
-        dst: Ptr<MultiSlot>,
-    },
     StoreMem {
         src: Operand,
         dst: AddressComputation<Operand>,
@@ -266,7 +261,6 @@ impl fmt::Debug for Instruction {
                     .join(", ");
                 write!(fmt, "call {:?} [ {:?} ] => {:?}", func, args, dst)
             }
-            LoadParam { idx, dst } => write!(fmt, "loadparam {} => {:?}", idx, dst),
             StoreMem { src, dst } => write!(fmt, "storemem {:?} => {:?}", src, dst),
             LoadMem { src, dst } => write!(fmt, "loadmem {:?} => {:?}", src, dst),
             Comment(comment) => {

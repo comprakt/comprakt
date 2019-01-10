@@ -163,10 +163,6 @@ impl Instr {
                     .collect(),
                 dst: dst.map(|dst| Reg::from(dst, slot_reg_map)),
             },
-            LoadParam { idx, dst } => Instr::Movq {
-                src: MoveOperand::Operand(Reg::N(idx).into_operand()),
-                dst: MoveOperand::Operand(Reg::from(dst, slot_reg_map).into_operand()),
-            },
             StoreMem { src, dst } => Instr::Movq {
                 src: MoveOperand::Operand(Operand::from(src, slot_reg_map)),
                 dst: MoveOperand::Address(lir::AddressComputation {
