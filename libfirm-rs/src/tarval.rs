@@ -17,7 +17,7 @@ pub enum TarvalKind {
     Bool(bool),
     Unknown,
     Bad,
-    Long,
+    Long(i64),
     Other,
 }
 
@@ -109,6 +109,8 @@ impl Tarval {
             TarvalKind::Bool(false)
         } else if self.is_bad() {
             TarvalKind::Bad
+        } else if self.is_long() {
+            TarvalKind::Long(self.get_long())
         } else if self.is_unknown() {
             TarvalKind::Unknown
         } else {
@@ -185,7 +187,7 @@ impl Debug for Tarval {
             let s = CStr::from_ptr(v.as_ptr()).to_string_lossy();
             let s = s.trim_start_matches("<");
             let s = s.trim_end_matches(">");
-            write!(fmt, "Tarval{{{}, mode: {}}}", s, self.mode().name_string())
+            write!(fmt, "{{{}, mode: {}}}", s, self.mode().name_string())
         }
     }
 }
