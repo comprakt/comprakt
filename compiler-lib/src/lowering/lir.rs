@@ -328,8 +328,12 @@ pub struct CopyPropagation {
 
 #[derive(Debug, Display, Clone, Copy)]
 pub enum Operand {
-    #[display(fmt = "Slot")]
-    Slot(Ptr<MultiSlot>),
+    #[display(fmt = "ValueSlot")]
+    ValueSlot(Ptr<ValueSlot>),
+
+    #[display(fmt = "MultiSlot")]
+    MultiSlot(Ptr<MultiSlot>),
+
     /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
     /// lifetime of that pointer (the FIRM graph).
     #[display(fmt = "Imm")]
@@ -439,7 +443,7 @@ pub struct ControlFlowTransfer {
     /// the register transitions.
     pub register_transitions: Vec<(Ptr<MultiSlot>, Ptr<ValueSlot>)>,
 
-    source: Ptr<BasicBlock>,
+    pub source: Ptr<BasicBlock>,
     pub target: Ptr<BasicBlock>,
 }
 
@@ -557,8 +561,6 @@ impl BlockGraph {
 
                         _ => node_in_block
                             .in_nodes()
-                            // Mem edges are uninteresting across blocks
-                            .filter(|value| value.mode() != Mode::M())
                             // If this is a value produced by our block, there is no need to
                             // transfer it from somewhere else
                             .filter(|value| value.block() != *firm_block)
@@ -727,8 +729,6 @@ impl Ptr<BasicBlock> {
         let mut slotbuilder = MultiSlotBuilder::new(Some(phi), self, terminates_in);
 
         phi.preds()
-            // Mem edges are uninteresting across blocks
-            .filter(|(_, value)| value.mode() != Mode::M())
             // The next two 'maps' need to be seperated in two closures
             // because we wan't to selectively `move` `value` and
             // `multislot` into the closure, but take `self` by reference

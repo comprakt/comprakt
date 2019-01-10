@@ -12,20 +12,20 @@ use std::{collections::HashMap, convert::TryInto};
 use strum_macros::*;
 
 #[derive(Debug, Clone, EnumDiscriminants)]
+// TODO naming
+/// This enum describes how a FIRM node has been converted to instructions, and
+/// where the potential result is stored.
 enum Computed {
+    /// Instructions that generate the value are in CFGpred, and
+    /// `lir.rs::construct_flows` already set up the necessary copy-out/ copy-in
+    /// code.
+    InCFGPred(Ptr<ValueSlot>),
+    /// Instructions for this value have been emitted in this block, but the
+    /// instructions do not produce a result (apart from mem flow).
     Void,
+    /// Instructions for this value have been emitted in this block and the
+    /// result was written to MultiSlot.
     Value(Ptr<MultiSlot>),
-}
-impl Computed {
-    fn must_value(&self) -> Ptr<MultiSlot> {
-        match self {
-            Computed::Value(vs) => *vs,
-            x => panic!(
-                "computed must be a value, got {:?}",
-                ComputedDiscriminants::from(x)
-            ),
-        }
-    }
 }
 
 pub struct GenInstrBlock {
@@ -51,7 +51,7 @@ impl GenInstrBlock {
     }
 
     fn gen(&mut self, graph: &BlockGraph, block: Ptr<BasicBlock>, alloc: &Allocator) {
-        // LIR metadata dump + fill computed values
+        // LIR metadata dump
         for (num, multislot) in block.regs.iter().enumerate() {
             self.comment(format_args!("Slot {}:", num));
 
@@ -137,6 +137,20 @@ impl GenInstrBlock {
             v
         };
 
+        let already_computed = block.preds.iter().flat_map(|in_edge| {
+            in_edge
+                .register_transitions
+                .iter()
+                .map(|(src_slot, dst_slot)| (*src_slot, *dst_slot))
+                .collect::<Vec<_>>()
+        })
+        // if the same value flows in over multiple preds, ignore the dupes
+        .unique_by(|(src_slot,_)| src_slot.firm());
+        for (src_slot,in_slot) in already_computed {
+            log::debug!("InCFGPred for slot.num={:?} {:?}", in_slot.num, src_slot.firm());
+            self.mark_computed(src_slot.firm(), Computed::InCFGPred(in_slot));
+        }
+
         for out_value in values_to_compute {
             self.comment(format_args!("\tgen code for out_value={:?}", out_value));
             self.gen_value(graph, block, alloc, out_value);
@@ -153,13 +167,9 @@ impl GenInstrBlock {
             .unwrap_or_else(|| panic!("must have computed value for node {:?}", node))
     }
 
-    fn must_computed_slot(&self, node: Node) -> Ptr<MultiSlot> {
-        self.must_computed(node).must_value()
-    }
-
     fn mark_computed(&mut self, node: Node, computed: Computed) {
         let did_overwrite = self.computed.insert(node, computed);
-        debug_assert!(did_overwrite.is_none(), "duplicate computed for {:?}", node);
+        debug_assert!(did_overwrite.is_none(), "duplicate computed for {:?}: {:?}", node, did_overwrite);
     }
 
     fn gen_value(
@@ -189,7 +199,11 @@ impl GenInstrBlock {
         match node {
             Node::Const(c) => Operand::Imm(c.tarval()),
             Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => Operand::Param { idx },
-            n => Operand::Slot(self.must_computed_slot(n)),
+            n => match self.must_computed(n) {
+                Computed::InCFGPred(vs) => Operand::ValueSlot(*vs),
+                Computed::Value(ms) => Operand::MultiSlot(*ms),
+                Computed::Void => panic!("expecting computed operand for {:?}, got Void", n),
+            },
         }
     }
 
@@ -248,10 +262,18 @@ impl GenInstrBlock {
             }};
         }
         match node {
-            Node::Start(_)
-            | Node::Const(_)
+
+            // Start node is always ready
+            Node::Start(_) => {
+                self.mark_computed(node, Computed::Void);
+            }
+
+            // The following group of nodes doesn't need code gen as
+            // we know their result at compile time.
+            // They are only used as operands and constructed in gen_operand_jit
+            Node::Const(_)
             | Node::Proj(_, ProjKind::Start_TArgs_Arg(..))
-            | Node::Address(_) => (), // ignored, computed JIT
+            | Node::Address(_) => (), 
 
             Node::Add(add) => gen_binop_with_dst!(Add, add, block, node),
             Node::Sub(sub) => gen_binop_with_dst!(Sub, sub, block, node),
@@ -265,7 +287,7 @@ impl GenInstrBlock {
                 let kind = if let Node::Not(_) = node { Not } else { Neg };
                 self.code.body.push(Instruction::Unop {
                     kind,
-                    op: Operand::Slot(dst),
+                    op: Operand::MultiSlot(dst),
                 });
             }
             Node::Return(ret) => {
@@ -284,22 +306,12 @@ impl GenInstrBlock {
                 let target = block.graph.get_block(firm_target_block);
                 self.code.leave.push(Leave::Jmp { target });
             }
-            Node::Proj(proj, _kind) => {
+            Node::Proj(proj, kind) => {
+                log::debug!("proj={:?} kind={:?}", proj, kind);
+                // copy the value produced by predecessor
                 let pred = proj.pred();
-                if !self.is_computed(pred) {
-                    debug_assert!(
-                        Node::is_address(pred)
-                            || Node::is_start(pred)
-                            || pred.mode() == Mode::M()
-                            || pred.mode() == Mode::X(),
-                        "predecessor must produce value"
-                    );
-                } else {
-                    // the normal case
-                    // copy the value produced by predecessor
-                    let pred_slot = self.must_computed(pred).clone();
-                    self.mark_computed(node, pred_slot);
-                }
+                let pred_slot = self.must_computed(pred).clone();
+                self.mark_computed(node, pred_slot);
             }
 
             // Cmp and Cond are handled together
