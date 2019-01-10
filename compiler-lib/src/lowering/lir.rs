@@ -9,7 +9,7 @@ use crate::{firm, type_checking::type_system::CheckedType};
 use libfirm_rs::{
     bindings,
     nodes::{self, Node, NodeTrait},
-    Mode, Tarval, VisitTime,
+    Tarval, VisitTime,
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -194,7 +194,8 @@ pub enum Instruction {
     },
     Unop {
         kind: UnopKind,
-        op: Operand,
+        src: Operand,
+        dst: Ptr<MultiSlot>,
     },
     Movq {
         src: Operand,

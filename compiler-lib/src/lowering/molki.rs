@@ -124,7 +124,8 @@ pub enum Instr {
     },
     Unop {
         kind: UnopKind,
-        op: Operand,
+        src: Operand,
+        dst: Reg,
     },
     Cmpq {
         lhs: Operand,
@@ -187,9 +188,10 @@ impl Instr {
                 dst1: Reg::N(usize::max_value()),
                 dst2: Reg::from(dst.into(), slot_reg_map),
             },
-            Unop { kind, op } => Instr::Unop {
+            Unop { kind, src, dst } => Instr::Unop {
                 kind: kind.into(),
-                op: Operand::from(op, slot_reg_map),
+                src: Operand::from(src, slot_reg_map),
+                dst: Reg::from(dst.into(), slot_reg_map),
             },
             Movq { src, dst } => Instr::Movq {
                 src: MoveOperand::Operand(Operand::from(src, slot_reg_map)),
@@ -357,7 +359,13 @@ impl Instr {
                 "idivq [ {} | {} ] -> [ {} | {} ]",
                 src1, src2, dst1, dst2
             ),
-            Unop { kind, op } => write!(out, "{} {}", kind, op),
+            Unop { kind, src, dst } => write!(
+                out,
+                "{} {src}\nmovq {src} {dst}",
+                kind,
+                src = src,
+                dst = dst
+            ),
             Movq { src, dst } => write!(out, "movq {}, {}", src, dst),
             Cmpq { lhs, rhs } => write!(out, "cmp {}, {}", lhs, rhs),
             Call { func, args, dst } => {

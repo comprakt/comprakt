@@ -221,16 +221,15 @@ impl GenInstrBlock {
         }
 
         use self::{BinopKind::*, UnopKind::*};
-        use libfirm_rs::Mode;
-        macro_rules! binop_operand {
-            ($side:ident, $op:expr) => {{
-                let side = $op.$side();
-                self.gen_operand_jit(side)
+        macro_rules! op_operand {
+            ($name:ident, $op:expr) => {{
+                let node = $op.$name();
+                self.gen_operand_jit(node)
             }};
         }
-        macro_rules! gen_binop_with_dst {
+        macro_rules! gen_binop {
             ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
-                let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
+                let (src1, src2, dst) = gen_binop!(@INTERNAL, $op, $block, $node);
                 self.code.body.push(Instruction::Binop {
                     kind: $kind,
                     src1,
@@ -239,7 +238,7 @@ impl GenInstrBlock {
                 });
             }};
             (@DIV, $op:expr, $block:expr, $node:expr) => {{
-                let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
+                let (src1, src2, dst) = gen_binop!(@INTERNAL, $op, $block, $node);
                 self.code.body.push(Instruction::Div {
                     src1,
                     src2,
@@ -247,7 +246,7 @@ impl GenInstrBlock {
                 });
             }};
             (@MOD, $op:expr, $block:expr, $node:expr) => {{
-                let (src1, src2, dst) = gen_binop_with_dst!(@INTERNAL, $op, $block, $node);
+                let (src1, src2, dst) = gen_binop!(@INTERNAL, $op, $block, $node);
                 self.code.body.push(Instruction::Mod {
                     src1,
                     src2,
@@ -255,14 +254,24 @@ impl GenInstrBlock {
                 });
             }};
             (@INTERNAL, $op:expr, $block:expr, $node:expr) => {{
-                let src1 = binop_operand!(left, $op);
-                let src2 = binop_operand!(right, $op);
+                let src1 = op_operand!(left, $op);
+                let src2 = op_operand!(right, $op);
                 let dst = self.gen_dst_slot($block, $node, alloc);
                 (src1, src2, dst)
             }};
         }
+        macro_rules! gen_unop {
+            ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
+                let src = op_operand!(op, $op);
+                let dst = self.gen_dst_slot($block, $node, alloc);
+                self.code.body.push(Instruction::Unop {
+                    kind: $kind,
+                    src,
+                    dst,
+                });
+            }};
+        }
         match node {
-
             // Start node is always ready
             Node::Start(_) => {
                 self.mark_computed(node, Computed::Void);
@@ -271,25 +280,17 @@ impl GenInstrBlock {
             // The following group of nodes doesn't need code gen as
             // we know their result at compile time.
             // They are only used as operands and constructed in gen_operand_jit
-            Node::Const(_)
-            | Node::Proj(_, ProjKind::Start_TArgs_Arg(..))
-            | Node::Address(_) => (), 
+            Node::Const(_) | Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) | Node::Address(_) => (),
 
-            Node::Add(add) => gen_binop_with_dst!(Add, add, block, node),
-            Node::Sub(sub) => gen_binop_with_dst!(Sub, sub, block, node),
-            Node::Mul(mul) => gen_binop_with_dst!(Mul, mul, block, node),
-            Node::Div(div) => gen_binop_with_dst!(@DIV, div, block, node),
-            Node::Mod(mod_) => gen_binop_with_dst!(@MOD, mod_, block, node),
-            Node::And(and) => gen_binop_with_dst!(And, and, block, node),
-            Node::Or(or) => gen_binop_with_dst!(Or, or, block, node),
-            Node::Not(_) | Node::Minus(_) => {
-                let dst = self.gen_dst_slot(block, node, alloc);
-                let kind = if let Node::Not(_) = node { Not } else { Neg };
-                self.code.body.push(Instruction::Unop {
-                    kind,
-                    op: Operand::MultiSlot(dst),
-                });
-            }
+            Node::Add(add) => gen_binop!(Add, add, block, node),
+            Node::Sub(sub) => gen_binop!(Sub, sub, block, node),
+            Node::Mul(mul) => gen_binop!(Mul, mul, block, node),
+            Node::Div(div) => gen_binop!(@DIV, div, block, node),
+            Node::Mod(mod_) => gen_binop!(@MOD, mod_, block, node),
+            Node::And(and) => gen_binop!(And, and, block, node),
+            Node::Or(or) => gen_binop!(Or, or, block, node),
+            Node::Not(not) => gen_unop!(Not, not, block, node),
+            Node::Minus(neg) => gen_unop!(Neg, neg, block, node),
             Node::Return(ret) => {
                 let value: Option<Operand> = if ret.return_res().len() != 0 {
                     assert_eq!(ret.return_res().len(), 1);
