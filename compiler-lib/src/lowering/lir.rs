@@ -956,10 +956,8 @@ impl MultiSlotBuilder {
         let mut allocated_in = allocated_in;
         if allocated_in.regs.len() == self.num {
             allocated_in.regs.push(slot);
-        } else if allocated_in.regs.len() == self.num + 1 {
+        } else if allocated_in.regs.len() > self.num {
             allocated_in.regs[self.num] = slot;
-        } else {
-            unreachable!()
         }
     }
 }
