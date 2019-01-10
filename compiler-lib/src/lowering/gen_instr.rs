@@ -123,21 +123,16 @@ impl GenInstrBlock {
                     .dedup(),
             );
 
-            let return_nodes = block
+            // Apart from the values that _must_ be flown out, all leave
+            // instructions must be computed to account for side-effects calls, etc.
+            // => return_nodes, jmp_nodes, cond_nodes
+            let leave_nodes = block
                 .firm
                 .out_nodes()
-                .filter(|n| Node::is_return(*n))
+                .filter(|n| Node::is_return(*n) || Node::is_jmp(*n) || Node::is_cond(*n))
                 .collect::<Vec<_>>();
-            log::debug!("block {:?} return nodes: {:?}", block.firm, return_nodes);
-            v.extend(return_nodes);
-
-            let cond_nodes = block
-                .firm
-                .out_nodes()
-                .filter(|n| Node::is_cond(*n))
-                .collect::<Vec<_>>();
-            log::debug!("block {:?} cond nodes: {:?}", block.firm, cond_nodes);
-            v.extend(cond_nodes);
+            log::debug!("block {:?} leave nodes: {:?}", block.firm, leave_nodes);
+            v.extend(leave_nodes);
 
             v
         };
