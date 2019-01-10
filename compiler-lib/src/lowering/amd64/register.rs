@@ -1,4 +1,4 @@
-use super::{function_call::Function, CallingConv};
+use super::{function::Function, CallingConv};
 use std::{cmp::Ordering, collections::BTreeMap};
 
 #[derive(Display, Debug, PartialEq, Eq, Copy, Clone)]
