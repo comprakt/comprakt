@@ -239,7 +239,7 @@ impl Inline {
         };
 
         let new_node = self.graph.copy_node_without_ins(old, target_block);
-        log::debug!("Copied {:?} to {:?}", old, new_node);
+        log::debug!("Copied {:?} to {}", old, new_node.node_id());
         map.insert(old, new_node);
 
         let new_in_nodes: Vec<_> = old
