@@ -121,6 +121,11 @@ impl Inline {
             })
             .collect();
 
+        for kept_alive_node in graph_to_inline.end_keep_alives() {
+            let new_node = self.copy(kept_alive_node, &mut map, call, graph.start_block());
+            new_node.keep_alive();
+        }
+
         let jmps: Vec<Node> = returns.iter().map(|r| Node::from(r.jmp)).collect();
         log::debug!("Set jmp targets of {:?} to {:?}", jmps, target_block);
         target_block.set_in_nodes(&jmps);
@@ -207,6 +212,7 @@ impl Inline {
         start_block: Block,
     ) -> Node {
         if let Some(nd) = map.get(&old) {
+            log::debug!("Reused already copied {:?} for {:?}", nd, old);
             return *nd;
         }
 
@@ -218,14 +224,27 @@ impl Inline {
             _ => {}
         }
 
-        let new_node = self.graph.copy_node(old, |n| match old {
-            Node::Address(_) if Node::is_block(n) => start_block.into(),
-            Node::Const(_) if Node::is_block(n) => start_block.into(),
-            _ => self.copy(n, map, call_to_inline, start_block),
-        });
-        log::debug!("Copied {:?} to {:?}", old, new_node);
+        let target_block = match old {
+            Node::Block(_) => None,
+            Node::Address(_) | Node::Const(_) => Some(start_block),
+            node => Some(
+                Node::as_block(self.copy(node.block().into(), map, call_to_inline, start_block))
+                    .unwrap(),
+            ),
+        };
 
+        let new_node = self.graph.copy_node_without_ins(old, target_block);
+        log::debug!("Copied {:?} to {:?}", old, new_node);
         map.insert(old, new_node);
+
+        let new_in_nodes: Vec<_> = old
+            .in_nodes()
+            .map(|n| self.copy(n, map, call_to_inline, start_block))
+            .collect();
+
+        new_node.set_in_nodes(&new_in_nodes);
+        log::debug!("Completed copying from {:?} to {:?}", old, new_node);
+
         new_node
     }
 }

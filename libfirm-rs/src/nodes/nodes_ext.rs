@@ -85,6 +85,7 @@ macro_rules! simple_node_iterator {
 pub trait NodeTrait {
     fn internal_ir_node(&self) -> *mut bindings::ir_node;
 
+    // TODO move to graph
     fn keep_alive(&self) {
         unsafe { bindings::keep_alive(self.internal_ir_node()) }
     }
@@ -194,6 +195,19 @@ impl From<Node> for *mut bindings::ir_node {
 }
 
 // == Node extensions ==
+
+impl End {
+    pub fn keep_alives(self) -> EndKeepAliveIterator {
+        EndKeepAliveIterator::new(self.internal_ir_node())
+    }
+}
+
+simple_node_iterator!(
+    EndKeepAliveIterator,
+    get_End_n_keepalives,
+    get_End_keepalive,
+    i32
+);
 
 impl Return {
     pub fn return_res(self) -> ReturnResIterator {

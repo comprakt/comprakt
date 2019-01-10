@@ -1,7 +1,10 @@
 use super::{
     entity::Entity,
     mode::Mode,
-    nodes::{Block, End, NoMem, Node, NodeFactory, NodeTrait, Proj, ProjKind, Start, ValueNode},
+    nodes::{
+        Block, End, EndKeepAliveIterator, NoMem, Node, NodeFactory, NodeTrait, Proj, ProjKind,
+        Start, ValueNode,
+    },
 };
 use libfirm_rs_bindings as bindings;
 use std::{
@@ -58,6 +61,10 @@ impl Graph {
 
     pub fn end(self) -> End {
         End::new(unsafe { bindings::get_irg_end(self.irg) })
+    }
+
+    pub fn end_keep_alives(self) -> EndKeepAliveIterator {
+        self.end().keep_alives()
     }
 
     pub fn args(self) -> Proj {
@@ -187,36 +194,29 @@ impl Graph {
         Graph::exchange(node, self.new_bad(Mode::b()))
     }
 
-    pub fn copy_node<F>(self, node: Node, mut copy_fn: F) -> Node
-    where
-        F: FnMut(Node) -> Node,
-    {
+    pub fn copy_node_without_ins(self, node: Node, target: Option<Block>) -> Node {
         unsafe {
             let ptr = node.internal_ir_node();
             let op = bindings::get_irn_op(ptr);
             let mode = bindings::get_irn_mode(ptr);
-            let arity = bindings::get_irn_arity(ptr);
 
             let block = if Node::is_block(node) {
                 ptr::null_mut()
             } else {
-                copy_fn(node.block().into()).internal_ir_node()
+                target
+                    .expect("must have some value for non-block nodes")
+                    .internal_ir_node()
             };
 
-            let ins: Vec<_> = node
-                .in_nodes()
-                .map(copy_fn)
-                .map(|n| n.internal_ir_node())
-                .collect();
-
+            let empty: Vec<*mut bindings::ir_node> = vec![];
             let new_node_ptr = bindings::new_ir_node(
                 ptr::null_mut(),
                 self.irg,
                 block,
                 op,
                 mode,
-                arity,
-                ins.as_ptr(),
+                empty.len() as i32,
+                empty.as_ptr(),
             );
             bindings::copy_node_attr(self.irg, ptr, new_node_ptr);
 
