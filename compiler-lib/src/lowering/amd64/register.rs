@@ -1,4 +1,7 @@
-use super::{function::Function, CallingConv};
+use crate::lowering::{
+    amd64::{self, function::Function, CallingConv, MoveOperand, Operand},
+    lir,
+};
 use std::{cmp::Ordering, collections::BTreeMap};
 
 #[derive(Display, Debug, PartialEq, Eq, Copy, Clone)]
@@ -156,19 +159,24 @@ impl Amd64Reg {
 }
 
 pub(super) struct RegisterAllocator {
-    func: Function,
+    nargs: usize,
+    cconv: CallingConv,
     free_list: BTreeMap<Amd64Reg, bool>,
 }
 
 impl RegisterAllocator {
-    pub(super) fn new(func: Function) -> Self {
+    pub(super) fn new(nargs: usize, cconv: CallingConv) -> Self {
         let mut free_list = BTreeMap::new();
         (0..16)
-            .filter_map(|i| Amd64Reg::reg(i, func.nargs, func.cconv))
+            .filter_map(|i| Amd64Reg::reg(i, nargs, cconv))
             .for_each(|reg| {
                 free_list.insert(reg, true);
             });
-        Self { func, free_list }
+        Self {
+            nargs,
+            cconv,
+            free_list,
+        }
     }
 
     /// Returns a register from the `free_list`
@@ -192,6 +200,54 @@ impl RegisterAllocator {
     pub(super) fn free_reg(&mut self, reg: Amd64Reg) {
         self.free_list.insert(reg, true);
     }
+
+    /// When the `idx`th arg is in a register, this register will be returned,
+    /// otherwise None.
+    pub(super) fn arg_in_reg(&self, idx: usize) -> Option<Amd64Reg> {
+        if idx < 6 {
+            match self.cconv {
+                CallingConv::Stack => None,
+                CallingConv::X86_64 => Some(Amd64Reg::arg(idx)),
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Depending on the calling convention some args are in registers. This
+    /// function returns the Movq instruction from either a register or an
+    /// address into the dst.
+    pub(super) fn arg(&self, idx: usize, dst: &lir::Operand) -> amd64::Instruction {
+        self.arg_from_reg(idx, dst)
+            .unwrap_or_else(|| self.arg_from_stack(idx, dst))
+    }
+
+    fn arg_from_reg(&self, idx: usize, dst: &lir::Operand) -> Option<amd64::Instruction> {
+        self.arg_in_reg(idx).and_then(|reg| {
+            Some(amd64::Instruction::Movq {
+                src: MoveOperand::Operand(Operand::Reg(reg)),
+                dst: MoveOperand::Operand(Operand::LirOperand(*dst)),
+            })
+        })
+    }
+
+    fn arg_from_stack(&self, idx: usize, dst: &lir::Operand) -> amd64::Instruction {
+        let offset = match self.cconv {
+            CallingConv::Stack => (idx + 1) * 8 + 8,
+            CallingConv::X86_64 => {
+                debug_assert!(idx >= 6);
+                (idx + 1 - 6) * 8 + 8
+            }
+        } as isize;
+        amd64::Instruction::Movq {
+            src: MoveOperand::Addr(lir::AddressComputation {
+                offset,
+                base: Operand::Reg(Amd64Reg::Rbp),
+                index: lir::IndexComputation::Zero,
+            }),
+            dst: MoveOperand::Operand(Operand::LirOperand(*dst)),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -212,8 +268,7 @@ mod test {
 
     #[test]
     fn register_allocation_works() {
-        let func = Function::new(2, CallingConv::X86_64);
-        let mut allocator = RegisterAllocator::new(func);
+        let mut allocator = RegisterAllocator::new(2, CallingConv::X86_64);
 
         assert_eq!(allocator.alloc_reg().unwrap(), Amd64Reg::Rdx);
 

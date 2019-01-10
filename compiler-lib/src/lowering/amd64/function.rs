@@ -185,65 +185,6 @@ impl Function {
         });
     }
 
-    /// When the `idx`th arg is in a register, this register will be returned,
-    /// otherwise None.
-    pub(super) fn arg_in_reg(&self, idx: usize) -> Option<Amd64Reg> {
-        if idx < 6 {
-            match self.cconv {
-                CallingConv::Stack => None,
-                CallingConv::X86_64 => Some(Amd64Reg::arg(idx)),
-            }
-        } else {
-            None
-        }
-    }
-
-    /// Depending on the calling convention some args are in registers. This
-    /// function returns the Movq instruction from either a register or an
-    /// address into the dst.
-    pub(super) fn arg(&self, idx: usize, dst: &lir::Operand) -> Instruction {
-        self.arg_from_reg(idx, dst)
-            .unwrap_or_else(|| self.arg_from_stack(idx, dst))
-    }
-
-    fn arg_from_reg(&self, idx: usize, dst: &lir::Operand) -> Option<Instruction> {
-        self.arg_in_reg(idx).and_then(|reg| {
-            Some(Instruction::Movq {
-                src: MoveOperand::Operand(Operand::Reg(reg)),
-                dst: MoveOperand::Operand(Operand::LirOperand(dst.clone())),
-            })
-        })
-    }
-
-    fn arg_from_stack(&self, idx: usize, dst: &lir::Operand) -> Instruction {
-        let offset = match self.cconv {
-            CallingConv::Stack => (idx + 1) * 8 + 8,
-            CallingConv::X86_64 => {
-                debug_assert!(idx >= 6);
-                (idx + 1 - 6) * 8 + 8
-            }
-        } as isize;
-        Instruction::Movq {
-            src: MoveOperand::Addr(lir::AddressComputation {
-                offset,
-                base: Operand::Reg(Amd64Reg::Rbp),
-                index: lir::IndexComputation::Zero,
-            }),
-            dst: MoveOperand::Operand(Operand::LirOperand(dst.clone())),
-        }
-    }
-
-    /// This function gives the number of maximum available registers depending
-    /// on the calling convention. For `CallingConv::Stack` it is always 14
-    /// (since %rbp and %rsp are reserved). For `CallingConv::X86_64`
-    /// the number of reserved argument registers is subtracted.
-    pub fn max_regs_available(&self) -> usize {
-        match self.cconv {
-            CallingConv::Stack => 14, // We can't use %rbp and %rsp
-            CallingConv::X86_64 => 14 - usize::min(self.nargs, 6),
-        }
-    }
-
     /// This function should be called by the register allocator, after
     /// determining how many registers will be required for a function. If
     /// callee_save registers are needed to satisfy the register pressure,
@@ -260,7 +201,7 @@ impl Function {
     pub fn save_callee_save_regs(&mut self, num_regs_required: usize) {
         // There are 5 callee save registers: %rbx, %r12-r15
         // %rbp is also callee save, but we never allocate this register
-        let regs_to_save = num_regs_required - (self.max_regs_available() - 5);
+        let regs_to_save = num_regs_required - (self.cconv.max_regs_available(self.nargs) - 5);
         match regs_to_save {
             0 => (),
             1 => save_regs!([Rbx], self.save_regs, self.restore_regs),
