@@ -214,8 +214,7 @@ impl Function {
     }
 
     pub fn allocate_registers(&self, graph: lir::BlockGraph) {
-        // FIXME: replace with reversed postorder block iter
-        for block in graph.iter_blocks() {
+        for block in graph.postorder_blocks().iter().rev() {
             gen_instrs(&block);
         }
     }

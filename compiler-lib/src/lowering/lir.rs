@@ -640,6 +640,13 @@ impl BlockGraph {
         }
     }
 
+    /// Gives a list of all `BasicBlock`s in the graph in postorder.
+    pub fn postorder_blocks(&self) -> Vec<Ptr<BasicBlock>> {
+        let mut postorder_visitor = BasicBlockPostorderVisitor::default();
+        postorder_visitor.visit(self.head);
+        postorder_visitor.res
+    }
+
     /// Iterate over all control flow transfers in `self` in a breadth-first
     /// manner
     pub fn iter_control_flows<'g>(&'g self) -> impl Iterator<Item = Ptr<ControlFlowTransfer>> + 'g {
@@ -720,6 +727,23 @@ impl<'g> Iterator for BasicBlockIter<'g> {
 
             block
         })
+    }
+}
+
+#[derive(Default)]
+struct BasicBlockPostorderVisitor {
+    visited: HashSet<libfirm_rs::nodes::Block>,
+    res: Vec<Ptr<BasicBlock>>,
+}
+
+impl BasicBlockPostorderVisitor {
+    fn visit(&mut self, block: Ptr<BasicBlock>) {
+        block.succs.iter().map(|succ| succ.target).for_each(|block| {
+            if !self.visited.contains(&block.firm) {
+                self.visit(block);
+            }
+        });
+        self.res.push(block);
     }
 }
 
