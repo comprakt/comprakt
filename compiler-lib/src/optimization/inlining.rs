@@ -152,6 +152,7 @@ impl Inline {
 
     fn split_block_at(&mut self, graph: Graph, node: Node) -> (Block, Block) {
         let block = node.block();
+        let phis = block.phis();
 
         // move cfg_preds from block to new_block
         let cfg_preds: Vec<_> = block.cfg_preds().collect();
@@ -159,6 +160,10 @@ impl Inline {
         block.set_in_nodes(&[]);
 
         self.move_node(node, block, new_block);
+        for phi in phis {
+            self.move_node(phi.into(), block, new_block);
+        }
+
         if block == graph.start_block() {
             log::debug!("Update start block");
             graph.set_start_block(new_block);

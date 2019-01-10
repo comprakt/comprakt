@@ -279,6 +279,25 @@ impl Block {
             bindings::add_immBlock_pred(self.internal_ir_node(), pred.internal_ir_node());
         }
     }
+
+    pub fn phis(self) -> Vec<Phi> {
+        let mut result = vec![];
+        for node in self.out_nodes() {
+            if let Node::Phi(phi) = node {
+                result.push(phi);
+            }
+        }
+        // This does not work:
+        // unsafe {
+        //     let mut phi = bindings::get_Block_phis(self.internal_ir_node());
+        //     while !phi.is_null() {
+        //         let phi_node = Phi::new(phi);
+        //         result.push(phi_node);
+        //         phi = bindings::get_Phi_next(phi);
+        //     }
+        // }
+        result
+    }
 }
 
 simple_node_iterator!(
