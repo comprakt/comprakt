@@ -6753,13 +6753,6 @@
 <span id="6753">6753</span>
 <span id="6754">6754</span>
 <span id="6755">6755</span>
-<span id="6756">6756</span>
-<span id="6757">6757</span>
-<span id="6758">6758</span>
-<span id="6759">6759</span>
-<span id="6760">6760</span>
-<span id="6761">6761</span>
-<span id="6762">6762</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file is generated! Do not edit by hand!</span>
 <span class="comment">// Follow the instructions in the README on how to update this file.</span>
@@ -7523,9 +7516,7 @@
             <span class="ident">Node</span>::<span class="ident">Or</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">node</span>.<span class="ident">debug_fmt</span>().<span class="ident">with</span>(<span class="ident">opts</span>)),
             <span class="ident">Node</span>::<span class="ident">Phi</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">node</span>.<span class="ident">debug_fmt</span>().<span class="ident">with</span>(<span class="ident">opts</span>)),
             <span class="ident">Node</span>::<span class="ident">Pin</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">node</span>.<span class="ident">debug_fmt</span>().<span class="ident">with</span>(<span class="ident">opts</span>)),
-            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">node</span>, <span class="ident">proj_kind</span>) <span class="op">=&gt;</span> {
-                <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}: {:?}&quot;</span>, <span class="ident">node</span>.<span class="ident">debug_fmt</span>().<span class="ident">with</span>(<span class="ident">opts</span>), <span class="ident">proj_kind</span>)
-            }
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">node</span>, <span class="ident">_proj_kind</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">node</span>.<span class="ident">debug_fmt</span>().<span class="ident">with</span>(<span class="ident">opts</span>)),
             <span class="ident">Node</span>::<span class="ident">Raise</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">node</span>.<span class="ident">debug_fmt</span>().<span class="ident">with</span>(<span class="ident">opts</span>)),
             <span class="ident">Node</span>::<span class="ident">Return</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">node</span>.<span class="ident">debug_fmt</span>().<span class="ident">with</span>(<span class="ident">opts</span>)),
             <span class="ident">Node</span>::<span class="ident">Sel</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">node</span>.<span class="ident">debug_fmt</span>().<span class="ident">with</span>(<span class="ident">opts</span>)),
@@ -7685,75 +7676,75 @@
 
 <span class="kw">impl</span> <span class="ident">Proj</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">kind</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">ProjKind</span> {
-        <span class="kw">let</span> <span class="ident">pred</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pred</span>();
+        <span class="kw">let</span> <span class="ident">pred</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pred_or_none</span>();
         <span class="kw">match</span> <span class="ident">pred</span> {
-            <span class="ident">Node</span>::<span class="ident">Alloc</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Alloc</span>(<span class="ident">node</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
                 <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Alloc_M</span>(<span class="ident">node</span>),
                 <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Alloc_Res</span>(<span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
-            <span class="ident">Node</span>::<span class="ident">Builtin</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Builtin</span>(<span class="ident">node</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
                 <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Builtin_M</span>(<span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
-            <span class="ident">Node</span>::<span class="ident">Call</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Call</span>(<span class="ident">node</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
                 <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Call_M</span>(<span class="ident">node</span>),
                 <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Call_TResult</span>(<span class="ident">node</span>),
                 <span class="number">2</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Call_XRegular</span>(<span class="ident">node</span>),
                 <span class="number">3</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Call_XExcept</span>(<span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
-            <span class="ident">Node</span>::<span class="ident">Cond</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Cond</span>(<span class="ident">node</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
                 <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">false</span>, <span class="ident">node</span>),
                 <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">true</span>, <span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
-            <span class="ident">Node</span>::<span class="ident">Div</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Div</span>(<span class="ident">node</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
                 <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Div_M</span>(<span class="ident">node</span>),
                 <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Div_Res</span>(<span class="ident">node</span>),
                 <span class="number">2</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Div_XRegular</span>(<span class="ident">node</span>),
                 <span class="number">3</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Div_XExcept</span>(<span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
-            <span class="ident">Node</span>::<span class="ident">Load</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Load</span>(<span class="ident">node</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
                 <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Load_M</span>(<span class="ident">node</span>),
                 <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Load_Res</span>(<span class="ident">node</span>),
                 <span class="number">2</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Load_XRegular</span>(<span class="ident">node</span>),
                 <span class="number">3</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Load_XExcept</span>(<span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
-            <span class="ident">Node</span>::<span class="ident">Mod</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Mod</span>(<span class="ident">node</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
                 <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Mod_M</span>(<span class="ident">node</span>),
                 <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Mod_Res</span>(<span class="ident">node</span>),
                 <span class="number">2</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Mod_XRegular</span>(<span class="ident">node</span>),
                 <span class="number">3</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Mod_XExcept</span>(<span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
-            <span class="ident">Node</span>::<span class="ident">Raise</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Raise</span>(<span class="ident">node</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
                 <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Raise_M</span>(<span class="ident">node</span>),
                 <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Raise_X</span>(<span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
-            <span class="ident">Node</span>::<span class="ident">Start</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Start</span>(<span class="ident">node</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
                 <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Start_M</span>(<span class="ident">node</span>),
                 <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Start_PFrameBase</span>(<span class="ident">node</span>),
                 <span class="number">2</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Start_TArgs</span>(<span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
-            <span class="ident">Node</span>::<span class="ident">Store</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Store</span>(<span class="ident">node</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
                 <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Store_M</span>(<span class="ident">node</span>),
                 <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Store_XRegular</span>(<span class="ident">node</span>),
                 <span class="number">2</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Store_XExcept</span>(<span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
-            <span class="ident">Node</span>::<span class="ident">Switch</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Switch</span>(<span class="ident">node</span>)) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">num</span>() {
                 <span class="number">0</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Switch_Default</span>(<span class="ident">node</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
             },
-            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Start_TArgs</span>(<span class="ident">start</span>)) <span class="op">=&gt;</span> {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Start_TArgs</span>(<span class="ident">start</span>))) <span class="op">=&gt;</span> {
                 <span class="ident">ProjKind</span>::<span class="ident">Start_TArgs_Arg</span>(<span class="self">self</span>.<span class="ident">num</span>(), <span class="ident">start</span>, <span class="ident">proj</span>)
             }
-            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_TResult</span>(<span class="ident">call</span>)) <span class="op">=&gt;</span> {
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_TResult</span>(<span class="ident">call</span>))) <span class="op">=&gt;</span> {
                 <span class="ident">ProjKind</span>::<span class="ident">Call_TResult_Arg</span>(<span class="self">self</span>.<span class="ident">num</span>(), <span class="ident">call</span>, <span class="ident">proj</span>)
             }
             <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">ProjKind</span>::<span class="ident">Other</span>,
@@ -8100,9 +8091,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Add</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Add</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Add</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Add</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Add</span>(<span class="ident">node</span>)
     }
 }
 
@@ -8136,9 +8127,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Address</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Address</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Address</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Address</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Address</span>(<span class="ident">node</span>)
     }
 }
 
@@ -8166,9 +8157,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Align</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Align</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Align</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Align</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Align</span>(<span class="ident">node</span>)
     }
 }
 
@@ -8279,9 +8270,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Alloc</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Alloc</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Alloc</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Alloc</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Alloc</span>(<span class="ident">node</span>)
     }
 }
 
@@ -8447,9 +8438,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Anchor</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Anchor</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Anchor</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Anchor</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Anchor</span>(<span class="ident">node</span>)
     }
 }
 
@@ -8514,9 +8505,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">And</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">And</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">And</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">And</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">And</span>(<span class="ident">node</span>)
     }
 }
 
@@ -8568,9 +8559,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Bad</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Bad</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Bad</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Bad</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Bad</span>(<span class="ident">node</span>)
     }
 }
 
@@ -8620,9 +8611,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Bitcast</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Bitcast</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Bitcast</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Bitcast</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Bitcast</span>(<span class="ident">node</span>)
     }
 }
 
@@ -8671,9 +8662,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Block</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Block</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Block</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Block</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Block</span>(<span class="ident">node</span>)
     }
 }
 
@@ -8769,9 +8760,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Builtin</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Builtin</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Builtin</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Builtin</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Builtin</span>(<span class="ident">node</span>)
     }
 }
 
@@ -8915,9 +8906,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Call</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Call</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Call</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Call</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Call</span>(<span class="ident">node</span>)
     }
 }
 
@@ -8994,9 +8985,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Cmp</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Cmp</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Cmp</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Cmp</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Cmp</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9091,9 +9082,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Cond</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Cond</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Cond</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Cond</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Cond</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9182,9 +9173,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Confirm</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Confirm</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Confirm</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Confirm</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Confirm</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9233,9 +9224,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Const</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Const</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Const</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Const</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Const</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9279,9 +9270,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Conv</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Conv</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Conv</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Conv</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Conv</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9396,9 +9387,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">CopyB</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">CopyB</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">CopyB</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">CopyB</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">CopyB</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9432,9 +9423,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Deleted</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Deleted</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Deleted</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Deleted</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Deleted</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9607,9 +9598,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Div</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Div</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Div</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Div</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Div</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9644,9 +9635,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Dummy</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Dummy</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Dummy</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Dummy</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Dummy</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9680,9 +9671,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">End</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">End</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">End</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">End</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">End</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9749,9 +9740,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Eor</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Eor</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Eor</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Eor</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Eor</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9816,9 +9807,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Free</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Free</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Free</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Free</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Free</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9869,9 +9860,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">IJmp</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">IJmp</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">IJmp</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">IJmp</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">IJmp</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9923,9 +9914,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Id</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Id</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Id</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Id</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Id</span>(<span class="ident">node</span>)
     }
 }
 
@@ -9958,9 +9949,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Jmp</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Jmp</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Jmp</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Jmp</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Jmp</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10153,9 +10144,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Load</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Load</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Load</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Load</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Load</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10218,9 +10209,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Member</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Member</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Member</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Member</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Member</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10264,9 +10255,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Minus</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Minus</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Minus</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Minus</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Minus</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10430,9 +10421,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Mod</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Mod</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Mod</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Mod</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Mod</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10497,9 +10488,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Mul</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Mul</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Mul</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Mul</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Mul</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10565,9 +10556,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Mulh</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Mulh</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Mulh</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Mulh</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Mulh</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10649,9 +10640,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Mux</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Mux</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Mux</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Mux</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Mux</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10684,9 +10675,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">NoMem</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">NoMem</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">NoMem</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">NoMem</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">NoMem</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10735,9 +10726,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Not</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Not</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Not</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Not</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Not</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10770,9 +10761,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Offset</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Offset</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Offset</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Offset</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Offset</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10837,9 +10828,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Or</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Or</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Or</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Or</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Or</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10892,9 +10883,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Phi</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Phi</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Phi</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Phi</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Phi</span>(<span class="ident">node</span>)
     }
 }
 
@@ -10945,9 +10936,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Pin</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Pin</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Pin</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Pin</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Pin</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11012,9 +11003,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Proj</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="self">self</span>, <span class="self">self</span>.<span class="ident">kind</span>())
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Proj</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">node</span>, <span class="ident">node</span>.<span class="ident">kind</span>())
     }
 }
 
@@ -11024,11 +11015,6 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">NodeDebug</span> <span class="kw">for</span> <span class="ident">Proj</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>, <span class="ident">_opts</span>: <span class="ident">NodeDebugOpts</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Proj {}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>())
-    }
-}
 <span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">Proj</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
         <span class="ident">fmt</span>::<span class="ident">Display</span>::<span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">debug_fmt</span>(), <span class="ident">f</span>)
@@ -11111,9 +11097,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Raise</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Raise</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Raise</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Raise</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Raise</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11163,9 +11149,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Return</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Return</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Return</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Return</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Return</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11249,9 +11235,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Sel</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Sel</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Sel</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Sel</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Sel</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11320,9 +11306,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Shl</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Shl</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Shl</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Shl</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Shl</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11391,9 +11377,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Shr</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Shr</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Shr</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Shr</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Shr</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11463,9 +11449,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Shrs</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Shrs</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Shrs</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Shrs</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Shrs</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11498,9 +11484,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Size</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Size</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Size</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Size</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Size</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11578,9 +11564,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Start</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Start</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Start</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Start</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Start</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11758,9 +11744,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Store</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Store</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Store</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Store</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11820,9 +11806,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Sub</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Sub</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Sub</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Sub</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Sub</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11921,9 +11907,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Switch</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Switch</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Switch</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Switch</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Switch</span>(<span class="ident">node</span>)
     }
 }
 
@@ -11960,9 +11946,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Sync</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Sync</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Sync</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Sync</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Sync</span>(<span class="ident">node</span>)
     }
 }
 
@@ -12002,9 +11988,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Tuple</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Tuple</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Tuple</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Tuple</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Tuple</span>(<span class="ident">node</span>)
     }
 }
 
@@ -12042,9 +12028,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Unknown</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">Unknown</span>(<span class="self">self</span>)
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Unknown</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">node</span>: <span class="ident">Unknown</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">Unknown</span>(<span class="ident">node</span>)
     }
 }
 

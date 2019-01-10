@@ -292,6 +292,8 @@
 <span id="292">292</span>
 <span id="293">293</span>
 <span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">mode</span>::<span class="ident">Mode</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
@@ -312,7 +314,7 @@
     <span class="ident">Bool</span>(<span class="ident">bool</span>),
     <span class="ident">Unknown</span>,
     <span class="ident">Bad</span>,
-    <span class="ident">Long</span>,
+    <span class="ident">Long</span>(<span class="ident">i64</span>),
     <span class="ident">Other</span>,
 }
 
@@ -404,6 +406,8 @@
             <span class="ident">TarvalKind</span>::<span class="ident">Bool</span>(<span class="bool-val">false</span>)
         } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_bad</span>() {
             <span class="ident">TarvalKind</span>::<span class="ident">Bad</span>
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_long</span>() {
+            <span class="ident">TarvalKind</span>::<span class="ident">Long</span>(<span class="self">self</span>.<span class="ident">get_long</span>())
         } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_unknown</span>() {
             <span class="ident">TarvalKind</span>::<span class="ident">Unknown</span>
         } <span class="kw">else</span> {
@@ -480,7 +484,7 @@
             <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">v</span>.<span class="ident">as_ptr</span>()).<span class="ident">to_string_lossy</span>();
             <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">trim_start_matches</span>(<span class="string">&quot;&lt;&quot;</span>);
             <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">trim_end_matches</span>(<span class="string">&quot;&gt;&quot;</span>);
-            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;Tarval{{{}, mode: {}}}&quot;</span>, <span class="ident">s</span>, <span class="self">self</span>.<span class="ident">mode</span>().<span class="ident">name_string</span>())
+            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;{{{}, mode: {}}}&quot;</span>, <span class="ident">s</span>, <span class="self">self</span>.<span class="ident">mode</span>().<span class="ident">name_string</span>())
         }
     }
 }

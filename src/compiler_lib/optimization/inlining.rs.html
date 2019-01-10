@@ -244,6 +244,15 @@
 <span id="244">244</span>
 <span id="245">245</span>
 <span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">analysis</span>::<span class="ident">CallGraph</span>,
@@ -295,13 +304,10 @@
             }
         }
 
+        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Inline finished&quot;</span>);
+
         <span class="ident">Outcome</span>::<span class="ident">Unchanged</span>
     }
-}
-
-<span class="kw">struct</span> <span class="ident">Inline</span> {
-    <span class="ident">graph</span>: <span class="ident">Graph</span>,
-    <span class="ident">marked</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">bool</span><span class="op">&gt;</span>,
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Display</span>)]</span>
@@ -313,43 +319,40 @@
     }
 }
 
+<span class="kw">struct</span> <span class="ident">Inline</span> {
+    <span class="ident">graph</span>: <span class="ident">Graph</span>,
+}
+
 <span class="kw">impl</span> <span class="ident">Inline</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">inline</span>(<span class="ident">call</span>: <span class="ident">Call</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">InlineError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">graph</span> <span class="op">=</span> <span class="ident">call</span>.<span class="ident">graph</span>();
         <span class="ident">graph</span>.<span class="ident">assure_outs</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">graph</span>);
-        <span class="ident">i</span>.<span class="ident">internal_inline</span>(<span class="ident">call</span>)
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">Inline</span> { <span class="ident">graph</span> };
+        <span class="ident">i</span>.<span class="ident">inline_with_context</span>(<span class="ident">call</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">graph</span>: <span class="ident">Graph</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">marked</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
-        <span class="kw">for</span> <span class="ident">n</span> <span class="kw">in</span> <span class="ident">graph</span>.<span class="ident">nodes</span>().<span class="ident">iter</span>() {
-            <span class="ident">marked</span>.<span class="ident">insert</span>(<span class="kw-2">*</span><span class="ident">n</span>, <span class="bool-val">false</span>);
-        }
-
-        <span class="ident">Inline</span> { <span class="ident">graph</span>, <span class="ident">marked</span> }
-    }
-
-    <span class="kw">fn</span> <span class="ident">internal_inline</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">call</span>: <span class="ident">Call</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">InlineError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">inline_with_context</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">call</span>: <span class="ident">Call</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">InlineError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">graph</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">graph</span>;
         <span class="kw">let</span> <span class="ident">proj_m</span> <span class="op">=</span> <span class="ident">call</span>.<span class="ident">out_proj_m</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">proj_first_result</span> <span class="op">=</span> <span class="ident">call</span>.<span class="ident">out_proj_t_result</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">r</span>.<span class="ident">out_nodes</span>().<span class="ident">idx</span>(<span class="number">0</span>));
-        <span class="kw">let</span> <span class="ident">has_result</span> <span class="op">=</span> <span class="ident">proj_first_result</span>.<span class="ident">is_some</span>();
+        <span class="kw">let</span> <span class="ident">call_result</span> <span class="op">=</span> <span class="ident">call</span>.<span class="ident">out_proj_t_result</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">r</span>.<span class="ident">out_nodes</span>().<span class="ident">idx</span>(<span class="number">0</span>));
 
-        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Call to inline: {:?}, has result: {}&quot;</span>, <span class="ident">call</span>, <span class="ident">has_result</span>);
+        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Call to inline: {:?}, result: {:?}&quot;</span>, <span class="ident">call</span>, <span class="ident">call_result</span>);
 
         <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="ident">Node</span>::<span class="ident">as_address</span>(<span class="ident">call</span>.<span class="ident">ptr</span>())<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">entity</span> <span class="op">=</span> <span class="ident">address</span>.<span class="ident">entity</span>();
         <span class="kw">let</span> <span class="ident">graph_to_inline</span>: <span class="ident">Graph</span> <span class="op">=</span> <span class="ident">entity</span>.<span class="ident">graph</span>()<span class="question-mark">?</span>;
 
         <span class="kw">let</span> (<span class="ident">block</span>, <span class="ident">target_block</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">split_block_at</span>(<span class="ident">graph</span>, <span class="ident">call</span>.<span class="ident">into</span>());
-
-        <span class="comment">//self.text.insert(block.into(), &quot;new block&quot;.into());</span>
-        <span class="self">self</span>.<span class="ident">marked</span>.<span class="ident">insert</span>(<span class="ident">target_block</span>.<span class="ident">into</span>(), <span class="bool-val">true</span>);
+        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Block splitted into {:?} and {:?}&quot;</span>, <span class="ident">block</span>, <span class="ident">target_block</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
         <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">graph_to_inline</span>.<span class="ident">start</span>().<span class="ident">block</span>().<span class="ident">into</span>(), <span class="ident">block</span>.<span class="ident">into</span>());
-
+        <span class="kw">struct</span> <span class="ident">Return</span> {
+            <span class="ident">jmp</span>: <span class="ident">Jmp</span>,
+            <span class="ident">res</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span>,
+            <span class="ident">mem</span>: <span class="ident">Node</span>,
+        };
         <span class="kw">let</span> <span class="ident">returns</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">graph_to_inline</span>
             .<span class="ident">end</span>()
             .<span class="ident">block</span>()
@@ -360,57 +363,52 @@
                     <span class="ident">Node</span>::<span class="ident">as_return</span>(<span class="self">self</span>.<span class="ident">copy</span>(<span class="ident">ret</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">map</span>, <span class="ident">call</span>, <span class="ident">graph</span>.<span class="ident">start_block</span>())).<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">updated_ret</span>.<span class="ident">return_res</span>().<span class="ident">idx</span>(<span class="number">0</span>);
                 <span class="kw">let</span> <span class="ident">mem</span> <span class="op">=</span> <span class="ident">updated_ret</span>.<span class="ident">mem</span>();
-                <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="ident">updated_ret</span>.<span class="ident">block</span>();
-                <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;res: {:?}, mem: {:?}, block: {:?}&quot;</span>, <span class="ident">res</span>, <span class="ident">mem</span>, <span class="ident">block</span>);
+                <span class="kw">let</span> <span class="ident">ret_block</span> <span class="op">=</span> <span class="ident">updated_ret</span>.<span class="ident">block</span>();
+                <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Return {:?} with mem {:?} from {:?}&quot;</span>, <span class="ident">res</span>, <span class="ident">mem</span>, <span class="ident">ret_block</span>);
+
+                <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Delete copied return {:?}&quot;</span>, <span class="ident">updated_ret</span>);
                 <span class="ident">graph</span>.<span class="ident">mark_as_bad</span>(<span class="ident">updated_ret</span>);
 
-                <span class="self">self</span>.<span class="ident">marked</span>.<span class="ident">insert</span>(<span class="ident">block</span>.<span class="ident">into</span>(), <span class="bool-val">true</span>);
-                <span class="self">self</span>.<span class="ident">marked</span>.<span class="ident">insert</span>(<span class="ident">updated_ret</span>.<span class="ident">into</span>(), <span class="bool-val">true</span>);
-                (<span class="ident">block</span>.<span class="ident">new_jmp</span>(), <span class="ident">res</span>, <span class="ident">mem</span>)
+                <span class="ident">Return</span> {
+                    <span class="ident">jmp</span>: <span class="ident">ret_block</span>.<span class="ident">new_jmp</span>(),
+                    <span class="ident">res</span>,
+                    <span class="ident">mem</span>,
+                }
             })
             .<span class="ident">collect</span>();
 
-        <span class="kw">let</span> <span class="ident">jmps</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">returns</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">jmp</span>, <span class="ident">_res</span>, <span class="ident">_mem</span>)<span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">n</span>: <span class="ident">Node</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">jmp</span>).<span class="ident">into</span>();
-                <span class="ident">n</span>
-            })
-            .<span class="ident">collect</span>();
-        <span class="ident">target_block</span>.<span class="ident">set_in_nodes</span>(<span class="kw-2">&amp;</span><span class="ident">jmps</span>[..]);
-
-        <span class="kw">let</span> <span class="ident">mems</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">returns</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">_jmp</span>, <span class="ident">_res</span>, <span class="ident">mem</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">mem</span>).<span class="ident">collect</span>();
-        <span class="kw">let</span> <span class="ident">mode</span> <span class="op">=</span> <span class="ident">mems</span>[<span class="number">0</span>].<span class="ident">mode</span>();
-        <span class="kw">let</span> <span class="ident">new_mem</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">mems</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> {
-            <span class="ident">mems</span>[<span class="number">0</span>]
-        } <span class="kw">else</span> {
-            <span class="ident">target_block</span>.<span class="ident">new_phi</span>(<span class="kw-2">&amp;</span><span class="ident">mems</span>[..], <span class="ident">mode</span>).<span class="ident">into</span>()
-        };
-        <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="ident">proj_m</span>, <span class="ident">new_mem</span>);
-        <span class="kw">if</span> <span class="ident">has_result</span> {
-            <span class="kw">let</span> <span class="ident">ress</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">returns</span>
-                .<span class="ident">iter</span>()
-                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">_jmp</span>, <span class="ident">res</span>, <span class="ident">_mem</span>)<span class="op">|</span> <span class="ident">res</span>.<span class="ident">unwrap</span>())
-                .<span class="ident">collect</span>();
-            <span class="kw">let</span> <span class="ident">ress_mode</span> <span class="op">=</span> <span class="ident">ress</span>[<span class="number">0</span>].<span class="ident">mode</span>();
-            <span class="kw">let</span> <span class="ident">new_res</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">ress</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> {
-                <span class="ident">ress</span>[<span class="number">0</span>]
-            } <span class="kw">else</span> {
-                <span class="ident">target_block</span>.<span class="ident">new_phi</span>(<span class="kw-2">&amp;</span><span class="ident">ress</span>[..], <span class="ident">ress_mode</span>).<span class="ident">into</span>()
-            };
-            <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="ident">proj_first_result</span>.<span class="ident">unwrap</span>(), <span class="ident">new_res</span>);
+        <span class="kw">for</span> <span class="ident">kept_alive_node</span> <span class="kw">in</span> <span class="ident">graph_to_inline</span>.<span class="ident">end_keep_alives</span>() {
+            <span class="kw">let</span> <span class="ident">new_node</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">copy</span>(<span class="ident">kept_alive_node</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">map</span>, <span class="ident">call</span>, <span class="ident">graph</span>.<span class="ident">start_block</span>());
+            <span class="ident">new_node</span>.<span class="ident">keep_alive</span>();
         }
 
-        <span class="ident">graph</span>.<span class="ident">mark_as_bad</span>(<span class="ident">call</span>);
-        <span class="ident">graph</span>.<span class="ident">remove_bads</span>();
+        <span class="kw">let</span> <span class="ident">jmps</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">returns</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">r</span>.<span class="ident">jmp</span>)).<span class="ident">collect</span>();
+        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Set jmp targets of {:?} to {:?}&quot;</span>, <span class="ident">jmps</span>, <span class="ident">target_block</span>);
+        <span class="ident">target_block</span>.<span class="ident">set_in_nodes</span>(<span class="kw-2">&amp;</span><span class="ident">jmps</span>);
 
-        <span class="ident">graph</span>.<span class="ident">dump</span>(<span class="string">&quot;inline&quot;</span>);
+        <span class="kw">let</span> <span class="ident">mems</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">returns</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">r</span>.<span class="ident">mem</span>).<span class="ident">collect</span>();
+        <span class="kw">let</span> <span class="ident">new_mem</span> <span class="op">=</span> <span class="ident">target_block</span>.<span class="ident">phi_or_node</span>(<span class="kw-2">&amp;</span><span class="ident">mems</span>);
+        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Exchange call mem {:?} with mem {:?}&quot;</span>, <span class="ident">proj_m</span>, <span class="ident">new_mem</span>);
+        <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="ident">proj_m</span>, <span class="ident">new_mem</span>);
+
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">call_result</span>) <span class="op">=</span> <span class="ident">call_result</span> {
+            <span class="kw">let</span> <span class="ident">ress</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">returns</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">r</span>.<span class="ident">res</span>.<span class="ident">unwrap</span>()).<span class="ident">collect</span>();
+            <span class="kw">let</span> <span class="ident">new_res</span> <span class="op">=</span> <span class="ident">target_block</span>.<span class="ident">phi_or_node</span>(<span class="kw-2">&amp;</span><span class="ident">ress</span>);
+            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Exchange call res {:?} with res {:?}&quot;</span>, <span class="ident">call_result</span>, <span class="ident">new_res</span>);
+            <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="ident">call_result</span>, <span class="ident">new_res</span>);
+        }
+
+        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Delete {:?}&quot;</span>, <span class="ident">call</span>);
+        <span class="ident">graph</span>.<span class="ident">mark_as_bad</span>(<span class="ident">call</span>);
+
+        <span class="ident">graph</span>.<span class="ident">remove_bads</span>();
 
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn</span> <span class="ident">split_block_at</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">graph</span>: <span class="ident">Graph</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-&gt;</span> (<span class="ident">Block</span>, <span class="ident">Block</span>) {
         <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">block</span>();
+        <span class="kw">let</span> <span class="ident">phis</span> <span class="op">=</span> <span class="ident">block</span>.<span class="ident">phis</span>();
 
         <span class="comment">// move cfg_preds from block to new_block</span>
         <span class="kw">let</span> <span class="ident">cfg_preds</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">block</span>.<span class="ident">cfg_preds</span>().<span class="ident">collect</span>();
@@ -418,14 +416,19 @@
         <span class="ident">block</span>.<span class="ident">set_in_nodes</span>(<span class="kw-2">&amp;</span>[]);
 
         <span class="self">self</span>.<span class="ident">move_node</span>(<span class="ident">node</span>, <span class="ident">block</span>, <span class="ident">new_block</span>);
+        <span class="kw">for</span> <span class="ident">phi</span> <span class="kw">in</span> <span class="ident">phis</span> {
+            <span class="self">self</span>.<span class="ident">move_node</span>(<span class="ident">phi</span>.<span class="ident">into</span>(), <span class="ident">block</span>, <span class="ident">new_block</span>);
+        }
+
         <span class="kw">if</span> <span class="ident">block</span> <span class="op">==</span> <span class="ident">graph</span>.<span class="ident">start_block</span>() {
             <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Update start block&quot;</span>);
             <span class="ident">graph</span>.<span class="ident">set_start_block</span>(<span class="ident">new_block</span>);
             <span class="comment">// no_mem must be set</span>
             <span class="ident">graph</span>.<span class="ident">no_mem</span>().<span class="ident">set_block</span>(<span class="ident">new_block</span>);
 
-            <span class="comment">// for some reason, this projs are not considered in out_nodes.</span>
-            <span class="comment">// graph.frame().set_block(new_block);</span>
+            <span class="comment">// these projs must be set manually</span>
+            <span class="ident">graph</span>.<span class="ident">frame</span>().<span class="ident">set_block</span>(<span class="ident">new_block</span>);
+            <span class="ident">graph</span>.<span class="ident">args</span>().<span class="ident">set_block</span>(<span class="ident">new_block</span>);
 
             <span class="comment">// all address and const nodes must have the start block as predecessor.</span>
             <span class="kw">for</span> <span class="ident">node</span> <span class="kw">in</span> <span class="ident">block</span>.<span class="ident">out_nodes</span>() {
@@ -439,22 +442,23 @@
     }
 
     <span class="kw">fn</span> <span class="ident">move_node</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>, <span class="ident">from_block</span>: <span class="ident">Block</span>, <span class="ident">to_block</span>: <span class="ident">Block</span>) {
+        <span class="kw">if</span> <span class="ident">Node</span>::<span class="ident">is_block</span>(<span class="ident">node</span>) <span class="op">||</span> <span class="ident">node</span>.<span class="ident">block</span>() <span class="op">!=</span> <span class="ident">from_block</span> {
+            <span class="kw">return</span>;
+        }
+
         <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(
             <span class="string">&quot;Move node {:?} from {:?} to {:?}&quot;</span>,
             <span class="ident">node</span>,
             <span class="ident">from_block</span>,
             <span class="ident">to_block</span>
         );
-        <span class="kw">if</span> <span class="ident">Node</span>::<span class="ident">is_block</span>(<span class="ident">node</span>) <span class="op">||</span> <span class="ident">node</span>.<span class="ident">block</span>() <span class="op">!=</span> <span class="ident">from_block</span> {
-            <span class="kw">return</span>;
+
+        <span class="kw">for</span> <span class="ident">proj</span> <span class="kw">in</span> <span class="ident">node</span>.<span class="ident">all_out_projs</span>() {
+            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;... considering {:?}&quot;</span>, <span class="ident">proj</span>);
+            <span class="ident">proj</span>.<span class="ident">set_block</span>(<span class="ident">to_block</span>);
         }
 
         <span class="ident">node</span>.<span class="ident">set_block</span>(<span class="ident">to_block</span>);
-
-        <span class="kw">for</span> <span class="ident">proj</span> <span class="kw">in</span> <span class="ident">node</span>.<span class="ident">all_out_projs</span>() {
-            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;... considering proj {:?}&quot;</span>, <span class="ident">proj</span>);
-            <span class="ident">proj</span>.<span class="ident">set_block</span>(<span class="ident">to_block</span>);
-        }
 
         <span class="kw">for</span> <span class="ident">in_node</span> <span class="kw">in</span> <span class="ident">node</span>.<span class="ident">in_nodes</span>() {
             <span class="self">self</span>.<span class="ident">move_node</span>(<span class="ident">in_node</span>, <span class="ident">from_block</span>, <span class="ident">to_block</span>);
@@ -469,6 +473,7 @@
         <span class="ident">start_block</span>: <span class="ident">Block</span>,
     ) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">nd</span>) <span class="op">=</span> <span class="ident">map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">old</span>) {
+            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Reused already copied {:?} for {:?}&quot;</span>, <span class="ident">nd</span>, <span class="ident">old</span>);
             <span class="kw">return</span> <span class="kw-2">*</span><span class="ident">nd</span>;
         }
 
@@ -480,14 +485,27 @@
             <span class="kw">_</span> <span class="op">=&gt;</span> {}
         }
 
-        <span class="kw">let</span> <span class="ident">graph</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">graph</span>;
-        <span class="kw">let</span> <span class="ident">new_node</span> <span class="op">=</span> <span class="ident">graph</span>.<span class="ident">copy_node</span>(<span class="ident">old</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">old</span> {
-            <span class="ident">Node</span>::<span class="ident">Address</span>(<span class="kw">_</span>) <span class="kw">if</span> <span class="ident">Node</span>::<span class="ident">is_block</span>(<span class="ident">n</span>) <span class="op">=&gt;</span> <span class="ident">start_block</span>.<span class="ident">into</span>(),
-            <span class="ident">Node</span>::<span class="ident">Const</span>(<span class="kw">_</span>) <span class="kw">if</span> <span class="ident">Node</span>::<span class="ident">is_block</span>(<span class="ident">n</span>) <span class="op">=&gt;</span> <span class="ident">start_block</span>.<span class="ident">into</span>(),
-            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="self">self</span>.<span class="ident">copy</span>(<span class="ident">n</span>, <span class="ident">map</span>, <span class="ident">call_to_inline</span>, <span class="ident">start_block</span>),
-        });
+        <span class="kw">let</span> <span class="ident">target_block</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old</span> {
+            <span class="ident">Node</span>::<span class="ident">Block</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+            <span class="ident">Node</span>::<span class="ident">Address</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Node</span>::<span class="ident">Const</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">start_block</span>),
+            <span class="ident">node</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(
+                <span class="ident">Node</span>::<span class="ident">as_block</span>(<span class="self">self</span>.<span class="ident">copy</span>(<span class="ident">node</span>.<span class="ident">block</span>().<span class="ident">into</span>(), <span class="ident">map</span>, <span class="ident">call_to_inline</span>, <span class="ident">start_block</span>))
+                    .<span class="ident">unwrap</span>(),
+            ),
+        };
 
+        <span class="kw">let</span> <span class="ident">new_node</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">copy_node_without_ins</span>(<span class="ident">old</span>, <span class="ident">target_block</span>);
+        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Copied {:?} to {}&quot;</span>, <span class="ident">old</span>, <span class="ident">new_node</span>.<span class="ident">node_id</span>());
         <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">old</span>, <span class="ident">new_node</span>);
+
+        <span class="kw">let</span> <span class="ident">new_in_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">old</span>
+            .<span class="ident">in_nodes</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">copy</span>(<span class="ident">n</span>, <span class="ident">map</span>, <span class="ident">call_to_inline</span>, <span class="ident">start_block</span>))
+            .<span class="ident">collect</span>();
+
+        <span class="ident">new_node</span>.<span class="ident">set_in_nodes</span>(<span class="kw-2">&amp;</span><span class="ident">new_in_nodes</span>);
+        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Completed copying from {:?} to {:?}&quot;</span>, <span class="ident">old</span>, <span class="ident">new_node</span>);
+
         <span class="ident">new_node</span>
     }
 }

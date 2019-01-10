@@ -246,11 +246,18 @@
 <span id="246">246</span>
 <span id="247">247</span>
 <span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">entity</span>::<span class="ident">Entity</span>,
     <span class="ident">mode</span>::<span class="ident">Mode</span>,
-    <span class="ident">nodes</span>::{<span class="ident">Block</span>, <span class="ident">End</span>, <span class="ident">NoMem</span>, <span class="ident">Node</span>, <span class="ident">NodeFactory</span>, <span class="ident">NodeTrait</span>, <span class="ident">Proj</span>, <span class="ident">ProjKind</span>, <span class="ident">Start</span>, <span class="ident">ValueNode</span>},
+    <span class="ident">nodes</span>::{
+        <span class="ident">Block</span>, <span class="ident">End</span>, <span class="ident">EndKeepAliveIterator</span>, <span class="ident">NoMem</span>, <span class="ident">Node</span>, <span class="ident">NodeFactory</span>, <span class="ident">NodeTrait</span>, <span class="ident">Proj</span>, <span class="ident">ProjKind</span>,
+        <span class="ident">Start</span>, <span class="ident">ValueNode</span>,
+    },
 };
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -309,6 +316,10 @@
         <span class="ident">End</span>::<span class="ident">new</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_irg_end</span>(<span class="self">self</span>.<span class="ident">irg</span>) })
     }
 
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">end_keep_alives</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">EndKeepAliveIterator</span> {
+        <span class="self">self</span>.<span class="ident">end</span>().<span class="ident">keep_alives</span>()
+    }
+
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">args</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Proj</span> {
         <span class="ident">Proj</span>::<span class="ident">new</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_irg_args</span>(<span class="self">self</span>.<span class="ident">irg</span>) })
     }
@@ -336,6 +347,10 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">remove_bads</span>(<span class="self">self</span>) {
         <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">remove_bads</span>(<span class="self">self</span>.<span class="ident">irg</span>) }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">remove_unreachable_code</span>(<span class="self">self</span>) {
+        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">remove_unreachable_code</span>(<span class="self">self</span>.<span class="ident">irg</span>) }
     }
 
     <span class="doccomment">/// Walks over all reachable nodes in the graph, ensuring that nodes inside</span>
@@ -432,36 +447,29 @@
         <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="ident">node</span>, <span class="self">self</span>.<span class="ident">new_bad</span>(<span class="ident">Mode</span>::<span class="ident">b</span>()))
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">copy_node</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>, <span class="kw-2">mut</span> <span class="ident">copy_fn</span>: <span class="ident">F</span>) <span class="op">-&gt;</span> <span class="ident">Node</span>
-    <span class="kw">where</span>
-        <span class="ident">F</span>: <span class="ident">FnMut</span>(<span class="ident">Node</span>) <span class="op">-&gt;</span> <span class="ident">Node</span>,
-    {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">copy_node_without_ins</span>(<span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>, <span class="ident">target</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Block</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">internal_ir_node</span>();
             <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="ident">bindings</span>::<span class="ident">get_irn_op</span>(<span class="ident">ptr</span>);
             <span class="kw">let</span> <span class="ident">mode</span> <span class="op">=</span> <span class="ident">bindings</span>::<span class="ident">get_irn_mode</span>(<span class="ident">ptr</span>);
-            <span class="kw">let</span> <span class="ident">arity</span> <span class="op">=</span> <span class="ident">bindings</span>::<span class="ident">get_irn_arity</span>(<span class="ident">ptr</span>);
 
             <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">Node</span>::<span class="ident">is_block</span>(<span class="ident">node</span>) {
                 <span class="ident">ptr</span>::<span class="ident">null_mut</span>()
             } <span class="kw">else</span> {
-                <span class="ident">copy_fn</span>(<span class="ident">node</span>.<span class="ident">block</span>().<span class="ident">into</span>()).<span class="ident">internal_ir_node</span>()
+                <span class="ident">target</span>
+                    .<span class="ident">expect</span>(<span class="string">&quot;must have some value for non-block nodes&quot;</span>)
+                    .<span class="ident">internal_ir_node</span>()
             };
 
-            <span class="kw">let</span> <span class="ident">ins</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">node</span>
-                .<span class="ident">in_nodes</span>()
-                .<span class="ident">map</span>(<span class="ident">copy_fn</span>)
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span>.<span class="ident">internal_ir_node</span>())
-                .<span class="ident">collect</span>();
-
+            <span class="kw">let</span> <span class="ident">empty</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
             <span class="kw">let</span> <span class="ident">new_node_ptr</span> <span class="op">=</span> <span class="ident">bindings</span>::<span class="ident">new_ir_node</span>(
                 <span class="ident">ptr</span>::<span class="ident">null_mut</span>(),
                 <span class="self">self</span>.<span class="ident">irg</span>,
                 <span class="ident">block</span>,
                 <span class="ident">op</span>,
                 <span class="ident">mode</span>,
-                <span class="ident">arity</span>,
-                <span class="ident">ins</span>.<span class="ident">as_ptr</span>(),
+                <span class="ident">empty</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>,
+                <span class="ident">empty</span>.<span class="ident">as_ptr</span>(),
             );
             <span class="ident">bindings</span>::<span class="ident">copy_node_attr</span>(<span class="self">self</span>.<span class="ident">irg</span>, <span class="ident">ptr</span>, <span class="ident">new_node_ptr</span>);
 

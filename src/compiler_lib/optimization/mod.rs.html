@@ -183,6 +183,10 @@
 <span id="183">183</span>
 <span id="184">184</span>
 <span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">firm</span>::<span class="ident">FirmProgram</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">bindings</span>, <span class="ident">Graph</span>};
@@ -270,7 +274,11 @@
     <span class="kw">fn</span> <span class="ident">sequence</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Optimization</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Level</span>::<span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[],
-            <span class="ident">Level</span>::<span class="ident">Moderate</span> <span class="op">|</span> <span class="ident">Level</span>::<span class="ident">Aggressive</span> <span class="op">=&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">ConstantFolding</span>)],
+            <span class="ident">Level</span>::<span class="ident">Moderate</span> <span class="op">=&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">ConstantFolding</span>)],
+            <span class="ident">Level</span>::<span class="ident">Aggressive</span> <span class="op">=&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[
+                <span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">Inline</span>),
+                <span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">ConstantFolding</span>),
+            ],
             <span class="ident">Level</span>::<span class="ident">Custom</span>(<span class="ident">list</span>) <span class="op">=&gt;</span> <span class="ident">list</span>.<span class="ident">clone</span>(),
         }
     }
