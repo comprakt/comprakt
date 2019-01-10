@@ -137,17 +137,24 @@ impl GenInstrBlock {
             v
         };
 
-        let already_computed = block.preds.iter().flat_map(|in_edge| {
-            in_edge
-                .register_transitions
-                .iter()
-                .map(|(src_slot, dst_slot)| (*src_slot, *dst_slot))
-                .collect::<Vec<_>>()
-        })
-        // if the same value flows in over multiple preds, ignore the dupes
-        .unique_by(|(src_slot,_)| src_slot.firm());
-        for (src_slot,in_slot) in already_computed {
-            log::debug!("InCFGPred for slot.num={:?} {:?}", in_slot.num, src_slot.firm());
+        let already_computed = block
+            .preds
+            .iter()
+            .flat_map(|in_edge| {
+                in_edge
+                    .register_transitions
+                    .iter()
+                    .map(|(src_slot, dst_slot)| (*src_slot, *dst_slot))
+                    .collect::<Vec<_>>()
+            })
+            // if the same value flows in over multiple preds, ignore the dupes
+            .unique_by(|(src_slot, _)| src_slot.firm());
+        for (src_slot, in_slot) in already_computed {
+            log::debug!(
+                "InCFGPred for slot.num={:?} {:?}",
+                in_slot.num,
+                src_slot.firm()
+            );
             self.mark_computed(src_slot.firm(), Computed::InCFGPred(in_slot));
         }
 
@@ -169,7 +176,12 @@ impl GenInstrBlock {
 
     fn mark_computed(&mut self, node: Node, computed: Computed) {
         let did_overwrite = self.computed.insert(node, computed);
-        debug_assert!(did_overwrite.is_none(), "duplicate computed for {:?}: {:?}", node, did_overwrite);
+        debug_assert!(
+            did_overwrite.is_none(),
+            "duplicate computed for {:?}: {:?}",
+            node,
+            did_overwrite
+        );
     }
 
     fn gen_value(
