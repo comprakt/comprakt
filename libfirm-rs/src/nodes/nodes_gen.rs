@@ -920,75 +920,75 @@ pub enum ProjKind {
 
 impl Proj {
     pub fn kind(self) -> ProjKind {
-        let pred = self.pred();
+        let pred = self.pred_or_none();
         match pred {
-            Node::Alloc(node) => match self.num() {
+            Some(Node::Alloc(node)) => match self.num() {
                 0 => ProjKind::Alloc_M(node),
                 1 => ProjKind::Alloc_Res(node),
                 _ => ProjKind::Other,
             },
-            Node::Builtin(node) => match self.num() {
+            Some(Node::Builtin(node)) => match self.num() {
                 0 => ProjKind::Builtin_M(node),
                 _ => ProjKind::Other,
             },
-            Node::Call(node) => match self.num() {
+            Some(Node::Call(node)) => match self.num() {
                 0 => ProjKind::Call_M(node),
                 1 => ProjKind::Call_TResult(node),
                 2 => ProjKind::Call_XRegular(node),
                 3 => ProjKind::Call_XExcept(node),
                 _ => ProjKind::Other,
             },
-            Node::Cond(node) => match self.num() {
+            Some(Node::Cond(node)) => match self.num() {
                 0 => ProjKind::Cond_Val(false, node),
                 1 => ProjKind::Cond_Val(true, node),
                 _ => ProjKind::Other,
             },
-            Node::Div(node) => match self.num() {
+            Some(Node::Div(node)) => match self.num() {
                 0 => ProjKind::Div_M(node),
                 1 => ProjKind::Div_Res(node),
                 2 => ProjKind::Div_XRegular(node),
                 3 => ProjKind::Div_XExcept(node),
                 _ => ProjKind::Other,
             },
-            Node::Load(node) => match self.num() {
+            Some(Node::Load(node)) => match self.num() {
                 0 => ProjKind::Load_M(node),
                 1 => ProjKind::Load_Res(node),
                 2 => ProjKind::Load_XRegular(node),
                 3 => ProjKind::Load_XExcept(node),
                 _ => ProjKind::Other,
             },
-            Node::Mod(node) => match self.num() {
+            Some(Node::Mod(node)) => match self.num() {
                 0 => ProjKind::Mod_M(node),
                 1 => ProjKind::Mod_Res(node),
                 2 => ProjKind::Mod_XRegular(node),
                 3 => ProjKind::Mod_XExcept(node),
                 _ => ProjKind::Other,
             },
-            Node::Raise(node) => match self.num() {
+            Some(Node::Raise(node)) => match self.num() {
                 0 => ProjKind::Raise_M(node),
                 1 => ProjKind::Raise_X(node),
                 _ => ProjKind::Other,
             },
-            Node::Start(node) => match self.num() {
+            Some(Node::Start(node)) => match self.num() {
                 0 => ProjKind::Start_M(node),
                 1 => ProjKind::Start_PFrameBase(node),
                 2 => ProjKind::Start_TArgs(node),
                 _ => ProjKind::Other,
             },
-            Node::Store(node) => match self.num() {
+            Some(Node::Store(node)) => match self.num() {
                 0 => ProjKind::Store_M(node),
                 1 => ProjKind::Store_XRegular(node),
                 2 => ProjKind::Store_XExcept(node),
                 _ => ProjKind::Other,
             },
-            Node::Switch(node) => match self.num() {
+            Some(Node::Switch(node)) => match self.num() {
                 0 => ProjKind::Switch_Default(node),
                 _ => ProjKind::Other,
             },
-            Node::Proj(proj, ProjKind::Start_TArgs(start)) => {
+            Some(Node::Proj(proj, ProjKind::Start_TArgs(start))) => {
                 ProjKind::Start_TArgs_Arg(self.num(), start, proj)
             }
-            Node::Proj(proj, ProjKind::Call_TResult(call)) => {
+            Some(Node::Proj(proj, ProjKind::Call_TResult(call))) => {
                 ProjKind::Call_TResult_Arg(self.num(), call, proj)
             }
             _ => ProjKind::Other,

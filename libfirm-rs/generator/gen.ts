@@ -476,11 +476,11 @@ function generateProjKindImpl() {
     w.indent(`impl Proj {`);
     w.indent(`pub fn kind(self) -> ProjKind {`);
     {
-        w.line(`let pred = self.pred();`);
+        w.line(`let pred = self.pred_or_none();`);
         w.indent(`match pred {`);
         for (const predNode of nodes) {
             if (predNode.isProj || predNode.outs.length === 0) continue;
-            w.line(`Node::${predNode.variantName}(node) => `);
+            w.line(`Some(Node::${predNode.variantName}(node)) => `);
             w.indentation++;
             w.indent(`match self.num() {`);
             let idx = 0;
@@ -492,8 +492,8 @@ function generateProjKindImpl() {
             w.unindent(`},`);
             w.indentation--;
         }
-        w.line(`Node::Proj(proj, ProjKind::Start_TArgs(start)) => ProjKind::Start_TArgs_Arg(self.num(), start, proj),`);
-        w.line(`Node::Proj(proj, ProjKind::Call_TResult(call)) => ProjKind::Call_TResult_Arg(self.num(), call, proj),`);
+        w.line(`Some(Node::Proj(proj, ProjKind::Start_TArgs(start))) => ProjKind::Start_TArgs_Arg(self.num(), start, proj),`);
+        w.line(`Some(Node::Proj(proj, ProjKind::Call_TResult(call))) => ProjKind::Call_TResult_Arg(self.num(), call, proj),`);
         w.line(`_ => ProjKind::Other,`);
         w.unindent("}");
     }

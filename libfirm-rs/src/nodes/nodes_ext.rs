@@ -288,6 +288,15 @@ impl Proj {
             bindings::new_r_Proj(self.internal_ir_node(), mode.libfirm_mode(), num)
         })
     }
+
+    pub fn pred_or_none(self) -> Option<Node> {
+        if self.in_nodes().len() == 0 {
+            None
+        } else {
+            let unwrapped = unsafe { bindings::get_Proj_pred(self.internal_ir_node()) };
+            Some(NodeFactory::node(unwrapped))
+        }
+    }
 }
 
 impl Jmp {
