@@ -1,8 +1,8 @@
 use super::{function_call::Function, CallingConv};
-use std::collections::BTreeMap;
+use std::{cmp::Ordering, collections::BTreeMap};
 
-#[derive(Display, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
-pub enum Amd64Reg {
+#[derive(Display, Debug, PartialEq, Eq, Copy, Clone)]
+pub(super) enum Amd64Reg {
     #[display(fmt = "%rax")]
     Rax,
     #[display(fmt = "%rcx")]
@@ -35,6 +35,46 @@ pub enum Amd64Reg {
     R14,
     #[display(fmt = "%r15")]
     R15,
+}
+
+#[rustfmt::skip]
+impl From<Amd64Reg> for usize {
+    fn from(reg: Amd64Reg) -> usize {
+        match reg {
+            Amd64Reg::Rdi => 0,  // Caller-save
+            Amd64Reg::Rsi => 1,  // Caller-save
+            Amd64Reg::Rdx => 2,  // Caller-save
+            Amd64Reg::Rcx => 3,  // Caller-save
+            Amd64Reg::R8  => 4,  // Caller-save
+            Amd64Reg::R9  => 5,  // Caller-save
+            Amd64Reg::R10 => 6,  // Caller-save
+            Amd64Reg::R11 => 7,  // Caller-save
+            Amd64Reg::Rax => 8,  // Caller-save
+
+            Amd64Reg::Rbx => 9,  // Callee-save
+            Amd64Reg::R12 => 10, // Callee-save
+            Amd64Reg::R13 => 11, // Callee-save
+            Amd64Reg::R14 => 12, // Callee-save
+            Amd64Reg::R15 => 13, // Callee-save
+
+            Amd64Reg::Rsp => 14, // should not be used
+            Amd64Reg::Rbp => 15, // should not be used
+        }
+    }
+}
+
+impl Ord for Amd64Reg {
+    fn cmp(&self, other: &Amd64Reg) -> Ordering {
+        let l: usize = (*self).into();
+        let r: usize = (*other).into();
+        l.cmp(&r)
+    }
+}
+
+impl PartialOrd for Amd64Reg {
+    fn partial_cmp(&self, other: &Amd64Reg) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Amd64Reg {
@@ -73,7 +113,7 @@ impl Amd64Reg {
     ///   - X86_64:
     ///     - if available, first free function argument register (see
     ///       `Amd64Reg::arg()`)
-    ///     - %r10, %r11
+    ///     - %r10, %r11, %rax
     ///   - Stack:
     ///     - the registers that would get reserved for function arguments by
     ///       X86_64
@@ -82,7 +122,7 @@ impl Amd64Reg {
     ///   - %rbx, %r12-r15
     ///
     /// This funtion returns `None` when the `idx` (plus the number of reserved function
-    /// arguments) points to one of the registers %rbp, %rsp or %rax or is
+    /// arguments) points to one of the registers %rbp or %rsp or is
     /// greater or equals 16 (number of total registers)
     #[rustfmt::skip]
     fn reg(idx: usize, nargs: usize, cconv: CallingConv) -> Option<Self> {
@@ -92,46 +132,47 @@ impl Amd64Reg {
             usize::min(nargs, 6)
         };
         match idx + offset {
-            0 => Some(Amd64Reg::Rdi),  // Caller-save
-            1 => Some(Amd64Reg::Rsi),  // Caller-save
-            2 => Some(Amd64Reg::Rdx),  // Caller-save
-            3 => Some(Amd64Reg::Rcx),  // Caller-save
-            4 => Some(Amd64Reg::R8),   // Caller-save
-            5 => Some(Amd64Reg::R9),   // Caller-save
-            6 => Some(Amd64Reg::R10),  // Caller-save
-            7 => Some(Amd64Reg::R11),  // Caller-save
+            0  => Some(Amd64Reg::Rdi), // Caller-save
+            1  => Some(Amd64Reg::Rsi), // Caller-save
+            2  => Some(Amd64Reg::Rdx), // Caller-save
+            3  => Some(Amd64Reg::Rcx), // Caller-save
+            4  => Some(Amd64Reg::R8),  // Caller-save
+            5  => Some(Amd64Reg::R9),  // Caller-save
+            6  => Some(Amd64Reg::R10), // Caller-save
+            7  => Some(Amd64Reg::R11), // Caller-save
+            8  => Some(Amd64Reg::Rax), // Caller-save
 
-            8 => Some(Amd64Reg::Rbx),  // Callee-save
-            9 => Some(Amd64Reg::R12),  // Callee-save
-            10 => Some(Amd64Reg::R13), // Callee-save
-            11 => Some(Amd64Reg::R14), // Callee-save
-            12 => Some(Amd64Reg::R15), // Callee-save
+            9  => Some(Amd64Reg::Rbx), // Callee-save
+            10 => Some(Amd64Reg::R12), // Callee-save
+            11 => Some(Amd64Reg::R13), // Callee-save
+            12 => Some(Amd64Reg::R14), // Callee-save
+            13 => Some(Amd64Reg::R15), // Callee-save
 
-            13   // `Amd64Reg::Rsp` should not be used
-            | 14 // `Amd64Reg::Rbp` should not be used
-            | 15 // `Amd64Reg::Rax` should not be used
+            14   // `Amd64Reg::Rsp` should not be used
+            | 15 // `Amd64Reg::Rbp` should not be used
             | _ => None,
         }
     }
 }
 
-pub struct RegisterAllocator {
+pub(super) struct RegisterAllocator {
+    func: Function,
     free_list: BTreeMap<Amd64Reg, bool>,
 }
 
 impl RegisterAllocator {
-    pub fn new(nargs: usize, cconv: CallingConv) -> Self {
+    pub(super) fn new(func: Function) -> Self {
         let mut free_list = BTreeMap::new();
         (0..16)
-            .filter_map(|i| Amd64Reg::reg(i, nargs, cconv))
+            .filter_map(|i| Amd64Reg::reg(i, func.nargs, func.cconv))
             .for_each(|reg| {
                 free_list.insert(reg, true);
             });
-        Self { free_list }
+        Self { func, free_list }
     }
 
     /// Returns a register from the `free_list`
-    pub fn alloc_reg(&mut self) -> Option<Amd64Reg> {
+    pub(super) fn alloc_reg(&mut self) -> Option<Amd64Reg> {
         if let Some(reg) = self
             .free_list
             .iter()
@@ -148,7 +189,43 @@ impl RegisterAllocator {
     /// Inserts a register into the `free_list`. Also registers which were not
     /// initially in the free_list can be inserted. This can be useful for
     /// function argument registers, that won't get used anymore.
-    pub fn free_reg(&mut self, reg: Amd64Reg) {
+    pub(super) fn free_reg(&mut self, reg: Amd64Reg) {
         self.free_list.insert(reg, true);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn free_list_works() {
+        let mut free_list = BTreeMap::new();
+
+        free_list.insert(Amd64Reg::R9, true);
+        free_list.insert(Amd64Reg::R8, true);
+
+        let free_list: Vec<_> = free_list.into_iter().map(|(reg, _)| reg).collect();
+
+        assert_eq!(free_list, [Amd64Reg::R8, Amd64Reg::R9]);
+    }
+
+    #[test]
+    fn register_allocation_works() {
+        let func = Function::new(2, CallingConv::X86_64);
+        let mut allocator = RegisterAllocator::new(func);
+
+        assert_eq!(allocator.alloc_reg().unwrap(), Amd64Reg::Rdx);
+
+        allocator.free_reg(Amd64Reg::Rsi);
+
+        assert_eq!(allocator.alloc_reg().unwrap(), Amd64Reg::Rsi);
+
+        let mut count = 0;
+        while let Some(_) = allocator.alloc_reg() {
+            count += 1;
+        }
+
+        assert_eq!(count, 10);
     }
 }

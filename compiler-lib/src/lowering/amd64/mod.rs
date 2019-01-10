@@ -3,22 +3,24 @@
 use crate::lowering::lir;
 use libfirm_rs::Tarval;
 
-pub mod function_call;
+mod function_call;
 mod register;
 
 use self::register::Amd64Reg;
+pub use self::function_call::Function;
 
-pub enum Instruction {
+pub(self) enum Instruction {
     Movq { src: MoveOperand, dst: MoveOperand },
-    Push { src: Operand },
-    Pop { dst: Operand },
-    // For the Stack pointer
+    Pushq { src: Operand },
+    Popq { dst: Operand },
     Addq { src: Operand, dst: Operand },
     Subq { src: Operand, dst: Operand },
+    Cmpq { lhs: Operand, rhs: Operand },
+    Jmp { target: String, cond: lir::JmpKind },
     Ret,
 }
 
-pub enum Operand {
+pub(self) enum Operand {
     LirOperand(lir::Operand),
     Reg(Amd64Reg),
 }
@@ -32,7 +34,7 @@ impl std::fmt::Display for Operand {
     }
 }
 
-pub enum MoveOperand {
+pub(self) enum MoveOperand {
     Operand(Operand),
     Addr(lir::AddressComputation<Operand>),
 }

@@ -1,12 +1,17 @@
-use super::*;
+use super::{
+    register::RegisterAllocator, Amd64Reg, CallingConv, Instruction, MoveOperand,
+    Operand,
+};
+use crate::lowering::{lir, lir_allocator::Ptr};
+use libfirm_rs::Tarval;
 
 macro_rules! save_regs {
     ([$($reg:ident),*], $save_instrs:expr, $restore_instrs:expr) => {{
         $(
-            $save_instrs.push(Instruction::Push {
+            $save_instrs.push(Instruction::Pushq {
                 src: Operand::Reg(Amd64Reg::$reg),
             });
-            $restore_instrs.push(Instruction::Pop {
+            $restore_instrs.push(Instruction::Popq {
                 dst: Operand::Reg(Amd64Reg::$reg),
             });
         )*
@@ -16,7 +21,7 @@ macro_rules! save_regs {
 type Label = String;
 
 #[derive(Default)]
-pub struct FunctionCall {
+pub(super) struct FunctionCall {
     arg_save: Vec<Instruction>,
     setup: Vec<Instruction>,
     label: Label,
@@ -26,7 +31,11 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
-    pub fn new(cconv: CallingConv, call_instr: lir::Instruction, caller: lir::Function) -> Self {
+    pub(super) fn new(
+        cconv: CallingConv,
+        call_instr: lir::Instruction,
+        caller: lir::Function,
+    ) -> Self {
         let mut call = Self::default();
 
         match cconv {
@@ -43,11 +52,11 @@ impl FunctionCall {
 
             for i in 0..usize::min(caller.nargs, 6) {
                 // push the args of the caller on the stack
-                self.arg_save.push(Instruction::Push {
+                self.arg_save.push(Instruction::Pushq {
                     src: Operand::Reg(Amd64Reg::arg(i)),
                 });
                 // pop the arguments from the stack after the call
-                self.arg_recover.push(Instruction::Pop {
+                self.arg_recover.push(Instruction::Popq {
                     dst: Operand::Reg(Amd64Reg::arg(i)),
                 })
             }
@@ -62,7 +71,7 @@ impl FunctionCall {
                     });
                 } else {
                     // Push the other args on the stack
-                    push_setup.push(Instruction::Push {
+                    push_setup.push(Instruction::Pushq {
                         src: Operand::LirOperand(arg),
                     });
                 }
@@ -95,7 +104,7 @@ impl FunctionCall {
             self.label = func;
 
             for arg in args.into_iter().rev() {
-                self.setup.push(Instruction::Push {
+                self.setup.push(Instruction::Pushq {
                     src: Operand::LirOperand(arg),
                 });
             }
@@ -120,9 +129,9 @@ impl FunctionCall {
 
 pub struct Function {
     /// Number of arguments
-    nargs: usize,
+    pub(super) nargs: usize,
     /// Calling convention
-    cconv: CallingConv,
+    pub(super) cconv: CallingConv,
     /// Setup of the function. Get's filled initially
     prolog: Vec<Instruction>,
     /// Save callee-save registers. A call to `self.save_callee_save_regs` is
@@ -130,8 +139,6 @@ pub struct Function {
     save_regs: Vec<Instruction>,
     /// Allocates stack memory. An extra function needs to be called
     allocate: Option<Instruction>,
-    /// The code inside the function. This will not be touched
-    code: Vec<lir::Instruction>,
     /// Restore callee-save registers. This will be setup together with
     /// `save_regs`
     restore_regs: Vec<Instruction>,
@@ -140,19 +147,18 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(nargs: usize, cconv: CallingConv, code: &[lir::Instruction]) -> Self {
+    pub fn new(nargs: usize, cconv: CallingConv) -> Self {
         let mut function = Self {
             nargs,
             cconv,
             prolog: vec![],
             save_regs: vec![],
             allocate: None,
-            code: code.to_vec(),
             restore_regs: vec![],
             epilog: vec![],
         };
 
-        function.prolog.push(Instruction::Push {
+        function.prolog.push(Instruction::Pushq {
             src: Operand::Reg(Amd64Reg::Rbp),
         });
         function.prolog.push(Instruction::Movq {
@@ -164,7 +170,7 @@ impl Function {
             src: MoveOperand::Operand(Operand::Reg(Amd64Reg::Rbp)),
             dst: MoveOperand::Operand(Operand::Reg(Amd64Reg::Rsp)),
         });
-        function.epilog.push(Instruction::Pop {
+        function.epilog.push(Instruction::Popq {
             dst: Operand::Reg(Amd64Reg::Rbp),
         });
         function.epilog.push(Instruction::Ret);
@@ -172,7 +178,7 @@ impl Function {
         function
     }
 
-    pub fn allocate(&mut self, slots: usize) {
+    pub(super) fn allocate_stack(&mut self, slots: usize) {
         self.allocate = Some(Instruction::Subq {
             src: Operand::LirOperand(lir::Operand::Imm(Tarval::mj_int(8 * slots as i64))),
             dst: Operand::Reg(Amd64Reg::Rsp),
@@ -181,7 +187,7 @@ impl Function {
 
     /// When the `idx`th arg is in a register, this register will be returned,
     /// otherwise None.
-    pub fn arg_in_reg(&self, idx: usize) -> Option<Amd64Reg> {
+    pub(super) fn arg_in_reg(&self, idx: usize) -> Option<Amd64Reg> {
         if idx < 6 {
             match self.cconv {
                 CallingConv::Stack => None,
@@ -195,7 +201,7 @@ impl Function {
     /// Depending on the calling convention some args are in registers. This
     /// function returns the Movq instruction from either a register or an
     /// address into the dst.
-    pub fn arg(&self, idx: usize, dst: &lir::Operand) -> Instruction {
+    pub(super) fn arg(&self, idx: usize, dst: &lir::Operand) -> Instruction {
         self.arg_from_reg(idx, dst)
             .unwrap_or_else(|| self.arg_from_stack(idx, dst))
     }
@@ -228,13 +234,13 @@ impl Function {
     }
 
     /// This function gives the number of maximum available registers depending
-    /// on the calling convention. For `CallingConv::Stack` it is always 13
-    /// (since %rbp, %rsp and %rax) are reserved. For `CallingConv::X86_64`
+    /// on the calling convention. For `CallingConv::Stack` it is always 14
+    /// (since %rbp and %rsp are reserved). For `CallingConv::X86_64`
     /// the number of reserved argument registers is subtracted.
     pub fn max_regs_available(&self) -> usize {
         match self.cconv {
-            CallingConv::Stack => 13, // We can't use %rbp, %rsp and %rax
-            CallingConv::X86_64 => 13 - usize::min(self.nargs, 6),
+            CallingConv::Stack => 14, // We can't use %rbp and %rsp
+            CallingConv::X86_64 => 14 - usize::min(self.nargs, 6),
         }
     }
 

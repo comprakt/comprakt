@@ -319,6 +319,12 @@ pub enum Stride {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum JmpKind {
+    Unconditional,
+    Conditional(CondOp),
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum CondOp {
     Equals,
     NotEquals,
@@ -456,13 +462,17 @@ pub enum UnopKind {
     Not,
 }
 
-#[derive(Debug, Display, Clone)]
-pub enum Cond {
-    True,
-    LessEqual,
-}
-
 /// An abstract pseudo-register
+///
+/// How to get a `MultiSlot` from a `ValueSlot`:
+///
+/// `value_slot` -> `allocated_in` -> `regs` (this is a Vec of `MultiSlot`s,
+/// where our `value_slot` is at `value_slot.num`) => `multi_slot` of our
+/// `value_slot` \\(*.*)/
+///
+/// ```rust
+/// let multi_slot = value_slot.allocated_in.regs[value_slot.num];
+/// ```
 pub struct ValueSlot {
     /// The slot number. Uniqe only per Block, not globally
     pub num: usize,
@@ -1068,4 +1078,9 @@ impl MultiSlotBuilder {
             allocated_in.regs[self.num] = slot;
         }
     }
+}
+
+#[inline]
+pub(super) fn gen_label(block: Ptr<BasicBlock>) -> String {
+    format!(".L{}", block.num)
 }

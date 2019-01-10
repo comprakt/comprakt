@@ -108,15 +108,9 @@ pub enum Instr {
     },
     Jmp {
         target: Label,
-        kind: JmpKind,
+        kind: lir::JmpKind,
     },
     Comment(String),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum JmpKind {
-    Unconditional,
-    Conditional(lir::CondOp),
 }
 
 #[derive(Debug, Clone)]
@@ -200,24 +194,6 @@ impl Instr {
                 dst: MoveOperand::Operand(Reg::from(dst, slot_reg_map).into_operand()),
             },
             Comment(c) => Instr::Comment(c),
-        }
-    }
-}
-
-#[derive(Debug, Display, Clone)]
-pub enum Cond {
-    #[display(fmt = "jmp")]
-    True,
-    #[display(fmt = "jle")]
-    LessEqual,
-}
-
-impl From<lir::Cond> for Cond {
-    fn from(op: lir::Cond) -> Self {
-        use super::lir::Cond::*;
-        match op {
-            True => Cond::True,
-            LessEqual => Cond::LessEqual,
         }
     }
 }
@@ -344,7 +320,7 @@ impl Instr {
                 Ok(())
             }
             Jmp { target, kind } => {
-                use self::{lir::CondOp::*, JmpKind::*};
+                use self::lir::{CondOp::*, JmpKind::*};
                 let instr = match kind {
                     Unconditional => "jmp",
                     Conditional(Equals) => "je",
@@ -464,11 +440,6 @@ impl Block {
     }
 }
 
-#[inline]
-fn gen_label(block: Ptr<lir::BasicBlock>) -> String {
-    format!(".L{}", block.num)
-}
-
 fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) -> Vec<Instr> {
     use super::lir::Leave::*;
     match leave {
@@ -484,17 +455,17 @@ fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) ->
                 rhs: Operand::from(*rhs, slot_reg_map),
             },
             Instr::Jmp {
-                target: gen_label(*true_target),
-                kind: JmpKind::Conditional(*op),
+                target: lir::gen_label(*true_target),
+                kind: lir::JmpKind::Conditional(*op),
             },
             Instr::Jmp {
-                target: gen_label(*false_target),
-                kind: JmpKind::Unconditional,
+                target: lir::gen_label(*false_target),
+                kind: lir::JmpKind::Unconditional,
             },
         ],
         Jmp { target } => vec![Instr::Jmp {
-            target: gen_label(*target),
-            kind: JmpKind::Unconditional,
+            target: lir::gen_label(*target),
+            kind: lir::JmpKind::Unconditional,
         }],
         Return { value, end_block } => {
             let mut ret = vec![];
@@ -505,8 +476,8 @@ fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) ->
                 });
             }
             ret.push(Instr::Jmp {
-                target: gen_label(*end_block),
-                kind: JmpKind::Unconditional,
+                target: lir::gen_label(*end_block),
+                kind: lir::JmpKind::Unconditional,
             });
             ret
         }
@@ -543,7 +514,7 @@ impl From<lir::LIR> for Program {
             let mut is_entry_block = true;
 
             for block in f.graph.iter_blocks() {
-                let mut mblock = mf.begin_block(gen_label(block));
+                let mut mblock = mf.begin_block(lir::gen_label(block));
                 let code = &block.code;
                 mblock.append(
                     &mut code
@@ -654,7 +625,7 @@ end:
             rhs: fib.arg_reg_operand(0),
         });
         entry.push(Jmp {
-            kind: JmpKind::Conditional(lir::CondOp::LessEquals),
+            kind: lir::JmpKind::Conditional(lir::CondOp::LessEquals),
             target: fib_basecase.label(),
         });
         let r1 = fib.new_reg();
@@ -692,7 +663,7 @@ end:
             dst: Reg::R0,
         });
         entry.push(Jmp {
-            kind: JmpKind::Unconditional,
+            kind: lir::JmpKind::Unconditional,
             target: end.label(),
         });
         fib.complete_entry_block(entry);
@@ -702,7 +673,7 @@ end:
             dst: MoveOperand::Operand(Reg::R0.into_operand()),
         });
         fib_basecase.push(Jmp {
-            kind: JmpKind::Unconditional,
+            kind: lir::JmpKind::Unconditional,
             target: end.label(),
         });
 
