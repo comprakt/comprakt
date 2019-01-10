@@ -4,10 +4,11 @@ use crate::lowering::lir;
 use libfirm_rs::Tarval;
 
 mod function;
+mod linear_scan;
 mod register;
 
-use self::register::Amd64Reg;
 pub use self::function::Function;
+use self::register::Amd64Reg;
 
 pub(self) enum Instruction {
     Movq { src: MoveOperand, dst: MoveOperand },
