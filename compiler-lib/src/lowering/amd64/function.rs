@@ -98,7 +98,7 @@ impl FunctionCall {
 
             self.move_res = dst.map(|dst| FnInstruction::Movq {
                 src: Operand::Reg(Amd64Reg::Rax),
-                dst: Operand::LirOperand(lir::Operand::MultiSlot(dst)),
+                dst: Operand::LirOperand(lir::Operand::Slot(dst)),
             });
         } else {
             unreachable!("A FunctionCall can only be setup for a Call instruction")
@@ -123,7 +123,7 @@ impl FunctionCall {
 
             self.move_res = dst.map(|dst| FnInstruction::Movq {
                 src: Operand::Reg(Amd64Reg::Rax),
-                dst: Operand::LirOperand(lir::Operand::MultiSlot(dst)),
+                dst: Operand::LirOperand(lir::Operand::Slot(dst)),
             });
         } else {
             unreachable!("A FunctionCall can only be setup for a Call instruction")

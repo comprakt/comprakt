@@ -44,8 +44,7 @@ impl Hash for Block {
 fn var_id(op: lir::Operand) -> VarId {
     use super::lir::Operand::*;
     match op {
-        ValueSlot(slot) => (slot.allocated_in.num, slot.num),
-        MultiSlot(slot) => (slot.allocated_in().num, slot.num()),
+        Slot(slot) => (slot.allocated_in().num, slot.num()),
         Param { idx } => (-1, idx as usize),
         Imm(_) => unreachable!(),
     }
@@ -134,8 +133,8 @@ impl LiveVariableAnalysis {
 
         for lir::CopyPropagation { src, dst } in &code.copy_in {
             instrs.push(Instruction::Lir(lir::Instruction::Movq {
-                src: lir::Operand::MultiSlot(*src),
-                dst: lir::Operand::ValueSlot(*dst),
+                src: lir::Operand::Slot(*src),
+                dst: lir::Operand::Slot(dst.multislot()),
             }));
         }
         for instr in &code.body {
@@ -143,8 +142,8 @@ impl LiveVariableAnalysis {
         }
         for lir::CopyPropagation { src, dst } in &code.copy_out {
             instrs.push(Instruction::Lir(lir::Instruction::Movq {
-                src: lir::Operand::MultiSlot(*src),
-                dst: lir::Operand::ValueSlot(*dst),
+                src: lir::Operand::Slot(*src),
+                dst: lir::Operand::Slot(dst.multislot()),
             }));
         }
         debug_assert_eq!(code.leave.len(), 1);
@@ -188,14 +187,14 @@ fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
                         Imm(_) => (),
                         _ => gen.push(var_id(*src2)),
                     }
-                    kill.push(var_id(lir::Operand::MultiSlot(*dst)))
+                    kill.push(var_id(lir::Operand::Slot(*dst)))
                 }
                 Unop { src, dst, .. } => {
                     match src {
                         Imm(_) => (),
                         _ => gen.push(var_id(*src)),
                     }
-                    kill.push(var_id(lir::Operand::MultiSlot(*dst)));
+                    kill.push(var_id(lir::Operand::Slot(*dst)));
                 }
                 Movq { src, dst } => {
                     match src {
@@ -241,7 +240,7 @@ fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
                             _ => gen.push(var_id(*op)),
                         },
                     }
-                    gen.push(var_id(lir::Operand::MultiSlot(*dst)));
+                    gen.push(var_id(lir::Operand::Slot(*dst)));
                 }
                 Comment(_) => (), // Ignore for LVA
             },
