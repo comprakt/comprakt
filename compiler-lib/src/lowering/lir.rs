@@ -711,8 +711,7 @@ impl<'g> Iterator for BasicBlockIter<'g> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.visit_list.pop_front().map(|block| {
-            for edge in &block.succs {
-                let succ = edge.target;
+            for succ in block.succ_blocks() {
                 if !self.visited.contains(&succ.firm) {
                     self.visited.insert(succ.firm);
                     self.visit_list.push_back(succ);
@@ -732,7 +731,7 @@ struct BasicBlockPostorderVisitor {
 
 impl BasicBlockPostorderVisitor {
     fn visit(&mut self, block: Ptr<BasicBlock>) {
-        block.succs.iter().map(|succ| succ.target).for_each(|block| {
+        block.succ_blocks().for_each(|block| {
             if !self.visited.contains(&block.firm) {
                 self.visit(block);
             }
@@ -1003,6 +1002,14 @@ impl BasicBlock {
                 graph: Ptr::null(), // will be patched up by caller
             })
         })
+    }
+
+    pub(super) fn pred_blocks(&self) -> impl Iterator<Item = Ptr<BasicBlock>> + '_ {
+        self.preds.iter().map(|pred| pred.source)
+    }
+
+    pub(super) fn succ_blocks(&self) -> impl Iterator<Item = Ptr<BasicBlock>> + '_ {
+        self.succs.iter().map(|succ| succ.target)
     }
 }
 
