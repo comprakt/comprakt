@@ -233,10 +233,11 @@ impl Function {
         }
     }
 
-    pub fn allocate_registers(&self, graph: lir::BlockGraph) {
-        for _block in graph.postorder_blocks().iter().rev() {
-            // gen_instrs(&block);
-        }
+    pub fn allocate_registers(&self, graph: Ptr<lir::BlockGraph>) {
+        let mut lva = LiveVariableAnalysis::new(self.cconv, graph);
+
+        lva.run();
+        log::info!("Liveness: {:#?}", lva.liveness);
     }
 }
 

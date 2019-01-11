@@ -2,7 +2,7 @@ use super::mode::Mode;
 use libfirm_rs_bindings as bindings;
 use std::{ffi::CStr, ptr};
 
-#[derive(Clone, Copy, From, Into)]
+#[derive(Hash, Clone, Copy, From, Into)]
 pub struct Tarval(*mut bindings::ir_tarval);
 
 impl Into<*const bindings::ir_tarval> for Tarval {

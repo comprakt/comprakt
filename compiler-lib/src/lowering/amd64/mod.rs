@@ -1,7 +1,8 @@
-use crate::lowering::lir;
+use crate::lowering::{lir, lir_allocator::Ptr};
 
 mod function;
 mod linear_scan;
+mod live_variable_analysis;
 mod register;
 
 pub use self::function::Function;
@@ -19,6 +20,7 @@ pub(self) enum Instruction {
     Ret,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub(self) enum Operand {
     LirOperand(lir::Operand),
     Reg(Amd64Reg),
@@ -53,6 +55,28 @@ impl CallingConv {
         match self {
             CallingConv::Stack => 14, // We can't use %rbp and %rsp
             CallingConv::X86_64 => 14 - usize::min(nargs, 6),
+        }
+    }
+}
+
+pub struct Program {
+    functions: Vec<(Function, Ptr<lir::BlockGraph>)>,
+}
+
+impl Program {
+    pub fn new(lir: lir::LIR, cconv: CallingConv) -> Self {
+        let mut functions = vec![];
+
+        for f in lir.functions {
+            functions.push((Function::new(f.nargs, cconv), f.graph));
+        }
+
+        Self { functions }
+    }
+
+    pub fn emit_asm(&self) {
+        for (f, graph) in &self.functions {
+            f.allocate_registers(*graph);
         }
     }
 }
