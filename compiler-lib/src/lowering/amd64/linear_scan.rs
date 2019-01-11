@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use super::Instruction;
 
 #[derive(Default)]

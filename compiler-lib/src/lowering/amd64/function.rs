@@ -1,5 +1,5 @@
 use super::{
-    linear_scan, register::RegisterAllocator, Amd64Reg, CallingConv, Instruction, MoveOperand,
+    live_variable_analysis::LiveVariableAnalysis, Amd64Reg, CallingConv, Instruction, MoveOperand,
     Operand,
 };
 use crate::lowering::{lir, lir_allocator::Ptr};
@@ -178,6 +178,7 @@ impl Function {
         function
     }
 
+    #[allow(unused)]
     pub(super) fn allocate_stack(&mut self, slots: usize) {
         self.allocate = Some(Instruction::Subq {
             src: Operand::LirOperand(lir::Operand::Imm(Tarval::mj_int(8 * slots as i64))),
@@ -214,112 +215,115 @@ impl Function {
     }
 
     pub fn allocate_registers(&self, graph: lir::BlockGraph) {
-        for block in graph.postorder_blocks().iter().rev() {
-            gen_instrs(&block);
+        for _block in graph.postorder_blocks().iter().rev() {
+            // gen_instrs(&block);
         }
     }
 }
 
-fn gen_instrs(block: &lir::BasicBlock) -> linear_scan::Block {
-    let code = &block.code;
-    let mut reg_block = linear_scan::Block::default();
-    for lir::CopyPropagation { src, dst } in &code.copy_in {
-        reg_block.instrs.push(Instruction::Movq {
-            src: MoveOperand::Operand(Operand::LirOperand(lir::Operand::Slot(*src))),
-            dst: MoveOperand::Operand(Operand::LirOperand(lir::Operand::Slot(
-                dst.allocated_in.regs[dst.num],
-            ))),
-        })
-    }
-    for instr in &code.body {
-        reg_block.instrs.append(&mut gen_instr(instr));
-    }
-    for lir::CopyPropagation { src, dst } in &code.copy_out {
-        reg_block.instrs.push(Instruction::Movq {
-            src: MoveOperand::Operand(Operand::LirOperand(lir::Operand::Slot(*src))),
-            dst: MoveOperand::Operand(Operand::LirOperand(lir::Operand::Slot(
-                dst.allocated_in.regs[dst.num],
-            ))),
-        })
-    }
-    for leave in &code.leave {
-        reg_block.instrs.append(&mut gen_leave(&leave));
-    }
+// fn gen_instrs(block: &lir::BasicBlock) -> linear_scan::Block {
+//     let code = &block.code;
+//     let mut reg_block = linear_scan::Block::default();
+//     for lir::CopyPropagation { src, dst } in &code.copy_in {
+//         reg_block.instrs.push(Instruction::Movq {
+//             src:
+// MoveOperand::Operand(Operand::LirOperand(lir::Operand::Slot(*src))),
+//             dst: MoveOperand::Operand(Operand::LirOperand(lir::Operand::Slot(
+//                 dst.allocated_in.regs[dst.num],
+//             ))),
+//         })
+//     }
+//     for instr in &code.body {
+//         reg_block.instrs.append(&mut gen_instr(instr));
+//     }
+//     for lir::CopyPropagation { src, dst } in &code.copy_out {
+//         reg_block.instrs.push(Instruction::Movq {
+//             src:
+// MoveOperand::Operand(Operand::LirOperand(lir::Operand::Slot(*src))),
+//             dst: MoveOperand::Operand(Operand::LirOperand(lir::Operand::Slot(
+//                 dst.allocated_in.regs[dst.num],
+//             ))),
+//         })
+//     }
+//     for leave in &code.leave {
+//         reg_block.instrs.append(&mut gen_leave(&leave));
+//     }
+//
+//     reg_block
+// }
+//
+// // FIXME: this will also be done after the register allocation
+// fn gen_leave(leave: &lir::Leave) -> Vec<Instruction> {
+//     use super::lir::Leave::*;
+//     match leave {
+//         CondJmp {
+//             op,
+//             lhs,
+//             rhs,
+//             true_target,
+//             false_target,
+//         } => vec![
+//             // FIXME: (Imm, Imm) case (other errorprone combinations?)
+//             Instruction::Cmpq {
+//                 lhs: Operand::LirOperand(*lhs),
+//                 rhs: Operand::LirOperand(*rhs),
+//             },
+//             Instruction::Jmp {
+//                 target: lir::gen_label(true_target),
+//                 cond: lir::JmpKind::Conditional(*op),
+//             },
+//             Instruction::Jmp {
+//                 target: lir::gen_label(false_target),
+//                 cond: lir::JmpKind::Unconditional,
+//             },
+//         ],
+//         Jmp { target } => vec![Instruction::Jmp {
+//             target: lir::gen_label(target),
+//             cond: lir::JmpKind::Unconditional,
+//         }],
+//         Return { value, end_block } => {
+//             let mut ret = vec![];
+//             if let Some(value) = value {
+//                 ret.push(Instruction::Movq {
+//                     src: MoveOperand::Operand(Operand::LirOperand(*value)),
+//                     dst: MoveOperand::Operand(Operand::Reg(Amd64Reg::Rax)),
+//                 });
+//             }
+//             ret.push(Instruction::Jmp {
+//                 target: lir::gen_label(end_block),
+//                 cond: lir::JmpKind::Unconditional,
+//             });
+//             ret
+//         }
+//     }
+// }
 
-    reg_block
-}
-
-fn gen_leave(leave: &lir::Leave) -> Vec<Instruction> {
-    use super::lir::Leave::*;
-    match leave {
-        CondJmp {
-            op,
-            lhs,
-            rhs,
-            true_target,
-            false_target,
-        } => vec![
-            // FIXME: (Imm, Imm) case (other errorprone combinations?)
-            Instruction::Cmpq {
-                lhs: Operand::LirOperand(*lhs),
-                rhs: Operand::LirOperand(*rhs),
-            },
-            Instruction::Jmp {
-                target: lir::gen_label(true_target),
-                cond: lir::JmpKind::Conditional(*op),
-            },
-            Instruction::Jmp {
-                target: lir::gen_label(false_target),
-                cond: lir::JmpKind::Unconditional,
-            },
-        ],
-        Jmp { target } => vec![Instruction::Jmp {
-            target: lir::gen_label(target),
-            cond: lir::JmpKind::Unconditional,
-        }],
-        Return { value, end_block } => {
-            let mut ret = vec![];
-            if let Some(value) = value {
-                ret.push(Instruction::Movq {
-                    src: MoveOperand::Operand(Operand::LirOperand(*value)),
-                    dst: MoveOperand::Operand(Operand::Reg(Amd64Reg::Rax)),
-                });
-            }
-            ret.push(Instruction::Jmp {
-                target: lir::gen_label(end_block),
-                cond: lir::JmpKind::Unconditional,
-            });
-            ret
-        }
-    }
-}
-
-/// This function generates a `amd64::Instruction` from a `lir::Instruction`.
-/// This function needs to take care of following points:
-///
-/// - a `lir::Instruction::Binop/Div/Mod` is a 3-address instruction.
-///   - For all instructions `op src1, src2 -> dst(Slot)`: `dst != src1, src2`,
-///     which means that a
-///   move to `dst` is sometimes required:
-///     - (slot1, slot2)   -> move slot2
-///     - (slot, param)    -> move slot (commutative?)
-///     - (slot, imm)      -> no move
-///     - (param, slot)    -> move slot
-///     - (param1, param2) -> see below
-///     - (param, imm)     -> move imm
-///     - (imm, slot)      -> no move
-///     - (imm, param)     -> move imm (commutative?)
-///     - (imm1, imm2)     -> move imm2
-/// - (param1, param2): Params should never be moved before a operation, because
-///   the register allocator should handle parameters. The instruction selection
-///   can't know which parameter should be moved from the stack, if a parameter
-///   is already/not anymore in a register, ... Maybe a special case in the
-///   `amd64::Instruction` enum operands is required for this.
-/// - Call instruction need to be destructured. This can be easily done by the
-///   FuncntionCall struct, it just needs to be "flattened" afterwards.
-///
-/// A remodelling of the `amd64::Instruction`+`Operand` enums is probably
-/// required.
-fn gen_instr(instr: &lir::Instruction) -> Vec<Instruction> {
-    vec![]
-}
+// This function generates a `amd64::Instruction` from a `lir::Instruction`.
+// This function needs to take care of following points:
+//
+// - a `lir::Instruction::Binop/Div/Mod` is a 3-address instruction.
+//   - For all instructions `op src1, src2 -> dst(Slot)`: `dst != src1, src2`,
+//     which means that a
+//   move to `dst` is sometimes required:
+//     - (slot1, slot2)   -> move slot2
+//     - (slot, param)    -> move slot (commutative?)
+//     - (slot, imm)      -> no move
+//     - (param, slot)    -> move slot
+//     - (param1, param2) -> see below
+//     - (param, imm)     -> move imm
+//     - (imm, slot)      -> no move
+//     - (imm, param)     -> move imm (commutative?)
+//     - (imm1, imm2)     -> move imm2
+// - (param1, param2): Params should never be moved before a operation, because
+//   the register allocator should handle parameters. The instruction selection
+//   can't know which parameter should be moved from the stack, if a parameter
+//   is already/not anymore in a register, ... Maybe a special case in the
+//   `amd64::Instruction` enum operands is required for this.
+// - Call instruction need to be destructured. This can be easily done by the
+//   FuncntionCall struct, it just needs to be "flattened" afterwards.
+//
+// A remodelling of the `amd64::Instruction`+`Operand` enums is probably
+// required.
+// fn gen_instr(instr: &lir::Instruction) -> Vec<Instruction> {
+//     vec![]
+// }

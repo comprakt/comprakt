@@ -1,5 +1,5 @@
 use crate::lowering::{
-    amd64::{self, function::Function, CallingConv, MoveOperand, Operand},
+    amd64::{self, CallingConv, MoveOperand, Operand},
     lir,
 };
 use std::{cmp::Ordering, collections::BTreeMap};
@@ -158,12 +158,14 @@ impl Amd64Reg {
     }
 }
 
+#[allow(unused)]
 pub(super) struct RegisterAllocator {
     nargs: usize,
     cconv: CallingConv,
     free_list: BTreeMap<Amd64Reg, bool>,
 }
 
+#[allow(unused)]
 impl RegisterAllocator {
     pub(super) fn new(nargs: usize, cconv: CallingConv) -> Self {
         let mut free_list = BTreeMap::new();

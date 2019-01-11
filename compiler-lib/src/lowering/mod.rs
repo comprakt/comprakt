@@ -1,4 +1,4 @@
-mod amd64;
+pub mod amd64;
 pub mod gen_instr;
 pub mod lir;
 #[macro_use]

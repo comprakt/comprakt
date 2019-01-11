@@ -1,7 +1,4 @@
-#![allow(unused)] // FIXME: I want to see true warnings
-
 use crate::lowering::lir;
-use libfirm_rs::Tarval;
 
 mod function;
 mod linear_scan;
@@ -10,6 +7,7 @@ mod register;
 pub use self::function::Function;
 use self::register::Amd64Reg;
 
+#[allow(unused)]
 pub(self) enum Instruction {
     Movq { src: MoveOperand, dst: MoveOperand },
     Pushq { src: Operand },
