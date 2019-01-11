@@ -23,7 +23,7 @@ pub(super) struct Block {
     /// Unique number for a Block. This number matches it's number in a reversed
     /// postorder of the BlockGraph blocks. This reversed postorder is needed by
     /// the linear scan algorithm
-    num: usize,
+    pub(super) num: usize,
     instrs: Vec<Instruction>,
 }
 
@@ -52,6 +52,7 @@ fn var_id(op: lir::Operand) -> VarId {
 
 pub(super) struct LiveVariableAnalysis {
     cconv: CallingConv,
+    queue: VecDeque<Ptr<BasicBlock>>,
     graph: Ptr<lir::BlockGraph>,
 
     pub(super) liveness: HashMap<VarId, HashSet<Block>>,
@@ -62,14 +63,15 @@ impl LiveVariableAnalysis {
     pub fn new(cconv: CallingConv, graph: Ptr<lir::BlockGraph>) -> Self {
         Self {
             cconv,
+            queue: VecDeque::new(),
             graph,
             liveness: HashMap::new(),
             postorder_blocks: vec![],
         }
     }
 
-    pub fn run(&mut self) {
-        let mut queue: VecDeque<Ptr<lir::BasicBlock>> = VecDeque::new();
+    pub fn run(&mut self, end_block: Ptr<BasicBlock>) {
+        self.gen_queue(end_block, &mut HashSet::new());
         let mut ins: HashMap<libfirm_rs::nodes::Block, HashSet<VarId>> = HashMap::new();
         let mut outs: HashMap<libfirm_rs::nodes::Block, HashSet<VarId>> = HashMap::new();
 
@@ -82,9 +84,11 @@ impl LiveVariableAnalysis {
                     instrs: self.gen_code(&block),
                 },
             );
+            ins.insert(block.firm, HashSet::new());
+            outs.insert(block.firm, HashSet::new());
         }
 
-        while let Some(block) = queue.pop_front() {
+        while let Some(block) = self.queue.pop_front() {
             let code = &block_code_map[&block.firm].instrs;
 
             // ins(b) = f_b(outs) = gen(b)+(outs(b)-kill(b))
@@ -107,7 +111,7 @@ impl LiveVariableAnalysis {
 
             if changed {
                 for pred in block.pred_blocks() {
-                    queue.push_back(pred);
+                    self.queue.push_back(pred);
                 }
             }
         }
@@ -138,7 +142,10 @@ impl LiveVariableAnalysis {
             }));
         }
         for instr in &code.body {
-            instrs.push(self.gen_instr(instr));
+            match instr {
+                lir::Instruction::Comment(_) => (),
+                _ => instrs.push(self.gen_instr(instr)),
+            }
         }
         for lir::CopyPropagation { src, dst } in &code.copy_out {
             instrs.push(Instruction::Lir(lir::Instruction::Movq {
@@ -146,8 +153,9 @@ impl LiveVariableAnalysis {
                 dst: lir::Operand::Slot(dst.multislot()),
             }));
         }
-        debug_assert_eq!(code.leave.len(), 1);
-        instrs.push(Instruction::Leave(code.leave[0].clone()));
+        if let Some(leave) = code.leave.get(0) {
+            instrs.push(Instruction::Leave(leave.clone()));
+        }
 
         instrs
     }
@@ -157,6 +165,20 @@ impl LiveVariableAnalysis {
             Instruction::Call(FunctionCall::new(self.cconv, instr.clone()))
         } else {
             Instruction::Lir(instr.clone())
+        }
+    }
+
+    fn gen_queue(
+        &mut self,
+        end_block: Ptr<BasicBlock>,
+        visited: &mut HashSet<libfirm_rs::nodes::Block>,
+    ) {
+        self.queue.push_back(end_block);
+
+        for pred in end_block.pred_blocks() {
+            if visited.insert(pred.firm) {
+                self.gen_queue(pred, visited);
+            }
         }
     }
 }

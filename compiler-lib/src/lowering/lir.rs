@@ -61,10 +61,15 @@ impl From<&firm::FirmProgram<'_, '_>> for LIR {
             functions.push(function);
         }
 
-        LIR {
+        let lir = LIR {
             allocator,
             functions,
-        }
+        };
+
+        let amd64 = super::amd64::Program::new(&lir, super::amd64::CallingConv::Stack);
+        amd64.emit_asm();
+
+        lir
     }
 }
 
@@ -732,7 +737,7 @@ struct BasicBlockPostorderVisitor {
 impl BasicBlockPostorderVisitor {
     fn visit(&mut self, block: Ptr<BasicBlock>) {
         block.succ_blocks().for_each(|block| {
-            if !self.visited.contains(&block.firm) {
+            if self.visited.insert(block.firm) {
                 self.visit(block);
             }
         });

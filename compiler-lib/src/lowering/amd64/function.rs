@@ -236,8 +236,14 @@ impl Function {
     pub fn allocate_registers(&self, graph: Ptr<lir::BlockGraph>) {
         let mut lva = LiveVariableAnalysis::new(self.cconv, graph);
 
-        lva.run();
-        log::info!("Liveness: {:#?}", lva.liveness);
+        lva.run(graph.end_block);
+        // log::info!(
+        //     "Liveness: {:#?}",
+        //     lva.liveness
+        //         .iter()
+        //         .map(|(id, blocks)| (id, blocks.iter().map(|block| block.num).collect::<Vec<_>>()))
+        //         .collect::<Vec<_>>()
+        // );
     }
 }
 

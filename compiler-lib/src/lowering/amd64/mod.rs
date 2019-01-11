@@ -64,10 +64,10 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn new(lir: lir::LIR, cconv: CallingConv) -> Self {
+    pub fn new(lir: &lir::LIR, cconv: CallingConv) -> Self {
         let mut functions = vec![];
 
-        for f in lir.functions {
+        for f in &lir.functions {
             functions.push((Function::new(f.nargs, cconv), f.graph));
         }
 
