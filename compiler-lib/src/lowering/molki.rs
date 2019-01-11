@@ -498,7 +498,7 @@ impl Block {
 }
 
 #[inline]
-fn gen_label(block: &Ptr<lir::BasicBlock>) -> String {
+fn gen_label(block: Ptr<lir::BasicBlock>) -> String {
     format!(".L{}", block.num)
 }
 
@@ -517,16 +517,16 @@ fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) ->
                 rhs: Operand::from(*rhs, slot_reg_map),
             },
             Instr::Jmp {
-                target: gen_label(true_target),
+                target: gen_label(*true_target),
                 kind: JmpKind::Conditional(*op),
             },
             Instr::Jmp {
-                target: gen_label(false_target),
+                target: gen_label(*false_target),
                 kind: JmpKind::Unconditional,
             },
         ],
         Jmp { target } => vec![Instr::Jmp {
-            target: gen_label(target),
+            target: gen_label(*target),
             kind: JmpKind::Unconditional,
         }],
         Return { value, end_block } => {
@@ -538,7 +538,7 @@ fn gen_leave(leave: &lir::Leave, slot_reg_map: &HashMap<(i64, usize), usize>) ->
                 });
             }
             ret.push(Instr::Jmp {
-                target: gen_label(end_block),
+                target: gen_label(*end_block),
                 kind: JmpKind::Unconditional,
             });
             ret
@@ -576,7 +576,7 @@ impl From<lir::LIR> for Program {
             let mut is_entry_block = true;
 
             for block in f.graph.iter_blocks() {
-                let mut mblock = mf.begin_block(gen_label(&block));
+                let mut mblock = mf.begin_block(gen_label(block));
                 let code = &block.code;
                 mblock.append(
                     &mut code
@@ -693,7 +693,7 @@ end:
             rhs: fib.arg_reg_operand(0),
         });
         entry.push(Jmp {
-            cond: Cond::LessEqual,
+            kind: JmpKind::Conditional(lir::CondOp::LessEquals),
             target: fib_basecase.label(),
         });
         let r1 = fib.new_reg();
@@ -731,7 +731,7 @@ end:
             dst: Reg::R0,
         });
         entry.push(Jmp {
-            cond: Cond::True,
+            kind: JmpKind::Unconditional,
             target: end.label(),
         });
         fib.complete_entry_block(entry);
@@ -741,7 +741,7 @@ end:
             dst: MoveOperand::Operand(Reg::R0.into_operand()),
         });
         fib_basecase.push(Jmp {
-            cond: Cond::True,
+            kind: JmpKind::Unconditional,
             target: end.label(),
         });
 

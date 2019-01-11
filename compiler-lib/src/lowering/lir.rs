@@ -524,8 +524,7 @@ impl BlockGraph {
     /// Iterate over all control flow transfers in `self` in a breadth-first
     /// manner
     pub fn iter_control_flows<'g>(&'g self) -> impl Iterator<Item = Ptr<ControlFlowTransfer>> + 'g {
-        self.iter_blocks()
-            .flat_map(|block| block.succs.iter().map(|x| *x).collect::<Vec<_>>())
+        self.iter_blocks().flat_map(|block| block.succs.clone())
     }
 
     fn gen_instrs(&mut self, alloc: &Allocator) {
@@ -536,10 +535,10 @@ impl BlockGraph {
     }
 
     pub fn get_block(&self, firm_block: libfirm_rs::nodes::Block) -> Ptr<BasicBlock> {
-        self.blocks
+        *self
+            .blocks
             .get(&firm_block)
             .expect("BlockGraph is incomplete")
-            .clone()
     }
 }
 
@@ -691,13 +690,13 @@ impl Ptr<ControlFlowTransfer> {
 
     /// Do there exist multiple outgoing flows for the source slot of `flow_idx`
     /// in the source block?
-    pub fn must_copy_in_target(&self, flow_idx: usize) -> bool {
+    pub fn must_copy_in_target(self, flow_idx: usize) -> bool {
         let source_slot_num = self.register_transitions[flow_idx].0.num();
 
         self.source
             .succs
             .iter()
-            .filter(|succ| !Ptr::ptr_eq(**succ, *self))
+            .filter(|succ| !Ptr::ptr_eq(**succ, self))
             .any(|succ| {
                 succ.register_transitions
                     .iter()
@@ -754,14 +753,13 @@ impl Ptr<BasicBlock> {
     /// `add_possible_value` and `add_incoming_value_flow` are used seperately
     /// in that case). BE AWARE OF THIS when refactoring
     fn new_slot(
-        &self,
+        self,
         value: libfirm_rs::nodes::Node,
         terminates_in: Ptr<BasicBlock>,
         alloc: &Allocator,
     ) -> Ptr<MultiSlot> {
-        let this = self;
         let possibly_existing_multislot =
-            this.regs
+            self.regs
                 .iter()
                 .find(|multislot| match (&(***multislot), value) {
                     (MultiSlot::Multi { phi: slot_phi, .. }, Node::Phi(value_phi)) => {
@@ -777,13 +775,12 @@ impl Ptr<BasicBlock> {
             log::debug!(
                 "\tREUSE: slot={} in='{:?}' value='{:?}'",
                 multislot.num(),
-                this.firm,
+                self.firm,
                 value
             );
 
             *multislot
         } else {
-            drop(this);
             let originates_in = self.graph.get_block(value.block());
 
             match value {
@@ -850,7 +847,7 @@ impl BasicBlock {
         self.preds
             .iter()
             .find(|edge| edge.source.firm == cfg_pred)
-            .map(|x| *x)
+            .cloned()
     }
 
     fn skeleton_block(
@@ -858,20 +855,17 @@ impl BasicBlock {
         firm: libfirm_rs::nodes::Block,
         alloc: &Allocator,
     ) -> Ptr<Self> {
-        known_blocks
-            .entry(firm)
-            .or_insert_with(|| {
-                alloc.block(BasicBlock {
-                    num: firm.node_id(),
-                    regs: Vec::new(),
-                    code: Code::default(),
-                    preds: Vec::new(),
-                    succs: Vec::new(),
-                    firm,
-                    graph: Ptr::null(), // will be patched up by caller
-                })
+        *known_blocks.entry(firm).or_insert_with(|| {
+            alloc.block(BasicBlock {
+                num: firm.node_id(),
+                regs: Vec::new(),
+                code: Code::default(),
+                preds: Vec::new(),
+                succs: Vec::new(),
+                firm,
+                graph: Ptr::null(), // will be patched up by caller
             })
-            .clone()
+        })
     }
 }
 
@@ -955,7 +949,7 @@ impl MultiSlotBuilder {
             }
         } else {
             assert_eq!(self.slots.len(), 1);
-            MultiSlot::Single(self.slots[0].clone())
+            MultiSlot::Single(self.slots[0])
         });
 
         let allocated_in = self.allocated_in;

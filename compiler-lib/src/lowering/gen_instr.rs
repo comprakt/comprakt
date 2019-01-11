@@ -116,7 +116,7 @@ impl GenInstrBlock {
                         out_edge
                             .register_transitions
                             .iter()
-                            .map(|(src_slot, _)| src_slot.clone())
+                            .map(|(src_slot, _)| src_slot)
                             .collect::<Vec<_>>()
                     })
                     .map(|src_slot| src_slot.firm())

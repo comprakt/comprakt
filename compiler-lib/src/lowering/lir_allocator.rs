@@ -58,7 +58,7 @@ impl<T> Allocator<T> {
 
 impl<T> Drop for Allocator<T> {
     fn drop(&mut self) {
-        for raw_ptr in self.elems.borrow_mut().iter().map(|x| *x) {
+        for raw_ptr in self.elems.borrow_mut().iter().cloned() {
             unsafe {
                 drop(Box::from_raw(raw_ptr));
             }
