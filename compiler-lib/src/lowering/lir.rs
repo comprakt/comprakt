@@ -329,11 +329,8 @@ pub struct CopyPropagation {
 
 #[derive(Debug, Display, Clone, Copy)]
 pub enum Operand {
-    #[display(fmt = "ValueSlot")]
-    ValueSlot(Ptr<ValueSlot>),
-
     #[display(fmt = "MultiSlot")]
-    MultiSlot(Ptr<MultiSlot>),
+    Slot(Ptr<MultiSlot>),
 
     /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
     /// lifetime of that pointer (the FIRM graph).
@@ -380,6 +377,12 @@ pub struct ValueSlot {
     pub(super) originates_in: Ptr<BasicBlock>,
     /// The block in which this value is used
     pub(super) terminates_in: Ptr<BasicBlock>,
+}
+
+impl ValueSlot {
+    pub fn multislot(&self) -> Ptr<MultiSlot> {
+        self.allocated_in.regs[self.num]
+    }
 }
 
 /// This is currently unused (because the categorisations are wrong), but we

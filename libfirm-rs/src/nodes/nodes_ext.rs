@@ -149,8 +149,7 @@ pub trait NodeTrait {
         }
     }
 
-    /// Perform a DFS over all nodes within `block` starting at `self`,
-    /// plus the nodes that are just outside of the block.
+    /// Perform a DFS over all nodes within `block` starting at `self`.
     /// The primary use case for this API is in codegen.
     fn walk_dfs_in_block<Callback>(&self, block: Block, callback: &mut Callback)
     where
@@ -174,8 +173,8 @@ pub trait NodeTrait {
                     visited.insert(operand);
                     recurse(visited, operand, block, callback);
                 }
+                callback(cur_node);
             }
-            callback(cur_node);
         }
 
         let mut visited = HashSet::new();

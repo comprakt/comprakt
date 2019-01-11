@@ -19,7 +19,7 @@ enum Computed {
     /// Instructions that generate the value are in CFGpred, and
     /// `lir.rs::construct_flows` already set up the necessary copy-out/ copy-in
     /// code.
-    InCFGPred(Ptr<ValueSlot>),
+    InCFGPred(Ptr<MultiSlot>),
     /// Instructions for this value have been emitted in this block, but the
     /// instructions do not produce a result (apart from mem flow).
     Void,
@@ -144,18 +144,23 @@ impl GenInstrBlock {
                 in_edge
                     .register_transitions
                     .iter()
-                    .map(|(src_slot, dst_slot)| (*src_slot, *dst_slot))
+                    .map(|(_, dst_slot)| dst_slot.multislot())
                     .collect::<Vec<_>>()
             })
+            .map(|dst_slot| {
+                let val = if let Node::Proj(proj, _) = dst_slot.firm() {
+                    proj.pred()
+                } else {
+                    dst_slot.firm()
+                };
+                (val, dst_slot)
+            })
             // if the same value flows in over multiple preds, ignore the dupes
-            .unique_by(|(src_slot, _)| src_slot.firm());
-        for (src_slot, in_slot) in already_computed {
-            log::debug!(
-                "InCFGPred for slot.num={:?} {:?}",
-                in_slot.num,
-                src_slot.firm()
-            );
-            self.mark_computed(src_slot.firm(), Computed::InCFGPred(in_slot));
+            .unique_by(|(val, _)| *val);
+
+        for (val, dst_slot) in already_computed {
+            log::debug!("InCFGPred for slot.num={:?} {:?}", dst_slot.num(), val);
+            self.mark_computed(val, Computed::InCFGPred(dst_slot));
         }
 
         for out_value in values_to_compute {
@@ -212,8 +217,7 @@ impl GenInstrBlock {
             Node::Const(c) => Operand::Imm(c.tarval()),
             Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => Operand::Param { idx },
             n => match self.must_computed(n) {
-                Computed::InCFGPred(vs) => Operand::ValueSlot(*vs),
-                Computed::Value(ms) => Operand::MultiSlot(*ms),
+                Computed::InCFGPred(ms) | Computed::Value(ms) => Operand::Slot(*ms),
                 Computed::Void => panic!("expecting computed operand for {:?}, got Void", n),
             },
         }

@@ -40,8 +40,7 @@ impl Operand {
     fn from(op: lir::Operand, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
         use super::lir::Operand::*;
         match op {
-            MultiSlot(ms) => Reg::from(ms.into(), slot_reg_map).into_operand(),
-            ValueSlot(vs) => Reg::from(vs.into(), slot_reg_map).into_operand(),
+            Slot(slot) => Reg::from(slot, slot_reg_map).into_operand(),
             Imm(val) => Operand::Imm(val),
             Param { idx } => Reg::N(idx as usize).into_operand(),
         }
@@ -57,43 +56,8 @@ pub enum Reg {
     N(usize),
 }
 
-#[derive(Clone, Copy)]
-enum RegFromOperandSlotKind {
-    MultiSlot(Ptr<lir::MultiSlot>),
-    ValueSlot(Ptr<lir::ValueSlot>),
-}
-
-impl RegFromOperandSlotKind {
-    fn num(self) -> usize {
-        use self::RegFromOperandSlotKind::*;
-        match self {
-            MultiSlot(ms) => ms.num(),
-            ValueSlot(vs) => vs.num,
-        }
-    }
-    fn allocated_in(self) -> Ptr<lir::BasicBlock> {
-        use self::RegFromOperandSlotKind::*;
-        match self {
-            MultiSlot(ms) => ms.allocated_in(),
-            ValueSlot(vs) => vs.allocated_in,
-        }
-    }
-}
-
-impl From<Ptr<lir::MultiSlot>> for RegFromOperandSlotKind {
-    fn from(ms: Ptr<lir::MultiSlot>) -> Self {
-        RegFromOperandSlotKind::MultiSlot(ms)
-    }
-}
-
-impl From<Ptr<lir::ValueSlot>> for RegFromOperandSlotKind {
-    fn from(ms: Ptr<lir::ValueSlot>) -> Self {
-        RegFromOperandSlotKind::ValueSlot(ms)
-    }
-}
-
 impl Reg {
-    fn from(op: RegFromOperandSlotKind, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
+    fn from(op: Ptr<lir::MultiSlot>, slot_reg_map: &HashMap<(i64, usize), usize>) -> Self {
         Reg::N(
             *slot_reg_map
                 .get(&(op.allocated_in().num, op.num()))
@@ -174,19 +138,19 @@ impl Instr {
                 kind: kind.into(),
                 src1: Operand::from(src1, slot_reg_map),
                 src2: Operand::from(src2, slot_reg_map),
-                dst: Reg::from(dst.into(), slot_reg_map),
+                dst: Reg::from(dst, slot_reg_map),
             },
             Div { src1, src2, dst } => Instr::Divop {
                 src1: Operand::from(src1, slot_reg_map),
                 src2: Operand::from(src2, slot_reg_map),
-                dst1: Reg::from(dst.into(), slot_reg_map),
+                dst1: Reg::from(dst, slot_reg_map),
                 dst2: Reg::N(usize::max_value()),
             },
             Mod { src1, src2, dst } => Instr::Divop {
                 src1: Operand::from(src1, slot_reg_map),
                 src2: Operand::from(src2, slot_reg_map),
                 dst1: Reg::N(usize::max_value()),
-                dst2: Reg::from(dst.into(), slot_reg_map),
+                dst2: Reg::from(dst, slot_reg_map),
             },
             Unop { kind, src, dst } => Instr::Unop {
                 kind: kind.into(),
@@ -203,11 +167,11 @@ impl Instr {
                     .into_iter()
                     .map(|arg| Operand::from(arg, slot_reg_map))
                     .collect(),
-                dst: dst.map(|dst| Reg::from(dst.into(), slot_reg_map)),
+                dst: dst.map(|dst| Reg::from(dst, slot_reg_map)),
             },
             LoadParam { idx, dst } => Instr::Movq {
                 src: MoveOperand::Operand(Reg::N(idx).into_operand()),
-                dst: MoveOperand::Operand(Reg::from(dst.into(), slot_reg_map).into_operand()),
+                dst: MoveOperand::Operand(Reg::from(dst, slot_reg_map).into_operand()),
             },
             StoreMem { src, dst } => Instr::Movq {
                 src: MoveOperand::Operand(Operand::from(src, slot_reg_map)),
@@ -233,7 +197,7 @@ impl Instr {
                         }
                     },
                 }),
-                dst: MoveOperand::Operand(Reg::from(dst.into(), slot_reg_map).into_operand()),
+                dst: MoveOperand::Operand(Reg::from(dst, slot_reg_map).into_operand()),
             },
             Comment(c) => Instr::Comment(c),
         }
@@ -367,7 +331,7 @@ impl Instr {
                 dst = dst
             ),
             Movq { src, dst } => write!(out, "movq {}, {}", src, dst),
-            Cmpq { lhs, rhs } => write!(out, "cmp {}, {}", lhs, rhs),
+            Cmpq { lhs, rhs } => write!(out, "cmpq {}, {}", lhs, rhs),
             Call { func, args, dst } => {
                 let args = args.iter().map(|a| format!("{}", a)).collect::<Vec<_>>();
                 write!(out, "call {} [ {} ]", func, args[..].join(" | "))?;
@@ -584,14 +548,11 @@ impl From<lir::LIR> for Program {
                         .iter()
                         .map(|cp| Instr::Movq {
                             src: MoveOperand::Operand(
-                                Reg::from(cp.src.into(), &slot_reg_map).into_operand(),
+                                Reg::from(cp.src, &slot_reg_map).into_operand(),
                             ),
                             dst: MoveOperand::Operand(
-                                Reg::from(
-                                    cp.dst.allocated_in.regs[cp.dst.num].into(),
-                                    &slot_reg_map,
-                                )
-                                .into_operand(),
+                                Reg::from(cp.dst.allocated_in.regs[cp.dst.num], &slot_reg_map)
+                                    .into_operand(),
                             ),
                         })
                         .collect(),
@@ -610,14 +571,11 @@ impl From<lir::LIR> for Program {
                         .iter()
                         .map(|cp| Instr::Movq {
                             src: MoveOperand::Operand(
-                                Reg::from(cp.src.into(), &slot_reg_map).into_operand(),
+                                Reg::from(cp.src, &slot_reg_map).into_operand(),
                             ),
                             dst: MoveOperand::Operand(
-                                Reg::from(
-                                    cp.dst.allocated_in.regs[cp.dst.num].into(),
-                                    &slot_reg_map,
-                                )
-                                .into_operand(),
+                                Reg::from(cp.dst.allocated_in.regs[cp.dst.num], &slot_reg_map)
+                                    .into_operand(),
                             ),
                         })
                         .collect(),
