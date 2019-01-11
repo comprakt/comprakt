@@ -12,7 +12,7 @@ use std::{
 #[derive(Debug, Clone)]
 enum Instruction {
     Call(FunctionCall),
-    LirInstruction(lir::Instruction),
+    Lir(lir::Instruction),
     Leave(lir::Leave),
 }
 
@@ -86,7 +86,7 @@ impl LiveVariableAnalysis {
         }
 
         while let Some(block) = queue.pop_front() {
-            let code = &block_code_map.get(&block.firm).unwrap().instrs;
+            let code = &block_code_map[&block.firm].instrs;
 
             // ins(b) = f_b(outs) = gen(b)+(outs(b)-kill(b))
             let (gen, kill) = build_gen_kill(code);
@@ -98,7 +98,7 @@ impl LiveVariableAnalysis {
             // sitenote: outs'(b)+gen(b) >= ins(b)
             let mut changed = false;
             // ins(b) += outs'(b)
-            for var_id in outs.get(&block.firm).unwrap() {
+            for var_id in &outs[&block.firm] {
                 changed |= ins.get_mut(&block.firm).unwrap().insert(*var_id);
             }
             // ins(b) += gen(b)
@@ -133,7 +133,7 @@ impl LiveVariableAnalysis {
         let mut instrs = vec![];
 
         for lir::CopyPropagation { src, dst } in &code.copy_in {
-            instrs.push(Instruction::LirInstruction(lir::Instruction::Movq {
+            instrs.push(Instruction::Lir(lir::Instruction::Movq {
                 src: lir::Operand::MultiSlot(*src),
                 dst: lir::Operand::ValueSlot(*dst),
             }));
@@ -142,7 +142,7 @@ impl LiveVariableAnalysis {
             instrs.push(self.gen_instr(instr));
         }
         for lir::CopyPropagation { src, dst } in &code.copy_out {
-            instrs.push(Instruction::LirInstruction(lir::Instruction::Movq {
+            instrs.push(Instruction::Lir(lir::Instruction::Movq {
                 src: lir::Operand::MultiSlot(*src),
                 dst: lir::Operand::ValueSlot(*dst),
             }));
@@ -157,11 +157,12 @@ impl LiveVariableAnalysis {
         if let lir::Instruction::Call { .. } = instr {
             Instruction::Call(FunctionCall::new(self.cconv, instr.clone()))
         } else {
-            Instruction::LirInstruction(instr.clone())
+            Instruction::Lir(instr.clone())
         }
     }
 }
 
+#[allow(clippy::cyclomatic_complexity)] // FIXME !!!!
 fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
     use super::{
         function::FnInstruction,
@@ -173,7 +174,7 @@ fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
 
     for instr in code {
         match instr {
-            Instruction::LirInstruction(lir) => match lir {
+            Instruction::Lir(lir) => match lir {
                 Binop {
                     src1, src2, dst, ..
                 }
