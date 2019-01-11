@@ -283,6 +283,6 @@ mod test {
             count += 1;
         }
 
-        assert_eq!(count, 10);
+        assert_eq!(count, 11);
     }
 }
