@@ -136,6 +136,9 @@ impl JumpThreading {
             Node::Proj(..) => {
                 self.visit_proj(current);
             }
+            Node::Jmp(jmp) => {
+                self.visit_jmp(jmp);
+            }
             _ => {
                 // we are only interested in nodes that can jump from a basic block to another basic
                 // block, skip all contents of the current block, go directly to the block node
@@ -186,13 +189,13 @@ impl JumpThreading {
             //     indices `x > j` to `x - 1`, but thats done by the vector
             //     implementation for us.)
             let jmp = unnecessary_cond.cond.block().new_jmp();
-            let target_block_preds = unnecessary_cond.target_block.in_nodes();
-            target_block_preds[unnecessary_cond.proj_current.0] = jmp;
+            let mut target_block_preds = unnecessary_cond.target_block.in_nodes().collect::<Vec<_>>();
+            target_block_preds[unnecessary_cond.proj_current.0] = Node::Jmp(jmp);
 
             // remove index of second projection, called step (2) above
             let idx = unnecessary_cond.proj_other.0;
-            for phi in target_block.phis() {
-                let phi_preds = phi.phi_preds().collect::<Vec<_>>();
+            for phi in unnecessary_cond.target_block.phis() {
+                let mut phi_preds = phi.phi_preds().collect::<Vec<_>>();
                 phi_preds.remove(idx);
                 phi.set_in_nodes(&phi_preds);
             }
@@ -285,6 +288,158 @@ impl JumpThreading {
             cond,
             target_block
         })
+    }
+
+    /// Try to merge the current block with a predecessor block.
+    ///
+    /// We consider two cases in which we try to merge blocks:
+    ///
+    /// (1) A predecessor with a single input, (and a current node with one or more inputs)
+    ///
+    ///     ```
+    ///     in[1]                                     in[2]    in[n]
+    ///        \                                       |        |
+    ///        Predecessor Block ----> Jmp --in[1]--> Current Block
+    ///        /             |                             |
+    ///      Other nodes     |                            Other Nodes including Phis
+    ///      No Mem edges/   given that there is          allowed
+    ///      side effects    only one predecessor
+    ///      allowed!        Phis can be trivially
+    ///                      removed, but should
+    ///                      not exist
+    ///     ```
+    ///
+    ///     This case should be inlined with a heuristic since the backend will most likely
+    ///     represent the Jmp using a fall through as shown below:
+    ///
+    ///     ```
+    ///     Predecessor_Block_Label:
+    ///         instructions of predecessor block
+    ///         /* fall through */
+    ///         /* jmp to Current_Block_Label optimized away */
+    ///     Current_Block_Label:
+    ///         instructions of current block
+    ///     ```
+    ///
+    ///     If blocks are not merged, the inputs of current
+    ///     block do not have to execute the nodes in the predecessor block since they can jump
+    ///     directly to the current block instead of the merged block which will always execute
+    ///     both.
+    ///     
+    ///     => Our heuristic: only merge if no nodes are in the predecessor block.
+    ///
+    /// (2) A predecessor with multiple inputs, and a current node with a single input.
+    ///
+    ///     ```
+    ///     in[1]      in[2]
+    ///        \        |
+    ///        Predecessor Block ----> Jmp --in[1]--> Current Block
+    ///        /                                        |
+    ///      Other Nodes including                    No or trivial Phis,
+    ///      phis, mem edges allowed                  Nodes, including mem edges
+    ///     ```
+    ///     [This is the case covered by line 522 calling `try_merge_blocks` in libfirm]
+    /// 
+    /// Both cases combined include the most important case of a chain of empty blocks as a special
+    /// case.
+    ///
+    /// This optimization assumes that bads were removed previously. There is no detection of Bads,
+    /// so a node with 2 Bad predecessors and a non Bad predecessor is not optimized even though it
+    /// has only one real predecessor.
+    fn visit_jmp(&mut self, current: nodes::Jmp) {
+        if let Some(_) = self.try_remove_unnecessary_predecessor_block(current) {
+
+        } else {
+            // we are only interested in nodes that can jump from a basic block to another basic
+            // block, skip all contents of the current block, go directly to the block node
+            self.worklist.push_back(Node::Block(current.block()));
+        }
+    }
+
+    /// detect an unnecessary predecessor that jumps into the current block and
+    /// remove it.
+    ///
+    /// This is `case 1` in the description of [`visit_jmp`].
+    ///
+    /// ```
+    /// in[1]                                     in[2]    in[n]
+    ///    \                                       |        |
+    ///    Predecessor Block ----> Jmp --in[1]--> Current Block
+    ///    /             |                             |
+    ///  Other nodes     |                            Other Nodes including Phis
+    ///  No Mem edges/   given that there is          allowed
+    ///  side effects    only one predecessor
+    ///  allowed!        Phis can be trivially
+    ///                  removed, but should
+    ///                  not exist
+    /// ```
+    fn try_remove_unnecessary_predecessor_block(&mut self, jmp_inbetween: nodes::Jmp) -> Option<()> {
+        // test if the block qualifies for this optimization
+        let pred_block = jmp_inbetween.block();
+
+        if JumpThreading::block_contains_nodes(&pred_block) ||
+            pred_block.in_nodes().len() != 1
+        {
+            return None;
+        }
+
+        // get the only predecessor
+        let pred_pred = pred_block.in_nodes().next().unwrap();
+
+        self.graph.assure_outs();
+
+        let target_block = if let Some(target_block) = jmp_inbetween.out_target_block() {
+            target_block
+        } else {
+            log::debug!("cannot optimize jump since it does not have a target block");
+            return None;
+        };
+
+        // we now know it qualifies, optimize the predecessor block
+        // by rewiring the jmp.
+        
+        let mut target_block_preds = target_block.in_nodes().collect::<Vec<_>>();
+        let jmp_index = target_block_preds.iter().position(|node| node == &Node::Jmp(jmp_inbetween)).unwrap();
+
+        target_block_preds[jmp_index] = pred_pred;
+
+        target_block.set_in_nodes(&target_block_preds);
+        pred_block.set_in_nodes(&[]);
+
+        // since the target block changed, reprocess it
+        self.visited.remove(&Node::Block(target_block));
+        for pred in target_block.in_nodes() {
+            self.visited.remove(&pred);
+        }
+        self.worklist.push_back(Node::Block(target_block));
+
+        Some(())
+    }
+
+    /// detect an unnecessary current block that can be merged into the predecessor.
+    /// This is `case 2` in the description of [`visit_jmp`]:
+    ///
+    /// ```
+    /// in[1]      in[2]
+    ///    \        |
+    ///    Predecessor Block ----> Jmp --in[1]--> Current Block
+    ///    /                                        |
+    ///  Other Nodes including                    No or trivial Phis,
+    ///  phis, mem edges allowed                  Nodes, including mem edges
+    /// ```
+    /// [This is the case covered by line 522 calling `try_merge_blocks` in libfirm]
+    ///
+    fn match_unnecessary_current_block(&mut self, jmp_inbetween: nodes::Jmp) -> Option<()> {
+        None
+    }
+
+    // TODO: this can be moved to the libfirm-rs API
+    fn block_contains_nodes(block :&nodes::Block) -> bool {
+        // TODO: you can be way smarter here:
+        // - single predecessor blocks, with Phi nodes can optimize
+        //   Phi nodes away
+        // - bad nodes in a block should not be counted
+        block.out_nodes().len() > 1
     }
 }
 

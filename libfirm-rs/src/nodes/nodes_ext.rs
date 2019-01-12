@@ -164,8 +164,6 @@ simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
 // TODO: should we use dynamic reverse edges instead of reverse
 simple_node_iterator!(OutNodeIterator, get_irn_n_outs, get_irn_out, u32);
 
-linked_list_iterator!(PhisOfBlockIterator, Phi, get_Block_phis, get_Phi_next);
-
 #[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Node {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -202,14 +200,33 @@ impl Return {
 }
 
 simple_node_iterator!(ReturnResIterator, get_Return_n_ress, get_Return_res, i32);
+linked_list_iterator!(
+    PhisOfBlockLinkedListIterator,
+    Phi,
+    get_Block_phis,
+    get_Phi_next
+);
 
 impl Block {
     pub fn cfg_preds(self) -> CfgPredsIterator {
         CfgPredsIterator::new(self.internal_ir_node())
     }
 
-    fn phis(&self) -> PhisOfBlockIterator {
-        PhisOfBlockIterator::new(self.internal_ir_node())
+    /// Access the phis of a block using `get_Block_phis` and `get_Phi_next`.
+    /// Note that this list is not updated automatically. Fill the list
+    /// manually or use `phis` instead.
+    fn linked_list_of_phis(&self) -> PhisOfBlockLinkedListIterator {
+        PhisOfBlockLinkedListIterator::new(self.internal_ir_node())
+    }
+
+    pub fn phis(self) -> Vec<Phi> {
+        let mut result = vec![];
+        for node in self.out_nodes() {
+            if let Node::Phi(phi) = node {
+                result.push(phi);
+            }
+        }
+        result
     }
 
     pub fn mature(self) {
