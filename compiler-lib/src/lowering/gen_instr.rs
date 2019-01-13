@@ -147,23 +147,21 @@ impl GenInstrBlock {
                     .map(|(_, dst_slot)| dst_slot.multislot())
                     .collect::<Vec<_>>()
             })
-            .map(|dst_slot| {
-                let val = if let Node::Proj(proj, _) = dst_slot.firm() {
-                    proj.pred()
-                } else {
-                    dst_slot.firm()
-                };
-                (val, dst_slot)
-            })
             // if the same value flows in over multiple preds, ignore the dupes
-            .unique_by(|(val, _)| *val);
+            .unique_by(|dst_slot| dst_slot.firm());
 
-        for (val, dst_slot) in already_computed {
-            log::debug!("InCFGPred for slot.num={:?} {:?}", dst_slot.num(), val);
-            self.mark_computed(val, Computed::InCFGPred(dst_slot));
+        for dst_slot in already_computed {
+            log::debug!(
+                "InCFGPred for slot.num={:?} {:?}",
+                dst_slot.num(),
+                dst_slot.firm()
+            );
+            self.mark_computed(dst_slot.firm(), Computed::InCFGPred(dst_slot));
         }
 
+        log::debug!("values to compute = {:?}", values_to_compute);
         for out_value in values_to_compute {
+            log::debug!("gen code for out_value={:?}", out_value);
             self.comment(format_args!("\tgen code for out_value={:?}", out_value));
             self.gen_value(graph, block, alloc, out_value);
         }
