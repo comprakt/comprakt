@@ -109,6 +109,15 @@ impl FunctionCall {
         if let lir::Instruction::Call { func, args, dst } = call {
             self.label = func;
 
+            // Save all caller-save registers on the stack
+            // This needs cleanup after the register allocation
+            save_regs!(
+                [Rdi, Rsi, Rdx, Rcx, R8, R9, R10, R11, Rax],
+                FnInstruction,
+                self.arg_save,
+                self.arg_recover
+            );
+
             for arg in args.into_iter().rev() {
                 self.setup.push(FnInstruction::Pushq {
                     src: Operand::LirOperand(arg),
@@ -237,13 +246,19 @@ impl Function {
         let mut lva = LiveVariableAnalysis::new(self.cconv, graph);
 
         lva.run(graph.end_block);
-        // log::info!(
-        //     "Liveness: {:#?}",
-        //     lva.liveness
-        //         .iter()
-        //         .map(|(id, blocks)| (id, blocks.iter().map(|block| block.num).collect::<Vec<_>>()))
-        //         .collect::<Vec<_>>()
-        // );
+        log::info!(
+            "Liveness: {:#?}",
+            lva.liveness
+                .iter()
+                .map(|(id, blocks)| (
+                    id,
+                    blocks
+                        .iter()
+                        .map(|block| format!("{}, {}", block.num, block._firm_num))
+                        .collect::<Vec<_>>()
+                ))
+                .collect::<Vec<_>>()
+        );
     }
 }
 

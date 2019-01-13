@@ -4,6 +4,7 @@ use super::{
     CallingConv, Operand,
 };
 use crate::lowering::lir_allocator::Ptr;
+use libfirm_rs::nodes::NodeTrait;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     hash::{Hash, Hasher},
@@ -16,7 +17,7 @@ enum Instruction {
     Leave(lir::Leave),
 }
 
-type VarId = (i64, usize);
+pub(super) type VarId = (i64, usize);
 
 #[derive(Debug, Clone)]
 pub(super) struct Block {
@@ -24,6 +25,8 @@ pub(super) struct Block {
     /// postorder of the BlockGraph blocks. This reversed postorder is needed by
     /// the linear scan algorithm
     pub(super) num: usize,
+    /// Only or debugging purposes
+    pub(super) _firm_num: i64,
     instrs: Vec<Instruction>,
 }
 
@@ -81,6 +84,7 @@ impl LiveVariableAnalysis {
                 block.firm,
                 Block {
                     num,
+                    _firm_num: block.num,
                     instrs: self.gen_code(&block),
                 },
             );
@@ -92,9 +96,18 @@ impl LiveVariableAnalysis {
             let code = &block_code_map[&block.firm].instrs;
 
             // ins(b) = f_b(outs) = gen(b)+(outs(b)-kill(b))
+            //
+            // In our case (SSA) this results in an easier function:
+            //
+            // f_b(outs) = (gen(b)+outs(b))-kill(b)
+            //
+            // This is because in a block a ValueSlot always needs to be allocated in a
+            // Block, before it can be used in the block. At least it is
+            // allocated by a copy_in instruction.
             let (gen, kill) = build_gen_kill(code);
+            log::debug!("Gen: {:?}, Kill: {:?}", gen, kill);
             // outs'(b) = outs(b) - kill(b) => ins(b) = gen(b)+outs'(b)
-            for var_id in kill {
+            for var_id in &kill {
                 outs.get_mut(&block.firm).unwrap().remove(&var_id);
             }
             // if (outs'(b)+gen(b) != ins(b)) => changed = true
@@ -106,7 +119,9 @@ impl LiveVariableAnalysis {
             }
             // ins(b) += gen(b)
             for var_id in gen {
-                changed |= ins.get_mut(&block.firm).unwrap().insert(var_id);
+                if !kill.contains(&var_id) {
+                    changed |= ins.get_mut(&block.firm).unwrap().insert(var_id);
+                }
             }
 
             if changed {
@@ -196,6 +211,21 @@ fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
     let mut gen = vec![];
     let mut kill = vec![];
 
+    macro_rules! push {
+        ($vec:expr, $op:expr) => {
+            match $op {
+                Imm(_) => (),
+                Slot(slot) => {
+                    debug_assert!(slot.firm().mode() != libfirm_rs::Mode::X());
+                    if !slot.firm().mode().is_mem() {
+                        $vec.push(var_id(*$op))
+                    }
+                }
+                Param { .. } => $vec.push(var_id(*$op)),
+            }
+        };
+    }
+
     for instr in code {
         match instr {
             Instruction::Lir(lir) => match lir {
@@ -204,101 +234,66 @@ fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
                 }
                 | Div { src1, src2, dst }
                 | Mod { src1, src2, dst } => {
-                    match src1 {
-                        Imm(_) => (),
-                        _ => gen.push(var_id(*src1)),
-                    }
-                    match src2 {
-                        Imm(_) => (),
-                        _ => gen.push(var_id(*src2)),
-                    }
-                    kill.push(var_id(lir::Operand::Slot(*dst)))
+                    push!(gen, src1);
+                    push!(gen, src2);
+                    push!(kill, &lir::Operand::Slot(*dst));
                 }
                 Unop { src, dst, .. } => {
-                    match src {
-                        Imm(_) => (),
-                        _ => gen.push(var_id(*src)),
-                    }
-                    kill.push(var_id(lir::Operand::Slot(*dst)));
+                    push!(gen, src);
+                    push!(kill, &lir::Operand::Slot(*dst));
                 }
                 Movq { src, dst } => {
-                    match src {
-                        Imm(_) => (),
-                        _ => gen.push(var_id(*src)),
-                    }
-                    // FIXME: assert that dst != Imm
-                    kill.push(var_id(*dst));
+                    push!(gen, src);
+                    push!(kill, dst);
                 }
                 Call { .. } => (), // already converted
                 StoreMem {
                     src,
                     dst: lir::AddressComputation { base, index, .. },
                 } => {
-                    match src {
-                        Imm(_) => (),
-                        _ => gen.push(var_id(*src)),
-                    }
-                    match base {
-                        Imm(_) => (),
-                        _ => gen.push(var_id(*base)),
-                    }
+                    push!(gen, src);
+                    push!(gen, base);
                     match index {
                         lir::IndexComputation::Zero => (),
-                        lir::IndexComputation::Displacement(op, _) => match op {
-                            Imm(_) => (),
-                            _ => gen.push(var_id(*op)),
-                        },
+                        lir::IndexComputation::Displacement(op, _) => push!(gen, op),
                     }
                 }
                 LoadMem {
                     src: lir::AddressComputation { base, index, .. },
                     dst,
                 } => {
-                    match base {
-                        Imm(_) => (),
-                        _ => gen.push(var_id(*base)),
-                    }
+                    push!(gen, base);
                     match index {
                         lir::IndexComputation::Zero => (),
-                        lir::IndexComputation::Displacement(op, _) => match op {
-                            Imm(_) => (),
-                            _ => gen.push(var_id(*op)),
-                        },
+                        lir::IndexComputation::Displacement(op, _) => push!(gen, op),
                     }
-                    gen.push(var_id(lir::Operand::Slot(*dst)));
+                    push!(kill, &lir::Operand::Slot(*dst));
                 }
                 Comment(_) => (), // Ignore for LVA
             },
             Instruction::Call(call) => {
                 // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
+
                 for instr in &call.setup {
                     match instr {
                         // dst in setup is always a Reg in a Movq instruction
                         FnInstruction::Movq { src, .. } => match src {
-                            Operand::LirOperand(op) => match op {
-                                Imm(_) => (),
-                                _ => gen.push(var_id(*op)),
-                            },
+                            Operand::LirOperand(op) => push!(gen, op),
                             Operand::Reg(_) => (),
                         },
                         FnInstruction::Pushq { src } => match src {
-                            Operand::LirOperand(op) => match op {
-                                Imm(_) => (),
-                                _ => gen.push(var_id(*op)),
-                            },
+                            Operand::LirOperand(op) => push!(gen, op),
                             Operand::Reg(_) => (),
                         },
-                        _ => unreachable!(), // Popq, Addq and Ret are not in setup
+                        _ => unreachable!(), // Popq and Addq are not in setup
                     }
                 }
 
                 if let Some(res) = call.move_res {
+                    // src of move_res is always %rax
                     if let FnInstruction::Movq { dst, .. } = res {
                         match dst {
-                            Operand::LirOperand(op) => match op {
-                                Imm(_) => (),
-                                _ => kill.push(var_id(op)),
-                            },
+                            Operand::LirOperand(op) => push!(kill, &op),
                             Operand::Reg(_) => unreachable!(),
                         }
                     } else {
@@ -310,21 +305,12 @@ fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
             }
             Instruction::Leave(leave) => match leave {
                 CondJmp { lhs, rhs, .. } => {
-                    match lhs {
-                        Imm(_) => (),
-                        _ => gen.push(var_id(*lhs)),
-                    }
-                    match rhs {
-                        Imm(_) => (),
-                        _ => gen.push(var_id(*rhs)),
-                    }
+                    push!(gen, lhs);
+                    push!(gen, rhs);
                 }
                 Return {
                     value: Some(value), ..
-                } => match value {
-                    Imm(_) => (),
-                    _ => gen.push(var_id(*value)),
-                },
+                } => push!(gen, value),
                 Jmp { .. } | Return { value: None, .. } => (),
             },
         }
