@@ -89,6 +89,10 @@ impl Graph {
         unsafe { bindings::remove_bads(self.irg) }
     }
 
+    pub fn remove_critical_cf_edges(self) {
+        unsafe { bindings::remove_critical_cf_edges(self.irg) }
+    }
+
     /// Walks over all reachable nodes in the graph, ensuring that nodes inside
     /// a basic block are visited in topological order.
     ///

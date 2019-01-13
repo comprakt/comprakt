@@ -463,6 +463,7 @@ pub struct ControlFlowTransfer {
 impl BlockGraph {
     fn from(firm_graph: libfirm_rs::Graph, alloc: &Allocator) -> Ptr<Self> {
         firm_graph.assure_outs();
+        firm_graph.remove_critical_cf_edges(); // FIXME not allowed to use this for the final version!
         let mut graph = BlockGraph::build_skeleton(firm_graph, alloc);
         graph.construct_flows(alloc);
         graph.gen_instrs(alloc);
