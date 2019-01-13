@@ -115,7 +115,7 @@ impl ControlFlow {
                             // => num preds reduced by 1, new jmp inserted
                             // => new jmp optimization may be possible
                             // => reschedule block
-                            self.mark_block_changed(&current_block);
+                            self.mark_block_changed(current_block);
                             // we removed another predecessor that is coming
                             // up in subsequent iterations (the other proj belonging
                             // to the cond just removed). We could be more efficient
@@ -132,7 +132,7 @@ impl ControlFlow {
                             //    single block
                             // => new Cond optimization may be possible
                             // => reschedule block
-                            self.mark_block_changed(&current_block);
+                            self.mark_block_changed(current_block);
                         // we can continue our predecessor loop since
                         // we did only modify the now finished index.
                         // No `continue` necessary here.
@@ -162,7 +162,7 @@ impl ControlFlow {
     /// Mark a node as changed. This will put the node back on the worklist --
     /// even if it was visited before -- since new optimizations may be
     /// possible.
-    fn mark_block_changed(&mut self, block: &nodes::Block) {
+    fn mark_block_changed(&mut self, block: nodes::Block) {
         // Control flow optimization in libfirm is implemented really funnily in libfirm
         // (with a goto and usage of the stack), this is because you have to
         // attack the problem from two sides:
@@ -198,7 +198,7 @@ impl ControlFlow {
             &|node: &Node| {
                 let mut label = default_label(node);
 
-                if node == &Node::Block(*block) {
+                if node == &Node::Block(block) {
                     label = label
                         .style(Style::Filled)
                         .fillcolor(X11Color::Red)
@@ -214,7 +214,7 @@ impl ControlFlow {
         }
 
         if !self.worklist.contains(&block) {
-            self.worklist.push_back(*block);
+            self.worklist.push_back(block);
         }
     }
 
@@ -493,7 +493,7 @@ impl ControlFlow {
         // test if the block qualifies for this optimization
         let pred_block = jmp_inbetween.block();
 
-        if self.block_contains_nodes(&pred_block) {
+        if self.block_contains_nodes(pred_block) {
             return false;
         }
 
@@ -568,13 +568,13 @@ impl ControlFlow {
     /// libfirm]
     fn try_merge_unnecessary_current_into_predecessor(
         &mut self,
-        jmp_inbetween: nodes::Jmp,
+        _jmp_inbetween: nodes::Jmp,
     ) -> bool {
         false
     }
 
     // TODO: this can be moved to the libfirm-rs API
-    fn block_contains_nodes(&self, block: &nodes::Block) -> bool {
+    fn block_contains_nodes(&self, block: nodes::Block) -> bool {
         self.graph.assure_outs();
         // TODO: you can be way smarter here:
         // - single predecessor blocks, with Phi nodes can optimize Phi nodes away

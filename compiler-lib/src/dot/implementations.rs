@@ -101,7 +101,7 @@ impl Dot<Node> for Graph {
                     .out_nodes()
                     .position(|current| node == &current)
                     .map(|idx| idx.to_string())
-                    .unwrap_or("?".to_string());
+                    .unwrap_or_else(|| "?".to_string());
 
                 writeln!(
                     writer,

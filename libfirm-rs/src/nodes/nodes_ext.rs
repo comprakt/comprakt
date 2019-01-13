@@ -68,7 +68,7 @@ macro_rules! linked_list_iterator {
             }
 
             fn raw_to_option(raw: *mut bindings::ir_node) -> Option<$item> {
-                if raw == std::ptr::null_mut() {
+                if raw.is_null() {
                     None
                 } else {
                     Some($item::new(raw))
@@ -215,7 +215,7 @@ impl Block {
     /// Access the phis of a block using `get_Block_phis` and `get_Phi_next`.
     /// Note that this list is not updated automatically. Fill the list
     /// manually or use `phis` instead.
-    fn linked_list_of_phis(&self) -> PhisOfBlockLinkedListIterator {
+    pub fn linked_list_of_phis(self) -> PhisOfBlockLinkedListIterator {
         PhisOfBlockLinkedListIterator::new(self.internal_ir_node())
     }
 
