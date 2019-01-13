@@ -52,11 +52,22 @@ use libfirm_rs::{
 };
 use std::collections::{VecDeque, HashSet};
 
+//enum State {
+    //Unvisited,
+    //// currently processed
+    ////InFlight,
+    //Done
+//}
+
 pub struct JumpThreading {
     graph: Graph,
-    worklist: VecDeque<Node>,
-    visited: HashSet<Node>,
-    num_eliminated: u32
+    /// a list of blocks that should be processed next. An item on this list should not be part of
+    /// `done` unless there is a loop in the graph!
+    worklist: VecDeque<nodes::Block>,
+    /// marks a block as optimized in its current state, if the inputs of a block are changed, this
+    /// flag has to be removed.
+    done: HashSet<nodes::Block>,
+    num_changed: u32
 }
 
 impl optimization::Local for JumpThreading {
@@ -70,26 +81,27 @@ impl JumpThreading {
         graph.assure_outs();
         Self { graph ,
             worklist: VecDeque::new(),
-            visited: HashSet::new(),
-            num_eliminated: 0
+            done: HashSet::new(),
+            num_changed: 0
         }
     }
 
     fn run(&mut self) -> Outcome {
-        self.worklist.push_back(Node::Block(self.graph.end_block()));
+        let end_block = self.graph.end_block();
+        self.worklist.push_back(end_block);
 
-        while let Some(current) = self.worklist.pop_front() {
-            if self.visited.contains(&current) {
+        while let Some(current_block) = self.worklist.pop_front() {
+            if self.done.contains(&current_block) {
                 breakpoint!(
                     &format!(
-                        "Jump Threading: stopping recursion on second visit of {:?}",
-                        current
+                        "Jump Threading: stopping recursion on unscheduled revisit of {:?} (loop)",
+                        current_block
                     ),
                     self.graph,
                     &|node: &Node| {
                         let mut label = default_label(node);
 
-                        if node == &current {
+                        if node == &Node::Block(current_block) {
                             label = label
                                 .style(Style::Filled)
                                 .fillcolor(X11Color::Yellow)
@@ -102,10 +114,10 @@ impl JumpThreading {
                 continue;
             }
 
-            breakpoint!("Jump Threading: iteration", self.graph, &|node: &Node| {
+            breakpoint!(&format!("Jump Threading: optimizing {:?}", current_block), self.graph, &|node: &Node| {
                 let mut label = default_label(node);
 
-                if node == &current {
+                if node == &Node::Block(current_block) {
                     label = label
                         .style(Style::Filled)
                         .fillcolor(X11Color::Blue)
@@ -115,35 +127,124 @@ impl JumpThreading {
                 label
             });
 
-            self.visit_node(current);
-            self.visited.insert(current);
+            // collecting is important since we edit the predecessors during iteration!!!
+            for pred in current_block.cfg_preds().collect::<Vec<_>>() {
+
+                breakpoint!(&format!("Jump Threading: {:?} predecessor {:?}", current_block, pred), self.graph, &|node: &Node| {
+                    let mut label = default_label(node);
+
+                    if node == &Node::Block(current_block) ||  node == &pred {
+                        label = label
+                            .style(Style::Filled)
+                            .fillcolor(X11Color::Pink)
+                            .fontcolor(X11Color::White);
+                    }
+
+                    label
+                });
+
+                match pred {
+                    Node::Proj(..) => {
+                        if self.visit_proj(pred) {
+                            // optimization was applied
+                            // => num preds reduced by 1, new jmp inserted
+                            // => new jmp optimization may be possible
+                            // => reschedule block
+                            self.mark_block_changed(&current_block);
+                            // we removed another predecessor that is coming
+                            // up in subsequent iterations (the other proj belonging
+                            // to the cond just removed). We could be more efficient
+                            // here and just skip this predecessor in a later iteration.
+                            break;
+                        } else {
+                            self.worklist.push_back(pred.block());
+                        }
+                    }
+                    Node::Jmp(jmp) => {
+                        if self.visit_jmp(jmp) {
+                            // optimization was applied
+                            // => preds of two blocks were combined in a
+                            //    single block
+                            // => new Cond optimization may be possible
+                            // => reschedule block
+                            self.mark_block_changed(&current_block);
+                            // we can continue our predecessor loop since
+                            // we did only modify the now finished index.
+                            // No `continue` necessary here.
+                        } else {
+                            self.worklist.push_back(pred.block());
+                        }
+                    }
+                    _ => {
+                        // Something we cannot handle, e.g. a Switch node. Just
+                        // ignore it
+                        self.worklist.push_back(pred.block());
+                    }
+                }
+            }
         }
 
-        if self.num_eliminated > 0 {
+        // 
+        if self.num_changed > 0 {
+            //self.graph.remove_unreachable_code();
+            self.graph.remove_bads();
             Outcome::Changed
         } else {
             Outcome::Unchanged
         }
     }
 
-    fn visit_node(&mut self, current: Node) {
-        match current {
-            Node::Block(block) => {
-                // we are only interested in nodes that can jump from a basic block to another basic
-                // block. More specifically: Projs of a Cond and Jmps.
-                self.worklist.extend(block.cfg_preds());
+    /// Mark a node as changed. This will put the node back on the worklist -- even if it was
+    /// visited before -- since new optimizations may be possible.
+    fn mark_block_changed(&mut self, block: &nodes::Block) {
+        // Control flow optimization in libfirm is implemented really funnily in libfirm (with a
+        // goto and usage of the stack), this is because you have to attack the problem from two
+        // sides:
+        //
+        // (a) the Cond control flow optimization requires the paths from the current node towards
+        //     the end node to be already optimized.  (Since optimization might merge successors
+        //     into a single block, therefore proofing that a Cond can be replaced by a Jmp.)
+        //
+        // (b) the Jmp optimization requires the number of predecessors to be already optimized.
+        //     (Since the replacement of a Cond with a Jmp reduces the number of predecessors by 1
+        //     and might therefore allow us to merge or remove blocks.)
+        //
+        // ---
+        // NOTE: Our recursion scheme works for two reasons
+        //
+        // new control flow optimizations for a block can only be enabled by
+        // (1) the reduction of predecessors of a node
+        // (2) the removal of nodes from a predecessor block
+        //
+        // since our control flow optimizations
+        //
+        // (A) do not remove nodes from predecessors, (2) is not possible
+        //
+        // (B) (1) is possible since we call Cond. However, this also
+        //     shows that if we walk from the end block, restarting
+        //     the Jmp optimization in the target block of the Cond
+        //     is sufficient.
+        self.num_changed += 1;
+
+        breakpoint!(&format!("Jump Threading: {:?} changed, rescheduling", block), self.graph, &|node: &Node| {
+            let mut label = default_label(node);
+
+            if node == &Node::Block(*block) {
+                label = label
+                    .style(Style::Filled)
+                    .fillcolor(X11Color::Red)
+                    .fontcolor(X11Color::White);
             }
-            Node::Proj(..) => {
-                self.visit_proj(current);
-            }
-            Node::Jmp(jmp) => {
-                self.visit_jmp(jmp);
-            }
-            _ => {
-                // we are only interested in nodes that can jump from a basic block to another basic
-                // block, skip all contents of the current block, go directly to the block node
-                self.worklist.push_back(Node::Block(current.block()));
-            }
+
+            label
+        });
+
+        if self.done.contains(&block) {
+            self.done.remove(&block);
+        }
+
+        if !self.worklist.contains(&block) {
+            self.worklist.push_back(*block);
         }
     }
 
@@ -176,7 +277,7 @@ impl JumpThreading {
     ///  Phi 0  Phi N # forall phi in Current Block: phi[i] == phi[j]
     /// ```
     ///
-    fn visit_proj(&mut self, current: Node) {
+    fn visit_proj(&mut self, current: Node) -> bool {
         if let Some(unnecessary_cond) = self.match_unnecessary_cond(current) {
             // To replace a conditional jump with an unconditional jump, we:
             //
@@ -202,10 +303,10 @@ impl JumpThreading {
 
             target_block_preds.remove(idx);
             unnecessary_cond.target_block.set_in_nodes(&target_block_preds);
+
+            true
         } else {
-            // we are only interested in nodes that can jump from a basic block to another basic
-            // block, skip all contents of the current block, go directly to the block node
-            self.worklist.push_back(Node::Block(current.block()));
+            false
         }
     }
     
@@ -328,7 +429,16 @@ impl JumpThreading {
     ///     
     ///     => Our heuristic: only merge if no nodes are in the predecessor block.
     ///
-    /// (2) A predecessor with multiple inputs, and a current node with a single input.
+    /// (2) A predecessor with multiple inputs and an empty body, and a current node with mutiple inputs
+    ///
+    ///     In this case, the predecessor can be merged into the current node by just
+    ///     appending the input vectors. The phi nodes can just replicate the input
+    ///     of the connecting Jmp for all inputs that previously belonged to the predecessor.
+    ///
+    ///     Since our heurisitc for case (1) is to only merge when the predecessor
+    ///     block is empty. Case (1) is fully contained within this case.
+    ///
+    /// (3) A predecessor with multiple inputs, and a current node with a single input.
     ///
     ///     ```
     ///     in[1]      in[2]
@@ -346,45 +456,36 @@ impl JumpThreading {
     /// This optimization assumes that bads were removed previously. There is no detection of Bads,
     /// so a node with 2 Bad predecessors and a non Bad predecessor is not optimized even though it
     /// has only one real predecessor.
-    fn visit_jmp(&mut self, current: nodes::Jmp) {
-        if let Some(_) = self.try_remove_unnecessary_predecessor_block(current) {
-
-        } else {
-            // we are only interested in nodes that can jump from a basic block to another basic
-            // block, skip all contents of the current block, go directly to the block node
-            self.worklist.push_back(Node::Block(current.block()));
-        }
+    fn visit_jmp(&mut self, current: nodes::Jmp) -> bool {
+        self.try_remove_unnecessary_predecessor_block(current)
     }
 
     /// detect an unnecessary predecessor that jumps into the current block and
     /// remove it.
     ///
-    /// This is `case 1` in the description of [`visit_jmp`].
+    /// This is `case 2` in the description of [`visit_jmp`].
     ///
     /// ```
     /// in[1]                                     in[2]    in[n]
     ///    \                                       |        |
     ///    Predecessor Block ----> Jmp --in[1]--> Current Block
-    ///    /             |                             |
-    ///  Other nodes     |                            Other Nodes including Phis
-    ///  No Mem edges/   given that there is          allowed
-    ///  side effects    only one predecessor
-    ///  allowed!        Phis can be trivially
-    ///                  removed, but should
-    ///                  not exist
+    ///    /                                           |
+    ///  No other nodes                               Other Nodes including Phis
+    ///                                               allowed
     /// ```
-    fn try_remove_unnecessary_predecessor_block(&mut self, jmp_inbetween: nodes::Jmp) -> Option<()> {
+    fn try_remove_unnecessary_predecessor_block(&mut self, jmp_inbetween: nodes::Jmp) -> bool {
         // test if the block qualifies for this optimization
         let pred_block = jmp_inbetween.block();
 
-        if JumpThreading::block_contains_nodes(&pred_block) ||
-            pred_block.in_nodes().len() != 1
+        if self.block_contains_nodes(&pred_block)
         {
-            return None;
+            // TODO: the greater 1 check currently only protects
+            // against merging the start node, since we assume
+            // that unreachable code was already removed
+            return false;
         }
 
-        // get the only predecessor
-        let pred_pred = pred_block.in_nodes().next().unwrap();
+        let pred_preds = pred_block.in_nodes().collect::<Vec<_>>();
 
         self.graph.assure_outs();
 
@@ -392,28 +493,44 @@ impl JumpThreading {
             target_block
         } else {
             log::debug!("cannot optimize jump since it does not have a target block");
-            return None;
+            return false;
         };
 
+        breakpoint!(&format!("Jump Threading: Optimizable {:?}", jmp_inbetween), self.graph, &|node: &Node| {
+            let mut label = default_label(node);
+
+            if node == &Node::Jmp(jmp_inbetween) {
+                label = label
+                    .style(Style::Filled)
+                    .fillcolor(X11Color::Green)
+                    .fontcolor(X11Color::White);
+            }
+
+            label
+        });
+
         // we now know it qualifies, optimize the predecessor block
-        // by rewiring the jmp.
-        
-        let mut target_block_preds = target_block.in_nodes().collect::<Vec<_>>();
+        // by rewiring all predecessors of the predecessor directly
+        // to the current block.
+        let target_block_preds = target_block.in_nodes().collect::<Vec<_>>();
         let jmp_index = target_block_preds.iter().position(|node| node == &Node::Jmp(jmp_inbetween)).unwrap();
 
-        target_block_preds[jmp_index] = pred_pred;
+        let mut new_target_block_preds = target_block_preds.clone();
+        new_target_block_preds.remove(jmp_index);
+        new_target_block_preds.extend(pred_preds.iter());
 
-        target_block.set_in_nodes(&target_block_preds);
+        // repeat the index of the jmp inbetween for each new input
+        for phi in target_block.phis() {
+            let mut phi_preds = phi.phi_preds().collect::<Vec<_>>();
+            let phi_for_jmp = phi_preds.remove(jmp_index);
+            phi_preds.extend(std::iter::repeat(phi_for_jmp).take(pred_preds.len()));
+            phi.set_in_nodes(&phi_preds);
+        }
+
+        target_block.set_in_nodes(&new_target_block_preds);
         pred_block.set_in_nodes(&[]);
 
-        // since the target block changed, reprocess it
-        self.visited.remove(&Node::Block(target_block));
-        for pred in target_block.in_nodes() {
-            self.visited.remove(&pred);
-        }
-        self.worklist.push_back(Node::Block(target_block));
-
-        Some(())
+        true
     }
 
     /// detect an unnecessary current block that can be merged into the predecessor.
@@ -434,7 +551,8 @@ impl JumpThreading {
     }
 
     // TODO: this can be moved to the libfirm-rs API
-    fn block_contains_nodes(block :&nodes::Block) -> bool {
+    fn block_contains_nodes(&self, block :&nodes::Block) -> bool {
+        self.graph.assure_outs();
         // TODO: you can be way smarter here:
         // - single predecessor blocks, with Phi nodes can optimize
         //   Phi nodes away
