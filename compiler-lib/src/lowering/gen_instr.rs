@@ -315,6 +315,7 @@ impl GenInstrBlock {
             Node::Mod(mod_) => gen_binop!(@MOD, mod_, block, node),
             Node::And(and) => gen_binop!(And, and, block, node),
             Node::Or(or) => gen_binop!(Or, or, block, node),
+            Node::Eor(or) => gen_binop!(Xor, or, block, node),
             Node::Not(not) => gen_unop!(Not, not, block, node),
             Node::Minus(neg) => gen_unop!(Neg, neg, block, node),
             Node::Return(ret) => {
