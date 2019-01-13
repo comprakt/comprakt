@@ -111,6 +111,9 @@ impl LiveVariableAnalysis {
 
             if changed {
                 for pred in block.pred_blocks() {
+                    for var_id in &ins[&block.firm] {
+                        outs.get_mut(&pred.firm).unwrap().insert(*var_id);
+                    }
                     self.queue.push_back(pred);
                 }
             }
