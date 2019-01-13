@@ -753,7 +753,7 @@ impl Ptr<ControlFlowTransfer> {
                 target.allocated_in.firm,
                 target.firm,
             );
-            assert_eq!(target.num, target_slot.num);
+            //assert_eq!(target.num, target_slot.num);
 
             return;
         }
