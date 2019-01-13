@@ -90,6 +90,8 @@ impl ControlFlow {
             );
 
             // collecting is important since we edit the predecessors during iteration!!!
+            let mut current_block_changed = false;
+
             for pred in current_block.cfg_preds().collect::<Vec<_>>() {
                 breakpoint!(
                     &format!("Jump Threading: {:?} predecessor {:?}", current_block, pred),
@@ -115,14 +117,12 @@ impl ControlFlow {
                             // => num preds reduced by 1, new jmp inserted
                             // => new jmp optimization may be possible
                             // => reschedule block
-                            self.mark_block_changed(current_block);
+                            current_block_changed = true;
                             // we removed another predecessor that is coming
                             // up in subsequent iterations (the other proj belonging
                             // to the cond just removed). We could be more efficient
                             // here and just skip this predecessor in a later iteration.
                             break;
-                        } else {
-                            self.worklist.push_back(pred.block());
                         }
                     }
                     Node::Jmp(jmp) => {
@@ -132,20 +132,28 @@ impl ControlFlow {
                             //    single block
                             // => new Cond optimization may be possible
                             // => reschedule block
-                            self.mark_block_changed(current_block);
-                        // we can continue our predecessor loop since
-                        // we did only modify the now finished index.
-                        // No `continue` necessary here.
-                        } else {
-                            self.worklist.push_back(pred.block());
+                            current_block_changed = true;
+                            // we can continue our predecessor loop since
+                            // we did only modify the now finished index.
+                            // No `continue` necessary here.
                         }
                     }
                     _ => {
                         // Something we cannot handle, e.g. a Switch node. Just
                         // ignore it
-                        self.worklist.push_back(pred.block());
                     }
                 }
+            }
+
+            if current_block_changed {
+                self.mark_block_changed(current_block);
+            } else {
+                // this block is optimized to the furthest extent currently possible
+                // optimize its predecessors.
+                for pred in current_block.cfg_preds() {
+                    self.worklist.push_back(pred.block());
+                }
+                self.done.insert(current_block);
             }
         }
 
