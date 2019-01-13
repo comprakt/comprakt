@@ -1880,7 +1880,7 @@ impl fmt::Debug for Bitcast {
     }
 }
 /// A basic block
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Block(*mut bindings::ir_node);
 
 impl Block {
