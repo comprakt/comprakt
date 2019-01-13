@@ -196,7 +196,7 @@ impl GenInstrBlock {
         alloc: &Allocator,
         out_value: Node,
     ) {
-        out_value.walk_dfs_in_block(block.firm, &mut |n| {
+        out_value.walk_dfs_in_block_stop_at_phi_node(block.firm, &mut |n| {
             self.gen_value_walk_callback(graph, block, alloc, n)
         });
     }

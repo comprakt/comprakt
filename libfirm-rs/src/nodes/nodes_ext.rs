@@ -150,8 +150,10 @@ pub trait NodeTrait {
     }
 
     /// Perform a DFS over all nodes within `block` starting at `self`.
+    /// As soon as a Phi node is reached, that branch of the DFS is canceled.
+    /// There is no callback for a Phi node.
     /// The primary use case for this API is in codegen.
-    fn walk_dfs_in_block<Callback>(&self, block: Block, callback: &mut Callback)
+    fn walk_dfs_in_block_stop_at_phi_node<Callback>(&self, block: Block, callback: &mut Callback)
     where
         Callback: FnMut(Node),
         Self: Sized,
@@ -165,7 +167,12 @@ pub trait NodeTrait {
             Callback: FnMut(Node),
         {
             if cur_node.block() == block {
-                for operand in cur_node.in_nodes() {
+                let visit_nodes = cur_node
+                    .in_nodes()
+                    .filter(|n| !Node::is_phi(*n))
+                    .collect::<Vec<_>>();
+                log::debug!("DFS PRELOOP visit_nodes.len()={:?}", visit_nodes.len());
+                for operand in visit_nodes {
                     // cannot filter before the loop because recurse adds to visited
                     if visited.contains(&operand) {
                         continue;
@@ -173,7 +180,9 @@ pub trait NodeTrait {
                     visited.insert(operand);
                     recurse(visited, operand, block, callback);
                 }
+                log::debug!("DFS PRE callback for {:?}", cur_node);
                 callback(cur_node);
+                log::debug!("DFS POST callback for {:?}", cur_node);
             }
         }
 
