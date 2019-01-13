@@ -6,8 +6,8 @@ mod inlining;
 use self::inlining::Inlining;
 mod constant_folding;
 use self::constant_folding::ConstantFolding;
-mod jump_threading;
-use self::jump_threading::JumpThreading;
+mod control_flow;
+use self::control_flow::ControlFlow;
 
 /// An optimization that optimizes the whole program by examining all function
 /// graphs at once.
@@ -49,7 +49,7 @@ where
 pub enum Kind {
     ConstantFolding,
     Inline,
-    JumpThreading,
+    ControlFlow,
 }
 
 impl Kind {
@@ -57,7 +57,7 @@ impl Kind {
         match self {
             Kind::ConstantFolding => ConstantFolding::optimize(program),
             Kind::Inline => Inlining::optimize(program),
-            Kind::JumpThreading => JumpThreading::optimize(program),
+            Kind::ControlFlow => ControlFlow::optimize(program),
         }
     }
 }
@@ -88,7 +88,10 @@ impl Level {
     fn sequence(&self) -> Vec<Optimization> {
         match self {
             Level::None => vec![],
-            Level::Moderate | Level::Aggressive => vec![Optimization::new(Kind::ConstantFolding)],
+            Level::Moderate | Level::Aggressive => vec![
+                Optimization::new(Kind::ConstantFolding),
+                Optimization::new(Kind::ControlFlow),
+            ],
             Level::Custom(list) => list.clone(),
         }
     }

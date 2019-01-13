@@ -1,49 +1,5 @@
-//! Replaces chains of blocks that only contain a jump with a single
-//! jump. That's more like a control flow optimization than jump threading.
-//!
-//! "Compilers have been implementing Jump Threading for a long time, and
-//! little scientific attention has been devoted to it because it is a
-//! seemingly basic optimization. However, what compiler authors mean by Jump
-//! Threading differs wildly between compilers."
-//!
-//! We implement two very basic substitutions here. Removal of unnecessary
-//! conditional jumps:
-//!
-//! ```
-//!       Block A
-//!         |
-//!        Cond                   Block A
-//!       /    \                     |
-//!    Proj   Proj      -->         Jmp
-//!    True   False                  |
-//!       \    /                  Block B
-//!       Block B
-//! ```
-//!
-//!
-//! Removal of unnecessary unconditional jumps:
-//!
-//! ```
-//!        Block A
-//!        |
-//!        Jmp                    Block A
-//!        |                         |
-//!        Block B      -->         Jmp
-//!        |                         |
-//!        Jmp                    Block C
-//!        |
-//!        Block C
-//! ```
-//!
-//! # References
-//!
-//! - Blog entry "Jump Threading" by Andreas Zwickau:
-//!
-//!   http://beza1e1.tuxen.de/articles/jump_threading.html
-//!
-//! - Master thesis "Generalized Jump Threading in LibFirm" by Joachim Priesner
-//!
-//!   https://pp.ipd.kit.edu/uploads/publikationen/priesner17masterarbeit.pdf
+//! Implements a control flow optimization that replaces some patterns of unnecessary conditional
+//! and unconditional jumps.
 use super::Outcome;
 use crate::{dot::*, optimization};
 use libfirm_rs::{
@@ -52,14 +8,7 @@ use libfirm_rs::{
 };
 use std::collections::{VecDeque, HashSet};
 
-//enum State {
-    //Unvisited,
-    //// currently processed
-    ////InFlight,
-    //Done
-//}
-
-pub struct JumpThreading {
+pub struct ControlFlow {
     graph: Graph,
     /// a list of blocks that should be processed next. An item on this list should not be part of
     /// `done` unless there is a loop in the graph!
@@ -70,13 +19,13 @@ pub struct JumpThreading {
     num_changed: u32
 }
 
-impl optimization::Local for JumpThreading {
+impl optimization::Local for ControlFlow {
     fn optimize_function(graph: Graph) -> Outcome {
-        JumpThreading::new(graph).run()
+        ControlFlow::new(graph).run()
     }
 }
 
-impl JumpThreading {
+impl ControlFlow {
     fn new(graph: Graph) -> Self {
         graph.assure_outs();
         Self { graph ,
@@ -393,7 +342,7 @@ impl JumpThreading {
 
     /// Try to merge the current block with a predecessor block.
     ///
-    /// We consider two cases in which we try to merge blocks:
+    /// We consider three cases in which we try to reduce the number of jumps:
     ///
     /// (1) A predecessor with a single input, (and a current node with one or more inputs)
     ///
@@ -410,7 +359,7 @@ impl JumpThreading {
     ///                      not exist
     ///     ```
     ///
-    ///     This case should be inlined with a heuristic since the backend will most likely
+    ///     This case should be inlined with a heuristic since the backend might
     ///     represent the Jmp using a fall through as shown below:
     ///
     ///     ```
@@ -457,7 +406,8 @@ impl JumpThreading {
     /// so a node with 2 Bad predecessors and a non Bad predecessor is not optimized even though it
     /// has only one real predecessor.
     fn visit_jmp(&mut self, current: nodes::Jmp) -> bool {
-        self.try_remove_unnecessary_predecessor_block(current)
+        self.try_remove_unnecessary_predecessor_block(current) ||
+        self.try_merge_unnecessary_current_into_predecessor(current)
     }
 
     /// detect an unnecessary predecessor that jumps into the current block and
@@ -466,8 +416,8 @@ impl JumpThreading {
     /// This is `case 2` in the description of [`visit_jmp`].
     ///
     /// ```
-    /// in[1]                                     in[2]    in[n]
-    ///    \                                       |        |
+    /// in[1]      in[2]                          in[2]    in[n]
+    ///    \        |                              |        |
     ///    Predecessor Block ----> Jmp --in[1]--> Current Block
     ///    /                                           |
     ///  No other nodes                               Other Nodes including Phis
@@ -534,7 +484,7 @@ impl JumpThreading {
     }
 
     /// detect an unnecessary current block that can be merged into the predecessor.
-    /// This is `case 2` in the description of [`visit_jmp`]:
+    /// This is `case 3` in the description of [`visit_jmp`]:
     ///
     /// ```
     /// in[1]      in[2]
@@ -544,10 +494,11 @@ impl JumpThreading {
     ///  Other Nodes including                    No or trivial Phis,
     ///  phis, mem edges allowed                  Nodes, including mem edges
     /// ```
+    ///
     /// [This is the case covered by line 522 calling `try_merge_blocks` in libfirm]
     ///
-    fn match_unnecessary_current_block(&mut self, jmp_inbetween: nodes::Jmp) -> Option<()> {
-        None
+    fn try_merge_unnecessary_current_into_predecessor(&mut self, jmp_inbetween: nodes::Jmp) -> bool {
+        false
     }
 
     // TODO: this can be moved to the libfirm-rs API
