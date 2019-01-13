@@ -157,7 +157,7 @@ impl Instr {
                 src: Operand::from(src, slot_reg_map),
                 dst: Reg::from(dst.into(), slot_reg_map),
             },
-            Movq { src, dst } => Instr::Movq {
+            Movq { src, dst } | Conv { src, dst } => Instr::Movq {
                 src: MoveOperand::Operand(Operand::from(src, slot_reg_map)),
                 dst: MoveOperand::Operand(Operand::from(dst, slot_reg_map)),
             },
@@ -235,6 +235,8 @@ pub enum BinopKind {
     And,
     #[display(fmt = "orq")]
     Or,
+    #[display(fmt = "xor")]
+    Xor,
 }
 
 impl From<lir::BinopKind> for BinopKind {
@@ -246,6 +248,7 @@ impl From<lir::BinopKind> for BinopKind {
             Mul => BinopKind::Mul,
             And => BinopKind::And,
             Or => BinopKind::Or,
+            Xor => BinopKind::Xor,
         }
     }
 }

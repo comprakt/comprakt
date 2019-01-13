@@ -294,7 +294,19 @@ impl GenInstrBlock {
             // The following group of nodes doesn't need code gen as
             // we know their result at compile time.
             // They are only used as operands and constructed in gen_operand_jit
-            Node::Const(_) | Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) | Node::Address(_) => (),
+            Node::Const(_)
+            | Node::Proj(_, ProjKind::Start_TArgs_Arg(..))
+            | Node::Address(_)
+            | Node::Member(_)
+            | Node::Sel(_) => (),
+
+            Node::Conv(conv) => {
+                let pred = conv.op();
+                let src = self.gen_operand_jit(pred);
+                let dst_slot = self.gen_dst_slot(block, node, alloc);
+                let dst = Operand::Slot(dst_slot);
+                self.code.body.push(Instruction::Conv { src, dst });
+            }
 
             Node::Add(add) => gen_binop!(Add, add, block, node),
             Node::Sub(sub) => gen_binop!(Sub, sub, block, node),

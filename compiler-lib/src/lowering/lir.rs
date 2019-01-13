@@ -201,6 +201,14 @@ pub enum Instruction {
         src: Operand,
         dst: Operand,
     },
+    /// Value conversion pseudo-instruction:
+    /// FIRM knows value conversions, but LIR doesn't.
+    /// Keeping this seperate from mov though, for easier recognition in
+    /// backend.
+    Conv {
+        src: Operand,
+        dst: Operand,
+    },
     /// If dst is None, result is in register r0, which cannot be accessed
     /// using molki register names.
     Call {
@@ -349,6 +357,7 @@ pub enum BinopKind {
     Mul,
     And,
     Or,
+    Xor,
 }
 
 #[derive(Debug, Display, Clone)]
