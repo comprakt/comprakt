@@ -128,6 +128,23 @@ impl Graph {
         }
     }
 
+    pub fn walk_blocks_postorder<F>(self, mut walker: F)
+    where
+        F: FnMut(&Block),
+    {
+        let mut fat_pointer: &mut dyn FnMut(&Block) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            bindings::irg_block_walk_graph(
+                self.irg,
+                None,
+                Some(closure_handler_walk_blocks),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
     pub fn nodes(self) -> Vec<Node> {
         let mut result = Vec::new();
         self.walk_topological(|n| {
@@ -249,4 +266,13 @@ unsafe extern "C" fn closure_handler(node: *mut bindings::ir_node, closure: *mut
     #[allow(clippy::transmute_ptr_to_ref)]
     let closure: &mut &mut FnMut(&Node) = mem::transmute(closure);
     closure(&NodeFactory::node(node))
+}
+
+unsafe extern "C" fn closure_handler_walk_blocks(
+    block: *mut bindings::ir_node,
+    closure: *mut c_void,
+) {
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(&Block) = mem::transmute(closure);
+    closure(&Block::new(block))
 }
