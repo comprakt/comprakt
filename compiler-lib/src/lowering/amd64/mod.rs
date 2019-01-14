@@ -46,19 +46,6 @@ pub enum CallingConv {
     Stack,
 }
 
-impl CallingConv {
-    /// This function gives the number of maximum available registers depending
-    /// on the calling convention. For `CallingConv::Stack` it is always 14
-    /// (since %rbp and %rsp are reserved). For `CallingConv::X86_64`
-    /// the number of reserved argument registers is subtracted.
-    pub fn max_regs_available(self, nargs: usize) -> usize {
-        match self {
-            CallingConv::Stack => 14, // We can't use %rbp and %rsp
-            CallingConv::X86_64 => 14 - usize::min(nargs, 6),
-        }
-    }
-}
-
 pub struct Program {
     functions: Vec<(Function, Ptr<lir::BlockGraph>)>,
 }

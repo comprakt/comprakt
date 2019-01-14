@@ -205,8 +205,8 @@ impl Function {
     /// it will push these registers on the stack, before the function code
     /// is executed and restores them, after the function finished.
     ///
-    /// Make sure to use the `Amd64Reg::reg(n, ..)` function in combination with
-    /// this function to always get the registers in the right order.
+    /// The `num_regs_required` is the amount of registers that are required by
+    /// this function, inclusive the reserved argument registers
     ///
     /// # Panics
     ///
@@ -215,24 +215,25 @@ impl Function {
     pub fn save_callee_save_regs(&mut self, num_regs_required: usize) {
         // There are 5 callee save registers: %rbx, %r12-r15
         // %rbp is also callee save, but we never allocate this register
-        let regs_to_save = num_regs_required - (self.cconv.max_regs_available(self.nargs) - 5);
-        match regs_to_save {
-            0 => (),
-            1 => save_regs!([Rbx], Instruction, self.save_regs, self.restore_regs),
-            2 => save_regs!([Rbx, R12], Instruction, self.save_regs, self.restore_regs),
-            3 => save_regs!(
+        // There are 10 caller save registers, but %rsp is reserved, so we need to save
+        // registers if more than 9 registers are required.
+        match num_regs_required {
+            x if x < 10 => (), // Enough caller save registers available
+            10 => save_regs!([Rbx], Instruction, self.save_regs, self.restore_regs),
+            11 => save_regs!([Rbx, R12], Instruction, self.save_regs, self.restore_regs),
+            12 => save_regs!(
                 [Rbx, R12, R13],
                 Instruction,
                 self.save_regs,
                 self.restore_regs
             ),
-            4 => save_regs!(
+            13 => save_regs!(
                 [Rbx, R12, R13, R14],
                 Instruction,
                 self.save_regs,
                 self.restore_regs
             ),
-            5 => save_regs!(
+            14 => save_regs!(
                 [Rbx, R12, R13, R14, R15],
                 Instruction,
                 self.save_regs,
@@ -246,19 +247,19 @@ impl Function {
         let mut lva = LiveVariableAnalysis::new(self.cconv, graph);
 
         lva.run(graph.end_block);
-        log::info!(
-            "Liveness: {:#?}",
-            lva.liveness
-                .iter()
-                .map(|(id, blocks)| (
-                    id,
-                    blocks
-                        .iter()
-                        .map(|block| format!("{}, {}", block.num, block._firm_num))
-                        .collect::<Vec<_>>()
-                ))
-                .collect::<Vec<_>>()
-        );
+        // log::debug!(
+        //     "Liveness: {:#?}",
+        //     lva.liveness
+        //         .iter()
+        //         .map(|(id, blocks)| (
+        //             id,
+        //             blocks
+        //                 .iter()
+        //                 .map(|block| format!("{}, {}", block.num, block._firm_num))
+        //                 .collect::<Vec<_>>()
+        //         ))
+        //         .collect::<Vec<_>>()
+        // );
     }
 }
 
