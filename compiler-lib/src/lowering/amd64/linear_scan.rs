@@ -15,10 +15,10 @@ use std::{
 
 /// `LiveRange` holds for every `VarId` the liveness interval. This implements
 /// Ord, so that `LiveRange`s are sorted by the lower bound of their interval.
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub(super) struct LiveRange {
-    var_id: VarId,
-    interval: Interval<usize>,
+    pub(super) var_id: VarId,
+    pub(super) interval: Interval<usize>,
 }
 
 impl Ord for LiveRange {
@@ -60,7 +60,7 @@ impl Deref for Active {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub(super) enum Location {
     Reg(Amd64Reg),
     /// This is for Vars that are stored on the stack. We can pre-allocate a

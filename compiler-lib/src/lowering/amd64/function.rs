@@ -1,9 +1,11 @@
 use super::{
-    live_variable_analysis::LiveVariableAnalysis, Amd64Reg, CallingConv, Instruction, MoveOperand,
-    Operand,
+    linear_scan, live_variable_analysis::LiveVariableAnalysis, register::RegisterAllocator, var_id,
+    Amd64Reg, CallingConv, Instruction, MoveOperand, Operand, VarId,
 };
 use crate::lowering::{lir, lir_allocator::Ptr};
+use interval::{ops::Range, Interval};
 use libfirm_rs::Tarval;
+use std::collections::{BTreeSet, HashMap};
 
 macro_rules! save_regs {
     ([$($reg:ident),*], $instr_kind:ident, $save_instrs:expr, $restore_instrs:expr) => {{
@@ -260,6 +262,67 @@ impl Function {
         //         ))
         //         .collect::<Vec<_>>()
         // );
+
+        let mut lsa = self.build_lsa(lva);
+
+        lsa.run();
+
+        log::debug!("{:?}", lsa.var_location)
+    }
+
+    fn build_lsa(&self, lva: LiveVariableAnalysis) -> linear_scan::LinearScanAllocator {
+        let mut instr_counter = 0;
+        let mut map: HashMap<VarId, Vec<(usize, usize)>> = HashMap::new();
+        let mut block_last_instr = vec![];
+        for block in lva.postorder_blocks {
+            for instr in block.instrs {
+                for op in instr.src_operands() {
+                    match op {
+                        lir::Operand::Imm(_) => (),
+                        _ => map
+                            .entry(var_id(op))
+                            .or_default()
+                            .push((block.num, instr_counter)),
+                    }
+                }
+                if let Some(dst) = instr.dst_operand() {
+                    match dst {
+                        lir::Operand::Imm(_) => unreachable!(),
+                        _ => map
+                            .entry(var_id(dst))
+                            .or_default()
+                            .push((block.num, instr_counter)),
+                    }
+                }
+                instr_counter += 1;
+            }
+            block_last_instr.push(instr_counter - 1);
+        }
+
+        let mut var_live = BTreeSet::new();
+        for (var_id, instrs) in map {
+            let last_instr = instrs.iter().last().unwrap();
+            let last_block_alive = lva.liveness.get(&var_id).map_or(last_instr.0, |blocks| {
+                blocks.iter().max_by(|a, b| a.num.cmp(&b.num)).unwrap().num
+            });
+            let interval = Interval::new(
+                instrs[0].1,
+                if last_block_alive == last_instr.0 {
+                    last_instr.1
+                } else {
+                    block_last_instr[last_block_alive]
+                },
+            );
+
+            var_live.insert(linear_scan::LiveRange { var_id, interval });
+        }
+
+        log::debug!("{:?}", var_live);
+
+        linear_scan::LinearScanAllocator::new(
+            RegisterAllocator::new(self.nargs, self.cconv),
+            var_live,
+        )
     }
 }
 

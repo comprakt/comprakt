@@ -11,7 +11,7 @@ use std::{
 };
 
 #[derive(Debug, Clone)]
-enum Instruction {
+pub(super) enum Instruction {
     Call(FunctionCall),
     Lir(lir::Instruction),
     Leave(lir::Leave),
@@ -25,7 +25,7 @@ pub(super) struct Block {
     pub(super) num: usize,
     /// Only or debugging purposes
     pub(super) _firm_num: i64,
-    instrs: Vec<Instruction>,
+    pub(super) instrs: Vec<Instruction>,
 }
 
 impl PartialEq for Block {
