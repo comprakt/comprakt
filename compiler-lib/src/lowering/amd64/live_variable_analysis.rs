@@ -1,7 +1,7 @@
 use super::{
     function::FunctionCall,
     lir::{self, BasicBlock},
-    CallingConv, Operand,
+    var_id, CallingConv, Operand, VarId,
 };
 use crate::lowering::lir_allocator::Ptr;
 use libfirm_rs::nodes::NodeTrait;
@@ -16,8 +16,6 @@ enum Instruction {
     Lir(lir::Instruction),
     Leave(lir::Leave),
 }
-
-pub(super) type VarId = (i64, usize);
 
 #[derive(Debug, Clone)]
 pub(super) struct Block {
@@ -41,15 +39,6 @@ impl Eq for Block {}
 impl Hash for Block {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.num.hash(state);
-    }
-}
-
-fn var_id(op: lir::Operand) -> VarId {
-    use super::lir::Operand::*;
-    match op {
-        Slot(slot) => (slot.allocated_in().num, slot.num()),
-        Param { idx } => (-1, idx as usize),
-        Imm(_) => unreachable!(),
     }
 }
 

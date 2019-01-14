@@ -20,6 +20,17 @@ pub(self) enum Instruction {
     Ret,
 }
 
+pub(super) type VarId = (i64, usize);
+
+fn var_id(op: lir::Operand) -> VarId {
+    use super::lir::Operand::*;
+    match op {
+        Slot(slot) => (slot.allocated_in().num, slot.num()),
+        Param { idx } => (-1, idx as usize),
+        Imm(_) => unreachable!(),
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub(self) enum Operand {
     LirOperand(lir::Operand),

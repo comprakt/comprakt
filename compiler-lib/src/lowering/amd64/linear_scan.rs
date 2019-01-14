@@ -1,8 +1,9 @@
 #![allow(unused)]
 
 use super::{
-    live_variable_analysis::{Block, VarId},
+    live_variable_analysis::Block,
     register::{Amd64Reg, RegisterAllocator},
+    VarId,
 };
 use gcollections::ops::bounded::Bounded;
 use interval::Interval;
