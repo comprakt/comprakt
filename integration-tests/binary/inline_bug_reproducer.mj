@@ -1,0 +1,12 @@
+class A {
+    public boolean s() {
+        return false;
+    }
+
+    public static void main(String[] args) {
+    	A a = new A();
+        if (false && a.s()) {      /* both a.s() evaluated  */
+        }
+
+    }
+}

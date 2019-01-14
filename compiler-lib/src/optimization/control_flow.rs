@@ -303,23 +303,25 @@ impl ControlFlow {
 
         self.graph.assure_outs();
 
-        let (self_proj, target_block) = if let Some(out) = cond.out_proj_target_block(arm) {
+        // _ should be index_self_proj
+        let (self_proj, target_block, _) = if let Some(out) = cond.out_proj_target_block(arm) {
             out
         } else {
             log::debug!("skipping {:?} with missing target for '{}' proj", cond, arm);
             return None;
         };
 
-        let (other_proj, other_target_block) = if let Some(out) = cond.out_proj_target_block(!arm) {
-            out
-        } else {
-            log::debug!(
-                "skipping {:?} with missing target for '{}' proj",
-                cond,
-                !arm
-            );
-            return None;
-        };
+        let (other_proj, other_target_block, _) =
+            if let Some(out) = cond.out_proj_target_block(!arm) {
+                out
+            } else {
+                log::debug!(
+                    "skipping {:?} with missing target for '{}' proj",
+                    cond,
+                    !arm
+                );
+                return None;
+            };
 
         if target_block != other_target_block {
             log::debug!(

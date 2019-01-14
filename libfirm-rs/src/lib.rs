@@ -20,9 +20,6 @@ pub use self::{
     tarval::{Tarval, TarvalKind},
 };
 
-// uncomment for racer support:
-// extern crate libfirm_rs_bindings;
-
 use std::sync::Once;
 
 static INIT: Once = Once::new();

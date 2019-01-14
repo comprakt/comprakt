@@ -5,12 +5,20 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-macro_rules! simple_node_iterator {
-    ($iter_name: ident, $len_fn: ident, $get_fn: ident, $id_type: ty) => {
+macro_rules! generate_iterator {
+    (
+        $iter_name: ident,
+        $len_fn: ident,
+        $node_name: ident,
+        $idx_name: ident,
+        $idx_type: ty,
+        $result_expr: expr,
+        $result_type: ty,
+    ) => {
         pub struct $iter_name {
             node: *mut bindings::ir_node,
-            cur: $id_type,
-            len: $id_type,
+            cur: $idx_type,
+            len: $idx_type,
         }
 
         impl $iter_name {
@@ -22,10 +30,10 @@ macro_rules! simple_node_iterator {
                 }
             }
 
-            pub fn idx(&self, index: $id_type) -> Option<Node> {
-                if (0..self.len).contains(&index) {
-                    let out = unsafe { bindings::$get_fn(self.node, index) };
-                    Some(NodeFactory::node(out))
+            pub fn idx(&self, $idx_name: $idx_type) -> Option<$result_type> {
+                if (0..self.len).contains(&$idx_name) {
+                    let $node_name = self.node;
+                    $result_expr
                 } else {
                     None
                 }
@@ -33,15 +41,16 @@ macro_rules! simple_node_iterator {
         }
 
         impl Iterator for $iter_name {
-            type Item = Node;
+            type Item = $result_type;
 
-            fn next(&mut self) -> Option<Node> {
+            fn next(&mut self) -> Option<$result_type> {
                 if self.cur == self.len {
                     None
                 } else {
-                    let out = unsafe { bindings::$get_fn(self.node, self.cur) };
+                    let $idx_name = self.cur;
                     self.cur += 1;
-                    Some(NodeFactory::node(out))
+                    let $node_name = self.node;
+                    $result_expr
                 }
             }
         }
@@ -93,10 +102,29 @@ macro_rules! linked_list_iterator {
     };
 }
 
+macro_rules! simple_node_iterator {
+    ($iter_name: ident, $len_fn: ident, $get_fn: ident, $idx_type: ty) => {
+        generate_iterator!(
+            $iter_name,
+            $len_fn,
+            node,
+            idx,
+            $idx_type,
+            {
+                let out = unsafe { bindings::$get_fn(node, idx) };
+                Some(NodeFactory::node(out))
+            },
+            Node,
+        );
+    };
+}
+
 /// A trait to abstract from Node enum and various *-Node structs.
+/// Inspired by https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java.
 pub trait NodeTrait {
     fn internal_ir_node(&self) -> *mut bindings::ir_node;
 
+    // TODO move to graph
     fn keep_alive(&self) {
         unsafe { bindings::keep_alive(self.internal_ir_node()) }
     }
@@ -116,6 +144,10 @@ pub trait NodeTrait {
 
     fn out_nodes(&self) -> OutNodeIterator {
         OutNodeIterator::new(self.internal_ir_node())
+    }
+
+    fn out_nodes_ex(&self) -> OutNodeExIterator {
+        OutNodeExIterator::new(self.internal_ir_node())
     }
 
     fn all_out_projs(&self) -> Vec<Proj> {
@@ -154,9 +186,6 @@ pub trait NodeTrait {
             irg: unsafe { bindings::get_irn_irg(self.internal_ir_node()) },
         }
     }
-
-    // TODO implement methods from
-    // https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java
 }
 
 simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
@@ -164,7 +193,20 @@ simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
 // TODO: should we use dynamic reverse edges instead of reverse
 simple_node_iterator!(OutNodeIterator, get_irn_n_outs, get_irn_out, u32);
 
-#[allow(clippy::derive_hash_xor_eq)]
+generate_iterator!(
+    OutNodeExIterator,
+    get_irn_n_outs,
+    node,
+    idx,
+    u32,
+    {
+        let mut in_pos: i32 = 0;
+        let out = unsafe { bindings::get_irn_out_ex(node, idx, &mut in_pos) };
+        Some((NodeFactory::node(out), in_pos))
+    },
+    (Node, i32),
+);
+
 impl Hash for Node {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // k1 == k2 => hash(k1) == hash(k2)
@@ -192,6 +234,19 @@ impl From<Node> for *mut bindings::ir_node {
 }
 
 // == Node extensions ==
+
+impl End {
+    pub fn keep_alives(self) -> EndKeepAliveIterator {
+        EndKeepAliveIterator::new(self.internal_ir_node())
+    }
+}
+
+simple_node_iterator!(
+    EndKeepAliveIterator,
+    get_End_n_keepalives,
+    get_End_keepalive,
+    i32
+);
 
 impl Return {
     pub fn return_res(self) -> ReturnResIterator {
@@ -227,6 +282,24 @@ impl Block {
             }
         }
         result
+    }
+
+    pub fn phi_or_node(self, nodes: &[Node]) -> Node {
+        assert!(!nodes.is_empty());
+        assert!(nodes.iter().all(|n| n.mode() == nodes[0].mode()));
+
+        if nodes.len() == 1 {
+            nodes[0]
+        } else {
+            let mode = nodes[0].mode();
+            self.new_phi(nodes, mode).into()
+        }
+    }
+
+    pub fn set_cfg_pred(self, idx: i32, pred: impl NodeTrait) {
+        unsafe {
+            bindings::set_Block_cfgpred(self.internal_ir_node(), idx, pred.internal_ir_node());
+        }
     }
 
     pub fn mature(self) {
@@ -291,6 +364,15 @@ impl Proj {
             bindings::new_r_Proj(self.internal_ir_node(), mode.libfirm_mode(), num)
         })
     }
+
+    pub fn pred_or_none(self) -> Option<Node> {
+        if self.in_nodes().len() == 0 {
+            None
+        } else {
+            let unwrapped = unsafe { bindings::get_Proj_pred(self.internal_ir_node()) };
+            Some(NodeFactory::node(unwrapped))
+        }
+    }
 }
 
 impl Jmp {
@@ -308,11 +390,11 @@ impl Cond {
         }
     }
 
-    pub fn out_proj_target_block(self, val: bool) -> Option<(Proj, Block)> {
+    pub fn out_proj_target_block(self, val: bool) -> Option<(Proj, Block, i32)> {
         self.out_proj_val(val).and_then(|proj| {
-            proj.out_nodes().next().map(|target_block| {
+            proj.out_nodes_ex().next().map(|(target_block, idx)| {
                 if let Node::Block(target_block) = target_block {
-                    (proj, target_block)
+                    (proj, target_block, idx)
                 } else {
                     unreachable!("Target of a Proj must be a Block")
                 }
@@ -394,6 +476,12 @@ impl<T: NodeDebug + Copy> fmt::Debug for NodeDebugFmt<T> {
 }
 
 // = Debug fmt impls =
+
+impl NodeDebug for Proj {
+    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
+        write!(f, "Proj {}: {:?}", self.node_id(), self.kind())
+    }
+}
 
 impl NodeDebug for Const {
     fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
