@@ -240,7 +240,7 @@ impl ControlFlow {
     ///
     /// This is a sketch of the structure we are trying to match:
     ///
-    /// ```
+    /// ```text
     ///     Predecessor Block
     ///      |           |
     ///     Cond       Other Nodes are
@@ -415,7 +415,7 @@ impl ControlFlow {
     /// A predecessor with a single input, (and a current node with one or more
     /// inputs)
     ///
-    /// ```
+    /// ```text
     /// in[1]                                     in[2]    in[n]
     ///    \                                       |        |
     ///    Predecessor Block ----> Jmp --in[1]--> Current Block
@@ -431,7 +431,7 @@ impl ControlFlow {
     /// This case should be inlined with a heuristic since the backend might
     /// represent the Jmp using a fall through as shown below:
     ///
-    /// ```
+    /// ```text
     /// Predecessor_Block_Label:
     ///     instructions of predecessor block
     ///     /* fall through */
@@ -464,7 +464,7 @@ impl ControlFlow {
     /// A predecessor with multiple inputs, and a current node with a single
     /// input.
     ///
-    /// ```
+    /// ```text
     /// in[1]      in[2]
     ///    \        |
     ///    Predecessor Block ----> Jmp --in[1]--> Current Block
@@ -491,7 +491,7 @@ impl ControlFlow {
     ///
     /// This is `case 2` in the description of [`visit_jmp`].
     ///
-    /// ```
+    /// ```text
     /// in[1]      in[2]                          in[2]    in[n]
     ///    \        |                              |        |
     ///    Predecessor Block ----> Jmp --in[1]--> Current Block
@@ -565,7 +565,7 @@ impl ControlFlow {
     /// detect an unnecessary current block that can be merged into the
     /// predecessor. This is `case 3` in the description of [`visit_jmp`]:
     ///
-    /// ```
+    /// ```text
     /// in[1]      in[2]
     ///    \        |
     ///    Predecessor Block ----> Jmp --in[1]--> Current Block
