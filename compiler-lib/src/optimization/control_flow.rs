@@ -303,15 +303,18 @@ impl ControlFlow {
 
         self.graph.assure_outs();
 
-        // _ should be index_self_proj
-        let (self_proj, target_block, _) = if let Some(out) = cond.out_proj_target_block(arm) {
-            out
-        } else {
-            log::debug!("skipping {:?} with missing target for '{}' proj", cond, arm);
-            return None;
-        };
+        let (self_proj, target_block, index_self_proj) =
+            if let Some(out) = cond.out_proj_target_block(arm) {
+                out
+            } else {
+                log::debug!("skipping {:?} with missing target for '{}' proj", cond, arm);
+                return None;
+            };
 
-        let (other_proj, other_target_block, _) =
+        // TODO: adapt api
+        let index_self_proj = index_self_proj as usize;
+
+        let (other_proj, other_target_block, index_other_proj) =
             if let Some(out) = cond.out_proj_target_block(!arm) {
                 out
             } else {
@@ -322,6 +325,9 @@ impl ControlFlow {
                 );
                 return None;
             };
+
+        // TODO: adapt api
+        let index_other_proj = index_other_proj as usize;
 
         if target_block != other_target_block {
             log::debug!(
@@ -335,18 +341,6 @@ impl ControlFlow {
             );
             return None;
         }
-
-        let index_self_proj = target_block
-            .in_nodes()
-            .position(|node| node == current)
-            .unwrap();
-        let index_other_proj = target_block
-            .in_nodes()
-            .position(|node| match node {
-                Node::Proj(proj_node, _) => proj_node == other_proj,
-                _ => false,
-            })
-            .unwrap();
 
         for phi in target_block.phis() {
             let phi_preds = phi.phi_preds().collect::<Vec<_>>();
@@ -475,6 +469,9 @@ impl ControlFlow {
     /// [This is the case covered by line 522 calling `try_merge_blocks` in
     /// libfirm]
     ///
+    /// Merging this has not necessarily benefits, as the backend can 'merge'
+    /// the blocks using a simple fall-through as shown in case 1.
+    ///
     /// ---
     ///
     /// This optimization assumes that bads were removed previously. There is no
@@ -574,12 +571,13 @@ impl ControlFlow {
     ///  phis, mem edges allowed                  Nodes, including mem edges
     /// ```
     ///
-    /// [This is the case covered by line 522 calling `try_merge_blocks` in
-    /// libfirm]
+    /// Merging this has not necessarily benefits, as the backend can 'merge'
+    /// the blocks using a simple fall-through.
     fn try_merge_unnecessary_current_into_predecessor(
         &mut self,
         _jmp_inbetween: nodes::Jmp,
     ) -> bool {
+        // TODO: implement, there is however no real benefit
         false
     }
 
