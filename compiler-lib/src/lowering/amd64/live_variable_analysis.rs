@@ -201,12 +201,119 @@ impl LiveVariableAnalysis {
     }
 }
 
-#[allow(clippy::cyclomatic_complexity)] // FIXME !!!!
+impl Instruction {
+    pub(super) fn src_operands(&self) -> Vec<lir::Operand> {
+        use super::{
+            function::FnInstruction,
+            lir::{Instruction::*, Leave::*},
+        };
+        match self {
+            Instruction::Lir(lir) => match lir {
+                Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
+                    vec![*src1, *src2]
+                }
+                Unop { src, .. } => vec![*src],
+                Movq { src, .. } => vec![*src],
+                Call { .. } => vec![], // already converted
+                StoreMem {
+                    src,
+                    dst: lir::AddressComputation { base, index, .. },
+                } => {
+                    let mut ops = vec![*src, *base];
+                    match index {
+                        lir::IndexComputation::Zero => (),
+                        lir::IndexComputation::Displacement(op, _) => ops.push(*op),
+                    }
+                    ops
+                }
+                LoadMem {
+                    src: lir::AddressComputation { base, index, .. },
+                    ..
+                } => {
+                    let mut ops = vec![*base];
+                    match index {
+                        lir::IndexComputation::Zero => (),
+                        lir::IndexComputation::Displacement(op, _) => ops.push(*op),
+                    }
+                    ops
+                }
+                Comment(_) => vec![],
+            },
+            Instruction::Call(call) => {
+                // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
+                let mut ops = vec![];
+
+                for instr in &call.setup {
+                    match instr {
+                        // dst in setup is always a Reg in a Movq instruction
+                        FnInstruction::Movq { src, .. } => match src {
+                            Operand::LirOperand(op) => ops.push(*op),
+                            Operand::Reg(_) => (),
+                        },
+                        FnInstruction::Pushq { src } => match src {
+                            Operand::LirOperand(op) => ops.push(*op),
+                            Operand::Reg(_) => (),
+                        },
+                        _ => unreachable!(), // Popq and Addq are not in setup
+                    }
+                }
+                // src of move_res is always %rax
+                // recover is just an Addq op with a constant and a register
+                ops
+            }
+            Instruction::Leave(leave) => match leave {
+                CondJmp { lhs, rhs, .. } => vec![*lhs, *rhs],
+                Return {
+                    value: Some(value), ..
+                } => vec![*value],
+                Jmp { .. } | Return { value: None, .. } => vec![],
+            },
+        }
+    }
+
+    pub(super) fn dst_operand(&self) -> Option<lir::Operand> {
+        use super::{function::FnInstruction, lir::Instruction::*};
+        match self {
+            Instruction::Lir(lir) => match lir {
+                Binop { dst, .. } | Div { dst, .. } | Mod { dst, .. } => {
+                    Some(lir::Operand::Slot(*dst))
+                }
+                Unop { dst, .. } => Some(lir::Operand::Slot(*dst)),
+                Movq { dst, .. } => Some(*dst),
+                Call { .. } => None,
+                StoreMem { .. } => None,
+                LoadMem { dst, .. } => Some(lir::Operand::Slot(*dst)),
+                Comment(_) => None,
+            },
+            Instruction::Call(call) => {
+                // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
+
+                // Setup just moves in registers or pushes on the stack
+
+                if let Some(res) = call.move_res {
+                    // src of move_res is always %rax
+                    if let FnInstruction::Movq { dst, .. } = res {
+                        match dst {
+                            Operand::LirOperand(op) => return Some(op),
+                            Operand::Reg(_) => unreachable!(),
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                }
+
+                // recover is just an Addq op with a constant and a register
+
+                None
+            }
+            // No dst for leave instructions
+            Instruction::Leave(_) => None,
+        }
+    }
+}
+
 fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
-    use super::{
-        function::FnInstruction,
-        lir::{Instruction::*, Leave::*, Operand::*},
-    };
+    use super::lir::Operand::*;
 
     let mut gen = vec![];
     let mut kill = vec![];
@@ -218,102 +325,22 @@ fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
                 Slot(slot) => {
                     debug_assert!(slot.firm().mode() != libfirm_rs::Mode::X());
                     if !slot.firm().mode().is_mem() {
-                        $vec.push(var_id(*$op))
+                        $vec.push(var_id($op))
                     }
                 }
-                Param { .. } => $vec.push(var_id(*$op)),
+                Param { .. } => $vec.push(var_id($op)),
             }
         };
     }
 
     for instr in code {
-        match instr {
-            Instruction::Lir(lir) => match lir {
-                Binop {
-                    src1, src2, dst, ..
-                }
-                | Div { src1, src2, dst }
-                | Mod { src1, src2, dst } => {
-                    push!(gen, src1);
-                    push!(gen, src2);
-                    push!(kill, &lir::Operand::Slot(*dst));
-                }
-                Unop { src, dst, .. } => {
-                    push!(gen, src);
-                    push!(kill, &lir::Operand::Slot(*dst));
-                }
-                Movq { src, dst } => {
-                    push!(gen, src);
-                    push!(kill, dst);
-                }
-                Call { .. } => (), // already converted
-                StoreMem {
-                    src,
-                    dst: lir::AddressComputation { base, index, .. },
-                } => {
-                    push!(gen, src);
-                    push!(gen, base);
-                    match index {
-                        lir::IndexComputation::Zero => (),
-                        lir::IndexComputation::Displacement(op, _) => push!(gen, op),
-                    }
-                }
-                LoadMem {
-                    src: lir::AddressComputation { base, index, .. },
-                    dst,
-                } => {
-                    push!(gen, base);
-                    match index {
-                        lir::IndexComputation::Zero => (),
-                        lir::IndexComputation::Displacement(op, _) => push!(gen, op),
-                    }
-                    push!(kill, &lir::Operand::Slot(*dst));
-                }
-                Comment(_) => (), // Ignore for LVA
-            },
-            Instruction::Call(call) => {
-                // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
-
-                for instr in &call.setup {
-                    match instr {
-                        // dst in setup is always a Reg in a Movq instruction
-                        FnInstruction::Movq { src, .. } => match src {
-                            Operand::LirOperand(op) => push!(gen, op),
-                            Operand::Reg(_) => (),
-                        },
-                        FnInstruction::Pushq { src } => match src {
-                            Operand::LirOperand(op) => push!(gen, op),
-                            Operand::Reg(_) => (),
-                        },
-                        _ => unreachable!(), // Popq and Addq are not in setup
-                    }
-                }
-
-                if let Some(res) = call.move_res {
-                    // src of move_res is always %rax
-                    if let FnInstruction::Movq { dst, .. } = res {
-                        match dst {
-                            Operand::LirOperand(op) => push!(kill, &op),
-                            Operand::Reg(_) => unreachable!(),
-                        }
-                    } else {
-                        unreachable!()
-                    }
-                }
-
-                // recover is just an Addq op with a constant and a register
-            }
-            Instruction::Leave(leave) => match leave {
-                CondJmp { lhs, rhs, .. } => {
-                    push!(gen, lhs);
-                    push!(gen, rhs);
-                }
-                Return {
-                    value: Some(value), ..
-                } => push!(gen, value),
-                Jmp { .. } | Return { value: None, .. } => (),
-            },
+        for op in instr.src_operands() {
+            push!(gen, op);
+        }
+        if let Some(op) = instr.dst_operand() {
+            push!(kill, op);
         }
     }
+
     (gen, kill)
 }
