@@ -159,7 +159,7 @@ impl ControlFlow {
 
         //
         if self.num_changed > 0 {
-            //self.graph.remove_unreachable_code();
+            self.graph.remove_unreachable_code();
             self.graph.remove_bads();
             Outcome::Changed
         } else {
