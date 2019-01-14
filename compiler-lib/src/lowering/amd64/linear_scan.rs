@@ -1,7 +1,4 @@
-#![allow(unused)]
-
 use super::{
-    live_variable_analysis::Block,
     register::{Amd64Reg, RegisterAllocator},
     VarId,
 };

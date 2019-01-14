@@ -149,7 +149,7 @@ impl Instr {
             Unop { kind, src, dst } => Instr::Unop {
                 kind: kind.into(),
                 src: Operand::from(src, slot_reg_map),
-                dst: Reg::from(dst.into(), slot_reg_map),
+                dst: Reg::from(dst, slot_reg_map),
             },
             Conv { src, dst } => Instr::Movq {
                 src: MoveOperand::Operand(Operand::from(src, slot_reg_map)),
@@ -589,18 +589,18 @@ mod tests {
         let expected = r"
 .function fib 1 1
 entry:
-  /* some comment */
-  cmpq $1, %@0
-  jle fib_basecase
-  subq [ $1 | %@0 ] -> %@1
-  subq [ $2 | %@0 ] -> %@2
-  call fib [ %@1 ] -> %@3
-  call fib [ %@2 ] -> %@4
-  addq [ %@3 | %@4 ] -> %@r0
-  jmp end
+	/* some comment */
+	cmpq $1, %@0
+	jle fib_basecase
+	subq [ $1 | %@0 ] -> %@1
+	subq [ $2 | %@0 ] -> %@2
+	call fib [ %@1 ] -> %@3
+	call fib [ %@2 ] -> %@4
+	addq [ %@3 | %@4 ] -> %@r0
+	jmp end
 fib_basecase:
-  movq %@0, %@r0
-  jmp end
+	movq %@0, %@r0
+	jmp end
 end:
 .endfunction
          "

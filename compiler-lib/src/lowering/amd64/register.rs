@@ -158,14 +158,11 @@ impl Amd64Reg {
     }
 }
 
-#[allow(unused)]
 pub(super) struct RegisterAllocator {
-    nargs: usize,
     cconv: CallingConv,
     free_list: BTreeMap<Amd64Reg, bool>,
 }
 
-#[allow(unused)]
 impl RegisterAllocator {
     pub(super) fn new(nargs: usize, cconv: CallingConv) -> Self {
         let mut free_list = BTreeMap::new();
@@ -174,11 +171,7 @@ impl RegisterAllocator {
             .for_each(|reg| {
                 free_list.insert(reg, true);
             });
-        Self {
-            nargs,
-            cconv,
-            free_list,
-        }
+        Self { cconv, free_list }
     }
 
     /// Returns a register from the `free_list`
@@ -219,6 +212,7 @@ impl RegisterAllocator {
     /// Depending on the calling convention some args are in registers. This
     /// function returns the Movq instruction from either a register or an
     /// address into the dst.
+    #[allow(unused)]
     pub(super) fn arg(&self, idx: usize, dst: &lir::Operand) -> amd64::Instruction {
         self.arg_from_reg(idx, dst)
             .unwrap_or_else(|| self.arg_from_stack(idx, dst))

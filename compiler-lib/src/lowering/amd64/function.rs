@@ -214,7 +214,8 @@ impl Function {
     ///
     /// This function panics, if the number of required registers is higher,
     /// than the total available registers.
-    pub fn save_callee_save_regs(&mut self, num_regs_required: usize) {
+    #[allow(unused)]
+    pub(super) fn save_callee_save_regs(&mut self, num_regs_required: usize) {
         // There are 5 callee save registers: %rbx, %r12-r15
         // %rbp is also callee save, but we never allocate this register
         // There are 10 caller save registers, but %rsp is reserved, so we need to save
