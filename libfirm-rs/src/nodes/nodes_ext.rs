@@ -169,6 +169,12 @@ pub trait NodeTrait {
         InNodeIterator::new(self.internal_ir_node())
     }
 
+    fn set_input_at(&self, idx: i32, pred: Node) {
+        unsafe {
+            bindings::set_irn_n(self.internal_ir_node(), idx, pred.internal_ir_node());
+        }
+    }
+
     fn set_in_nodes(&self, nodes: &[Node]) {
         let nodes: Vec<*mut bindings::ir_node> =
             nodes.iter().map(|v| v.internal_ir_node()).collect();
