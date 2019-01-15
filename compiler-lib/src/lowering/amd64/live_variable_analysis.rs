@@ -14,6 +14,10 @@ use std::{
 pub(super) enum Instruction {
     Call(FunctionCall),
     Lir(lir::Instruction),
+    Mov {
+        src: lir::Operand,
+        dst: lir::Operand,
+    },
     Leave(lir::Leave),
 }
 
@@ -143,10 +147,10 @@ impl LiveVariableAnalysis {
         let mut instrs = vec![];
 
         for lir::CopyPropagation { src, dst } in &code.copy_in {
-            instrs.push(Instruction::Lir(lir::Instruction::Movq {
+            instrs.push(Instruction::Mov {
                 src: lir::Operand::Slot(*src),
                 dst: lir::Operand::Slot(dst.multislot()),
-            }));
+            });
         }
         for instr in &code.body {
             match instr {
@@ -155,10 +159,10 @@ impl LiveVariableAnalysis {
             }
         }
         for lir::CopyPropagation { src, dst } in &code.copy_out {
-            instrs.push(Instruction::Lir(lir::Instruction::Movq {
+            instrs.push(Instruction::Mov {
                 src: lir::Operand::Slot(*src),
                 dst: lir::Operand::Slot(dst.multislot()),
-            }));
+            });
         }
         if let Some(leave) = code.leave.get(0) {
             instrs.push(Instruction::Leave(leave.clone()));
@@ -201,7 +205,7 @@ impl Instruction {
                 Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
                     vec![*src1, *src2]
                 }
-                Unop { src, .. } | Movq { src, .. } | Conv { src, .. } => vec![*src],
+                Unop { src, .. } | Conv { src, .. } => vec![*src],
                 Call { .. } => vec![], // already converted
                 StoreMem {
                     src,
@@ -227,6 +231,7 @@ impl Instruction {
                 }
                 Comment(_) => vec![],
             },
+            Instruction::Mov { src, .. } => vec![*src],
             Instruction::Call(call) => {
                 // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
                 let mut ops = vec![];
@@ -267,12 +272,13 @@ impl Instruction {
                     Some(lir::Operand::Slot(*dst))
                 }
                 Unop { dst, .. } => Some(lir::Operand::Slot(*dst)),
-                Movq { dst, .. } | Conv { dst, .. } => Some(*dst),
+                Conv { dst, .. } => Some(*dst),
                 Call { .. } => None,
                 StoreMem { .. } => None,
                 LoadMem { dst, .. } => Some(lir::Operand::Slot(*dst)),
                 Comment(_) => None,
             },
+            Instruction::Mov { dst, .. } => Some(*dst),
             Instruction::Call(call) => {
                 // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
 
