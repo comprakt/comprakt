@@ -323,6 +323,21 @@ pub enum JmpKind {
     Conditional(CondOp),
 }
 
+impl std::fmt::Display for JmpKind {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use self::{CondOp::*, JmpKind::*};
+        match self {
+            Unconditional => write!(fmt, "jmp"),
+            Conditional(Equals) => write!(fmt, "je"),
+            Conditional(NotEquals) => write!(fmt, "jne"),
+            Conditional(LessThan) => write!(fmt, "jl"),
+            Conditional(LessEquals) => write!(fmt, "jle"),
+            Conditional(GreaterThan) => write!(fmt, "jg"),
+            Conditional(GreaterEquals) => write!(fmt, "jge"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum CondOp {
     Equals,

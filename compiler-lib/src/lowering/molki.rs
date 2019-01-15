@@ -315,19 +315,7 @@ impl Instr {
                 }
                 Ok(())
             }
-            Jmp { target, kind } => {
-                use self::lir::{CondOp::*, JmpKind::*};
-                let instr = match kind {
-                    Unconditional => "jmp",
-                    Conditional(Equals) => "je",
-                    Conditional(NotEquals) => "jne",
-                    Conditional(LessThan) => "jl",
-                    Conditional(LessEquals) => "jle",
-                    Conditional(GreaterThan) => "jg",
-                    Conditional(GreaterEquals) => "jge",
-                };
-                write!(out, "{} {}", instr, target)
-            }
+            Jmp { target, kind } => write!(out, "{} {}", kind, target),
             Comment(c) => {
                 assert!(!c.contains("/*"));
                 assert!(!c.contains("*/"));
