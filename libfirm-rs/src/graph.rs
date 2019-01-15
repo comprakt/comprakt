@@ -168,6 +168,23 @@ impl Graph {
         }
     }
 
+    pub fn walk_dom_tree_postorder<F>(self, mut walker: F)
+    where
+        F: FnMut(&Block),
+    {
+        let mut fat_pointer: &mut dyn FnMut(&Block) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            bindings::dom_tree_walk_irg(
+                self.irg,
+                None,
+                Some(closure_handler_walk_blocks),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
     pub fn nodes(self) -> Vec<Node> {
         let mut result = Vec::new();
         self.walk(|n| {
