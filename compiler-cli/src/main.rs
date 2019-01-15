@@ -147,7 +147,7 @@ pub struct AsmLoweringOptions {
     pub output: Option<PathBuf>,
 
     /// Optimization level that should be applied
-    #[structopt(long = "--optimization", short = "-O", default_value = "Moderate")]
+    #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
     pub optimizations: optimization_arg::Arg,
 
     /// A MiniJava input file
@@ -195,7 +195,7 @@ pub struct BinaryLoweringOptions {
     pub output: Option<PathBuf>,
 
     /// Optimization level that should be applied
-    #[structopt(long = "--optimization", short = "-O", default_value = "Moderate")]
+    #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
     pub optimizations: optimization_arg::Arg,
 
     /// A MiniJava input file

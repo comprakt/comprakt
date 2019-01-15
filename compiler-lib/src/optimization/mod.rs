@@ -84,7 +84,11 @@ impl Level {
     fn sequence(&self) -> Vec<Optimization> {
         match self {
             Level::None => vec![],
-            Level::Moderate | Level::Aggressive => vec![Optimization::new(Kind::ConstantFolding)],
+            Level::Moderate => vec![Optimization::new(Kind::ConstantFolding)],
+            Level::Aggressive => vec![
+                Optimization::new(Kind::Inline),
+                Optimization::new(Kind::ConstantFolding),
+            ],
             Level::Custom(list) => list.clone(),
         }
     }

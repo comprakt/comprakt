@@ -369,7 +369,7 @@ impl GenInstrBlock {
                 let rhs = self.gen_operand_jit(cmp.right());
                 macro_rules! cond_target {
                     ($branch:expr) => {{
-                        let (_, block) = cond.out_proj_target_block($branch).unwrap();
+                        let (_, block, _) = cond.out_proj_target_block($branch).unwrap();
                         graph.get_block(block)
                     }};
                 }

@@ -70,7 +70,6 @@ impl Entity {
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Entity {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.ir_entity().hash(state);
