@@ -4,7 +4,7 @@ use super::{
     Runtime,
 };
 use crate::{
-    asciifile::Spanned,
+    asciifile::{Span, Spanned},
     ast::{self, BinaryOp},
     strtab::{StringTable, Symbol},
     type_checking::{
@@ -15,7 +15,12 @@ use crate::{
         },
     },
 };
-use libfirm_rs::{bindings, nodes::*, types::*, Entity, Graph, Mode, Tarval};
+use libfirm_rs::{
+    bindings,
+    nodes::{NodeTrait, *},
+    types::*,
+    Entity, Graph, Mode, Tarval,
+};
 use std::{collections::HashMap, rc::Rc};
 use strum_macros::EnumDiscriminants;
 
@@ -29,6 +34,7 @@ pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     type_system: &'ir TypeSystem<'src, 'ast>,
     type_analysis: &'ir TypeAnalysis<'src, 'ast>,
     strtab: &'ir StringTable<'src>,
+    pub spans: HashMap<Node, Span<'src>>,
 }
 
 enum ActiveBlock {
@@ -56,7 +62,22 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             type_analysis,
             type_system,
             strtab,
+            spans: HashMap::new(),
         }
+    }
+
+    fn with_spanned<T: NodeTrait + Into<Node> + Copy, TAst>(
+        &mut self,
+        ast_node: &'ast Spanned<'src, TAst>,
+        node: T,
+    ) -> T {
+        self.spans.insert(node.into(), ast_node.span);
+        node
+    }
+
+    fn with_span<T: NodeTrait + Into<Node> + Copy>(&mut self, span: Span<'src>, node: T) -> T {
+        self.spans.insert(node.into(), span);
+        node
     }
 
     pub fn get_const_bool(&mut self, val: bool) {
@@ -64,7 +85,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             .new_const(Tarval::mj_int(if val { 1 } else { 0 }));
     }
 
-    pub fn gen_method(&mut self, body: &'ast ast::Block<'src>) {
+    pub fn gen_method(&mut self, body: &'ast Spanned<'src, ast::Block<'src>>) {
         let act_block = self.graph.start_block();
         self.set_graph_arg_vals(act_block);
 
@@ -101,24 +122,36 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         }
     }
 
-    fn gen_block(&mut self, act_block: Block, block: &'ast ast::Block<'src>) -> ActiveBlock {
-        block.statements.iter().fold(
-            ActiveBlock::Some(act_block),
-            |act_block, stmt| match act_block {
-                ActiveBlock::Some(act_block) => self.gen_stmt(act_block, &stmt),
-                ActiveBlock::None => ActiveBlock::None,
-            },
-        )
+    fn gen_block(
+        &mut self,
+        act_block: Block,
+        block: &'ast Spanned<'src, ast::Block<'src>>,
+    ) -> ActiveBlock {
+        block
+            .data
+            .statements
+            .iter()
+            .fold(
+                ActiveBlock::Some(act_block),
+                |act_block, stmt| match act_block {
+                    ActiveBlock::Some(act_block) => self.gen_stmt(act_block, &stmt),
+                    ActiveBlock::None => ActiveBlock::None,
+                },
+            )
     }
 
-    fn gen_stmt(&mut self, act_block: Block, stmt: &'ast ast::Stmt<'src>) -> ActiveBlock {
+    fn gen_stmt(
+        &mut self,
+        act_block: Block,
+        stmt: &'ast Spanned<'src, ast::Stmt<'src>>,
+    ) -> ActiveBlock {
         use self::ast::Stmt::*;
-        match &stmt {
+        match &stmt.data {
             Block(block) => self.gen_block(act_block, block),
             Expression(expr) => self.gen_expr(act_block, expr).active_block(),
             If(cond, then_arm, else_arm) => self.gen_if(act_block, cond, then_arm, else_arm),
             While(cond, body) => self.gen_while(act_block, cond, body),
-            Return(res_expr) => self.gen_return(act_block, res_expr),
+            Return(res_expr) => self.gen_return(act_block, stmt.span, res_expr),
             LocalVariableDeclaration(_ty, _name, init_expr) => {
                 self.gen_var_decl(act_block, stmt, init_expr)
             }
@@ -129,7 +162,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     fn gen_var_decl(
         &mut self,
         act_block: Block,
-        stmt: &'ast ast::Stmt<'src>,
+        stmt: &'ast Spanned<'src, ast::Stmt<'src>>,
         init_expr: &'ast Option<Box<Spanned<'src, ast::Expr<'src>>>>,
     ) -> ActiveBlock {
         let local_var_def = self
@@ -142,8 +175,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let var_slot = self.new_local_var(local_var_def.name, mode);
 
         let (act_block, initial_val) = if let Some(init_expr) = init_expr {
-            self.gen_expr(act_block, init_expr)
-                .enforce_value(self.graph)
+            self.gen_value(act_block, init_expr)
         } else {
             (act_block, self.graph.new_const(Tarval::zero(mode)).into())
         };
@@ -156,12 +188,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     fn gen_while(
         &mut self,
         act_block: Block,
-        cond: &'ast ast::Expr<'src>,
-        body: &'ast ast::Stmt<'src>,
+        cond: &'ast Spanned<'src, ast::Expr<'src>>,
+        body: &'ast Spanned<'src, ast::Stmt<'src>>,
     ) -> ActiveBlock {
         // We evaluate the condition
         let header_block = self.graph.new_imm_block(&[act_block.new_jmp().into()]);
-        let CondProjection { tr, fls } = self.gen_expr(header_block, cond).enforce_cond(self.graph);
+        let CondProjection { tr, fls } = self
+            .gen_expr(header_block, cond)
+            .enforce_cond(self, self.graph);
 
         // Run body if cond is true
         let body_block = self.graph.new_block(&[tr]);
@@ -181,12 +215,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     fn gen_if(
         &mut self,
         act_block: Block,
-        cond: &'ast ast::Expr<'src>,
-        then_arm: &'ast ast::Stmt<'src>,
+        cond: &'ast Spanned<'src, ast::Expr<'src>>,
+        then_arm: &'ast Spanned<'src, ast::Stmt<'src>>,
         else_arm: &'ast Option<Box<Spanned<'src, ast::Stmt<'src>>>>,
     ) -> ActiveBlock {
         // We evaluate the condition
-        let CondProjection { tr, fls } = self.gen_expr(act_block, cond).enforce_cond(self.graph);
+        let CondProjection { tr, fls } = self
+            .gen_expr(act_block, cond)
+            .enforce_cond(self, self.graph);
 
         // If its true, we take the then_arm
         let then_block = self.gen_stmt(self.graph.new_block(&[tr]), &*then_arm);
@@ -216,20 +252,19 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     fn gen_return(
         &mut self,
         act_block: Block,
+        span: Span<'src>,
         res_expr: &'ast Option<Box<Spanned<'src, ast::Expr<'src>>>>,
     ) -> ActiveBlock {
         let mut res = vec![];
         let act_block = if let Some(res_expr) = res_expr {
-            let (act_block, val) = self
-                .gen_expr(act_block, &*res_expr)
-                .enforce_value(self.graph);
+            let (act_block, val) = self.gen_value(act_block, &*res_expr);
             res.push(val);
             act_block
         } else {
             act_block
         };
 
-        let ret = act_block.new_return(act_block.cur_store(), &res);
+        let ret = self.with_span(span, act_block.new_return(act_block.cur_store(), &res));
         self.graph.end_block().imm_add_pred(ret);
 
         ActiveBlock::None
@@ -238,16 +273,19 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     fn gen_static_fn_call(
         &mut self,
         act_block: Block,
+        span: Span<'src>,
         func: Entity,
         return_type: Option<Mode>,
         args: &[Node],
-    ) -> ExprResult {
+    ) -> ExprResult<'src> {
         let call = act_block.new_call(
             act_block.cur_store(),
             self.graph.new_address(func),
             &args,
             func.ty(),
         );
+
+        let call = self.with_span(span, call);
 
         act_block.set_store(call.new_proj_m());
 
@@ -260,38 +298,48 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_expr_list<I>(&mut self, act_block: Block, exprs: I) -> (Block, Vec<Node>)
     where
-        I: Iterator<Item = &'ast ast::Expr<'src>>,
+        I: Iterator<Item = &'ast Spanned<'src, ast::Expr<'src>>>,
     {
         let mut result = vec![];
         let act_block = exprs.fold(act_block, |act_block, arg| {
-            let (act_block, arg) = self.gen_expr(act_block, arg).enforce_value(self.graph);
+            let (act_block, arg) = self.gen_value(act_block, arg);
             result.push(arg);
             act_block
         });
         (act_block, result)
     }
 
-    fn gen_expr(&mut self, act_block: Block, expr: &'ast ast::Expr<'src>) -> ExprResult {
+    fn gen_expr(
+        &mut self,
+        act_block: Block,
+        expr: &'ast Spanned<'src, ast::Expr<'src>>,
+    ) -> ExprResult<'src> {
         use self::{ast::Expr::*, ExprResult::*};
-        match &expr {
+        match &expr.data {
             Int(literal) => {
                 let val = literal.parse().expect("Integer literal has to be valid");
-                Value(act_block, self.graph.new_const(Tarval::mj_int(val)).into())
+                let tarval = Tarval::mj_int(val);
+                Value(
+                    act_block,
+                    self.with_spanned(expr, self.graph.new_const(tarval).into()),
+                )
             }
             NegInt(literal) => {
                 let val = literal
                     .parse::<i32>()
                     .map_or_else(|_| -2_147_483_648, |v| -v);
+                let tarval = Tarval::mj_int(i64::from(val));
                 Value(
                     act_block,
-                    self.graph.new_const(Tarval::mj_int(i64::from(val))).into(),
+                    self.with_spanned(expr, self.graph.new_const(tarval)).into(),
                 )
             }
             Boolean(value) => Value(act_block, gen_const_bool(*value, self.graph)),
             This => Value(act_block, self.this(act_block)),
             Null => Value(
                 act_block,
-                self.graph.new_const(Tarval::zero(Mode::P())).into(),
+                self.with_spanned(expr, self.graph.new_const(Tarval::zero(Mode::P())))
+                    .into(),
             ),
             Var(name) => {
                 use self::RefInfo::*;
@@ -308,6 +356,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                         Assignable(
                             act_block,
                             LValue::Var {
+                                span: expr.span,
                                 slot_idx: slot,
                                 mode,
                             },
@@ -317,7 +366,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                         log::debug!("gen assignable for field {}", **name);
                         Assignable(
                             act_block,
-                            self.gen_field(self.this(act_block), Rc::clone(field_def)),
+                            self.gen_field(expr.span, self.this(act_block), Rc::clone(field_def)),
                         )
                     }
                     GlobalVar(..) | This(..) | ArrayAccess | Method(..) => {
@@ -330,37 +379,33 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     Some(RefInfo::Field(field_def)) => Rc::clone(field_def),
                     other => unreachable!("Got unexpected: {:?}", other),
                 };
-                let (act_block, object_ptr) =
-                    self.gen_expr(act_block, object).enforce_value(self.graph);
-                Assignable(act_block, self.gen_field(object_ptr, field_def))
+                let (act_block, object_ptr) = self.gen_value(act_block, object);
+                Assignable(act_block, self.gen_field(expr.span, object_ptr, field_def))
             }
-            Binary(op, lhs, rhs) => self.gen_binary_expr(act_block, *op, lhs, rhs),
+            Binary(op, lhs, rhs) => self.gen_binary_expr(act_block, expr.span, *op, lhs, rhs),
             Unary(ast::UnaryOp::Neg, expr) => {
-                let (act_block, expr) = self.gen_expr(act_block, expr).enforce_value(self.graph);
+                let (act_block, expr) = self.gen_value(act_block, expr);
                 Value(act_block, act_block.new_minus(expr).into())
             }
             Unary(ast::UnaryOp::Not, expr) => {
                 let expr = self.gen_expr(act_block, expr);
                 use self::ExprResult::*;
-
-                let gen_val = |(act_block, val): (Block, Node)| {
+                let graph = self.graph;
+                let inverse_val = |(act_block, val): (Block, Node)| {
                     // booleans are mode::Bu, hence XOR does the job.
                     // could also use mode::Bi and -1 for true:
                     // => could use Neg / Not, but would rely on 2's complement
                     assert_eq!(val.mode(), Mode::Bu());
-
                     Value(
                         act_block,
-                        act_block
-                            .new_eor(val, gen_const_bool(true, self.graph))
-                            .into(),
+                        act_block.new_eor(val, gen_const_bool(true, graph)).into(),
                     )
                 };
 
                 match expr {
                     Void(_) => panic!("type system should not allow !void"),
-                    Assignable(act_block, lvalue) => gen_val(lvalue.gen_eval(act_block)),
-                    Value(act_block, val) => gen_val((act_block, val)),
+                    Assignable(act_block, lvalue) => inverse_val(lvalue.gen_eval(self, act_block)),
+                    Value(act_block, val) => inverse_val((act_block, val)),
                     Cond(proj) => Cond(proj.flip()),
                 }
             }
@@ -371,30 +416,33 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 };
 
                 if let ClassMethodBody::Builtin(builtin) = &class_method_def.body {
-                    let (act_block, args) =
-                        self.gen_expr_list(act_block, arguments.data.iter().map(|a| &a.data));
+                    let (act_block, args) = self.gen_expr_list(act_block, arguments.data.iter());
                     // ENHANCEMENT: @hediet: dedup builtin type definitions
                     return match builtin {
                         BuiltinMethodBody::SystemOutPrintln => self.gen_static_fn_call(
                             act_block,
+                            expr.span,
                             self.runtime.system_out_println,
                             None,
                             &args,
                         ),
                         BuiltinMethodBody::SystemOutWrite => self.gen_static_fn_call(
                             act_block,
+                            expr.span,
                             self.runtime.system_out_write,
                             None,
                             &args,
                         ),
                         BuiltinMethodBody::SystemOutFlush => self.gen_static_fn_call(
                             act_block,
+                            expr.span,
                             self.runtime.system_out_flush,
                             None,
                             &args,
                         ),
                         BuiltinMethodBody::SystemInRead => self.gen_static_fn_call(
                             act_block,
+                            expr.span,
                             self.runtime.system_in_read,
                             get_firm_mode(&CheckedType::Int),
                             &args,
@@ -403,22 +451,20 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 } else {
                     let method = self.program.method(class_method_def).unwrap();
 
-                    let (act_block, target_obj) = match expr {
-                        MethodInvocation(target_obj, ..) => self
-                            .gen_expr(act_block, target_obj)
-                            .enforce_value(self.graph),
+                    let (act_block, target_obj) = match &expr.data {
+                        MethodInvocation(target_obj, ..) => self.gen_value(act_block, target_obj),
                         ThisMethodInvocation(..) => (act_block, self.this(act_block)),
                         _ => unreachable!(),
                     };
                     let (act_block, mut args) =
-                        self.gen_expr_list(act_block, arguments.data.iter().map(|a| &a.data));
+                        self.gen_expr_list(act_block, arguments.data.iter());
                     args.insert(0, target_obj);
                     // IMPROVEMENT: get rid of insert
 
                     let return_type = get_firm_mode(&method.borrow().def.return_ty);
 
                     let entity = method.borrow().entity;
-                    self.gen_static_fn_call(act_block, entity, return_type, &args)
+                    self.gen_static_fn_call(act_block, expr.span, entity, return_type, &args)
                 }
             }
             ArrayAccess(target_expr, idx_expr) => {
@@ -432,15 +478,13 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 .expect("must be pointer type")
                 .points_to();
 
-                let (act_block, target_expr) = self
-                    .gen_expr(act_block, target_expr)
-                    .enforce_value(self.graph);
-                let (act_block, idx_expr) =
-                    self.gen_expr(act_block, idx_expr).enforce_value(self.graph);
+                let (act_block, target_expr) = self.gen_value(act_block, target_expr);
+                let (act_block, idx_expr) = self.gen_value(act_block, idx_expr);
 
                 Assignable(
                     act_block,
                     LValue::Array {
+                        span: expr.span,
                         sel: act_block.new_sel(target_expr, idx_expr, firm_array_type),
                         elt_type,
                     },
@@ -465,6 +509,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     &[self.graph.new_const(Tarval::mj_int(size)).into()],
                     self.runtime.new.ty(),
                 );
+                let call = self.with_spanned(expr, call);
 
                 act_block.set_store(call.new_proj_m());
 
@@ -481,8 +526,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .inner_type()
                     .expect("type of array must have inner type");
 
-                let (act_block, num_elts) =
-                    self.gen_expr(act_block, num_expr).enforce_value(self.graph);
+                let (act_block, num_elts) = self.gen_value(act_block, num_expr);
 
                 let elt_size = self.graph.new_const(Tarval::mj_int(
                     size_of(new_array_type)
@@ -498,6 +542,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     &[alloc_size.into()],
                     self.runtime.new.ty(),
                 );
+                let call = self.with_spanned(expr, call);
+
                 act_block.set_store(call.new_proj_m());
 
                 Value(
@@ -508,12 +554,18 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         }
     }
 
-    fn gen_field(&mut self, ptr: Node, field_def: Rc<ClassFieldDef<'src>>) -> LValue {
+    fn gen_field(
+        &mut self,
+        span: Span<'src>,
+        ptr: Node,
+        field_def: Rc<ClassFieldDef<'src>>,
+    ) -> LValue<'src> {
         let field = self.program.field(Rc::clone(&field_def)).unwrap();
         let field_mode =
             get_firm_mode(&field_def.ty).expect("Type `void` is not a valid field type");
         let field_entity = field.borrow().entity;
         LValue::Field {
+            span,
             object: ptr,
             field_entity,
             field_mode,
@@ -532,37 +584,47 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         }
     }
 
+    fn gen_value(
+        &mut self,
+        act_block: Block,
+        expr: &'ast Spanned<'src, ast::Expr<'src>>,
+    ) -> (Block, Node) {
+        self.gen_expr(act_block, expr)
+            .enforce_value(self, self.graph)
+    }
+
     fn gen_binary_expr(
         &mut self,
         act_block: Block,
+        span: Span<'src>,
         op: BinaryOp,
-        lhs: &'ast ast::Expr<'src>,
-        rhs: &'ast ast::Expr<'src>,
-    ) -> ExprResult {
+        lhs: &'ast Spanned<'src, ast::Expr<'src>>,
+        rhs: &'ast Spanned<'src, ast::Expr<'src>>,
+    ) -> ExprResult<'src> {
         use self::ExprResult::*;
         let pinned = bindings::op_pin_state::Pinned as i32;
         match op {
             op if Self::relation(op).is_some() => {
                 let relation = Self::relation(op).unwrap();
-                let (act_block, lhs) = self.gen_expr(act_block, lhs).enforce_value(self.graph);
-                let (act_block, rhs) = self.gen_expr(act_block, rhs).enforce_value(self.graph);
+                let (act_block, lhs) = self.gen_value(act_block, lhs);
+                let (act_block, rhs) = self.gen_value(act_block, rhs);
                 let cond = act_block.new_cond(act_block.new_cmp(lhs, rhs, relation));
                 Cond(CondProjection::new(cond))
             }
             BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul => {
-                let (act_block, lhs) = self.gen_expr(act_block, lhs).enforce_value(self.graph);
-                let (act_block, rhs) = self.gen_expr(act_block, rhs).enforce_value(self.graph);
+                let (act_block, lhs) = self.gen_value(act_block, lhs);
+                let (act_block, rhs) = self.gen_value(act_block, rhs);
                 let node: Node = match op {
                     BinaryOp::Add => act_block.new_add(lhs, rhs).into(),
                     BinaryOp::Sub => act_block.new_sub(lhs, rhs).into(),
                     BinaryOp::Mul => act_block.new_mul(lhs, rhs).into(),
                     _ => unreachable!(),
                 };
-                Value(act_block, node)
+                Value(act_block, self.with_span(span, node))
             }
             BinaryOp::Div | BinaryOp::Mod => {
-                let (act_block, lhs) = self.gen_expr(act_block, lhs).enforce_value(self.graph);
-                let (act_block, rhs) = self.gen_expr(act_block, rhs).enforce_value(self.graph);
+                let (act_block, lhs) = self.gen_value(act_block, lhs);
+                let (act_block, rhs) = self.gen_value(act_block, rhs);
                 let mem = act_block.cur_store();
 
                 let lhs = act_block.new_conv(lhs, Mode::Ls());
@@ -583,12 +645,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
                 let res = act_block.new_conv(res, Mode::Is());
                 act_block.set_store(mem);
-                Value(act_block, res.into())
+                Value(act_block, self.with_span(span, res).into())
             }
             BinaryOp::LogicalOr => {
-                let lhs = self.gen_expr(act_block, lhs).enforce_cond(self.graph);
+                let lhs = self.gen_expr(act_block, lhs).enforce_cond(self, self.graph);
                 let false_block = self.graph.new_block(&[lhs.fls]);
-                let rhs = self.gen_expr(false_block, rhs).enforce_cond(self.graph);
+                let rhs = self
+                    .gen_expr(false_block, rhs)
+                    .enforce_cond(self, self.graph);
                 // IMPROVEMENT: this block is unneccessary if we could return multiple tr nodes
                 let both_true_block = self.graph.new_block(&[lhs.tr, rhs.tr]);
                 Cond(CondProjection {
@@ -597,9 +661,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 })
             }
             BinaryOp::LogicalAnd => {
-                let lhs = self.gen_expr(act_block, lhs).enforce_cond(self.graph);
+                let lhs = self.gen_expr(act_block, lhs).enforce_cond(self, self.graph);
                 let lhs_true_block = self.graph.new_block(&[lhs.tr]);
-                let rhs = self.gen_expr(lhs_true_block, rhs).enforce_cond(self.graph);
+                let rhs = self
+                    .gen_expr(lhs_true_block, rhs)
+                    .enforce_cond(self, self.graph);
                 // IMPROVEMENT: this block is unneccessary if we could return multiple fls nodes
                 let any_false_block = self.graph.new_block(&[lhs.fls, rhs.fls]);
                 Cond(CondProjection {
@@ -609,8 +675,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             }
             BinaryOp::Assign => {
                 let (act_block, lvalue) = self.gen_expr(act_block, lhs).expect_lvalue();
-                let (act_block, value) = self.gen_expr(act_block, rhs).enforce_value(self.graph);
-                ExprResult::value_tuple(lvalue.gen_assign(act_block, value))
+                let (act_block, value) = self.gen_value(act_block, rhs);
+                ExprResult::value_tuple(lvalue.gen_assign(self, act_block, value))
             }
             _ => unreachable!(),
         }
@@ -639,7 +705,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
 /// Result of `MethodBodyGenerator::gen_expr`
 #[derive(EnumDiscriminants)]
-enum ExprResult {
+enum ExprResult<'src> {
     /// No Result (e.g. call of void method)
     Void(Block),
     /// Result is a single value (e.g. method call, variable, integer
@@ -650,7 +716,7 @@ enum ExprResult {
     Cond(CondProjection),
 
     /// An assignable lvalue, such as parameter / local var or array access
-    Assignable(Block, LValue),
+    Assignable(Block, LValue<'src>),
 }
 
 /// An If-diamond
@@ -681,8 +747,8 @@ fn gen_const_bool(val: bool, graph: Graph) -> Node {
         .into()
 }
 
-impl ExprResult {
-    fn value_tuple(tuple: (Block, Node)) -> ExprResult {
+impl<'src> ExprResult<'src> {
+    fn value_tuple(tuple: (Block, Node)) -> ExprResult<'static> {
         ExprResult::Value(tuple.0, tuple.1)
     }
 
@@ -697,7 +763,11 @@ impl ExprResult {
     /// Enforce that the result is variant Cond. If self is a boolean `Value`,
     /// convert it to a selector that projects the two cases. If it is a
     /// non-boolean value, libfirm will complain.
-    fn enforce_cond(self, graph: Graph) -> CondProjection {
+    fn enforce_cond(
+        self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        graph: Graph,
+    ) -> CondProjection {
         use self::ExprResult::*;
         match self {
             Void(..) => panic!("Tried to branch on result of void expr"),
@@ -711,7 +781,8 @@ impl ExprResult {
                 CondProjection::new(cond)
             }
             Assignable(act_block, lval) => {
-                Self::value_tuple(lval.gen_eval(act_block)).enforce_cond(graph)
+                Self::value_tuple(lval.gen_eval(span_storage, act_block))
+                    .enforce_cond(span_storage, graph)
             }
             Cond(cp) => cp,
         }
@@ -719,12 +790,16 @@ impl ExprResult {
 
     /// Enforce that the result is a single value. If self is a `Cond`,
     /// convert it to boolean value
-    fn enforce_value(self, graph: Graph) -> (Block, Node) {
+    fn enforce_value(
+        self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        graph: Graph,
+    ) -> (Block, Node) {
         use self::ExprResult::*;
         match self {
             Void(_) => panic!("Tried to get result value of void expr"),
             Value(act_block, val) => (act_block, val),
-            Assignable(act_block, lval) => lval.gen_eval(act_block),
+            Assignable(act_block, lval) => lval.gen_eval(span_storage, act_block),
             Cond(cp) => {
                 let CondProjection { tr, fls } = cp;
 
@@ -740,7 +815,7 @@ impl ExprResult {
     }
 
     /// Assert that self is an lvalue and return it
-    fn expect_lvalue(self) -> (Block, LValue) {
+    fn expect_lvalue(self) -> (Block, LValue<'src>) {
         use self::ExprResult::*;
         match self {
             Assignable(act_block, lvalue) => (act_block, lvalue),
@@ -755,33 +830,48 @@ impl ExprResult {
 /// on wether to treat it as a simple value or treating it as a location.
 /// Then, upon encountering an assignment, we still have the information
 /// needed to assign to the location described by the LHS.
-enum LValue {
+enum LValue<'src> {
     // Local variable. This includes parameters
     Var {
         slot_idx: usize,
         mode: Mode,
+        span: Span<'src>,
     },
     // Array access
     Array {
         sel: Sel,
         elt_type: Ty,
+        span: Span<'src>,
     },
     // Class field access
     Field {
         object: Node,
         field_mode: Mode,
         field_entity: Entity,
+        span: Span<'src>,
     },
 }
 
-impl LValue {
+impl<'src> LValue<'src> {
     /// Evaluate the lvalue just as if it were handled as a normal expression
-    fn gen_eval(self, act_block: Block) -> (Block, Node) {
+    fn gen_eval(
+        self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        act_block: Block,
+    ) -> (Block, Node) {
         use self::LValue::*;
 
         match self {
-            Var { slot_idx, mode } => (act_block, act_block.value(slot_idx, mode)),
-            Array { sel, elt_type } => {
+            Var {
+                slot_idx,
+                mode,
+                span,
+            } => (act_block, act_block.value(slot_idx, mode)),
+            Array {
+                sel,
+                elt_type,
+                span,
+            } => {
                 let load = act_block.new_load(
                     act_block.cur_store(),
                     sel,
@@ -789,6 +879,7 @@ impl LValue {
                     elt_type,
                     bindings::ir_cons_flags::None,
                 );
+                let load = span_storage.with_span(span, load);
                 act_block.set_store(load.new_proj_m());
                 (act_block, load.new_proj_res(elt_type.mode()).into())
             }
@@ -796,6 +887,7 @@ impl LValue {
                 object,
                 field_mode,
                 field_entity,
+                span,
             } => {
                 let member = act_block.new_member(object, field_entity);
                 let load = act_block.new_load(
@@ -805,6 +897,7 @@ impl LValue {
                     field_entity.ty(),
                     bindings::ir_cons_flags::None,
                 );
+                let load = span_storage.with_span(span, load);
                 act_block.set_store(load.new_proj_m());
                 (act_block, load.new_proj_res(field_mode).into())
             }
@@ -812,14 +905,27 @@ impl LValue {
     }
 
     /// Store the given value at the location described by this lvalue
-    fn gen_assign(self, act_block: Block, value: Node) -> (Block, Node) {
+    fn gen_assign(
+        self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        act_block: Block,
+        value: Node,
+    ) -> (Block, Node) {
         use self::LValue::*;
         match self {
-            Var { slot_idx, mode: _ } => {
+            Var {
+                slot_idx,
+                mode: _,
+                span,
+            } => {
                 act_block.set_value(slot_idx, value);
                 (act_block, value)
             }
-            Array { sel, elt_type } => {
+            Array {
+                sel,
+                elt_type,
+                span,
+            } => {
                 let store = act_block.new_store(
                     act_block.cur_store(),
                     sel,
@@ -827,12 +933,14 @@ impl LValue {
                     elt_type,
                     bindings::ir_cons_flags::None,
                 );
+                let store = span_storage.with_span(span, store);
                 act_block.set_store(store.new_proj_m());
                 (act_block, value)
             }
             Field {
                 object,
                 field_entity,
+                span,
                 ..
             } => {
                 let member = act_block.new_member(object, field_entity);
@@ -843,6 +951,7 @@ impl LValue {
                     field_entity.ty(),
                     bindings::ir_cons_flags::None,
                 );
+                let store = span_storage.with_span(span, store);
                 act_block.set_store(store.new_proj_m());
                 (act_block, value)
             }

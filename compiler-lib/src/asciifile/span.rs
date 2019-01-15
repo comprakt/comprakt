@@ -210,6 +210,8 @@ impl fmt::Display for Span<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_single_char() {
             write!(f, "{}", self.start)
+        } else if !self.is_multiline() {
+            write!(f, "{}-{}", self.start, self.end.column())
         } else {
             write!(f, "{}-{}", self.start, self.end)
         }

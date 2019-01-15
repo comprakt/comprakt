@@ -1,5 +1,6 @@
 use super::{firm_program::*, runtime::Runtime, MethodBodyGenerator};
 use crate::{
+    asciifile::Span,
     ast,
     strtab::StringTable,
     type_checking::{
@@ -8,9 +9,48 @@ use crate::{
     },
     visitor::NodeKind,
 };
-use libfirm_rs::Graph;
+use libfirm_rs::{
+    nodes::{Node, NodeTrait},
+    Graph,
+};
 use log;
-use std::rc::Rc;
+use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Mutex};
+
+lazy_static::lazy_static! {
+    static ref SPANS: Mutex<Spans> = Mutex::new(Spans::new());
+}
+
+pub struct Spans {
+    spans: RefCell<HashMap<Node, Span<'static>>>,
+}
+
+impl Spans {
+    pub fn new() -> Spans {
+        Spans {
+            spans: RefCell::new(HashMap::new()),
+        }
+    }
+    pub fn lookup_span(node: impl NodeTrait + Into<Node>) -> Option<Span<'static>> {
+        SPANS.lock().unwrap().lookup_span_(node)
+    }
+
+    pub fn add_spans(spans: &HashMap<Node, Span<'_>>) {
+        SPANS.lock().unwrap().add_spans_(spans);
+    }
+
+    fn lookup_span_(&self, node: impl NodeTrait + Into<Node>) -> Option<Span<'static>> {
+        let map = self.spans.borrow();
+        map.get(&node.into()).map(|span| *span)
+    }
+
+    fn add_spans_(&self, spans: &HashMap<Node, Span<'_>>) {
+        let mut map = self.spans.borrow_mut();
+        for (key, span) in spans {
+            let span: Span<'static> = unsafe { std::mem::transmute(*span) };
+            map.insert(*key, span);
+        }
+    }
+}
 
 pub struct ProgramGenerator<'src, 'ast> {
     runtime: Rc<Runtime>,
@@ -42,7 +82,6 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
             let mut graph = None;
             if let ClassMethodBody::AST(body) = method.borrow().body {
                 let matured_graph = self.generate_method_body(&method.borrow(), body, &program);
-                // TODO assert matured
                 graph = Some(matured_graph);
             }
             method.borrow_mut().graph = graph;
@@ -73,6 +112,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
             &self.strtab,
         );
         method_body_gen.gen_method(body);
+        Spans::add_spans(&method_body_gen.spans);
         graph.finalize_construction();
         graph
     }
