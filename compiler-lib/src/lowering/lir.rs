@@ -568,7 +568,6 @@ impl BlockGraph {
         RemoveCriticalEdges::optimize_function(firm_graph);
 
         firm_graph.assure_outs();
-
         let mut graph = BlockGraph::build_skeleton(firm_graph, alloc);
         graph.construct_flows(alloc);
         graph.gen_instrs(alloc);

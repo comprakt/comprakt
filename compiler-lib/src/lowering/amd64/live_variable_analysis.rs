@@ -201,8 +201,7 @@ impl Instruction {
                 Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
                     vec![*src1, *src2]
                 }
-                Unop { src, .. } => vec![*src],
-                Movq { src, .. } => vec![*src],
+                Unop { src, .. } | Movq { src, .. } | Conv { src, .. } => vec![*src],
                 Call { .. } => vec![], // already converted
                 StoreMem {
                     src,
@@ -268,7 +267,7 @@ impl Instruction {
                     Some(lir::Operand::Slot(*dst))
                 }
                 Unop { dst, .. } => Some(lir::Operand::Slot(*dst)),
-                Movq { dst, .. } => Some(*dst),
+                Movq { dst, .. } | Conv { dst, .. } => Some(*dst),
                 Call { .. } => None,
                 StoreMem { .. } => None,
                 LoadMem { dst, .. } => Some(lir::Operand::Slot(*dst)),
