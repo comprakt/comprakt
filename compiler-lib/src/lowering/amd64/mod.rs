@@ -1,5 +1,6 @@
 use crate::lowering::{lir, lir_allocator::Ptr};
 
+mod codegen;
 mod function;
 mod linear_scan;
 mod live_variable_analysis;
@@ -66,14 +67,14 @@ impl Program {
         let mut functions = vec![];
 
         for f in &lir.functions {
-            functions.push((Function::new(f.nargs, cconv), f.graph));
+            functions.push((Function::new(f.nargs, cconv, &f.name), f.graph));
         }
 
         Self { functions }
     }
 
-    pub fn emit_asm(&self) {
-        for (f, graph) in &self.functions {
+    pub fn emit_asm(&mut self) {
+        for (f, graph) in self.functions.iter_mut() {
             f.allocate_registers(*graph);
         }
     }

@@ -66,7 +66,7 @@ impl From<&firm::FirmProgram<'_, '_>> for LIR {
             functions,
         };
 
-        let amd64 = super::amd64::Program::new(&lir, super::amd64::CallingConv::Stack);
+        let mut amd64 = super::amd64::Program::new(&lir, super::amd64::CallingConv::Stack);
         amd64.emit_asm();
 
         lir
