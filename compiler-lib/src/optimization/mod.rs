@@ -3,11 +3,11 @@ use libfirm_rs::{bindings, Graph};
 use std::ffi::CString;
 
 mod inlining;
-use self::inlining::Inlining;
+pub use self::inlining::Inlining;
 mod constant_folding;
-use self::constant_folding::ConstantFolding;
+pub use self::constant_folding::ConstantFolding;
 mod remove_critical_edges;
-use self::remove_critical_edges::RemoveCriticalEdges;
+pub use self::remove_critical_edges::RemoveCriticalEdges;
 
 /// An optimization that optimizes the whole program by examining all function
 /// graphs at once.

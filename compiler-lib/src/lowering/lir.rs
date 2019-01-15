@@ -6,6 +6,7 @@ use super::{
 };
 use crate::{derive_ptr_debug, firm, type_checking::type_system::CheckedType};
 
+use crate::optimization::{Local, RemoveCriticalEdges};
 use libfirm_rs::{
     bindings,
     nodes::{self, Node, NodeTrait},
@@ -555,9 +556,9 @@ pub struct ControlFlowTransfer {
 
 impl BlockGraph {
     fn from(firm_graph: libfirm_rs::Graph, alloc: &Allocator) -> Ptr<Self> {
+        RemoveCriticalEdges::optimize_function(firm_graph);
+
         firm_graph.assure_outs();
-        // FIXME not allowed to use this for the final version!
-        firm_graph.remove_critical_cf_edges();
 
         let mut graph = BlockGraph::build_skeleton(firm_graph, alloc);
         graph.construct_flows(alloc);
