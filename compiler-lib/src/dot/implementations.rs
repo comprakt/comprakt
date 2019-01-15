@@ -255,18 +255,29 @@ pub fn default_label(node: &Node) -> Label {
 }
 
 pub fn default_lir_label(block: &BasicBlock) -> Label {
-    lir_box(
-        block,
-        &format!(
-            "{}\\l",
-            block
-                .code
-                .body
-                .iter()
-                .map(|instr| format!("{:?}", instr))
-                .join("\\l")
-        ),
-    )
+    let mut s = Vec::new();
+
+    write!(&mut s, "\\lCOPY IN\\l").unwrap();
+    for instr in block.code.copy_in.iter() {
+        write!(&mut s, "{:?}\\l", instr).unwrap();
+    }
+
+    write!(&mut s, "\\lBODY\\l").unwrap();
+    for instr in block.code.body.iter() {
+        write!(&mut s, "{:?}\\l", instr).unwrap();
+    }
+
+    write!(&mut s, "\\lCOPY OUT\\l").unwrap();
+    for instr in block.code.copy_out.iter() {
+        write!(&mut s, "{:?}\\l", instr).unwrap();
+    }
+
+    write!(&mut s, "\\lLEAVE\\l").unwrap();
+    for instr in block.code.leave.iter() {
+        write!(&mut s, "{:?}\\l", instr).unwrap();
+    }
+
+    lir_box(block, &format!("{}\\l", String::from_utf8(s).unwrap()))
 }
 
 pub fn lir_box(block: &BasicBlock, body: &str) -> Label {

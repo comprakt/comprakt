@@ -4,7 +4,7 @@ use super::{
     gen_instr::GenInstrBlock,
     lir_allocator::{self, Ptr},
 };
-use crate::{firm, type_checking::type_system::CheckedType};
+use crate::{derive_ptr_debug, firm, type_checking::type_system::CheckedType};
 
 use libfirm_rs::{
     bindings,
@@ -14,7 +14,7 @@ use libfirm_rs::{
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     convert::TryFrom,
-    fmt::Display,
+    fmt::{self, Display},
     marker::PhantomData,
 };
 
@@ -76,6 +76,8 @@ pub struct Function {
     pub graph: Ptr<BlockGraph>,
 }
 
+derive_ptr_debug!(BlockGraph);
+
 impl Function {
     fn from(method: &firm::FirmMethod<'_, '_>, alloc: &Allocator) -> Self {
         let graph: libfirm_rs::Graph = method
@@ -93,7 +95,6 @@ impl Function {
     }
 }
 
-#[derive(Debug)]
 /// A graph of basic blocks. Each block is a list of instructions and a set of
 /// pseudo-registers called `ValueSlots`. This is a more localized
 /// represantation of SSA, as the value slots (or variable names) are namespaced
@@ -106,6 +107,7 @@ pub struct BlockGraph {
     pub head: Ptr<BasicBlock>,
     pub end_block: Ptr<BasicBlock>,
 }
+derive_ptr_debug!(Ptr<BlockGraph>);
 
 #[derive(Debug, Default)]
 pub struct Code {
@@ -116,7 +118,6 @@ pub struct Code {
 }
 
 /// This is a vertex in the basic-block graph
-#[derive(Debug)]
 pub struct BasicBlock {
     /// Unique number for the BasicBlock
     pub num: i64,
@@ -137,7 +138,6 @@ pub struct BasicBlock {
     pub graph: Ptr<BlockGraph>,
 }
 
-#[derive(Debug)]
 pub enum MultiSlot {
     Single(Ptr<ValueSlot>),
     Multi {
@@ -172,7 +172,22 @@ impl MultiSlot {
     }
 }
 
-#[derive(Debug, Clone)]
+impl fmt::Debug for Ptr<MultiSlot> {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(out, "*{:?}", **self)
+    }
+}
+
+impl fmt::Debug for MultiSlot {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &*self {
+            MultiSlot::Single(vs) => write!(out, "{:?}", **vs), // prepends VS itself
+            MultiSlot::Multi { .. } => write!(out, "MS:{}:{}", self.allocated_in().num, self.num()),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub enum Instruction {
     Binop {
         kind: BinopKind,
@@ -196,10 +211,6 @@ pub enum Instruction {
         kind: UnopKind,
         src: Operand,
         dst: Ptr<MultiSlot>,
-    },
-    Movq {
-        src: Operand,
-        dst: Operand,
     },
     /// Value conversion pseudo-instruction:
     /// FIRM knows value conversions, but LIR doesn't.
@@ -230,6 +241,41 @@ pub enum Instruction {
         dst: Ptr<MultiSlot>,
     },
     Comment(String),
+}
+
+impl fmt::Debug for Instruction {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use self::Instruction::*;
+        match self {
+            Binop {
+                kind,
+                src1,
+                src2,
+                dst,
+            } => write!(fmt, "{:?} {:?} {:?} => {:?}", kind, src1, src2, dst),
+            Div { src1, src2, dst } => write!(fmt, "div {:?} {:?} => {:?}", src1, src2, dst),
+            Mod { src1, src2, dst } => write!(fmt, "mod {:?} {:?} => {:?}", src1, src2, dst),
+            Unop { kind, src, dst } => write!(fmt, "{:?} {:?} => {:?}", kind, src, dst),
+            Conv { src, dst } => write!(fmt, "conv {:?} => {:?}", src, dst),
+            Call { func, args, dst } => {
+                let args = args
+                    .iter()
+                    .map(|o| format!("{:?}", o))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(fmt, "call {:?} [ {:?} ] => {:?}", func, args, dst)
+            }
+            LoadParam { idx, dst } => write!(fmt, "loadparam {} => {:?}", idx, dst),
+            StoreMem { src, dst } => write!(fmt, "storemem {:?} => {:?}", src, dst),
+            LoadMem { src, dst } => write!(fmt, "loadmem {:?} => {:?}", src, dst),
+            Comment(comment) => {
+                for line in comment.lines() {
+                    write!(fmt, "// {}", line)?;
+                }
+                Ok(())
+            }
+        }
+    }
 }
 
 /// This implements address computation, see
@@ -302,7 +348,7 @@ impl TryFrom<bindings::ir_relation::Type> for CondOp {
 }
 
 /// Instructions that are at the end of a basic block.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Leave {
     CondJmp {
         op: CondOp,
@@ -324,29 +370,72 @@ pub enum Leave {
     },
 }
 
+impl fmt::Debug for Leave {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use self::Leave::*;
+        match self {
+            CondJmp {
+                op,
+                lhs,
+                rhs,
+                true_target,
+                false_target,
+            } => write!(
+                fmt,
+                "cndjmp:t{}:f{} {:?} {:?} {:?}",
+                true_target.num, false_target.num, op, lhs, rhs
+            ),
+            Jmp { target } => write!(fmt, "jmp {}", target.num),
+            Return { value, .. } => write!(fmt, "ret {:?}", value),
+        }
+    }
+}
+
 /// The representation of a single element in
 /// ControlFlowTransfer.register_transitions. The consumer of the LIR
 /// (a register allocator / target arch code generator) emits the
 /// concrete instructions to flow values from one basic block to the other.
 /// It will commonly have to choose between using registers or spill code.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct CopyPropagation {
     pub(super) src: Ptr<MultiSlot>,
     pub(super) dst: Ptr<ValueSlot>,
 }
 
-#[derive(Debug, Display, Clone, Copy)]
+impl fmt::Debug for CopyPropagation {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "copyprop {:?} => {:?}", *self.src, *self.dst)
+    }
+}
+
+#[derive(Clone, Copy)]
 pub enum Operand {
-    #[display(fmt = "MultiSlot")]
     Slot(Ptr<MultiSlot>),
 
     /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
     /// lifetime of that pointer (the FIRM graph).
-    #[display(fmt = "Imm")]
     Imm(Tarval),
     /// only readable!
-    #[display(fmt = "Param: {}", idx)]
-    Param { idx: u32 },
+    Param {
+        idx: u32,
+    },
+}
+
+impl fmt::Debug for Operand {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use self::Operand::*;
+        match self {
+            Imm(tv) => write!(fmt, "Imm{{{:?}}}", tv),
+            Slot(ms) => write!(fmt, "Slot#{:?}", ms),
+            Param { idx } => write!(fmt, "Param#{}", idx),
+        }
+    }
+}
+
+impl fmt::Display for Operand {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, fmt)
+    }
 }
 
 #[derive(Debug, Display, Clone)]
@@ -373,7 +462,6 @@ pub enum Cond {
 }
 
 /// An abstract pseudo-register
-#[derive(Debug)]
 pub struct ValueSlot {
     /// The slot number. Uniqe only per Block, not globally
     pub num: usize,
@@ -391,6 +479,12 @@ pub struct ValueSlot {
 impl ValueSlot {
     pub fn multislot(&self) -> Ptr<MultiSlot> {
         self.allocated_in.regs[self.num]
+    }
+}
+
+impl fmt::Debug for ValueSlot {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "VS:{}:{}", self.allocated_in.num, self.num)
     }
 }
 
@@ -430,7 +524,6 @@ pub enum _ValueSlotKind {
 
 /// Transfer control-flow from one block to another. This is an edge in the
 /// basic-block graph
-#[derive(Debug)]
 pub struct ControlFlowTransfer {
     /// How do value slots used in the preceeding block map to value slots in
     /// the next block? SSA-information is encoded in this.
@@ -463,7 +556,9 @@ pub struct ControlFlowTransfer {
 impl BlockGraph {
     fn from(firm_graph: libfirm_rs::Graph, alloc: &Allocator) -> Ptr<Self> {
         firm_graph.assure_outs();
-        firm_graph.remove_critical_cf_edges(); // FIXME not allowed to use this for the final version!
+        // FIXME not allowed to use this for the final version!
+        firm_graph.remove_critical_cf_edges();
+
         let mut graph = BlockGraph::build_skeleton(firm_graph, alloc);
         graph.construct_flows(alloc);
         graph.gen_instrs(alloc);
@@ -640,7 +735,7 @@ impl Ptr<ControlFlowTransfer> {
                 );
                 if let MultiSlot::Multi { slots, .. } = &**multislot {
                     for slot in slots.iter() {
-                        log::debug!("\t\t\t {:?} := {:?} @ {:?}", slot.num, slot.firm, slot);
+                        log::debug!("\t\t\t {:?} := {:?} @ {:?}", slot.num, slot.firm, **slot);
                     }
                 }
             }
@@ -649,7 +744,7 @@ impl Ptr<ControlFlowTransfer> {
                 target_slot.allocated_in.firm,
                 target_slot.num,
                 target_slot.firm,
-                target_slot,
+                *target_slot,
             );
 
             log::debug!(
@@ -882,7 +977,6 @@ impl BasicBlock {
     }
 }
 
-#[derive(Debug)]
 pub struct MultiSlotBuilder {
     num: usize,
     slots: Vec<Ptr<ValueSlot>>,

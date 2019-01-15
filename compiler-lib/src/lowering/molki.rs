@@ -157,7 +157,7 @@ impl Instr {
                 src: Operand::from(src, slot_reg_map),
                 dst: Reg::from(dst.into(), slot_reg_map),
             },
-            Movq { src, dst } | Conv { src, dst } => Instr::Movq {
+            Conv { src, dst } => Instr::Movq {
                 src: MoveOperand::Operand(Operand::from(src, slot_reg_map)),
                 dst: MoveOperand::Operand(Operand::from(dst, slot_reg_map)),
             },

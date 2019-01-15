@@ -3,7 +3,6 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-#[derive(Debug)]
 pub struct Allocator<T> {
     elems: RefCell<Vec<*mut T>>,
 }
@@ -16,8 +15,28 @@ impl<T> Default for Allocator<T> {
     }
 }
 
-#[derive(Debug)]
+use std::fmt;
+
+impl<T> fmt::Debug for Allocator<T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let tyname = unsafe { std::intrinsics::type_name::<T>() };
+        write!(fmt, "Allocator<{}>", tyname)
+    }
+}
+
 pub struct Ptr<T>(*mut T);
+
+#[macro_export]
+macro_rules! derive_ptr_debug {
+    ($t:ty) => {
+        impl std::fmt::Debug for Ptr<$t> {
+            fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let tyname = unsafe { std::intrinsics::type_name::<Self>() };
+                write!(fmt, "Ptr<{}>", tyname)
+            }
+        }
+    };
+}
 
 impl<T> Clone for Ptr<T> {
     fn clone(&self) -> Ptr<T> {

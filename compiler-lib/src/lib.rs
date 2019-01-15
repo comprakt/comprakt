@@ -37,6 +37,7 @@ pub mod dot;
 #[allow(dead_code)]
 pub mod debugging;
 pub mod firm;
+#[macro_use]
 pub mod lowering;
 pub mod optimization;
 pub mod print;
