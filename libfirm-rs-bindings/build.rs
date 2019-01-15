@@ -147,14 +147,23 @@ fn main() {
     }
 
     let libfirm_include_dir = libfirm_install_dir.join("include");
+    let libfirm_include_dir_inner = libfirm_include_dir.join("libfirm");
+    let libfirm_ir_dir = libfirm_src.join("ir");
+    let libfirm_adt_dir = libfirm_include_dir_inner.join("adt");
     let libfirm_lib_dir = libfirm_install_dir.join("lib");
     tell_cargo!("include", libfirm_include_dir.display());
+    tell_cargo!("include", libfirm_include_dir_inner.display());
+    tell_cargo!("include", libfirm_adt_dir.display());
+    tell_cargo!("include", libfirm_ir_dir.display());
     tell_cargo!("rustc-link-search", libfirm_lib_dir.display());
     tell_cargo!("rustc-link-lib=static", "firm");
 
     let builder = bindgen::Builder::default()
         .header("wrapper.h")
         .clang_args(&[&format!("-I{}", libfirm_include_dir.display())])
+        .clang_args(&[&format!("-I{}", libfirm_include_dir_inner.display())])
+        .clang_args(&[&format!("-I{}", libfirm_adt_dir.display())])
+        .clang_args(&[&format!("-I{}", libfirm_ir_dir.display())])
         // bindgen's own tests fail on that, see
         // https://github.com/rust-lang-nursery/rust-bindgen/issues/550#issuecomment-283438998
         .blacklist_type("max_align_t")
