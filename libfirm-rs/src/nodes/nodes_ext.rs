@@ -147,6 +147,10 @@ pub trait NodeTrait {
         unsafe { bindings::get_irn_node_nr(self.internal_ir_node()) }
     }
 
+    fn is_pinned(&self) -> bool {
+        unsafe { bindings::get_irn_pinned(self.internal_ir_node()) > 0 }
+    }
+
     fn graph(&self) -> Graph {
         Graph {
             irg: unsafe { bindings::get_irn_irg(self.internal_ir_node()) },
@@ -230,6 +234,21 @@ linked_list_iterator!(
 );
 
 impl Block {
+    pub fn dominates(&self, other: Block) -> bool {
+        // TODO: check if dominators are computed
+        unsafe { bindings::block_dominates(self.internal_ir_node(), other.internal_ir_node()) > 0 }
+    }
+
+    pub fn immediate_dominator(&self) -> Option<Block> {
+        // TODO: check if dominators are computed
+        let idom = unsafe { bindings::get_Block_idom(self.internal_ir_node()) };
+        if idom.is_null() {
+            None
+        } else {
+            Some(Block::new(idom))
+        }
+    }
+
     pub fn cfg_preds(self) -> CfgPredsIterator {
         CfgPredsIterator::new(self.internal_ir_node())
     }

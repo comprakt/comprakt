@@ -95,6 +95,10 @@ impl Graph {
         unsafe { bindings::compute_irg_outs(self.irg) }
     }
 
+    pub fn compute_doms(self) {
+        unsafe { bindings::compute_doms(self.irg) }
+    }
+
     pub fn remove_bads(self) {
         unsafe { bindings::remove_bads(self.irg) }
     }
