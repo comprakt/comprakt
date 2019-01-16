@@ -11,7 +11,7 @@ use self::control_flow::ControlFlow;
 mod remove_critical_edges;
 use self::remove_critical_edges::RemoveCriticalEdges;
 mod code_placement;
-use self::code_placement::{CodePlacement, EarliestPlacement};
+use self::code_placement::{CodePlacement, CostMinimizingPlacement, EarliestPlacement};
 mod lattices;
 
 /// An optimization that optimizes the whole program by examining all function
@@ -57,6 +57,7 @@ pub enum Kind {
     ControlFlow,
     RemoveCriticalEdges,
     EarliestPlacement,
+    CostMinimizingPlacement,
     CodePlacement,
 }
 
@@ -68,6 +69,7 @@ impl Kind {
             Kind::ControlFlow => ControlFlow::optimize(program),
             Kind::RemoveCriticalEdges => RemoveCriticalEdges::optimize(program),
             Kind::EarliestPlacement => EarliestPlacement::optimize(program),
+            Kind::CostMinimizingPlacement => CostMinimizingPlacement::optimize(program),
             Kind::CodePlacement => CodePlacement::optimize(program),
         }
     }

@@ -151,6 +151,10 @@ pub trait NodeTrait {
         unsafe { bindings::get_irn_pinned(self.internal_ir_node()) > 0 }
     }
 
+    fn is_only_valid_in_start_block(&self) -> bool {
+        unsafe { bindings::is_irn_start_block_placed(self.internal_ir_node()) > 0 }
+    }
+
     fn graph(&self) -> Graph {
         Graph {
             irg: unsafe { bindings::get_irn_irg(self.internal_ir_node()) },
@@ -234,6 +238,14 @@ linked_list_iterator!(
 );
 
 impl Block {
+    pub fn deepest_common_dominator(a: Block, b: Block) -> Block {
+        let cdom = unsafe {
+            bindings::ir_deepest_common_dominator(a.internal_ir_node(), b.internal_ir_node())
+        };
+
+        Block::new(cdom)
+    }
+
     pub fn dominates(&self, other: Block) -> bool {
         // TODO: check if dominators are computed
         unsafe { bindings::block_dominates(self.internal_ir_node(), other.internal_ir_node()) > 0 }
