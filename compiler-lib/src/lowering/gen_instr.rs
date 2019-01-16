@@ -303,8 +303,7 @@ impl GenInstrBlock {
             Node::Conv(conv) => {
                 let pred = conv.op();
                 let src = self.gen_operand_jit(pred);
-                let dst_slot = self.gen_dst_slot(block, node, alloc);
-                let dst = Operand::Slot(dst_slot);
+                let dst = self.gen_dst_slot(block, node, alloc);
                 self.code.body.push(Instruction::Conv { src, dst });
             }
 

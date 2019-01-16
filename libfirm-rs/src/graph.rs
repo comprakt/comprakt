@@ -182,7 +182,6 @@ impl Graph {
         }
     }
 
-
     pub fn nodes(self) -> Vec<Node> {
         let mut result = Vec::new();
         self.walk_topological(|n| {

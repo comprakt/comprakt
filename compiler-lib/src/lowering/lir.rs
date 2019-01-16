@@ -224,7 +224,7 @@ pub enum Instruction {
     /// backend.
     Conv {
         src: Operand,
-        dst: Operand,
+        dst: Ptr<MultiSlot>,
     },
     /// If dst is None, result is in register r0, which cannot be accessed
     /// using molki register names.

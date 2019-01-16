@@ -153,7 +153,7 @@ impl Instr {
             },
             Conv { src, dst } => Instr::Movq {
                 src: MoveOperand::Operand(Operand::from(src, slot_reg_map)),
-                dst: MoveOperand::Operand(Operand::from(dst, slot_reg_map)),
+                dst: MoveOperand::Operand(Reg::from(dst, slot_reg_map).into_operand()),
             },
             Call { func, args, dst } => Instr::Call {
                 func,
