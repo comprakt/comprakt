@@ -352,6 +352,18 @@ pub enum CondOp {
      * Nonnegative */
 }
 
+impl CondOp {
+    pub(super) fn swap(self) -> Self {
+        match self {
+            CondOp::LessThan => CondOp::GreaterThan,
+            CondOp::GreaterThan => CondOp::LessThan,
+            CondOp::LessEquals => CondOp::GreaterEquals,
+            CondOp::GreaterEquals => CondOp::LessEquals,
+            op => op,
+        }
+    }
+}
+
 impl TryFrom<bindings::ir_relation::Type> for CondOp {
     type Error = bindings::ir_relation::Type;
     fn try_from(r: bindings::ir_relation::Type) -> Result<Self, Self::Error> {

@@ -105,6 +105,21 @@ impl Amd64Reg {
         }
     }
 
+    pub(super) fn is_caller_save(self) -> bool {
+        match self {
+            Amd64Reg::Rdi
+            | Amd64Reg::Rsi
+            | Amd64Reg::Rdx
+            | Amd64Reg::Rcx
+            | Amd64Reg::R8
+            | Amd64Reg::R9
+            | Amd64Reg::R10
+            | Amd64Reg::R11
+            | Amd64Reg::Rax => true,
+            _ => false,
+        }
+    }
+
     /// This function returns the next unreserved register. This function
     /// is used by the register allocator to always use the registers
     /// in the same order. That is:
@@ -169,6 +184,12 @@ impl RegisterAllocator {
                 free_list.insert(reg, true);
             });
         Self { cconv, free_list }
+    }
+
+    pub(super) fn occupied_regs(&self) -> impl Iterator<Item = Amd64Reg> + '_ {
+        self.free_list
+            .iter()
+            .filter_map(|(reg, free)| if *free { None } else { Some(*reg) })
     }
 
     /// Returns a register from the `free_list`
