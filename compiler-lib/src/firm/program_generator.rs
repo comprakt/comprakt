@@ -20,15 +20,15 @@ lazy_static::lazy_static! {
     static ref SPANS: Mutex<Spans> = Mutex::new(Spans::new());
 }
 
+/// This struct is only for debugging.
+#[derive(Default)]
 pub struct Spans {
     spans: RefCell<HashMap<Node, Span<'static>>>,
 }
 
 impl Spans {
     pub fn new() -> Spans {
-        Spans {
-            spans: RefCell::new(HashMap::new()),
-        }
+        Spans::default()
     }
     pub fn lookup_span(node: impl NodeTrait + Into<Node>) -> Option<Span<'static>> {
         SPANS.lock().unwrap().lookup_span_(node)
@@ -40,12 +40,13 @@ impl Spans {
 
     fn lookup_span_(&self, node: impl NodeTrait + Into<Node>) -> Option<Span<'static>> {
         let map = self.spans.borrow();
-        map.get(&node.into()).map(|span| *span)
+        map.get(&node.into()).cloned()
     }
 
     fn add_spans_(&self, spans: &HashMap<Node, Span<'_>>) {
         let mut map = self.spans.borrow_mut();
         for (key, span) in spans {
+            // the spans life long enough - longer than you might have access to nodes.
             let span: Span<'static> = unsafe { std::mem::transmute(*span) };
             map.insert(*key, span);
         }

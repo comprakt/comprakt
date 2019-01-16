@@ -350,37 +350,25 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .as_ref()
                     .expect("Variable access expr is always a ref")
                 {
-                    Var(_) | Param(_) => {
-                        log::debug!("gen assignable for var or param {}", **name);
-                        let (slot, mode) = self.local_var(**name);
-                        Assignable(
-                            act_block,
-                            LValue::Var {
-                                span: expr.span,
-                                slot_idx: slot,
-                                mode,
-                            },
-                        )
-                    }
-                    Field(field_def) => {
-                        log::debug!("gen assignable for field {}", **name);
-                        Assignable(
-                            act_block,
-                            self.gen_field(expr.span, self.this(act_block), Rc::clone(field_def)),
-                        )
-                    }
+                    Var(_) | Param(_) => self.local_var(act_block, name),
+                    Field(field_def) => self.gen_field(
+                        act_block,
+                        expr.span,
+                        self.this(act_block),
+                        Rc::clone(field_def),
+                    ),
                     GlobalVar(..) | This(..) | ArrayAccess | Method(..) => {
                         unreachable!("Variable access expr is always var, param or field")
                     }
                 }
             }
-            FieldAccess(object, _field) => {
+            FieldAccess(obj, _field) => {
                 let field_def = match &self.type_analysis.expr_info(expr).ref_info {
                     Some(RefInfo::Field(field_def)) => Rc::clone(field_def),
                     other => unreachable!("Got unexpected: {:?}", other),
                 };
-                let (act_block, object_ptr) = self.gen_value(act_block, object);
-                Assignable(act_block, self.gen_field(expr.span, object_ptr, field_def))
+                let (act_block, obj) = self.gen_value(act_block, obj);
+                self.gen_field(act_block, expr.span, obj, field_def)
             }
             Binary(op, lhs, rhs) => self.gen_binary_expr(act_block, expr.span, *op, lhs, rhs),
             Unary(ast::UnaryOp::Neg, expr) => {
@@ -458,35 +446,25 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     };
                     let (act_block, mut args) =
                         self.gen_expr_list(act_block, arguments.data.iter());
-                    args.insert(0, target_obj);
-                    // IMPROVEMENT: get rid of insert
-
+                    args.insert(0, target_obj); // IMPROVEMENT: get rid of insert
                     let return_type = get_firm_mode(&method.borrow().def.return_ty);
-
                     let entity = method.borrow().entity;
                     self.gen_static_fn_call(act_block, expr.span, entity, return_type, &args)
                 }
             }
-            ArrayAccess(target_expr, idx_expr) => {
-                let elt_type = ty_from_checked_type(&self.type_analysis.expr_info(expr).ty)
-                    .expect("array element type must have firm equivalent");
-
-                let array_type = &self.type_analysis.expr_info(target_expr).ty;
-                let firm_array_type = PointerTy::from(
-                    ty_from_checked_type(array_type).expect("array type must have firm equivalent"),
-                )
-                .expect("must be pointer type")
-                .points_to();
-
-                let (act_block, target_expr) = self.gen_value(act_block, target_expr);
-                let (act_block, idx_expr) = self.gen_value(act_block, idx_expr);
-
+            ArrayAccess(target, idx_expr) => {
+                let item_ty = &self.type_analysis.expr_info(expr).ty;
+                let item_ty = ty_from_checked_type(item_ty).expect("not void");
+                let arr_ty = item_ty.array().into();
+                let (act_block, target) = self.gen_value(act_block, target);
+                let (act_block, idx_node) = self.gen_value(act_block, idx_expr);
+                let sel = self.with_spanned(expr, act_block.new_sel(target, idx_node, arr_ty));
                 Assignable(
                     act_block,
-                    LValue::Array {
+                    LValue::ArrayOrField {
                         span: expr.span,
-                        sel: act_block.new_sel(target_expr, idx_expr, firm_array_type),
-                        elt_type,
+                        sel_or_mem: sel.into(),
+                        item_ty,
                     },
                 )
             }
@@ -501,16 +479,16 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 };
 
                 let class = self.program.class(class_def).unwrap();
-                let size = i64::from(class.borrow().entity.ty().size());
-
-                let call = act_block.new_call(
-                    act_block.cur_store(),
-                    self.graph.new_address(self.runtime.new),
-                    &[self.graph.new_const(Tarval::mj_int(size)).into()],
-                    self.runtime.new.ty(),
+                let class_ty = class.borrow().entity.ty();
+                let call = self.with_spanned(
+                    expr,
+                    act_block.new_call(
+                        act_block.cur_store(),
+                        self.graph.new_address(self.runtime.new),
+                        &[self.graph.new_size(Mode::Is(), class_ty).into()],
+                        self.runtime.new.ty(),
+                    ),
                 );
-                let call = self.with_spanned(expr, call);
-
                 act_block.set_store(call.new_proj_m());
 
                 Value(
@@ -525,17 +503,13 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .ty
                     .inner_type()
                     .expect("type of array must have inner type");
-
                 let (act_block, num_elts) = self.gen_value(act_block, num_expr);
-
                 let elt_size = self.graph.new_const(Tarval::mj_int(
                     size_of(new_array_type)
                         .map(i64::from)
                         .expect("cannot allocate array of unsized type"),
                 ));
-
                 let alloc_size = act_block.new_mul(num_elts, elt_size);
-
                 let call = act_block.new_call(
                     act_block.cur_store(),
                     self.graph.new_address(self.runtime.new),
@@ -543,9 +517,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     self.runtime.new.ty(),
                 );
                 let call = self.with_spanned(expr, call);
-
                 act_block.set_store(call.new_proj_m());
-
                 Value(
                     act_block,
                     call.new_proj_t_result().new_proj(0, Mode::P()).into(),
@@ -556,20 +528,20 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
     fn gen_field(
         &mut self,
+        act_block: Block,
         span: Span<'src>,
-        ptr: Node,
+        target: Node,
         field_def: Rc<ClassFieldDef<'src>>,
-    ) -> LValue<'src> {
+    ) -> ExprResult<'src> {
         let field = self.program.field(Rc::clone(&field_def)).unwrap();
-        let field_mode =
-            get_firm_mode(&field_def.ty).expect("Type `void` is not a valid field type");
         let field_entity = field.borrow().entity;
-        LValue::Field {
+        let member = self.with_span(span, act_block.new_member(target, field_entity));
+        let lvalue = LValue::ArrayOrField {
             span,
-            object: ptr,
-            field_entity,
-            field_mode,
-        }
+            sel_or_mem: member.into(),
+            item_ty: field_entity.ty(),
+        };
+        ExprResult::Assignable(act_block, lvalue)
     }
 
     fn relation(op: BinaryOp) -> Option<bindings::ir_relation::Type> {
@@ -608,7 +580,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let relation = Self::relation(op).unwrap();
                 let (act_block, lhs) = self.gen_value(act_block, lhs);
                 let (act_block, rhs) = self.gen_value(act_block, rhs);
-                let cond = act_block.new_cond(act_block.new_cmp(lhs, rhs, relation));
+                let cmp = self.with_span(span, act_block.new_cmp(lhs, rhs, relation));
+                let cond = self.with_span(span, act_block.new_cond(cmp));
                 Cond(CondProjection::new(cond))
             }
             BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul => {
@@ -627,25 +600,24 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let (act_block, rhs) = self.gen_value(act_block, rhs);
                 let mem = act_block.cur_store();
 
-                let lhs = act_block.new_conv(lhs, Mode::Ls());
-                let rhs = act_block.new_conv(rhs, Mode::Ls());
+                let lhs = self.with_span(span, act_block.new_conv(lhs, Mode::Ls()));
+                let rhs = self.with_span(span, act_block.new_conv(rhs, Mode::Ls()));
 
                 let (res, mem) = match op {
                     BinaryOp::Div => {
-                        log::debug!("Mode lhs: {:?}, rhs: {:?}", lhs.mode(), rhs.mode());
-                        let node = act_block.new_div(mem, lhs, rhs, pinned);
+                        let node = self.with_span(span, act_block.new_div(mem, lhs, rhs, pinned));
                         (node.new_proj_res(Mode::Ls()), node.new_proj_m())
                     }
                     BinaryOp::Mod => {
-                        let node = act_block.new_mod(mem, lhs, rhs, pinned);
+                        let node = self.with_span(span, act_block.new_mod(mem, lhs, rhs, pinned));
                         (node.new_proj_res(Mode::Ls()), node.new_proj_m())
                     }
                     _ => unreachable!(),
                 };
 
-                let res = act_block.new_conv(res, Mode::Is());
+                let res = self.with_span(span, act_block.new_conv(res, Mode::Is()));
                 act_block.set_store(mem);
-                Value(act_block, self.with_span(span, res).into())
+                Value(act_block, res.into())
             }
             BinaryOp::LogicalOr => {
                 let lhs = self.gen_expr(act_block, lhs).enforce_cond(self, self.graph);
@@ -676,7 +648,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             BinaryOp::Assign => {
                 let (act_block, lvalue) = self.gen_expr(act_block, lhs).expect_lvalue();
                 let (act_block, value) = self.gen_value(act_block, rhs);
-                ExprResult::value_tuple(lvalue.gen_assign(self, act_block, value))
+                ExprResult::value_tuple(lvalue.gen_assign(span, self, act_block, value))
             }
             _ => unreachable!(),
         }
@@ -691,9 +663,20 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     }
 
     /// Get name and mode of previously allocated local var
-    fn local_var(&mut self, name: Symbol<'src>) -> (usize, Mode) {
+    fn local_var(
+        &mut self,
+        act_block: Block,
+        name: &'ast Spanned<'src, Symbol<'src>>,
+    ) -> ExprResult<'src> {
         match self.local_vars.get(&name) {
-            Some(local) => *local,
+            Some(&(slot_idx, mode)) => ExprResult::Assignable(
+                act_block,
+                LValue::Var {
+                    span: name.span,
+                    slot_idx,
+                    mode,
+                },
+            ),
             None => panic!("undefined variable '{}'", name),
         }
     }
@@ -837,17 +820,10 @@ enum LValue<'src> {
         mode: Mode,
         span: Span<'src>,
     },
-    // Array access
-    Array {
-        sel: Sel,
-        elt_type: Ty,
-        span: Span<'src>,
-    },
-    // Class field access
-    Field {
-        object: Node,
-        field_mode: Mode,
-        field_entity: Entity,
+    // Array or field access
+    ArrayOrField {
+        sel_or_mem: Node,
+        item_ty: Ty,
         span: Span<'src>,
     },
 }
@@ -866,40 +842,30 @@ impl<'src> LValue<'src> {
                 slot_idx,
                 mode,
                 span,
-            } => (act_block, act_block.value(slot_idx, mode)),
-            Array {
-                sel,
-                elt_type,
-                span,
             } => {
-                let load = act_block.new_load(
-                    act_block.cur_store(),
-                    sel,
-                    elt_type.mode(),
-                    elt_type,
-                    bindings::ir_cons_flags::None,
-                );
-                let load = span_storage.with_span(span, load);
-                act_block.set_store(load.new_proj_m());
-                (act_block, load.new_proj_res(elt_type.mode()).into())
+                let mut val = act_block.value(slot_idx, mode);
+                if Node::is_phi(val) {
+                    val = span_storage.with_span(span, val);
+                }
+                (act_block, val)
             }
-            Field {
-                object,
-                field_mode,
-                field_entity,
+            ArrayOrField {
+                sel_or_mem,
+                item_ty,
                 span,
             } => {
-                let member = act_block.new_member(object, field_entity);
-                let load = act_block.new_load(
-                    act_block.cur_store(),
-                    member,
-                    field_mode,
-                    field_entity.ty(),
-                    bindings::ir_cons_flags::None,
+                let load = span_storage.with_span(
+                    span,
+                    act_block.new_load(
+                        act_block.cur_store(),
+                        sel_or_mem,
+                        item_ty.mode(),
+                        item_ty,
+                        bindings::ir_cons_flags::None,
+                    ),
                 );
-                let load = span_storage.with_span(span, load);
                 act_block.set_store(load.new_proj_m());
-                (act_block, load.new_proj_res(field_mode).into())
+                (act_block, load.new_proj_res(item_ty.mode()).into())
             }
         }
     }
@@ -907,6 +873,7 @@ impl<'src> LValue<'src> {
     /// Store the given value at the location described by this lvalue
     fn gen_assign(
         self,
+        span: Span<'src>,
         span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
         act_block: Block,
         value: Node,
@@ -914,44 +881,26 @@ impl<'src> LValue<'src> {
         use self::LValue::*;
         match self {
             Var {
-                slot_idx,
-                mode: _,
-                span,
+                slot_idx, mode: _, ..
             } => {
                 act_block.set_value(slot_idx, value);
                 (act_block, value)
             }
-            Array {
-                sel,
-                elt_type,
-                span,
+            ArrayOrField {
+                sel_or_mem,
+                item_ty,
+                span: _,
             } => {
-                let store = act_block.new_store(
-                    act_block.cur_store(),
-                    sel,
-                    value,
-                    elt_type,
-                    bindings::ir_cons_flags::None,
+                let store = span_storage.with_span(
+                    span,
+                    act_block.new_store(
+                        act_block.cur_store(),
+                        sel_or_mem,
+                        value,
+                        item_ty,
+                        bindings::ir_cons_flags::None,
+                    ),
                 );
-                let store = span_storage.with_span(span, store);
-                act_block.set_store(store.new_proj_m());
-                (act_block, value)
-            }
-            Field {
-                object,
-                field_entity,
-                span,
-                ..
-            } => {
-                let member = act_block.new_member(object, field_entity);
-                let store = act_block.new_store(
-                    act_block.cur_store(),
-                    member,
-                    value,
-                    field_entity.ty(),
-                    bindings::ir_cons_flags::None,
-                );
-                let store = span_storage.with_span(span, store);
                 act_block.set_store(store.new_proj_m());
                 (act_block, value)
             }
