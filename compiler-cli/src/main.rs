@@ -35,16 +35,16 @@ use compiler_lib::{
     OutputSpecification,
 };
 use env_logger;
-use failure::{Error, Fail, ResultExt};
+use failure::{format_err, Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{
     fs::File,
     io::{self, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{exit, Command},
 };
 use structopt::StructOpt;
-use tempfile::tempdir;
+use tempfile::{tempdir, TempDir};
 use termcolor::{ColorChoice, StandardStream};
 
 mod optimization_arg;
@@ -322,26 +322,13 @@ const DEFAULT_BINARY_FILENAME: &str = "a.out";
 fn cmd_compile_firm(options: &CompileFirmOptions) -> Result<(), Error> {
     until_after_type_check!(let (strtab, type_system, type_analysis) = &options.path);
 
-    let temp_dir = tempdir()?;
-    let compilation_dir = temp_dir.path().to_path_buf();
-
-    let user_assembly = if let Some(ref path) = options.dump_assembly {
-        path.clone()
-    } else {
-        compilation_dir.join("a.s")
-    };
+    let bingen = BinaryGenerator::new()?;
 
     let mut lowering_options: compiler_lib::firm::Options = (options.clone()).into();
-    lowering_options.dump_assembler = Some(OutputSpecification::File(user_assembly.clone()));
+    // override assembly output to always go to bingen's expected location
+    lowering_options.dump_assembler = Some(OutputSpecification::File(bingen.asm_out().to_owned()));
 
     unsafe { firm::build(&lowering_options, &type_system, &type_analysis, &mut strtab)? };
-
-    // get runtime library
-    let runtime_path = compilation_dir.join("mjrt.a");
-    {
-        let mut file = File::create(&runtime_path)?;
-        file.write_all(mjrt::STATIC_LIB)?;
-    }
 
     let binary_path = match &options.output {
         Some(dir) if dir.is_dir() => dir.join(DEFAULT_BINARY_FILENAME),
@@ -349,30 +336,69 @@ fn cmd_compile_firm(options: &CompileFirmOptions) -> Result<(), Error> {
         None => PathBuf::from(DEFAULT_BINARY_FILENAME),
     };
 
-    // link runtime static library with user's code
-    let linker_status = Command::new("cc")
-        .arg("-o")
-        .arg(&binary_path)
-        .args(mjrt::LINKER_FLAGS)
-        .arg(&user_assembly)
-        .arg(&runtime_path)
-        .args(mjrt::LINKER_LIBS)
-        .status()
-        .context(CliError::LinkingFailed)?;
+    // after firm::build, we expect asm_out to be populated
+    if let Some(ref path) = options.dump_assembly {
+        std::fs::copy(bingen.asm_out(), path).context(format_err!(
+            "dump assembly: cannot copy to specified output file"
+        ))?;
+    }
 
+    let res = bingen.emit_binary(&binary_path);
     if std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP").is_ok() {
-        // `into_path(.)` has the side effect "Persist the temporary directory to disk"
-        let path = temp_dir.into_path();
+        let path = bingen.stop_and_keep_temp_dir();
         eprintln!(
             "Temporary compilation directory was persisted to {:?}",
             path
         );
     }
+    res
+}
 
-    if !linker_status.success() {
-        Err(CliError::LinkingFailed.into())
-    } else {
-        Ok(())
+struct BinaryGenerator {
+    temp_dir: TempDir,
+    asm_out: PathBuf,
+}
+
+impl BinaryGenerator {
+    pub fn new() -> Result<BinaryGenerator, Error> {
+        let temp_dir = tempdir().context(format_err!("cannot create tempdir"))?;
+        let asm_out = temp_dir.path().join("a.s");
+        Ok(BinaryGenerator { temp_dir, asm_out })
+    }
+
+    pub fn asm_out(&self) -> &Path {
+        &self.asm_out
+    }
+
+    pub fn stop_and_keep_temp_dir(self) -> PathBuf {
+        // `into_path(.)` has the side effect "Persist the temporary directory to disk"
+        self.temp_dir.into_path()
+    }
+
+    pub fn emit_binary(&self, binary_path: &Path) -> Result<(), Error> {
+        // get runtime library
+        let runtime_path = self.temp_dir.path().join("mjrt.a");
+        {
+            let mut file = File::create(&runtime_path)?;
+            file.write_all(mjrt::STATIC_LIB)?;
+        }
+
+        // link runtime static library with user's code
+        let linker_status = Command::new("cc")
+            .arg("-o")
+            .arg(binary_path)
+            .args(mjrt::LINKER_FLAGS)
+            .arg(self.asm_out())
+            .arg(&runtime_path)
+            .args(mjrt::LINKER_LIBS)
+            .status()
+            .context(CliError::LinkingFailed)?;
+
+        if !linker_status.success() {
+            Err(CliError::LinkingFailed.into())
+        } else {
+            Ok(())
+        }
     }
 }
 
