@@ -249,6 +249,16 @@ impl Block {
         }
     }
 
+    pub fn immediate_post_dominator(&self) -> Option<Block> {
+        // TODO: check if post dominators are computed
+        let ipostdom = unsafe { bindings::get_Block_ipostdom(self.internal_ir_node()) };
+        if ipostdom.is_null() {
+            None
+        } else {
+            Some(Block::new(ipostdom))
+        }
+    }
+
     pub fn cfg_preds(self) -> CfgPredsIterator {
         CfgPredsIterator::new(self.internal_ir_node())
     }

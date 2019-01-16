@@ -99,6 +99,15 @@ impl Graph {
         unsafe { bindings::compute_doms(self.irg) }
     }
 
+    /// Compute all post dominator information in the graph
+    ///
+    /// NOTE: Also constructs out information
+    /// NOTE: calling this function multiple times without changing
+    ///       the graph will not recompute information and is cheap.
+    pub fn compute_postdoms(self) {
+        unsafe { bindings::compute_postdoms(self.irg) }
+    }
+
     pub fn remove_bads(self) {
         unsafe { bindings::remove_bads(self.irg) }
     }
@@ -177,6 +186,23 @@ impl Graph {
 
         unsafe {
             bindings::dom_tree_walk_irg(
+                self.irg,
+                None,
+                Some(closure_handler_walk_blocks),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
+    pub fn walk_postdom_tree_postorder<F>(self, mut walker: F)
+    where
+        F: FnMut(&Block),
+    {
+        let mut fat_pointer: &mut dyn FnMut(&Block) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            bindings::postdom_tree_walk_irg(
                 self.irg,
                 None,
                 Some(closure_handler_walk_blocks),

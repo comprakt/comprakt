@@ -57,17 +57,33 @@ impl<'a, 'b> GraphData<Node> for FirmProgram<'a, 'b> {
                 );
                 // TODO: this should be implemented on Graph directly, the
                 // information is available without the firm program context
-                let mut dot_dom_tree: Vec<u8> = Vec::new();
-                let graph_name = format!("{}-Dominance-Tree", internal_name.clone());
-                dominance_tree_in_dot_format(&mut dot_dom_tree, &graph_name, graph);
+                {
+                    let mut dot_dom_tree: Vec<u8> = Vec::new();
+                    let graph_name = format!("{}-Dominance-Tree", internal_name.clone());
+                    dominance_tree_in_dot_format(&mut dot_dom_tree, &graph_name, graph);
 
-                dot_files.insert(
-                    graph_name.clone(),
-                    GraphState {
-                        name: format!("{}.{}[Dominance Tree]", class_name, method_name),
-                        dot_content: String::from_utf8_lossy(&dot_dom_tree).to_string(),
-                    },
-                );
+                    dot_files.insert(
+                        graph_name.clone(),
+                        GraphState {
+                            name: format!("{}.{}[Dominance Tree]", class_name, method_name),
+                            dot_content: String::from_utf8_lossy(&dot_dom_tree).to_string(),
+                        },
+                    );
+                }
+
+                {
+                    let mut dot_dom_tree: Vec<u8> = Vec::new();
+                    let graph_name = format!("{}-Post-Dominance-Tree", internal_name.clone());
+                    post_dominance_tree_in_dot_format(&mut dot_dom_tree, &graph_name, graph);
+
+                    dot_files.insert(
+                        graph_name.clone(),
+                        GraphState {
+                            name: format!("{}.{}[Post Dominance Tree]", class_name, method_name),
+                            dot_content: String::from_utf8_lossy(&dot_dom_tree).to_string(),
+                        },
+                    );
+                }
             }
         }
 
@@ -220,6 +236,35 @@ fn dominance_tree_in_dot_format(writer: &mut dyn Write, graph_name: &str, graph:
             writeln!(
                 writer,
                 "{:?} -> {:?} [color=blue];",
+                idom.node_id(),
+                block.node_id()
+            )
+            .unwrap();
+        }
+    }
+    writeln!(writer, "}}").unwrap();
+}
+
+fn post_dominance_tree_in_dot_format(writer: &mut dyn Write, graph_name: &str, graph: Graph) {
+    // TODO: onyl render if post dominators are computed. Side effects in
+    // debugging code is a bad idea
+    // TODO: deduplicate with dominance_tree_in_dot_format
+    graph.compute_postdoms();
+
+    let mut list = Vec::new();
+    graph.walk_postdom_tree_postorder(|block| {
+        list.push(*block);
+    });
+
+    writeln!(writer, "digraph {} {{", dot_string(graph_name)).unwrap();
+    for block in list.iter() {
+        let label = dom_info_box(&Node::Block(*block));
+        label.write_dot_format(block.node_id(), writer);
+
+        if let Some(idom) = block.immediate_post_dominator() {
+            writeln!(
+                writer,
+                "{:?} -> {:?} [color=red];",
                 idom.node_id(),
                 block.node_id()
             )
