@@ -20,7 +20,13 @@ pub(super) struct LiveRange {
 
 impl Ord for LiveRange {
     fn cmp(&self, other: &LiveRange) -> Ordering {
-        self.interval.lower().cmp(&other.interval.lower())
+        match self.interval.lower().cmp(&other.interval.lower()) {
+            Ordering::Equal => match self.var_id.0.cmp(&other.var_id.0) {
+                Ordering::Equal => self.var_id.1.cmp(&other.var_id.1),
+                ord => ord,
+            },
+            ord => ord,
+        }
     }
 }
 
@@ -39,7 +45,14 @@ struct Active(LiveRange);
 
 impl Ord for Active {
     fn cmp(&self, other: &Active) -> Ordering {
-        self.interval.upper().cmp(&other.interval.upper())
+        match self.interval.upper().cmp(&other.interval.upper()) {
+            // If the upper bound is the same take the var that was allocated earlier
+            Ordering::Equal => match self.var_id.0.cmp(&other.var_id.0) {
+                Ordering::Equal => self.var_id.1.cmp(&other.var_id.1),
+                ord => ord,
+            },
+            ord => ord,
+        }
     }
 }
 
@@ -64,7 +77,7 @@ pub(super) enum Location {
     /// stack frame for each function, so that we don't need Push/Pop
     /// instructions, but can just Move from/onto the stack. This means,
     /// that we just need the position on the stack and then can access the Var
-    /// with `0(%rbp, $idx, $8)` (or pre-compute the offset: `($idx*8)(%rbp)`)
+    /// with `-idx*8(%rbp)`
     Mem(usize),
     /// Params which are already stored on the stack won't need extra allocation
     /// on the stack. The exact address computation for these is already
