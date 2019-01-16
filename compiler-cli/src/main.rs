@@ -113,64 +113,17 @@ pub enum CliCommand {
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
-    /// Output x86-assembler and optionally the firm graph in various stages.
-    /// Defaults to writing to standard out.
-    #[structopt(name = "--emit-asm")]
-    EmitAsm(AsmLoweringOptions),
 
     /// Output an executable. Defaults to 'a.out' in the current working
     /// directory.
     #[structopt(name = "--compile-firm")]
-    CompileFirm(BinaryLoweringOptions),
-}
-
-/// Command-line options for the [`CliCommand::EmitAsm`]  (`--emit-asm`) call.
-#[derive(StructOpt, Debug, Clone, Default)]
-pub struct AsmLoweringOptions {
-    /// Folder to dump graphs to
-    #[structopt(long = "--emit-to", default_value = ".", parse(from_os_str))]
-    pub dump_folder: PathBuf,
-
-    /// Output the matured unlowered firm graphs as VCG files to the dump_folder
-    #[structopt(long = "--emit-firm-graph", short = "-g")]
-    pub dump_firm_graph: bool,
-
-    /// Dump class layouts in text form to dump_folder
-    #[structopt(long = "--emit-class-layouts", short = "-c")]
-    pub dump_class_layouts: bool,
-
-    /// Write primary output artifact to the given file or directory
-    #[structopt(long = "--output", short = "-o", parse(from_os_str))]
-    pub output: Option<PathBuf>,
-
-    /// Optimization level that should be applied
-    #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
-    pub optimizations: optimization_arg::Arg,
-
-    /// A MiniJava input file
-    #[structopt(name = "FILE", parse(from_os_str))]
-    pub path: PathBuf,
-}
-
-impl Into<firm::Options> for AsmLoweringOptions {
-    fn into(self) -> firm::Options {
-        firm::Options {
-            dump_assembler: Some(match self.output {
-                None => OutputSpecification::Stdout,
-                Some(path) => OutputSpecification::File(path),
-            }),
-            dump_folder: self.dump_folder,
-            dump_firm_graph: self.dump_firm_graph,
-            dump_class_layouts: self.dump_class_layouts,
-            optimizations: self.optimizations.into(),
-        }
-    }
+    CompileFirm(CompileFirmOptions),
 }
 
 /// Command-line options for the [`CliCommand::CompileFirm`] (`--compile-firm`)
 /// call.
 #[derive(StructOpt, Debug, Clone, Default)]
-pub struct BinaryLoweringOptions {
+pub struct CompileFirmOptions {
     /// Folder to dump graphs to
     #[structopt(long = "--emit-to", default_value = ".", parse(from_os_str))]
     pub dump_folder: PathBuf,
@@ -183,7 +136,7 @@ pub struct BinaryLoweringOptions {
     #[structopt(long = "--emit-class-layouts", short = "-c")]
     pub dump_class_layouts: bool,
 
-    /// Write assembly for user code
+    /// Write assembly for user code (will still produce a binary, too).
     #[structopt(long = "--emit-asm", short = "-a", parse(from_os_str))]
     pub dump_assembly: Option<PathBuf>,
 
@@ -200,7 +153,7 @@ pub struct BinaryLoweringOptions {
     pub path: PathBuf,
 }
 
-impl Into<firm::Options> for BinaryLoweringOptions {
+impl Into<firm::Options> for CompileFirmOptions {
     fn into(self) -> firm::Options {
         firm::Options {
             dump_assembler: self.dump_assembly.map(OutputSpecification::File),
@@ -259,7 +212,6 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path),
-        CliCommand::EmitAsm(options) => cmd_emit_asm(options),
         CliCommand::CompileFirm(options) => cmd_compile_firm(options),
     }
 }
@@ -367,7 +319,7 @@ macro_rules! until_after_type_check {
 
 const DEFAULT_BINARY_FILENAME: &str = "a.out";
 
-fn cmd_compile_firm(options: &BinaryLoweringOptions) -> Result<(), Error> {
+fn cmd_compile_firm(options: &CompileFirmOptions) -> Result<(), Error> {
     until_after_type_check!(let (strtab, type_system, type_analysis) = &options.path);
 
     let temp_dir = tempdir()?;
@@ -422,13 +374,6 @@ fn cmd_compile_firm(options: &BinaryLoweringOptions) -> Result<(), Error> {
     } else {
         Ok(())
     }
-}
-
-fn cmd_emit_asm(opts: &AsmLoweringOptions) -> Result<(), Error> {
-    until_after_type_check!(let (strtab, type_system, type_analysis) = &opts.path);
-    let firm_options = opts.clone().into();
-    unsafe { firm::build(&firm_options, &type_system, &type_analysis, &mut strtab)? };
-    Ok(())
 }
 
 fn cmd_check(path: &PathBuf) -> Result<(), Error> {
