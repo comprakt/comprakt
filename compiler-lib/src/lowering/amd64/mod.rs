@@ -73,9 +73,11 @@ impl Program {
         Self { functions }
     }
 
-    pub fn emit_asm(&mut self) {
+    pub fn emit_asm(&mut self, out: &mut impl std::io::Write) -> std::io::Result<()> {
+        writeln!(out, "\t.text")?;
         for (f, graph) in self.functions.iter_mut() {
-            f.allocate_registers(*graph);
+            f.emit_asm(*graph, out)?;
         }
+        Ok(())
     }
 }

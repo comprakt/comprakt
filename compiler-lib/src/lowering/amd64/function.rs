@@ -247,7 +247,11 @@ impl Function {
         }
     }
 
-    pub fn allocate_registers(&mut self, graph: Ptr<lir::BlockGraph>) {
+    pub fn emit_asm(
+        &mut self,
+        graph: Ptr<lir::BlockGraph>,
+        out: &mut impl std::io::Write,
+    ) -> std::io::Result<()> {
         let mut lva = LiveVariableAnalysis::new(self.cconv, graph);
         lva.run(graph.end_block);
 
@@ -257,9 +261,33 @@ impl Function {
         // FIXME: self.save_callee_save_regs(???)
         self.allocate_stack(lsa.stack_vars_counter);
 
-        let mut codegen = Codegen::new(lva.postorder_blocks, lsa.var_location, &self.name);
+        log::debug!("{:?}", lsa.var_location.keys());
 
-        codegen.run();
+        let mut codegen = Codegen::new(lva.postorder_blocks, lsa.var_location);
+        codegen.run(&self);
+
+        self.function_prolog(out)?;
+        for instr in codegen.instrs {
+            writeln!(out, "{}", instr)?;
+        }
+        self.function_epilog(out)?;
+
+        Ok(())
+    }
+
+    fn function_prolog(&self, out: &mut impl std::io::Write) -> std::io::Result<()> {
+        writeln!(out, "# -- Begin  {}", self.name)?;
+        // "\t.p2align %u,%s,%u\n", po2alignment, fill_byte, maximum_skip
+        writeln!(out, "\t.p2align  4,,15")?; // .p2align 4,,15
+
+        writeln!(out, "\t.globl  {}", self.name)?; // .globl mj_main
+        writeln!(out, "\t.type\t{}, @function", self.name)?;
+        writeln!(out, "{}:", self.name)
+    }
+
+    fn function_epilog(&self, out: &mut impl std::io::Write) -> std::io::Result<()> {
+        writeln!(out, "\t.size\t{name}, .-{name}", name = self.name)?;
+        writeln!(out, "# -- End {}\n", self.name)
     }
 
     fn build_lsa(&self, lva: &LiveVariableAnalysis) -> linear_scan::LinearScanAllocator {
