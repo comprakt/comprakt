@@ -1,7 +1,7 @@
 use super::{
-    function::FunctionCall,
-    lir::{self, BasicBlock},
-    var_id, CallingConv, Operand, VarId,
+    function::{FnOperand, FunctionCall},
+    lir::{self, BasicBlock, MultiSlot},
+    var_id, CallingConv, VarId,
 };
 use crate::lowering::lir_allocator::Ptr;
 use libfirm_rs::nodes::NodeTrait;
@@ -240,12 +240,12 @@ impl Instruction {
                     match instr {
                         // dst in setup is always a Reg in a Movq instruction
                         FnInstruction::Movq { src, .. } => match src {
-                            Operand::LirOperand(op) => ops.push(*op),
-                            Operand::Reg(_) => (),
+                            FnOperand::Lir(op) => ops.push(*op),
+                            FnOperand::Reg(_) => (),
                         },
                         FnInstruction::Pushq { src } => match src {
-                            Operand::LirOperand(op) => ops.push(*op),
-                            Operand::Reg(_) => (),
+                            FnOperand::Lir(op) => ops.push(*op),
+                            FnOperand::Reg(_) => (),
                         },
                         _ => unreachable!(), // Popq and Addq are not in setup
                     }
@@ -288,8 +288,8 @@ impl Instruction {
                     // src of move_res is always %rax
                     if let FnInstruction::Movq { dst, .. } = res {
                         match dst {
-                            Operand::LirOperand(op) => return Some(op),
-                            Operand::Reg(_) => unreachable!(),
+                            FnOperand::Lir(op) => return Some(op),
+                            FnOperand::Reg(_) => unreachable!(),
                         }
                     } else {
                         unreachable!()

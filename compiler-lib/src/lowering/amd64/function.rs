@@ -1,7 +1,6 @@
 use super::{
     codegen::Codegen, linear_scan, live_variable_analysis::LiveVariableAnalysis,
-    register::RegisterAllocator, var_id, Amd64Reg, CallingConv, Instruction, MoveOperand, Operand,
-    VarId,
+    register::RegisterAllocator, var_id, Amd64Reg, CallingConv, VarId,
 };
 use crate::lowering::{lir, lir_allocator::Ptr};
 use interval::{ops::Range, Interval};
@@ -9,13 +8,13 @@ use libfirm_rs::Tarval;
 use std::collections::{BTreeSet, HashMap};
 
 macro_rules! save_regs {
-    ([$($reg:ident),*], $instr_kind:ident, $save_instrs:expr, $restore_instrs:expr) => {{
+    ([$($reg:expr),*], $save_instrs:expr, $restore_instrs:expr) => {{
         $(
-            $save_instrs.push($instr_kind::Pushq {
-                src: Operand::Reg(Amd64Reg::$reg),
+            $save_instrs.push(FnInstruction::Pushq {
+                src: FnOperand::Reg($reg),
             });
-            $restore_instrs.push($instr_kind::Popq {
-                dst: Operand::Reg(Amd64Reg::$reg),
+            $restore_instrs.push(FnInstruction::Popq {
+                dst: FnOperand::Reg($reg),
             });
         )*
     }};
@@ -25,26 +24,44 @@ type Label = String;
 
 #[derive(Debug, Copy, Clone)]
 pub(super) enum FnInstruction {
-    Movq { src: Operand, dst: Operand },
-    Pushq { src: Operand },
-    Popq { dst: Operand },
-    Addq { src: Tarval, dst: Operand },
+    Movq { src: FnOperand, dst: FnOperand },
+    Pushq { src: FnOperand },
+    Popq { dst: FnOperand },
+    Addq { src: Tarval, dst: Amd64Reg },
+    Subq { src: Tarval, dst: Amd64Reg },
+    Leave,
+    Ret,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub(super) enum FnOperand {
+    Lir(lir::Operand),
+    Reg(Amd64Reg),
+}
+
+impl std::fmt::Display for FnOperand {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FnOperand::Lir(op) => write!(fmt, "{}", op),
+            FnOperand::Reg(reg) => write!(fmt, "{}", reg),
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]
 pub(super) struct FunctionCall {
     /// Save the own arguments
-    arg_save: Vec<FnInstruction>,
+    pub(super) arg_save: Vec<FnInstruction>,
     /// Put the parameters where they belong
     pub(super) setup: Vec<FnInstruction>,
     /// Call label
-    label: Label,
+    pub(super) label: Label,
     /// If a result is produced, move it in the register
     pub(super) move_res: Option<FnInstruction>,
     /// If arguments were put on the stack, reset the stack pointer
-    recover: Option<FnInstruction>,
+    pub(super) recover: Option<FnInstruction>,
     /// Get the own arguments back
-    arg_recover: Vec<FnInstruction>,
+    pub(super) arg_recover: Vec<FnInstruction>,
 }
 
 impl FunctionCall {
@@ -63,27 +80,18 @@ impl FunctionCall {
         if let lir::Instruction::Call { func, args, dst } = call {
             self.label = func;
 
-            // Save all caller-save registers on the stack
-            // This needs cleanup after the register allocation
-            save_regs!(
-                [Rdi, Rsi, Rdx, Rcx, R8, R9, R10, R11, Rax],
-                FnInstruction,
-                self.arg_save,
-                self.arg_recover
-            );
-
             let mut push_setup = vec![];
             for (i, arg) in args.into_iter().enumerate() {
                 if i < 6 {
                     // Fill the function argument registers
                     self.setup.push(FnInstruction::Movq {
-                        src: Operand::LirOperand(arg),
-                        dst: Operand::Reg(Amd64Reg::arg(i)),
+                        src: FnOperand::Lir(arg),
+                        dst: FnOperand::Reg(Amd64Reg::arg(i)),
                     });
                 } else {
                     // Push the other args on the stack
                     push_setup.push(FnInstruction::Pushq {
-                        src: Operand::LirOperand(arg),
+                        src: FnOperand::Lir(arg),
                     });
                 }
             }
@@ -91,7 +99,7 @@ impl FunctionCall {
                 // Remove the pushed args from stack after the call
                 self.recover = Some(FnInstruction::Addq {
                     src: Tarval::mj_int((push_setup.len() * 8) as i64),
-                    dst: Operand::Reg(Amd64Reg::Rsp),
+                    dst: Amd64Reg::Rsp,
                 });
 
                 // Rev the pushed args order: .., 8, 7, 6
@@ -100,8 +108,8 @@ impl FunctionCall {
             }
 
             self.move_res = dst.map(|dst| FnInstruction::Movq {
-                src: Operand::Reg(Amd64Reg::Rax),
-                dst: Operand::LirOperand(lir::Operand::Slot(dst)),
+                src: FnOperand::Reg(Amd64Reg::Rax),
+                dst: FnOperand::Lir(lir::Operand::Slot(dst)),
             });
         } else {
             unreachable!("A FunctionCall can only be setup for a Call instruction")
@@ -150,20 +158,20 @@ pub struct Function {
     pub(super) nargs: usize,
     /// Calling convention
     pub(super) cconv: CallingConv,
-    /// The name of the function. Required by the codegen for label creation.
+    /// Function name
     name: String,
     /// Setup of the function. Get's filled initially
-    prolog: Vec<Instruction>,
+    pub(super) prolog: Vec<FnInstruction>,
     /// Save callee-save registers. A call to `self.save_callee_save_regs` is
     /// needed after the register allocation
-    save_regs: Vec<Instruction>,
+    pub(super) save_regs: Vec<FnInstruction>,
     /// Allocates stack memory. An extra function needs to be called
-    allocate: Option<Instruction>,
+    pub(super) allocate: Option<FnInstruction>,
     /// Restore callee-save registers. This will be setup together with
     /// `save_regs`
-    restore_regs: Vec<Instruction>,
+    pub(super) restore_regs: Vec<FnInstruction>,
     /// Restore of previous stack pointer and return. Get's filled initially
-    epilog: Vec<Instruction>,
+    pub(super) epilog: Vec<FnInstruction>,
 }
 
 impl Function {
@@ -223,26 +231,11 @@ impl Function {
         // registers if more than 9 registers are required.
         match num_regs_required {
             x if x < 10 => (), // Enough caller save registers available
-            10 => save_regs!([Rbx], Instruction, self.save_regs, self.restore_regs),
-            11 => save_regs!([Rbx, R12], Instruction, self.save_regs, self.restore_regs),
-            12 => save_regs!(
-                [Rbx, R12, R13],
-                Instruction,
-                self.save_regs,
-                self.restore_regs
-            ),
-            13 => save_regs!(
-                [Rbx, R12, R13, R14],
-                Instruction,
-                self.save_regs,
-                self.restore_regs
-            ),
-            14 => save_regs!(
-                [Rbx, R12, R13, R14, R15],
-                Instruction,
-                self.save_regs,
-                self.restore_regs
-            ),
+            10 => save_regs!([Rbx], self.save_regs, self.restore_regs),
+            11 => save_regs!([Rbx, R12], self.save_regs, self.restore_regs),
+            12 => save_regs!([Rbx, R12, R13], self.save_regs, self.restore_regs),
+            13 => save_regs!([Rbx, R12, R13, R14], self.save_regs, self.restore_regs),
+            14 => save_regs!([Rbx, R12, R13, R14, R15], self.save_regs, self.restore_regs),
             _ => unreachable!("More registers required than available"),
         }
     }
@@ -258,7 +251,7 @@ impl Function {
         let mut lsa = self.build_lsa(&lva);
         lsa.run(&mut lva.postorder_blocks);
 
-        // FIXME: self.save_callee_save_regs(???)
+        self.save_callee_save_regs(lsa.num_regs_required);
         self.allocate_stack(lsa.stack_vars_counter);
 
         log::debug!("{:?}", lsa.var_location.keys());

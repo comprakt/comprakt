@@ -1,7 +1,4 @@
-use crate::lowering::{
-    amd64::{self, CallingConv, MoveOperand, Operand},
-    lir,
-};
+use crate::lowering::amd64::CallingConv;
 use std::{cmp::Ordering, collections::BTreeMap};
 
 #[derive(Display, Debug, PartialEq, Eq, Copy, Clone)]
