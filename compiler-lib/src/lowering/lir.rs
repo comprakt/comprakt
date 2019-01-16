@@ -280,15 +280,15 @@ impl fmt::Debug for Instruction {
 
 /// This implements address computation, see
 /// http://www.c-jump.com/CIS77/CPU/x86/lecture.html#X77_0110_scaled_indexed
-#[derive(Debug, Clone)]
-pub struct AddressComputation<Op: Display> {
+#[derive(Debug, Copy, Clone)]
+pub struct AddressComputation<Op: Display + Copy> {
     // offset(base, index, stride) = offset + base + index * stride
     pub offset: isize,
     pub base: Op,
     pub index: IndexComputation<Op>,
 }
 
-impl<Op: Display> std::fmt::Display for AddressComputation<Op> {
+impl<Op: Display + Copy> std::fmt::Display for AddressComputation<Op> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let index = match &self.index {
             IndexComputation::Zero => String::new(),
@@ -299,13 +299,13 @@ impl<Op: Display> std::fmt::Display for AddressComputation<Op> {
 }
 
 /// Index of AddressComputation variant of the Instruction enum.
-#[derive(Debug, Clone)]
-pub enum IndexComputation<Op: Display> {
+#[derive(Debug, Copy, Clone)]
+pub enum IndexComputation<Op: Display + Copy> {
     Displacement(Op, Stride),
     Zero,
 }
 
-#[derive(Debug, Display, Clone)]
+#[derive(Debug, Display, Copy, Clone)]
 pub enum Stride {
     #[display(fmt = "1")]
     One,
