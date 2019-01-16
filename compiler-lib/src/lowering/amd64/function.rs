@@ -112,34 +112,36 @@ impl FunctionCall {
         if let lir::Instruction::Call { func, args, dst } = call {
             self.label = func;
 
-            // Save all caller-save registers on the stack
-            // This needs cleanup after the register allocation
-            save_regs!(
-                [Rdi, Rsi, Rdx, Rcx, R8, R9, R10, R11, Rax],
-                FnInstruction,
-                self.arg_save,
-                self.arg_recover
-            );
-
             for arg in args.into_iter().rev() {
                 self.setup.push(FnInstruction::Pushq {
-                    src: Operand::LirOperand(arg),
+                    src: FnOperand::Lir(arg),
                 });
             }
 
-            // Remove the pushed args from stack after the call
-            self.recover = Some(FnInstruction::Addq {
-                src: Tarval::mj_int((self.setup.len() * 8) as i64),
-                dst: Operand::Reg(Amd64Reg::Rsp),
-            });
+            if !self.setup.is_empty() {
+                // Remove the pushed args from stack after the call
+                self.recover = Some(FnInstruction::Addq {
+                    src: Tarval::mj_int((self.setup.len() * 8) as i64),
+                    dst: Amd64Reg::Rsp,
+                });
+            }
 
             self.move_res = dst.map(|dst| FnInstruction::Movq {
-                src: Operand::Reg(Amd64Reg::Rax),
-                dst: Operand::LirOperand(lir::Operand::Slot(dst)),
+                src: FnOperand::Reg(Amd64Reg::Rax),
+                dst: FnOperand::Lir(lir::Operand::Slot(dst)),
             });
         } else {
             unreachable!("A FunctionCall can only be setup for a Call instruction")
         }
+    }
+
+    pub(super) fn save_regs(&mut self, regs: &[Amd64Reg]) {
+        log::debug!("Save regs: {:?}", regs);
+        regs.iter()
+            .filter(|reg| reg.is_caller_save())
+            .for_each(|reg| {
+                save_regs!([*reg], self.arg_save, self.arg_recover);
+            })
     }
 }
 
@@ -177,32 +179,27 @@ impl Function {
             epilog: vec![],
         };
 
-        function.prolog.push(Instruction::Pushq {
-            src: Operand::Reg(Amd64Reg::Rbp),
+        function.prolog.push(FnInstruction::Pushq {
+            src: FnOperand::Reg(Amd64Reg::Rbp),
         });
-        function.prolog.push(Instruction::Movq {
-            src: MoveOperand::Operand(Operand::Reg(Amd64Reg::Rsp)),
-            dst: MoveOperand::Operand(Operand::Reg(Amd64Reg::Rbp)),
+        function.prolog.push(FnInstruction::Movq {
+            src: FnOperand::Reg(Amd64Reg::Rsp),
+            dst: FnOperand::Reg(Amd64Reg::Rbp),
         });
 
-        function.epilog.push(Instruction::Movq {
-            src: MoveOperand::Operand(Operand::Reg(Amd64Reg::Rbp)),
-            dst: MoveOperand::Operand(Operand::Reg(Amd64Reg::Rsp)),
-        });
-        function.epilog.push(Instruction::Popq {
-            dst: Operand::Reg(Amd64Reg::Rbp),
-        });
-        function.epilog.push(Instruction::Ret);
+        function.epilog.push(FnInstruction::Leave);
+        function.epilog.push(FnInstruction::Ret);
 
         function
     }
 
-    #[allow(unused)]
     pub(super) fn allocate_stack(&mut self, slots: usize) {
-        self.allocate = Some(Instruction::Subq {
-            src: Operand::LirOperand(lir::Operand::Imm(Tarval::mj_int(8 * slots as i64))),
-            dst: Operand::Reg(Amd64Reg::Rsp),
-        });
+        if slots > 0 {
+            self.allocate = Some(FnInstruction::Subq {
+                src: Tarval::mj_int(8 * slots as i64),
+                dst: Amd64Reg::Rsp,
+            });
+        }
     }
 
     /// This function should be called by the register allocator, after
@@ -218,8 +215,8 @@ impl Function {
     ///
     /// This function panics, if the number of required registers is higher,
     /// than the total available registers.
-    #[allow(unused)]
     pub(super) fn save_callee_save_regs(&mut self, num_regs_required: usize) {
+        use super::Amd64Reg::*;
         // There are 5 callee save registers: %rbx, %r12-r15
         // %rbp is also callee save, but we never allocate this register
         // There are 10 caller save registers, but %rsp is reserved, so we need to save
@@ -252,12 +249,10 @@ impl Function {
 
     pub fn allocate_registers(&mut self, graph: Ptr<lir::BlockGraph>) {
         let mut lva = LiveVariableAnalysis::new(self.cconv, graph);
-
         lva.run(graph.end_block);
 
         let mut lsa = self.build_lsa(&lva);
-
-        lsa.run();
+        lsa.run(&mut lva.postorder_blocks);
 
         // FIXME: self.save_callee_save_regs(???)
         self.allocate_stack(lsa.stack_vars_counter);
@@ -297,7 +292,7 @@ impl Function {
         }
 
         let mut var_live = BTreeSet::new();
-        for (var_id, instrs) in map {
+        for (var_id, instrs) in &map {
             let last_instr = instrs.iter().last().unwrap();
             let last_block_alive = lva.liveness.get(&var_id).map_or(last_instr.0, |blocks| {
                 blocks.iter().max_by(|a, b| a.num.cmp(&b.num)).unwrap().num
@@ -311,10 +306,13 @@ impl Function {
                 },
             );
 
-            var_live.insert(linear_scan::LiveRange { var_id, interval });
+            var_live.insert(linear_scan::LiveRange {
+                var_id: *var_id,
+                interval,
+            });
         }
 
-        log::debug!("{:?}", var_live);
+        debug_assert_eq!(var_live.len(), map.len());
 
         linear_scan::LinearScanAllocator::new(
             RegisterAllocator::new(self.nargs, self.cconv),

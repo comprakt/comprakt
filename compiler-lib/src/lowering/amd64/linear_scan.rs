@@ -1,4 +1,5 @@
 use super::{
+    live_variable_analysis::{Block, Instruction},
     register::{Amd64Reg, RegisterAllocator},
     VarId,
 };
@@ -110,6 +111,7 @@ pub(super) struct LinearScanAllocator {
     /// Mapping for `VarId`s to their location, determined by the linear scan
     /// algorithm
     pub(super) var_location: HashMap<VarId, Location>,
+    pub(super) num_regs_required: usize,
 }
 
 impl LinearScanAllocator {
@@ -130,32 +132,57 @@ impl LinearScanAllocator {
             }
         }
 
+        let num_regs_required = active.len();
+
         Self {
             reg_alloc,
             var_live,
             active,
             stack_vars_counter: 0,
             var_location,
+            num_regs_required,
         }
     }
 
-    pub(super) fn run(&mut self) {
-        for live_range in self.var_live.clone() {
-            self.expire_old_intervals(live_range.interval);
+    pub(super) fn run(&mut self, blocks: &mut [Block]) {
+        let var_live = self.var_live.clone();
+        let mut lr_iter = var_live.iter().peekable();
 
-            if live_range.var_id.0 == -1 && self.active.contains(&Active(live_range)) {
-                // A register was already assigned to this argument. This is the case when the
-                // calling convention uses registers for arguments and the argument wasn't
-                // already spilled.
-                continue;
-            }
+        for block in blocks.iter_mut() {
+            for (i, instr) in block.instrs.iter_mut().enumerate() {
+                if let Instruction::Call(call) = instr {
+                    call.save_regs(&self.reg_alloc.occupied_regs().collect::<Vec<_>>());
+                }
 
-            if let Some(reg) = self.reg_alloc.alloc_reg() {
-                self.var_location
-                    .insert(live_range.var_id, Location::Reg(reg));
-                self.active.insert(Active(live_range));
-            } else {
-                self.spill_at(live_range);
+                while let Some(live_range) = lr_iter.peek() {
+                    if live_range.interval.lower() >= i {
+                        self.expire_old_intervals(live_range.interval);
+
+                        if live_range.var_id.0 == -1 && self.active.contains(&Active(**live_range))
+                        {
+                            // A register was already assigned to this argument. This is the case
+                            // when the calling convention uses
+                            // registers for arguments and the argument
+                            // wasn't already spilled.
+                            lr_iter.next();
+                            continue;
+                        }
+
+                        if let Some(reg) = self.reg_alloc.alloc_reg() {
+                            self.var_location
+                                .insert(live_range.var_id, Location::Reg(reg));
+                            self.active.insert(Active(**live_range));
+                            self.num_regs_required =
+                                std::cmp::max(self.active.len(), self.num_regs_required);
+                        } else {
+                            self.spill_at(**live_range);
+                        }
+
+                        lr_iter.next();
+                    } else {
+                        break;
+                    }
+                }
             }
         }
     }
