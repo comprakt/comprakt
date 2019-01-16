@@ -15,8 +15,8 @@ pub(super) enum Instruction {
     Call(FunctionCall),
     Lir(lir::Instruction),
     Mov {
-        src: lir::Operand,
-        dst: lir::Operand,
+        src: Ptr<MultiSlot>,
+        dst: Ptr<MultiSlot>,
     },
     Leave(lir::Leave),
 }
@@ -27,8 +27,8 @@ pub(super) struct Block {
     /// postorder of the BlockGraph blocks. This reversed postorder is needed by
     /// the linear scan algorithm
     pub(super) num: usize,
-    /// Only or debugging purposes
-    pub(super) _firm_num: i64,
+    /// For label generation
+    pub(super) firm_num: i64,
     pub(super) instrs: Vec<Instruction>,
 }
 
@@ -70,14 +70,14 @@ impl LiveVariableAnalysis {
         self.gen_queue(end_block, &mut HashSet::new());
         let mut ins: HashMap<libfirm_rs::nodes::Block, HashSet<VarId>> = HashMap::new();
         let mut outs: HashMap<libfirm_rs::nodes::Block, HashSet<VarId>> = HashMap::new();
+        let mut block_code_map: HashMap<libfirm_rs::nodes::Block, Block> = HashMap::new();
 
-        let mut block_code_map = HashMap::new();
         for (num, block) in self.graph.postorder_blocks().iter().rev().enumerate() {
             block_code_map.insert(
                 block.firm,
                 Block {
                     num,
-                    _firm_num: block.num,
+                    firm_num: block.num,
                     instrs: self.gen_code(&block),
                 },
             );
@@ -147,10 +147,12 @@ impl LiveVariableAnalysis {
         let mut instrs = vec![];
 
         for lir::CopyPropagation { src, dst } in &code.copy_in {
-            instrs.push(Instruction::Mov {
-                src: lir::Operand::Slot(*src),
-                dst: lir::Operand::Slot(dst.multislot()),
-            });
+            if !src.firm().mode().is_mem() && !dst.firm.mode().is_mem() {
+                instrs.push(Instruction::Mov {
+                    src: *src,
+                    dst: dst.multislot(),
+                });
+            }
         }
         for instr in &code.body {
             match instr {
@@ -159,10 +161,12 @@ impl LiveVariableAnalysis {
             }
         }
         for lir::CopyPropagation { src, dst } in &code.copy_out {
-            instrs.push(Instruction::Mov {
-                src: lir::Operand::Slot(*src),
-                dst: lir::Operand::Slot(dst.multislot()),
-            });
+            if !src.firm().mode().is_mem() && !dst.firm.mode().is_mem() {
+                instrs.push(Instruction::Mov {
+                    src: *src,
+                    dst: dst.multislot(),
+                });
+            }
         }
         if let Some(leave) = code.leave.get(0) {
             instrs.push(Instruction::Leave(leave.clone()));
@@ -231,7 +235,7 @@ impl Instruction {
                 }
                 Comment(_) => vec![],
             },
-            Instruction::Mov { src, .. } => vec![*src],
+            Instruction::Mov { src, .. } => vec![lir::Operand::Slot(*src)],
             Instruction::Call(call) => {
                 // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
                 let mut ops = vec![];
@@ -271,14 +275,13 @@ impl Instruction {
                 Binop { dst, .. } | Div { dst, .. } | Mod { dst, .. } => {
                     Some(lir::Operand::Slot(*dst))
                 }
-                Unop { dst, .. } => Some(lir::Operand::Slot(*dst)),
-                Conv { dst, .. } => Some(*dst),
+                Unop { dst, .. } | Conv { dst, .. } => Some(lir::Operand::Slot(*dst)),
                 Call { .. } => None,
                 StoreMem { .. } => None,
                 LoadMem { dst, .. } => Some(lir::Operand::Slot(*dst)),
                 Comment(_) => None,
             },
-            Instruction::Mov { dst, .. } => Some(*dst),
+            Instruction::Mov { dst, .. } => Some(lir::Operand::Slot(*dst)),
             Instruction::Call(call) => {
                 // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
 

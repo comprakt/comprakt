@@ -205,42 +205,6 @@ impl RegisterAllocator {
             None
         }
     }
-
-    /// Depending on the calling convention some args are in registers. This
-    /// function returns the Movq instruction from either a register or an
-    /// address into the dst.
-    #[allow(unused)]
-    pub(super) fn arg(&self, idx: usize, dst: &lir::Operand) -> amd64::Instruction {
-        self.arg_from_reg(idx, dst)
-            .unwrap_or_else(|| self.arg_from_stack(idx, dst))
-    }
-
-    fn arg_from_reg(&self, idx: usize, dst: &lir::Operand) -> Option<amd64::Instruction> {
-        self.arg_in_reg(idx).and_then(|reg| {
-            Some(amd64::Instruction::Movq {
-                src: MoveOperand::Operand(Operand::Reg(reg)),
-                dst: MoveOperand::Operand(Operand::LirOperand(*dst)),
-            })
-        })
-    }
-
-    fn arg_from_stack(&self, idx: usize, dst: &lir::Operand) -> amd64::Instruction {
-        let offset = match self.cconv {
-            CallingConv::Stack => (idx + 1) * 8 + 8,
-            CallingConv::X86_64 => {
-                debug_assert!(idx >= 6);
-                (idx + 1 - 6) * 8 + 8
-            }
-        } as isize;
-        amd64::Instruction::Movq {
-            src: MoveOperand::Addr(lir::AddressComputation {
-                offset,
-                base: Operand::Reg(Amd64Reg::Rbp),
-                index: lir::IndexComputation::Zero,
-            }),
-            dst: MoveOperand::Operand(Operand::LirOperand(*dst)),
-        }
-    }
 }
 
 #[cfg(test)]
