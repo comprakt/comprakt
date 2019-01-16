@@ -221,6 +221,7 @@ fn dominance_tree_in_dot_format(writer: &mut dyn Write, graph_name: &str, graph:
     // TODO: onyl render if dominators are computed. Side effects in
     // debugging code is a bad idea
     graph.compute_doms();
+    graph.assure_loopinfo();
 
     let mut list = Vec::new();
     graph.walk_dom_tree_postorder(|block| {
@@ -250,6 +251,7 @@ fn post_dominance_tree_in_dot_format(writer: &mut dyn Write, graph_name: &str, g
     // debugging code is a bad idea
     // TODO: deduplicate with dominance_tree_in_dot_format
     graph.compute_postdoms();
+    graph.assure_loopinfo();
 
     let mut list = Vec::new();
     graph.walk_postdom_tree_postorder(|block| {
@@ -278,8 +280,9 @@ pub fn dom_info_box(node: &Node) -> Label {
     if let Node::Block(block) = node {
         let dom_depth = unsafe { bindings::get_Block_dom_depth(node.internal_ir_node()) };
         Label::from_text(format!(
-            r#"{{{body}|{{Dom Depth|{}}}}}"#,
+            r#"{{{body}|{{Dom Depth|{dom_depth}}}|{{Loop Depth|{loop_depth}}}}}"#,
             dom_depth = dom_depth,
+            loop_depth = block.loop_depth(),
             body = escape_record_content(&format!("{:?}", block)),
         ))
         .shape(Shape::Record)

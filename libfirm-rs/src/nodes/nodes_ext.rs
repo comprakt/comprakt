@@ -249,6 +249,12 @@ impl Block {
         }
     }
 
+    pub fn loop_depth(&self) -> u32 {
+        // TODO: check if loop info is computed
+        let loop_ref = unsafe { bindings::get_irn_loop(self.internal_ir_node()) };
+        unsafe { bindings::get_loop_depth(loop_ref) }
+    }
+
     pub fn immediate_post_dominator(&self) -> Option<Block> {
         // TODO: check if post dominators are computed
         let ipostdom = unsafe { bindings::get_Block_ipostdom(self.internal_ir_node()) };
