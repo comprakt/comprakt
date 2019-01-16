@@ -109,6 +109,7 @@ impl Level {
                 Optimization::new(Kind::Inline),
                 Optimization::new(Kind::ConstantFolding),
                 Optimization::new(Kind::ControlFlow),
+                Optimization::new(Kind::CodePlacement),
             ],
             Level::Custom(list) => list.clone(),
         }
