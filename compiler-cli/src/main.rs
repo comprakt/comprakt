@@ -323,44 +323,52 @@ macro_rules! setup_io {
     };
 }
 
+macro_rules! until_after_type_check {
+    (let ($strtab:ident, $type_system:ident, $type_analysis:ident) = $input:expr) => {
+        let input = $input;
+        setup_io!(let context = input);
+
+        let mut $strtab = StringTable::new();
+        let lexer = Lexer::new(&mut $strtab, &context);
+
+        // adapt lexer to fail on first error
+        // filter whitespace and comments
+        let unforgiving_lexer = lexer.filter_map(|result| match result {
+            Ok(token) => match token.data {
+                TokenKind::Whitespace | TokenKind::Comment(_) => None,
+                _ => Some(token),
+            },
+            Err(lexical_error) => {
+                context.diagnostics.error(&lexical_error);
+                context.diagnostics.write_statistics();
+                exit(1);
+            }
+        });
+
+        let mut parser = Parser::new(unforgiving_lexer);
+
+        let ast = match parser.parse() {
+            Ok(p) => p,
+            Err(parser_error) => {
+                context.diagnostics.error(&parser_error);
+                context.diagnostics.write_statistics();
+                exit(1);
+            }
+        };
+
+        let ($type_system, $type_analysis) = crate::semantics::check(&mut $strtab, &ast, &context)
+            .unwrap_or_else(|()| {
+                context.diagnostics.write_statistics();
+                exit(1);
+            });
+
+    }
+}
+
 const DEFAULT_BINARY_FILENAME: &str = "a.out";
 
 fn cmd_compile_firm(options: &BinaryLoweringOptions) -> Result<(), Error> {
-    let input = &options.path;
-    setup_io!(let context = input);
-    let mut strtab = StringTable::new();
-    let lexer = Lexer::new(&mut strtab, &context);
-
-    // adapt lexer to fail on first error
-    // filter whitespace and comments
-    let unforgiving_lexer = lexer.filter_map(|result| match result {
-        Ok(token) => match token.data {
-            TokenKind::Whitespace | TokenKind::Comment(_) => None,
-            _ => Some(token),
-        },
-        Err(lexical_error) => {
-            context.diagnostics.error(&lexical_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    });
-
-    let mut parser = Parser::new(unforgiving_lexer);
-
-    let ast = match parser.parse() {
-        Ok(p) => p,
-        Err(parser_error) => {
-            context.diagnostics.error(&parser_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    };
-
-    let (type_system, type_analysis) = crate::semantics::check(&mut strtab, &ast, &context)
-        .unwrap_or_else(|()| {
-            context.diagnostics.write_statistics();
-            exit(1);
-        });
+    until_after_type_check!(let (strtab, type_system, type_analysis) = &options.path);
 
     let temp_dir = tempdir()?;
     let compilation_dir = temp_dir.path().to_path_buf();
@@ -417,83 +425,15 @@ fn cmd_compile_firm(options: &BinaryLoweringOptions) -> Result<(), Error> {
 }
 
 fn cmd_emit_asm(opts: &AsmLoweringOptions) -> Result<(), Error> {
-    let input = &opts.path;
-    setup_io!(let context = input);
-    let mut strtab = StringTable::new();
-    let lexer = Lexer::new(&mut strtab, &context);
-
-    // adapt lexer to fail on first error
-    // filter whitespace and comments
-    let unforgiving_lexer = lexer.filter_map(|result| match result {
-        Ok(token) => match token.data {
-            TokenKind::Whitespace | TokenKind::Comment(_) => None,
-            _ => Some(token),
-        },
-        Err(lexical_error) => {
-            context.diagnostics.error(&lexical_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    });
-
-    let mut parser = Parser::new(unforgiving_lexer);
-
-    let ast = match parser.parse() {
-        Ok(p) => p,
-        Err(parser_error) => {
-            context.diagnostics.error(&parser_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    };
-
-    let (type_system, type_analysis) = crate::semantics::check(&mut strtab, &ast, &context)
-        .unwrap_or_else(|()| {
-            context.diagnostics.write_statistics();
-            exit(1);
-        });
-
+    until_after_type_check!(let (strtab, type_system, type_analysis) = &opts.path);
     let firm_options = opts.clone().into();
     unsafe { firm::build(&firm_options, &type_system, &type_analysis, &mut strtab)? };
     Ok(())
 }
 
 fn cmd_check(path: &PathBuf) -> Result<(), Error> {
-    setup_io!(let context = path);
-    let mut strtab = StringTable::new();
-    let lexer = Lexer::new(&mut strtab, &context);
-
-    // adapt lexer to fail on first error
-    // filter whitespace and comments
-    let unforgiving_lexer = lexer.filter_map(|result| match result {
-        Ok(token) => match token.data {
-            TokenKind::Whitespace | TokenKind::Comment(_) => None,
-            _ => Some(token),
-        },
-        Err(lexical_error) => {
-            context.diagnostics.error(&lexical_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    });
-
-    let mut parser = Parser::new(unforgiving_lexer);
-
-    let ast = match parser.parse() {
-        Ok(p) => p,
-        Err(parser_error) => {
-            context.diagnostics.error(&parser_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    };
-
-    let check_res = crate::semantics::check(&mut strtab, &ast, &context);
-    if check_res.is_err() {
-        context.diagnostics.write_statistics();
-        exit(1)
-    }
-
+    // if the check fials, until_after_type_check exits with exit code 1
+    until_after_type_check!(let (strtab, _type_system, _type_analysis) = path);
     Ok(())
 }
 
