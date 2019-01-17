@@ -35,6 +35,9 @@ impl Codegen {
     pub(super) fn run(&mut self, function: &function::Function) {
         use self::Instruction::*;
 
+        self.instrs.push(Comment {
+            comment: "function prolog".to_string(),
+        });
         for instr in &function.prolog {
             match instr {
                 function::FnInstruction::Pushq { src } => self.instrs.push(Pushq {
@@ -48,6 +51,9 @@ impl Codegen {
             }
         }
 
+        self.instrs.push(Comment {
+            comment: "function save regs".to_string(),
+        });
         for instr in &function.save_regs {
             if let function::FnInstruction::Pushq { src } = instr {
                 self.instrs.push(Pushq {
@@ -59,6 +65,9 @@ impl Codegen {
         }
 
         if let Some(instr) = function.allocate {
+            self.instrs.push(Comment {
+                comment: "function allocate stack space".to_string(),
+            });
             if let function::FnInstruction::Subq { src, dst } = instr {
                 self.instrs.push(Subq {
                     src: SrcOperand::Imm(src),
@@ -80,18 +89,27 @@ impl Codegen {
                 match instr {
                     // Match over every instruction and generate amd64 instructions
                     live_variable_analysis::Instruction::Call(call) => {
+                        self.instrs.push(Comment {
+                            comment: "call instruction".to_string(),
+                        });
                         self.instrs.append(&mut self.gen_call(call));
                     }
                     live_variable_analysis::Instruction::Lir(lir) => {
                         self.instrs.append(&mut self.gen_lir(lir));
                     }
                     live_variable_analysis::Instruction::Leave(leave) => {
+                        self.instrs.push(Comment {
+                            comment: "leave instruction".to_string(),
+                        });
                         self.instrs.append(&mut self.gen_leave(
                             leave,
                             block_iter.peek().map_or(-1, |block| block.firm_num),
                         ));
                     }
                     live_variable_analysis::Instruction::Mov { src, dst } => {
+                        self.instrs.push(Comment {
+                            comment: "copy instruction".to_string(),
+                        });
                         let src = self.lir_to_src_operand(lir::Operand::Slot(*src));
                         let dst = self
                             .lir_to_src_operand(lir::Operand::Slot(*dst))
@@ -124,6 +142,9 @@ impl Codegen {
             }
         }
 
+        self.instrs.push(Comment {
+            comment: "function restore regs".to_string(),
+        });
         for instr in &function.restore_regs {
             if let function::FnInstruction::Popq { dst } = instr {
                 self.instrs.push(Popq {
@@ -132,6 +153,9 @@ impl Codegen {
             }
         }
 
+        self.instrs.push(Comment {
+            comment: "function epilog".to_string(),
+        });
         for instr in &function.epilog {
             match instr {
                 function::FnInstruction::Leave => self.instrs.push(Leave),
@@ -769,6 +793,8 @@ pub(super) enum Instruction {
     Label { label: String },
     #[display(fmt = "cqto")]
     Cqto,
+    #[display(fmt = "\t/* {} */", comment)]
+    Comment { comment: String },
 }
 
 #[derive(Copy, Clone)]
