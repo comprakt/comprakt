@@ -79,6 +79,7 @@ impl Dot<Node> for Graph {
         self.walk_topological(|node| {
             list.push(*node);
         });
+        self.assure_outs();
 
         writeln!(writer, "digraph {} {{", dot_string(graph_name)).unwrap();
         for node in list.iter() {
@@ -94,17 +95,26 @@ impl Dot<Node> for Graph {
                 )
                 .unwrap();
             }
-            for ref_node in node.in_nodes() {
+
+            for (in_idx, pred) in node.in_nodes().enumerate() {
+                let pred_out_idx = pred
+                    .out_nodes()
+                    .position(|current| node == &current)
+                    .map(|idx| idx.to_string())
+                    .unwrap_or_else(|| "?".to_string());
+
                 writeln!(
                     writer,
-                    "{:?} -> {:?} [color={}];",
-                    ref_node.node_id(),
+                    "{:?} -> {:?} [color={}, label=\"{} -> {}\"];",
+                    pred.node_id(),
                     node.node_id(),
-                    if ref_node.mode().is_mem() || node.mode().is_mem() {
+                    if pred.mode().is_mem() || node.mode().is_mem() {
                         Color::X11Color(X11Color::Red)
                     } else {
                         Color::X11Color(X11Color::Black)
-                    }
+                    },
+                    pred_out_idx,
+                    in_idx,
                 )
                 .unwrap();
             }

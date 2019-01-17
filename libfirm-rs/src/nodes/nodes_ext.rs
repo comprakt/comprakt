@@ -63,6 +63,45 @@ macro_rules! generate_iterator {
     };
 }
 
+macro_rules! linked_list_iterator {
+    ($iter_name: ident, $item: ident, $head_fn: ident, $next_fn: ident) => {
+        pub struct $iter_name {
+            cur: Option<$item>,
+        }
+
+        impl $iter_name {
+            fn new(node: *mut bindings::ir_node) -> Self {
+                Self {
+                    cur: $iter_name::raw_to_option(unsafe { bindings::$head_fn(node) }),
+                }
+            }
+
+            fn raw_to_option(raw: *mut bindings::ir_node) -> Option<$item> {
+                if raw.is_null() {
+                    None
+                } else {
+                    Some($item::new(raw))
+                }
+            }
+        }
+
+        impl Iterator for $iter_name {
+            type Item = $item;
+
+            fn next(&mut self) -> Option<$item> {
+                let out = self.cur;
+
+                if let Some(node) = self.cur {
+                    self.cur = $iter_name::raw_to_option(unsafe {
+                        bindings::$next_fn(node.internal_ir_node())
+                    });
+                }
+                out
+            }
+        }
+    };
+}
+
 macro_rules! simple_node_iterator {
     ($iter_name: ident, $len_fn: ident, $get_fn: ident, $idx_type: ty) => {
         generate_iterator!(
@@ -216,10 +255,33 @@ impl Return {
 }
 
 simple_node_iterator!(ReturnResIterator, get_Return_n_ress, get_Return_res, i32);
+linked_list_iterator!(
+    PhisOfBlockLinkedListIterator,
+    Phi,
+    get_Block_phis,
+    get_Phi_next
+);
 
 impl Block {
     pub fn cfg_preds(self) -> CfgPredsIterator {
         CfgPredsIterator::new(self.internal_ir_node())
+    }
+
+    /// Access the phis of a block using `get_Block_phis` and `get_Phi_next`.
+    /// Note that this list is not updated automatically. Fill the list
+    /// manually or use `phis` instead.
+    pub fn linked_list_of_phis(self) -> PhisOfBlockLinkedListIterator {
+        PhisOfBlockLinkedListIterator::new(self.internal_ir_node())
+    }
+
+    pub fn phis(self) -> Vec<Phi> {
+        let mut result = vec![];
+        for node in self.out_nodes() {
+            if let Node::Phi(phi) = node {
+                result.push(phi);
+            }
+        }
+        result
     }
 
     pub fn phi_or_node(self, nodes: &[Node]) -> Node {
@@ -278,25 +340,6 @@ impl Block {
         unsafe {
             bindings::add_immBlock_pred(self.internal_ir_node(), pred.internal_ir_node());
         }
-    }
-
-    pub fn phis(self) -> Vec<Phi> {
-        let mut result = vec![];
-        for node in self.out_nodes() {
-            if let Node::Phi(phi) = node {
-                result.push(phi);
-            }
-        }
-        // This does not work:
-        // unsafe {
-        //     let mut phi = bindings::get_Block_phis(self.internal_ir_node());
-        //     while !phi.is_null() {
-        //         let phi_node = Phi::new(phi);
-        //         result.push(phi_node);
-        //         phi = bindings::get_Phi_next(phi);
-        //     }
-        // }
-        result
     }
 }
 
