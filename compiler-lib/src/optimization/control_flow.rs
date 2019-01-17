@@ -67,9 +67,9 @@ impl ControlFlow {
                 &|node: &Node| highlight_single_block(node, current_block, X11Color::Blue)
             );
 
-            // collecting is important since we edit the predecessors during iteration!!!
             let mut current_block_changed = false;
 
+            // we have to collect since we edit the predecessors during iteration.
             for pred in current_block.cfg_preds().collect::<Vec<_>>() {
                 breakpoint!(
                     &format!("Jump Threading: {:?} predecessor {:?}", current_block, pred),
@@ -126,8 +126,8 @@ impl ControlFlow {
             if current_block_changed {
                 self.mark_block_changed(current_block);
             } else {
-                // this block is optimized to the furthest extent currently possible
-                // optimize its predecessors.
+                // this block is optimized to the furthest extent currently possible.
+                // => optimize its predecessors.
                 for pred in current_block.cfg_preds() {
                     self.worklist.push_back(pred.block());
                 }
@@ -135,7 +135,6 @@ impl ControlFlow {
             }
         }
 
-        //
         if self.num_changed > 0 {
             self.graph.remove_unreachable_code();
             self.graph.remove_bads();
@@ -149,9 +148,8 @@ impl ControlFlow {
     /// even if it was visited before -- since new optimizations may be
     /// possible.
     fn mark_block_changed(&mut self, block: nodes::Block) {
-        // Control flow optimization in libfirm is implemented really funnily in libfirm
-        // (with a goto and usage of the stack), this is because you have to
-        // attack the problem from two sides:
+        // Control flow optimization is tricker than you might initially anticipate,
+        // since you have to attack the problem from two sides:
         //
         // - the Cond control flow optimization requires the paths from the current node
         //   towards the end node to be already optimized.  (Since optimization might
@@ -173,9 +171,11 @@ impl ControlFlow {
         // since our control flow optimizations
         //
         // - do not remove nodes from predecessors, (2) is not possible
-        // - (1) is possible since we call Cond. However, this also shows that if we
-        //   walk from the end block, restarting the Jmp optimization in the target
-        //   block of the Cond is sufficient.
+        // - (1) is possible since we transform a Cond into a Jmp. However, this also
+        //   shows that if we walk from the end block, restarting the Jmp optimization
+        //   in the target block of the Cond is sufficient.
+        //
+        // => We can solve the problem bottom up, without loosing precision
         self.num_changed += 1;
 
         breakpoint!(
@@ -234,14 +234,13 @@ impl ControlFlow {
             //    indices `x > j` to `x - 1`, but thats done by the vector
             //    implementation for us.)
             let jmp = unnecessary_cond.cond.block().new_jmp();
-            let mut target_block_preds =
-                unnecessary_cond.target_block.in_nodes().collect::<Vec<_>>();
+            let mut target_block_preds: Vec<_> = unnecessary_cond.target_block.in_nodes().collect();
             target_block_preds[unnecessary_cond.proj_current.0] = Node::Jmp(jmp);
 
             // remove index of second projection, called step (2) above
             let idx = unnecessary_cond.proj_other.0;
             for phi in unnecessary_cond.target_block.phis() {
-                let mut phi_preds = phi.phi_preds().collect::<Vec<_>>();
+                let mut phi_preds: Vec<_> = phi.phi_preds().collect();
                 phi_preds.remove(idx);
                 phi.set_in_nodes(&phi_preds);
             }
@@ -310,7 +309,7 @@ impl ControlFlow {
         }
 
         for phi in target_block.phis() {
-            let phi_preds = phi.phi_preds().collect::<Vec<_>>();
+            let phi_preds: Vec<_> = phi.phi_preds().collect();
             if phi_preds[index_self_proj] != phi_preds[index_other_proj] {
                 log::debug!(
                     "skipping {:?} since {:?} has different definitions for path \
@@ -471,7 +470,7 @@ impl ControlFlow {
             return false;
         }
 
-        let pred_preds = pred_block.in_nodes().collect::<Vec<_>>();
+        let pred_preds: Vec<_> = pred_block.in_nodes().collect();
 
         self.graph.assure_outs();
 
@@ -502,7 +501,7 @@ impl ControlFlow {
         // we now know it qualifies, optimize the predecessor block
         // by rewiring all predecessors of the predecessor directly
         // to the current block.
-        let target_block_preds = target_block.in_nodes().collect::<Vec<_>>();
+        let target_block_preds: Vec<_> = target_block.in_nodes().collect();
         let jmp_index = target_block_preds
             .iter()
             .position(|node| node == &Node::Jmp(jmp_inbetween))
@@ -514,7 +513,7 @@ impl ControlFlow {
 
         // repeat the index of the jmp inbetween for each new input
         for phi in target_block.phis() {
-            let mut phi_preds = phi.phi_preds().collect::<Vec<_>>();
+            let mut phi_preds: Vec<_> = phi.phi_preds().collect();
             let phi_for_jmp = phi_preds.remove(jmp_index);
             phi_preds.extend(std::iter::repeat(phi_for_jmp).take(pred_preds.len()));
             phi.set_in_nodes(&phi_preds);
