@@ -48,35 +48,28 @@ struct Timings {
 
 impl fmt::Display for Timings {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Performance Analysis")?;
-        writeln!(f, "====================\n")?;
+        let min_label_width = 50;
 
-        if cfg!(feature = "debugger_gui") {
-            writeln!(f, "Measurements not available with enabled breakpoints")?;
-        } else {
-            let min_label_width = 50;
+        let mut active = vec![];
 
-            let mut active = vec![];
+        let mut listing = self.measurements.clone();
+        listing.sort_by(|a, b| a.start.cmp(&b.start));
 
-            let mut listing = self.measurements.clone();
-            listing.sort_by(|a, b| a.start.cmp(&b.start));
+        for timing in listing.into_iter() {
+            active.retain(|measurement: &CompletedMeasurement| measurement.stop > timing.start);
 
-            for timing in listing.into_iter() {
-                active.retain(|measurement: &CompletedMeasurement| measurement.stop > timing.start);
+            let indent = "  ".repeat(active.len());
+            writeln!(
+                f,
+                "{nesting}{: <label_width$}    {: >ms_width$}ms",
+                timing.label,
+                timing.duration().as_millis(),
+                nesting = indent,
+                label_width = min_label_width - indent.len(),
+                ms_width = 6
+            )?;
 
-                let indent = "  ".repeat(active.len());
-                writeln!(
-                    f,
-                    "{nesting}{: <label_width$}    {: >ms_width$}ms",
-                    timing.label,
-                    timing.duration().as_millis(),
-                    nesting = indent,
-                    label_width = min_label_width - indent.len(),
-                    ms_width = 6
-                )?;
-
-                active.push(timing);
-            }
+            active.push(timing);
         }
 
         Ok(())
@@ -97,5 +90,14 @@ impl CompletedMeasurement {
 }
 
 pub fn print() {
-    eprintln!("{}", TIMINGS.lock().unwrap());
+    if std::env::var("MEASURE").is_ok() {
+        eprintln!("Performance Analysis");
+        eprintln!("====================\n");
+
+        if cfg!(feature = "debugger_gui") {
+            eprintln!("Measurements not available with enabled breakpoints");
+        } else {
+            eprintln!("{}", TIMINGS.lock().unwrap());
+        }
+    }
 }
