@@ -9,7 +9,7 @@ use crate::{derive_ptr_debug, firm, type_checking::type_system::CheckedType};
 use crate::optimization::{Local, RemoveCriticalEdges};
 use libfirm_rs::{
     bindings,
-    nodes::{self, Node, NodeTrait},
+    nodes::{self, Node, NodeTrait, ProjKind},
     Tarval, VisitTime,
 };
 use std::{
@@ -961,17 +961,24 @@ impl Ptr<BasicBlock> {
                     // If the value is foreign, we need to "get it" from each blocks above us.
                     //
                     // NOTE:
-                    // In FIRM,const and address nodes are all in the start block, no
+                    // In FIRM, const, address and param proj nodes are all in the start block, no
                     // matter where they are used, however we don't want or need to
                     // transfer them down to the usage from the start block, so we can
-                    // treat a const node as "originating here".
+                    // treat those nodes as "originating here".
                     // HOWEVER, we cannot make above assumption if this node is used as input to a
                     // Phi node in this block, because the value needs to originate in the
                     // corresponding cfg_pred. However, when creating slots for the inputs of phi
                     // nodes, this function (`MutRc<BasicBlock>::new_slot`), in not used. So the
                     // assumption holds, but BE AWARE OF THIS when refactoring.
+                    let node_is_arg_proj =
+                        if let Node::Proj(proj, ProjKind::Start_TArgs_Arg(..)) = slot.firm {
+                            true
+                        } else {
+                            false
+                        };
                     let originates_here = Node::is_const(slot.firm)
                         || Node::is_address(slot.firm)
+                        || node_is_arg_proj
                         || slot.allocated_in.firm == slot.originates_in.firm;
                     if !originates_here {
                         for incoming_edge in &self.preds {
