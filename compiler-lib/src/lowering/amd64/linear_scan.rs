@@ -122,6 +122,7 @@ impl LinearScanAllocator {
         let mut active = BTreeSet::new();
         let mut var_location = HashMap::new();
         let mut reg_lr_map = HashMap::new();
+        let mut reg_alloc = reg_alloc;
 
         for live_range in &var_live {
             if live_range.var_id.0 == -1 {
@@ -134,6 +135,13 @@ impl LinearScanAllocator {
                 // assign a register to this argument. If the register pressure is too high,
                 // these are the first Vars that will be spilled. The later case
                 // is handled by `spill_at`
+            }
+        }
+
+        let used_params = active.iter().map(|lr| lr.var_id.1).collect::<Vec<_>>();
+        for i in 0..6 {
+            if !used_params.contains(&i) {
+                reg_alloc.free_reg(Amd64Reg::arg(i));
             }
         }
 
