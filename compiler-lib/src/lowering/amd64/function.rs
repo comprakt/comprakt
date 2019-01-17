@@ -143,13 +143,11 @@ impl FunctionCall {
         }
     }
 
-    pub(super) fn save_regs(&mut self, regs: &[Amd64Reg]) {
-        log::debug!("Save regs: {:?}", regs);
-        regs.iter()
-            .filter(|reg| reg.is_caller_save())
-            .for_each(|reg| {
-                save_regs!([*reg], self.arg_save, self.arg_recover);
-            })
+    pub(super) fn save_reg(&mut self, reg: Amd64Reg) {
+        log::debug!("Save reg: {:?}", reg);
+        if reg.is_caller_save() {
+            save_regs!([reg], self.arg_save, self.arg_recover);
+        }
     }
 }
 

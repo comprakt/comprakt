@@ -1,7 +1,7 @@
 use crate::lowering::amd64::CallingConv;
 use std::{cmp::Ordering, collections::BTreeMap};
 
-#[derive(Display, Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Display, Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub(super) enum Amd64Reg {
     #[display(fmt = "%rax")]
     Rax,

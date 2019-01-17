@@ -100,17 +100,20 @@ pub(super) struct LinearScanAllocator {
     /// Register allocator
     reg_alloc: RegisterAllocator,
     /// Live Ranges of all variables (ValueSlot/Param). Sorted by shortest
-    /// interval.
+    /// interval
     var_live: BTreeSet<LiveRange>,
 
-    /// The list of currently active `LiveRange`s.
+    /// The list of currently active `LiveRange`s
     active: BTreeSet<Active>,
+    /// Map from currently assigned registers to live ranges
+    reg_lr_map: HashMap<Amd64Reg, LiveRange>,
 
-    /// Counter of how many memory slots will be needed for spilling.
+    /// Counter of how many memory slots will be needed for spilling
     pub(super) stack_vars_counter: usize,
     /// Mapping for `VarId`s to their location, determined by the linear scan
     /// algorithm
     pub(super) var_location: HashMap<VarId, Location>,
+    /// Number of regs that is required after the register allocation
     pub(super) num_regs_required: usize,
 }
 
@@ -118,12 +121,14 @@ impl LinearScanAllocator {
     pub(super) fn new(reg_alloc: RegisterAllocator, var_live: BTreeSet<LiveRange>) -> Self {
         let mut active = BTreeSet::new();
         let mut var_location = HashMap::new();
+        let mut reg_lr_map = HashMap::new();
 
         for live_range in &var_live {
             if live_range.var_id.0 == -1 {
                 if let Some(reg) = reg_alloc.arg_in_reg(live_range.var_id.1) {
                     active.insert(Active(*live_range));
                     var_location.insert(live_range.var_id, Location::Reg(reg));
+                    reg_lr_map.insert(reg, *live_range);
                 }
                 // else: argument is on the Stack. If we have free registers we also want to
                 // assign a register to this argument. If the register pressure is too high,
@@ -138,6 +143,7 @@ impl LinearScanAllocator {
             reg_alloc,
             var_live,
             active,
+            reg_lr_map,
             stack_vars_counter: 0,
             var_location,
             num_regs_required,
@@ -147,15 +153,22 @@ impl LinearScanAllocator {
     pub(super) fn run(&mut self, blocks: &mut [Block]) {
         let var_live = self.var_live.clone();
         let mut lr_iter = var_live.iter().peekable();
+        let mut instr_counter = 0;
 
         for block in blocks.iter_mut() {
-            for (i, instr) in block.instrs.iter_mut().enumerate() {
+            for instr in block.instrs.iter_mut() {
                 if let Instruction::Call(call) = instr {
-                    call.save_regs(&self.reg_alloc.occupied_regs().collect::<Vec<_>>());
+                    for reg in self.reg_alloc.occupied_regs() {
+                        if let Some(lr) = self.reg_lr_map.get(&reg) {
+                            if lr.interval.upper() > instr_counter {
+                                call.save_reg(reg);
+                            }
+                        }
+                    }
                 }
 
                 while let Some(live_range) = lr_iter.peek() {
-                    if live_range.interval.lower() >= i {
+                    if live_range.interval.lower() == instr_counter {
                         self.expire_old_intervals(live_range.interval);
 
                         if live_range.var_id.0 == -1 && self.active.contains(&Active(**live_range))
@@ -169,9 +182,10 @@ impl LinearScanAllocator {
                         }
 
                         if let Some(reg) = self.reg_alloc.alloc_reg() {
+                            self.active.insert(Active(**live_range));
                             self.var_location
                                 .insert(live_range.var_id, Location::Reg(reg));
-                            self.active.insert(Active(**live_range));
+                            self.reg_lr_map.insert(reg, **live_range);
                             self.num_regs_required =
                                 std::cmp::max(self.active.len(), self.num_regs_required);
                         } else {
@@ -183,6 +197,7 @@ impl LinearScanAllocator {
                         break;
                     }
                 }
+                instr_counter += 1;
             }
         }
     }
@@ -201,6 +216,7 @@ impl LinearScanAllocator {
                     .expect("a register needs to be assigned to vars in the active list")
                     .reg_unchecked();
                 self.reg_alloc.free_reg(reg);
+                self.reg_lr_map.remove(&reg);
             }
 
             self.active = new_active;
@@ -229,6 +245,9 @@ impl LinearScanAllocator {
                 .insert(arg.var_id, Location::ParamMem)
                 .expect("a register needs to be assigned to vars in the active list");
             self.var_location.insert(live_range.var_id, spill_reg);
+            self.reg_lr_map
+                .insert(spill_reg.reg_unchecked(), live_range)
+                .expect("reg needs to be overwritten");
 
             self.active.remove(&arg);
             self.active.insert(Active(live_range));
@@ -244,6 +263,9 @@ impl LinearScanAllocator {
                     .expect("a register needs to be assigned to vars in the active list");
 
                 self.var_location.insert(live_range.var_id, spill_reg);
+                self.reg_lr_map
+                    .insert(spill_reg.reg_unchecked(), live_range)
+                    .expect("reg needs to be overwritten");
 
                 self.active.remove(&spill);
                 self.active.insert(Active(live_range));
