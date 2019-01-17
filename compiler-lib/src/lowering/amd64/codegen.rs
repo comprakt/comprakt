@@ -177,9 +177,23 @@ impl Codegen {
                 src2,
                 dst,
             } => self.gen_binop(&mut instrs, kind, src1, src2, *dst),
-            lir::Instruction::Div { src1, src2, dst }
-            | lir::Instruction::Mod { src1, src2, dst } => {
-                self.gen_div(&mut instrs, src1, src2, *dst, lir);
+            lir::Instruction::Div { src1, src2, dst } => {
+                self.gen_div(&mut instrs, src1, src2, || Movq {
+                    src: SrcOperand::Reg(Amd64Reg::Rax),
+                    dst: self
+                        .lir_to_src_operand(lir::Operand::Slot(*dst))
+                        .try_into()
+                        .unwrap(),
+                });
+            }
+            lir::Instruction::Mod { src1, src2, dst } => {
+                self.gen_div(&mut instrs, src1, src2, || Movq {
+                    src: SrcOperand::Reg(Amd64Reg::Rdx),
+                    dst: self
+                        .lir_to_src_operand(lir::Operand::Slot(*dst))
+                        .try_into()
+                        .unwrap(),
+                });
             }
             lir::Instruction::Conv { src, dst } => instrs.push(Movq {
                 src: self.lir_to_src_operand(*src),
@@ -364,14 +378,15 @@ impl Codegen {
         }
     }
 
-    fn gen_div(
+    fn gen_div<F>(
         &self,
         instrs: &mut Vec<Instruction>,
         src1: &lir::Operand,
         src2: &lir::Operand,
-        dst: Ptr<MultiSlot>,
-        lir: &lir::Instruction,
-    ) {
+        f: F,
+    ) where
+        F: FnOnce() -> Instruction,
+    {
         use self::Instruction::*;
         instrs.push(Pushq {
             src: SrcOperand::Reg(Amd64Reg::Rdx),
@@ -403,18 +418,7 @@ impl Codegen {
                 src: self.lir_to_src_operand(*src2).try_into().unwrap(),
             });
         }
-        let src = match lir {
-            lir::Instruction::Div { .. } => SrcOperand::Reg(Amd64Reg::Rax),
-            lir::Instruction::Mod { .. } => SrcOperand::Reg(Amd64Reg::Rdx),
-            _ => unreachable!(),
-        };
-        instrs.push(Movq {
-            src,
-            dst: self
-                .lir_to_src_operand(lir::Operand::Slot(dst))
-                .try_into()
-                .unwrap(),
-        });
+        instrs.push(f());
         instrs.push(Popq {
             dst: DstOperand::Reg(Amd64Reg::Rax),
         });
