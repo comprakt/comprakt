@@ -195,6 +195,10 @@
 <span id="195">195</span>
 <span id="196">196</span>
 <span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">firm</span>::<span class="ident">FirmProgram</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">bindings</span>, <span class="ident">Graph</span>};
@@ -206,6 +210,8 @@
 <span class="kw">use</span> <span class="self">self</span>::<span class="ident">constant_folding</span>::<span class="ident">ConstantFolding</span>;
 <span class="kw">mod</span> <span class="ident">control_flow</span>;
 <span class="kw">use</span> <span class="self">self</span>::<span class="ident">control_flow</span>::<span class="ident">ControlFlow</span>;
+<span class="kw">mod</span> <span class="ident">remove_critical_edges</span>;
+<span class="kw">use</span> <span class="self">self</span>::<span class="ident">remove_critical_edges</span>::<span class="ident">RemoveCriticalEdges</span>;
 
 <span class="doccomment">/// An optimization that optimizes the whole program by examining all function</span>
 <span class="doccomment">/// graphs at once.</span>
@@ -248,6 +254,7 @@
     <span class="ident">ConstantFolding</span>,
     <span class="ident">Inline</span>,
     <span class="ident">ControlFlow</span>,
+    <span class="ident">RemoveCriticalEdges</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Kind</span> {
@@ -256,6 +263,7 @@
             <span class="ident">Kind</span>::<span class="ident">ConstantFolding</span> <span class="op">=&gt;</span> <span class="ident">ConstantFolding</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
             <span class="ident">Kind</span>::<span class="ident">Inline</span> <span class="op">=&gt;</span> <span class="ident">Inlining</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
             <span class="ident">Kind</span>::<span class="ident">ControlFlow</span> <span class="op">=&gt;</span> <span class="ident">ControlFlow</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
+            <span class="ident">Kind</span>::<span class="ident">RemoveCriticalEdges</span> <span class="op">=&gt;</span> <span class="ident">RemoveCriticalEdges</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
         }
     }
 }
