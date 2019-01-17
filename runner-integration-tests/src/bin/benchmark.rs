@@ -1,5 +1,6 @@
 //! Executes all mjtests in the /exec/big folder.
 use compiler_lib::timing::{AsciiDisp, Benchmark, CompilerMeasurements};
+use regex::Regex;
 use runner_integration_tests::{compiler_call, CompilerCall, CompilerPhase};
 use std::{
     ffi::OsStr,
@@ -7,6 +8,7 @@ use std::{
     io::BufReader,
     path::PathBuf,
 };
+use structopt::StructOpt;
 
 fn test_folder() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../mjtest-rs/tests")
@@ -100,15 +102,31 @@ fn profile_compiler(test: &BigTest) -> Option<CompilerMeasurements> {
     Some(profile)
 }
 
+#[derive(StructOpt)]
+#[structopt(name = "benchmark")]
+/// Small utility to benchmark each step of the compiler pipeline
+pub struct Opts {
+    /// Number of invokations per test file
+    #[structopt(short = "s", long = "samples", default_value = "2")]
+    samples: usize,
+    /// Only test filenames matching the given regex are benchmarked
+    #[structopt(short = "o", long = "only", default_value = "")]
+    filter: Regex,
+}
+
 fn main() {
     env_logger::init();
-
-    let times = 2;
+    let opts = Opts::from_args();
 
     for big_test in &big_tests() {
+        if !opts.filter.is_match(&big_test.minijava.to_string_lossy()) {
+            log::info!("skipping {}", big_test.minijava.display());
+            continue;
+        }
+
         let mut bench = Benchmark::new();
 
-        for _ in 0..times {
+        for _ in 0..opts.samples {
             if let Some(timings) = profile_compiler(big_test) {
                 bench.add(&timings);
             }
