@@ -96,7 +96,7 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
     args.iter().map(OsString::from).collect::<Vec<_>>()
 }
 
-fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
+pub fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
     match compiler_call {
         CompilerCall::RawCompiler(phase) => {
             let mut cmd = env::var("COMPILER_BINARY")
