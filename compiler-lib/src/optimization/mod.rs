@@ -8,6 +8,8 @@ mod constant_folding;
 use self::constant_folding::ConstantFolding;
 mod control_flow;
 use self::control_flow::ControlFlow;
+mod remove_critical_edges;
+use self::remove_critical_edges::RemoveCriticalEdges;
 
 /// An optimization that optimizes the whole program by examining all function
 /// graphs at once.
@@ -50,6 +52,7 @@ pub enum Kind {
     ConstantFolding,
     Inline,
     ControlFlow,
+    RemoveCriticalEdges,
 }
 
 impl Kind {
@@ -58,6 +61,7 @@ impl Kind {
             Kind::ConstantFolding => ConstantFolding::optimize(program),
             Kind::Inline => Inlining::optimize(program),
             Kind::ControlFlow => ControlFlow::optimize(program),
+            Kind::RemoveCriticalEdges => RemoveCriticalEdges::optimize(program),
         }
     }
 }
