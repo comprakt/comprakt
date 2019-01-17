@@ -39,6 +39,24 @@ impl Codegen {
         use self::Instruction::*;
         let mut instrs = vec![];
 
+        if self.cconv == CallingConv::X86_64 {
+            for i in 0..6 {
+                if let Some(Location::Mem(idx)) = self.var_location.get(&(-1, i)) {
+                    instrs.push(Comment {
+                        comment: format!("spill argument register {}", i),
+                    });
+                    instrs.push(Movq {
+                        src: SrcOperand::Reg(Amd64Reg::arg(i)),
+                        dst: DstOperand::Mem(lir::AddressComputation {
+                            offset: -(*idx as isize) * 8,
+                            base: AddrOperand(Amd64Reg::Rbp),
+                            index: lir::IndexComputation::Zero,
+                        }),
+                    });
+                }
+            }
+        }
+
         instrs.push(Comment {
             comment: "function prolog".to_string(),
         });
