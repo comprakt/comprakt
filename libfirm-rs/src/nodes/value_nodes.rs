@@ -25,19 +25,19 @@ pub trait ValueNode: NodeTrait {
 
 impl From<Box<dyn ValueNode>> for Node {
     fn from(n: Box<dyn ValueNode>) -> Node {
-        NodeFactory::node(n.internal_ir_node())
+        Node::wrap(n.internal_ir_node())
     }
 }
 
 impl From<&Box<dyn ValueNode>> for Node {
     fn from(n: &Box<dyn ValueNode>) -> Node {
-        NodeFactory::node(n.internal_ir_node())
+        Node::wrap(n.internal_ir_node())
     }
 }
 
 impl From<&dyn ValueNode> for Node {
     fn from(n: &dyn ValueNode) -> Node {
-        NodeFactory::node(n.internal_ir_node())
+        Node::wrap(n.internal_ir_node())
     }
 }
 

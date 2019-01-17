@@ -4,6 +4,10 @@
 
 #[macro_use]
 extern crate derive_more;
+
+#[macro_use]
+extern crate lazy_static;
+
 pub use libfirm_rs_bindings as bindings;
 
 mod entity;

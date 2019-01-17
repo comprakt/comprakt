@@ -5,6 +5,17 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+lazy_static! {
+    static ref NODE_FACTORY: NodeFactory = NodeFactory::new();
+}
+
+impl Node {
+    pub fn wrap(ir_node: *mut bindings::ir_node) -> Node {
+        //NodeFactory::new().create(ir_node)
+        NODE_FACTORY.create(ir_node)
+    }
+}
+
 macro_rules! generate_iterator {
     (
         $iter_name: ident,
@@ -112,7 +123,7 @@ macro_rules! simple_node_iterator {
             $idx_type,
             {
                 let out = unsafe { bindings::$get_fn(node, idx) };
-                Some(NodeFactory::node(out))
+                Some(Node::wrap(out))
             },
             Node,
         );
@@ -208,7 +219,7 @@ generate_iterator!(
     {
         let mut in_pos: i32 = 0;
         let out = unsafe { bindings::get_irn_out_ex(node, idx, &mut in_pos) };
-        Some((NodeFactory::node(out), in_pos))
+        Some((Node::wrap(out), in_pos))
     },
     (Node, i32),
 );
@@ -315,7 +326,7 @@ impl Block {
     }
 
     pub fn value(self, slot_idx: usize, mode: Mode) -> Node {
-        NodeFactory::node(unsafe {
+        Node::wrap(unsafe {
             bindings::get_b_value(
                 self.internal_ir_node(),
                 slot_idx as i32,
@@ -335,7 +346,7 @@ impl Block {
     }
 
     pub fn cur_store(self) -> Node {
-        NodeFactory::node(unsafe { bindings::get_b_store(self.internal_ir_node()) })
+        Node::wrap(unsafe { bindings::get_b_store(self.internal_ir_node()) })
     }
 
     pub fn set_store(self, s: impl NodeTrait) {
@@ -376,7 +387,7 @@ impl Proj {
             None
         } else {
             let unwrapped = unsafe { bindings::get_Proj_pred(self.internal_ir_node()) };
-            Some(NodeFactory::node(unwrapped))
+            Some(Node::wrap(unwrapped))
         }
     }
 }

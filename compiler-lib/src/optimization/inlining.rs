@@ -67,6 +67,10 @@ struct Inline {
     graph: Graph,
 }
 
+struct MoveResult {
+    child_of_split_node: bool,
+}
+
 impl Inline {
     pub fn inline(call: Call) -> Result<(), InlineError> {
         let graph = call.graph();
@@ -150,8 +154,8 @@ impl Inline {
         Ok(())
     }
 
-    fn split_block_at(&mut self, graph: Graph, node: Node) -> (Block, Block) {
-        let block = node.block();
+    fn split_block_at(&mut self, graph: Graph, split_node: Node) -> (Block, Block) {
+        let block = split_node.block();
         let phis = block.phis();
 
         // move cfg_preds from block to new_block
@@ -159,9 +163,9 @@ impl Inline {
         let new_block = self.graph.new_block(&cfg_preds[..]);
         block.set_in_nodes(&[]);
 
-        self.move_node(node, block, new_block);
+        self.move_node(split_node, block, new_block, split_node);
         for phi in phis {
-            self.move_node(phi.into(), block, new_block);
+            self.move_node(phi.into(), block, new_block, split_node);
         }
 
         if block == graph.start_block() {
@@ -185,27 +189,51 @@ impl Inline {
         (new_block, block)
     }
 
-    fn move_node(&self, node: Node, from_block: Block, to_block: Block) {
+    fn move_node(
+        &self,
+        node: Node,
+        from_block: Block,
+        to_block: Block,
+        split_node: Node,
+    ) -> MoveResult {
         if Node::is_block(node) || node.block() != from_block {
-            return;
+            return MoveResult {
+                child_of_split_node: false,
+            };
         }
 
-        log::debug!(
-            "Move node {:?} from {:?} to {:?}",
-            node,
-            from_block,
-            to_block
-        );
-
-        for proj in node.all_out_projs() {
-            log::debug!("... considering {:?}", proj);
-            proj.set_block(to_block);
-        }
-
-        node.set_block(to_block);
-
+        // check wether we or our users use `split_node`
+        let mut child_of_split_node = false;
         for in_node in node.in_nodes() {
-            self.move_node(in_node, from_block, to_block);
+            if in_node == split_node {
+                child_of_split_node = true;
+            } else {
+                let move_result = self.move_node(in_node, from_block, to_block, split_node);
+                child_of_split_node |= move_result.child_of_split_node;
+            }
+        }
+
+        if child_of_split_node && !Node::is_phi(node) {
+            // phi nodes are allowed to use `split_node`
+            log::debug!("Don't move node {:?} because its child of split_node", node,);
+            MoveResult {
+                child_of_split_node: true,
+            }
+        } else {
+            log::debug!(
+                "Move node {:?} from {:?} to {:?}",
+                node,
+                from_block,
+                to_block
+            );
+            for proj in node.all_out_projs() {
+                log::debug!("... considering {:?}", proj);
+                proj.set_block(to_block);
+            }
+            node.set_block(to_block);
+            MoveResult {
+                child_of_split_node: false,
+            }
         }
     }
 
@@ -217,7 +245,7 @@ impl Inline {
         start_block: Block,
     ) -> Node {
         if let Some(nd) = map.get(&old) {
-            log::debug!("Reused already copied {:?} for {:?}", nd, old);
+            log::debug!("Reused already copied {} for {:?}", nd.node_id(), old);
             return *nd;
         }
 
@@ -248,7 +276,8 @@ impl Inline {
             .collect();
 
         new_node.set_in_nodes(&new_in_nodes);
-        log::debug!("Completed copying from {:?} to {:?}", old, new_node);
+        // new_in_nodes might not be finished yet
+        log::debug!("Completed copying from {:?} to {}", old, new_node.node_id());
 
         new_node
     }

@@ -1115,10 +1115,6 @@ impl NodeFactory {
         NodeFactory(map)
     }
 
-    pub fn node(ir_node: *mut bindings::ir_node) -> Node {
-        Self::new().create(ir_node)
-    }
-
     pub fn create(&self, ir_node: *mut bindings::ir_node) -> Node {
         let op_code = unsafe { bindings::get_irn_opcode(ir_node) };
         let f = self.0[&op_code];
@@ -1306,7 +1302,7 @@ impl Add {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Add_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -1322,7 +1318,7 @@ impl Add {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Add_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -1439,7 +1435,7 @@ impl Alloc {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Alloc_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -1455,7 +1451,7 @@ impl Alloc {
     #[allow(clippy::let_and_return)]
     pub fn size(self) -> Node {
         let unwrapped = unsafe { bindings::get_Alloc_size(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets size of the block in bytes.
@@ -1557,7 +1553,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn end_block(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_end_block(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets block the end node belongs to.
@@ -1573,7 +1569,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn start_block(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_start_block(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets block the start node belongs to.
@@ -1589,7 +1585,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn end(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_end(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets end node of this ir_graph.
@@ -1605,7 +1601,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn start(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_start(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets start node of this ir_graph.
@@ -1621,7 +1617,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn frame(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_frame(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets frame of this ir_graph.
@@ -1637,7 +1633,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn initial_mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_initial_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets initial memory of this ir_graph.
@@ -1653,7 +1649,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn args(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_args(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets argument proj of the start node.
@@ -1669,7 +1665,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn no_mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_no_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets the only NoMem node of this ir_graph.
@@ -1720,7 +1716,7 @@ impl And {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_And_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -1736,7 +1732,7 @@ impl And {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_And_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -1842,7 +1838,7 @@ impl Bitcast {
     #[allow(clippy::let_and_return)]
     pub fn op(self) -> Node {
         let unwrapped = unsafe { bindings::get_Bitcast_op(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets operand.
@@ -1944,7 +1940,7 @@ impl Builtin {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Builtin_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -2045,7 +2041,7 @@ impl Call {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Call_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -2061,7 +2057,7 @@ impl Call {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Call_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets pointer to called code.
@@ -2184,7 +2180,7 @@ impl Cmp {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Cmp_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -2200,7 +2196,7 @@ impl Cmp {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Cmp_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -2267,7 +2263,7 @@ impl Cond {
     #[allow(clippy::let_and_return)]
     pub fn selector(self) -> Node {
         let unwrapped = unsafe { bindings::get_Cond_selector(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets condition parameter.
@@ -2372,7 +2368,7 @@ impl Confirm {
     #[allow(clippy::let_and_return)]
     pub fn value(self) -> Node {
         let unwrapped = unsafe { bindings::get_Confirm_value(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets value to express a constraint for.
@@ -2388,7 +2384,7 @@ impl Confirm {
     #[allow(clippy::let_and_return)]
     pub fn bound(self) -> Node {
         let unwrapped = unsafe { bindings::get_Confirm_bound(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets value to compare against.
@@ -2501,7 +2497,7 @@ impl Conv {
     #[allow(clippy::let_and_return)]
     pub fn op(self) -> Node {
         let unwrapped = unsafe { bindings::get_Conv_op(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets operand.
@@ -2552,7 +2548,7 @@ impl CopyB {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_CopyB_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -2568,7 +2564,7 @@ impl CopyB {
     #[allow(clippy::let_and_return)]
     pub fn dst(self) -> Node {
         let unwrapped = unsafe { bindings::get_CopyB_dst(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets destination address.
@@ -2584,7 +2580,7 @@ impl CopyB {
     #[allow(clippy::let_and_return)]
     pub fn src(self) -> Node {
         let unwrapped = unsafe { bindings::get_CopyB_src(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets source address.
@@ -2705,7 +2701,7 @@ impl Div {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Div_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -2721,7 +2717,7 @@ impl Div {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Div_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -2737,7 +2733,7 @@ impl Div {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Div_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -2955,7 +2951,7 @@ impl Eor {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Eor_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -2971,7 +2967,7 @@ impl Eor {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Eor_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -3022,7 +3018,7 @@ impl Free {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Free_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -3038,7 +3034,7 @@ impl Free {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Free_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets pointer to the object to free.
@@ -3091,7 +3087,7 @@ impl IJmp {
     #[allow(clippy::let_and_return)]
     pub fn target(self) -> Node {
         let unwrapped = unsafe { bindings::get_IJmp_target(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets target address of the jump.
@@ -3145,7 +3141,7 @@ impl Id {
     #[allow(clippy::let_and_return)]
     pub fn pred(self) -> Node {
         let unwrapped = unsafe { bindings::get_Id_pred(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets the value which is returned unchanged.
@@ -3231,7 +3227,7 @@ impl Load {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Load_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -3247,7 +3243,7 @@ impl Load {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Load_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets address to load from.
@@ -3424,7 +3420,7 @@ impl Member {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Member_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets pointer to object to select from.
@@ -3486,7 +3482,7 @@ impl Minus {
     #[allow(clippy::let_and_return)]
     pub fn op(self) -> Node {
         let unwrapped = unsafe { bindings::get_Minus_op(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets operand.
@@ -3544,7 +3540,7 @@ impl Mod {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mod_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -3560,7 +3556,7 @@ impl Mod {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mod_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -3576,7 +3572,7 @@ impl Mod {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mod_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -3703,7 +3699,7 @@ impl Mul {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mul_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -3719,7 +3715,7 @@ impl Mul {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mul_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -3771,7 +3767,7 @@ impl Mulh {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mulh_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -3787,7 +3783,7 @@ impl Mulh {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mulh_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -3839,7 +3835,7 @@ impl Mux {
     #[allow(clippy::let_and_return)]
     pub fn sel(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mux_sel(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets value making the output selection.
@@ -3855,7 +3851,7 @@ impl Mux {
     #[allow(clippy::let_and_return)]
     pub fn false_(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mux_false(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets selected if sel input is false.
@@ -3871,7 +3867,7 @@ impl Mux {
     #[allow(clippy::let_and_return)]
     pub fn true_(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mux_true(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets selected if sel input is true.
@@ -3957,7 +3953,7 @@ impl Not {
     #[allow(clippy::let_and_return)]
     pub fn op(self) -> Node {
         let unwrapped = unsafe { bindings::get_Not_op(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets operand.
@@ -4043,7 +4039,7 @@ impl Or {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Or_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -4059,7 +4055,7 @@ impl Or {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Or_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -4167,7 +4163,7 @@ impl Pin {
     #[allow(clippy::let_and_return)]
     pub fn op(self) -> Node {
         let unwrapped = unsafe { bindings::get_Pin_op(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets value which is pinned.
@@ -4218,7 +4214,7 @@ impl Proj {
     #[allow(clippy::let_and_return)]
     pub fn pred(self) -> Node {
         let unwrapped = unsafe { bindings::get_Proj_pred(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets the tuple value from which a part is extracted.
@@ -4282,7 +4278,7 @@ impl Raise {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Raise_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -4298,7 +4294,7 @@ impl Raise {
     #[allow(clippy::let_and_return)]
     pub fn exo_ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Raise_exo_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets pointer to exception object to be thrown.
@@ -4380,7 +4376,7 @@ impl Return {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Return_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -4434,7 +4430,7 @@ impl Sel {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Sel_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets pointer to array to select from.
@@ -4450,7 +4446,7 @@ impl Sel {
     #[allow(clippy::let_and_return)]
     pub fn index(self) -> Node {
         let unwrapped = unsafe { bindings::get_Sel_index(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets index to select.
@@ -4521,7 +4517,7 @@ impl Shl {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shl_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -4537,7 +4533,7 @@ impl Shl {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shl_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -4592,7 +4588,7 @@ impl Shr {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shr_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -4608,7 +4604,7 @@ impl Shr {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shr_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -4664,7 +4660,7 @@ impl Shrs {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shrs_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -4680,7 +4676,7 @@ impl Shrs {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shrs_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -4846,7 +4842,7 @@ impl Store {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Store_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -4862,7 +4858,7 @@ impl Store {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Store_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets address to store to.
@@ -4878,7 +4874,7 @@ impl Store {
     #[allow(clippy::let_and_return)]
     pub fn value(self) -> Node {
         let unwrapped = unsafe { bindings::get_Store_value(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets value to store.
@@ -5021,7 +5017,7 @@ impl Sub {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Sub_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -5037,7 +5033,7 @@ impl Sub {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Sub_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -5091,7 +5087,7 @@ impl Switch {
     #[allow(clippy::let_and_return)]
     pub fn selector(self) -> Node {
         let unwrapped = unsafe { bindings::get_Switch_selector(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets input selector.
