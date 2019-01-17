@@ -56,18 +56,7 @@ impl ControlFlow {
                         current_block
                     ),
                     self.graph,
-                    &|node: &Node| {
-                        let mut label = default_label(node);
-
-                        if node == &Node::Block(current_block) {
-                            label = label
-                                .style(Style::Filled)
-                                .fillcolor(X11Color::Yellow)
-                                .fontcolor(X11Color::White);
-                        }
-
-                        label
-                    }
+                    &|node: &Node| highlight_single_block(node, current_block, X11Color::Yellow)
                 );
                 continue;
             }
@@ -75,18 +64,7 @@ impl ControlFlow {
             breakpoint!(
                 &format!("Jump Threading: optimizing {:?}", current_block),
                 self.graph,
-                &|node: &Node| {
-                    let mut label = default_label(node);
-
-                    if node == &Node::Block(current_block) {
-                        label = label
-                            .style(Style::Filled)
-                            .fillcolor(X11Color::Blue)
-                            .fontcolor(X11Color::White);
-                    }
-
-                    label
-                }
+                &|node: &Node| highlight_single_block(node, current_block, X11Color::Blue)
             );
 
             // collecting is important since we edit the predecessors during iteration!!!
@@ -203,18 +181,7 @@ impl ControlFlow {
         breakpoint!(
             &format!("Jump Threading: {:?} changed, rescheduling", block),
             self.graph,
-            &|node: &Node| {
-                let mut label = default_label(node);
-
-                if node == &Node::Block(block) {
-                    label = label
-                        .style(Style::Filled)
-                        .fillcolor(X11Color::Red)
-                        .fontcolor(X11Color::White);
-                }
-
-                label
-            }
+            &|node: &Node| highlight_single_block(node, block, X11Color::Red)
         );
 
         if self.done.contains(&block) {
@@ -596,4 +563,17 @@ struct UnnecessaryCond {
     proj_current: (usize, nodes::Proj),
     proj_other: (usize, nodes::Proj),
     target_block: nodes::Block,
+}
+
+fn highlight_single_block(node: &Node, current_block: nodes::Block, color: X11Color) -> Label {
+    let mut label = default_label(node);
+
+    if node == &Node::Block(current_block) {
+        label = label
+            .style(Style::Filled)
+            .fillcolor(color)
+            .fontcolor(X11Color::White);
+    }
+
+    label
 }
