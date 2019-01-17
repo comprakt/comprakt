@@ -254,11 +254,11 @@ impl Function {
 
         log::debug!("{:?}", lsa.var_location.keys());
 
-        let mut codegen = Codegen::new(lva.postorder_blocks, lsa.var_location);
-        codegen.run(&self);
+        let mut codegen = Codegen::new(lsa.var_location, self.cconv);
+        let instrs = codegen.run(&self, lva.postorder_blocks);
 
         self.function_prolog(out)?;
-        for instr in codegen.instrs {
+        for instr in instrs {
             writeln!(out, "{}", instr)?;
         }
         self.function_epilog(out)?;

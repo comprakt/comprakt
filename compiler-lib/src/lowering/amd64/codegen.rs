@@ -4,72 +4,80 @@ use super::{
     lir::{self, MultiSlot},
     live_variable_analysis,
     register::Amd64Reg,
-    var_id, VarId,
+    var_id, CallingConv, VarId,
 };
 use crate::lowering::lir_allocator::Ptr;
 use libfirm_rs::{nodes::NodeTrait, Tarval};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     convert::{TryFrom, TryInto},
 };
 
 pub(super) struct Codegen {
-    blocks: Vec<live_variable_analysis::Block>,
     var_location: HashMap<VarId, linear_scan::Location>,
-
-    pub(super) instrs: Vec<Instruction>,
+    cconv: CallingConv,
+    params_moved_from_stack: HashSet<u32>,
 }
 
 impl Codegen {
     pub(super) fn new(
-        blocks: Vec<live_variable_analysis::Block>,
         var_location: HashMap<VarId, linear_scan::Location>,
+        cconv: CallingConv,
     ) -> Self {
         Self {
-            blocks,
             var_location,
-            instrs: vec![],
+            cconv,
+            params_moved_from_stack: HashSet::new(),
         }
     }
 
-    pub(super) fn run(&mut self, function: &function::Function) {
+    pub(super) fn run(
+        &mut self,
+        function: &function::Function,
+        blocks: Vec<live_variable_analysis::Block>,
+    ) -> Vec<Instruction> {
         use self::Instruction::*;
+        let mut instrs = vec![];
 
-        self.instrs.push(Comment {
+        instrs.push(Comment {
             comment: "function prolog".to_string(),
         });
         for instr in &function.prolog {
             match instr {
-                function::FnInstruction::Pushq { src } => self.instrs.push(Pushq {
-                    src: self.fn_to_src_operand(*src),
-                }),
-                function::FnInstruction::Movq { src, dst } => self.instrs.push(Movq {
-                    src: self.fn_to_src_operand(*src),
-                    dst: self.fn_to_src_operand(*dst).try_into().unwrap(),
-                }),
+                function::FnInstruction::Pushq { src } => {
+                    let src = self.fn_to_src_operand(*src, &mut instrs);
+                    instrs.push(Pushq { src });
+                }
+                function::FnInstruction::Movq { src, dst } => {
+                    let src = self.fn_to_src_operand(*src, &mut instrs);
+                    let dst = self
+                        .fn_to_src_operand(*dst, &mut instrs)
+                        .try_into()
+                        .unwrap();
+                    instrs.push(Movq { src, dst });
+                }
                 _ => unreachable!(),
             }
         }
 
-        self.instrs.push(Comment {
+        instrs.push(Comment {
             comment: "function save regs".to_string(),
         });
         for instr in &function.save_regs {
             if let function::FnInstruction::Pushq { src } = instr {
-                self.instrs.push(Pushq {
-                    src: self.fn_to_src_operand(*src),
-                });
+                let src = self.fn_to_src_operand(*src, &mut instrs);
+                instrs.push(Pushq { src });
             } else {
                 unreachable!();
             }
         }
 
         if let Some(instr) = function.allocate {
-            self.instrs.push(Comment {
+            instrs.push(Comment {
                 comment: "function allocate stack space".to_string(),
             });
             if let function::FnInstruction::Subq { src, dst } = instr {
-                self.instrs.push(Subq {
+                instrs.push(Subq {
                     src: SrcOperand::Imm(src),
                     dst: DstOperand::Reg(dst),
                 });
@@ -78,10 +86,10 @@ impl Codegen {
             }
         }
 
-        let mut block_iter = self.blocks.iter().peekable();
+        let mut block_iter = blocks.iter().peekable();
 
         while let Some(block) = block_iter.next() {
-            self.instrs.push(Label {
+            instrs.push(Label {
                 label: self.gen_label(block.firm_num),
             });
 
@@ -89,49 +97,50 @@ impl Codegen {
                 match instr {
                     // Match over every instruction and generate amd64 instructions
                     live_variable_analysis::Instruction::Call(call) => {
-                        self.instrs.push(Comment {
+                        instrs.push(Comment {
                             comment: "call instruction".to_string(),
                         });
-                        self.instrs.append(&mut self.gen_call(call));
+                        self.gen_call(call, &mut instrs);
                     }
                     live_variable_analysis::Instruction::Lir(lir) => {
-                        self.instrs.append(&mut self.gen_lir(lir));
+                        self.gen_lir(lir, &mut instrs);
                     }
                     live_variable_analysis::Instruction::Leave(leave) => {
-                        self.instrs.push(Comment {
+                        instrs.push(Comment {
                             comment: "leave instruction".to_string(),
                         });
-                        self.instrs.append(&mut self.gen_leave(
+                        self.gen_leave(
                             leave,
                             block_iter.peek().map_or(-1, |block| block.firm_num),
-                        ));
+                            &mut instrs,
+                        );
                     }
                     live_variable_analysis::Instruction::Mov { src, dst } => {
-                        self.instrs.push(Comment {
+                        instrs.push(Comment {
                             comment: "copy instruction".to_string(),
                         });
-                        let src = self.lir_to_src_operand(lir::Operand::Slot(*src));
+                        let src = self.lir_to_src_operand(lir::Operand::Slot(*src), &mut instrs);
                         let dst = self
-                            .lir_to_src_operand(lir::Operand::Slot(*dst))
+                            .lir_to_src_operand(lir::Operand::Slot(*dst), &mut instrs)
                             .try_into()
                             .unwrap();
                         match (src, dst) {
                             (SrcOperand::Reg(_), _) | (_, DstOperand::Reg(_)) => {
-                                self.instrs.push(Movq { src, dst });
+                                instrs.push(Movq { src, dst });
                             }
                             (SrcOperand::Mem(_), DstOperand::Mem(_)) => {
-                                self.instrs.push(Pushq {
+                                instrs.push(Pushq {
                                     src: SrcOperand::Reg(Amd64Reg::Rax),
                                 });
-                                self.instrs.push(Movq {
+                                instrs.push(Movq {
                                     src,
                                     dst: DstOperand::Reg(Amd64Reg::Rax),
                                 });
-                                self.instrs.push(Movq {
+                                instrs.push(Movq {
                                     src: SrcOperand::Reg(Amd64Reg::Rax),
                                     dst,
                                 });
-                                self.instrs.push(Popq {
+                                instrs.push(Popq {
                                     dst: DstOperand::Reg(Amd64Reg::Rax),
                                 });
                             }
@@ -142,32 +151,35 @@ impl Codegen {
             }
         }
 
-        self.instrs.push(Comment {
+        instrs.push(Comment {
             comment: "function restore regs".to_string(),
         });
         for instr in &function.restore_regs {
             if let function::FnInstruction::Popq { dst } = instr {
-                self.instrs.push(Popq {
-                    dst: self.fn_to_src_operand(*dst).try_into().unwrap(),
-                });
+                let dst = self
+                    .fn_to_src_operand(*dst, &mut instrs)
+                    .try_into()
+                    .unwrap();
+                instrs.push(Popq { dst });
             }
         }
 
-        self.instrs.push(Comment {
+        instrs.push(Comment {
             comment: "function epilog".to_string(),
         });
         for instr in &function.epilog {
             match instr {
-                function::FnInstruction::Leave => self.instrs.push(Leave),
-                function::FnInstruction::Ret => self.instrs.push(Ret),
+                function::FnInstruction::Leave => instrs.push(Leave),
+                function::FnInstruction::Ret => instrs.push(Ret),
                 _ => unreachable!(),
             }
         }
+
+        instrs
     }
 
-    fn gen_lir(&self, lir: &lir::Instruction) -> Vec<Instruction> {
+    fn gen_lir(&mut self, lir: &lir::Instruction, instrs: &mut Vec<Instruction>) {
         use self::Instruction::*;
-        let mut instrs = vec![];
 
         log::debug!("Gen lir: {:?}", lir);
         match lir {
@@ -176,59 +188,60 @@ impl Codegen {
                 src1,
                 src2,
                 dst,
-            } => self.gen_binop(&mut instrs, kind, src1, src2, *dst),
+            } => self.gen_binop(instrs, kind, src1, src2, *dst),
             lir::Instruction::Div { src1, src2, dst } => {
-                self.gen_div(&mut instrs, src1, src2, || Movq {
+                let dst = self
+                    .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
+                    .try_into()
+                    .unwrap();
+                self.gen_div(instrs, src1, src2, || Movq {
                     src: SrcOperand::Reg(Amd64Reg::Rax),
-                    dst: self
-                        .lir_to_src_operand(lir::Operand::Slot(*dst))
-                        .try_into()
-                        .unwrap(),
+                    dst,
                 });
             }
             lir::Instruction::Mod { src1, src2, dst } => {
-                self.gen_div(&mut instrs, src1, src2, || Movq {
+                let dst = self
+                    .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
+                    .try_into()
+                    .unwrap();
+                self.gen_div(instrs, src1, src2, || Movq {
                     src: SrcOperand::Reg(Amd64Reg::Rdx),
-                    dst: self
-                        .lir_to_src_operand(lir::Operand::Slot(*dst))
-                        .try_into()
-                        .unwrap(),
+                    dst,
                 });
             }
-            lir::Instruction::Conv { src, dst } => instrs.push(Movq {
-                src: self.lir_to_src_operand(*src),
-                dst: self
-                    .lir_to_src_operand(lir::Operand::Slot(*dst))
+            lir::Instruction::Conv { src, dst } => {
+                let src = self.lir_to_src_operand(*src, instrs);
+                let dst = self
+                    .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
                     .try_into()
-                    .unwrap(),
-            }),
-            lir::Instruction::Unop { kind, src, dst } => {
-                self.gen_unop(&mut instrs, kind, src, *dst)
+                    .unwrap();
+                instrs.push(Movq { src, dst })
             }
+            lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
             lir::Instruction::StoreMem { src, dst } => {
-                self.gen_load_store(&mut instrs, dst, |addr| Movq {
-                    src: self.lir_to_src_operand(*src),
+                let src = self.lir_to_src_operand(*src, instrs);
+                self.gen_load_store(instrs, dst, |addr| Movq {
+                    src,
                     dst: DstOperand::Mem(addr),
                 })
             }
             lir::Instruction::LoadMem { src, dst } => {
-                self.gen_load_store(&mut instrs, src, |addr| Movq {
+                let dst = self
+                    .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
+                    .try_into()
+                    .unwrap();
+                self.gen_load_store(instrs, src, |addr| Movq {
                     src: SrcOperand::Mem(addr),
-                    dst: self
-                        .lir_to_src_operand(lir::Operand::Slot(*dst))
-                        .try_into()
-                        .unwrap(),
+                    dst,
                 })
             }
             lir::Instruction::Call { .. } => unreachable!("Call already converted"),
             lir::Instruction::Comment(_) => (),
         }
-
-        instrs
     }
 
     fn gen_binop(
-        &self,
+        &mut self,
         instrs: &mut Vec<Instruction>,
         kind: &lir::BinopKind,
         src1: &lir::Operand,
@@ -279,10 +292,10 @@ impl Codegen {
             }};
         }
 
-        let src1 = self.lir_to_src_operand(*src1);
-        let src2 = self.lir_to_src_operand(*src2);
+        let src1 = self.lir_to_src_operand(*src1, instrs);
+        let src2 = self.lir_to_src_operand(*src2, instrs);
         let dst = self
-            .lir_to_src_operand(lir::Operand::Slot(dst))
+            .lir_to_src_operand(lir::Operand::Slot(dst), instrs)
             .try_into()
             .unwrap();
         match dst {
@@ -379,7 +392,7 @@ impl Codegen {
     }
 
     fn gen_div<F>(
-        &self,
+        &mut self,
         instrs: &mut Vec<Instruction>,
         src1: &lir::Operand,
         src2: &lir::Operand,
@@ -394,8 +407,9 @@ impl Codegen {
         instrs.push(Pushq {
             src: SrcOperand::Reg(Amd64Reg::Rax),
         });
+        let src = self.lir_to_src_operand(*src1, instrs);
         instrs.push(Movq {
-            src: self.lir_to_src_operand(*src1),
+            src,
             dst: DstOperand::Reg(Amd64Reg::Rax),
         });
         instrs.push(Cqto);
@@ -403,8 +417,9 @@ impl Codegen {
             instrs.push(Pushq {
                 src: SrcOperand::Reg(Amd64Reg::Rsi),
             });
+            let src = self.lir_to_src_operand(*src2, instrs);
             instrs.push(Movq {
-                src: self.lir_to_src_operand(*src2),
+                src,
                 dst: DstOperand::Reg(Amd64Reg::Rsi),
             });
             instrs.push(Divq {
@@ -414,9 +429,8 @@ impl Codegen {
                 dst: DstOperand::Reg(Amd64Reg::Rsi),
             });
         } else {
-            instrs.push(Divq {
-                src: self.lir_to_src_operand(*src2).try_into().unwrap(),
-            });
+            let src = self.lir_to_src_operand(*src2, instrs).try_into().unwrap();
+            instrs.push(Divq { src });
         }
         instrs.push(f());
         instrs.push(Popq {
@@ -428,7 +442,7 @@ impl Codegen {
     }
 
     fn gen_unop(
-        &self,
+        &mut self,
         instrs: &mut Vec<Instruction>,
         kind: &lir::UnopKind,
         src: &lir::Operand,
@@ -444,9 +458,9 @@ impl Codegen {
             }};
         }
 
-        let src = self.lir_to_src_operand(*src);
+        let src = self.lir_to_src_operand(*src, instrs);
         let dst = self
-            .lir_to_src_operand(lir::Operand::Slot(dst))
+            .lir_to_src_operand(lir::Operand::Slot(dst), instrs)
             .try_into()
             .unwrap();
         match dst {
@@ -485,7 +499,7 @@ impl Codegen {
     }
 
     fn gen_load_store<F>(
-        &self,
+        &mut self,
         instrs: &mut Vec<Instruction>,
         addr: &lir::AddressComputation<lir::Operand>,
         f: F,
@@ -498,7 +512,7 @@ impl Codegen {
             base,
             index,
         } = addr;
-        let base = self.lir_to_src_operand(*base);
+        let base = self.lir_to_src_operand(*base, instrs);
         let (base, base_new_reg) = match base {
             SrcOperand::Reg(reg) => (AddrOperand(reg), false),
             _ => {
@@ -515,7 +529,7 @@ impl Codegen {
         let (index, index_new_reg) = match index {
             lir::IndexComputation::Zero => (lir::IndexComputation::Zero, false),
             lir::IndexComputation::Displacement(op, s) => {
-                let op = self.lir_to_src_operand(*op);
+                let op = self.lir_to_src_operand(*op, instrs);
                 match op {
                     SrcOperand::Reg(reg) => (
                         lir::IndexComputation::Displacement(AddrOperand(reg), *s),
@@ -556,16 +570,14 @@ impl Codegen {
         }
     }
 
-    fn gen_call(&self, call: &function::FunctionCall) -> Vec<Instruction> {
+    fn gen_call(&mut self, call: &function::FunctionCall, instrs: &mut Vec<Instruction>) {
         use self::Instruction::*;
-        let mut instrs = vec![];
 
         log::debug!("Gen call: {:?}", call);
         for instr in &call.arg_save {
             if let function::FnInstruction::Pushq { src } = instr {
-                instrs.push(Pushq {
-                    src: self.fn_to_src_operand(*src),
-                });
+                let src = self.fn_to_src_operand(*src, instrs);
+                instrs.push(Pushq { src });
             } else {
                 unreachable!();
             }
@@ -573,13 +585,15 @@ impl Codegen {
 
         for instr in &call.setup {
             match instr {
-                function::FnInstruction::Movq { src, dst } => instrs.push(Movq {
-                    src: self.fn_to_src_operand(*src),
-                    dst: self.fn_to_src_operand(*dst).try_into().unwrap(),
-                }),
-                function::FnInstruction::Pushq { src } => instrs.push(Pushq {
-                    src: self.fn_to_src_operand(*src),
-                }),
+                function::FnInstruction::Movq { src, dst } => {
+                    let src = self.fn_to_src_operand(*src, instrs);
+                    let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
+                    instrs.push(Movq { src, dst });
+                }
+                function::FnInstruction::Pushq { src } => {
+                    let src = self.fn_to_src_operand(*src, instrs);
+                    instrs.push(Pushq { src });
+                }
                 _ => unreachable!(),
             }
         }
@@ -589,13 +603,9 @@ impl Codegen {
         });
 
         if let Some(function::FnInstruction::Movq { src, dst }) = call.move_res {
-            instrs.push(Movq {
-                src: self.fn_to_src_operand(src),
-                dst: self
-                    .fn_to_src_operand(dst)
-                    .try_into()
-                    .expect("function results cannot be written in an Imm"),
-            });
+            let src = self.fn_to_src_operand(src, instrs);
+            let dst = self.fn_to_src_operand(dst, instrs).try_into().unwrap();
+            instrs.push(Movq { src, dst });
         }
 
         if let Some(function::FnInstruction::Addq { src, dst }) = call.recover {
@@ -607,20 +617,22 @@ impl Codegen {
 
         for instr in &call.arg_recover {
             if let function::FnInstruction::Popq { dst } = instr {
-                instrs.push(Popq {
-                    dst: self.fn_to_src_operand(*dst).try_into().unwrap(),
-                });
+                let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
+                instrs.push(Popq { dst });
             } else {
                 unreachable!();
             }
         }
-
-        instrs
     }
 
-    fn gen_leave(&self, leave: &lir::Leave, next_block_num: i64) -> Vec<Instruction> {
+    fn gen_leave(
+        &mut self,
+        leave: &lir::Leave,
+        next_block_num: i64,
+        instrs: &mut Vec<Instruction>,
+    ) {
         use self::Instruction::*;
-        let mut instrs = vec![];
+
         macro_rules! push_jmp {
             ($kind:expr, $target:expr, $next_block_num:expr, fall=$fall:expr) => {{
                 let target_num = $target.firm.node_id();
@@ -648,8 +660,8 @@ impl Codegen {
                 true_target,
                 false_target,
             } => {
-                let lhs = self.lir_to_src_operand(*lhs);
-                let rhs = self.lir_to_src_operand(*rhs);
+                let lhs = self.lir_to_src_operand(*lhs, instrs);
+                let rhs = self.lir_to_src_operand(*rhs, instrs);
                 let op = match (lhs, rhs) {
                     (SrcOperand::Reg(_), SrcOperand::Imm(_))
                     | (SrcOperand::Mem(_), SrcOperand::Imm(_)) => {
@@ -698,8 +710,9 @@ impl Codegen {
             }
             lir::Leave::Return { value, end_block } => {
                 if let Some(value) = value {
+                    let src = self.lir_to_src_operand(*value, instrs);
                     instrs.push(Movq {
-                        src: self.lir_to_src_operand(*value),
+                        src,
                         dst: DstOperand::Reg(Amd64Reg::Rax),
                     })
                 }
@@ -711,15 +724,17 @@ impl Codegen {
                 );
             }
         }
-
-        instrs
     }
 
     fn gen_label(&self, block_num: i64) -> String {
         format!(".L{}", block_num)
     }
 
-    fn lir_to_src_operand(&self, op: lir::Operand) -> SrcOperand {
+    fn lir_to_src_operand(
+        &mut self,
+        op: lir::Operand,
+        instrs: &mut Vec<Instruction>,
+    ) -> SrcOperand {
         match op {
             lir::Operand::Imm(c) => SrcOperand::Imm(c),
             lir::Operand::Slot(_) => match self.var_location[&var_id(op)] {
@@ -732,8 +747,15 @@ impl Codegen {
                 Location::ParamMem => unreachable!("a slot never has a ParamMem location"),
             },
             lir::Operand::Param { idx } => match self.var_location[&var_id(op)] {
-                Location::Reg(reg) => SrcOperand::Reg(reg),
-                // This can happen when the register was originally in an register but got moved on
+                Location::Reg(reg) => {
+                    if let Some(instr) = self.arg_from_stack(idx, DstOperand::Reg(reg)) {
+                        if self.params_moved_from_stack.insert(idx) {
+                            instrs.push(instr);
+                        }
+                    }
+                    SrcOperand::Reg(reg)
+                }
+                // This can happen when the param was originally in a register but got moved on
                 // the stack.
                 Location::Mem(idx) => SrcOperand::Mem(lir::AddressComputation {
                     offset: -(idx as isize) * 8,
@@ -749,11 +771,36 @@ impl Codegen {
         }
     }
 
-    fn fn_to_src_operand(&self, op: function::FnOperand) -> SrcOperand {
+    fn fn_to_src_operand(
+        &mut self,
+        op: function::FnOperand,
+        instrs: &mut Vec<Instruction>,
+    ) -> SrcOperand {
         match op {
-            function::FnOperand::Lir(lir) => self.lir_to_src_operand(lir),
+            function::FnOperand::Lir(lir) => self.lir_to_src_operand(lir, instrs),
             function::FnOperand::Reg(reg) => SrcOperand::Reg(reg),
         }
+    }
+
+    fn arg_from_stack(&self, idx: u32, dst: DstOperand) -> Option<Instruction> {
+        let offset = match self.cconv {
+            CallingConv::Stack => (idx + 1) * 8 + 8,
+            CallingConv::X86_64 => {
+                if idx < 6 {
+                    return None;
+                } else {
+                    (idx + 1 - 6) * 8 + 8
+                }
+            }
+        } as isize;
+        Some(Instruction::Movq {
+            src: SrcOperand::Mem(lir::AddressComputation {
+                offset,
+                base: AddrOperand(Amd64Reg::Rbp),
+                index: lir::IndexComputation::Zero,
+            }),
+            dst,
+        })
     }
 }
 
