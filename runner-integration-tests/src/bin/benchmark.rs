@@ -56,7 +56,7 @@ fn big_tests() -> Vec<BigTest> {
     big_tests
 }
 
-fn profile_compiler(test: &BigTest) -> CompilerMeasurements {
+fn profile_compiler(test: &BigTest) -> Option<CompilerMeasurements> {
     let mut cmd = compiler_call(
         CompilerCall::RawCompiler(CompilerPhase::Binary {
             // TODO: use temp dir, don't trash
@@ -80,13 +80,24 @@ fn profile_compiler(test: &BigTest) -> CompilerMeasurements {
     //}
 
     log::debug!("calling compiler as: {:?}", cmd);
-    cmd.status().expect("failed to compile test");
+
+    match cmd.status() {
+        Ok(status) if status.success() => (),
+        Ok(status) => {
+            log::error!("compiler failed with non-zero exit code: {:?}", status);
+            return None;
+        }
+        Err(msg) => {
+            log::error!("compiler crash {:?}", msg);
+            return None;
+        }
+    }
 
     let stats_file = File::open(measurement_path).unwrap();
     let stats_reader = BufReader::new(stats_file);
     let profile = serde_json::from_reader(stats_reader).unwrap();
     log::debug!("Stats:\n{}", AsciiDisp(&profile));
-    profile
+    Some(profile)
 }
 
 fn main() {
@@ -96,9 +107,11 @@ fn main() {
 
     for big_test in &big_tests() {
         let mut bench = Benchmark::new();
+
         for _ in 0..times {
-            let timings = profile_compiler(big_test);
-            bench.add(&timings);
+            if let Some(timings) = profile_compiler(big_test) {
+                bench.add(&timings);
+            }
         }
 
         let title = format!(
