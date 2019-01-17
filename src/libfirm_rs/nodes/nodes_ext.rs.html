@@ -569,6 +569,17 @@
 <span id="569">569</span>
 <span id="570">570</span>
 <span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">nodes_gen</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">bindings</span>, <span class="ident">Entity</span>, <span class="ident">Graph</span>, <span class="ident">Mode</span>};
@@ -576,6 +587,17 @@
     <span class="ident">fmt</span>,
     <span class="ident">hash</span>::{<span class="ident">Hash</span>, <span class="ident">Hasher</span>},
 };
+
+<span class="macro">lazy_static</span><span class="macro">!</span> {
+    <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">NODE_FACTORY</span>: <span class="ident">NodeFactory</span> <span class="op">=</span> <span class="ident">NodeFactory</span>::<span class="ident">new</span>();
+}
+
+<span class="kw">impl</span> <span class="ident">Node</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wrap</span>(<span class="ident">ir_node</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="comment">//NodeFactory::new().create(ir_node)</span>
+        <span class="ident">NODE_FACTORY</span>.<span class="ident">create</span>(<span class="ident">ir_node</span>)
+    }
+}
 
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">generate_iterator</span> {
     (
@@ -684,7 +706,7 @@
             <span class="macro-nonterminal">$</span><span class="macro-nonterminal">idx_type</span>,
             {
                 <span class="kw">let</span> <span class="ident">out</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="macro-nonterminal">$</span><span class="macro-nonterminal">get_fn</span>(<span class="ident">node</span>, <span class="ident">idx</span>) };
-                <span class="prelude-val">Some</span>(<span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">out</span>))
+                <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">out</span>))
             },
             <span class="ident">Node</span>,
         );
@@ -780,7 +802,7 @@
     {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">in_pos</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">let</span> <span class="ident">out</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_irn_out_ex</span>(<span class="ident">node</span>, <span class="ident">idx</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">in_pos</span>) };
-        <span class="prelude-val">Some</span>((<span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">out</span>), <span class="ident">in_pos</span>))
+        <span class="prelude-val">Some</span>((<span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">out</span>), <span class="ident">in_pos</span>))
     },
     (<span class="ident">Node</span>, <span class="ident">i32</span>),
 );
@@ -887,7 +909,7 @@
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">value</span>(<span class="self">self</span>, <span class="ident">slot_idx</span>: <span class="ident">usize</span>, <span class="ident">mode</span>: <span class="ident">Mode</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="kw">unsafe</span> {
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="kw">unsafe</span> {
             <span class="ident">bindings</span>::<span class="ident">get_b_value</span>(
                 <span class="self">self</span>.<span class="ident">internal_ir_node</span>(),
                 <span class="ident">slot_idx</span> <span class="kw">as</span> <span class="ident">i32</span>,
@@ -907,7 +929,7 @@
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">cur_store</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_b_store</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) })
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_b_store</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) })
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_store</span>(<span class="self">self</span>, <span class="ident">s</span>: <span class="kw">impl</span> <span class="ident">NodeTrait</span>) {
@@ -948,7 +970,7 @@
             <span class="prelude-val">None</span>
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Proj_pred</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) };
-            <span class="prelude-val">Some</span>(<span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>))
+            <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>))
         }
     }
 }

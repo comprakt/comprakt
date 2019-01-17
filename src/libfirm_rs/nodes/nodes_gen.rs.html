@@ -6749,10 +6749,6 @@
 <span id="6749">6749</span>
 <span id="6750">6750</span>
 <span id="6751">6751</span>
-<span id="6752">6752</span>
-<span id="6753">6753</span>
-<span id="6754">6754</span>
-<span id="6755">6755</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file is generated! Do not edit by hand!</span>
 <span class="comment">// Follow the instructions in the README on how to update this file.</span>
@@ -7871,10 +7867,6 @@
         <span class="ident">NodeFactory</span>(<span class="ident">map</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">node</span>(<span class="ident">ir_node</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="self">Self</span>::<span class="ident">new</span>().<span class="ident">create</span>(<span class="ident">ir_node</span>)
-    }
-
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ir_node</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">op_code</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_irn_opcode</span>(<span class="ident">ir_node</span>) };
         <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>[<span class="kw-2">&amp;</span><span class="ident">op_code</span>];
@@ -8062,7 +8054,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Add_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -8078,7 +8070,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Add_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -8195,7 +8187,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Alloc_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets memory dependency.</span>
@@ -8211,7 +8203,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">size</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Alloc_size</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets size of the block in bytes.</span>
@@ -8313,7 +8305,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">end_block</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Anchor_end_block</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets block the end node belongs to.</span>
@@ -8329,7 +8321,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">start_block</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Anchor_start_block</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets block the start node belongs to.</span>
@@ -8345,7 +8337,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">end</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Anchor_end</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets end node of this ir_graph.</span>
@@ -8361,7 +8353,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">start</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Anchor_start</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets start node of this ir_graph.</span>
@@ -8377,7 +8369,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">frame</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Anchor_frame</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets frame of this ir_graph.</span>
@@ -8393,7 +8385,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initial_mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Anchor_initial_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets initial memory of this ir_graph.</span>
@@ -8409,7 +8401,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">args</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Anchor_args</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets argument proj of the start node.</span>
@@ -8425,7 +8417,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">no_mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Anchor_no_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets the only NoMem node of this ir_graph.</span>
@@ -8476,7 +8468,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_And_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -8492,7 +8484,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_And_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -8598,7 +8590,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">op</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Bitcast_op</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets operand.</span>
@@ -8700,7 +8692,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Builtin_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets memory dependency.</span>
@@ -8801,7 +8793,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Call_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets memory dependency.</span>
@@ -8817,7 +8809,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ptr</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Call_ptr</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets pointer to called code.</span>
@@ -8940,7 +8932,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Cmp_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -8956,7 +8948,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Cmp_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -9023,7 +9015,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">selector</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Cond_selector</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets condition parameter.</span>
@@ -9128,7 +9120,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">value</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Confirm_value</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets value to express a constraint for.</span>
@@ -9144,7 +9136,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bound</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Confirm_bound</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets value to compare against.</span>
@@ -9257,7 +9249,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">op</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Conv_op</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets operand.</span>
@@ -9308,7 +9300,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_CopyB_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets memory dependency.</span>
@@ -9324,7 +9316,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dst</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_CopyB_dst</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets destination address.</span>
@@ -9340,7 +9332,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">src</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_CopyB_src</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets source address.</span>
@@ -9461,7 +9453,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Div_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets memory dependency.</span>
@@ -9477,7 +9469,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Div_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -9493,7 +9485,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Div_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -9711,7 +9703,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Eor_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -9727,7 +9719,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Eor_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -9778,7 +9770,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Free_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets memory dependency.</span>
@@ -9794,7 +9786,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ptr</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Free_ptr</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets pointer to the object to free.</span>
@@ -9847,7 +9839,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">target</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_IJmp_target</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets target address of the jump.</span>
@@ -9901,7 +9893,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pred</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Id_pred</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets the value which is returned unchanged.</span>
@@ -9987,7 +9979,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Load_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets memory dependency.</span>
@@ -10003,7 +9995,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ptr</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Load_ptr</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets address to load from.</span>
@@ -10180,7 +10172,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ptr</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Member_ptr</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets pointer to object to select from.</span>
@@ -10242,7 +10234,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">op</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Minus_op</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets operand.</span>
@@ -10300,7 +10292,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Mod_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets memory dependency.</span>
@@ -10316,7 +10308,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Mod_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -10332,7 +10324,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Mod_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -10459,7 +10451,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Mul_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -10475,7 +10467,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Mul_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -10527,7 +10519,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Mulh_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -10543,7 +10535,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Mulh_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -10595,7 +10587,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sel</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Mux_sel</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets value making the output selection.</span>
@@ -10611,7 +10603,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">false_</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Mux_false</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets selected if sel input is false.</span>
@@ -10627,7 +10619,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">true_</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Mux_true</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets selected if sel input is true.</span>
@@ -10713,7 +10705,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">op</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Not_op</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets operand.</span>
@@ -10799,7 +10791,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Or_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -10815,7 +10807,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Or_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -10923,7 +10915,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">op</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Pin_op</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets value which is pinned.</span>
@@ -10974,7 +10966,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pred</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Proj_pred</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets the tuple value from which a part is extracted.</span>
@@ -11038,7 +11030,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Raise_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets memory dependency.</span>
@@ -11054,7 +11046,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exo_ptr</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Raise_exo_ptr</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets pointer to exception object to be thrown.</span>
@@ -11136,7 +11128,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Return_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets memory dependency.</span>
@@ -11190,7 +11182,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ptr</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Sel_ptr</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets pointer to array to select from.</span>
@@ -11206,7 +11198,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">index</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Sel_index</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets index to select.</span>
@@ -11277,7 +11269,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Shl_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -11293,7 +11285,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Shl_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -11348,7 +11340,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Shr_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -11364,7 +11356,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Shr_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -11420,7 +11412,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Shrs_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -11436,7 +11428,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Shrs_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -11602,7 +11594,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Store_mem</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets memory dependency.</span>
@@ -11618,7 +11610,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ptr</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Store_ptr</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets address to store to.</span>
@@ -11634,7 +11626,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">value</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Store_value</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets value to store.</span>
@@ -11777,7 +11769,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">left</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Sub_left</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets first operand.</span>
@@ -11793,7 +11785,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">right</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Sub_right</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets second operand.</span>
@@ -11847,7 +11839,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">let_and_return</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">selector</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">let</span> <span class="ident">unwrapped</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Switch_selector</span>(<span class="self">self</span>.<span class="number">0</span>) };
-        <span class="ident">NodeFactory</span>::<span class="ident">node</span>(<span class="ident">unwrapped</span>)
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">unwrapped</span>)
     }
 
     <span class="doccomment">/// Sets input selector.</span>
