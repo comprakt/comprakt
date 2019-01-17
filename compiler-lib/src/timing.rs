@@ -17,6 +17,7 @@ lazy_static::lazy_static! {
     static ref TIMINGS: Mutex<Timings> = { Mutex::new(Timings { measurements: Vec::new()}) };
 }
 
+#[derive(Debug, Clone)]
 pub struct Measurement {
     start: Instant,
     label: String,
@@ -40,6 +41,7 @@ impl Measurement {
     }
 }
 
+#[derive(Debug, Clone)]
 struct Timings {
     measurements: Vec<CompletedMeasurement>,
 }
@@ -54,15 +56,26 @@ impl fmt::Display for Timings {
         } else {
             let min_label_width = 50;
 
-            for timing in &self.measurements {
+            let mut active = vec![];
+
+            let mut listing = self.measurements.clone();
+            listing.sort_by(|a, b| a.start.cmp(&b.start));
+
+            for timing in listing.into_iter() {
+                active.retain(|measurement: &CompletedMeasurement| measurement.stop > timing.start);
+
+                let indent = "  ".repeat(active.len());
                 writeln!(
                     f,
-                    "{: <label_width$}    {: >ms_width$}ms",
+                    "{nesting}{: <label_width$}    {: >ms_width$}ms",
                     timing.label,
                     timing.duration().as_millis(),
-                    label_width = min_label_width,
+                    nesting = indent,
+                    label_width = min_label_width - indent.len(),
                     ms_width = 6
                 )?;
+
+                active.push(timing);
             }
         }
 
@@ -70,6 +83,7 @@ impl fmt::Display for Timings {
     }
 }
 
+#[derive(Debug, Clone)]
 struct CompletedMeasurement {
     start: Instant,
     stop: Instant,

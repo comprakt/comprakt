@@ -189,6 +189,7 @@ impl Level {
     /// on the given program
     pub fn run_all(&self, program: &FirmProgram<'_, '_>) {
         breakpoint!("before optimization sequence".to_string(), program);
+        let measurement_all = Measurement::start("optimization phase");
 
         for (i, optimization) in self.sequence().iter().enumerate() {
             log::info!("Running optimization #{}: {:?}", i, optimization);
@@ -197,6 +198,8 @@ impl Level {
             measurement.stop();
             log::debug!("Finished optimization #{}: {:?}", i, optimization.kind);
         }
+
+        measurement_all.stop();
 
         breakpoint!("after optimization sequence".to_string(), program);
     }
