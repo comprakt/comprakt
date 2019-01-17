@@ -1291,7 +1291,7 @@ impl NodeFactory {
 }
 
 /// returns the sum of its operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Add(*mut bindings::ir_node);
 
 impl Add {
@@ -1359,7 +1359,7 @@ impl fmt::Debug for Add {
 }
 /// Symbolic constant that represents the address of an entity (variable or
 /// method)
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Address(*mut bindings::ir_node);
 
 impl Address {
@@ -1389,7 +1389,7 @@ impl fmt::Debug for Address {
     }
 }
 /// A symbolic constant that represents the alignment of a type
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Align(*mut bindings::ir_node);
 
 impl Align {
@@ -1424,7 +1424,7 @@ impl fmt::Debug for Align {
     }
 }
 /// Allocates a block of memory on the stack.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Alloc(*mut bindings::ir_node);
 
 impl Alloc {
@@ -1542,7 +1542,7 @@ impl fmt::Debug for Alloc {
 /// Each firm-graph contains exactly one anchor node whose address is always
 /// known. All other well-known graph-nodes like Start, End, NoMem, ...
 /// are found by looking at the respective Anchor operand.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Anchor(*mut bindings::ir_node);
 
 impl Anchor {
@@ -1705,7 +1705,7 @@ impl fmt::Debug for Anchor {
     }
 }
 /// returns the result of a bitwise and operation of its operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct And(*mut bindings::ir_node);
 
 impl And {
@@ -1791,7 +1791,7 @@ impl fmt::Debug for And {
 ///
 /// In the future we may use the Bad node to model poison values that arise
 /// from undefined behaviour like reading uninitialized local variables in C.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Bad(*mut bindings::ir_node);
 
 impl Bad {
@@ -1827,7 +1827,7 @@ impl fmt::Debug for Bad {
 }
 /// Converts a value between modes with different arithmetics but same
 /// number of bits by reinterpreting the bits in the new mode
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Bitcast(*mut bindings::ir_node);
 
 impl Bitcast {
@@ -1929,7 +1929,7 @@ impl fmt::Debug for Block {
     }
 }
 /// performs a backend-specific builtin.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Builtin(*mut bindings::ir_node);
 
 impl Builtin {
@@ -2030,7 +2030,7 @@ impl fmt::Debug for Builtin {
 /// operands are passed to the called code. Called code usually performs a
 /// return operation. The operands of this return operation are the result
 /// of the Call node.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Call(*mut bindings::ir_node);
 
 impl Call {
@@ -2169,7 +2169,7 @@ impl fmt::Debug for Call {
 }
 /// Compares its two operands and checks whether a specified
 /// relation (like less or equal) is fulfilled.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Cmp(*mut bindings::ir_node);
 
 impl Cmp {
@@ -2252,7 +2252,7 @@ impl fmt::Debug for Cmp {
     }
 }
 /// Conditionally change control flow.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Cond(*mut bindings::ir_node);
 
 impl Cond {
@@ -2357,7 +2357,7 @@ impl fmt::Debug for Cond {
 /// value is always returned.
 /// Note that this node does NOT check or assert the constraint, it merely
 /// specifies it.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Confirm(*mut bindings::ir_node);
 
 impl Confirm {
@@ -2440,7 +2440,7 @@ impl fmt::Debug for Confirm {
     }
 }
 /// Returns a constant value.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Const(*mut bindings::ir_node);
 
 impl Const {
@@ -2486,7 +2486,7 @@ impl fmt::Debug for Const {
     }
 }
 /// Converts values between modes
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Conv(*mut bindings::ir_node);
 
 impl Conv {
@@ -2537,7 +2537,7 @@ impl fmt::Debug for Conv {
     }
 }
 /// Copies a block of memory with statically known size/type.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct CopyB(*mut bindings::ir_node);
 
 impl CopyB {
@@ -2655,7 +2655,7 @@ impl fmt::Debug for CopyB {
 }
 /// Internal node which is temporary set to nodes which are already removed
 /// from the graph.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Deleted(*mut bindings::ir_node);
 
 impl Deleted {
@@ -2690,7 +2690,7 @@ impl fmt::Debug for Deleted {
     }
 }
 /// returns the quotient of its 2 operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Div(*mut bindings::ir_node);
 
 impl Div {
@@ -2867,7 +2867,7 @@ impl fmt::Debug for Div {
 /// A placeholder value. This is used when constructing cyclic graphs where
 /// you have cases where not all predecessors of a phi-node are known. Dummy
 /// nodes are used for the unknown predecessors and replaced later.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Dummy(*mut bindings::ir_node);
 
 impl Dummy {
@@ -2903,7 +2903,7 @@ impl fmt::Debug for Dummy {
 }
 /// Last node of a graph. It references nodes in endless loops (so called
 /// keepalive edges)
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct End(*mut bindings::ir_node);
 
 impl End {
@@ -2940,7 +2940,7 @@ impl fmt::Debug for End {
 /// returns the result of a bitwise exclusive or operation of its operands.
 ///
 /// This is also known as the Xor operation.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Eor(*mut bindings::ir_node);
 
 impl Eor {
@@ -3007,7 +3007,7 @@ impl fmt::Debug for Eor {
     }
 }
 /// Frees a block of memory previously allocated by an Alloc node
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Free(*mut bindings::ir_node);
 
 impl Free {
@@ -3076,7 +3076,7 @@ impl fmt::Debug for Free {
 /// Jumps to the code in its argument. The code has to be in the same
 /// function and the destination must be one of the blocks reachable
 /// by the tuple results
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct IJmp(*mut bindings::ir_node);
 
 impl IJmp {
@@ -3130,7 +3130,7 @@ impl fmt::Debug for IJmp {
 ///
 /// This is mainly used when exchanging nodes. Usually you shouldn't see Id
 /// nodes since the getters/setters for node inputs skip them automatically.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Id(*mut bindings::ir_node);
 
 impl Id {
@@ -3181,7 +3181,7 @@ impl fmt::Debug for Id {
     }
 }
 /// Jumps to the block connected through the out-value
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Jmp(*mut bindings::ir_node);
 
 impl Jmp {
@@ -3216,7 +3216,7 @@ impl fmt::Debug for Jmp {
     }
 }
 /// Loads a value from memory (heap or stack).
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Load(*mut bindings::ir_node);
 
 impl Load {
@@ -3409,7 +3409,7 @@ impl fmt::Debug for Load {
 /// of an instance of the compound type.
 ///
 /// A Member node must only produce a NULL pointer if the ptr input is NULL.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Member(*mut bindings::ir_node);
 
 impl Member {
@@ -3471,7 +3471,7 @@ impl fmt::Debug for Member {
     }
 }
 /// returns the additive inverse of its operand
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Minus(*mut bindings::ir_node);
 
 impl Minus {
@@ -3529,7 +3529,7 @@ impl fmt::Debug for Minus {
 /// * mod(5,-3)  produces 2
 /// * mod(-5,3)  produces -2
 /// * mod(-5,-3) produces -2
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mod(*mut bindings::ir_node);
 
 impl Mod {
@@ -3688,7 +3688,7 @@ impl fmt::Debug for Mod {
     }
 }
 /// returns the product of its operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mul(*mut bindings::ir_node);
 
 impl Mul {
@@ -3756,7 +3756,7 @@ impl fmt::Debug for Mul {
 }
 /// returns the upper word of the product of its operands (the part which
 /// would not fit into the result mode of a normal Mul anymore)
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mulh(*mut bindings::ir_node);
 
 impl Mulh {
@@ -3824,7 +3824,7 @@ impl fmt::Debug for Mulh {
 }
 /// returns the false or true operand depending on the value of the sel
 /// operand
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mux(*mut bindings::ir_node);
 
 impl Mux {
@@ -3907,7 +3907,7 @@ impl fmt::Debug for Mux {
     }
 }
 /// Placeholder node for cases where you don't need any memory input
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct NoMem(*mut bindings::ir_node);
 
 impl NoMem {
@@ -3942,7 +3942,7 @@ impl fmt::Debug for NoMem {
     }
 }
 /// returns the bitwise complement of a value. Works for boolean values, too.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Not(*mut bindings::ir_node);
 
 impl Not {
@@ -3993,7 +3993,7 @@ impl fmt::Debug for Not {
     }
 }
 /// Symbolic constant that represents the offset of an entity in its owner type.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Offset(*mut bindings::ir_node);
 
 impl Offset {
@@ -4028,7 +4028,7 @@ impl fmt::Debug for Offset {
     }
 }
 /// returns the result of a bitwise or operation of its operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Or(*mut bindings::ir_node);
 
 impl Or {
@@ -4097,7 +4097,7 @@ impl fmt::Debug for Or {
 /// Choose a value based on control flow. A phi node has 1 input for each
 /// predecessor of its block. If a block is entered from its nth predecessor
 /// all phi nodes produce their nth input as result.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Phi(*mut bindings::ir_node);
 
 impl Phi {
@@ -4152,7 +4152,7 @@ impl fmt::Debug for Phi {
 /// Pin the value of the node node in the current block. No users of the Pin
 /// node can float above the Block of the Pin. The node cannot float behind
 /// this block. Often used to Pin the NoMem node.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Pin(*mut bindings::ir_node);
 
 impl Pin {
@@ -4203,7 +4203,7 @@ impl fmt::Debug for Pin {
     }
 }
 /// returns an entry of a tuple value
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Proj(*mut bindings::ir_node);
 
 impl Proj {
@@ -4267,7 +4267,7 @@ impl fmt::Debug for Proj {
 /// Raises an exception. Unconditional change of control flow. Writes an
 /// explicit Except variable to memory to pass it to the exception handler.
 /// Must be lowered to a Call to a runtime check function.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Raise(*mut bindings::ir_node);
 
 impl Raise {
@@ -4365,7 +4365,7 @@ impl fmt::Debug for Raise {
 }
 /// Returns from the current function. Takes memory and return values as
 /// operands.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Return(*mut bindings::ir_node);
 
 impl Return {
@@ -4419,7 +4419,7 @@ impl fmt::Debug for Return {
 /// an index.
 ///
 /// A Sel node must only produce a NULL pointer if the ptr input is NULL.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Sel(*mut bindings::ir_node);
 
 impl Sel {
@@ -4506,7 +4506,7 @@ impl fmt::Debug for Sel {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Shl(*mut bindings::ir_node);
 
 impl Shl {
@@ -4577,7 +4577,7 @@ impl fmt::Debug for Shl {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Shr(*mut bindings::ir_node);
 
 impl Shr {
@@ -4649,7 +4649,7 @@ impl fmt::Debug for Shr {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Shrs(*mut bindings::ir_node);
 
 impl Shrs {
@@ -4716,7 +4716,7 @@ impl fmt::Debug for Shrs {
     }
 }
 /// A symbolic constant that represents the size of a type
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Size(*mut bindings::ir_node);
 
 impl Size {
@@ -4751,7 +4751,7 @@ impl fmt::Debug for Size {
     }
 }
 /// The first node of a graph. Execution starts with this node.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Start(*mut bindings::ir_node);
 
 impl Start {
@@ -4831,7 +4831,7 @@ impl fmt::Debug for Start {
     }
 }
 /// Stores a value into memory (heap or stack).
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Store(*mut bindings::ir_node);
 
 impl Store {
@@ -5006,7 +5006,7 @@ impl fmt::Debug for Store {
     }
 }
 /// returns the difference of its operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Sub(*mut bindings::ir_node);
 
 impl Sub {
@@ -5076,7 +5076,7 @@ impl fmt::Debug for Sub {
 /// input value which is looked up in a table.
 ///
 /// Backends can implement this efficiently using a jump table.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Switch(*mut bindings::ir_node);
 
 impl Switch {
@@ -5178,7 +5178,7 @@ impl fmt::Debug for Switch {
 /// be identical.  This operation allows to specify all operations that
 /// eventually need several partial memory blocks as input with a single
 /// entrance by unifying the memories with a preceding Sync operation.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Sync(*mut bindings::ir_node);
 
 impl Sync {
@@ -5220,7 +5220,7 @@ impl fmt::Debug for Sync {
 /// the implementation with pointers in only one direction.) The Tuple node is
 /// smaller than any other node, so that a node can be changed into a Tuple by
 /// just changing its opcode and giving it a new in array.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Tuple(*mut bindings::ir_node);
 
 impl Tuple {
@@ -5260,7 +5260,7 @@ impl fmt::Debug for Tuple {
 /// Be careful when optimising Unknown values, you cannot simply replace
 /// Unknown+x or Unknown<x with a new Unknown node if there are multiple
 /// users of the original unknown node!
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Unknown(*mut bindings::ir_node);
 
 impl Unknown {

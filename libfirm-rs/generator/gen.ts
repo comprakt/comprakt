@@ -508,7 +508,7 @@ function generateNodeStruct(node: NodeImpl) {
             w.line(`/// ${line.trim()}`);
         }
     }
-    w.line("#[derive(Clone, Copy, Eq, PartialEq)]");
+    w.line("#[derive(Clone, Copy, Eq, PartialEq, Hash)]");
     w.line(`pub struct ${node.structName}(${ir_node_type});`);
     w.line();
 }
