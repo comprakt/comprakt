@@ -209,6 +209,16 @@ impl Dot<BasicBlock> for lir::BlockGraph {
                     control_flow_transfer.register_transitions.len(),
                 );
 
+                writeln!(
+                    writer,
+                    " {block_out} -> {block_in}\
+                     [color=\"{color}\", penwidth=2];",
+                    block_out = block.firm.node_id(),
+                    block_in = control_flow_transfer.target.firm.node_id(),
+                    color = X11Color::Black,
+                )
+                .unwrap();
+
                 for (source_slot, target_slot) in &control_flow_transfer.register_transitions {
                     let source_num = source_slot.num();
                     let target_num = target_slot.num;
