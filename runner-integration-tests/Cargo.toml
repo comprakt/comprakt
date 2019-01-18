@@ -17,7 +17,9 @@ wait-timeout = "0.1.5"
 structopt = "0.2"
 failure = "0.1"
 regex = "1"
-# used to parse Duration from a string in the YAML of timeout tests
-serde-humantime = "0.1.1"
 log = "0.4"
 env_logger = "0.6"
+
+# for benchmarking
+streaming-stats = "0.2"
+humantime = "1.2.0"

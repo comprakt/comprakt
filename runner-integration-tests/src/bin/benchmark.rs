@@ -1,12 +1,18 @@
+#![feature(duration_as_u128)]
 //! Executes all mjtests in the /exec/big folder.
-use compiler_lib::timing::{AsciiDisp, Benchmark, CompilerMeasurements};
+use compiler_lib::timing::{AsciiDisp, CompilerMeasurements, SingleMeasurement};
+use humantime::format_duration;
 use regex::Regex;
 use runner_integration_tests::{compiler_call, CompilerCall, CompilerPhase};
+use stats::OnlineStats;
 use std::{
+    collections::HashMap,
     ffi::OsStr,
-    fs::{self, File},
-    io::BufReader,
+    fmt,
+    fs::{self, File, OpenOptions},
+    io::{self, BufReader},
     path::PathBuf,
+    time::{Duration, SystemTime},
 };
 use structopt::StructOpt;
 
@@ -114,6 +120,27 @@ pub struct Opts {
     filter: Regex,
 }
 
+#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
+struct ReferenceBenchmark {
+    mean: f64,
+    timestamp: SystemTime,
+}
+
+#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
+struct ReferenceFormat {
+    // TODO: in contrast to the other code in this file this does
+    // not support multiple benchmarks with identical names
+    measurements: HashMap<String, ReferenceBenchmark>,
+}
+
+impl ReferenceFormat {
+    fn new() -> Self {
+        Self {
+            measurements: HashMap::new(),
+        }
+    }
+}
+
 fn main() {
     env_logger::init();
     let opts = Opts::from_args();
@@ -124,7 +151,7 @@ fn main() {
             continue;
         }
 
-        let mut bench = Benchmark::new();
+        let mut bench = Benchmark::new(big_test.minijava.clone());
 
         for _ in 0..opts.samples {
             if let Some(timings) = profile_compiler(big_test) {
@@ -137,7 +164,180 @@ fn main() {
             big_test.minijava.file_stem().unwrap().to_string_lossy()
         );
 
+        bench.load_reference_from_disk();
+
         println!("{}\n{}\n", title, "=".repeat(title.len()));
         println!("{}\n", bench);
+
+        bench.write_to_disk();
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BenchmarkEntry {
+    label: String,
+    indent: usize,
+    stats: OnlineStats,
+}
+
+pub struct Benchmark {
+    file: PathBuf,
+    measurements: Vec<BenchmarkEntry>,
+    reference: Option<ReferenceFormat>,
+}
+
+impl Benchmark {
+    pub fn new(file: PathBuf) -> Self {
+        Self {
+            measurements: Vec::new(),
+            reference: None,
+            file,
+        }
+    }
+
+    pub fn add(&mut self, measurements: &[SingleMeasurement]) {
+        if self.measurements.len() == 0 {
+            for measurement in measurements {
+                self.measurements.push(BenchmarkEntry {
+                    label: measurement.label.clone(),
+                    indent: measurement.indent,
+                    stats: OnlineStats::from_slice(&[measurement.duration.as_millis()]),
+                });
+            }
+            return;
+        }
+
+        if !self.is_compatible(measurements) {
+            panic!("measurements incomplete");
+        }
+
+        for (i, item) in measurements.iter().enumerate() {
+            self.measurements[i].stats.add(item.duration.as_millis());
+        }
+    }
+
+    fn is_compatible(&self, measurements: &[SingleMeasurement]) -> bool {
+        if measurements.len() != self.measurements.len() {
+            return false;
+        }
+
+        for (this, other) in self.measurements.iter().zip(measurements.iter()) {
+            if this.label != other.label || this.indent != other.indent {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    fn filename(&self) -> PathBuf {
+        self.file.with_extension(".benchmark.json")
+    }
+
+    fn write_to_disk(&self) {
+        let mut diskformat = ReferenceFormat::new();
+        let now = SystemTime::now();
+
+        for measurement in self.measurements.iter() {
+            diskformat.measurements.insert(
+                measurement.label.clone(),
+                ReferenceBenchmark {
+                    mean: measurement.stats.mean(),
+                    timestamp: now.clone(),
+                },
+            );
+        }
+
+        match OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(self.filename())
+        {
+            Ok(outfile) => {
+                if let Err(msg) = serde_json::ser::to_writer(&outfile, &diskformat) {
+                    log::debug!(
+                        "could not write file for reference benchmark of {}: {:?}",
+                        self.file.display(),
+                        msg
+                    );
+                }
+            }
+            Err(msg) => {
+                log::debug!(
+                    "could not open file for reference benchmark of {}: {:?}",
+                    self.file.display(),
+                    msg
+                );
+            }
+        }
+    }
+    fn load_reference_from_disk(&mut self) {
+        if let Ok(res) = self._load_reference() {
+            self.reference = Some(res);
+        } else {
+            log::debug!(
+                "could not find reference benchmark for {}",
+                self.file.display()
+            );
+        }
+    }
+
+    fn _load_reference(&mut self) -> io::Result<ReferenceFormat> {
+        let file = File::open(self.filename())?;
+        let reader = BufReader::new(file);
+
+        // Read the JSON contents of the file as an instance of `User`.
+        let u = serde_json::from_reader(reader)?;
+        Ok(u)
+    }
+}
+
+impl fmt::Display for Benchmark {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let min_label_width = 50;
+        let now = SystemTime::now();
+
+        for timing in &self.measurements {
+            let indent = "  ".repeat(timing.indent);
+
+            let (change, timestamp) = if let Some(previous_invocation) = &self.reference {
+                if let Some(previous_result) = previous_invocation.measurements.get(&timing.label) {
+                    let change = (timing.stats.mean() / previous_result.mean * 100.0) - 100.0;
+                    let reference_date = now.duration_since(previous_result.timestamp).unwrap();
+                    // remove some precession
+                    let reference_date = Duration::from_secs(reference_date.as_secs());
+
+                    (
+                        format!("{: >+8.3}%", change),
+                        format_duration(reference_date).to_string(),
+                    )
+                } else {
+                    ("n/a".to_string(), "".to_string())
+                }
+            } else {
+                ("".to_string(), "".to_string())
+            };
+
+            writeln!(
+                f,
+                "{nesting}{label: <label_width$}    \
+                 {ms: >ms_width$.5} +/- {stddev: >stddev_width$.5}ms    \
+                 {samples} samples    \
+                 {change}     {timestamp} ago",
+                label = timing.label,
+                ms = timing.stats.mean(),
+                stddev = timing.stats.stddev(),
+                samples = timing.stats.len(),
+                nesting = indent,
+                label_width = min_label_width - indent.len(),
+                ms_width = 20,
+                stddev_width = 10,
+                change = change,
+                timestamp = timestamp
+            )?;
+        }
+
+        Ok(())
     }
 }

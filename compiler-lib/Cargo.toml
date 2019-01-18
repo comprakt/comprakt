@@ -33,9 +33,6 @@ rocket = "0.4.0"
 rocket_contrib = "0.4.0"
 lazy_static = "1.2.0"
 
-# for benchmarking
-streaming-stats = "0.2"
-
 [dev-dependencies]
 mjtest = { path = "../mjtest-rs" }
 mjtest_macros = { path = "../mjtest-rs/mjtest_macros" }

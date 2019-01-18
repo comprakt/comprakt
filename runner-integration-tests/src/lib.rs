@@ -1,6 +1,7 @@
 #![feature(nll)]
 
 pub mod lookup;
+pub mod serde_humantime;
 mod testkind;
 pub mod yaml;
 pub use self::{lookup::*, testkind::*};
