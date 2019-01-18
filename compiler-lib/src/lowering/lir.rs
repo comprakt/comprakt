@@ -1161,6 +1161,6 @@ impl MultiSlotBuilder {
 }
 
 #[inline]
-pub(super) fn gen_label(block: Ptr<BasicBlock>) -> String {
-    format!(".L{}", block.num)
+pub(super) fn gen_label(block_num: i64) -> String {
+    format!(".L{}", block_num)
 }

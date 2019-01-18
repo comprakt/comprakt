@@ -108,7 +108,7 @@ impl Codegen {
 
         while let Some(block) = block_iter.next() {
             instrs.push(Label {
-                label: self.gen_label(block.firm_num),
+                label: lir::gen_label(block.firm_num),
             });
 
             for instr in &block.instrs {
@@ -657,7 +657,7 @@ impl Codegen {
                 let target_num = $target.firm.node_id();
                 if !$fall || target_num != $next_block_num {
                     instrs.push(Jmp {
-                        label: self.gen_label(target_num),
+                        label: lir::gen_label(target_num),
                         kind: $kind,
                     });
                 }
@@ -743,10 +743,6 @@ impl Codegen {
                 );
             }
         }
-    }
-
-    fn gen_label(&self, block_num: i64) -> String {
-        format!(".L{}", block_num)
     }
 
     fn lir_to_src_operand(
