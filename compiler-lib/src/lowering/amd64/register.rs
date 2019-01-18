@@ -1,5 +1,5 @@
 use crate::lowering::amd64::CallingConv;
-use std::{cmp::Ordering, collections::BTreeMap};
+use std::{cmp::Ordering, collections::BTreeMap, convert::TryFrom};
 
 #[derive(Display, Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub(super) enum Amd64Reg {
@@ -63,6 +63,34 @@ impl From<Amd64Reg> for usize {
     }
 }
 
+#[rustfmt::skip]
+impl TryFrom<usize> for Amd64Reg {
+    type Error = ();
+
+    fn try_from(idx: usize) -> Result<Self, ()> {
+        match idx {
+            0  => Ok(Amd64Reg::Rdi), // Caller-save
+            1  => Ok(Amd64Reg::Rsi), // Caller-save
+            2  => Ok(Amd64Reg::Rdx), // Caller-save
+            3  => Ok(Amd64Reg::Rcx), // Caller-save
+            4  => Ok(Amd64Reg::R8),  // Caller-save
+            5  => Ok(Amd64Reg::R9),  // Caller-save
+            6  => Ok(Amd64Reg::R10), // Caller-save
+            7  => Ok(Amd64Reg::R11), // Caller-save
+            8  => Ok(Amd64Reg::Rax), // Caller-save
+
+            9  => Ok(Amd64Reg::Rbx), // Callee-save
+            10 => Ok(Amd64Reg::R12), // Callee-save
+            11 => Ok(Amd64Reg::R13), // Callee-save
+            12 => Ok(Amd64Reg::R14), // Callee-save
+            13 => Ok(Amd64Reg::R15), // Callee-save
+
+            14 => Ok(Amd64Reg::Rsp), // should not be used
+            15 => Ok(Amd64Reg::Rbp), // should not be used
+            _  => Err(()),
+        }
+    }
+}
 impl Ord for Amd64Reg {
     fn cmp(&self, other: &Amd64Reg) -> Ordering {
         let l: usize = (*self).into();
@@ -179,6 +207,9 @@ impl RegisterAllocator {
             .for_each(|reg| {
                 free_list.insert(reg, true);
             });
+        for i in 0..usize::max(nargs, cconv.num_arg_regs()) {
+            free_list.insert(Amd64Reg::try_from(i).unwrap(), false);
+        }
         Self { cconv, free_list }
     }
 
