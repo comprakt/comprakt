@@ -9,7 +9,6 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     hash::{Hash, Hasher},
 };
-use std::convert::TryFrom;
 
 #[derive(Debug, Clone)]
 pub(super) enum Instruction {
@@ -232,7 +231,7 @@ impl Instruction {
                 }
                 Comment(_) => vec![],
             },
-            Instruction::Mov { src, .. } => vec![lir::Operand::try_from(*src).unwrap()],
+            Instruction::Mov { src, .. } => vec![(*src).into()],
             Instruction::Call(call) => {
                 // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
                 let mut ops = vec![];

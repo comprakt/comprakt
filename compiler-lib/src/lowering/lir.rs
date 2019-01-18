@@ -477,13 +477,11 @@ impl fmt::Display for Operand {
     }
 }
 
-impl TryFrom<CopyPropagationSrc> for Operand {
-    type Error = ();
-    fn try_from(op: CopyPropagationSrc) -> Result<Self, ()> {
+impl From<CopyPropagationSrc> for Operand {
+    fn from(op: CopyPropagationSrc) -> Self {
         match op {
-            CopyPropagationSrc::Slot(s) => Ok(Operand::Slot(s)),
-            CopyPropagationSrc::Param { idx } => Ok(Operand::Param { idx }),
-            _ => Err(()),
+            CopyPropagationSrc::Slot(s) => Operand::Slot(s),
+            CopyPropagationSrc::Param { idx } => Operand::Param { idx },
         }
     }
 }
