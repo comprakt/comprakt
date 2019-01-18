@@ -9,7 +9,7 @@ use crate::{derive_ptr_debug, firm, type_checking::type_system::CheckedType};
 use crate::optimization::{Local, RemoveCriticalEdges};
 use libfirm_rs::{
     bindings,
-    nodes::{self, Node, NodeTrait},
+    nodes::{self, Node, NodeTrait, ProjKind},
     Tarval, VisitTime,
 };
 use std::{
@@ -61,10 +61,15 @@ impl From<&firm::FirmProgram<'_, '_>> for LIR {
             functions.push(function);
         }
 
-        LIR {
+        let lir = LIR {
             allocator,
             functions,
-        }
+        };
+
+        let mut amd64 = super::amd64::Program::new(&lir, super::amd64::CallingConv::X86_64);
+        let _ = amd64.emit_asm(&mut std::io::stdout());
+
+        lir
     }
 }
 
@@ -219,7 +224,7 @@ pub enum Instruction {
     /// backend.
     Conv {
         src: Operand,
-        dst: Operand,
+        dst: Ptr<MultiSlot>,
     },
     /// If dst is None, result is in register r0, which cannot be accessed
     /// using molki register names.
@@ -227,11 +232,6 @@ pub enum Instruction {
         func: String,
         args: Vec<Operand>,
         dst: Option<Ptr<MultiSlot>>,
-    },
-    /// Loads parameter `#{idx}` into value slot `dst`.
-    LoadParam {
-        idx: usize,
-        dst: Ptr<MultiSlot>,
     },
     StoreMem {
         src: Operand,
@@ -266,7 +266,6 @@ impl fmt::Debug for Instruction {
                     .join(", ");
                 write!(fmt, "call {:?} [ {:?} ] => {:?}", func, args, dst)
             }
-            LoadParam { idx, dst } => write!(fmt, "loadparam {} => {:?}", idx, dst),
             StoreMem { src, dst } => write!(fmt, "storemem {:?} => {:?}", src, dst),
             LoadMem { src, dst } => write!(fmt, "loadmem {:?} => {:?}", src, dst),
             Comment(comment) => {
@@ -281,15 +280,15 @@ impl fmt::Debug for Instruction {
 
 /// This implements address computation, see
 /// http://www.c-jump.com/CIS77/CPU/x86/lecture.html#X77_0110_scaled_indexed
-#[derive(Debug, Clone)]
-pub struct AddressComputation<Op: Display> {
+#[derive(Debug, Copy, Clone)]
+pub struct AddressComputation<Op: Display + Copy> {
     // offset(base, index, stride) = offset + base + index * stride
     pub offset: isize,
     pub base: Op,
     pub index: IndexComputation<Op>,
 }
 
-impl<Op: Display> std::fmt::Display for AddressComputation<Op> {
+impl<Op: Display + Copy> std::fmt::Display for AddressComputation<Op> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let index = match &self.index {
             IndexComputation::Zero => String::new(),
@@ -300,13 +299,13 @@ impl<Op: Display> std::fmt::Display for AddressComputation<Op> {
 }
 
 /// Index of AddressComputation variant of the Instruction enum.
-#[derive(Debug, Clone)]
-pub enum IndexComputation<Op: Display> {
+#[derive(Debug, Copy, Clone)]
+pub enum IndexComputation<Op: Display + Copy> {
     Displacement(Op, Stride),
     Zero,
 }
 
-#[derive(Debug, Display, Clone)]
+#[derive(Debug, Display, Copy, Clone)]
 pub enum Stride {
     #[display(fmt = "1")]
     One,
@@ -316,6 +315,27 @@ pub enum Stride {
     Four,
     #[display(fmt = "8")]
     Eight,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum JmpKind {
+    Unconditional,
+    Conditional(CondOp),
+}
+
+impl std::fmt::Display for JmpKind {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use self::{CondOp::*, JmpKind::*};
+        match self {
+            Unconditional => write!(fmt, "jmp"),
+            Conditional(Equals) => write!(fmt, "je"),
+            Conditional(NotEquals) => write!(fmt, "jne"),
+            Conditional(LessThan) => write!(fmt, "jl"),
+            Conditional(LessEquals) => write!(fmt, "jle"),
+            Conditional(GreaterThan) => write!(fmt, "jg"),
+            Conditional(GreaterEquals) => write!(fmt, "jge"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -330,6 +350,18 @@ pub enum CondOp {
      * Nonzero
      * Negative
      * Nonnegative */
+}
+
+impl CondOp {
+    pub(super) fn swap(self) -> Self {
+        match self {
+            CondOp::LessThan => CondOp::GreaterThan,
+            CondOp::GreaterThan => CondOp::LessThan,
+            CondOp::LessEquals => CondOp::GreaterEquals,
+            CondOp::GreaterEquals => CondOp::LessEquals,
+            op => op,
+        }
+    }
 }
 
 impl TryFrom<bindings::ir_relation::Type> for CondOp {
@@ -399,13 +431,19 @@ impl fmt::Debug for Leave {
 /// It will commonly have to choose between using registers or spill code.
 #[derive(Clone)]
 pub struct CopyPropagation {
-    pub(super) src: Ptr<MultiSlot>,
+    pub(super) src: CopyPropagationSrc,
     pub(super) dst: Ptr<ValueSlot>,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum CopyPropagationSrc {
+    Slot(Ptr<MultiSlot>),
+    Param { idx: u32 },
 }
 
 impl fmt::Debug for CopyPropagation {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "copyprop {:?} => {:?}", *self.src, *self.dst)
+        write!(fmt, "copyprop {:?} => {:?}", self.src, *self.dst)
     }
 }
 
@@ -439,6 +477,15 @@ impl fmt::Display for Operand {
     }
 }
 
+impl From<CopyPropagationSrc> for Operand {
+    fn from(op: CopyPropagationSrc) -> Self {
+        match op {
+            CopyPropagationSrc::Slot(s) => Operand::Slot(s),
+            CopyPropagationSrc::Param { idx } => Operand::Param { idx },
+        }
+    }
+}
+
 #[derive(Debug, Display, Clone)]
 pub enum BinopKind {
     Add,
@@ -456,13 +503,17 @@ pub enum UnopKind {
     Not,
 }
 
-#[derive(Debug, Display, Clone)]
-pub enum Cond {
-    True,
-    LessEqual,
-}
-
 /// An abstract pseudo-register
+///
+/// How to get a `MultiSlot` from a `ValueSlot`:
+///
+/// `value_slot` -> `allocated_in` -> `regs` (this is a Vec of `MultiSlot`s,
+/// where our `value_slot` is at `value_slot.num`) => `multi_slot` of our
+/// `value_slot` \\(*.*)/
+///
+/// ```rust
+/// let multi_slot = value_slot.allocated_in.regs[value_slot.num];
+/// ```
 pub struct ValueSlot {
     /// The slot number. Uniqe only per Block, not globally
     pub num: usize,
@@ -559,7 +610,6 @@ impl BlockGraph {
         RemoveCriticalEdges::optimize_function(firm_graph);
 
         firm_graph.assure_outs();
-
         let mut graph = BlockGraph::build_skeleton(firm_graph, alloc);
         graph.construct_flows(alloc);
         graph.gen_instrs(alloc);
@@ -628,6 +678,13 @@ impl BlockGraph {
             visited: HashSet::new(),
             visit_list,
         }
+    }
+
+    /// Gives a list of all `BasicBlock`s in the graph in postorder.
+    pub fn postorder_blocks(&self) -> Vec<Ptr<BasicBlock>> {
+        let mut postorder_visitor = BasicBlockPostorderVisitor::default();
+        postorder_visitor.visit(self.head);
+        postorder_visitor.res
     }
 
     /// Iterate over all control flow transfers in `self` in a breadth-first
@@ -700,8 +757,7 @@ impl<'g> Iterator for BasicBlockIter<'g> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.visit_list.pop_front().map(|block| {
-            for edge in &block.succs {
-                let succ = edge.target;
+            for succ in block.succ_blocks() {
                 if !self.visited.contains(&succ.firm) {
                     self.visited.insert(succ.firm);
                     self.visit_list.push_back(succ);
@@ -710,6 +766,23 @@ impl<'g> Iterator for BasicBlockIter<'g> {
 
             block
         })
+    }
+}
+
+#[derive(Default)]
+struct BasicBlockPostorderVisitor {
+    visited: HashSet<libfirm_rs::nodes::Block>,
+    res: Vec<Ptr<BasicBlock>>,
+}
+
+impl BasicBlockPostorderVisitor {
+    fn visit(&mut self, block: Ptr<BasicBlock>) {
+        block.succ_blocks().for_each(|block| {
+            if self.visited.insert(block.firm) {
+                self.visit(block);
+            }
+        });
+        self.res.push(block);
     }
 }
 
@@ -903,17 +976,24 @@ impl Ptr<BasicBlock> {
                     // If the value is foreign, we need to "get it" from each blocks above us.
                     //
                     // NOTE:
-                    // In FIRM,const and address nodes are all in the start block, no
+                    // In FIRM, const, address and param proj nodes are all in the start block, no
                     // matter where they are used, however we don't want or need to
                     // transfer them down to the usage from the start block, so we can
-                    // treat a const node as "originating here".
+                    // treat those nodes as "originating here".
                     // HOWEVER, we cannot make above assumption if this node is used as input to a
                     // Phi node in this block, because the value needs to originate in the
                     // corresponding cfg_pred. However, when creating slots for the inputs of phi
                     // nodes, this function (`MutRc<BasicBlock>::new_slot`), in not used. So the
                     // assumption holds, but BE AWARE OF THIS when refactoring.
+                    let node_is_arg_proj =
+                        if let Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) = slot.firm {
+                            true
+                        } else {
+                            false
+                        };
                     let originates_here = Node::is_const(slot.firm)
                         || Node::is_address(slot.firm)
+                        || node_is_arg_proj
                         || slot.allocated_in.firm == slot.originates_in.firm;
                     if !originates_here {
                         for incoming_edge in &self.preds {
@@ -975,6 +1055,14 @@ impl BasicBlock {
                 graph: Ptr::null(), // will be patched up by caller
             })
         })
+    }
+
+    pub(super) fn pred_blocks(&self) -> impl Iterator<Item = Ptr<BasicBlock>> + '_ {
+        self.preds.iter().map(|pred| pred.source)
+    }
+
+    pub(super) fn succ_blocks(&self) -> impl Iterator<Item = Ptr<BasicBlock>> + '_ {
+        self.succs.iter().map(|succ| succ.target)
     }
 }
 
@@ -1068,4 +1156,9 @@ impl MultiSlotBuilder {
             allocated_in.regs[self.num] = slot;
         }
     }
+}
+
+#[inline]
+pub(super) fn gen_label(block_num: i64) -> String {
+    format!(".L{}", block_num)
 }
