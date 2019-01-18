@@ -274,7 +274,7 @@ pub trait NodeTrait {
 
         let mut visited = HashSet::new();
 
-        let this = NodeFactory::node(self.internal_ir_node());
+        let this = Node::wrap(self.internal_ir_node());
         recurse(&mut visited, this, block, callback);
     }
 }
@@ -285,13 +285,13 @@ use std::{ffi::c_void, mem};
 unsafe extern "C" fn pre_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
     #[allow(clippy::transmute_ptr_to_ref)]
     let closure: &mut &mut FnMut(VisitTime, Node) = mem::transmute(closure);
-    closure(VisitTime::BeforePredecessors, NodeFactory::node(node));
+    closure(VisitTime::BeforePredecessors, Node::wrap(node));
 }
 
 unsafe extern "C" fn post_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
     #[allow(clippy::transmute_ptr_to_ref)]
     let closure: &mut &mut FnMut(VisitTime, Node) = mem::transmute(closure);
-    closure(VisitTime::AfterPredecessors, NodeFactory::node(node));
+    closure(VisitTime::AfterPredecessors, Node::wrap(node));
 }
 
 simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
@@ -455,19 +455,6 @@ simple_node_iterator!(
     get_Block_cfgpred,
     i32
 );
-
-// TODO Autogenerate for all node kinds
-impl Hash for Block {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        NodeFactory::node(self.internal_ir_node()).hash(state)
-    }
-}
-
-impl PartialEq for Block {
-    fn eq(&self, other: &Self) -> bool {
-        NodeFactory::node(self.internal_ir_node()).eq(&NodeFactory::node(other.internal_ir_node()))
-    }
-}
 
 impl Phi {
     /// `Node` is the result of the phi node when entering this phi's block via

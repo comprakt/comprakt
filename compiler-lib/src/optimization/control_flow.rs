@@ -240,7 +240,7 @@ impl ControlFlow {
             // remove index of second projection, called step (2) above
             let idx = unnecessary_cond.proj_other.0;
             for phi in unnecessary_cond.target_block.phis() {
-                let mut phi_preds: Vec<_> = phi.phi_preds().collect();
+                let mut phi_preds: Vec<_> = phi.preds().map(|(_, pred)| pred).collect();
                 phi_preds.remove(idx);
                 phi.set_in_nodes(&phi_preds);
             }
@@ -309,7 +309,7 @@ impl ControlFlow {
         }
 
         for phi in target_block.phis() {
-            let phi_preds: Vec<_> = phi.phi_preds().collect();
+            let phi_preds: Vec<_> = phi.preds().map(|(_, pred)| pred).collect();
             if phi_preds[index_self_proj] != phi_preds[index_other_proj] {
                 log::debug!(
                     "skipping {:?} since {:?} has different definitions for path \
@@ -513,7 +513,7 @@ impl ControlFlow {
 
         // repeat the index of the jmp inbetween for each new input
         for phi in target_block.phis() {
-            let mut phi_preds: Vec<_> = phi.phi_preds().collect();
+            let mut phi_preds: Vec<_> = phi.preds().map(|(_, pred)| pred).collect();
             let phi_for_jmp = phi_preds.remove(jmp_index);
             phi_preds.extend(std::iter::repeat(phi_for_jmp).take(pred_preds.len()));
             phi.set_in_nodes(&phi_preds);
