@@ -141,11 +141,7 @@ impl Amd64Reg {
     /// greater or equals 16 (number of total registers)
     #[rustfmt::skip]
     fn reg(idx: usize, nargs: usize, cconv: CallingConv) -> Option<Self> {
-        let offset = if let CallingConv::Stack = cconv {
-            0
-        } else {
-            usize::min(nargs, 6)
-        };
+        let offset = usize::min(nargs, cconv.num_arg_regs());
         match idx + offset {
             0  => Some(Amd64Reg::Rdi), // Caller-save
             1  => Some(Amd64Reg::Rsi), // Caller-save
@@ -186,6 +182,10 @@ impl RegisterAllocator {
         Self { cconv, free_list }
     }
 
+    pub(super) fn cconv(&self) -> CallingConv {
+        self.cconv
+    }
+
     pub(super) fn occupied_regs(&self) -> impl Iterator<Item = Amd64Reg> + '_ {
         self.free_list
             .iter()
@@ -217,7 +217,7 @@ impl RegisterAllocator {
     /// When the `idx`th arg is in a register, this register will be returned,
     /// otherwise None.
     pub(super) fn arg_in_reg(&self, idx: usize) -> Option<Amd64Reg> {
-        if idx < 6 {
+        if idx < self.cconv.num_arg_regs() {
             match self.cconv {
                 CallingConv::Stack => None,
                 CallingConv::X86_64 => Some(Amd64Reg::arg(idx)),

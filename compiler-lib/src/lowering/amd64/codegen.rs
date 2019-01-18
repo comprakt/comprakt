@@ -39,21 +39,19 @@ impl Codegen {
         use self::Instruction::*;
         let mut instrs = vec![];
 
-        if self.cconv == CallingConv::X86_64 {
-            for i in 0..6 {
-                if let Some(Location::Mem(idx)) = self.var_location.get(&(-1, i)) {
-                    instrs.push(Comment {
-                        comment: format!("spill argument register {}", i),
-                    });
-                    instrs.push(Movq {
-                        src: SrcOperand::Reg(Amd64Reg::arg(i)),
-                        dst: DstOperand::Mem(lir::AddressComputation {
-                            offset: -(*idx as isize) * 8,
-                            base: AddrOperand(Amd64Reg::Rbp),
-                            index: lir::IndexComputation::Zero,
-                        }),
-                    });
-                }
+        for i in 0..self.cconv.num_arg_regs() {
+            if let Some(Location::Mem(idx)) = self.var_location.get(&(-1, i as usize)) {
+                instrs.push(Comment {
+                    comment: format!("spill argument register {}", i),
+                });
+                instrs.push(Movq {
+                    src: SrcOperand::Reg(Amd64Reg::arg(i)),
+                    dst: DstOperand::Mem(lir::AddressComputation {
+                        offset: -(*idx as isize) * 8,
+                        base: AddrOperand(Amd64Reg::Rbp),
+                        index: lir::IndexComputation::Zero,
+                    }),
+                });
             }
         }
 
@@ -762,7 +760,7 @@ impl Codegen {
             },
             lir::Operand::Param { idx } => match self.var_location[&var_id(op)] {
                 Location::Reg(reg) => {
-                    if let Some(instr) = self.arg_from_stack(idx, DstOperand::Reg(reg)) {
+                    if let Some(instr) = self.arg_from_stack(idx as usize, DstOperand::Reg(reg)) {
                         if self.params_moved_from_stack.insert(idx) {
                             instrs.push(instr);
                         }
@@ -796,17 +794,11 @@ impl Codegen {
         }
     }
 
-    fn arg_from_stack(&self, idx: u32, dst: DstOperand) -> Option<Instruction> {
-        let offset = match self.cconv {
-            CallingConv::Stack => (idx + 1) * 8 + 8,
-            CallingConv::X86_64 => {
-                if idx < 6 {
-                    return None;
-                } else {
-                    (idx + 1 - 6) * 8 + 8
-                }
-            }
-        } as isize;
+    fn arg_from_stack(&self, idx: usize, dst: DstOperand) -> Option<Instruction> {
+        if idx < self.cconv.num_arg_regs() {
+            return None;
+        }
+        let offset = ((idx + 1).checked_sub(self.cconv.num_arg_regs()).unwrap() * 8 + 8) as isize;
         Some(Instruction::Movq {
             src: SrcOperand::Mem(lir::AddressComputation {
                 offset,

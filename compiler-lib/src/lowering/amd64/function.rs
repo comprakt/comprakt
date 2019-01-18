@@ -82,7 +82,7 @@ impl FunctionCall {
 
             let mut push_setup = vec![];
             for (i, arg) in args.into_iter().enumerate() {
-                if i < 6 {
+                if i < CallingConv::X86_64.num_arg_regs() {
                     // Fill the function argument registers
                     self.setup.push(FnInstruction::Movq {
                         src: FnOperand::Lir(arg),

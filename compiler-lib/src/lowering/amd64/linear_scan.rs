@@ -139,8 +139,8 @@ impl LinearScanAllocator {
         }
 
         let used_params = active.iter().map(|lr| lr.var_id.1).collect::<Vec<_>>();
-        for i in 0..6 {
-            if !used_params.contains(&i) {
+        for i in 0..reg_alloc.cconv().num_arg_regs() {
+            if !used_params.contains(&(i as usize)) {
                 reg_alloc.free_reg(Amd64Reg::arg(i));
             }
         }

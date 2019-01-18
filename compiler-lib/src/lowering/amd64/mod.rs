@@ -26,6 +26,15 @@ pub enum CallingConv {
     Stack,
 }
 
+impl CallingConv {
+    pub(self) fn num_arg_regs(self) -> usize {
+        match self {
+            CallingConv::Stack => 0,
+            CallingConv::X86_64 => 6,
+        }
+    }
+}
+
 pub struct Program {
     functions: Vec<(Function, Ptr<lir::BlockGraph>)>,
 }
