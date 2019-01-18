@@ -51,11 +51,25 @@ impl GenInstrBlock {
     }
 
     fn gen(&mut self, graph: &BlockGraph, block: Ptr<BasicBlock>, alloc: &Allocator) {
-        // LIR metadata dump
         for (num, multislot) in block.regs.iter().enumerate() {
             self.comment(format_args!("Slot {}:", num));
 
-            // "Input slots"
+            // LIR has mem nodes (mem Phi's in particular) in value slots because it enables
+            // code generation (`values_to_compute`, see below) to just use post-order DFS
+            // starting from each out-flowed value. Mem nodes need to be included in
+            // values_to_compute because of memory-only side effects (e.g. a function body that
+            // only calls other functions will only have out-flowing mems.
+            //
+            // However, we don't want to burden consumers of the LIR with that implementation
+            // ~~detail~~ hack, so let's filter out any copy propagation that uses mem nodes.
+            // Note that this leaves the mem nodes' value slots intact, but the LIR consumer
+            // will usually not enumerate over those, so that's fine for now -,-.
+            let not_a_mem_flow = &|src: Ptr<MultiSlot>,dst: Ptr<ValueSlot>| -> bool {
+                let src_is_mem = src.firm().mode().is_mem();
+                let dst_is_mem = dst.firm.mode().is_mem();
+                assert!((src_is_mem && dst_is_mem) || (!src_is_mem && !dst_is_mem));
+                !src.firm().mode().is_mem() || !dst.firm.mode().is_mem()
+            };
             for edge in block.preds.iter() {
                 edge.register_transitions
                     .iter()
@@ -74,12 +88,14 @@ impl GenInstrBlock {
                         // demonstrated by the above assertion
                         !must_copy_in_source
                     })
+                    .filter(|(_, (src,dst))| not_a_mem_flow(*src,*dst))
                     .for_each(|(_, (src, dst))| {
                         let (src, dst) = (*src, *dst);
                         self.code.copy_in.push(CopyPropagation { src, dst });
                     })
             }
 
+            // Debug output ( @josh still necessary?)
             match &(**multislot) {
                 MultiSlot::Single(slot) => self.comment(format_args!("\t=  {:?}", slot.firm)),
                 MultiSlot::Multi { ref slots, .. } => {
@@ -89,13 +105,14 @@ impl GenInstrBlock {
                 }
             }
 
-            // "Output slots"
+            // Fill copy_out
             for edge in block.succs.iter() {
                 edge.register_transitions
                     .iter()
                     .enumerate()
                     .filter(|(_, (src, _))| src.num() == num)
                     .filter(|(idx, _)| edge.must_copy_in_source(*idx))
+                    .filter(|(_, (src,dst))| not_a_mem_flow(*src,*dst))
                     .for_each(|(_, (src, dst))| {
                         let (src, dst) = (*src, *dst);
                         self.code.copy_out.push(CopyPropagation { src, dst });
