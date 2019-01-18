@@ -57,23 +57,24 @@ impl GenInstrBlock {
             // LIR has mem nodes (mem Phi's in particular) in value slots because it enables
             // code generation (`values_to_compute`, see below) to just use post-order DFS
             // starting from each out-flowed value. Mem nodes need to be included in
-            // values_to_compute because of memory-only side effects (e.g. a function body that
-            // only calls other functions will only have out-flowing mems.
+            // values_to_compute because of memory-only side effects (e.g. a function body
+            // that only calls other functions will only have out-flowing mems.
             //
-            // However, we don't want to burden consumers of the LIR with that implementation
-            // ~~detail~~ hack, so let's filter out any copy propagation that uses mem nodes.
-            // Note that this leaves the mem nodes' value slots intact, but the LIR consumer
-            // will usually not enumerate over those, so that's fine for now -,-.
-            let not_a_mem_flow = &|src: Ptr<MultiSlot>,dst: Ptr<ValueSlot>| -> bool {
+            // However, we don't want to burden consumers of the LIR with that
+            // implementation ~~detail~~ hack, so let's filter out any copy
+            // propagation that uses mem nodes. Note that this leaves the mem
+            // nodes' value slots intact, but the LIR consumer will usually not
+            // enumerate over those, so that's fine for now -,-.
+            let not_a_mem_flow = &|src: Ptr<MultiSlot>, dst: Ptr<ValueSlot>| -> bool {
                 let src_is_mem = src.firm().mode().is_mem();
                 let dst_is_mem = dst.firm.mode().is_mem();
                 assert!((src_is_mem && dst_is_mem) || (!src_is_mem && !dst_is_mem));
-                !src.firm().mode().is_mem() || !dst.firm.mode().is_mem()
+                !src_is_mem && !dst_is_mem
             };
 
             let slot_to_copy_propagation_src = &|src: Ptr<MultiSlot>| -> CopyPropagationSrc {
                 if let Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) = src.firm() {
-                    CopyPropagationSrc::Param{idx}
+                    CopyPropagationSrc::Param { idx }
                 } else {
                     CopyPropagationSrc::Slot(src)
                 }
@@ -98,7 +99,7 @@ impl GenInstrBlock {
                         // demonstrated by the above assertion
                         !must_copy_in_source
                     })
-                    .filter(|(_, (src,dst))| not_a_mem_flow(*src,*dst))
+                    .filter(|(_, (src, dst))| not_a_mem_flow(*src, *dst))
                     .for_each(|(_, (src, dst))| {
                         let (src, dst) = (*src, *dst);
                         let src = slot_to_copy_propagation_src(src);
@@ -123,7 +124,7 @@ impl GenInstrBlock {
                     .enumerate()
                     .filter(|(_, (src, _))| src.num() == num)
                     .filter(|(idx, _)| edge.must_copy_in_source(*idx))
-                    .filter(|(_, (src,dst))| not_a_mem_flow(*src,*dst))
+                    .filter(|(_, (src, dst))| not_a_mem_flow(*src, *dst))
                     .for_each(|(_, (src, dst))| {
                         let (src, dst) = (*src, *dst);
                         let src = slot_to_copy_propagation_src(src);

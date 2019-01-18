@@ -986,7 +986,7 @@ impl Ptr<BasicBlock> {
                     // nodes, this function (`MutRc<BasicBlock>::new_slot`), in not used. So the
                     // assumption holds, but BE AWARE OF THIS when refactoring.
                     let node_is_arg_proj =
-                        if let Node::Proj(proj, ProjKind::Start_TArgs_Arg(..)) = slot.firm {
+                        if let Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) = slot.firm {
                             true
                         } else {
                             false
