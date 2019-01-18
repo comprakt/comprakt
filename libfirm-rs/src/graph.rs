@@ -2,8 +2,7 @@ use super::{
     entity::Entity,
     mode::Mode,
     nodes::{
-        Block, End, EndKeepAliveIterator, NoMem, Node, NodeFactory, NodeTrait, Proj, ProjKind,
-        Start, ValueNode,
+        Block, End, EndKeepAliveIterator, NoMem, Node, NodeTrait, Proj, ProjKind, Start, ValueNode,
     },
 };
 use libfirm_rs_bindings as bindings;
@@ -76,7 +75,7 @@ impl Graph {
     }
 
     pub fn frame(self) -> Node {
-        NodeFactory::node(unsafe { bindings::get_irg_frame(self.irg) })
+        Node::wrap(unsafe { bindings::get_irg_frame(self.irg) })
     }
 
     pub fn dump(self, suffix: &str) {
@@ -274,7 +273,7 @@ impl Graph {
             );
             bindings::copy_node_attr(self.irg, ptr, new_node_ptr);
 
-            NodeFactory::node(new_node_ptr)
+            Node::wrap(new_node_ptr)
         }
     }
 
@@ -302,7 +301,7 @@ impl Graph {
 unsafe extern "C" fn closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
     #[allow(clippy::transmute_ptr_to_ref)]
     let closure: &mut &mut FnMut(&Node) = mem::transmute(closure);
-    closure(&NodeFactory::node(node))
+    closure(&Node::wrap(node))
 }
 
 unsafe extern "C" fn closure_handler_walk_blocks(
@@ -318,7 +317,7 @@ unsafe extern "C" fn pre_closure_handler(node: *mut bindings::ir_node, closure: 
     // TODO: is this allow correct, Joshua?
     #[allow(clippy::transmute_ptr_to_ref)]
     let closure: &mut &mut FnMut(VisitTime, &Block) = mem::transmute(closure);
-    match NodeFactory::node(node) {
+    match Node::wrap(node) {
         Node::Block(block) => closure(VisitTime::BeforePredecessors, &block),
         _ => unreachable!("irg_block_walk_graph only walks over blocks"),
     }
@@ -328,7 +327,7 @@ unsafe extern "C" fn post_closure_handler(node: *mut bindings::ir_node, closure:
     // TODO: is this allow correct, Joshua?
     #[allow(clippy::transmute_ptr_to_ref)]
     let closure: &mut &mut FnMut(VisitTime, &Block) = mem::transmute(closure);
-    match NodeFactory::node(node) {
+    match Node::wrap(node) {
         Node::Block(block) => closure(VisitTime::AfterPredecessors, &block),
         _ => unreachable!("irg_block_walk_graph only walks over blocks"),
     }

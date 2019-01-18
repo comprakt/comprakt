@@ -192,7 +192,7 @@ interface TypeDef {
 const internal_ir_node = "internal_ir_node";
 
 const nodeType: TypeDef = ({
-    wrap: (expr: string) => `NodeFactory::node(${expr})`,
+    wrap: (expr: string) => `Node::wrap(${expr})`,
     unwrap: (expr: string) => `${expr}.${internal_ir_node}()`,
     rustInName: "impl NodeTrait",
     rustOutName: "Node",
@@ -417,10 +417,6 @@ function generateNodeFactory() {
     w.line(`NodeFactory(map)`);
     w.unindent("}");
     w.line();
-
-    w.indent(`pub fn node(ir_node: ${ir_node_type}) -> Node {`);
-    w.line(`Self::new().create(ir_node)`);
-    w.unindent("}");
     w.line();
 
     w.indent(`pub fn create(&self, ir_node: ${ir_node_type}) -> Node {`);
@@ -508,7 +504,7 @@ function generateNodeStruct(node: NodeImpl) {
             w.line(`/// ${line.trim()}`);
         }
     }
-    w.line("#[derive(Clone, Copy, Eq, PartialEq)]");
+    w.line("#[derive(Clone, Copy, Eq, PartialEq, Hash)]");
     w.line(`pub struct ${node.structName}(${ir_node_type});`);
     w.line();
 }

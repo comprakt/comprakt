@@ -3,9 +3,11 @@ use libfirm_rs::{bindings, Graph};
 use std::ffi::CString;
 
 mod inlining;
-pub use self::inlining::Inlining;
+use self::inlining::Inlining;
 mod constant_folding;
-pub use self::constant_folding::ConstantFolding;
+use self::constant_folding::ConstantFolding;
+mod control_flow;
+use self::control_flow::ControlFlow;
 mod remove_critical_edges;
 pub use self::remove_critical_edges::RemoveCriticalEdges;
 
@@ -49,6 +51,7 @@ where
 pub enum Kind {
     ConstantFolding,
     Inline,
+    ControlFlow,
     RemoveCriticalEdges,
 }
 
@@ -57,6 +60,7 @@ impl Kind {
         match self {
             Kind::ConstantFolding => ConstantFolding::optimize(program),
             Kind::Inline => Inlining::optimize(program),
+            Kind::ControlFlow => ControlFlow::optimize(program),
             Kind::RemoveCriticalEdges => RemoveCriticalEdges::optimize(program),
         }
     }
@@ -88,10 +92,14 @@ impl Level {
     fn sequence(&self) -> Vec<Optimization> {
         match self {
             Level::None => vec![],
-            Level::Moderate => vec![Optimization::new(Kind::ConstantFolding)],
+            Level::Moderate => vec![
+                Optimization::new(Kind::ConstantFolding),
+                Optimization::new(Kind::ControlFlow),
+            ],
             Level::Aggressive => vec![
                 Optimization::new(Kind::Inline),
                 Optimization::new(Kind::ConstantFolding),
+                Optimization::new(Kind::ControlFlow),
             ],
             Level::Custom(list) => list.clone(),
         }

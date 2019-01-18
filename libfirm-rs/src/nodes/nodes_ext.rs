@@ -6,6 +6,17 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+lazy_static! {
+    static ref NODE_FACTORY: NodeFactory = NodeFactory::new();
+}
+
+impl Node {
+    pub fn wrap(ir_node: *mut bindings::ir_node) -> Node {
+        //NodeFactory::new().create(ir_node)
+        NODE_FACTORY.create(ir_node)
+    }
+}
+
 macro_rules! generate_iterator {
     (
         $iter_name: ident,
@@ -64,6 +75,45 @@ macro_rules! generate_iterator {
     };
 }
 
+macro_rules! linked_list_iterator {
+    ($iter_name: ident, $item: ident, $head_fn: ident, $next_fn: ident) => {
+        pub struct $iter_name {
+            cur: Option<$item>,
+        }
+
+        impl $iter_name {
+            fn new(node: *mut bindings::ir_node) -> Self {
+                Self {
+                    cur: $iter_name::raw_to_option(unsafe { bindings::$head_fn(node) }),
+                }
+            }
+
+            fn raw_to_option(raw: *mut bindings::ir_node) -> Option<$item> {
+                if raw.is_null() {
+                    None
+                } else {
+                    Some($item::new(raw))
+                }
+            }
+        }
+
+        impl Iterator for $iter_name {
+            type Item = $item;
+
+            fn next(&mut self) -> Option<$item> {
+                let out = self.cur;
+
+                if let Some(node) = self.cur {
+                    self.cur = $iter_name::raw_to_option(unsafe {
+                        bindings::$next_fn(node.internal_ir_node())
+                    });
+                }
+                out
+            }
+        }
+    };
+}
+
 macro_rules! simple_node_iterator {
     ($iter_name: ident, $len_fn: ident, $get_fn: ident, $idx_type: ty) => {
         generate_iterator!(
@@ -74,7 +124,7 @@ macro_rules! simple_node_iterator {
             $idx_type,
             {
                 let out = unsafe { bindings::$get_fn(node, idx) };
-                Some(NodeFactory::node(out))
+                Some(Node::wrap(out))
             },
             Node,
         );
@@ -258,7 +308,7 @@ generate_iterator!(
     {
         let mut in_pos: i32 = 0;
         let out = unsafe { bindings::get_irn_out_ex(node, idx, &mut in_pos) };
-        Some((NodeFactory::node(out), in_pos))
+        Some((Node::wrap(out), in_pos))
     },
     (Node, i32),
 );
@@ -311,10 +361,33 @@ impl Return {
 }
 
 simple_node_iterator!(ReturnResIterator, get_Return_n_ress, get_Return_res, i32);
+linked_list_iterator!(
+    PhisOfBlockLinkedListIterator,
+    Phi,
+    get_Block_phis,
+    get_Phi_next
+);
 
 impl Block {
     pub fn cfg_preds(self) -> CfgPredsIterator {
         CfgPredsIterator::new(self.internal_ir_node())
+    }
+
+    /// Access the phis of a block using `get_Block_phis` and `get_Phi_next`.
+    /// Note that this list is not updated automatically. Fill the list
+    /// manually or use `phis` instead.
+    pub fn linked_list_of_phis(self) -> PhisOfBlockLinkedListIterator {
+        PhisOfBlockLinkedListIterator::new(self.internal_ir_node())
+    }
+
+    pub fn phis(self) -> Vec<Phi> {
+        let mut result = vec![];
+        for node in self.out_nodes() {
+            if let Node::Phi(phi) = node {
+                result.push(phi);
+            }
+        }
+        result
     }
 
     pub fn phi_or_node(self, nodes: &[Node]) -> Node {
@@ -342,7 +415,7 @@ impl Block {
     }
 
     pub fn value(self, slot_idx: usize, mode: Mode) -> Node {
-        NodeFactory::node(unsafe {
+        Node::wrap(unsafe {
             bindings::get_b_value(
                 self.internal_ir_node(),
                 slot_idx as i32,
@@ -362,7 +435,7 @@ impl Block {
     }
 
     pub fn cur_store(self) -> Node {
-        NodeFactory::node(unsafe { bindings::get_b_store(self.internal_ir_node()) })
+        Node::wrap(unsafe { bindings::get_b_store(self.internal_ir_node()) })
     }
 
     pub fn set_store(self, s: impl NodeTrait) {
@@ -373,25 +446,6 @@ impl Block {
         unsafe {
             bindings::add_immBlock_pred(self.internal_ir_node(), pred.internal_ir_node());
         }
-    }
-
-    pub fn phis(self) -> Vec<Phi> {
-        let mut result = vec![];
-        for node in self.out_nodes() {
-            if let Node::Phi(phi) = node {
-                result.push(phi);
-            }
-        }
-        // This does not work:
-        // unsafe {
-        //     let mut phi = bindings::get_Block_phis(self.internal_ir_node());
-        //     while !phi.is_null() {
-        //         let phi_node = Phi::new(phi);
-        //         result.push(phi_node);
-        //         phi = bindings::get_Phi_next(phi);
-        //     }
-        // }
-        result
     }
 }
 
@@ -444,7 +498,7 @@ impl Proj {
             None
         } else {
             let unwrapped = unsafe { bindings::get_Proj_pred(self.internal_ir_node()) };
-            Some(NodeFactory::node(unwrapped))
+            Some(Node::wrap(unwrapped))
         }
     }
 }

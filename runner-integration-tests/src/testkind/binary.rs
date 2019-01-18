@@ -82,7 +82,7 @@ pub fn exec_binary_test(input: PathBuf, optimizations: optimization::Level) {
     // TODO: instead of panicing when there are no references
     // continue and generate references for the binary.
     let metadata = assert_compiler_phase::<BinaryTestData>(
-        CompilerCall::RawCompiler(CompilerPhase::Binary {
+        CompilerCall::RawCompiler(CompilerPhase::BinaryLibfirm {
             output: binary_path.clone(),
             optimizations,
             assembly: None,

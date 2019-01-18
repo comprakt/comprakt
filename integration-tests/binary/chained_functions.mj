@@ -1,0 +1,56 @@
+class Main {
+  public int _pos;
+
+  public void parseDigit(){
+    int i = 0;
+    while (isDigit(_next())) {
+        i = i + 1;
+        if (i > 10) return;
+    }
+  }
+
+  public int _next(){
+    if (_pos >= 0){
+      return -1;
+    }
+    return 0;
+  }
+
+  public boolean isDigit(int c){
+    return 0 <= c;
+  }
+
+  public static void main(String[] args) throws Exception {
+    System.out.println(new Main().root(100));
+    new Main().parseDigit();
+  }
+
+  public int a1(int arg) {
+      if (arg == 0) {
+        return arg + 1;
+      } else {
+          return arg * arg;
+      }
+  }
+
+  public int a2(int arg) {
+      return arg - 1;
+  }
+
+  public int a3(int arg) {
+      return arg / 2;
+  }
+
+  public int a4(int arg) {
+      while (arg > 50) {
+          arg = arg - 1;
+          if (arg == 33) {
+              return arg * arg;
+          }
+      }
+      return arg;
+  }
+  public int root(int c) {
+      return a1(a2(a3(a4(c))));
+  }
+}

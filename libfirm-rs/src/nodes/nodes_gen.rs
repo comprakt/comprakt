@@ -1115,10 +1115,6 @@ impl NodeFactory {
         NodeFactory(map)
     }
 
-    pub fn node(ir_node: *mut bindings::ir_node) -> Node {
-        Self::new().create(ir_node)
-    }
-
     pub fn create(&self, ir_node: *mut bindings::ir_node) -> Node {
         let op_code = unsafe { bindings::get_irn_opcode(ir_node) };
         let f = self.0[&op_code];
@@ -1291,7 +1287,7 @@ impl NodeFactory {
 }
 
 /// returns the sum of its operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Add(*mut bindings::ir_node);
 
 impl Add {
@@ -1306,7 +1302,7 @@ impl Add {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Add_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -1322,7 +1318,7 @@ impl Add {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Add_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -1359,7 +1355,7 @@ impl fmt::Debug for Add {
 }
 /// Symbolic constant that represents the address of an entity (variable or
 /// method)
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Address(*mut bindings::ir_node);
 
 impl Address {
@@ -1389,7 +1385,7 @@ impl fmt::Debug for Address {
     }
 }
 /// A symbolic constant that represents the alignment of a type
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Align(*mut bindings::ir_node);
 
 impl Align {
@@ -1424,7 +1420,7 @@ impl fmt::Debug for Align {
     }
 }
 /// Allocates a block of memory on the stack.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Alloc(*mut bindings::ir_node);
 
 impl Alloc {
@@ -1439,7 +1435,7 @@ impl Alloc {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Alloc_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -1455,7 +1451,7 @@ impl Alloc {
     #[allow(clippy::let_and_return)]
     pub fn size(self) -> Node {
         let unwrapped = unsafe { bindings::get_Alloc_size(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets size of the block in bytes.
@@ -1542,7 +1538,7 @@ impl fmt::Debug for Alloc {
 /// Each firm-graph contains exactly one anchor node whose address is always
 /// known. All other well-known graph-nodes like Start, End, NoMem, ...
 /// are found by looking at the respective Anchor operand.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Anchor(*mut bindings::ir_node);
 
 impl Anchor {
@@ -1557,7 +1553,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn end_block(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_end_block(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets block the end node belongs to.
@@ -1573,7 +1569,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn start_block(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_start_block(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets block the start node belongs to.
@@ -1589,7 +1585,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn end(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_end(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets end node of this ir_graph.
@@ -1605,7 +1601,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn start(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_start(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets start node of this ir_graph.
@@ -1621,7 +1617,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn frame(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_frame(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets frame of this ir_graph.
@@ -1637,7 +1633,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn initial_mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_initial_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets initial memory of this ir_graph.
@@ -1653,7 +1649,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn args(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_args(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets argument proj of the start node.
@@ -1669,7 +1665,7 @@ impl Anchor {
     #[allow(clippy::let_and_return)]
     pub fn no_mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Anchor_no_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets the only NoMem node of this ir_graph.
@@ -1705,7 +1701,7 @@ impl fmt::Debug for Anchor {
     }
 }
 /// returns the result of a bitwise and operation of its operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct And(*mut bindings::ir_node);
 
 impl And {
@@ -1720,7 +1716,7 @@ impl And {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_And_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -1736,7 +1732,7 @@ impl And {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_And_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -1791,7 +1787,7 @@ impl fmt::Debug for And {
 ///
 /// In the future we may use the Bad node to model poison values that arise
 /// from undefined behaviour like reading uninitialized local variables in C.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Bad(*mut bindings::ir_node);
 
 impl Bad {
@@ -1827,7 +1823,7 @@ impl fmt::Debug for Bad {
 }
 /// Converts a value between modes with different arithmetics but same
 /// number of bits by reinterpreting the bits in the new mode
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Bitcast(*mut bindings::ir_node);
 
 impl Bitcast {
@@ -1842,7 +1838,7 @@ impl Bitcast {
     #[allow(clippy::let_and_return)]
     pub fn op(self) -> Node {
         let unwrapped = unsafe { bindings::get_Bitcast_op(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets operand.
@@ -1878,7 +1874,7 @@ impl fmt::Debug for Bitcast {
     }
 }
 /// A basic block
-#[derive(Clone, Copy, Eq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Block(*mut bindings::ir_node);
 
 impl Block {
@@ -1929,7 +1925,7 @@ impl fmt::Debug for Block {
     }
 }
 /// performs a backend-specific builtin.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Builtin(*mut bindings::ir_node);
 
 impl Builtin {
@@ -1944,7 +1940,7 @@ impl Builtin {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Builtin_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -2030,7 +2026,7 @@ impl fmt::Debug for Builtin {
 /// operands are passed to the called code. Called code usually performs a
 /// return operation. The operands of this return operation are the result
 /// of the Call node.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Call(*mut bindings::ir_node);
 
 impl Call {
@@ -2045,7 +2041,7 @@ impl Call {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Call_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -2061,7 +2057,7 @@ impl Call {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Call_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets pointer to called code.
@@ -2169,7 +2165,7 @@ impl fmt::Debug for Call {
 }
 /// Compares its two operands and checks whether a specified
 /// relation (like less or equal) is fulfilled.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Cmp(*mut bindings::ir_node);
 
 impl Cmp {
@@ -2184,7 +2180,7 @@ impl Cmp {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Cmp_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -2200,7 +2196,7 @@ impl Cmp {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Cmp_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -2252,7 +2248,7 @@ impl fmt::Debug for Cmp {
     }
 }
 /// Conditionally change control flow.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Cond(*mut bindings::ir_node);
 
 impl Cond {
@@ -2267,7 +2263,7 @@ impl Cond {
     #[allow(clippy::let_and_return)]
     pub fn selector(self) -> Node {
         let unwrapped = unsafe { bindings::get_Cond_selector(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets condition parameter.
@@ -2357,7 +2353,7 @@ impl fmt::Debug for Cond {
 /// value is always returned.
 /// Note that this node does NOT check or assert the constraint, it merely
 /// specifies it.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Confirm(*mut bindings::ir_node);
 
 impl Confirm {
@@ -2372,7 +2368,7 @@ impl Confirm {
     #[allow(clippy::let_and_return)]
     pub fn value(self) -> Node {
         let unwrapped = unsafe { bindings::get_Confirm_value(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets value to express a constraint for.
@@ -2388,7 +2384,7 @@ impl Confirm {
     #[allow(clippy::let_and_return)]
     pub fn bound(self) -> Node {
         let unwrapped = unsafe { bindings::get_Confirm_bound(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets value to compare against.
@@ -2440,7 +2436,7 @@ impl fmt::Debug for Confirm {
     }
 }
 /// Returns a constant value.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Const(*mut bindings::ir_node);
 
 impl Const {
@@ -2486,7 +2482,7 @@ impl fmt::Debug for Const {
     }
 }
 /// Converts values between modes
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Conv(*mut bindings::ir_node);
 
 impl Conv {
@@ -2501,7 +2497,7 @@ impl Conv {
     #[allow(clippy::let_and_return)]
     pub fn op(self) -> Node {
         let unwrapped = unsafe { bindings::get_Conv_op(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets operand.
@@ -2537,7 +2533,7 @@ impl fmt::Debug for Conv {
     }
 }
 /// Copies a block of memory with statically known size/type.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct CopyB(*mut bindings::ir_node);
 
 impl CopyB {
@@ -2552,7 +2548,7 @@ impl CopyB {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_CopyB_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -2568,7 +2564,7 @@ impl CopyB {
     #[allow(clippy::let_and_return)]
     pub fn dst(self) -> Node {
         let unwrapped = unsafe { bindings::get_CopyB_dst(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets destination address.
@@ -2584,7 +2580,7 @@ impl CopyB {
     #[allow(clippy::let_and_return)]
     pub fn src(self) -> Node {
         let unwrapped = unsafe { bindings::get_CopyB_src(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets source address.
@@ -2655,7 +2651,7 @@ impl fmt::Debug for CopyB {
 }
 /// Internal node which is temporary set to nodes which are already removed
 /// from the graph.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Deleted(*mut bindings::ir_node);
 
 impl Deleted {
@@ -2690,7 +2686,7 @@ impl fmt::Debug for Deleted {
     }
 }
 /// returns the quotient of its 2 operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Div(*mut bindings::ir_node);
 
 impl Div {
@@ -2705,7 +2701,7 @@ impl Div {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Div_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -2721,7 +2717,7 @@ impl Div {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Div_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -2737,7 +2733,7 @@ impl Div {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Div_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -2867,7 +2863,7 @@ impl fmt::Debug for Div {
 /// A placeholder value. This is used when constructing cyclic graphs where
 /// you have cases where not all predecessors of a phi-node are known. Dummy
 /// nodes are used for the unknown predecessors and replaced later.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Dummy(*mut bindings::ir_node);
 
 impl Dummy {
@@ -2903,7 +2899,7 @@ impl fmt::Debug for Dummy {
 }
 /// Last node of a graph. It references nodes in endless loops (so called
 /// keepalive edges)
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct End(*mut bindings::ir_node);
 
 impl End {
@@ -2940,7 +2936,7 @@ impl fmt::Debug for End {
 /// returns the result of a bitwise exclusive or operation of its operands.
 ///
 /// This is also known as the Xor operation.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Eor(*mut bindings::ir_node);
 
 impl Eor {
@@ -2955,7 +2951,7 @@ impl Eor {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Eor_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -2971,7 +2967,7 @@ impl Eor {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Eor_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -3007,7 +3003,7 @@ impl fmt::Debug for Eor {
     }
 }
 /// Frees a block of memory previously allocated by an Alloc node
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Free(*mut bindings::ir_node);
 
 impl Free {
@@ -3022,7 +3018,7 @@ impl Free {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Free_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -3038,7 +3034,7 @@ impl Free {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Free_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets pointer to the object to free.
@@ -3076,7 +3072,7 @@ impl fmt::Debug for Free {
 /// Jumps to the code in its argument. The code has to be in the same
 /// function and the destination must be one of the blocks reachable
 /// by the tuple results
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct IJmp(*mut bindings::ir_node);
 
 impl IJmp {
@@ -3091,7 +3087,7 @@ impl IJmp {
     #[allow(clippy::let_and_return)]
     pub fn target(self) -> Node {
         let unwrapped = unsafe { bindings::get_IJmp_target(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets target address of the jump.
@@ -3130,7 +3126,7 @@ impl fmt::Debug for IJmp {
 ///
 /// This is mainly used when exchanging nodes. Usually you shouldn't see Id
 /// nodes since the getters/setters for node inputs skip them automatically.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Id(*mut bindings::ir_node);
 
 impl Id {
@@ -3145,7 +3141,7 @@ impl Id {
     #[allow(clippy::let_and_return)]
     pub fn pred(self) -> Node {
         let unwrapped = unsafe { bindings::get_Id_pred(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets the value which is returned unchanged.
@@ -3181,7 +3177,7 @@ impl fmt::Debug for Id {
     }
 }
 /// Jumps to the block connected through the out-value
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Jmp(*mut bindings::ir_node);
 
 impl Jmp {
@@ -3216,7 +3212,7 @@ impl fmt::Debug for Jmp {
     }
 }
 /// Loads a value from memory (heap or stack).
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Load(*mut bindings::ir_node);
 
 impl Load {
@@ -3231,7 +3227,7 @@ impl Load {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Load_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -3247,7 +3243,7 @@ impl Load {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Load_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets address to load from.
@@ -3409,7 +3405,7 @@ impl fmt::Debug for Load {
 /// of an instance of the compound type.
 ///
 /// A Member node must only produce a NULL pointer if the ptr input is NULL.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Member(*mut bindings::ir_node);
 
 impl Member {
@@ -3424,7 +3420,7 @@ impl Member {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Member_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets pointer to object to select from.
@@ -3471,7 +3467,7 @@ impl fmt::Debug for Member {
     }
 }
 /// returns the additive inverse of its operand
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Minus(*mut bindings::ir_node);
 
 impl Minus {
@@ -3486,7 +3482,7 @@ impl Minus {
     #[allow(clippy::let_and_return)]
     pub fn op(self) -> Node {
         let unwrapped = unsafe { bindings::get_Minus_op(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets operand.
@@ -3529,7 +3525,7 @@ impl fmt::Debug for Minus {
 /// * mod(5,-3)  produces 2
 /// * mod(-5,3)  produces -2
 /// * mod(-5,-3) produces -2
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mod(*mut bindings::ir_node);
 
 impl Mod {
@@ -3544,7 +3540,7 @@ impl Mod {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mod_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -3560,7 +3556,7 @@ impl Mod {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mod_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -3576,7 +3572,7 @@ impl Mod {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mod_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -3688,7 +3684,7 @@ impl fmt::Debug for Mod {
     }
 }
 /// returns the product of its operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mul(*mut bindings::ir_node);
 
 impl Mul {
@@ -3703,7 +3699,7 @@ impl Mul {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mul_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -3719,7 +3715,7 @@ impl Mul {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mul_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -3756,7 +3752,7 @@ impl fmt::Debug for Mul {
 }
 /// returns the upper word of the product of its operands (the part which
 /// would not fit into the result mode of a normal Mul anymore)
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mulh(*mut bindings::ir_node);
 
 impl Mulh {
@@ -3771,7 +3767,7 @@ impl Mulh {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mulh_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -3787,7 +3783,7 @@ impl Mulh {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mulh_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -3824,7 +3820,7 @@ impl fmt::Debug for Mulh {
 }
 /// returns the false or true operand depending on the value of the sel
 /// operand
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Mux(*mut bindings::ir_node);
 
 impl Mux {
@@ -3839,7 +3835,7 @@ impl Mux {
     #[allow(clippy::let_and_return)]
     pub fn sel(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mux_sel(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets value making the output selection.
@@ -3855,7 +3851,7 @@ impl Mux {
     #[allow(clippy::let_and_return)]
     pub fn false_(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mux_false(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets selected if sel input is false.
@@ -3871,7 +3867,7 @@ impl Mux {
     #[allow(clippy::let_and_return)]
     pub fn true_(self) -> Node {
         let unwrapped = unsafe { bindings::get_Mux_true(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets selected if sel input is true.
@@ -3907,7 +3903,7 @@ impl fmt::Debug for Mux {
     }
 }
 /// Placeholder node for cases where you don't need any memory input
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct NoMem(*mut bindings::ir_node);
 
 impl NoMem {
@@ -3942,7 +3938,7 @@ impl fmt::Debug for NoMem {
     }
 }
 /// returns the bitwise complement of a value. Works for boolean values, too.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Not(*mut bindings::ir_node);
 
 impl Not {
@@ -3957,7 +3953,7 @@ impl Not {
     #[allow(clippy::let_and_return)]
     pub fn op(self) -> Node {
         let unwrapped = unsafe { bindings::get_Not_op(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets operand.
@@ -3993,7 +3989,7 @@ impl fmt::Debug for Not {
     }
 }
 /// Symbolic constant that represents the offset of an entity in its owner type.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Offset(*mut bindings::ir_node);
 
 impl Offset {
@@ -4028,7 +4024,7 @@ impl fmt::Debug for Offset {
     }
 }
 /// returns the result of a bitwise or operation of its operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Or(*mut bindings::ir_node);
 
 impl Or {
@@ -4043,7 +4039,7 @@ impl Or {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Or_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -4059,7 +4055,7 @@ impl Or {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Or_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -4097,7 +4093,7 @@ impl fmt::Debug for Or {
 /// Choose a value based on control flow. A phi node has 1 input for each
 /// predecessor of its block. If a block is entered from its nth predecessor
 /// all phi nodes produce their nth input as result.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Phi(*mut bindings::ir_node);
 
 impl Phi {
@@ -4152,7 +4148,7 @@ impl fmt::Debug for Phi {
 /// Pin the value of the node node in the current block. No users of the Pin
 /// node can float above the Block of the Pin. The node cannot float behind
 /// this block. Often used to Pin the NoMem node.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Pin(*mut bindings::ir_node);
 
 impl Pin {
@@ -4167,7 +4163,7 @@ impl Pin {
     #[allow(clippy::let_and_return)]
     pub fn op(self) -> Node {
         let unwrapped = unsafe { bindings::get_Pin_op(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets value which is pinned.
@@ -4203,7 +4199,7 @@ impl fmt::Debug for Pin {
     }
 }
 /// returns an entry of a tuple value
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Proj(*mut bindings::ir_node);
 
 impl Proj {
@@ -4218,7 +4214,7 @@ impl Proj {
     #[allow(clippy::let_and_return)]
     pub fn pred(self) -> Node {
         let unwrapped = unsafe { bindings::get_Proj_pred(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets the tuple value from which a part is extracted.
@@ -4267,7 +4263,7 @@ impl fmt::Debug for Proj {
 /// Raises an exception. Unconditional change of control flow. Writes an
 /// explicit Except variable to memory to pass it to the exception handler.
 /// Must be lowered to a Call to a runtime check function.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Raise(*mut bindings::ir_node);
 
 impl Raise {
@@ -4282,7 +4278,7 @@ impl Raise {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Raise_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -4298,7 +4294,7 @@ impl Raise {
     #[allow(clippy::let_and_return)]
     pub fn exo_ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Raise_exo_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets pointer to exception object to be thrown.
@@ -4365,7 +4361,7 @@ impl fmt::Debug for Raise {
 }
 /// Returns from the current function. Takes memory and return values as
 /// operands.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Return(*mut bindings::ir_node);
 
 impl Return {
@@ -4380,7 +4376,7 @@ impl Return {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Return_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -4419,7 +4415,7 @@ impl fmt::Debug for Return {
 /// an index.
 ///
 /// A Sel node must only produce a NULL pointer if the ptr input is NULL.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Sel(*mut bindings::ir_node);
 
 impl Sel {
@@ -4434,7 +4430,7 @@ impl Sel {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Sel_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets pointer to array to select from.
@@ -4450,7 +4446,7 @@ impl Sel {
     #[allow(clippy::let_and_return)]
     pub fn index(self) -> Node {
         let unwrapped = unsafe { bindings::get_Sel_index(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets index to select.
@@ -4506,7 +4502,7 @@ impl fmt::Debug for Sel {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Shl(*mut bindings::ir_node);
 
 impl Shl {
@@ -4521,7 +4517,7 @@ impl Shl {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shl_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -4537,7 +4533,7 @@ impl Shl {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shl_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -4577,7 +4573,7 @@ impl fmt::Debug for Shl {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Shr(*mut bindings::ir_node);
 
 impl Shr {
@@ -4592,7 +4588,7 @@ impl Shr {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shr_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -4608,7 +4604,7 @@ impl Shr {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shr_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -4649,7 +4645,7 @@ impl fmt::Debug for Shr {
 /// The right input (shift amount) must be an unsigned integer value.
 /// If the result mode has modulo_shift!=0, then the effective shift amount is
 /// the right input modulo this modulo_shift amount.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Shrs(*mut bindings::ir_node);
 
 impl Shrs {
@@ -4664,7 +4660,7 @@ impl Shrs {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shrs_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -4680,7 +4676,7 @@ impl Shrs {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Shrs_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -4716,7 +4712,7 @@ impl fmt::Debug for Shrs {
     }
 }
 /// A symbolic constant that represents the size of a type
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Size(*mut bindings::ir_node);
 
 impl Size {
@@ -4751,7 +4747,7 @@ impl fmt::Debug for Size {
     }
 }
 /// The first node of a graph. Execution starts with this node.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Start(*mut bindings::ir_node);
 
 impl Start {
@@ -4831,7 +4827,7 @@ impl fmt::Debug for Start {
     }
 }
 /// Stores a value into memory (heap or stack).
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Store(*mut bindings::ir_node);
 
 impl Store {
@@ -4846,7 +4842,7 @@ impl Store {
     #[allow(clippy::let_and_return)]
     pub fn mem(self) -> Node {
         let unwrapped = unsafe { bindings::get_Store_mem(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets memory dependency.
@@ -4862,7 +4858,7 @@ impl Store {
     #[allow(clippy::let_and_return)]
     pub fn ptr(self) -> Node {
         let unwrapped = unsafe { bindings::get_Store_ptr(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets address to store to.
@@ -4878,7 +4874,7 @@ impl Store {
     #[allow(clippy::let_and_return)]
     pub fn value(self) -> Node {
         let unwrapped = unsafe { bindings::get_Store_value(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets value to store.
@@ -5006,7 +5002,7 @@ impl fmt::Debug for Store {
     }
 }
 /// returns the difference of its operands
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Sub(*mut bindings::ir_node);
 
 impl Sub {
@@ -5021,7 +5017,7 @@ impl Sub {
     #[allow(clippy::let_and_return)]
     pub fn left(self) -> Node {
         let unwrapped = unsafe { bindings::get_Sub_left(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets first operand.
@@ -5037,7 +5033,7 @@ impl Sub {
     #[allow(clippy::let_and_return)]
     pub fn right(self) -> Node {
         let unwrapped = unsafe { bindings::get_Sub_right(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets second operand.
@@ -5076,7 +5072,7 @@ impl fmt::Debug for Sub {
 /// input value which is looked up in a table.
 ///
 /// Backends can implement this efficiently using a jump table.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Switch(*mut bindings::ir_node);
 
 impl Switch {
@@ -5091,7 +5087,7 @@ impl Switch {
     #[allow(clippy::let_and_return)]
     pub fn selector(self) -> Node {
         let unwrapped = unsafe { bindings::get_Switch_selector(self.0) };
-        NodeFactory::node(unwrapped)
+        Node::wrap(unwrapped)
     }
 
     /// Sets input selector.
@@ -5178,7 +5174,7 @@ impl fmt::Debug for Switch {
 /// be identical.  This operation allows to specify all operations that
 /// eventually need several partial memory blocks as input with a single
 /// entrance by unifying the memories with a preceding Sync operation.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Sync(*mut bindings::ir_node);
 
 impl Sync {
@@ -5220,7 +5216,7 @@ impl fmt::Debug for Sync {
 /// the implementation with pointers in only one direction.) The Tuple node is
 /// smaller than any other node, so that a node can be changed into a Tuple by
 /// just changing its opcode and giving it a new in array.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Tuple(*mut bindings::ir_node);
 
 impl Tuple {
@@ -5260,7 +5256,7 @@ impl fmt::Debug for Tuple {
 /// Be careful when optimising Unknown values, you cannot simply replace
 /// Unknown+x or Unknown<x with a new Unknown node if there are multiple
 /// users of the original unknown node!
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Unknown(*mut bindings::ir_node);
 
 impl Unknown {
