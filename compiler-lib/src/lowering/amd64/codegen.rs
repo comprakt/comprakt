@@ -638,9 +638,11 @@ impl Codegen {
     }
 
     fn gen_call(&mut self, call: &function::FunctionCall, instrs: &mut Vec<Instruction>) {
-        use self::Instruction::{Addq, Call, Movq, Popq, Pushq};
+        use self::Instruction::{Addq, Call, Comment, Movq, Popq, Pushq};
 
-        log::debug!("Gen call: {:?}", call);
+        instrs.push(Comment {
+            comment: "call save args".to_string(),
+        });
         for instr in &call.arg_save {
             if let function::FnInstruction::Pushq { src } = instr {
                 let src = self.fn_to_src_operand(*src, instrs);
@@ -650,6 +652,9 @@ impl Codegen {
             }
         }
 
+        instrs.push(Comment {
+            comment: "call setup".to_string(),
+        });
         for instr in &call.setup {
             match instr {
                 function::FnInstruction::Movq { src, dst } => {
@@ -670,18 +675,27 @@ impl Codegen {
         });
 
         if let Some(function::FnInstruction::Movq { src, dst }) = call.move_res {
+            instrs.push(Comment {
+                comment: "call move from %rax".to_string(),
+            });
             let src = self.fn_to_src_operand(src, instrs);
             let dst = self.fn_to_src_operand(dst, instrs).try_into().unwrap();
             instrs.push(Movq { src, dst });
         }
 
         if let Some(function::FnInstruction::Addq { src, dst }) = call.recover {
+            instrs.push(Comment {
+                comment: "call restore %rsp".to_string(),
+            });
             instrs.push(Addq {
                 src: SrcOperand::Imm(src),
                 dst: DstOperand::Reg(dst),
             });
         }
 
+        instrs.push(Comment {
+            comment: "call recover args".to_string(),
+        });
         for instr in &call.arg_recover {
             if let function::FnInstruction::Popq { dst } = instr {
                 let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();

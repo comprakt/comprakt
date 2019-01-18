@@ -41,7 +41,7 @@ impl PartialOrd for LiveRange {
 /// the lower bound of their interval. We also need a ordering by the upper
 /// bound though. So this wraps the `LiveRange` struct to implement Ord for the
 /// upper bound.
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 struct Active(LiveRange);
 
 impl Ord for Active {

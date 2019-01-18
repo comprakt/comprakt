@@ -68,7 +68,7 @@ pub(super) struct FunctionCall {
 }
 
 impl FunctionCall {
-    pub(super) fn new(cconv: CallingConv, call_instr: lir::Instruction) -> Self {
+    pub(super) fn new(cconv: CallingConv, call_instr: &lir::Instruction) -> Self {
         let mut call = Self::default();
 
         match cconv {
@@ -79,22 +79,22 @@ impl FunctionCall {
         call
     }
 
-    fn setup_x86_64_cconv(&mut self, call: lir::Instruction) {
+    fn setup_x86_64_cconv(&mut self, call: &lir::Instruction) {
         if let lir::Instruction::Call { func, args, dst } = call {
-            self.label = func;
+            self.label = func.clone();
 
             let mut push_setup = vec![];
             for (i, arg) in args.into_iter().enumerate() {
                 if i < CallingConv::X86_64.num_arg_regs() {
                     // Fill the function argument registers
                     self.setup.push(FnInstruction::Movq {
-                        src: FnOperand::Lir(arg),
+                        src: FnOperand::Lir(*arg),
                         dst: FnOperand::Reg(Amd64Reg::arg(i)),
                     });
                 } else {
                     // Push the other args on the stack
                     push_setup.push(FnInstruction::Pushq {
-                        src: FnOperand::Lir(arg),
+                        src: FnOperand::Lir(*arg),
                     });
                 }
             }
@@ -119,13 +119,13 @@ impl FunctionCall {
         }
     }
 
-    fn setup_stack_cconv(&mut self, call: lir::Instruction) {
+    fn setup_stack_cconv(&mut self, call: &lir::Instruction) {
         if let lir::Instruction::Call { func, args, dst } = call {
-            self.label = func;
+            self.label = func.clone();
 
             for arg in args.into_iter().rev() {
                 self.setup.push(FnInstruction::Pushq {
-                    src: FnOperand::Lir(arg),
+                    src: FnOperand::Lir(*arg),
                 });
             }
 
@@ -253,8 +253,6 @@ impl Function {
 
         self.save_callee_save_regs(lsa.num_regs_required);
         self.allocate_stack(lsa.stack_vars_counter);
-
-        log::debug!("{:?}", lsa.var_location.keys());
 
         let mut codegen = Codegen::new(lsa.var_location, self.cconv);
         self.instrs = codegen.run(&self, lva.postorder_blocks);
