@@ -471,8 +471,6 @@
 <span id="471">471</span>
 <span id="472">472</span>
 <span id="473">473</span>
-<span id="474">474</span>
-<span id="475">475</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">nll</span>)]</span>
 
@@ -504,8 +502,7 @@
     <span class="ident">Parser</span>,
     <span class="ident">Ast</span>,
     <span class="ident">Semantic</span>,
-    <span class="ident">Assembly</span>,
-    <span class="ident">Binary</span> {
+    <span class="ident">BinaryLibfirm</span> {
         <span class="ident">output</span>: <span class="ident">PathBuf</span>,
         <span class="ident">assembly</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
         <span class="ident">optimizations</span>: <span class="ident">Level</span>,
@@ -530,8 +527,7 @@
         <span class="ident">CompilerPhase</span>::<span class="ident">Parser</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;--parsetest&quot;</span>],
         <span class="ident">CompilerPhase</span>::<span class="ident">Ast</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;--print-ast&quot;</span>],
         <span class="ident">CompilerPhase</span>::<span class="ident">Semantic</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;--check&quot;</span>],
-        <span class="ident">CompilerPhase</span>::<span class="ident">Assembly</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;--emit-asm&quot;</span>],
-        <span class="ident">CompilerPhase</span>::<span class="ident">Binary</span> {
+        <span class="ident">CompilerPhase</span>::<span class="ident">BinaryLibfirm</span> {
             <span class="ident">output</span>,
             <span class="ident">assembly</span>,
             <span class="ident">optimizations</span>,
