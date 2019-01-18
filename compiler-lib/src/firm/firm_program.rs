@@ -1,5 +1,6 @@
 use super::type_translation::*;
 use crate::{
+    firm::runtime::Runtime,
     ref_eq::RefEq,
     type_checking::type_system::{
         ClassDef, ClassFieldDef, ClassMethodBody, ClassMethodDef, TypeSystem,
@@ -37,6 +38,7 @@ pub struct FirmProgram<'src, 'ast> {
     pub fields: HashMap<RefEq<Rc<ClassFieldDef<'src>>>, FirmFieldP<'src, 'ast>>,
     pub methods: HashMap<RefEq<Rc<ClassMethodDef<'src, 'ast>>>, FirmMethodP<'src, 'ast>>,
     pub entities: HashMap<Entity, FirmEntity<'src, 'ast>>,
+    pub runtime: Rc<Runtime>,
 }
 
 pub type FirmClassP<'src, 'ast> = Rc<RefCell<FirmClass<'src, 'ast>>>;
@@ -62,12 +64,16 @@ pub struct FirmMethod<'src, 'ast> {
 }
 
 impl<'src, 'ast> FirmProgram<'src, 'ast> {
-    pub fn new(type_system: &'src TypeSystem<'src, 'ast>) -> FirmProgram<'src, 'ast> {
+    pub fn new(
+        type_system: &'src TypeSystem<'src, 'ast>,
+        runtime: Rc<Runtime>,
+    ) -> FirmProgram<'src, 'ast> {
         let mut program = FirmProgram {
             classes: HashMap::new(),
             fields: HashMap::new(),
             methods: HashMap::new(),
             entities: HashMap::new(),
+            runtime,
         };
         program.add_type_system(type_system);
         program
@@ -152,7 +158,7 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
         let method_type = method_ty_builder.build(!method.is_main);
 
         let method_name = if method.is_main {
-            "mj_main".to_owned()
+            self.runtime.lib.mj_main_name().to_owned()
         } else {
             format!("{}.M.{}", class.borrow().def.name, method.name)
         };

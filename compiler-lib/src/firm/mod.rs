@@ -81,7 +81,8 @@ pub unsafe fn build<'src, 'ast>(
 ) -> Result<(), Error> {
     setup();
 
-    let generator = ProgramGenerator::new(type_system, type_analysis, strtab);
+    let rt = std::rc::Rc::new(Runtime::new(box runtime::Mjrt)); // FIXME constant
+    let generator = ProgramGenerator::new(rt, type_system, type_analysis, strtab);
     let program = generator.generate();
     if !opts.dump_folder.exists() {
         fs::create_dir_all(&opts.dump_folder).expect("Failed to create output directory");
