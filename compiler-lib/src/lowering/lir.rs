@@ -61,15 +61,10 @@ impl From<&firm::FirmProgram<'_, '_>> for LIR {
             functions.push(function);
         }
 
-        let lir = LIR {
+        LIR {
             allocator,
             functions,
-        };
-
-        let mut amd64 = super::amd64::Program::new(&lir, super::amd64::CallingConv::X86_64);
-        let _ = amd64.emit_asm(&mut std::io::stdout());
-
-        lir
+        }
     }
 }
 

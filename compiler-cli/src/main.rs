@@ -24,7 +24,7 @@
 #![feature(custom_attribute)]
 
 use compiler_lib::{
-    asciifile, ast,
+    asciifile, ast, backend,
     context::Context,
     firm::{
         self,
@@ -470,8 +470,43 @@ fn cmd_compile_firm(options: &CompileFirmOptions) -> Result<(), Error> {
     res
 }
 
-fn cmd_compile(_options: &CompileOptions) -> Result<(), Error> {
-    unimplemented!()
+fn cmd_compile(options: &CompileOptions) -> Result<(), Error> {
+    // TODO make this configurable, as, in theory, it is perceivable that someone
+    // wants to just produce asm and choose their lib externally. (low prio)
+    let rtlib: Box<dyn RTLib> = match options.backend {
+        CompileBackend::AMD64 => box runtime::Mjrt,
+        CompileBackend::Molki => box runtime::Molki,
+    };
+
+    compile_command_common!( let (firm_ctx, bingen) =
+                             (&options.pre_backend_options, &options.backend_options, rtlib));
+
+    let mut backend: Box<dyn backend::AsmBackend> = match options.backend {
+        CompileBackend::AMD64 => {
+            // TODO make this configurable via CLI options
+            let opts = backend::amd64::Options {
+                cconv: backend::amd64::CallingConv::X86_64,
+            };
+            box backend::amd64::Backend { firm_ctx, opts }
+        }
+        CompileBackend::Molki => unimplemented!(),
+    };
+
+    let dump_asm = options
+        .backend_options
+        .dump_assembly
+        .clone()
+        .map(OutputSpecification::File);
+
+    let res = bingen.emit_binary(&mut *backend, dump_asm);
+    if std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP").is_ok() {
+        let path = bingen.stop_and_keep_temp_dir();
+        eprintln!(
+            "Temporary compilation directory was persisted to {:?}",
+            path
+        );
+    }
+    res
 }
 
 enum BinaryGeneratorState {
