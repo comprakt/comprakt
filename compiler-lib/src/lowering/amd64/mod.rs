@@ -1,4 +1,4 @@
-use crate::lowering::{lir, lir_allocator::Ptr};
+use crate::lowering::lir;
 
 mod codegen;
 mod function;
@@ -36,7 +36,7 @@ impl CallingConv {
 }
 
 pub struct Program {
-    functions: Vec<(Function, Ptr<lir::BlockGraph>)>,
+    functions: Vec<Function>,
 }
 
 impl Program {
@@ -44,7 +44,9 @@ impl Program {
         let mut functions = vec![];
 
         for f in &lir.functions {
-            functions.push((Function::new(f.nargs, cconv, &f.name), f.graph));
+            let mut amd64_func = Function::new(f.nargs, cconv, &f.name);
+            amd64_func.gen_code(f.graph);
+            functions.push(amd64_func);
         }
 
         Self { functions }
@@ -52,8 +54,8 @@ impl Program {
 
     pub fn emit_asm(&mut self, out: &mut impl std::io::Write) -> std::io::Result<()> {
         writeln!(out, "\t.text")?;
-        for (f, graph) in self.functions.iter_mut() {
-            f.emit_asm(*graph, out)?;
+        for f in self.functions.iter() {
+            f.emit_asm(out)?;
         }
         Ok(())
     }
