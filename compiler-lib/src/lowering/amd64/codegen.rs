@@ -17,6 +17,7 @@ pub(super) struct Codegen {
     var_location: HashMap<VarId, linear_scan::Location>,
     cconv: CallingConv,
     params_moved_from_stack: HashSet<u32>,
+    num_saved_regs: usize,
 }
 
 impl Codegen {
@@ -28,6 +29,7 @@ impl Codegen {
             var_location,
             cconv,
             params_moved_from_stack: HashSet::new(),
+            num_saved_regs: 0,
         }
     }
 
@@ -38,72 +40,15 @@ impl Codegen {
     ) -> Vec<Instruction> {
         use self::Instruction::*;
         let mut instrs = vec![];
+        self.num_saved_regs = function.save_regs.len();
 
-        for i in 0..self.cconv.num_arg_regs() {
-            if let Some(Location::Mem(idx)) = self.var_location.get(&(-1, i as usize)) {
-                instrs.push(Comment {
-                    comment: format!("spill argument register {}", i),
-                });
-                instrs.push(Movq {
-                    src: SrcOperand::Reg(Amd64Reg::arg(i)),
-                    dst: DstOperand::Mem(lir::AddressComputation {
-                        offset: -(*idx as isize) * 8,
-                        base: AddrOperand(Amd64Reg::Rbp),
-                        index: lir::IndexComputation::Zero,
-                    }),
-                });
-            }
-        }
+        self.gen_meta_comments(&mut instrs);
 
-        instrs.push(Comment {
-            comment: "function prolog".to_string(),
-        });
-        for instr in &function.prolog {
-            match instr {
-                function::FnInstruction::Pushq { src } => {
-                    let src = self.fn_to_src_operand(*src, &mut instrs);
-                    instrs.push(Pushq { src });
-                }
-                function::FnInstruction::Movq { src, dst } => {
-                    let src = self.fn_to_src_operand(*src, &mut instrs);
-                    let dst = self
-                        .fn_to_src_operand(*dst, &mut instrs)
-                        .try_into()
-                        .unwrap();
-                    instrs.push(Movq { src, dst });
-                }
-                _ => unreachable!(),
-            }
-        }
+        self.gen_function_prolog(function, &mut instrs);
 
-        instrs.push(Comment {
-            comment: "function save regs".to_string(),
-        });
-        for instr in &function.save_regs {
-            if let function::FnInstruction::Pushq { src } = instr {
-                let src = self.fn_to_src_operand(*src, &mut instrs);
-                instrs.push(Pushq { src });
-            } else {
-                unreachable!();
-            }
-        }
-
-        if let Some(instr) = function.allocate {
-            instrs.push(Comment {
-                comment: "function allocate stack space".to_string(),
-            });
-            if let function::FnInstruction::Subq { src, dst } = instr {
-                instrs.push(Subq {
-                    src: SrcOperand::Imm(src),
-                    dst: DstOperand::Reg(dst),
-                });
-            } else {
-                unreachable!();
-            }
-        }
+        self.gen_spill_arg_regs(&mut instrs);
 
         let mut block_iter = blocks.iter().peekable();
-
         while let Some(block) = block_iter.next() {
             instrs.push(Label {
                 label: lir::gen_label(block.firm_num),
@@ -135,47 +80,115 @@ impl Codegen {
                         instrs.push(Comment {
                             comment: "copy instruction".to_string(),
                         });
-                        let src = self.lir_to_src_operand((*src).into(), &mut instrs);
-                        let dst = self
-                            .lir_to_src_operand(lir::Operand::Slot(*dst), &mut instrs)
-                            .try_into()
-                            .unwrap();
-                        match (src, dst) {
-                            (SrcOperand::Reg(_), _) | (_, DstOperand::Reg(_)) => {
-                                instrs.push(Movq { src, dst });
-                            }
-                            (SrcOperand::Mem(_), DstOperand::Mem(_)) => {
-                                instrs.push(Pushq {
-                                    src: SrcOperand::Reg(Amd64Reg::Rax),
-                                });
-                                instrs.push(Movq {
-                                    src,
-                                    dst: DstOperand::Reg(Amd64Reg::Rax),
-                                });
-                                instrs.push(Movq {
-                                    src: SrcOperand::Reg(Amd64Reg::Rax),
-                                    dst,
-                                });
-                                instrs.push(Popq {
-                                    dst: DstOperand::Reg(Amd64Reg::Rax),
-                                });
-                            }
-                            (SrcOperand::Imm(_), _) => unreachable!(),
-                        }
+                        self.gen_mov(*src, *dst, &mut instrs);
                     }
                 }
             }
         }
+
+        self.gen_function_epilog(function, &mut instrs);
+
+        instrs
+    }
+
+    fn gen_meta_comments(&self, instrs: &mut Vec<Instruction>) {
+        use self::Instruction::Comment;
+
+        instrs.push(Comment {
+            comment: format!("Calling convention: {:?}", self.cconv),
+        });
+        for (id, location) in &self.var_location {
+            instrs.push(Comment {
+                comment: format!("Var {:?} in {:?}", id, location),
+            });
+        }
+    }
+
+    fn gen_function_prolog(
+        &mut self,
+        function: &function::Function,
+        instrs: &mut Vec<Instruction>,
+    ) {
+        use self::Instruction::{Comment, Movq, Pushq, Subq};
+
+        instrs.push(Comment {
+            comment: "function prolog".to_string(),
+        });
+        for instr in &function.prolog {
+            match instr {
+                function::FnInstruction::Pushq { src } => {
+                    let src = self.fn_to_src_operand(*src, instrs);
+                    instrs.push(Pushq { src });
+                }
+                function::FnInstruction::Movq { src, dst } => {
+                    let src = self.fn_to_src_operand(*src, instrs);
+                    let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
+                    instrs.push(Movq { src, dst });
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        instrs.push(Comment {
+            comment: "function save regs".to_string(),
+        });
+        for instr in &function.save_regs {
+            if let function::FnInstruction::Pushq { src } = instr {
+                let src = self.fn_to_src_operand(*src, instrs);
+                instrs.push(Pushq { src });
+            } else {
+                unreachable!();
+            }
+        }
+
+        if let Some(instr) = function.allocate {
+            instrs.push(Comment {
+                comment: "function allocate stack space".to_string(),
+            });
+            if let function::FnInstruction::Subq { src, dst } = instr {
+                instrs.push(Subq {
+                    src: SrcOperand::Imm(src),
+                    dst: DstOperand::Reg(dst),
+                });
+            } else {
+                unreachable!();
+            }
+        }
+    }
+
+    fn gen_spill_arg_regs(&self, instrs: &mut Vec<Instruction>) {
+        use self::Instruction::{Comment, Movq};
+
+        for i in 0..self.cconv.num_arg_regs() {
+            if let Some(Location::Mem(idx)) = self.var_location.get(&(-1, i as usize)) {
+                instrs.push(Comment {
+                    comment: format!("spill argument register {}", i),
+                });
+                instrs.push(Movq {
+                    src: SrcOperand::Reg(Amd64Reg::arg(i)),
+                    dst: DstOperand::Mem(lir::AddressComputation {
+                        offset: -((*idx + self.num_saved_regs) as isize) * 8,
+                        base: AddrOperand(Amd64Reg::Rbp),
+                        index: lir::IndexComputation::Zero,
+                    }),
+                });
+            }
+        }
+    }
+
+    fn gen_function_epilog(
+        &mut self,
+        function: &function::Function,
+        instrs: &mut Vec<Instruction>,
+    ) {
+        use self::Instruction::{Comment, Leave, Popq, Ret};
 
         instrs.push(Comment {
             comment: "function restore regs".to_string(),
         });
         for instr in &function.restore_regs {
             if let function::FnInstruction::Popq { dst } = instr {
-                let dst = self
-                    .fn_to_src_operand(*dst, &mut instrs)
-                    .try_into()
-                    .unwrap();
+                let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
                 instrs.push(Popq { dst });
             }
         }
@@ -190,12 +203,47 @@ impl Codegen {
                 _ => unreachable!(),
             }
         }
+    }
 
-        instrs
+    fn gen_mov(
+        &mut self,
+        src: lir::CopyPropagationSrc,
+        dst: Ptr<MultiSlot>,
+        instrs: &mut Vec<Instruction>,
+    ) {
+        use self::Instruction::{Movq, Popq, Pushq};
+
+        let src = self.lir_to_src_operand(src.into(), instrs);
+        let dst = self
+            .lir_to_src_operand(lir::Operand::Slot(dst), instrs)
+            .try_into()
+            .unwrap();
+        match (src, dst) {
+            (SrcOperand::Reg(_), _) | (_, DstOperand::Reg(_)) => {
+                instrs.push(Movq { src, dst });
+            }
+            (SrcOperand::Mem(_), DstOperand::Mem(_)) => {
+                instrs.push(Pushq {
+                    src: SrcOperand::Reg(Amd64Reg::Rax),
+                });
+                instrs.push(Movq {
+                    src,
+                    dst: DstOperand::Reg(Amd64Reg::Rax),
+                });
+                instrs.push(Movq {
+                    src: SrcOperand::Reg(Amd64Reg::Rax),
+                    dst,
+                });
+                instrs.push(Popq {
+                    dst: DstOperand::Reg(Amd64Reg::Rax),
+                });
+            }
+            (SrcOperand::Imm(_), _) => unreachable!(),
+        }
     }
 
     fn gen_lir(&mut self, lir: &lir::Instruction, instrs: &mut Vec<Instruction>) {
-        use self::Instruction::*;
+        use self::Instruction::Movq;
 
         log::debug!("Gen lir: {:?}", lir);
         match lir {
@@ -416,7 +464,8 @@ impl Codegen {
     ) where
         F: FnOnce() -> Instruction,
     {
-        use self::Instruction::*;
+        use self::Instruction::{Cqto, Divq, Movq, Popq, Pushq};
+
         instrs.push(Pushq {
             src: SrcOperand::Reg(Amd64Reg::Rdx),
         });
@@ -464,7 +513,8 @@ impl Codegen {
         src: &lir::Operand,
         dst: Ptr<MultiSlot>,
     ) {
-        use self::Instruction::*;
+        use self::Instruction::{Movq, Negq, Notq, Popq, Pushq};
+
         macro_rules! push_unop {
             ($kind:expr, $dst:expr) => {{
                 match $kind {
@@ -522,7 +572,8 @@ impl Codegen {
     ) where
         F: FnOnce(lir::AddressComputation<AddrOperand>) -> Instruction,
     {
-        use self::Instruction::*;
+        use self::Instruction::{Movq, Popq, Pushq};
+
         let lir::AddressComputation {
             offset,
             base,
@@ -587,7 +638,7 @@ impl Codegen {
     }
 
     fn gen_call(&mut self, call: &function::FunctionCall, instrs: &mut Vec<Instruction>) {
-        use self::Instruction::*;
+        use self::Instruction::{Addq, Call, Movq, Popq, Pushq};
 
         log::debug!("Gen call: {:?}", call);
         for instr in &call.arg_save {
@@ -647,7 +698,7 @@ impl Codegen {
         next_block_num: i64,
         instrs: &mut Vec<Instruction>,
     ) {
-        use self::Instruction::*;
+        use self::Instruction::{Cmpq, Jmp, Movq, Popq, Pushq};
 
         macro_rules! push_jmp {
             ($kind:expr, $target:expr, $next_block_num:expr, fall=$fall:expr) => {{
@@ -752,7 +803,7 @@ impl Codegen {
             lir::Operand::Slot(_) => match self.var_location[&var_id(op)] {
                 Location::Reg(reg) => SrcOperand::Reg(reg),
                 Location::Mem(idx) => SrcOperand::Mem(lir::AddressComputation {
-                    offset: -(idx as isize) * 8,
+                    offset: -((idx + self.num_saved_regs) as isize) * 8,
                     base: AddrOperand(Amd64Reg::Rbp),
                     index: lir::IndexComputation::Zero,
                 }),
@@ -770,7 +821,7 @@ impl Codegen {
                 // This can happen when the param was originally in a register but got moved on
                 // the stack.
                 Location::Mem(idx) => SrcOperand::Mem(lir::AddressComputation {
-                    offset: -(idx as isize) * 8,
+                    offset: -((idx + self.num_saved_regs) as isize) * 8,
                     base: AddrOperand(Amd64Reg::Rbp),
                     index: lir::IndexComputation::Zero,
                 }),

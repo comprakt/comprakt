@@ -20,7 +20,7 @@ fn var_id(op: lir::Operand) -> VarId {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum CallingConv {
     X86_64,
     Stack,
