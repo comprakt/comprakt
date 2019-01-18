@@ -172,8 +172,20 @@ impl LiveVariableAnalysis {
     }
 
     fn gen_instr(&self, instr: &lir::Instruction) -> Instruction {
-        if let lir::Instruction::Call { .. } = instr {
-            Instruction::Call(FunctionCall::new(self.cconv, instr.clone()))
+        if let lir::Instruction::Call { func, .. } = instr {
+            let cconv = match &**func {
+                "mjrt_system_out_println"
+                | "mjrt_system_out_write"
+                | "mjrt_system_out_flush"
+                | "mjrt_system_in_read"
+                | "mjrt_new" => CallingConv::X86_64,
+                "mjrt_dumpstack"
+                | "mjrt_div_by_zero"
+                | "mjrt_null_usage"
+                | "mjrt_array_out_of_bounds" => unimplemented!(),
+                _ => self.cconv,
+            };
+            Instruction::Call(FunctionCall::new(cconv, instr))
         } else {
             Instruction::Lir(instr.clone())
         }
