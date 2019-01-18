@@ -9,13 +9,14 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     hash::{Hash, Hasher},
 };
+use std::convert::TryFrom;
 
 #[derive(Debug, Clone)]
 pub(super) enum Instruction {
     Call(FunctionCall),
     Lir(lir::Instruction),
     Mov {
-        src: Ptr<MultiSlot>,
+        src: lir::CopyPropagationSrc,
         dst: Ptr<MultiSlot>,
     },
     Leave(lir::Leave),
@@ -147,12 +148,10 @@ impl LiveVariableAnalysis {
         let mut instrs = vec![];
 
         for lir::CopyPropagation { src, dst } in &code.copy_in {
-            if !src.firm().mode().is_mem() && !dst.firm.mode().is_mem() {
-                instrs.push(Instruction::Mov {
-                    src: *src,
-                    dst: dst.multislot(),
-                });
-            }
+            instrs.push(Instruction::Mov {
+                src: *src,
+                dst: dst.multislot(),
+            });
         }
         for instr in &code.body {
             match instr {
@@ -161,12 +160,10 @@ impl LiveVariableAnalysis {
             }
         }
         for lir::CopyPropagation { src, dst } in &code.copy_out {
-            if !src.firm().mode().is_mem() && !dst.firm.mode().is_mem() {
-                instrs.push(Instruction::Mov {
-                    src: *src,
-                    dst: dst.multislot(),
-                });
-            }
+            instrs.push(Instruction::Mov {
+                src: *src,
+                dst: dst.multislot(),
+            })
         }
         if let Some(leave) = code.leave.get(0) {
             instrs.push(Instruction::Leave(leave.clone()));
@@ -235,7 +232,7 @@ impl Instruction {
                 }
                 Comment(_) => vec![],
             },
-            Instruction::Mov { src, .. } => vec![lir::Operand::Slot(*src)],
+            Instruction::Mov { src, .. } => vec![lir::Operand::try_from(*src).unwrap()],
             Instruction::Call(call) => {
                 // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
                 let mut ops = vec![];

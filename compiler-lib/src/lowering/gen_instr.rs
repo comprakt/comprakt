@@ -70,6 +70,16 @@ impl GenInstrBlock {
                 assert!((src_is_mem && dst_is_mem) || (!src_is_mem && !dst_is_mem));
                 !src.firm().mode().is_mem() || !dst.firm.mode().is_mem()
             };
+
+            let slot_to_copy_propagation_src = &|src: Ptr<MultiSlot>| -> CopyPropagationSrc {
+                if let Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) = src.firm() {
+                    CopyPropagationSrc::Param{idx}
+                } else {
+                    CopyPropagationSrc::Slot(src)
+                }
+            };
+
+            // Fill copy_in
             for edge in block.preds.iter() {
                 edge.register_transitions
                     .iter()
@@ -91,6 +101,7 @@ impl GenInstrBlock {
                     .filter(|(_, (src,dst))| not_a_mem_flow(*src,*dst))
                     .for_each(|(_, (src, dst))| {
                         let (src, dst) = (*src, *dst);
+                        let src = slot_to_copy_propagation_src(src);
                         self.code.copy_in.push(CopyPropagation { src, dst });
                     })
             }
@@ -115,6 +126,7 @@ impl GenInstrBlock {
                     .filter(|(_, (src,dst))| not_a_mem_flow(*src,*dst))
                     .for_each(|(_, (src, dst))| {
                         let (src, dst) = (*src, *dst);
+                        let src = slot_to_copy_propagation_src(src);
                         self.code.copy_out.push(CopyPropagation { src, dst });
                     })
             }

@@ -137,7 +137,8 @@ impl Codegen {
                         instrs.push(Comment {
                             comment: "copy instruction".to_string(),
                         });
-                        let src = self.lir_to_src_operand(lir::Operand::Slot(*src), &mut instrs);
+                        let src = self
+                            .lir_to_src_operand(lir::Operand::try_from(*src).unwrap(), &mut instrs);
                         let dst = self
                             .lir_to_src_operand(lir::Operand::Slot(*dst), &mut instrs)
                             .try_into()

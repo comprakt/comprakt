@@ -431,13 +431,19 @@ impl fmt::Debug for Leave {
 /// It will commonly have to choose between using registers or spill code.
 #[derive(Clone)]
 pub struct CopyPropagation {
-    pub(super) src: Ptr<MultiSlot>,
+    pub(super) src: CopyPropagationSrc,
     pub(super) dst: Ptr<ValueSlot>,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum CopyPropagationSrc {
+    Slot(Ptr<MultiSlot>),
+    Param { idx: u32 },
 }
 
 impl fmt::Debug for CopyPropagation {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "copyprop {:?} => {:?}", *self.src, *self.dst)
+        write!(fmt, "copyprop {:?} => {:?}", self.src, *self.dst)
     }
 }
 
@@ -468,6 +474,17 @@ impl fmt::Debug for Operand {
 impl fmt::Display for Operand {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, fmt)
+    }
+}
+
+impl TryFrom<CopyPropagationSrc> for Operand {
+    type Error = ();
+    fn try_from(op: CopyPropagationSrc) -> Result<Self, ()> {
+        match op {
+            CopyPropagationSrc::Slot(s) => Ok(Operand::Slot(s)),
+            CopyPropagationSrc::Param { idx } => Ok(Operand::Param { idx }),
+            _ => Err(()),
+        }
     }
 }
 
