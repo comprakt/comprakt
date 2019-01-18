@@ -31,10 +31,7 @@ use failure::{Error, Fail};
 
 use crate::{
     breakpoint, dot,
-    lowering::{
-        lir::{self, LIR},
-        molki,
-    },
+    lowering::lir::{self, LIR},
     optimization,
     strtab::StringTable,
     type_checking::{type_analysis::TypeAnalysis, type_system::TypeSystem},
@@ -89,7 +86,7 @@ pub unsafe fn build<'src, 'ast>(
     // FIXME
     let emit_molki = std::env::var("EMIT_ASM_MOLKI").is_ok();
     let rt = if emit_molki {
-        Runtime::new(box runtime::Molki)
+        unimplemented!()
     } else {
         Runtime::new(box runtime::Mjrt)
     };
@@ -140,9 +137,7 @@ pub unsafe fn build<'src, 'ast>(
 
     // FIXME
     if emit_molki {
-        let molki = molki::Program::from(lir);
-        molki.emit_molki(&mut std::io::stdout()).unwrap();
-        return Ok(());
+        unimplemented!()
     }
 
     bindings::lower_highlevel();
