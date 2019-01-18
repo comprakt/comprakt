@@ -28,8 +28,7 @@ pub enum CompilerPhase {
     Parser,
     Ast,
     Semantic,
-    Assembly,
-    Binary {
+    BinaryLibfirm {
         output: PathBuf,
         assembly: Option<PathBuf>,
         optimizations: Level,
@@ -54,8 +53,7 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
         CompilerPhase::Parser => &["--parsetest"],
         CompilerPhase::Ast => &["--print-ast"],
         CompilerPhase::Semantic => &["--check"],
-        CompilerPhase::Assembly => &["--emit-asm"],
-        CompilerPhase::Binary {
+        CompilerPhase::BinaryLibfirm {
             output,
             assembly,
             optimizations,

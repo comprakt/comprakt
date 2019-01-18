@@ -50,7 +50,7 @@ pub fn exec_timeout_test(input: PathBuf) {
     let binary_path = input.with_extension("out");
 
     let test_data = assert_compiler_phase::<Data>(
-        CompilerCall::RawCompiler(CompilerPhase::Binary {
+        CompilerCall::RawCompiler(CompilerPhase::BinaryLibfirm {
             output: binary_path.clone(),
             optimizations: optimization::Level::None,
             assembly: None,
