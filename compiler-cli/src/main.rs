@@ -13,7 +13,6 @@
 #![warn(rust_2018_idioms)]
 #![warn(clippy::print_stdout)]
 #![feature(try_from)]
-#![feature(if_while_or_patterns)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(const_str_as_bytes)]
 #![feature(box_syntax)]
@@ -41,7 +40,6 @@ use env_logger;
 use failure::{format_err, Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{
-    convert::TryFrom,
     fs::File,
     io::{self, Write},
     path::{Path, PathBuf},
@@ -244,13 +242,7 @@ fn main() {
         .map(|(p, r)| (single_arg, p, r.is_ok()));
     let cmd = if let Some((true, input, true)) = no_arg_mode {
         log::debug!("no-arg mode detected: {:?}", input);
-        let input = match PathBuf::try_from(&input) {
-            Ok(p) => p,
-            Err(_) => {
-                writeln!(std::io::stderr(), "cannot open input file: {:?}", input).unwrap();
-                std::process::exit(1)
-            }
-        };
+        let input = PathBuf::from(input);
         let opts = CompileOptions {
             backend: CompileBackend::Amd64,
             pre_backend_options: PreBackendOptions::default_with_input(input),

@@ -84,7 +84,7 @@ impl FunctionCall {
             self.label = func.clone();
 
             let mut push_setup = vec![];
-            for (i, arg) in args.into_iter().enumerate() {
+            for (i, arg) in args.iter().enumerate() {
                 if i < CallingConv::X86_64.num_arg_regs() {
                     // Fill the function argument registers
                     self.setup.push(FnInstruction::Movq {
@@ -123,7 +123,7 @@ impl FunctionCall {
         if let lir::Instruction::Call { func, args, dst } = call {
             self.label = func.clone();
 
-            for arg in args.into_iter().rev() {
+            for arg in args.iter().rev() {
                 self.setup.push(FnInstruction::Pushq {
                     src: FnOperand::Lir(*arg),
                 });
