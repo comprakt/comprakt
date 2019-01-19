@@ -28,7 +28,7 @@ pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     runtime: &'ir Runtime,
     type_system: &'ir TypeSystem<'src, 'ast>,
     type_analysis: &'ir TypeAnalysis<'src, 'ast>,
-    strtab: &'ir mut StringTable<'src>,
+    strtab: &'ir StringTable<'src>,
 }
 
 enum ActiveBlock {
@@ -44,7 +44,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         type_system: &'ir TypeSystem<'src, 'ast>,
         type_analysis: &'ir TypeAnalysis<'src, 'ast>,
         runtime: &'ir Runtime,
-        strtab: &'ir mut StringTable<'src>,
+        strtab: &'ir StringTable<'src>,
     ) -> Self {
         Self {
             graph,
@@ -82,7 +82,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let args = self.graph.args();
 
         if !self.method_def.is_static {
-            let this_symbol = self.strtab.intern("this");
+            let this_symbol = self.strtab.this_symbol();
             let this_var = self.new_local_var(this_symbol, Mode::P());
             block.set_value(this_var, args.new_proj(0, Mode::P()));
         }
