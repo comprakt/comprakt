@@ -132,7 +132,7 @@ pub enum CliCommand {
 #[derive(StructOpt, Debug, Clone)]
 pub enum CompileBackend {
     #[structopt(name = "amd64")]
-    AMD64,
+    Amd64,
     #[structopt(name = "molki")]
     Molki,
 }
@@ -144,7 +144,7 @@ impl FromStr for CompileBackend {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
             "molki" => CompileBackend::Molki,
-            "amd64" => CompileBackend::AMD64,
+            "amd64" => CompileBackend::Amd64,
             x => return Err(format!("{:?} is not a valid backend", x)),
         })
     }
