@@ -41,6 +41,7 @@ use env_logger;
 use failure::{format_err, Error, Fail, ResultExt};
 use memmap::Mmap;
 use std::{
+    convert::TryFrom,
     fs::File,
     io::{self, Write},
     path::{Path, PathBuf},
@@ -152,7 +153,7 @@ impl FromStr for CompileBackend {
 
 /// Command-line options for the [`CliCommand::CompileFirm`] (`--compile-firm`)
 /// call.
-#[derive(StructOpt, Debug, Clone, Default)]
+#[derive(StructOpt, Debug, Clone)]
 pub struct CompileFirmOptions {
     // backend is (implicitly) FIRM
     // gotta do that because of exercise sheet's CLI interface requirements
@@ -174,7 +175,7 @@ pub struct CompileOptions {
 }
 
 /// Common options for compiler-phases pre backend.
-#[derive(StructOpt, Debug, Clone, Default)]
+#[derive(StructOpt, Debug, Clone)]
 pub struct PreBackendOptions {
     /// Folder to dump graphs to
     #[structopt(long = "--emit-to", default_value = ".", parse(from_os_str))]
@@ -196,6 +197,18 @@ pub struct PreBackendOptions {
     /// A MiniJava input file
     #[structopt(name = "FILE", parse(from_os_str))]
     pub input: PathBuf,
+}
+
+impl PreBackendOptions {
+    fn default_with_input(input: PathBuf) -> Self {
+        PreBackendOptions {
+            dump_folder: PathBuf::default(),
+            dump_firm_graph: bool::default(),
+            dump_class_layouts: bool::default(),
+            opt_level: optimization_arg::Arg::from_str("aggressive").unwrap(), // checked in test
+            input,
+        }
+    }
 }
 
 impl Into<firm::Options> for PreBackendOptions {
@@ -223,7 +236,30 @@ fn main() {
 
     libfirm_rs::init();
 
-    let cmd = CliCommand::from_args();
+    // support compilation without any flags, as required by exercise sheet
+    let single_arg = std::env::args().len() == 2;
+    let no_arg_mode = std::env::args()
+        .nth(1)
+        .map(|p| (p.clone(), std::fs::File::open(p)))
+        .map(|(p, r)| (single_arg, p, r.is_ok()));
+    let cmd = if let Some((true, input, true)) = no_arg_mode {
+        log::debug!("no-arg mode detected: {:?}", input);
+        let input = match PathBuf::try_from(&input) {
+            Ok(p) => p,
+            Err(_) => {
+                writeln!(std::io::stderr(), "cannot open input file: {:?}", input).unwrap();
+                std::process::exit(1)
+            }
+        };
+        let opts = CompileOptions {
+            backend: CompileBackend::AMD64,
+            pre_backend_options: PreBackendOptions::default_with_input(input),
+            backend_options: BackendOptions::default(),
+        };
+        CliCommand::Compile(opts)
+    } else {
+        CliCommand::from_args()
+    };
 
     if let Err(msg) = run_compiler(&cmd) {
         exit_with_error(&msg);
