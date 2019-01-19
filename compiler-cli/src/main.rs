@@ -133,7 +133,7 @@ pub enum CliCommand {
 #[derive(StructOpt, Debug, Clone)]
 pub enum CompileBackend {
     #[structopt(name = "amd64")]
-    AMD64,
+    Amd64,
     #[structopt(name = "molki")]
     Molki,
 }
@@ -145,7 +145,7 @@ impl FromStr for CompileBackend {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
             "molki" => CompileBackend::Molki,
-            "amd64" => CompileBackend::AMD64,
+            "amd64" => CompileBackend::Amd64,
             x => return Err(format!("{:?} is not a valid backend", x)),
         })
     }
@@ -252,7 +252,7 @@ fn main() {
             }
         };
         let opts = CompileOptions {
-            backend: CompileBackend::AMD64,
+            backend: CompileBackend::Amd64,
             pre_backend_options: PreBackendOptions::default_with_input(input),
             backend_options: BackendOptions::default(),
         };
@@ -474,7 +474,7 @@ fn cmd_compile(options: &CompileOptions) -> Result<(), Error> {
     // TODO make this configurable, as, in theory, it is perceivable that someone
     // wants to just produce asm and choose their lib externally. (low prio)
     let rtlib: Box<dyn RTLib> = match options.backend {
-        CompileBackend::AMD64 => box runtime::Mjrt,
+        CompileBackend::Amd64 => box runtime::Mjrt,
         CompileBackend::Molki => box runtime::Molki,
     };
 
@@ -482,7 +482,7 @@ fn cmd_compile(options: &CompileOptions) -> Result<(), Error> {
                              (&options.pre_backend_options, &options.backend_options, rtlib));
 
     let mut backend: Box<dyn backend::AsmBackend> = match options.backend {
-        CompileBackend::AMD64 => {
+        CompileBackend::Amd64 => {
             // TODO make this configurable via CLI options
             let opts = backend::amd64::Options {
                 cconv: backend::amd64::CallingConv::X86_64,
