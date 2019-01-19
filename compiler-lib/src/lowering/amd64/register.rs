@@ -207,7 +207,7 @@ impl RegisterAllocator {
             .for_each(|reg| {
                 free_list.insert(reg, true);
             });
-        for i in 0..usize::max(nargs, cconv.num_arg_regs()) {
+        for i in 0..usize::min(nargs, cconv.num_arg_regs()) {
             free_list.insert(Amd64Reg::try_from(i).unwrap(), false);
         }
         Self { cconv, free_list }
