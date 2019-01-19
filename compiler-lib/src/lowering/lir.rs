@@ -506,7 +506,7 @@ pub enum UnopKind {
 /// where our `value_slot` is at `value_slot.num`) => `multi_slot` of our
 /// `value_slot` \\(*.*)/
 ///
-/// ```rust
+/// ```rust,ignore
 /// let multi_slot = value_slot.allocated_in.regs[value_slot.num];
 /// ```
 pub struct ValueSlot {
