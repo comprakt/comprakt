@@ -26,7 +26,10 @@
 use compiler_lib::{
     asciifile, ast,
     context::Context,
-    firm,
+    firm::{
+        self,
+        runtime::{self, RTLib},
+    },
     lexer::{Lexer, TokenKind},
     parser::Parser,
     print::{self, lextest},
@@ -114,21 +117,71 @@ pub enum CliCommand {
         path: PathBuf,
     },
 
-    /// Output an executable. Defaults to 'a.out' in the current working
-    /// directory.
+    /// Compile to an ELF executable using libFIRM's backend.
+    /// Defaults to 'a.out' in the current working directory.
     #[structopt(name = "--compile-firm")]
     CompileFirm(CompileFirmOptions),
+
+    /// Compile to an ELF executable or molki assembly using the comprakt
+    /// backend. Defaults to 'a.out' in the current working directory.
+    #[structopt(name = "--compile")]
+    Compile(CompileOptions),
+}
+
+/// Backends supported by the [`CliCommand::Compile`] (`--compile`) command.
+#[derive(StructOpt, Debug, Clone)]
+pub enum CompileBackend {
+    #[structopt(name = "amd64")]
+    AMD64,
+    #[structopt(name = "molki")]
+    Molki,
+}
+
+use std::str::FromStr;
+
+impl FromStr for CompileBackend {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "molki" => CompileBackend::Molki,
+            "amd64" => CompileBackend::AMD64,
+            x => return Err(format!("{:?} is not a valid backend", x)),
+        })
+    }
 }
 
 /// Command-line options for the [`CliCommand::CompileFirm`] (`--compile-firm`)
 /// call.
 #[derive(StructOpt, Debug, Clone, Default)]
 pub struct CompileFirmOptions {
+    // backend is (implicitly) FIRM
+    // gotta do that because of exercise sheet's CLI interface requirements
+    #[structopt(flatten)]
+    pre_backend_options: PreBackendOptions,
+    #[structopt(flatten)]
+    backend_options: BackendOptions,
+}
+
+/// Command-line options for the [`CliCommand::Compile`] (`--compile`) call.
+#[derive(StructOpt, Debug, Clone)]
+pub struct CompileOptions {
+    #[structopt(long = "--backend", default_value = "amd64")]
+    backend: CompileBackend,
+    #[structopt(flatten)]
+    pre_backend_options: PreBackendOptions,
+    #[structopt(flatten)]
+    backend_options: BackendOptions,
+}
+
+/// Common options for compiler-phases pre backend.
+#[derive(StructOpt, Debug, Clone, Default)]
+pub struct PreBackendOptions {
     /// Folder to dump graphs to
     #[structopt(long = "--emit-to", default_value = ".", parse(from_os_str))]
     pub dump_folder: PathBuf,
 
-    /// Output the matured unlowered firm graphs as VCG files to the dump_folder
+    /// Output the matured but unoptimized firm graphs as VCG files to the
+    /// dump_folder. The file name will contain the word 'high-level'.
     #[structopt(long = "--emit-firm-graph", short = "-g")]
     pub dump_firm_graph: bool,
 
@@ -136,6 +189,27 @@ pub struct CompileFirmOptions {
     #[structopt(long = "--emit-class-layouts", short = "-c")]
     pub dump_class_layouts: bool,
 
+    /// Optimization level that should be applied
+    #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
+    pub opt_level: optimization_arg::Arg,
+
+    /// A MiniJava input file
+    #[structopt(name = "FILE", parse(from_os_str))]
+    pub input: PathBuf,
+}
+
+impl Into<firm::Options> for PreBackendOptions {
+    fn into(self) -> firm::Options {
+        firm::Options {
+            dump_firm_graph: self.dump_firm_graph,
+            dump_class_layouts: self.dump_class_layouts,
+        }
+    }
+}
+
+/// Common options for the backend ("lowering").
+#[derive(StructOpt, Debug, Clone, Default)]
+pub struct BackendOptions {
     /// Write assembly for user code (will still produce a binary, too).
     #[structopt(long = "--emit-asm", short = "-a", parse(from_os_str))]
     pub dump_assembly: Option<PathBuf>,
@@ -143,30 +217,11 @@ pub struct CompileFirmOptions {
     /// Write binary to the given file or directory
     #[structopt(long = "--output", short = "-o", parse(from_os_str))]
     pub output: Option<PathBuf>,
-
-    /// Optimization level that should be applied
-    #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
-    pub optimizations: optimization_arg::Arg,
-
-    /// A MiniJava input file
-    #[structopt(name = "FILE", parse(from_os_str))]
-    pub path: PathBuf,
 }
-
-impl Into<firm::Options> for CompileFirmOptions {
-    fn into(self) -> firm::Options {
-        firm::Options {
-            dump_assembler: self.dump_assembly.map(OutputSpecification::File),
-            dump_folder: self.dump_folder,
-            dump_firm_graph: self.dump_firm_graph,
-            dump_class_layouts: self.dump_class_layouts,
-            optimizations: self.optimizations.into(),
-        }
-    }
-}
-
 fn main() {
     build_logger().init();
+
+    libfirm_rs::init();
 
     let cmd = CliCommand::from_args();
 
@@ -213,6 +268,7 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
         CliCommand::Check { path } => cmd_check(path),
         CliCommand::CompileFirm(options) => cmd_compile_firm(options),
+        CliCommand::Compile(options) => cmd_compile(options),
     }
 }
 
@@ -319,31 +375,55 @@ macro_rules! until_after_type_check {
 
 const DEFAULT_BINARY_FILENAME: &str = "a.out";
 
-fn cmd_compile_firm(options: &CompileFirmOptions) -> Result<(), Error> {
-    until_after_type_check!(let (strtab, type_system, type_analysis) = &options.path);
+// TODO convert this to a trait?
+macro_rules! compile_command_common {
+    (let ($firm_ctx:ident, $bingen:ident) =
+         ($pre_backend_options:expr, $backend_options:expr, $runtime:expr)) => {
 
-    let bingen = BinaryGenerator::new()?;
+        let pre_be_opts: &PreBackendOptions = $pre_backend_options;
+        let be_opts: &BackendOptions = $backend_options;
+        let rt: Box<dyn RTLib> = $runtime;
 
-    let mut lowering_options: compiler_lib::firm::Options = (options.clone()).into();
-    // override assembly output to always go to bingen's expected location
-    lowering_options.dump_assembler = Some(OutputSpecification::File(bingen.asm_out().to_owned()));
+        until_after_type_check!(let (strtab, type_system, type_analysis) = &pre_be_opts.input);
 
-    unsafe { firm::build(&lowering_options, &type_system, &type_analysis, &mut strtab)? };
+        let binary_path = match &be_opts.output {
+            Some(dir) if dir.is_dir() => dir.join(DEFAULT_BINARY_FILENAME),
+            Some(file) => file.clone(),
+            None => PathBuf::from(DEFAULT_BINARY_FILENAME),
+        };
 
-    let binary_path = match &options.output {
-        Some(dir) if dir.is_dir() => dir.join(DEFAULT_BINARY_FILENAME),
-        Some(file) => file.clone(),
-        None => PathBuf::from(DEFAULT_BINARY_FILENAME),
-    };
+        let mut $bingen = BinaryGenerator::new(&binary_path)?;
 
-    // after firm::build, we expect asm_out to be populated
-    if let Some(ref path) = options.dump_assembly {
-        std::fs::copy(bingen.asm_out(), path).context(format_err!(
-            "dump assembly: cannot copy to specified output file"
-        ))?;
+        let mut $firm_ctx = firm::FirmContext::build(
+            &pre_be_opts.dump_folder,
+            &type_system,
+            &type_analysis,
+            &strtab,
+            rt,
+        );
+
+        let firm_dump_opts = pre_be_opts.clone().into();
+        $firm_ctx.high_level_dump(&firm_dump_opts);
+
+        let opt_level = pre_be_opts.opt_level.clone().into();
+        $firm_ctx.run_optimizations(opt_level);
     }
+}
 
-    let res = bingen.emit_binary(&binary_path);
+fn cmd_compile_firm(options: &CompileFirmOptions) -> Result<(), Error> {
+    // --compile-firm always uses bingen, hence always use our own runtime Mjrt
+
+    let rtlib = box runtime::Mjrt;
+    compile_command_common!(let (firm_ctx, bingen) =
+                            (&options.pre_backend_options, &options.backend_options, rtlib));
+
+    let dump_asm = options
+        .backend_options
+        .dump_assembly
+        .clone()
+        .map(OutputSpecification::File);
+
+    let res = bingen.emit_binary(&mut firm_ctx, dump_asm);
     if std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP").is_ok() {
         let path = bingen.stop_and_keep_temp_dir();
         eprintln!(
@@ -354,16 +434,37 @@ fn cmd_compile_firm(options: &CompileFirmOptions) -> Result<(), Error> {
     res
 }
 
+fn cmd_compile(_options: &CompileOptions) -> Result<(), Error> {
+    unimplemented!()
+}
+
+enum BinaryGeneratorState {
+    PreAsmOut { asm_out_file: std::fs::File },
+    PostAsmOut,
+}
+
 struct BinaryGenerator {
     temp_dir: TempDir,
     asm_out: PathBuf,
+    binary_path: std::path::PathBuf,
+    state: BinaryGeneratorState,
 }
 
 impl BinaryGenerator {
-    pub fn new() -> Result<BinaryGenerator, Error> {
+    pub fn new(binary_path: &Path) -> Result<BinaryGenerator, Error> {
         let temp_dir = tempdir().context(format_err!("cannot create tempdir"))?;
         let asm_out = temp_dir.path().join("a.s");
-        Ok(BinaryGenerator { temp_dir, asm_out })
+        let asm_out_file = std::fs::OpenOptions::new()
+            .write(true)
+            .read(true) // for dump_asm
+            .create(true)
+            .open(&asm_out)?;
+        Ok(BinaryGenerator {
+            temp_dir,
+            asm_out,
+            state: BinaryGeneratorState::PreAsmOut { asm_out_file },
+            binary_path: binary_path.to_owned(),
+        })
     }
 
     pub fn asm_out(&self) -> &Path {
@@ -375,7 +476,45 @@ impl BinaryGenerator {
         self.temp_dir.into_path()
     }
 
-    pub fn emit_binary(&self, binary_path: &Path) -> Result<(), Error> {
+    pub fn emit_binary(
+        &mut self,
+        backend: &mut dyn compiler_lib::backend::AsmBackend,
+        dump_asm: Option<OutputSpecification>,
+    ) -> Result<(), Error> {
+        // move state forward
+        let prev = std::mem::replace(&mut self.state, BinaryGeneratorState::PostAsmOut);
+        let mut asm_out_file = match prev {
+            BinaryGeneratorState::PreAsmOut { asm_out_file } => asm_out_file,
+            BinaryGeneratorState::PostAsmOut => panic!("must only call emit_binary once"),
+        };
+
+        // call backend, the work is happening here
+        backend
+            .emit_asm(&mut asm_out_file)
+            .context(format_err!("backend cannot emit assembly to tempfile"))?;
+
+        // if requested, emit assembly by copying it from the tempfile
+        let dump_asm: Option<Box<dyn std::io::Write>> = match dump_asm {
+            Some(OutputSpecification::File(path)) => Some(
+                box std::fs::OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .open(path)?,
+            ),
+            Some(OutputSpecification::Stdout) => Some(box std::io::stdout()),
+            None => None,
+        };
+        if let Some(mut dump_asm) = dump_asm {
+            // NOTE: we cannot use std::io::Tee because backend::AsmOut requires AsRawFd
+            use std::io::{Seek, SeekFrom};
+            asm_out_file.seek(SeekFrom::Start(0))?;
+            std::io::copy(&mut asm_out_file, &mut dump_asm)
+                .context(format_err!("cannot emit asm"))?;
+        }
+
+        // drop here to make sure cc sees the written file
+        drop(asm_out_file);
+
         // get runtime library
         let runtime_path = self.temp_dir.path().join("mjrt.a");
         {
@@ -386,7 +525,7 @@ impl BinaryGenerator {
         // link runtime static library with user's code
         let linker_status = Command::new("cc")
             .arg("-o")
-            .arg(binary_path)
+            .arg(&self.binary_path)
             .args(mjrt::LINKER_FLAGS)
             .arg(self.asm_out())
             .arg(&runtime_path)

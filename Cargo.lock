@@ -213,6 +213,7 @@ dependencies = [
  "failure 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "inspect-ast 0.1.0",
  "libc 0.2.45 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libfirm-rs 0.0.1",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "memmap 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "mjrt 0.1.0",

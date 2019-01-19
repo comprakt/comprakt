@@ -16,7 +16,7 @@ pub struct ProgramGenerator<'src, 'ast> {
     runtime: Rc<Runtime>,
     type_system: &'src TypeSystem<'src, 'ast>,
     type_analysis: &'src TypeAnalysis<'src, 'ast>,
-    strtab: &'src mut StringTable<'src>,
+    strtab: &'src StringTable<'src>,
 }
 
 impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
@@ -24,7 +24,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
         runtime: Rc<Runtime>,
         type_system: &'src TypeSystem<'src, 'ast>,
         type_analysis: &'src TypeAnalysis<'src, 'ast>,
-        strtab: &'src mut StringTable<'src>,
+        strtab: &'src StringTable<'src>,
     ) -> Self {
         Self {
             runtime,
@@ -70,7 +70,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
             &self.type_system,
             &self.type_analysis,
             &self.runtime,
-            &mut self.strtab,
+            &self.strtab,
         );
         method_body_gen.gen_method(body);
         graph.finalize_construction();
