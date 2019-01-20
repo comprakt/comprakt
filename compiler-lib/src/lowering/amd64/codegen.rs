@@ -11,6 +11,7 @@ use libfirm_rs::{nodes::NodeTrait, Tarval};
 use std::{
     collections::{HashMap, HashSet},
     convert::{TryFrom, TryInto},
+    fmt,
 };
 
 pub(super) struct Codegen {
@@ -670,9 +671,9 @@ impl Codegen {
             }
         }
 
-        instrs.push(Call {
+        instrs.push(Call(CallInstruction {
             label: call.label.clone(),
-        });
+        }));
 
         if let Some(function::FnInstruction::Movq { src, dst }) = call.move_res {
             instrs.push(Comment {
@@ -905,8 +906,9 @@ pub(super) enum Instruction {
     Cmpq { lhs: SrcOperand, rhs: SrcOperand },
     #[display(fmt = "\t{} {}", kind, label)]
     Jmp { label: String, kind: lir::JmpKind },
-    #[display(fmt = "\tcall {}", label)]
-    Call { label: String },
+    // multi-line output by CallInstruction Display impl
+    #[display(fmt = "{}", _0)]
+    Call(CallInstruction),
     #[display(fmt = "\tleave")]
     Leave,
     #[display(fmt = "\tret")]
@@ -917,6 +919,24 @@ pub(super) enum Instruction {
     Cqto,
     #[display(fmt = "\t/* {} */", comment)]
     Comment { comment: String },
+}
+
+pub(super) struct CallInstruction {
+    label: String,
+}
+
+/// Amd64 requires 16-byte aligned stacks.
+/// The emitted assembly works for 8-byte aligned stacks.
+/// (This works because we always spill quad-words (pushQ, popQ)).
+impl fmt::Display for CallInstruction {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(fmt, "\tpushq %rsp")?;
+        writeln!(fmt, "\tpushq (%rsp)")?;
+        writeln!(fmt, "\tandq $-16, %rsp")?;
+        writeln!(fmt, "\tcall {}", self.label)?;
+        writeln!(fmt, "\tmovq 8(%rsp), %rsp")?;
+        Ok(())
+    }
 }
 
 #[derive(Copy, Clone)]
