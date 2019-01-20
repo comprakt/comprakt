@@ -41,7 +41,7 @@ impl Codegen {
     ) -> Vec<Instruction> {
         use self::Instruction::*;
         let mut instrs = vec![];
-        self.num_saved_regs = function.save_regs.len();
+        self.num_saved_regs = function.saved_regs.len();
 
         self.gen_meta_comments(&mut instrs);
 
@@ -133,13 +133,9 @@ impl Codegen {
         instrs.push(Comment {
             comment: "function save regs".to_string(),
         });
-        for instr in &function.save_regs {
-            if let function::FnInstruction::Pushq { src } = instr {
-                let src = self.fn_to_src_operand(*src, instrs);
-                instrs.push(Pushq { src });
-            } else {
-                unreachable!();
-            }
+        for src in function.saved_regs.saves() {
+            let src = SrcOperand::Reg(src);
+            instrs.push(Pushq { src });
         }
 
         if let Some(instr) = function.allocate {
@@ -187,11 +183,9 @@ impl Codegen {
         instrs.push(Comment {
             comment: "function restore regs".to_string(),
         });
-        for instr in &function.restore_regs {
-            if let function::FnInstruction::Popq { dst } = instr {
-                let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
-                instrs.push(Popq { dst });
-            }
+        for dst in function.saved_regs.restores() {
+            let dst = DstOperand::Reg(dst);
+            instrs.push(Popq { dst });
         }
 
         instrs.push(Comment {
@@ -644,13 +638,9 @@ impl Codegen {
         instrs.push(Comment {
             comment: "call save args".to_string(),
         });
-        for instr in &call.arg_save {
-            if let function::FnInstruction::Pushq { src } = instr {
-                let src = self.fn_to_src_operand(*src, instrs);
-                instrs.push(Pushq { src });
-            } else {
-                unreachable!();
-            }
+        for src in call.saved_regs.saves() {
+            let src = SrcOperand::Reg(src);
+            instrs.push(Pushq { src });
         }
 
         instrs.push(Comment {
@@ -697,13 +687,9 @@ impl Codegen {
         instrs.push(Comment {
             comment: "call recover args".to_string(),
         });
-        for instr in &call.arg_recover {
-            if let function::FnInstruction::Popq { dst } = instr {
-                let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
-                instrs.push(Popq { dst });
-            } else {
-                unreachable!();
-            }
+        for dst in call.saved_regs.restores() {
+            let dst = DstOperand::Reg(dst);
+            instrs.push(Popq { dst });
         }
     }
 
