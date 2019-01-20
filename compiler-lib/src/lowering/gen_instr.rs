@@ -363,13 +363,6 @@ impl GenInstrBlock {
                 let target = block.graph.get_block(firm_target_block);
                 self.code.leave.push(Leave::Jmp { target });
             }
-            Node::Proj(proj, kind) => {
-                log::debug!("proj={:?} kind={:?}", proj, kind);
-                // copy the value produced by predecessor
-                let pred = proj.pred();
-                let pred_slot = self.must_computed(pred).clone();
-                self.mark_computed(node, pred_slot);
-            }
 
             // Cmp and Cond are handled together
             Node::Cmp(cmp) => {
@@ -413,6 +406,15 @@ impl GenInstrBlock {
                 });
             }
 
+            // Call nodes are special, in that they do not create a value directly:
+            // To get the return value of a call, the following projection chain is found in the
+            // graph: Call => Call_TResult => Call_TResult_Arg
+            // Like other nodes, a Call node may produce at most one value slot.
+            // And that value slot's FIRM value _must_ be the return value (an int, bool, ptr)
+            // returned by the call, because this is the value we need to flow over the edges.
+            // That return value is the Call_TResult_Arg.
+            // However, Call_TResult and Call must have entries in self.computed because
+            // other Projs, e.g. Call_M expect there to be a value for Call.
             Node::Call(call) => {
                 log::debug!("call={:?}", call);
                 let func: Entity = match call.ptr() {
@@ -421,9 +423,58 @@ impl GenInstrBlock {
                 };
                 assert!(func.ty().is_method());
                 log::debug!("called func={:?}", func.ld_name());
-                // extract the result (a tuple)
-                // and extract that result tuple's 0th component if the function
-                // returns
+
+                // Allocate value slot for this call node as described in match arm comment
+                let dst = {
+                    // Find this call node's result tuple projection.
+                    // This code expects there to be at most one.
+                    let result_tuple = {
+                        let result_tuple_projs = call
+                            .out_nodes()
+                            .filter_map(|n| match n {
+                                Node::Proj(rt, ProjKind::Call_TResult(_)) => Some(rt),
+                                _ => None,
+                            })
+                            .collect::<Vec<_>>();
+                        assert!(result_tuple_projs.len() <= 1);
+                        result_tuple_projs.into_iter().next()
+                    };
+                    log::debug!("call: result tuple proj: {:?}", result_tuple);
+
+                    let result_tuple_0 = result_tuple.map(|rt| {
+                        let tuple_elems = rt.all_out_projs();
+                        // Not sure if we are allowed to expect the following,
+                        // but we require it because tuple_elems[0] will be
+                        // the FIRM node for the ValueSlot produced by this call.
+                        // And there cannot be multiple ValueSlots produced by a call.
+                        // So this assumption better hold!
+                        assert_eq!(tuple_elems.len(), 1);
+                        tuple_elems[0]
+                    });
+
+                    let dst = if let Some(elem0) = result_tuple_0 {
+                        // (gen_dst_slot has implicit mark_computed)
+                        let slot = self.gen_dst_slot(block, Node::from(elem0), alloc);
+                        // but other nodes will require Call to be computed
+                        self.mark_computed(Node::from(call), Computed::Value(slot));
+                        // and for completeness, do the same for the resul_tuple
+                        self.mark_computed(
+                            Node::from(result_tuple.unwrap()),
+                            Computed::Value(slot),
+                        );
+                        Some(slot)
+                    } else {
+                        self.mark_computed(Node::from(call), Computed::Void);
+                        if let Some(rt) = result_tuple {
+                            // can this even happen? would be a dangling tuple
+                            self.mark_computed(Node::from(rt), Computed::Void);
+                        }
+                        // result_tuple_0 is None, so nothing to mark as computed
+                        None
+                    };
+                    dst
+                };
+                log::debug!("\tdst slot {:?}", dst);
 
                 let args = call
                     .args()
@@ -433,21 +484,6 @@ impl GenInstrBlock {
                     })
                     .collect();
 
-                // TODO use type_system data here? need some cross reference...
-                let n_res = if let Ty::Method(ty) = func.ty() {
-                    ty.res_count()
-                } else {
-                    panic!("The type of a function is a method type");
-                };
-                let dst = if n_res == 0 {
-                    self.mark_computed(node, Computed::Void);
-                    None
-                } else if n_res == 1 {
-                    Some(self.gen_dst_slot(block, node, alloc))
-                } else {
-                    panic!("functions must return 0 or 1 result {:?}", n_res);
-                };
-
                 let func_name = func.ld_name().to_str().unwrap().to_owned();
                 self.code.body.push(Instruction::Call {
                     func: func_name,
@@ -455,6 +491,10 @@ impl GenInstrBlock {
                     dst,
                 });
             }
+            // Call_TResult and Call_TResult_Arg are handled in Node::Call match arm
+            Node::Proj(_, ProjKind::Call_TResult(_))
+            | Node::Proj(_, ProjKind::Call_TResult_Arg(_, _, _)) => {}
+
             Node::Unknown(_) => {
                 // TODO ??? this happens in the runtime function wrapper's
                 // arguments
@@ -476,6 +516,17 @@ impl GenInstrBlock {
                 let dst_slot = block.new_private_slot(node, alloc);
                 self.mark_computed(node, Computed::Value(dst_slot));
             }
+
+            // The default case for proj is that its predecessor must have been visited before and
+            // must have been marked as computed (i.e. produced a value).
+            Node::Proj(proj, kind) => {
+                log::debug!("proj={:?} kind={:?}", proj, kind);
+                // copy the value produced by predecessor
+                let pred = proj.pred();
+                let pred_slot = self.must_computed(pred).clone();
+                self.mark_computed(node, pred_slot);
+            }
+
             x => self.comment(format_args!("\t\t\tunimplemented: {:?}", x)),
         }
     }
