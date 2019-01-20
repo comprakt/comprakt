@@ -222,6 +222,7 @@ impl Instruction {
                 StoreMem {
                     src,
                     dst: lir::AddressComputation { base, index, .. },
+                    ..
                 } => {
                     let mut ops = vec![*src, *base];
                     match index {

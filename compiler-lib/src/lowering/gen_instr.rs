@@ -506,14 +506,16 @@ impl GenInstrBlock {
                 self.mark_computed(node, Computed::Value(dst_slot));
             }
             Node::Load(load) => {
-                let src = self.gen_address_computation(load.ptr());
+                let (src, size) = self.gen_address_computation(load.ptr());
                 let dst = self.gen_dst_slot(block, node, alloc);
-                self.code.body.push(Instruction::LoadMem { src, dst });
+                self.code.body.push(Instruction::LoadMem { src, dst, size });
             }
             Node::Store(store) => {
                 let src = self.gen_operand_jit(store.value());
-                let dst = self.gen_address_computation(store.ptr());
-                self.code.body.push(Instruction::StoreMem { src, dst });
+                let (dst, size) = self.gen_address_computation(store.ptr());
+                self.code
+                    .body
+                    .push(Instruction::StoreMem { src, dst, size });
                 let dst_slot = block.new_private_slot(node, alloc);
                 self.mark_computed(node, Computed::Value(dst_slot));
             }
@@ -532,18 +534,22 @@ impl GenInstrBlock {
         }
     }
 
-    fn gen_address_computation(&self, node: Node) -> AddressComputation<Operand> {
+    fn gen_address_computation(&self, node: Node) -> (AddressComputation<Operand>, u32) {
         match node {
             Node::Member(member) => {
                 let base = self.gen_operand_jit(member.ptr());
                 let index = IndexComputation::Zero;
                 let offset = member.entity().offset() as isize;
+                let member_size = member.entity().ty().size();
 
-                AddressComputation {
-                    offset,
-                    base,
-                    index,
-                }
+                (
+                    AddressComputation {
+                        offset,
+                        base,
+                        index,
+                    },
+                    member_size,
+                )
             }
             Node::Sel(sel) => {
                 let base = self.gen_operand_jit(sel.ptr());
@@ -570,11 +576,14 @@ impl GenInstrBlock {
                     )
                 };
 
-                AddressComputation {
-                    offset: 0,
-                    base,
-                    index,
-                }
+                (
+                    AddressComputation {
+                        offset: 0,
+                        base,
+                        index,
+                    },
+                    elem_size,
+                )
             }
             _ => unreachable!("Load/Store nodes only have Sel and Member nodes as input"),
         }

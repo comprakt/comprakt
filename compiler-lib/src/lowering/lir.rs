@@ -231,10 +231,12 @@ pub enum Instruction {
     StoreMem {
         src: Operand,
         dst: AddressComputation<Operand>,
+        size: u32,
     },
     LoadMem {
         src: AddressComputation<Operand>,
         dst: Ptr<MultiSlot>,
+        size: u32,
     },
     Comment(String),
 }
@@ -261,8 +263,8 @@ impl fmt::Debug for Instruction {
                     .join(", ");
                 write!(fmt, "call {:?} [ {:?} ] => {:?}", func, args, dst)
             }
-            StoreMem { src, dst } => write!(fmt, "storemem {:?} => {:?}", src, dst),
-            LoadMem { src, dst } => write!(fmt, "loadmem {:?} => {:?}", src, dst),
+            StoreMem { src, dst, .. } => write!(fmt, "storemem {:?} => {:?}", src, dst),
+            LoadMem { src, dst, .. } => write!(fmt, "loadmem {:?} => {:?}", src, dst),
             Comment(comment) => {
                 for line in comment.lines() {
                     write!(fmt, "// {}", line)?;

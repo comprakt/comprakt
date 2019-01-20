@@ -3,7 +3,7 @@ use super::{
     linear_scan::{self, Location},
     lir::{self, MultiSlot},
     live_variable_analysis,
-    register::Amd64Reg,
+    register::{Amd64Reg, Amd64RegByte, Amd64RegDouble},
     var_id, CallingConv, VarId,
 };
 use crate::lowering::lir_allocator::Ptr;
@@ -110,7 +110,7 @@ impl Codegen {
         function: &function::Function,
         instrs: &mut Vec<Instruction>,
     ) {
-        use self::Instruction::{Comment, Movq, Pushq, Subq};
+        use self::Instruction::{Comment, Mov, Pushq, Subq};
 
         instrs.push(Comment {
             comment: "function prolog".to_string(),
@@ -124,7 +124,7 @@ impl Codegen {
                 function::FnInstruction::Movq { src, dst } => {
                     let src = self.fn_to_src_operand(*src, instrs);
                     let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
-                    instrs.push(Movq { src, dst });
+                    instrs.push(Mov(MovInstruction { src, dst, size: 8 }));
                 }
                 _ => unreachable!(),
             }
@@ -154,21 +154,22 @@ impl Codegen {
     }
 
     fn gen_spill_arg_regs(&self, instrs: &mut Vec<Instruction>) {
-        use self::Instruction::{Comment, Movq};
+        use self::Instruction::{Comment, Mov};
 
         for i in 0..self.cconv.num_arg_regs() {
             if let Some(Location::Mem(idx)) = self.var_location.get(&(-1, i as usize)) {
                 instrs.push(Comment {
                     comment: format!("spill argument register {}", i),
                 });
-                instrs.push(Movq {
+                instrs.push(Mov(MovInstruction {
                     src: SrcOperand::Reg(Amd64Reg::arg(i)),
                     dst: DstOperand::Mem(lir::AddressComputation {
                         offset: -((*idx + self.num_saved_regs) as isize) * 8,
                         base: AddrOperand(Amd64Reg::Rbp),
                         index: lir::IndexComputation::Zero,
                     }),
-                });
+                    size: 8,
+                }));
             }
         }
     }
@@ -206,7 +207,7 @@ impl Codegen {
         dst: Ptr<MultiSlot>,
         instrs: &mut Vec<Instruction>,
     ) {
-        use self::Instruction::{Movq, Popq, Pushq};
+        use self::Instruction::{Mov, Popq, Pushq};
 
         let src = self.lir_to_src_operand(src.into(), instrs);
         let dst = self
@@ -215,20 +216,22 @@ impl Codegen {
             .unwrap();
         match (src, dst) {
             (SrcOperand::Reg(_), _) | (_, DstOperand::Reg(_)) => {
-                instrs.push(Movq { src, dst });
+                instrs.push(Mov(MovInstruction { src, dst, size: 8 }));
             }
             (SrcOperand::Mem(_), DstOperand::Mem(_)) => {
                 instrs.push(Pushq {
                     src: SrcOperand::Reg(Amd64Reg::Rax),
                 });
-                instrs.push(Movq {
+                instrs.push(Mov(MovInstruction {
                     src,
                     dst: DstOperand::Reg(Amd64Reg::Rax),
-                });
-                instrs.push(Movq {
+                    size: 8,
+                }));
+                instrs.push(Mov(MovInstruction {
                     src: SrcOperand::Reg(Amd64Reg::Rax),
                     dst,
-                });
+                    size: 8,
+                }));
                 instrs.push(Popq {
                     dst: DstOperand::Reg(Amd64Reg::Rax),
                 });
@@ -238,7 +241,7 @@ impl Codegen {
     }
 
     fn gen_lir(&mut self, lir: &lir::Instruction, instrs: &mut Vec<Instruction>) {
-        use self::Instruction::Movq;
+        use self::Instruction::Mov;
 
         log::debug!("Gen lir: {:?}", lir);
         match lir {
@@ -253,9 +256,12 @@ impl Codegen {
                     .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
                     .try_into()
                     .unwrap();
-                self.gen_div(instrs, src1, src2, || Movq {
-                    src: SrcOperand::Reg(Amd64Reg::Rax),
-                    dst,
+                self.gen_div(instrs, src1, src2, || {
+                    Mov(MovInstruction {
+                        src: SrcOperand::Reg(Amd64Reg::Rax),
+                        dst,
+                        size: 8,
+                    })
                 });
             }
             lir::Instruction::Mod { src1, src2, dst } => {
@@ -263,9 +269,12 @@ impl Codegen {
                     .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
                     .try_into()
                     .unwrap();
-                self.gen_div(instrs, src1, src2, || Movq {
-                    src: SrcOperand::Reg(Amd64Reg::Rdx),
-                    dst,
+                self.gen_div(instrs, src1, src2, || {
+                    Mov(MovInstruction {
+                        src: SrcOperand::Reg(Amd64Reg::Rdx),
+                        dst,
+                        size: 8,
+                    })
                 });
             }
             lir::Instruction::Conv { src, dst } => {
@@ -274,24 +283,30 @@ impl Codegen {
                     .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
                     .try_into()
                     .unwrap();
-                instrs.push(Movq { src, dst })
+                instrs.push(Mov(MovInstruction { src, dst, size: 8 }))
             }
             lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
-            lir::Instruction::StoreMem { src, dst } => {
+            lir::Instruction::StoreMem { src, dst, size } => {
                 let src = self.lir_to_src_operand(*src, instrs);
-                self.gen_load_store(instrs, dst, |addr| Movq {
-                    src,
-                    dst: DstOperand::Mem(addr),
+                self.gen_load_store(instrs, dst, |addr| {
+                    Mov(MovInstruction {
+                        src,
+                        dst: DstOperand::Mem(addr),
+                        size: *size,
+                    })
                 })
             }
-            lir::Instruction::LoadMem { src, dst } => {
+            lir::Instruction::LoadMem { src, dst, size } => {
                 let dst = self
                     .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
                     .try_into()
                     .unwrap();
-                self.gen_load_store(instrs, src, |addr| Movq {
-                    src: SrcOperand::Mem(addr),
-                    dst,
+                self.gen_load_store(instrs, src, |addr| {
+                    Mov(MovInstruction {
+                        src: SrcOperand::Mem(addr),
+                        dst,
+                        size: *size,
+                    })
                 })
             }
             lir::Instruction::Call { .. } => unreachable!("Call already converted"),
@@ -349,7 +364,11 @@ impl Codegen {
             DstOperand::Reg(_) => {
                 // When the dst is a Reg, we just have to move the second operand in this
                 // Reg. It doesn't matter if the `src`s are Reg, Mem or Imm
-                instrs.push(Movq { src: src1, dst });
+                instrs.push(Mov(MovInstruction {
+                    src: src1,
+                    dst,
+                    size: 8,
+                }));
                 push_binop!(kind, src2, dst);
             }
             DstOperand::Mem(_) => match (src1, src2) {
@@ -358,8 +377,11 @@ impl Codegen {
                 | (SrcOperand::Reg(_), SrcOperand::Imm(_))
                 | (SrcOperand::Imm(_), SrcOperand::Reg(_))
                 | (SrcOperand::Imm(_), SrcOperand::Imm(_)) => {
-                    // src1 must be in dst to support the sub instruction
-                    instrs.push(Movq { src: src1, dst });
+                    instrs.push(Mov(MovInstruction {
+                        src: src1,
+                        dst,
+                        size: 8,
+                    }));
                     push_binop!(kind, src2, dst);
                 }
                 (SrcOperand::Mem(_), SrcOperand::Mem(_)) => {
@@ -371,21 +393,24 @@ impl Codegen {
                     instrs.push(Pushq {
                         src: SrcOperand::Reg(spill),
                     });
-                    instrs.push(Movq {
+                    instrs.push(Mov(MovInstruction {
                         src: src1,
                         dst: DstOperand::Reg(spill),
-                    });
+                        size: 8,
+                    }));
                     // Now we can move %rax -> dst
-                    instrs.push(Movq {
+                    instrs.push(Mov(MovInstruction {
                         src: SrcOperand::Reg(spill),
                         dst,
-                    });
+                        size: 8,
+                    }));
                     // We're now at a 2-address code state: `op mem, mem`
                     // Now we need to move src1 -> %rax
-                    instrs.push(Movq {
+                    instrs.push(Mov(MovInstruction {
                         src: src2,
                         dst: DstOperand::Reg(spill),
-                    });
+                        size: 8,
+                    }));
                     // Now the instruction `op %rax, mem`:
                     push_binop!(kind, SrcOperand::Reg(spill), dst);
 
@@ -399,15 +424,20 @@ impl Codegen {
                 | (SrcOperand::Imm(_), SrcOperand::Mem(_)) => {
                     // move src1 into accumulator
                     // (using src1, not src2 for correct sub support)
-                    instrs.push(Movq { src: src1, dst });
+                    instrs.push(Mov(MovInstruction {
+                        src: src1,
+                        dst,
+                        size: 8,
+                    }));
                     let spill = Amd64Reg::Rax;
                     instrs.push(Pushq {
                         src: SrcOperand::Reg(spill),
                     });
-                    instrs.push(Movq {
+                    instrs.push(Mov(MovInstruction {
                         src: src2,
                         dst: DstOperand::Reg(spill),
-                    });
+                        size: 8,
+                    }));
                     // Now the instruction `op spill(src2), mem(dst == src1)`:
                     push_binop!(kind, SrcOperand::Reg(spill), dst);
                     // Now mem(dst == src1 OP src2)
@@ -421,15 +451,20 @@ impl Codegen {
                 | (SrcOperand::Mem(_), SrcOperand::Imm(_)) => {
                     // The same approach like above, but with src1 and src2 swapped
                     // and a special case for `sub` because it's not commutative (see `if` comment)
-                    instrs.push(Movq { src: src2, dst });
+                    instrs.push(Mov(MovInstruction {
+                        src: src2,
+                        dst,
+                        size: 8,
+                    }));
                     let spill = Amd64Reg::Rax;
                     instrs.push(Pushq {
                         src: SrcOperand::Reg(spill),
                     });
-                    instrs.push(Movq {
+                    instrs.push(Mov(MovInstruction {
                         src: src1,
                         dst: DstOperand::Reg(spill),
-                    });
+                        size: 8,
+                    }));
                     // Now the instruction `op spill(src1), mem(dst == src2)`:
                     push_binop!(kind, SrcOperand::Reg(spill), dst);
                     // Now mem(dst == src2 OP src1)
@@ -460,8 +495,9 @@ impl Codegen {
     ) where
         F: FnOnce() -> Instruction,
     {
-        use self::Instruction::{Cqto, Divq, Movq, Popq, Pushq};
+        use self::Instruction::{Cqto, Divq, Mov, Popq, Pushq};
 
+        // Needed for sign extend of rax -> rdx:rax
         instrs.push(Pushq {
             src: SrcOperand::Reg(Amd64Reg::Rdx),
         });
@@ -469,20 +505,22 @@ impl Codegen {
             src: SrcOperand::Reg(Amd64Reg::Rax),
         });
         let src = self.lir_to_src_operand(*src1, instrs);
-        instrs.push(Movq {
+        instrs.push(Mov(MovInstruction {
             src,
             dst: DstOperand::Reg(Amd64Reg::Rax),
-        });
+            size: 8,
+        }));
         instrs.push(Cqto);
         if let lir::Operand::Imm(_) = src2 {
             instrs.push(Pushq {
                 src: SrcOperand::Reg(Amd64Reg::Rsi),
             });
             let src = self.lir_to_src_operand(*src2, instrs);
-            instrs.push(Movq {
+            instrs.push(Mov(MovInstruction {
                 src,
                 dst: DstOperand::Reg(Amd64Reg::Rsi),
-            });
+                size: 8,
+            }));
             instrs.push(Divq {
                 src: DstOperand::Reg(Amd64Reg::Rsi),
             });
@@ -509,7 +547,7 @@ impl Codegen {
         src: &lir::Operand,
         dst: Ptr<MultiSlot>,
     ) {
-        use self::Instruction::{Movq, Negq, Notq, Popq, Pushq};
+        use self::Instruction::{Mov, Negq, Notq, Popq, Pushq};
 
         macro_rules! push_unop {
             ($kind:expr, $dst:expr) => {{
@@ -527,12 +565,12 @@ impl Codegen {
             .unwrap();
         match dst {
             DstOperand::Reg(_) => {
-                instrs.push(Movq { src, dst });
+                instrs.push(Mov(MovInstruction { src, dst, size: 8 }));
                 push_unop!(kind, dst);
             }
             DstOperand::Mem(_) => match src {
                 SrcOperand::Reg(_) | SrcOperand::Imm(_) => {
-                    instrs.push(Movq { src, dst });
+                    instrs.push(Mov(MovInstruction { src, dst, size: 8 }));
                     push_unop!(kind, dst);
                 }
                 SrcOperand::Mem(_) => {
@@ -540,17 +578,19 @@ impl Codegen {
                         src: SrcOperand::Reg(Amd64Reg::Rax),
                     });
                     // src -> %rax
-                    instrs.push(Movq {
+                    instrs.push(Mov(MovInstruction {
                         src,
                         dst: DstOperand::Reg(Amd64Reg::Rax),
-                    });
+                        size: 8,
+                    }));
                     // Now the instruction `op %rax`:
                     push_unop!(kind, DstOperand::Reg(Amd64Reg::Rax));
                     // %rax -> dst
-                    instrs.push(Movq {
+                    instrs.push(Mov(MovInstruction {
                         src: SrcOperand::Reg(Amd64Reg::Rax),
                         dst,
-                    });
+                        size: 8,
+                    }));
                     // And last but not least: recover %rax
                     instrs.push(Popq {
                         dst: DstOperand::Reg(Amd64Reg::Rax),
@@ -568,7 +608,7 @@ impl Codegen {
     ) where
         F: FnOnce(lir::AddressComputation<AddrOperand>) -> Instruction,
     {
-        use self::Instruction::{Movq, Popq, Pushq};
+        use self::Instruction::{Mov, Popq, Pushq};
 
         let lir::AddressComputation {
             offset,
@@ -582,10 +622,11 @@ impl Codegen {
                 instrs.push(Pushq {
                     src: SrcOperand::Reg(Amd64Reg::Rax),
                 });
-                instrs.push(Movq {
+                instrs.push(Mov(MovInstruction {
                     src: base,
                     dst: DstOperand::Reg(Amd64Reg::Rax),
-                });
+                    size: 8,
+                }));
                 (AddrOperand(Amd64Reg::Rax), true)
             }
         };
@@ -602,10 +643,11 @@ impl Codegen {
                         instrs.push(Pushq {
                             src: SrcOperand::Reg(Amd64Reg::Rdx),
                         });
-                        instrs.push(Movq {
+                        instrs.push(Mov(MovInstruction {
                             src: op,
                             dst: DstOperand::Reg(Amd64Reg::Rdx),
-                        });
+                            size: 8,
+                        }));
                         (
                             lir::IndexComputation::Displacement(AddrOperand(Amd64Reg::Rdx), *s),
                             true,
@@ -634,7 +676,7 @@ impl Codegen {
     }
 
     fn gen_call(&mut self, call: &function::FunctionCall, instrs: &mut Vec<Instruction>) {
-        use self::Instruction::{Addq, Call, Comment, Movq, Popq, Pushq};
+        use self::Instruction::{Addq, Call, Comment, Mov, Popq, Pushq};
 
         instrs.push(Comment {
             comment: "call save args".to_string(),
@@ -652,7 +694,7 @@ impl Codegen {
                 function::FnInstruction::Movq { src, dst } => {
                     let src = self.fn_to_src_operand(*src, instrs);
                     let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
-                    instrs.push(Movq { src, dst });
+                    instrs.push(Mov(MovInstruction { src, dst, size: 8 }));
                 }
                 function::FnInstruction::Pushq { src } => {
                     let src = self.fn_to_src_operand(*src, instrs);
@@ -672,7 +714,7 @@ impl Codegen {
             });
             let src = self.fn_to_src_operand(src, instrs);
             let dst = self.fn_to_src_operand(dst, instrs).try_into().unwrap();
-            instrs.push(Movq { src, dst });
+            instrs.push(Mov(MovInstruction { src, dst, size: 8 }));
         }
 
         if let Some(function::FnInstruction::Addq { src, dst }) = call.recover {
@@ -700,7 +742,7 @@ impl Codegen {
         next_block_num: i64,
         instrs: &mut Vec<Instruction>,
     ) {
-        use self::Instruction::{Cmpq, Jmp, Movq, Popq, Pushq};
+        use self::Instruction::{Cmpq, Jmp, Mov, Popq, Pushq};
 
         macro_rules! push_jmp {
             ($kind:expr, $target:expr, $next_block_num:expr, fall=$fall:expr) => {{
@@ -789,10 +831,11 @@ impl Codegen {
                             src: SrcOperand::Reg(spill),
                         });
                         // if we are in (Imm,Imm), lhs must stay Imm
-                        instrs.push(Movq {
+                        instrs.push(Mov(MovInstruction {
                             src: rhs,
                             dst: DstOperand::Reg(spill),
-                        });
+                            size: 8,
+                        }));
                         instrs.push(Cmpq {
                             subtrahend: lhs,
                             minuend: SrcOperand::Reg(spill),
@@ -819,10 +862,11 @@ impl Codegen {
             lir::Leave::Return { value, end_block } => {
                 if let Some(value) = value {
                     let src = self.lir_to_src_operand(*value, instrs);
-                    instrs.push(Movq {
+                    instrs.push(Mov(MovInstruction {
                         src,
                         dst: DstOperand::Reg(Amd64Reg::Rax),
-                    })
+                        size: 8,
+                    }))
                 }
                 push_jmp!(
                     lir::JmpKind::Unconditional,
@@ -891,21 +935,22 @@ impl Codegen {
             return None;
         }
         let offset = ((idx + 1).checked_sub(self.cconv.num_arg_regs()).unwrap() * 8 + 8) as isize;
-        Some(Instruction::Movq {
+        Some(Instruction::Mov(MovInstruction {
             src: SrcOperand::Mem(lir::AddressComputation {
                 offset,
                 base: AddrOperand(Amd64Reg::Rbp),
                 index: lir::IndexComputation::Zero,
             }),
             dst,
-        })
+            size: 8,
+        }))
     }
 }
 
 #[derive(Display)]
 pub(super) enum Instruction {
-    #[display(fmt = "\tmovq {}, {}", src, dst)]
-    Movq { src: SrcOperand, dst: DstOperand },
+    #[display(fmt = "\t{}", _0)]
+    Mov(MovInstruction),
     #[display(fmt = "\taddq {}, {}", src, dst)]
     Addq { src: SrcOperand, dst: DstOperand },
     #[display(fmt = "\tsubq {}, {}", subtrahend, acc)]
@@ -968,6 +1013,41 @@ impl fmt::Display for CallInstruction {
         writeln!(fmt, "\tcall {}", self.label)?;
         writeln!(fmt, "\tmovq 8(%rsp), %rsp")?;
         Ok(())
+    }
+}
+
+pub(super) struct MovInstruction {
+    src: SrcOperand,
+    dst: DstOperand,
+    size: u32,
+}
+
+impl fmt::Display for MovInstruction {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (self.src, self.dst) {
+            (SrcOperand::Imm(_), DstOperand::Reg(_)) | (SrcOperand::Reg(_), DstOperand::Reg(_)) => {
+                write!(fmt, "movq {}, {}", self.src, self.dst)
+            }
+            (SrcOperand::Reg(reg), DstOperand::Mem(_)) => match self.size {
+                1 => write!(fmt, "movb {}, {}", Amd64RegByte::from(reg), self.dst),
+                4 => write!(fmt, "movl {}, {}", Amd64RegDouble::from(reg), self.dst),
+                8 => write!(fmt, "movq {}, {}", self.src, self.dst),
+                _ => unreachable!(),
+            },
+            (SrcOperand::Mem(_), DstOperand::Reg(_)) => match self.size {
+                1 => write!(fmt, "movsbq {}, {}", self.src, self.dst),
+                4 => write!(fmt, "movslq {}, {}", self.src, self.dst),
+                8 => write!(fmt, "movq {}, {}", self.src, self.dst),
+                _ => unreachable!(),
+            },
+            (SrcOperand::Imm(_), DstOperand::Mem(_)) => match self.size {
+                1 => write!(fmt, "movb {}, {}", self.src, self.dst),
+                4 => write!(fmt, "movl {}, {}", self.src, self.dst),
+                8 => write!(fmt, "movq {}, {}", self.src, self.dst),
+                _ => unreachable!(),
+            },
+            (SrcOperand::Mem(_), DstOperand::Mem(_)) => unreachable!(),
+        }
     }
 }
 
