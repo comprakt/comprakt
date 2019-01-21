@@ -149,7 +149,7 @@ pub fn exec_optimization_test(input: PathBuf) {
         panic!("you MUST at least specify one optimization. none given.");
     }
 
-    let callinfo_actual = CompilerCall::RawCompiler(CompilerPhase::Binary {
+    let callinfo_actual = CompilerCall::RawCompiler(CompilerPhase::BinaryLibfirm {
         output: path_binary_optimized.clone(),
         assembly: Some(path_asm_optimized.clone()),
         optimizations: optimization::Level::Custom(
@@ -207,7 +207,7 @@ pub fn exec_optimization_test(input: PathBuf) {
         }
     };
 
-    let callinfo_reference = CompilerCall::RawCompiler(CompilerPhase::Binary {
+    let callinfo_reference = CompilerCall::RawCompiler(CompilerPhase::BinaryLibfirm {
         output: path_binary_reference.clone(),
         assembly: Some(path_asm_reference.clone()),
         optimizations: optimization::Level::None,

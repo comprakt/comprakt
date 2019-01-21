@@ -50,9 +50,13 @@ pub struct StringTable<'f> {
     entries: HashSet<&'f str>,
 }
 
+const STRING_TABLE_THIS_SYMBOL: &str = "this";
+
 impl<'f> StringTable<'f> {
     pub fn new() -> Self {
-        StringTable::default()
+        let mut st = StringTable::default();
+        st.intern(STRING_TABLE_THIS_SYMBOL);
+        st
     }
 
     pub fn intern(&mut self, value: &'f str) -> Symbol<'f> {
@@ -62,6 +66,10 @@ impl<'f> StringTable<'f> {
 
         // Unwrap is safe, we just inserted it
         Symbol(self.entries.get(value).unwrap())
+    }
+
+    pub fn this_symbol(&self) -> Symbol<'f> {
+        Symbol(self.entries.get(STRING_TABLE_THIS_SYMBOL).unwrap())
     }
 
     #[cfg(test)]
@@ -88,18 +96,19 @@ mod tests {
     #[test]
     fn no_duplication() {
         let mut strtab = StringTable::new();
+        let init_len = strtab.entries.len();
 
         let a = strtab.intern("foo");
         let b = strtab.intern("foo");
         let c = strtab.intern("foo");
-        assert_eq!(1, strtab.entries.len());
+        assert_eq!(init_len + 1, strtab.entries.len());
         assert_eq_sym!(a, b);
         assert_eq_sym!(a, c);
 
         let d = strtab.intern("bar");
         let e = strtab.intern("bar");
         let f = strtab.intern("foo");
-        assert_eq!(2, strtab.entries.len());
+        assert_eq!(init_len + 2, strtab.entries.len());
         assert_eq_sym!(d, e);
         assert_eq_sym!(a, f);
     }
@@ -107,6 +116,7 @@ mod tests {
     #[test]
     fn can_resize_set() {
         let mut strtab = StringTable::new();
+        let init_len = strtab.entries.len();
         strtab.entries.shrink_to_fit();
 
         let n = 100_000;
@@ -119,7 +129,7 @@ mod tests {
             adresses.insert(s, sym);
         }
 
-        assert_eq!(n, strtab.entries.len());
+        assert_eq!(init_len + n, strtab.entries.len());
         // At this point, the table probably got resized and reallocated, so let's now
         // check if all the symbols are still in the same place
 
@@ -136,9 +146,10 @@ mod tests {
     fn can_intern_empty_string() {
         let mut strtab = StringTable::new();
 
+        let pre_len = strtab.entries.len();
         strtab.intern("");
         strtab.intern("");
         strtab.intern("");
-        assert_eq!(1, strtab.entries.len());
+        assert_eq!(pre_len + 1, strtab.entries.len());
     }
 }
