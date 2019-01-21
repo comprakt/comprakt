@@ -484,6 +484,7 @@ impl From<CopyPropagationSrc> for Operand {
 #[derive(Debug, Display, Clone)]
 pub enum BinopKind {
     Add,
+    /// `Binop { kind: Sub, src1, src2, dst }` <=> dst = src1 - src2
     Sub,
     // We only multiply signed integers, so we can always use `imul`
     Mul,

@@ -144,8 +144,8 @@ impl Codegen {
             });
             if let function::FnInstruction::Subq { src, dst } = instr {
                 instrs.push(Subq {
-                    src: SrcOperand::Imm(src),
-                    dst: DstOperand::Reg(dst),
+                    subtrahend: SrcOperand::Imm(src),
+                    acc: DstOperand::Reg(dst),
                 });
             } else {
                 unreachable!();
@@ -332,21 +332,9 @@ impl Codegen {
                         dst: $dst,
                     }),
                     lir::BinopKind::Sub => instrs.push(Subq {
-                        src: $src,
-                        dst: $dst,
+                        subtrahend: $src,
+                        acc: $dst,
                     }),
-                }
-            }};
-            (SWAPPED, $kind:expr, $src:expr, $dst:expr) => {{
-                push_binop!($kind, $src, $dst);
-                // subq $src, $dst => $dst = $src - $dst
-                // but if $src1 was moved into $dst and $src2 is used for $src1, then we want
-                // $dst = $dst - $src = -($src - $dst) = -($dst'):
-                //
-                // subq $src, $dst
-                // negq $dst
-                if let lir::BinopKind::Sub = $kind {
-                    instrs.push(Negq { src: $dst })
                 }
             }};
         }
@@ -361,8 +349,8 @@ impl Codegen {
             DstOperand::Reg(_) => {
                 // When the dst is a Reg, we just have to move the second operand in this
                 // Reg. It doesn't matter if the `src`s are Reg, Mem or Imm
-                instrs.push(Movq { src: src2, dst });
-                push_binop!(kind, src1, dst);
+                instrs.push(Movq { src: src1, dst });
+                push_binop!(kind, src2, dst);
             }
             DstOperand::Mem(_) => match (src1, src2) {
                 // Enforce that we always get `op reg/imm, mem`
@@ -370,80 +358,93 @@ impl Codegen {
                 | (SrcOperand::Reg(_), SrcOperand::Imm(_))
                 | (SrcOperand::Imm(_), SrcOperand::Reg(_))
                 | (SrcOperand::Imm(_), SrcOperand::Imm(_)) => {
-                    instrs.push(Movq { src: src2, dst });
-                    push_binop!(kind, src1, dst);
+                    // src1 must be in dst to support the sub instruction
+                    instrs.push(Movq { src: src1, dst });
+                    push_binop!(kind, src2, dst);
                 }
                 (SrcOperand::Mem(_), SrcOperand::Mem(_)) => {
                     // This case is bad. There aren't any (mem, mem) ops. This means we
                     // need to spill one register:
                     // `op mem, mem -> mem` => `op reg, mem`
                     // We want to move src2 -> dst, but first we need to move src2 -> %rax:
+                    let spill = Amd64Reg::Rax;
                     instrs.push(Pushq {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
+                        src: SrcOperand::Reg(spill),
                     });
                     instrs.push(Movq {
-                        src: src2,
-                        dst: DstOperand::Reg(Amd64Reg::Rax),
+                        src: src1,
+                        dst: DstOperand::Reg(spill),
                     });
                     // Now we can move %rax -> dst
                     instrs.push(Movq {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
+                        src: SrcOperand::Reg(spill),
                         dst,
                     });
                     // We're now at a 2-address code state: `op mem, mem`
                     // Now we need to move src1 -> %rax
                     instrs.push(Movq {
-                        src: src1,
-                        dst: DstOperand::Reg(Amd64Reg::Rax),
+                        src: src2,
+                        dst: DstOperand::Reg(spill),
                     });
                     // Now the instruction `op %rax, mem`:
-                    push_binop!(kind, SrcOperand::Reg(Amd64Reg::Rax), dst);
+                    push_binop!(kind, SrcOperand::Reg(spill), dst);
+
                     // And last but not least: recover %rax
                     instrs.push(Popq {
-                        dst: DstOperand::Reg(Amd64Reg::Rax),
+                        dst: DstOperand::Reg(spill),
                     });
                 }
-                // src2 is Reg or Imm
-                (SrcOperand::Mem(_), _) => {
+                // src1 is Reg or Imm, src2 is Mem
+                (SrcOperand::Reg(_), SrcOperand::Mem(_))
+                | (SrcOperand::Imm(_), SrcOperand::Mem(_)) => {
+                    // move src1 into accumulator
+                    // (using src1, not src2 for correct sub support)
+                    instrs.push(Movq { src: src1, dst });
+                    let spill = Amd64Reg::Rax;
                     instrs.push(Pushq {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
+                        src: SrcOperand::Reg(spill),
                     });
-                    // src1 -> %rax
-                    instrs.push(Movq {
-                        src: src1,
-                        dst: DstOperand::Reg(Amd64Reg::Rax),
-                    });
-                    // %rax -> dst
-                    instrs.push(Movq {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
-                        dst,
-                    });
-                    // Now the instruction `op src2, mem(src1)`:
-                    push_binop!(SWAPPED, kind, src2, dst);
-                    // And last but not least: recover %rax
-                    instrs.push(Popq {
-                        dst: DstOperand::Reg(Amd64Reg::Rax),
-                    });
-                }
-                (_, SrcOperand::Mem(_)) => {
-                    instrs.push(Pushq {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
-                    });
-                    // src1 -> %rax
                     instrs.push(Movq {
                         src: src2,
-                        dst: DstOperand::Reg(Amd64Reg::Rax),
+                        dst: DstOperand::Reg(spill),
                     });
-                    // %rax -> dst
-                    instrs.push(Movq {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
-                        dst,
-                    });
-                    // Now the instruction `op src1, mem(src2)`:
-                    push_binop!(kind, src1, dst);
-                    // And last but not least: recover %rax
+                    // Now the instruction `op spill(src2), mem(dst == src1)`:
+                    push_binop!(kind, SrcOperand::Reg(spill), dst);
+                    // Now mem(dst == src1 OP src2)
+
                     instrs.push(Popq {
-                        dst: DstOperand::Reg(Amd64Reg::Rax),
+                        dst: DstOperand::Reg(spill),
+                    });
+                }
+                // src1 is Mem, src2 is Reg or Imm
+                (SrcOperand::Mem(_), SrcOperand::Reg(_))
+                | (SrcOperand::Mem(_), SrcOperand::Imm(_)) => {
+                    // The same approach like above, but with src1 and src2 swapped
+                    // and a special case for `sub` because it's not commutative (see `if` comment)
+                    instrs.push(Movq { src: src2, dst });
+                    let spill = Amd64Reg::Rax;
+                    instrs.push(Pushq {
+                        src: SrcOperand::Reg(spill),
+                    });
+                    instrs.push(Movq {
+                        src: src1,
+                        dst: DstOperand::Reg(spill),
+                    });
+                    // Now the instruction `op spill(src1), mem(dst == src2)`:
+                    push_binop!(kind, SrcOperand::Reg(spill), dst);
+                    // Now mem(dst == src2 OP src1)
+                    if let lir::BinopKind::Sub = kind {
+                        // sub is the only binop that is not commutative
+                        // OP = -
+                        // and in fact, we wanted to compute dst = src1 OP src2
+                        // but we computed src2 OP src1
+                        //
+                        // Let's use: src1-src2 = -(src2-src1)
+                        instrs.push(Negq { src: dst })
+                    }
+
+                    instrs.push(Popq {
+                        dst: DstOperand::Reg(spill),
                     });
                 }
             },
@@ -868,8 +869,11 @@ pub(super) enum Instruction {
     Movq { src: SrcOperand, dst: DstOperand },
     #[display(fmt = "\taddq {}, {}", src, dst)]
     Addq { src: SrcOperand, dst: DstOperand },
-    #[display(fmt = "\tsubq {}, {}", src, dst)]
-    Subq { src: SrcOperand, dst: DstOperand },
+    #[display(fmt = "\tsubq {}, {}", subtrahend, acc)]
+    Subq {
+        subtrahend: SrcOperand,
+        acc: DstOperand,
+    },
     #[display(fmt = "\timulq {}, {}", src, dst)]
     Mulq { src: SrcOperand, dst: DstOperand },
     #[display(fmt = "\tandq {}, {}", src, dst)]
