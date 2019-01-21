@@ -1,6 +1,10 @@
 #![feature(duration_as_u128)]
 //! Executes all mjtests in the /exec/big folder.
-use compiler_lib::timing::{AsciiDisp, CompilerMeasurements, SingleMeasurement};
+use compiler_cli::optimization_arg;
+use compiler_lib::{
+    optimization,
+    timing::{AsciiDisp, CompilerMeasurements, SingleMeasurement},
+};
 use humantime::format_duration;
 use regex::Regex;
 use runner_integration_tests::{compiler_call, CompilerCall, CompilerPhase};
@@ -64,13 +68,16 @@ fn big_tests() -> Vec<BigTest> {
     big_tests
 }
 
-fn profile_compiler(test: &BigTest) -> Option<CompilerMeasurements> {
+fn profile_compiler(
+    test: &BigTest,
+    optimizations: optimization::Level,
+) -> Option<CompilerMeasurements> {
     let mut cmd = compiler_call(
         CompilerCall::RawCompiler(CompilerPhase::BinaryLibfirm {
             // TODO: use temp dir, don't trash
             output: test.minijava.with_extension("out"),
             assembly: None,
-            optimizations: compiler_lib::optimization::Level::Aggressive,
+            optimizations,
         }),
         &test.minijava,
     );
@@ -118,6 +125,9 @@ pub struct Opts {
     /// Only test filenames matching the given regex are benchmarked
     #[structopt(short = "o", long = "only", default_value = "")]
     filter: Regex,
+    /// Optimization level that should be applied
+    #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
+    opt_level: optimization_arg::Arg,
 }
 
 #[derive(serde_derive::Serialize, serde_derive::Deserialize)]
@@ -154,7 +164,7 @@ fn main() {
         let mut bench = Benchmark::new(big_test.minijava.clone());
 
         for _ in 0..opts.samples {
-            if let Some(timings) = profile_compiler(big_test) {
+            if let Some(timings) = profile_compiler(big_test, opts.opt_level.clone().into()) {
                 bench.add(&timings);
             }
         }

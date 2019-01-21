@@ -1268,6 +1268,7 @@ dependencies = [
 name = "runner-integration-tests"
 version = "0.1.0"
 dependencies = [
+ "compiler-cli 0.0.1",
  "compiler-lib 0.0.1",
  "difference 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
