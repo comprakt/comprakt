@@ -77,6 +77,52 @@ in the `/compiler-cli/.tmpIR/` folder. (But note that if you are testing the
 compiler directly by using `cargo run` instead of `cargo test`, VCG files are
 generated in `.tmpIR/` in the root of the repository.)
 
+## Benchmarking
+
+The compiler has an internal timer that can be used to benchmark each compiler
+phase.  You could get an excerpt for a single run using the env flag
+`MEASURE_STDERR=yes` or `MEASURE_JSON=FILE.json`. But please use the benchmark
+utility instead. Invoking
+
+```
+cargo run --bin benchmark
+```
+
+will benchmark all mjtests in the `tests/big` folder and print a listing in the
+following format:
+
+```
+BENCHMARK bench_conways_game_of_life.input
+==========================================
+
+optimization phase                680.66667 +/- 14.38363ms    3 samples      -0.681%     1m 9s ago
+  opt #0: Inline                  113.00000 +/-  3.55903ms    3 samples      -3.966%     1m 9s ago
+  opt #1: ConstantFolding         449.00000 +/-  9.20145ms    3 samples      +0.074%     1m 9s ago
+  opt #2: ControlFlow             117.33333 +/-  1.24722ms    3 samples      -0.283%     1m 9s ago
+
+
+BENCHMARK bench_math.input
+==========================
+
+optimization phase               2590.33333 +/- 26.02990ms    3 samples      -3.177%     1m 9s ago
+  opt #0: Inline                  438.66667 +/-  6.84755ms    3 samples      -0.529%     1m 9s ago
+  opt #1: ConstantFolding        1388.00000 +/-  6.68331ms    3 samples      -6.385%     1m 9s ago
+  opt #2: ControlFlow             762.33333 +/- 18.51726ms    3 samples      +1.554%     1m 9s ago
+```
+
+The percentage and relative time, e.g. `-0.681% 1m 9s ago`, are a comparison to the last invokation
+of the benchmark utility, e.g. `0.681%` faster to the invokation 1 minute and 9 seconds ago.
+
+The benchmark utility accepts some flags (that are more thoroughly explained in its `--help` dialog):
+
+```
+cargo run --bin benchmark -- --samples NUM_SAMPLES --only REGEX --optimization Aggressive|None|Moderate|Custom:*
+```
+
+`--samples` specifies the number of invokations per input file. `--only` is a regex that can be used to
+filter the input files, e.g. `math|conway` will only run the benchmarks shown in the example output above.
+`--optimization` is identicial to the `--optimization` flag that the compiler-cli accepts.
+
 
 ## Tools
 

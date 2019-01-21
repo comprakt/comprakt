@@ -1,4 +1,4 @@
-use crate::firm::FirmProgram;
+use crate::{firm::FirmProgram, timing::Measurement};
 use libfirm_rs::{bindings, Graph};
 use std::ffi::CString;
 
@@ -189,12 +189,17 @@ impl Level {
     /// on the given program
     pub fn run_all(&self, program: &FirmProgram<'_, '_>) {
         breakpoint!("before optimization sequence".to_string(), program);
+        let measurement_all = Measurement::start("optimization phase");
 
         for (i, optimization) in self.sequence().iter().enumerate() {
             log::info!("Running optimization #{}: {:?}", i, optimization);
+            let measurement = Measurement::start(&format!("opt #{}: {}", i, optimization.kind));
             optimization.run(program);
+            measurement.stop();
             log::debug!("Finished optimization #{}: {:?}", i, optimization.kind);
         }
+
+        measurement_all.stop();
 
         breakpoint!("after optimization sequence".to_string(), program);
     }

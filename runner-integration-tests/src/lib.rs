@@ -1,6 +1,7 @@
 #![feature(nll)]
 
 pub mod lookup;
+pub mod serde_humantime;
 mod testkind;
 pub mod yaml;
 pub use self::{lookup::*, testkind::*};
@@ -94,17 +95,17 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
     args.iter().map(OsString::from).collect::<Vec<_>>()
 }
 
-fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
+pub fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
     match compiler_call {
         CompilerCall::RawCompiler(phase) => {
             let mut cmd = env::var("COMPILER_BINARY")
                 .map(|path| {
-                    println!("Test run using alternate compiler binary at {}", path);
+                    log::debug!("Test run using alternate compiler binary at {}", path);
                     Command::new(path)
                 })
                 .unwrap_or_else(|_| {
                     let binary = project_binary(Some("compiler-cli"));
-                    println!("Test run using the default compiler binary at {:?}", binary);
+                    log::debug!("Test run using the default compiler binary at {:?}", binary);
                     Command::new(binary)
                 });
 

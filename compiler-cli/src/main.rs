@@ -228,6 +228,8 @@ fn main() {
     if let Err(msg) = run_compiler(&cmd) {
         exit_with_error(&msg);
     }
+
+    compiler_lib::timing::print();
 }
 
 use env_logger::{
