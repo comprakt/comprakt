@@ -729,39 +729,78 @@ impl Codegen {
                 true_target,
                 false_target,
             } => {
+                // x86 GAS mini tutorial:
+                // cmp subtrahend: a, minuend: b  <=> RES = b - a
+                // RES does not really exist, in fact only flags are kept
+                // but it makes things easier to explain
+                // => `jl target` is taken iff (RES is signed XOR RES is overflowed)
+                // see
+                // https://en.wikibooks.org/wiki/X86_Assembly/Control_Flow#Comparison_Instructions
+
+                // We use the following recipe: (COP = Comparison Operation)
+                // a COP b => cmp a, b
+                // In GAS, this is b - a
+                //
+                //      a LT  b => b-a, jg
+                //      a LTE b => b-a, jge
+                //
+                //      a GT  b => b-a, jl
+                //      a GTE b => b-a, jle
+                //
+                //      a EQ  b => b-a, je / jz
+                //      a NEQ b => b-a, jne /jnz
+                //
+                // As can be seen, we can "swap" the op kind (LT => jg, GT=>jl).
+                // Alternatively, we can swap the operands a and b.
+                //
+                // NOTE: ja, jae, etc. don't work because we require signed comparison
+
                 let lhs = self.lir_to_src_operand(*lhs, instrs);
                 let rhs = self.lir_to_src_operand(*rhs, instrs);
                 let op = match (lhs, rhs) {
-                    (SrcOperand::Reg(_), SrcOperand::Imm(_))
-                    | (SrcOperand::Mem(_), SrcOperand::Imm(_)) => {
-                        instrs.push(Cmpq { lhs: rhs, rhs: lhs });
-                        op.swap()
-                    }
                     (SrcOperand::Reg(_), SrcOperand::Mem(_))
                     | (_, SrcOperand::Reg(_))
                     | (SrcOperand::Imm(_), SrcOperand::Mem(_)) => {
-                        instrs.push(Cmpq { lhs, rhs });
+                        instrs.push(Cmpq {
+                            subtrahend: lhs,
+                            minuend: rhs,
+                        });
+                        // swap op to account for GAS syntax
+                        op.swap()
+                    }
+
+                    (SrcOperand::Reg(_), SrcOperand::Imm(_))
+                    | (SrcOperand::Mem(_), SrcOperand::Imm(_)) => {
+                        // only the subtrahend is allowed to be immediate
+                        // thus, swap rhs and lhs on their subtrahend / minuend position
+                        instrs.push(Cmpq {
+                            subtrahend: rhs,
+                            minuend: lhs,
+                        });
+                        // do not swap op for GAS, we already swapped rhs and lhs
                         *op
                     }
                     (SrcOperand::Mem(_), SrcOperand::Mem(_))
                     | (SrcOperand::Imm(_), SrcOperand::Imm(_)) => {
                         // This case is bad we don't know if there is a free
                         // register left. So we have to spill one register.
+                        let spill = Amd64Reg::Rax;
                         instrs.push(Pushq {
-                            src: SrcOperand::Reg(Amd64Reg::Rax),
+                            src: SrcOperand::Reg(spill),
                         });
+                        // if we are in (Imm,Imm), lhs must stay Imm
                         instrs.push(Movq {
                             src: rhs,
-                            dst: DstOperand::Reg(Amd64Reg::Rax),
+                            dst: DstOperand::Reg(spill),
                         });
                         instrs.push(Cmpq {
-                            lhs,
-                            rhs: SrcOperand::Reg(Amd64Reg::Rax),
+                            subtrahend: lhs,
+                            minuend: SrcOperand::Reg(spill),
                         });
                         instrs.push(Popq {
-                            dst: DstOperand::Reg(Amd64Reg::Rax),
+                            dst: DstOperand::Reg(spill),
                         });
-                        *op
+                        op.swap()
                     }
                 };
                 push_jmp!(
@@ -892,8 +931,11 @@ pub(super) enum Instruction {
     Pushq { src: SrcOperand },
     #[display(fmt = "\tpopq {}", dst)]
     Popq { dst: DstOperand },
-    #[display(fmt = "\tcmpq {}, {}", lhs, rhs)]
-    Cmpq { lhs: SrcOperand, rhs: SrcOperand },
+    #[display(fmt = "\tcmpq {}, {}", subtrahend, minuend)]
+    Cmpq {
+        subtrahend: SrcOperand,
+        minuend: SrcOperand,
+    },
     #[display(fmt = "\t{} {}", kind, label)]
     Jmp { label: String, kind: lir::JmpKind },
     // multi-line output by CallInstruction Display impl
