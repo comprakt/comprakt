@@ -66,7 +66,7 @@ fn big_tests() -> Vec<BigTest> {
 
 fn profile_compiler(test: &BigTest) -> Option<CompilerMeasurements> {
     let mut cmd = compiler_call(
-        CompilerCall::RawCompiler(CompilerPhase::Binary {
+        CompilerCall::RawCompiler(CompilerPhase::BinaryLibfirm {
             // TODO: use temp dir, don't trash
             output: test.minijava.with_extension("out"),
             assembly: None,
@@ -196,7 +196,7 @@ impl Benchmark {
     }
 
     pub fn add(&mut self, measurements: &[SingleMeasurement]) {
-        if self.measurements.len() == 0 {
+        if self.measurements.is_empty() {
             for measurement in measurements {
                 self.measurements.push(BenchmarkEntry {
                     label: measurement.label.clone(),
@@ -243,7 +243,7 @@ impl Benchmark {
                 measurement.label.clone(),
                 ReferenceBenchmark {
                     mean: measurement.stats.mean(),
-                    timestamp: now.clone(),
+                    timestamp: now,
                 },
             );
         }
