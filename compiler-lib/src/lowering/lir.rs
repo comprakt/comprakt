@@ -428,6 +428,7 @@ impl fmt::Debug for Leave {
 /// It will commonly have to choose between using registers or spill code.
 #[derive(Clone)]
 pub struct CopyPropagation {
+    // FIXME: This can be operand
     pub(super) src: CopyPropagationSrc,
     pub(super) dst: Ptr<ValueSlot>,
 }
@@ -436,6 +437,7 @@ pub struct CopyPropagation {
 pub enum CopyPropagationSrc {
     Slot(Ptr<MultiSlot>),
     Param { idx: u32 },
+    Imm(Tarval),
 }
 
 impl fmt::Debug for CopyPropagation {
@@ -479,6 +481,7 @@ impl From<CopyPropagationSrc> for Operand {
         match op {
             CopyPropagationSrc::Slot(s) => Operand::Slot(s),
             CopyPropagationSrc::Param { idx } => Operand::Param { idx },
+            CopyPropagationSrc::Imm(val) => Operand::Imm(val),
         }
     }
 }

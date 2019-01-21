@@ -73,10 +73,12 @@ impl GenInstrBlock {
             };
 
             let slot_to_copy_propagation_src = &|src: Ptr<MultiSlot>| -> CopyPropagationSrc {
-                if let Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) = src.firm() {
-                    CopyPropagationSrc::Param { idx }
-                } else {
-                    CopyPropagationSrc::Slot(src)
+                match src.firm() {
+                    Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
+                        CopyPropagationSrc::Param { idx }
+                    }
+                    Node::Const(val) => CopyPropagationSrc::Imm(val.tarval()),
+                    _ => CopyPropagationSrc::Slot(src),
                 }
             };
 
