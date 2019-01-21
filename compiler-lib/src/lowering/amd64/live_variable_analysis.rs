@@ -89,32 +89,25 @@ impl LiveVariableAnalysis {
             let code = &block_code_map[&block.firm].instrs;
 
             // ins(b) = f_b(outs) = gen(b)+(outs(b)-kill(b))
-            //
-            // In our case (SSA) this results in an easier function:
-            //
-            // f_b(outs) = (gen(b)+outs(b))-kill(b)
-            //
-            // This is because in a block a ValueSlot always needs to be allocated in a
-            // Block, before it can be used in the block. At least it is
-            // allocated by a copy_in instruction.
             let (gen, kill) = build_gen_kill(code);
+            let cur_outs = outs.get_mut(&block.firm).unwrap();
+            let cur_ins = ins.get_mut(&block.firm).unwrap();
             log::debug!("Gen: {:?}, Kill: {:?}", gen, kill);
+
             // outs'(b) = outs(b) - kill(b) => ins(b) = gen(b)+outs'(b)
             for var_id in &kill {
-                outs.get_mut(&block.firm).unwrap().remove(&var_id);
+                cur_outs.remove(&var_id);
             }
             // if (outs'(b)+gen(b) != ins(b)) => changed = true
             // sitenote: outs'(b)+gen(b) >= ins(b)
             let mut changed = false;
             // ins(b) += outs'(b)
             for var_id in &outs[&block.firm] {
-                changed |= ins.get_mut(&block.firm).unwrap().insert(*var_id);
+                changed |= cur_ins.insert(*var_id);
             }
             // ins(b) += gen(b)
             for var_id in gen {
-                if !kill.contains(&var_id) {
-                    changed |= ins.get_mut(&block.firm).unwrap().insert(var_id);
-                }
+                changed |= cur_ins.insert(var_id);
             }
 
             if changed {
@@ -341,7 +334,14 @@ fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
 
     for instr in code {
         for op in instr.src_operands() {
-            push!(gen, op);
+            match op {
+                lir::Operand::Imm(_) => (),
+                _ => {
+                    if !kill.contains(&var_id(op)) {
+                        push!(gen, op);
+                    }
+                }
+            }
         }
         if let Some(op) = instr.dst_operand() {
             push!(kill, op);
