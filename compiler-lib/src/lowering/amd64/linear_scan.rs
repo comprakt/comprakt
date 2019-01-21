@@ -165,6 +165,8 @@ impl LinearScanAllocator {
 
         for block in blocks.iter_mut() {
             for instr in block.instrs.iter_mut() {
+                // Special case: caller-saved args used before the call
+                // and are live after the call must be saved.
                 if let Instruction::Call(call) = instr {
                     for reg in self.reg_alloc.occupied_regs() {
                         if let Some(lr) = self.reg_lr_map.get(&reg) {
@@ -175,8 +177,11 @@ impl LinearScanAllocator {
                     }
                 }
 
+                // Assign registers (and spill if necessary) to all live ranges
+                // beginning at the current instruction counter
                 while let Some(live_range) = lr_iter.peek() {
-                    if live_range.interval.lower() == instr_counter {
+                    let interval_begins_here = live_range.interval.lower() == instr_counter;
+                    if interval_begins_here {
                         self.expire_old_intervals(live_range.interval);
 
                         if live_range.var_id.0 == -1 && self.active.contains(&Active(**live_range))
