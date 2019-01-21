@@ -120,7 +120,7 @@ impl OptimizationTestData {
     }
 }
 
-pub fn exec_optimization_test(input: PathBuf) {
+pub fn exec_optimization_test(input: PathBuf, backend: Backend) {
     // 1.) compile asm and binary for the unoptimized reference binary
     //     this is either
     //     - the file specified by 'expect: IsIdenticalTo: path"
@@ -149,7 +149,8 @@ pub fn exec_optimization_test(input: PathBuf) {
         panic!("you MUST at least specify one optimization. none given.");
     }
 
-    let callinfo_actual = CompilerCall::RawCompiler(CompilerPhase::BinaryLibfirm {
+    let callinfo_actual = CompilerCall::RawCompiler(CompilerPhase::Binary {
+        backend,
         output: path_binary_optimized.clone(),
         assembly: Some(path_asm_optimized.clone()),
         optimizations: optimization::Level::Custom(
@@ -207,7 +208,8 @@ pub fn exec_optimization_test(input: PathBuf) {
         }
     };
 
-    let callinfo_reference = CompilerCall::RawCompiler(CompilerPhase::BinaryLibfirm {
+    let callinfo_reference = CompilerCall::RawCompiler(CompilerPhase::Binary {
+        backend,
         output: path_binary_reference.clone(),
         assembly: Some(path_asm_reference.clone()),
         optimizations: optimization::Level::None,
