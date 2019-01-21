@@ -16,6 +16,8 @@ impl Node {
     }
 }
 
+unsafe impl Send for Node {}
+
 macro_rules! generate_iterator {
     (
         $iter_name: ident,

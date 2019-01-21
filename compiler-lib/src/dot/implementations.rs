@@ -1,7 +1,7 @@
 use super::{
     dot_string, Color, Dot, GraphData, GraphState, Label, LabelMaker, Named, Shape, X11Color,
 };
-use crate::firm::FirmProgram;
+use crate::firm::{program_generator::Spans, FirmProgram};
 use libfirm_rs::{
     nodes::{Node, NodeTrait},
     Graph,
@@ -171,7 +171,10 @@ where
 pub fn default_label(node: &Node) -> Label {
     let mut label = Label::from_text(format!("{:?}", node));
     if Node::is_proj(*node) {
-        label = label.shape(Shape::Ellipse);
+        label = label.shape(Shape::Note);
+    }
+    if let Some(span) = Spans::lookup_span(*node) {
+        label = label.append(format!(" [src:{}]", span));
     }
     label
 }
