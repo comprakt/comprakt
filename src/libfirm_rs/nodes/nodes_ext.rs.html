@@ -580,6 +580,8 @@
 <span id="580">580</span>
 <span id="581">581</span>
 <span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">nodes_gen</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">bindings</span>, <span class="ident">Entity</span>, <span class="ident">Graph</span>, <span class="ident">Mode</span>};
@@ -598,6 +600,8 @@
         <span class="ident">NODE_FACTORY</span>.<span class="ident">create</span>(<span class="ident">ir_node</span>)
     }
 }
+
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">Node</span> {}
 
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">generate_iterator</span> {
     (
