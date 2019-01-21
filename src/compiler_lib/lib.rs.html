@@ -45,6 +45,8 @@
 <span id="45">45</span>
 <span id="46">46</span>
 <span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">rust_2018_idioms</span>)]</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">clippy</span>::<span class="ident">print_stdout</span>)]</span>
@@ -63,12 +65,14 @@
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">result_map_or_else</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">proc_macro_hygiene</span>, <span class="ident">decl_macro</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">try_trait</span>)]</span>
+<span class="attribute">#![<span class="ident">feature</span>(<span class="ident">duration_as_u128</span>)]</span>
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">derive_more</span>;
 
 <span class="kw">mod</span> <span class="ident">analysis</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">asciifile</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">backend</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">timing</span>;
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">mod</span> <span class="ident">utils</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">ast</span>;

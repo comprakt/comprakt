@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Benchmark",""],["BenchmarkEntry",""],["Opts","Small utility to benchmark each step of the compiler pipeline"]]});
