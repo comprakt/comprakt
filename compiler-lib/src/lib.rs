@@ -17,12 +17,14 @@
 #![feature(try_trait)]
 #![feature(weak_ptr_eq)]
 #![feature(type_ascription)]
+#![feature(duration_as_u128)]
 #[macro_use]
 extern crate derive_more;
 
 mod analysis;
 pub mod asciifile;
 pub mod backend;
+pub mod timing;
 #[macro_use]
 mod utils;
 pub mod ast;

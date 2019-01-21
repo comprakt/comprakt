@@ -49,7 +49,6 @@ type Label = String;
 pub(super) enum FnInstruction {
     Movq { src: FnOperand, dst: FnOperand },
     Pushq { src: FnOperand },
-    Popq { dst: FnOperand },
     Addq { src: Tarval, dst: Amd64Reg },
     Subq { src: Tarval, dst: Amd64Reg },
     Leave,

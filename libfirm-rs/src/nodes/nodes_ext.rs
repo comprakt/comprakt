@@ -1,4 +1,4 @@
-use super::nodes_gen::*;
+use super::{super::types::Ty, nodes_gen::*};
 use crate::{bindings, Entity, Graph, Mode};
 use std::{
     collections::HashSet,
@@ -16,6 +16,8 @@ impl Node {
         NODE_FACTORY.create(ir_node)
     }
 }
+
+unsafe impl Send for Node {}
 
 macro_rules! generate_iterator {
     (
@@ -676,5 +678,11 @@ impl NodeDebug for Store {
                 self.node_id()
             )
         }
+    }
+}
+
+impl Size {
+    pub fn ty(self) -> Ty {
+        unsafe { Ty::from_ir_type(bindings::get_Size_type(self.internal_ir_node())) }
     }
 }

@@ -243,6 +243,7 @@ impl GenInstrBlock {
     fn gen_operand_jit(&self, node: Node) -> Operand {
         match node {
             Node::Const(c) => Operand::Imm(c.tarval()),
+            Node::Size(s) => Operand::Imm(libfirm_rs::Tarval::mj_int(i64::from(s.ty().size()))),
             Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => Operand::Param { idx },
             n => match self.must_computed(n) {
                 Computed::InCFGPred(ms) | Computed::Value(ms) => Operand::Slot(*ms),
@@ -328,7 +329,8 @@ impl GenInstrBlock {
             | Node::Proj(_, ProjKind::Start_TArgs_Arg(..))
             | Node::Address(_)
             | Node::Member(_)
-            | Node::Sel(_) => (),
+            | Node::Sel(_)
+            | Node::Size(_) => (),
 
             Node::Conv(conv) => {
                 let pred = conv.op();
@@ -452,7 +454,7 @@ impl GenInstrBlock {
                         tuple_elems[0]
                     });
 
-                    let dst = if let Some(elem0) = result_tuple_0 {
+                    if let Some(elem0) = result_tuple_0 {
                         // (gen_dst_slot has implicit mark_computed)
                         let slot = self.gen_dst_slot(block, Node::from(elem0), alloc);
                         // but other nodes will require Call to be computed
@@ -471,8 +473,7 @@ impl GenInstrBlock {
                         }
                         // result_tuple_0 is None, so nothing to mark as computed
                         None
-                    };
-                    dst
+                    }
                 };
                 log::debug!("\tdst slot {:?}", dst);
 
@@ -527,7 +528,7 @@ impl GenInstrBlock {
                 self.mark_computed(node, pred_slot);
             }
 
-            x => self.comment(format_args!("\t\t\tunimplemented: {:?}", x)),
+            x => panic!("unimplemented: {:?}", x),
         }
     }
 

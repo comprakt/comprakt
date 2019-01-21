@@ -13,8 +13,8 @@ pub fn ty_from_checked_type(ct: &CheckedType<'_>) -> Option<Ty> {
         CheckedType::TypeRef(_) => PrimitiveTy::ptr().into(),
         CheckedType::Array(checked_type) => ty_from_checked_type(checked_type)
             .expect("Arrays are never of type `void`")
-            .wrap_in_array()
-            .wrap_in_pointer()
+            .array()
+            .pointer()
             .into(),
         CheckedType::Boolean => PrimitiveTy::bool().into(),
         CheckedType::Null => unreachable!(),
