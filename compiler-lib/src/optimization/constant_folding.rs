@@ -2,8 +2,7 @@ use super::{lattices::*, Outcome, OutcomeCollector};
 use crate::{dot::*, optimization};
 use libfirm_rs::{
     nodes::{try_as_value_node, Block, IsNewResult, Node, NodeTrait, ProjKind},
-    types::ClassTy,
-    Entity, Graph, Tarval, TarvalKind,
+    Graph, TarvalKind,
 };
 use priority_queue::PriorityQueue;
 use std::{
@@ -138,7 +137,7 @@ impl ConstantFolding {
         }
 
         while let Some((cur_node, _priority)) = self.queue.pop() {
-            self.cur_node = Some(cur_node.clone());
+            self.cur_node = Some(cur_node);
             self.node_update_count += 1;
             let cur_lattice = self.lookup(cur_node);
             let (updated_lattice, deps) = self.update_node(cur_node, cur_lattice);
@@ -184,22 +183,19 @@ impl ConstantFolding {
                     .fontcolor(X11Color::White);
             }
 
-            match node {
-                Node::Phi(phi) => {
-                    for (arg, pred) in phi.in_nodes().zip(phi.block().in_nodes()) {
-                        label = label.append(format!(
-                            "\nfrom {} use {:?}{}",
-                            pred.node_id(),
-                            self.lookup_val(arg),
-                            if self.lookup(pred).reachable() {
-                                ""
-                            } else {
-                                " [dead]"
-                            }
-                        ));
-                    }
+            if let Node::Phi(phi) = node {
+                for (arg, pred) in phi.in_nodes().zip(phi.block().in_nodes()) {
+                    label = label.append(format!(
+                        "\nfrom {} use {:?}{}",
+                        pred.node_id(),
+                        self.lookup_val(arg),
+                        if self.lookup(pred).reachable() {
+                            ""
+                        } else {
+                            " [dead]"
+                        }
+                    ));
                 }
-                _ => {}
             }
 
             if let Some((_node, priority)) = self.queue.get(&node) {

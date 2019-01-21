@@ -24,10 +24,6 @@ impl Pointer {
         Self { p, recent: false }
     }
 
-    pub fn new_recent(p: usize) -> Self {
-        Self { p, recent: true }
-    }
-
     pub fn recent(self) -> bool {
         self.recent
     }
@@ -55,13 +51,6 @@ pub struct PointerSet {
 }
 
 impl PointerSet {
-    pub fn null() -> PointerSet {
-        PointerSet {
-            pointers: HashSet::new(),
-            can_be_null: true,
-        }
-    }
-
     pub fn can_be_null(&self) -> bool {
         self.can_be_null
     }
@@ -139,7 +128,7 @@ pub struct Heap {
 impl fmt::Debug for Heap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (ptr, obj_info) in &self.objects {
-            write!(f, "{:?} = {:?}\n", ptr, obj_info)?
+            writeln!(f, "{:?} = {:?}", ptr, obj_info)?
         }
         Ok(())
     }
@@ -169,17 +158,23 @@ impl Heap {
         self.objects = self
             .objects
             .iter()
-            .map(|(ptr, obj_info)| (ptr.clone(), Rc::new(obj_info.resetted())))
+            .map(|(ptr, obj_info)| (*ptr, Rc::new(obj_info.resetted())))
             .collect();
     }
 
-    pub fn update_field(&mut self, ptr: Node, ptrs: Option<&PointerSet>, field: Entity, val: &Val) {
+    pub fn update_field(
+        &mut self,
+        _ptr: Node,
+        ptrs: Option<&PointerSet>,
+        field: Entity,
+        val: &Val,
+    ) {
         match ptrs.and_then(|ptrs| ptrs.as_single_ignoring_null()) {
             Some(obj) if !self.is_ptr_class(obj) => {
                 let mut obj_info = (**self
                     .objects
                     .get(&obj)
-                    .expect(&format!("{:?} to have {:?}", self, obj)))
+                    .unwrap_or_else(|| panic!("{:?} to have {:?}", self, obj)))
                 .clone();
                 obj_info.update_field(field, val);
                 self.objects
@@ -193,12 +188,12 @@ impl Heap {
         }
     }
 
-    pub fn lookup_field(&mut self, ptr: Node, ptrs: Option<&PointerSet>, field: Entity) -> Val {
+    pub fn lookup_field(&mut self, _ptr: Node, ptrs: Option<&PointerSet>, field: Entity) -> Val {
         if let Some(ptrs) = ptrs {
             let result = Val::join_many(ptrs.pointers().iter().map(|p| {
                 self.objects
                     .get(&p)
-                    .expect(&format!("{:?} to have {:?}", self, p))
+                    .unwrap_or_else(|| panic!("{:?} to have {:?}", self, p))
                     .lookup_field(field)
             }));
             result.unwrap_or(Val::NonConstant)
@@ -248,7 +243,7 @@ impl fmt::Debug for ObjectInfo {
         let mut first = true;
         for (val, field) in self.fields.iter().zip(self.ty.fields()) {
             let name = field.name_string();
-            let field_name = name.split(".").last().unwrap();
+            let field_name = name.split('.').last().unwrap();
             if !first {
                 write!(f, ", ")?;
             }
@@ -325,56 +320,52 @@ impl Lattice for ObjectInfo {
 mod tests {
     use super::*;
 
-    fn test_lattice_bin<T: Lattice>(l1: T, l2: T) {
+    fn test_lattice_bin<T: Lattice + std::fmt::Debug>(l1: T, l2: T) {
         if l1 == l2 {
-            assert!(l1.is_progression_of(l2));
-            assert!(l2.is_progression_of(l1));
+            assert!(l1.is_progression_of(&l2));
+            assert!(l2.is_progression_of(&l1));
         }
 
-        assert_eq!(l1.join(l2), l2.join(l1));
-        assert_eq!(l1.join(l2).is_progression_of(l1));
-        assert_eq!(l1.join(l2).is_progression_of(l2));
+        assert_eq!(l1.join(&l2), l2.join(&l1));
+        assert!(l1.join(&l2).is_progression_of(&l1));
+        assert!(l1.join(&l2).is_progression_of(&l2));
 
-        if l1.is_progression_of(l2) && l2.is_progression_of(l1) {
+        if l1.is_progression_of(&l2) && l2.is_progression_of(&l1) {
             assert!(l1 == l2);
         }
-        if l1.join(l2) == l1 {
-            assert_eq(l1.is_progression_of(l2));
+        if l1.join(&l2) == l1 {
+            assert!(l1.is_progression_of(&l2));
         }
     }
 
-    fn test_lattice<T: Lattice>(elements: &[T]) {
-        for (a, b) in elements.iter().chain(elements.iter()) {
-            test_lattice_bin(a, b);
+    fn test_lattice<T: Lattice + std::fmt::Debug + Clone>(elements: &[T]) {
+        for (a, b) in elements.iter().zip(elements.iter()) {
+            test_lattice_bin(a.clone(), b.clone());
         }
     }
 
     #[test]
     fn test_pointer_set() {
         let p1 = Pointer::new(0);
-        assert_eq!(p1.id, 0);
+        assert_eq!(p1.p, 0);
         assert_eq!(p1.recent, false);
 
-        let p2 = Pointer::new_recent(1);
-        assert_eq!(p2.id, 1);
+        let p2 = Pointer::new(1).as_recent();
+        assert_eq!(p2.p, 1);
         assert_eq!(p2.recent, true);
 
         let p1_set: PointerSet = p1.into();
-        assert_eq!(p_set.can_be_null, false);
-        assert_eq!(p_set.pointers, [p1, p2].iter().collect());
+        assert_eq!(p1_set.can_be_null, false);
+        assert_eq!(p1_set.pointers, [p1].iter().cloned().collect());
 
         let p2_set: PointerSet = p2.into();
 
-        let p12_set = p1_set.join(p2_set);
-        assert_eq!(p_set.can_be_null, false);
-        assert_eq!(p_set.pointers, [p1, p2].iter().collect());
+        let p12_set = p1_set.join(&p2_set);
+        assert_eq!(p12_set.can_be_null, false);
+        assert_eq!(p12_set.pointers, [p1, p2].iter().cloned().collect());
 
-        let null_set = PointerSet::null();
-        assert_eq!(null_set.can_be_null, true);
-        assert_eq!(null_set.pointers.len(), 0);
+        assert!(p12_set.is_progression_of(&p1_set));
 
-        assert!(p12_set.is_progression_of(p1_set));
-
-        test_lattice(&[null_set, p1_set, p2_set, p12_set]);
+        test_lattice(&[p1_set, p2_set, p12_set]);
     }
 }
