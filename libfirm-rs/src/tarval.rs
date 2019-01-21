@@ -2,7 +2,7 @@ use super::mode::Mode;
 use libfirm_rs_bindings as bindings;
 use std::{ffi::CStr, ptr};
 
-#[derive(Clone, Copy, From, Into)]
+#[derive(Clone, Copy, From, Into, Eq)]
 pub struct Tarval(*mut bindings::ir_tarval);
 
 impl Into<*const bindings::ir_tarval> for Tarval {
@@ -52,6 +52,10 @@ impl Tarval {
     #[inline]
     pub fn zero(mode: Mode) -> Tarval {
         unsafe { bindings::new_tarval_from_long(0, mode.libfirm_mode()) }.into()
+    }
+
+    pub fn is_zero(self) -> bool {
+        self.get_long() == 0
     }
 
     #[inline]
@@ -187,7 +191,7 @@ impl Debug for Tarval {
             let s = CStr::from_ptr(v.as_ptr()).to_string_lossy();
             let s = s.trim_start_matches("<");
             let s = s.trim_end_matches(">");
-            write!(fmt, "{{{}, mode: {}}}", s, self.mode().name_string())
+            write!(fmt, "{}:{}", self.mode().name_string(), s)
         }
     }
 }

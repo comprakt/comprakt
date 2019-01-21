@@ -1,5 +1,9 @@
 use super::nodes_gen::*;
-use crate::{bindings, Entity, Graph, Mode};
+use crate::{
+    bindings,
+    types::{ClassTy, Ty},
+    Entity, Graph, Mode,
+};
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -17,64 +21,6 @@ impl Node {
 }
 
 unsafe impl Send for Node {}
-
-macro_rules! generate_iterator {
-    (
-        $iter_name: ident,
-        $len_fn: ident,
-        $node_name: ident,
-        $idx_name: ident,
-        $idx_type: ty,
-        $result_expr: expr,
-        $result_type: ty,
-    ) => {
-        pub struct $iter_name {
-            node: *mut bindings::ir_node,
-            cur: $idx_type,
-            len: $idx_type,
-        }
-
-        impl $iter_name {
-            fn new(node: *mut bindings::ir_node) -> Self {
-                Self {
-                    node,
-                    len: unsafe { bindings::$len_fn(node) },
-                    cur: 0,
-                }
-            }
-
-            pub fn idx(&self, $idx_name: $idx_type) -> Option<$result_type> {
-                if (0..self.len).contains(&$idx_name) {
-                    let $node_name = self.node;
-                    $result_expr
-                } else {
-                    None
-                }
-            }
-        }
-
-        impl Iterator for $iter_name {
-            type Item = $result_type;
-
-            fn next(&mut self) -> Option<$result_type> {
-                if self.cur == self.len {
-                    None
-                } else {
-                    let $idx_name = self.cur;
-                    self.cur += 1;
-                    let $node_name = self.node;
-                    $result_expr
-                }
-            }
-        }
-
-        impl ExactSizeIterator for $iter_name {
-            fn len(&self) -> usize {
-                self.len as usize
-            }
-        }
-    };
-}
 
 macro_rules! linked_list_iterator {
     ($iter_name: ident, $item: ident, $head_fn: ident, $next_fn: ident) => {
@@ -119,13 +65,14 @@ macro_rules! simple_node_iterator {
     ($iter_name: ident, $len_fn: ident, $get_fn: ident, $idx_type: ty) => {
         generate_iterator!(
             $iter_name,
+            *mut bindings::ir_node,
             $len_fn,
             node,
             idx,
             $idx_type,
             {
                 let out = unsafe { bindings::$get_fn(node, idx) };
-                Some(Node::wrap(out))
+                Node::wrap(out)
             },
             Node,
         );
@@ -214,6 +161,7 @@ simple_node_iterator!(OutNodeIterator, get_irn_n_outs, get_irn_out, u32);
 
 generate_iterator!(
     OutNodeExIterator,
+    *mut bindings::ir_node,
     get_irn_n_outs,
     node,
     idx,
@@ -221,7 +169,7 @@ generate_iterator!(
     {
         let mut in_pos: i32 = 0;
         let out = unsafe { bindings::get_irn_out_ex(node, idx, &mut in_pos) };
-        Some((Node::wrap(out), in_pos))
+        (Node::wrap(out), in_pos)
     },
     (Node, i32),
 );
@@ -434,13 +382,38 @@ impl Address {
     }
 }
 
+#[derive(Debug)]
+pub enum IsNewResult {
+    Yes(ClassTy),
+    No,
+}
+
 impl Call {
     pub fn args(self) -> CallArgsIterator {
         CallArgsIterator::new(self.internal_ir_node())
     }
+
+    pub fn is_new(self) -> IsNewResult {
+        if let Some(addr) = Node::as_address(self.ptr()) {
+            if addr.entity().name_string() == "mjrt_new" {
+                let first_arg = self.args().idx(0);
+                if let Some(Node::Size(size_node)) = first_arg {
+                    let class_ty = ClassTy::from(size_node.ty()).unwrap();
+                    return IsNewResult::Yes(class_ty);
+                }
+            }
+        }
+        IsNewResult::No
+    }
 }
 
 simple_node_iterator!(CallArgsIterator, get_Call_n_params, get_Call_param, i32);
+
+impl Size {
+    pub fn ty(self) -> Ty {
+        unsafe { Ty::from_ir_type(bindings::get_Size_type(self.internal_ir_node())) }
+    }
+}
 
 // = Debug fmt =
 

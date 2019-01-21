@@ -1,11 +1,18 @@
-use super::{Outcome, OutcomeCollector};
+use super::{lattices::*, Outcome, OutcomeCollector};
 use crate::{dot::*, optimization};
 use libfirm_rs::{
-    nodes::{try_as_value_node, Block, Node, NodeTrait, ProjKind},
-    Graph, Tarval, TarvalKind,
+    nodes::{try_as_value_node, Block, IsNewResult, Node, NodeTrait, ProjKind},
+    types::ClassTy,
+    Entity, Graph, Tarval, TarvalKind,
 };
 use priority_queue::PriorityQueue;
-use std::collections::hash_map::HashMap;
+use std::{
+    cell::Cell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
+
+// == Priority ==
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 struct Priority {
@@ -27,23 +34,17 @@ impl PartialOrd for Priority {
     }
 }
 
-// The lattice used for constant folding.
-#[derive(Debug, Clone, PartialEq, Copy)]
-struct CfLattice {
-    reachable: bool,
-    value: Tarval,
-}
-
 pub struct ConstantFolding {
-    values: HashMap<Node, CfLattice>,
+    values: HashMap<Node, ConstantFoldingLattice>,
     queue: PriorityQueue<Node, Priority>,
     node_topo_idx: HashMap<Node, u32>,
     // this field is for debugging only.
     cur_node: Option<Node>,
     graph: Graph,
     start_block: Node,
-    // duplicates are not that important for the inner list as there are at most less than 10.
-    deps: HashMap<Node, Vec<Node>>,
+    deps: HashMap<Node, HashSet<Node>>,
+    obj_id: Cell<usize>,
+    node_update_count: usize,
 }
 
 impl optimization::Local for ConstantFolding {
@@ -56,6 +57,7 @@ impl optimization::Local for ConstantFolding {
 
 impl ConstantFolding {
     fn new(graph: Graph) -> Self {
+        log::debug!("new");
         let mut queue = PriorityQueue::new();
         let mut topo_order = 0;
         let mut node_topo_idx = HashMap::new();
@@ -63,12 +65,15 @@ impl ConstantFolding {
 
         graph.assure_outs();
 
-        graph.walk_topological(|node| {
+        // calling this function crashes libfirm
+        // graph.compute_dominance_frontiers();
+
+        graph.walk(|node| {
             topo_order += 1;
             // blocks and jumps are handled immediately,
-            // as they are not considered in walk_topological (in case of blocks)
-            // or don't depend much on anything before
-
+            // so that they make things alive quicker.
+            // they don't depend on anything but its predecessor.
+            log::debug!("insert {:?}", node);
             node_topo_idx.insert(
                 *node,
                 match node {
@@ -77,13 +82,7 @@ impl ConstantFolding {
                 },
             );
 
-            values.insert(
-                *node,
-                CfLattice {
-                    reachable: false,
-                    value: Tarval::unknown(),
-                },
-            );
+            values.insert(*node, ConstantFoldingLattice::start());
         });
 
         let start_block = graph.start().block().into();
@@ -104,42 +103,46 @@ impl ConstantFolding {
             start_block,
             cur_node: None,
             deps: HashMap::new(),
+            obj_id: Cell::default(),
+            node_update_count: 0,
         }
     }
 
-    fn lookup(&self, node: Node) -> CfLattice {
-        self.values[&node]
+    fn lookup(&self, node: Node) -> &ConstantFoldingLattice {
+        &self.values[&node]
     }
 
-    fn update(&mut self, node: Node, new: CfLattice) {
+    fn lookup_val(&self, node: Node) -> &Val {
+        self.lookup(node).value()
+    }
+
+    fn update(&mut self, node: Node, new: ConstantFoldingLattice) {
         self.values.insert(node, new).unwrap();
     }
 
     fn run(&mut self) {
         macro_rules! invalidate {
             ($node: expr) => {
-                let topo_order = self.node_topo_idx.get(&$node);
-                if let Some(topo_order) = topo_order {
-                    self.queue.push(
-                        $node,
-                        Priority {
-                            topo_order: *topo_order,
-                            priority: 0,
-                        },
-                    );
-                } else {
-                    // walk_topological only considers nodes reachable from end.
-                    // projs with no outs might not be reachable from end.
-                    log::debug!("Don't queue {:?} as it is not reachable from end", $node);
-                }
+                let topo_order = *self
+                    .node_topo_idx
+                    .get(&$node)
+                    .expect(&format!("{:?} to exist", $node));
+                self.queue.push(
+                    $node,
+                    Priority {
+                        topo_order,
+                        priority: 0,
+                    },
+                );
             };
         }
 
         while let Some((cur_node, _priority)) = self.queue.pop() {
+            self.cur_node = Some(cur_node.clone());
+            self.node_update_count += 1;
             let cur_lattice = self.lookup(cur_node);
-            self.cur_node = Some(cur_node);
-            let updated_lattice = self.update_node(cur_node, cur_lattice);
-            if updated_lattice != cur_lattice {
+            let (updated_lattice, deps) = self.update_node(cur_node, cur_lattice);
+            if &updated_lattice != cur_lattice {
                 if let Some(deps) = self.deps.get(&cur_node) {
                     for out_node in deps.iter() {
                         invalidate!(*out_node);
@@ -152,43 +155,26 @@ impl ConstantFolding {
 
                 self.update(cur_node, updated_lattice);
             }
+
+            for dep in deps {
+                self.deps
+                    .entry(dep)
+                    .and_modify(|e| {
+                        e.insert(cur_node);
+                    })
+                    .or_insert_with(|| vec![cur_node].into_iter().collect());
+            }
         }
 
         self.cur_node = None;
     }
 
-    // for debugging purposes. Code will be removed/improved later.
-    /*
-    fn dump_dot(&mut self) -> String {
-        self.graph.into_dot_format_string("test", &|node: &Node| {
-            let mut label = default_label(node);
-
-            if let Some(tarval) = self.values.get(&node) {
-                label = label.append(format!("\n{:?}", tarval));
-            }
-
-            if Some(*node) == self.cur_node {
-                label = label
-                    .style(Style::Filled)
-                    .fillcolor(X11Color::Blue)
-                    .fontcolor(X11Color::White);
-            }
-
-            if let Some(_priority) = self.queue.get(&node) {
-                label = label.style(Style::Bold);
-            }
-
-            label
-        })
-    }
-    */
-
-    fn update_node(&mut self, cur_node: Node, cur_lattice: CfLattice) -> CfLattice {
+    fn breakpoint(&self, cur_node: Node) {
         breakpoint!("Constant Folding: iteration", self.graph, &|node: &Node| {
             let mut label = default_label(node);
 
-            if let Some(tarval) = self.values.get(&node) {
-                label = label.append(format!("\n{:?}", tarval));
+            if let Some(lattice) = self.values.get(&node) {
+                label = label.append(format!("\n{:?}", lattice));
             }
 
             if node == &cur_node {
@@ -198,45 +184,175 @@ impl ConstantFolding {
                     .fontcolor(X11Color::White);
             }
 
-            if let Some(_priority) = self.queue.get(&node) {
+            match node {
+                Node::Phi(phi) => {
+                    for (arg, pred) in phi.in_nodes().zip(phi.block().in_nodes()) {
+                        label = label.append(format!(
+                            "\nfrom {} use {:?}{}",
+                            pred.node_id(),
+                            self.lookup_val(arg),
+                            if self.lookup(pred).reachable() {
+                                ""
+                            } else {
+                                " [dead]"
+                            }
+                        ));
+                    }
+                }
+                _ => {}
+            }
+
+            if let Some((_node, priority)) = self.queue.get(&node) {
                 label = label.style(Style::Bold);
+                label = label.append(format!("\n{}", priority.topo_order));
             }
 
             label
         });
+    }
 
-        let mut reachable = cur_lattice.reachable
+    fn get_new_id(&self) -> usize {
+        let id = self.obj_id.get();
+        self.obj_id.set(id + 1);
+        id
+    }
+
+    fn update_node(
+        &self,
+        cur_node: Node,
+        cur_lattice: &'_ ConstantFoldingLattice,
+        // TODO maybe Option<Vec<Node>> might improve perf
+    ) -> (ConstantFoldingLattice, Vec<Node>) {
+        self.breakpoint(cur_node);
+
+        let mut reachable = cur_lattice.reachable()
             || if Node::is_block(cur_node) {
-                cur_node.in_nodes().any(|pred| self.lookup(pred).reachable)
+                cur_node
+                    .in_nodes()
+                    .any(|pred| self.lookup(pred).reachable())
                     || cur_node == self.start_block
             } else {
-                self.lookup(cur_node.block().into()).reachable
+                self.lookup(cur_node.block().into()).reachable()
             };
 
-        let mut value = Tarval::bad();
+        let mut deps = vec![];
 
         use self::{Node::*, ProjKind::*};
-        match cur_node {
-            Cond(cond) => {
-                value = self.lookup(cond.selector()).value;
-            }
-            Proj(_, Cond_Val(val, cond)) => {
-                if self.lookup(cond.into()).value.is_bool_val(!val) {
-                    reachable = false;
+        let value = match cur_node {
+            // == Load-Store optimizations ==
+            Proj(_, Start_M(_)) => Val::Heap(Rc::new(Heap::start())),
+
+            Call(call) => {
+                match (self.lookup_val(call.mem()), call.is_new()) {
+                    (Val::Heap(heap), IsNewResult::Yes(class_ty)) => {
+                        let mut heap = (**heap).clone();
+                        let ptr = match cur_lattice.value() {
+                            Val::Tuple(old_ptrs, _) => {
+                                let old_ptr = if let Val::ObjPointers(old_ptrs) = &**old_ptrs {
+                                    old_ptrs.as_single_ignoring_null().unwrap()
+                                } else {
+                                    panic!("unreachable");
+                                };
+                                let ptr = if heap.exists(old_ptr) {
+                                    old_ptr.as_recent()
+                                } else {
+                                    old_ptr
+                                };
+
+                                heap.new_obj(ptr, class_ty);
+
+                                ptr
+                            }
+                            Val::NoInfoYet => {
+                                let ptr = Pointer::new(self.get_new_id());
+                                heap.new_obj(ptr, class_ty);
+                                ptr
+                            }
+                            val => panic!("unexpected value {:?}", val),
+                        };
+                        Val::tuple(Val::ObjPointers(ptr.into()), Val::Heap(Rc::new(heap)))
+                    }
+                    // reset heap if an unknown method is called that could modify arbitrary memory.
+                    (Val::Heap(heap), IsNewResult::No) => {
+                        let mut heap = (&**heap).clone();
+                        heap.reset();
+                        Val::tuple(Val::NonConstant, Val::Heap(Rc::new(heap)))
+                    }
+                    (Val::NoInfoYet, _) => Val::NoInfoYet,
+                    val => panic!("unreachable {:?}", val),
                 }
             }
+            Proj(_, Call_TResult(node)) => self.lookup_val(node.into()).tuple_1().clone(),
+            Proj(_, Call_TResult_Arg(_, _, node)) => self.lookup_val(node.into()).clone(),
+            Proj(_, Call_M(node)) => self.lookup_val(node.into()).tuple_2().clone(),
+
+            Store(store) => match (store.ptr(), self.lookup_val(store.mem())) {
+                (Node::Member(member), Val::Heap(heap)) => {
+                    let field = member.entity();
+                    let ptr = member.ptr();
+                    let ptrs = match &self.lookup_val(ptr) {
+                        Val::ObjPointers(ptrs) => Some(ptrs),
+                        _ => None,
+                    };
+                    let mut heap = (**heap).clone();
+                    let val = self.lookup_val(store.value());
+                    heap.update_field(ptr, ptrs, field, val);
+                    Val::Heap(Rc::new(heap))
+                }
+                (_, heap) => heap.clone(),
+            },
+            Proj(_, Store_M(store)) => self.lookup_val(store.into()).clone(),
+
+            Load(load) => {
+                let heap = &self.lookup_val(load.mem());
+
+                match (load.ptr(), heap) {
+                    (Node::Member(member), Val::Heap(heap)) => {
+                        let field = member.entity();
+                        let ptr = member.ptr();
+                        let ptrs = match &self.lookup_val(ptr) {
+                            Val::ObjPointers(ptrs) => Some(ptrs),
+                            _ => None,
+                        };
+                        let mut heap = (**heap).clone();
+                        let val = heap.lookup_field(ptr, ptrs, field);
+                        Val::tuple(val, Val::Heap(Rc::new(heap)))
+                    }
+                    (_, mem) => Val::tuple(Val::NonConstant, (*mem).clone()),
+                }
+            }
+            Proj(_, Load_Res(node)) => self.lookup_val(node.into()).tuple_1().clone(),
+            Proj(_, Load_M(node)) => self.lookup_val(node.into()).tuple_2().clone(),
+
+            Proj(_, Div_M(node)) => {
+                deps.push(node.mem());
+                self.lookup_val(node.mem()).clone()
+            }
+            Proj(_, Mod_M(node)) => {
+                deps.push(node.mem());
+                self.lookup_val(node.mem()).clone()
+            }
+
+            // == Conditionals ==
+            Cond(cond) => self.lookup_val(cond.selector()).clone(),
+            Proj(_, Cond_Val(val, cond)) => {
+                if let Val::Tarval(tarval) = &self.lookup_val(cond.into()) {
+                    if tarval.is_bool_val(!val) {
+                        reachable = false;
+                    }
+                }
+                Val::NonConstant
+            }
+
+            // == Phi ==
             Phi(phi) => {
-                value = phi.in_nodes().zip(phi.block().in_nodes()).fold(
-                    Tarval::unknown(),
+                phi.in_nodes().zip(phi.block().in_nodes()).fold(
+                    Val::NoInfoYet,
                     |val, (pred, block)| {
                         // only consider reachable blocks for phi inputs
-                        if !self.lookup(block).reachable {
+                        if !self.lookup(block).reachable() {
                             // we must get informed when that block gets reachable
-                            self.deps
-                                .entry(block)
-                                .and_modify(|e| e.push(cur_node))
-                                .or_insert_with(|| vec![cur_node]);
-
+                            deps.push(block);
                             log::debug!(
                                 "{:?} is unreachable, thus {:?} can be ignored",
                                 block,
@@ -244,7 +360,7 @@ impl ConstantFolding {
                             );
                             val
                         } else {
-                            let pred_val = self.lookup(pred).value;
+                            let pred_val = &self.lookup_val(pred);
                             let new_val = val.join(pred_val);
                             log::debug!(
                                 "for {:?}; pred_val: {:?} -> val: {:?}",
@@ -257,25 +373,39 @@ impl ConstantFolding {
                     },
                 )
             }
+
+            // == Value nodes ==
             _ => {
                 if let Ok(value_node) = try_as_value_node(cur_node) {
-                    let values: Vec<_> = value_node
-                        .value_nodes()
-                        .iter()
-                        .map(|n| self.lookup(n.into()).value)
-                        .collect();
-                    value = if values.iter().any(|n| n.is_bad()) {
-                        Tarval::bad()
-                    } else if values.iter().any(|n| n.is_unknown()) {
-                        Tarval::unknown()
+                    let mut tarval_args = vec![];
+                    let mut non_constant = false;
+                    let mut no_info = false;
+                    let mut invalid = false;
+                    for arg in value_node.value_nodes() {
+                        match self.lookup_val(arg.into()) {
+                            Val::NonConstant => non_constant = true,
+                            Val::NoInfoYet => no_info = true,
+                            Val::Tarval(val) => tarval_args.push(*val),
+                            Val::ArrPointers(..)
+                            | Val::ObjPointers(..)
+                            | Val::Heap(..)
+                            | Val::Tuple(..) => invalid = true,
+                        }
+                    }
+                    if non_constant | invalid {
+                        Val::NonConstant
+                    } else if no_info {
+                        Val::NoInfoYet
                     } else {
-                        value_node.compute(values)
-                    };
+                        Val::from_tarval(value_node.compute(tarval_args))
+                    }
+                } else {
+                    Val::NonConstant
                 }
             }
-        }
+        };
 
-        CfLattice { reachable, value }
+        (ConstantFoldingLattice::new(reachable, value), deps)
     }
 
     fn apply(&mut self) -> Outcome {
@@ -286,20 +416,25 @@ impl ConstantFolding {
         let mut to_be_marked_as_bad: Vec<Block> = Vec::new();
 
         for (node, lattice) in values {
-            if !lattice.value.is_constant() {
-                collector.push(Outcome::Unchanged);
-                continue;
-            }
+            let value = match lattice.value() {
+                Val::Tarval(tarval) => tarval,
+                _ => {
+                    collector.push(Outcome::Unchanged);
+                    continue;
+                }
+            };
+
             if Node::is_const(*node) {
                 collector.push(Outcome::Unchanged);
                 continue;
             }
+
             if let Ok(value_node) = try_as_value_node(*node) {
-                let const_node = self.graph.new_const(lattice.value);
-                log::debug!("exchange value {:?} with {:?}", node, lattice.value);
+                let const_node = self.graph.new_const(*value);
+                log::debug!("exchange value {:?} with {:?}", node, value);
                 Graph::exchange_value(value_node, const_node);
                 collector.push(Outcome::Changed);
-            } else if let (Node::Cond(cond), TarvalKind::Bool(val)) = (node, lattice.value.kind()) {
+            } else if let (Node::Cond(cond), TarvalKind::Bool(val)) = (node, value.kind()) {
                 let (always_taken_path, target_block, _target_block_idx) =
                     cond.out_proj_target_block(val).unwrap();
                 let (dead_path, nontarget_block, _nontarget_block_idx) =

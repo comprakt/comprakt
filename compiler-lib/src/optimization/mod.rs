@@ -10,6 +10,7 @@ mod control_flow;
 use self::control_flow::ControlFlow;
 mod remove_critical_edges;
 use self::remove_critical_edges::RemoveCriticalEdges;
+mod lattices;
 
 /// An optimization that optimizes the whole program by examining all function
 /// graphs at once.
