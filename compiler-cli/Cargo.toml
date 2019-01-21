@@ -37,3 +37,4 @@ log = "0.4"
 default = [ "checked_new" ]
 checked_new = [ "mjrt/checked_new" ]
 debugger_gui = [ "compiler-lib/debugger_gui" ]
+debugger_vscode = [ "compiler-lib/debugger_vscode" ]
