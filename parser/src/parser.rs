@@ -4,6 +4,9 @@ pub mod ast;
 mod spantracker;
 
 #[macro_use]
+pub mod visitor;
+
+#[macro_use]
 extern crate derive_more;
 
 use crate::spantracker::*;

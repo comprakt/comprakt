@@ -1,9 +1,10 @@
-use crate::strtab::Symbol;
+use parser::ast;
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt,
     rc::Rc,
 };
+use strtab::Symbol;
 
 #[derive(Debug)]
 pub struct ClassDoesNotExist;
@@ -169,7 +170,7 @@ pub enum BuiltinMethodBody {
     SystemInRead,
 }
 
-pub type Body<'src, 'ast> = crate::asciifile::spanned::Spanned<'src, crate::ast::Block<'src>>;
+pub type Body<'src, 'ast> = asciifile::spanned::Spanned<'src, ast::Block<'src>>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ClassMethodBody<'src, 'ast> {

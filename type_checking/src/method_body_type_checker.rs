@@ -1,11 +1,8 @@
-use super::{checker::*, type_analysis::*, type_system::*};
-use crate::{
-    asciifile::{Span, Spanned},
-    ast,
-    semantics::SemanticError,
-    strtab::Symbol,
-    symtab::*,
-};
+use super::{checker::*, semantics::SemanticError, type_analysis::*, type_system::*};
+use asciifile::{Span, Spanned};
+use parser::ast;
+use strtab::Symbol;
+use symtab::*;
 
 use std::rc::Rc;
 
@@ -187,7 +184,7 @@ where
         &mut self,
         expr: &'ast Spanned<'src, ast::Expr<'src>>,
     ) -> Result<ExprInfo<'src, 'ast>, CouldNotDetermineType> {
-        use crate::ast::Expr::*;
+        use ast::Expr::*;
         match &expr.data {
             Binary(op, lhs, rhs) => self.check_binary_expr(expr.span, *op, lhs, rhs),
             Unary(op, expr) => {
@@ -331,7 +328,7 @@ where
         lhs: &'ast Spanned<'src, ast::Expr<'src>>,
         rhs: &'ast Spanned<'src, ast::Expr<'src>>,
     ) -> Result<ExprInfo<'src, 'ast>, CouldNotDetermineType> {
-        use crate::ast::BinaryOp::*;
+        use ast::BinaryOp::*;
         match op {
             Assign => {
                 let ExprInfo {

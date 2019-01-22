@@ -12,6 +12,7 @@ members = [
     "mjrt",
     "parser",
     "symtab",
+    "type_checking",
     "utils",
     "runner-integration-tests",
     "codegen-integration-tests"

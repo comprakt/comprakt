@@ -25,6 +25,7 @@ memmap = "0.7.0"
 libc = "*"
 termcolor = "1.0.4"
 compiler-lib = { path = "../compiler-lib" }
+parser = { path = "../parser" }
 libfirm-rs = { path = "../libfirm-rs" }
 inspect-ast = { path = "../inspect-ast" }
 tempfile = "3.0"

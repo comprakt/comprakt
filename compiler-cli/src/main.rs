@@ -31,15 +31,15 @@ use compiler_lib::{
         runtime::{self, RTLib},
     },
     lexer::{Lexer, TokenKind},
-    parser::Parser,
     print::{self, lextest},
-    semantics,
     strtab::StringTable,
+    type_checking::semantics,
     OutputSpecification,
 };
 use env_logger;
 use failure::{format_err, Error, Fail, ResultExt};
 use memmap::Mmap;
+use parser::Parser;
 use std::{
     fs::File,
     io::{self, Write},

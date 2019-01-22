@@ -26,16 +26,19 @@ pub mod timing;
 
 #[macro_use]
 extern crate utils;
+pub use utils::ref_eq;
 
 pub use diagnostics;
 
 pub use compiler_shared::context;
 
 pub use lexer;
-pub use parser::{self, ast};
 
 #[macro_use]
-pub mod visitor;
+extern crate parser;
+
+pub use parser::{ast, visitor};
+
 pub mod dot;
 #[macro_use]
 #[allow(dead_code)]
@@ -43,9 +46,7 @@ pub mod debugging;
 pub mod firm;
 pub mod optimization;
 pub mod print;
-mod ref_eq;
-pub mod semantics;
+pub use self::utils::OutputSpecification;
 pub use strtab;
 pub use symtab;
-pub mod type_checking;
-pub use self::utils::OutputSpecification;
+pub use type_checking;

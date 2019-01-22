@@ -1,5 +1,5 @@
-use crate::strtab::StringTable;
 use std::rc::Rc;
+use strtab::StringTable;
 
 use super::{checker::SemanticContext, type_system::*};
 

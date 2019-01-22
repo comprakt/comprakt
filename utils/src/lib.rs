@@ -1,4 +1,5 @@
 pub mod color;
+pub mod ref_eq;
 
 use std::path::PathBuf;
 

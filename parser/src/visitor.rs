@@ -31,10 +31,8 @@
 //!     }
 //! }
 //! ```
-use crate::{
-    asciifile::Spanned,
-    ast::{self, *},
-};
+use super::ast::{self, *};
+use asciifile::Spanned;
 use strum_macros::EnumDiscriminants;
 
 #[strum_discriminants(derive(Display))]
@@ -55,6 +53,7 @@ pub enum NodeKind<'a, 't> {
     UnaryOp(&'a UnaryOp),
 }
 
+#[macro_export]
 macro_rules! gen_nodekind_match {
     ($nodekindvar:expr, $varname:ident => $rhs:expr) => {
         match $nodekindvar {

@@ -1,6 +1,8 @@
 use super::type_system::*;
-use crate::{ast, ref_eq::RefEq, strtab::Symbol};
+use parser::ast;
 use std::collections::HashMap;
+use strtab::Symbol;
+use utils::ref_eq::RefEq;
 
 use std::rc::Rc;
 

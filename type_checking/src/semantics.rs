@@ -1,11 +1,9 @@
-use crate::{
-    asciifile::{MaybeSpanned, Span, Spanned},
-    ast,
-    context::Context,
-    strtab::{self, Symbol},
-    type_checking::{self, type_analysis::TypeAnalysis, type_system::TypeSystem},
-    visitor::NodeKind,
-};
+use super::{type_analysis::TypeAnalysis, type_system::TypeSystem};
+use asciifile::{MaybeSpanned, Span, Spanned};
+use compiler_shared::context::Context;
+use parser::{ast, visitor::NodeKind};
+use strtab::{self, Symbol};
+
 use failure::Fail;
 use std::collections::HashMap;
 
@@ -143,7 +141,7 @@ pub fn check<'a, 'f>(
     if context.diagnostics.errored() {
         return Err(());
     }
-    let res = type_checking::check(strtab, &ast, &context);
+    let res = super::check(strtab, &ast, &context);
     if context.diagnostics.errored() {
         return Err(());
     }
@@ -222,7 +220,7 @@ impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
                 }
 
                 Stmt(stmt) => {
-                    use crate::ast::Expr::*;
+                    use ast::Expr::*;
                     if let ast::Stmt::Expression(expr) = &stmt.data {
                         match &expr.data {
                             Binary(ast::BinaryOp::Assign, _, _)

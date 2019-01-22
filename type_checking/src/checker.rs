@@ -1,11 +1,9 @@
-use crate::{
-    asciifile::{Span, Spanned},
-    ast,
-    context::Context,
-    semantics::SemanticError,
-    strtab::{StringTable, Symbol},
-};
+use crate::semantics::SemanticError;
+use asciifile::{Span, Spanned};
+use compiler_shared::context::Context;
+use parser::ast;
 use std::collections::{HashMap, HashSet};
+use strtab::{StringTable, Symbol};
 
 use super::{
     builtin_types::BuiltinTypes, method_body_type_checker::MethodBodyTypeChecker,
@@ -110,7 +108,7 @@ fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
             .expect("Class def was attached to this class_decl in first pass");
 
         for member in &class_decl.members {
-            use crate::ast::ClassMemberKind::*;
+            use parser::ast::ClassMemberKind::*;
             match &member.kind {
                 Field(ty) => {
                     let field_type =
