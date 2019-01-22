@@ -44,6 +44,6 @@ mod ref_eq;
 pub mod semantics;
 mod spantracker;
 pub mod strtab;
-pub mod symtab;
+pub use symtab;
 pub mod type_checking;
 pub use self::utils::OutputSpecification;

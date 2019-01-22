@@ -7,6 +7,7 @@ members = [
     "libfirm-rs-bindings",
     "libfirm-rs",
     "mjrt",
+    "symtab",
     "runner-integration-tests",
     "codegen-integration-tests"
 ]
