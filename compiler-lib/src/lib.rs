@@ -20,7 +20,7 @@
 extern crate derive_more;
 
 mod analysis;
-pub mod asciifile;
+pub use asciifile;
 pub mod backend;
 pub mod timing;
 #[macro_use]
