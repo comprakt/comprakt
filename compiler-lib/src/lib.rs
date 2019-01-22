@@ -32,8 +32,8 @@ pub use diagnostics;
 pub use compiler_shared::context;
 
 pub use lexer;
-pub mod ast;
-pub mod parser;
+pub use parser::{self, ast};
+
 #[macro_use]
 pub mod visitor;
 pub mod dot;
@@ -45,7 +45,6 @@ pub mod optimization;
 pub mod print;
 mod ref_eq;
 pub mod semantics;
-mod spantracker;
 pub use strtab;
 pub use symtab;
 pub mod type_checking;

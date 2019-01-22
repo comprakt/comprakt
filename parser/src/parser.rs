@@ -1,13 +1,18 @@
-use crate::{
-    asciifile::{
-        MaybeSpanned::{self, *},
-        Span, Spanned,
-    },
-    ast,
-    lexer::{IntLit, Keyword, Operator, Token, TokenKind},
-    spantracker::*,
-    strtab::Symbol,
+#![feature(box_syntax)]
+
+pub mod ast;
+mod spantracker;
+
+#[macro_use]
+extern crate derive_more;
+
+use crate::spantracker::*;
+use asciifile::{
+    MaybeSpanned::{self, *},
+    Span, Spanned,
 };
+use lexer::{IntLit, Keyword, Operator, Token, TokenKind};
+use strtab::Symbol;
 
 use failure::Fail;
 use itertools::Itertools;

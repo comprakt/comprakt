@@ -1,0 +1,28 @@
+[package]
+name = "parser"
+version = "0.1.0"
+authors = [
+    "flip1995 <>",
+    "hediet <>",
+    "joshuabach <>",
+    "problame <>",
+    "reiner-dolp <>"
+]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+[lib]
+path = "src/parser.rs"
+
+[dependencies]
+failure = "0.1.3"
+#compiler-shared = { path = "../compiler-shared" }
+utils = { path = "../utils" }
+asciifile = { path = "../asciifile" }
+strtab = { path = "../strtab" }
+#diagnostics = { path = "../diagnostics" }
+lexer = { path = "../lexer" }
+derive_more = "0.13"
+strum = "0.11.0"
+strum_macros = "0.11.0"
+itertools = "0.7"

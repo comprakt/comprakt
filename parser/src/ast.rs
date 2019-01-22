@@ -1,4 +1,6 @@
-use crate::{asciifile::Spanned, lexer::IntLit, strtab::Symbol};
+use asciifile::Spanned;
+use lexer::IntLit;
+use strtab::Symbol;
 use strum_macros::EnumDiscriminants;
 
 #[strum_discriminants(derive(Display))]
@@ -233,14 +235,14 @@ impl<'f> ClassMemberKind<'f> {
     }
 }
 
-impl std::cmp::PartialOrd for ClassMember<'_> {
-    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
-        Some(crate::print::pretty::compare_class_member(self, rhs))
-    }
-}
+// impl std::cmp::PartialOrd for ClassMember<'_> {
+//     fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
+//         Some(crate::print::pretty::compare_class_member(self, rhs))
+//     }
+// }
 
-impl std::cmp::Ord for ClassMember<'_> {
-    fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
-        crate::print::pretty::compare_class_member(self, rhs)
-    }
-}
+// impl std::cmp::Ord for ClassMember<'_> {
+//     fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
+//         crate::print::pretty::compare_class_member(self, rhs)
+//     }
+// }

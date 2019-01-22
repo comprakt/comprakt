@@ -18,6 +18,7 @@ asciifile = { path = "../asciifile" }
 symtab = { path = "../symtab" }
 strtab = { path = "../strtab" }
 lexer = { path = "../lexer" }
+parser = { path = "../parser" }
 utils = { path = "../utils" }
 failure = "0.1.3"
 termcolor = "1.0.4"
