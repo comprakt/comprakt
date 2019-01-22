@@ -1,11 +1,15 @@
-use crate::{
-    asciifile::{Position, PositionIterator, Span, Spanned},
-    context::Context,
-    diagnostics::u8_to_printable_representation,
-    strtab::*,
-};
+#![feature(try_from)]
+
+#[macro_use]
+extern crate derive_more;
+
+use asciifile::{Position, PositionIterator, Span, Spanned};
+use compiler_shared::context::Context;
+use diagnostics::u8_to_printable_representation;
 use failure::Fail;
 use std::{convert::TryFrom, fmt, result::Result};
+use strtab::*;
+use utils::*;
 
 macro_rules! match_op {
     ($input:expr, $( ($token_string:expr, $token:expr) ),+: $len:expr, $default:expr) => {{

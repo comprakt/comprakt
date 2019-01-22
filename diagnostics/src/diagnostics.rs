@@ -4,13 +4,11 @@
 //!
 //! This implementation is NOT thread-safe. Messages from different threads may
 //! be interleaved.
-use crate::{
-    asciifile::{MaybeSpanned, Span, Spanned},
-    color::ColorOutput,
-};
+use asciifile::{MaybeSpanned, Span, Spanned};
 use failure::Error;
 use std::{ascii::escape_default, cell::RefCell, collections::HashMap, fmt::Display};
 use termcolor::{Color, WriteColor};
+use utils::color::ColorOutput;
 
 pub fn u8_to_printable_representation(byte: u8) -> String {
     let bytes = escape_default(byte).collect::<Vec<u8>>();

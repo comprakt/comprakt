@@ -1,0 +1,24 @@
+[package]
+name = "lexer"
+version = "0.1.0"
+authors = [
+    "flip1995 <>",
+    "hediet <>",
+    "joshuabach <>",
+    "problame <>",
+    "reiner-dolp <>"
+]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+[lib]
+path = "src/lexer.rs"
+
+[dependencies]
+failure = "0.1.3"
+compiler-shared = { path = "../compiler-shared" }
+utils = { path = "../utils" }
+asciifile = { path = "../asciifile" }
+strtab = { path = "../strtab" }
+diagnostics = { path = "../diagnostics" }
+derive_more = "0.13"

@@ -1,5 +1,6 @@
 //! All state shared by the lexer, parser and semantic analysis phases.
-use crate::{asciifile::AsciiFile, diagnostics::Diagnostics};
+use asciifile::AsciiFile;
+use diagnostics::Diagnostics;
 use termcolor::WriteColor;
 
 pub struct Context<'m> {

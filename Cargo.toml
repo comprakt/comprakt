@@ -3,11 +3,15 @@ members = [
     "asciifile",
     "compiler-lib",
     "compiler-cli",
+    "compiler-shared",
+    "diagnostics",
     "inspect-ast",
+    "lexer",
     "libfirm-rs-bindings",
     "libfirm-rs",
     "mjrt",
     "symtab",
+    "utils",
     "runner-integration-tests",
     "codegen-integration-tests"
 ]

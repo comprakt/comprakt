@@ -23,13 +23,16 @@ mod analysis;
 pub use asciifile;
 pub mod backend;
 pub mod timing;
+
 #[macro_use]
-mod utils;
+extern crate utils;
+
+pub use diagnostics;
+
+pub use compiler_shared::context;
+
+pub use lexer;
 pub mod ast;
-mod color;
-pub mod context;
-pub mod diagnostics;
-pub mod lexer;
 pub mod parser;
 #[macro_use]
 pub mod visitor;
@@ -43,7 +46,7 @@ pub mod print;
 mod ref_eq;
 pub mod semantics;
 mod spantracker;
-pub mod strtab;
+pub use strtab;
 pub use symtab;
 pub mod type_checking;
 pub use self::utils::OutputSpecification;

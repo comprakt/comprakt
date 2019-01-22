@@ -1,0 +1,19 @@
+[package]
+name = "strtab"
+version = "0.1.0"
+authors = [
+    "flip1995 <>",
+    "hediet <>",
+    "joshuabach <>",
+    "problame <>",
+    "reiner-dolp <>"
+]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+[lib]
+path = "src/strtab.rs"
+
+[dependencies]
+failure = "0.1.3"
+

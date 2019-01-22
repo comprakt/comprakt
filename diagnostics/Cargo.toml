@@ -1,0 +1,21 @@
+[package]
+name = "diagnostics"
+version = "0.1.0"
+authors = [
+    "flip1995 <>",
+    "hediet <>",
+    "joshuabach <>",
+    "problame <>",
+    "reiner-dolp <>"
+]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+[lib]
+path = "src/diagnostics.rs"
+
+[dependencies]
+failure = "0.1.3"
+termcolor = "1.0.4"
+utils = { path = "../utils" }
+asciifile = { path = "../asciifile" }
