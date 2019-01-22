@@ -204,6 +204,7 @@
 <span id="204">204</span>
 <span id="205">205</span>
 <span id="206">206</span>
+<span id="207">207</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">firm</span>::<span class="ident">FirmProgram</span>, <span class="ident">timing</span>::<span class="ident">Measurement</span>};
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">bindings</span>, <span class="ident">Graph</span>};
@@ -217,6 +218,7 @@
 <span class="kw">use</span> <span class="self">self</span>::<span class="ident">control_flow</span>::<span class="ident">ControlFlow</span>;
 <span class="kw">mod</span> <span class="ident">remove_critical_edges</span>;
 <span class="kw">use</span> <span class="self">self</span>::<span class="ident">remove_critical_edges</span>::<span class="ident">RemoveCriticalEdges</span>;
+<span class="kw">mod</span> <span class="ident">lattices</span>;
 
 <span class="doccomment">/// An optimization that optimizes the whole program by examining all function</span>
 <span class="doccomment">/// graphs at once.</span>

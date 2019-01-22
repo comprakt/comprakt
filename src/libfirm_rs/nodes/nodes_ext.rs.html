@@ -555,36 +555,13 @@
 <span id="555">555</span>
 <span id="556">556</span>
 <span id="557">557</span>
-<span id="558">558</span>
-<span id="559">559</span>
-<span id="560">560</span>
-<span id="561">561</span>
-<span id="562">562</span>
-<span id="563">563</span>
-<span id="564">564</span>
-<span id="565">565</span>
-<span id="566">566</span>
-<span id="567">567</span>
-<span id="568">568</span>
-<span id="569">569</span>
-<span id="570">570</span>
-<span id="571">571</span>
-<span id="572">572</span>
-<span id="573">573</span>
-<span id="574">574</span>
-<span id="575">575</span>
-<span id="576">576</span>
-<span id="577">577</span>
-<span id="578">578</span>
-<span id="579">579</span>
-<span id="580">580</span>
-<span id="581">581</span>
-<span id="582">582</span>
-<span id="583">583</span>
-<span id="584">584</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">nodes_gen</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">bindings</span>, <span class="ident">Entity</span>, <span class="ident">Graph</span>, <span class="ident">Mode</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">bindings</span>,
+    <span class="ident">types</span>::{<span class="ident">ClassTy</span>, <span class="ident">Ty</span>},
+    <span class="ident">Entity</span>, <span class="ident">Graph</span>, <span class="ident">Mode</span>,
+};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fmt</span>,
     <span class="ident">hash</span>::{<span class="ident">Hash</span>, <span class="ident">Hasher</span>},
@@ -602,64 +579,6 @@
 }
 
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">Node</span> {}
-
-<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">generate_iterator</span> {
-    (
-        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">iter_name</span>: <span class="ident">ident</span>,
-        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len_fn</span>: <span class="ident">ident</span>,
-        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">node_name</span>: <span class="ident">ident</span>,
-        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">idx_name</span>: <span class="ident">ident</span>,
-        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">idx_type</span>: <span class="ident">ty</span>,
-        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">result_expr</span>: <span class="ident">expr</span>,
-        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">result_type</span>: <span class="ident">ty</span>,
-    ) <span class="op">=&gt;</span> {
-        <span class="kw">pub</span> <span class="kw">struct</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">iter_name</span> {
-            <span class="ident">node</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>,
-            <span class="ident">cur</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">idx_type</span>,
-            <span class="ident">len</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">idx_type</span>,
-        }
-
-        <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">iter_name</span> {
-            <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">node</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-                <span class="self">Self</span> {
-                    <span class="ident">node</span>,
-                    <span class="ident">len</span>: <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="macro-nonterminal">$</span><span class="macro-nonterminal">len_fn</span>(<span class="ident">node</span>) },
-                    <span class="ident">cur</span>: <span class="number">0</span>,
-                }
-            }
-
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">idx</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">idx_name</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">idx_type</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">result_type</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> (<span class="number">0</span>..<span class="self">self</span>.<span class="ident">len</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">idx_name</span>) {
-                    <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">node_name</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">node</span>;
-                    <span class="macro-nonterminal">$</span><span class="macro-nonterminal">result_expr</span>
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">None</span>
-                }
-            }
-        }
-
-        <span class="kw">impl</span> <span class="ident">Iterator</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">iter_name</span> {
-            <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">result_type</span>;
-
-            <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">result_type</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">cur</span> <span class="op">==</span> <span class="self">self</span>.<span class="ident">len</span> {
-                    <span class="prelude-val">None</span>
-                } <span class="kw">else</span> {
-                    <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">idx_name</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">cur</span>;
-                    <span class="self">self</span>.<span class="ident">cur</span> <span class="op">+=</span> <span class="number">1</span>;
-                    <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">node_name</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">node</span>;
-                    <span class="macro-nonterminal">$</span><span class="macro-nonterminal">result_expr</span>
-                }
-            }
-        }
-
-        <span class="kw">impl</span> <span class="ident">ExactSizeIterator</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">iter_name</span> {
-            <span class="kw">fn</span> <span class="ident">len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
-                <span class="self">self</span>.<span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>
-            }
-        }
-    };
-}
 
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">linked_list_iterator</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">iter_name</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">item</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">head_fn</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">next_fn</span>: <span class="ident">ident</span>) <span class="op">=&gt;</span> {
@@ -704,13 +623,14 @@
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">iter_name</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len_fn</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">get_fn</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">idx_type</span>: <span class="ident">ty</span>) <span class="op">=&gt;</span> {
         <span class="macro">generate_iterator</span><span class="macro">!</span>(
             <span class="macro-nonterminal">$</span><span class="macro-nonterminal">iter_name</span>,
+            <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>,
             <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len_fn</span>,
             <span class="ident">node</span>,
             <span class="ident">idx</span>,
             <span class="macro-nonterminal">$</span><span class="macro-nonterminal">idx_type</span>,
             {
                 <span class="kw">let</span> <span class="ident">out</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="macro-nonterminal">$</span><span class="macro-nonterminal">get_fn</span>(<span class="ident">node</span>, <span class="ident">idx</span>) };
-                <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">out</span>))
+                <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">out</span>)
             },
             <span class="ident">Node</span>,
         );
@@ -799,6 +719,7 @@
 
 <span class="macro">generate_iterator</span><span class="macro">!</span>(
     <span class="ident">OutNodeExIterator</span>,
+    <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>,
     <span class="ident">get_irn_n_outs</span>,
     <span class="ident">node</span>,
     <span class="ident">idx</span>,
@@ -806,7 +727,7 @@
     {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">in_pos</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">let</span> <span class="ident">out</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_irn_out_ex</span>(<span class="ident">node</span>, <span class="ident">idx</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">in_pos</span>) };
-        <span class="prelude-val">Some</span>((<span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">out</span>), <span class="ident">in_pos</span>))
+        (<span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">out</span>), <span class="ident">in_pos</span>)
     },
     (<span class="ident">Node</span>, <span class="ident">i32</span>),
 );
@@ -1019,13 +940,38 @@
     }
 }
 
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">IsNewResult</span> {
+    <span class="ident">Yes</span>(<span class="ident">ClassTy</span>),
+    <span class="ident">No</span>,
+}
+
 <span class="kw">impl</span> <span class="ident">Call</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">args</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">CallArgsIterator</span> {
         <span class="ident">CallArgsIterator</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
     }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_new</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">IsNewResult</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">addr</span>) <span class="op">=</span> <span class="ident">Node</span>::<span class="ident">as_address</span>(<span class="self">self</span>.<span class="ident">ptr</span>()) {
+            <span class="kw">if</span> <span class="ident">addr</span>.<span class="ident">entity</span>().<span class="ident">name_string</span>() <span class="op">==</span> <span class="string">&quot;mjrt_new&quot;</span> {
+                <span class="kw">let</span> <span class="ident">first_arg</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">args</span>().<span class="ident">idx</span>(<span class="number">0</span>);
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Size</span>(<span class="ident">size_node</span>)) <span class="op">=</span> <span class="ident">first_arg</span> {
+                    <span class="kw">let</span> <span class="ident">class_ty</span> <span class="op">=</span> <span class="ident">ClassTy</span>::<span class="ident">from</span>(<span class="ident">size_node</span>.<span class="ident">ty</span>()).<span class="ident">unwrap</span>();
+                    <span class="kw">return</span> <span class="ident">IsNewResult</span>::<span class="ident">Yes</span>(<span class="ident">class_ty</span>);
+                }
+            }
+        }
+        <span class="ident">IsNewResult</span>::<span class="ident">No</span>
+    }
 }
 
 <span class="macro">simple_node_iterator</span><span class="macro">!</span>(<span class="ident">CallArgsIterator</span>, <span class="ident">get_Call_n_params</span>, <span class="ident">get_Call_param</span>, <span class="ident">i32</span>);
+
+<span class="kw">impl</span> <span class="ident">Size</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
+        <span class="kw">unsafe</span> { <span class="ident">Ty</span>::<span class="ident">from_ir_type</span>(<span class="ident">bindings</span>::<span class="ident">get_Size_type</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())) }
+    }
+}
 
 <span class="comment">// = Debug fmt =</span>
 

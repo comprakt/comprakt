@@ -226,14 +226,54 @@
 <span id="226">226</span>
 <span id="227">227</span>
 <span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">Mode</span>;
+<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Entity</span>, <span class="ident">Mode</span>};
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CString</span>;
+<span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">ffi</span>::{<span class="ident">CStr</span>, <span class="ident">CString</span>},
+    <span class="ident">fmt</span>,
+};
 
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">gen_e</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>; $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">var</span>:<span class="ident">ident</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>:<span class="ident">ident</span>)),<span class="kw-2">*</span>) <span class="op">=&gt;</span> {
-        <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+        <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
         <span class="kw">pub</span> <span class="kw">enum</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
             $(
                 <span class="macro-nonterminal">$</span><span class="macro-nonterminal">var</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>),
@@ -249,7 +289,7 @@
         }
 
         $(
-            <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+            <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
             <span class="kw">pub</span> <span class="kw">struct</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_type</span>);
             <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
                 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">ty</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
@@ -399,7 +439,41 @@
             <span class="ident">bindings</span>::<span class="ident">default_layout_compound_type</span>(<span class="self">self</span>.<span class="number">0</span>);
         }
     }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fields</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Entity</span><span class="op">&gt;</span> {
+        <span class="ident">MemberIterator</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">ir_type</span>()).<span class="ident">filter</span>(<span class="op">|</span><span class="ident">entity</span><span class="op">|</span> <span class="ident">MethodTy</span>::<span class="ident">from</span>(<span class="ident">entity</span>.<span class="ident">ty</span>()).<span class="ident">is_none</span>())
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">idx_of_field</span>(<span class="self">self</span>, <span class="ident">field</span>: <span class="ident">Entity</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_class_member_index</span>(<span class="self">self</span>.<span class="ident">ir_type</span>(), <span class="ident">field</span>.<span class="ident">ir_entity</span>()) }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">name</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">CStr</span> {
+        <span class="comment">// or get_compound_ident</span>
+        <span class="kw">unsafe</span> { <span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">bindings</span>::<span class="ident">get_compound_name</span>(<span class="self">self</span>.<span class="ident">ir_type</span>())) }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">name_string</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">String</span> {
+        <span class="self">self</span>.<span class="ident">name</span>().<span class="ident">to_string_lossy</span>().<span class="ident">into_owned</span>()
+    }
 }
+
+<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">ClassTy</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="ident">name_string</span>())
+    }
+}
+
+<span class="macro">generate_iterator</span><span class="macro">!</span>(
+    <span class="ident">MemberIterator</span>,
+    <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_type</span>,
+    <span class="ident">get_class_n_members</span>,
+    <span class="ident">ty</span>,
+    <span class="ident">idx</span>,
+    <span class="ident">usize</span>,
+    <span class="kw">unsafe</span> { <span class="ident">Entity</span>::<span class="ident">new</span>(<span class="ident">bindings</span>::<span class="ident">get_class_member</span>(<span class="ident">ty</span>, <span class="ident">idx</span>)) },
+    <span class="ident">Entity</span>,
+);
 
 <span class="doccomment">/// Builder for new_type_method</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
