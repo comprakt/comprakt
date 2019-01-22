@@ -76,7 +76,7 @@ impl Dot<Node> for Graph {
         T: LabelMaker<Node>,
     {
         let mut list = Vec::new();
-        self.walk_topological(|node| {
+        self.walk(|node| {
             list.push(*node);
         });
         self.assure_outs();

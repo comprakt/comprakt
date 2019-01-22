@@ -1,10 +1,13 @@
-use super::Mode;
+use super::{Entity, Mode};
 use libfirm_rs_bindings as bindings;
-use std::ffi::CString;
+use std::{
+    ffi::{CStr, CString},
+    fmt,
+};
 
 macro_rules! gen_e {
     ($name:ident; $($var:ident($ty:ident)),*) => {
-        #[derive(Clone, Copy)]
+        #[derive(Clone, Copy, PartialEq, Eq)]
         pub enum $name {
             $(
                 $var($ty),
@@ -20,7 +23,7 @@ macro_rules! gen_e {
         }
 
         $(
-            #[derive(Clone, Copy)]
+            #[derive(Clone, Copy, PartialEq, Eq)]
             pub struct $ty(*mut bindings::ir_type);
             impl $ty {
                 pub fn from(ty: $name) -> Option<Self> {
@@ -170,7 +173,41 @@ impl ClassTy {
             bindings::default_layout_compound_type(self.0);
         }
     }
+
+    pub fn fields(self) -> impl Iterator<Item = Entity> {
+        MemberIterator::new(self.ir_type()).filter(|entity| MethodTy::from(entity.ty()).is_none())
+    }
+
+    pub fn idx_of_field(self, field: Entity) -> usize {
+        unsafe { bindings::get_class_member_index(self.ir_type(), field.ir_entity()) }
+    }
+
+    pub fn name(self) -> &'static CStr {
+        // or get_compound_ident
+        unsafe { CStr::from_ptr(bindings::get_compound_name(self.ir_type())) }
+    }
+
+    pub fn name_string(self) -> String {
+        self.name().to_string_lossy().into_owned()
+    }
 }
+
+impl fmt::Debug for ClassTy {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name_string())
+    }
+}
+
+generate_iterator!(
+    MemberIterator,
+    *mut bindings::ir_type,
+    get_class_n_members,
+    ty,
+    idx,
+    usize,
+    unsafe { Entity::new(bindings::get_class_member(ty, idx)) },
+    Entity,
+);
 
 /// Builder for new_type_method
 #[derive(Default)]
