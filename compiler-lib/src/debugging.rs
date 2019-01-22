@@ -63,36 +63,108 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-#[cfg(feature = "debugger_gui")]
+#[cfg(any(feature = "debugger_gui", feature = "debugger_vscode"))]
 #[macro_export]
 macro_rules! breakpoint {
     ($label:expr, $prog:expr) => {{
         use crate::dot::GraphData;
-        crate::debugging::pause(
-            crate::debugging::Breakpoint {
-                label: $label.to_string(),
-                line: line!(),
-                column: column!(),
-                file: file!(),
-            },
-            $prog.graph_data(&crate::dot::default_label),
-        );
+        if cfg!(feature = "debugger_vscode") {
+            crate::debugging::show(
+                crate::debugging::Breakpoint {
+                    label: $label.to_string(),
+                    line: line!(),
+                    column: column!(),
+                    file: file!(),
+                },
+                $prog.graph_data(&crate::dot::default_label),
+            );
+        } else {
+            crate::debugging::pause(
+                crate::debugging::Breakpoint {
+                    label: $label.to_string(),
+                    line: line!(),
+                    column: column!(),
+                    file: file!(),
+                },
+                $prog.graph_data(&crate::dot::default_label),
+            );
+        }
     }};
     ($label:expr, $prog:expr, $labels:expr) => {{
         use crate::dot::GraphData;
-        crate::debugging::pause(
-            crate::debugging::Breakpoint {
-                label: $label.to_string(),
-                line: line!(),
-                column: column!(),
-                file: file!(),
-            },
-            $prog.graph_data($labels),
-        );
+        if cfg!(feature = "debugger_vscode") {
+            crate::debugging::show(
+                crate::debugging::Breakpoint {
+                    label: $label.to_string(),
+                    line: line!(),
+                    column: column!(),
+                    file: file!(),
+                },
+                $prog.graph_data($labels),
+            );
+        } else {
+            crate::debugging::pause(
+                crate::debugging::Breakpoint {
+                    label: $label.to_string(),
+                    line: line!(),
+                    column: column!(),
+                    file: file!(),
+                },
+                $prog.graph_data($labels),
+            );
+        }
     }};
 }
 
-#[cfg(not(feature = "debugger_gui"))]
+lazy_static::lazy_static! {
+    static ref LAST_PROG: Mutex<DebuggingHistory>
+        = Mutex::new(DebuggingHistory { items: Vec::new() });
+
+}
+
+struct DebuggingHistory {
+    items: Vec<HashMap<String, GraphState>>,
+}
+
+/// A function where you can place a breakpoint in your debugger
+#[allow(unused_variables)]
+pub fn show(breakpoint: Breakpoint, program: HashMap<String, GraphState>) {
+    if program.len() == 0 {
+        // to get these methods generated so that they can be used for debugging
+        get_all_graph_data();
+        get_last_graph_data();
+    }
+    let mut history = LAST_PROG.lock().unwrap();
+    history.items.push(program);
+}
+
+/// use for debugging
+pub fn get_all_graph_data() -> String {
+    let history = LAST_PROG.lock().unwrap();
+    let mut result = "".to_owned();
+
+    for map in &history.items {
+        for (_name, graph) in map.iter() {
+            result += "---------------------------";
+            result += &graph.dot_content;
+            break;
+        }
+    }
+    result
+}
+
+/// use for debugging
+pub fn get_last_graph_data() -> String {
+    let history = LAST_PROG.lock().unwrap();
+    if let Some(map) = &history.items.last() {
+        for (_name, graph) in map.iter() {
+            return graph.dot_content.clone();
+        }
+    }
+    "None".to_owned()
+}
+
+#[cfg(not(any(feature = "debugger_gui", feature = "debugger_vscode")))]
 #[macro_export]
 macro_rules! breakpoint {
     ($label:expr, $prog:expr) => {{
@@ -225,6 +297,12 @@ impl Default for BreakpointFilters {
     fn default() -> Self {
         let mut filters = BreakpointFilters::new();
 
+        if let Ok(text) = std::env::var("DISABLE_GUI") {
+            if text.trim() == "1" {
+                filters.add(Filter::All);
+            }
+        }
+
         if let Ok(labels) = std::env::var("FILTER_BREAKPOINT_LABEL") {
             for label in labels.split(',') {
                 if label.trim() == "" {
@@ -283,6 +361,7 @@ enum Filter {
     Location { file: String, line: u32 },
     Label { name: String },
     Graph { name: String },
+    All,
 }
 
 impl Filter {
@@ -303,6 +382,7 @@ impl Filter {
             Filter::Location { file, line } => breakpoint.line == *line && breakpoint.file == *file,
             Filter::Graph { name } => program.values().any(|graph| graph.name == *name),
             Filter::Label { name } => breakpoint.label == *name,
+            Filter::All => true,
         }
     }
 }

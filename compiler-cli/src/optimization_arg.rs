@@ -36,7 +36,7 @@ fn parse_flag(s: &str) -> Result<optimization::Flag, ParseError> {
     match s.to_ascii_lowercase().as_str() {
         "d" | "vcg" => Ok(optimization::Flag::DumpVcg),
         "g" | "gui" => {
-            if cfg!(feature = "debugger_gui") {
+            if cfg!(feature = "debugger_gui") || cfg!(feature = "debugger_vscode") {
                 Ok(optimization::Flag::Gui)
             } else {
                 Err(ParseError::NoDebuggerSupport {

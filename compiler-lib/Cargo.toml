@@ -48,3 +48,4 @@ default = [ ]
 # among other things, is used to implement the `gui`
 # flag in custom optimization sequences.
 debugger_gui = [ ]
+debugger_vscode = [ ]
