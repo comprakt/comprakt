@@ -38,7 +38,7 @@ impl Pointer {
 
 impl fmt::Debug for Pointer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "🆕{}{}", self.p, if self.recent { "r" } else { "" })
+        write!(f, "#{}{}", self.p, if self.recent { "r" } else { "" })
     }
 }
 
