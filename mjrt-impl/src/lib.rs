@@ -76,7 +76,10 @@ pub extern "C" fn mjrt_system_in_read() -> MjInt {
 #[no_mangle]
 pub extern "C" fn mjrt_system_out_println(num: MjInt) {
     unsafe {
-        libc::printf(CStr::from_bytes_with_nul_unchecked(b"%d\n\0").as_ptr(), num);
+        libc::printf(
+            CStr::from_bytes_with_nul_unchecked(b"%d\n\0").as_ptr(),
+            num as i32,
+        );
     }
 }
 
