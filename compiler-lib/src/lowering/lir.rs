@@ -1100,11 +1100,8 @@ impl MultiSlotBuilder {
         assert!(self.allocated_in.regs.len() >= self.num);
         assert!(self.allocated_in.regs.len() <= self.num + 1);
 
-        {
-            let is_duplicate = self.slots.iter().any(|slot| slot.firm == value);
-
-            // assert!(!is_duplicate);
-        }
+        // let is_duplicate = self.slots.iter().any(|slot| slot.firm == value);
+        // assert!(!is_duplicate);
 
         let slot = ValueSlot {
             num: self.num,

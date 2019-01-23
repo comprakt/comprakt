@@ -12,7 +12,8 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub(super) enum Instruction {
-    Call(FunctionCall),
+    // Clippy wants this boxed
+    Call(Box<FunctionCall>),
     Lir(lir::Instruction),
     Mov {
         src: lir::CopyPropagationSrc,
@@ -178,7 +179,7 @@ impl LiveVariableAnalysis {
                 | "mjrt_array_out_of_bounds" => unimplemented!(),
                 _ => self.cconv,
             };
-            Instruction::Call(FunctionCall::new(cconv, instr))
+            Instruction::Call(box FunctionCall::new(cconv, instr))
         } else {
             Instruction::Lir(instr.clone())
         }

@@ -441,8 +441,8 @@ impl Node {
 
 type RegGraph = HashMap<Amd64Reg, Node>;
 
-/// This is a greedy cycle removal algorithm from "Graph Drawing: Algorithms for the Visualization
-/// of Graphs" by Eades et al.
+/// This is a greedy cycle removal algorithm from "Graph Drawing: Algorithms for
+/// the Visualization of Graphs" by Eades et al.
 // TODO(flip1995): comment what it does
 fn gen_node_list_with_min_left_edges(reg_graph: &mut RegGraph) -> VecDeque<Node> {
     let mut l_nodes = VecDeque::new();
@@ -501,8 +501,7 @@ fn gen_node_list_with_min_left_edges(reg_graph: &mut RegGraph) -> VecDeque<Node>
                     node.outs
                         .iter()
                         .filter(|reg| !visited.contains(reg))
-                        .collect::<Vec<_>>()
-                        .len()
+                        .count()
                         - if node.in_.is_some() { 1 } else { 0 }
                 })
                 .cloned()
