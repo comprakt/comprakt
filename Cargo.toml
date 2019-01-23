@@ -1,11 +1,21 @@
 [workspace]
 members = [
+    "asciifile",
     "compiler-lib",
     "compiler-cli",
+    "compiler-shared",
+    "debugging",
+    "diagnostics",
+    "firm-construction",
     "inspect-ast",
+    "lexer",
     "libfirm-rs-bindings",
     "libfirm-rs",
     "mjrt",
+    "parser",
+    "symtab",
+    "type_checking",
+    "utils",
     "runner-integration-tests",
     "codegen-integration-tests"
 ]

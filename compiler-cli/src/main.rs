@@ -30,16 +30,16 @@ use compiler_lib::{
         self,
         runtime::{self, RTLib},
     },
-    lexer::{Lexer, TokenKind},
-    parser::Parser,
-    print::{self, lextest},
-    semantics,
+    lexer::{lextest, Lexer, TokenKind},
+    print,
     strtab::StringTable,
+    type_checking::semantics,
     OutputSpecification,
 };
 use env_logger;
 use failure::{format_err, Error, Fail, ResultExt};
 use memmap::Mmap;
+use parser::Parser;
 use std::{
     fs::File,
     io::{self, Write},
@@ -396,7 +396,7 @@ macro_rules! compile_command_common {
 
         let mut $bingen = BinaryGenerator::new(&binary_path)?;
 
-        let mut $firm_ctx = firm::FirmContext::build(
+        let mut $firm_ctx = compiler_lib::FirmContext::build(
             &pre_be_opts.dump_folder,
             &type_system,
             &type_analysis,

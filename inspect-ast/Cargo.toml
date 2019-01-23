@@ -11,3 +11,4 @@ regex = "1.0"
 termcolor = "1.0"
 
 compiler-lib = { path = "../compiler-lib" }
+parser = { path = "../parser" }
