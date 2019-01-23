@@ -230,11 +230,11 @@ pub enum Instruction {
     },
     StoreMem {
         src: Operand,
-        dst: AddressComputation<Operand>,
+        dst: AddressOperand<Ptr<MultiSlot>>,
         size: u32,
     },
     LoadMem {
-        src: AddressComputation<Operand>,
+        src: AddressOperand<Ptr<MultiSlot>>,
         dst: Ptr<MultiSlot>,
         size: u32,
     },
@@ -271,6 +271,52 @@ impl fmt::Debug for Instruction {
                 }
                 Ok(())
             }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum AddressOperand<Reg: Copy> {
+    RegisterRelativeOffset {
+        base: Reg,
+        offset: i32,
+    },
+    Scaled {
+        base: Reg,
+        index: Reg,
+        stride: Stride,
+        offset: i32,
+    },
+}
+
+impl<Op: Display + Copy> std::fmt::Display for AddressOperand<Op> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AddressOperand::RegisterRelativeOffset { base, offset } => {
+                write!(fmt, "{}({})", offset, base)
+            }
+            AddressOperand::Scaled {
+                base,
+                index,
+                stride,
+                offset,
+            } => write!(fmt, "{}({},{},{})", offset, base, index, stride),
+        }
+    }
+}
+
+impl std::fmt::Display for AddressOperand<Ptr<MultiSlot>> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AddressOperand::RegisterRelativeOffset { base, offset } => {
+                write!(fmt, "{:?}({:?})", offset, base)
+            }
+            AddressOperand::Scaled {
+                base,
+                index,
+                stride,
+                offset,
+            } => write!(fmt, "{}({:?},{:?},{})", offset, base, index, stride),
         }
     }
 }
@@ -312,6 +358,19 @@ pub enum Stride {
     Four,
     #[display(fmt = "8")]
     Eight,
+}
+
+impl std::convert::TryFrom<u32> for Stride {
+    type Error = ();
+    fn try_from(u: u32) -> Result<Self, Self::Error> {
+        Ok(match u {
+            1 => Stride::One,
+            2 => Stride::Two,
+            4 => Stride::Four,
+            8 => Stride::Eight,
+            _ => return Err(()),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

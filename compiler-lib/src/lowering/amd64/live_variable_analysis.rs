@@ -209,29 +209,12 @@ impl Instruction {
                 }
                 Unop { src, .. } | Conv { src, .. } => vec![*src],
                 Call { .. } => vec![], // already converted
-                StoreMem {
-                    src,
-                    dst: lir::AddressComputation { base, index, .. },
-                    ..
-                } => {
-                    let mut ops = vec![*src, *base];
-                    match index {
-                        lir::IndexComputation::Zero => (),
-                        lir::IndexComputation::Displacement(op, _) => ops.push(*op),
-                    }
+                StoreMem { src, dst, .. } => {
+                    let mut ops = vec![*src];
+                    ops.extend(Self::address_computation_operands(dst));
                     ops
                 }
-                LoadMem {
-                    src: lir::AddressComputation { base, index, .. },
-                    ..
-                } => {
-                    let mut ops = vec![*base];
-                    match index {
-                        lir::IndexComputation::Zero => (),
-                        lir::IndexComputation::Displacement(op, _) => ops.push(*op),
-                    }
-                    ops
-                }
+                LoadMem { src, .. } => Self::address_computation_operands(src),
                 Comment(_) => vec![],
             },
             Instruction::Mov { src, .. } => vec![(*src).into()],
@@ -256,6 +239,20 @@ impl Instruction {
                 } => vec![*value],
                 Jmp { .. } | Return { value: None, .. } => vec![],
             },
+        }
+    }
+
+    fn address_computation_operands(ac: &lir::AddressOperand<Ptr<MultiSlot>>) -> Vec<lir::Operand> {
+        match ac {
+            lir::AddressOperand::RegisterRelativeOffset { base, offset } => {
+                vec![lir::Operand::Slot(*base)]
+            }
+            lir::AddressOperand::Scaled {
+                base,
+                index,
+                offset,
+                stride,
+            } => vec![lir::Operand::Slot(*base), lir::Operand::Slot(*index)],
         }
     }
 

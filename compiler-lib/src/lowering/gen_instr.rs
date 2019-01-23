@@ -508,13 +508,13 @@ impl GenInstrBlock {
                 self.mark_computed(node, Computed::Value(dst_slot));
             }
             Node::Load(load) => {
-                let (src, size) = self.gen_address_computation(load.ptr());
+                let (src, size) = self.gen_address_computation(load.ptr(), alloc);
                 let dst = self.gen_dst_slot(block, node, alloc);
                 self.code.body.push(Instruction::LoadMem { src, dst, size });
             }
             Node::Store(store) => {
                 let src = self.gen_operand_jit(store.value());
-                let (dst, size) = self.gen_address_computation(store.ptr());
+                let (dst, size) = self.gen_address_computation(store.ptr(), alloc);
                 self.code
                     .body
                     .push(Instruction::StoreMem { src, dst, size });
@@ -536,58 +536,80 @@ impl GenInstrBlock {
         }
     }
 
-    fn gen_address_computation(&self, node: Node) -> (AddressComputation<Operand>, u32) {
-        match node {
+    fn gen_address_computation(
+        &self,
+        member_or_sel: Node,
+        alloc: &Allocator,
+    ) -> (AddressOperand<Ptr<MultiSlot>>, u32) {
+        let (base, offset, size) = match member_or_sel {
             Node::Member(member) => {
                 let base = self.gen_operand_jit(member.ptr());
-                let index = IndexComputation::Zero;
-                let offset = member.entity().offset() as isize;
-                let member_size = member.entity().ty().size();
-
-                (
-                    AddressComputation {
-                        offset,
-                        base,
-                        index,
-                    },
-                    member_size,
-                )
+                let offset = member.entity().offset() as i64;
+                let member_size = member.entity().ty().size() as u32;
+                (base, offset, member_size)
             }
             Node::Sel(sel) => {
                 let base = self.gen_operand_jit(sel.ptr());
-                let elem_ty = if let Ty::Array(arr) = sel.ty() {
-                    arr.element_type()
-                } else {
-                    unreachable!("Sel has always ArrayTy");
+                let elem_size = {
+                    let elem_ty = if let Ty::Array(arr) = sel.ty() {
+                        arr.element_type()
+                    } else {
+                        unreachable!("Sel has always ArrayTy");
+                    };
+                    elem_ty.size()
                 };
-                let elem_size = elem_ty.size();
-
-                let index = if elem_size == 0 {
-                    IndexComputation::Zero
-                } else {
-                    let idx = self.gen_operand_jit(sel.index());
-                    IndexComputation::Displacement(
-                        idx,
-                        match elem_size {
-                            1 => Stride::One,
-                            2 => Stride::Two,
-                            4 => Stride::Four,
-                            8 => Stride::Eight,
-                            _ => unreachable!("Unexpected element size: {}", elem_size),
-                        },
-                    )
+                debug_assert!(elem_size > 0, "fix 0-sized types in frontend");
+                let elem_size = elem_size as u32;
+                let idx = self.gen_operand_jit(sel.index());
+                let idx = match (base, idx) {
+                    (_, Operand::Imm(tv)) => {
+                        assert!(tv.is_long());
+                        tv.get_long()
+                    }
+                    (_, Operand::Param { .. }) => unimplemented!(), // TODO ???
+                    (Operand::Imm(_), _) => unimplemented!(),
+                    (Operand::Param { .. }, Operand::Slot(_)) => unimplemented!(),
+                    (Operand::Slot(base), Operand::Slot(index)) => {
+                        let stride = elem_size
+                            .try_into()
+                            // This expectation is correct for MiniJava, albeit
+                            // not in general, for example if we had structs as
+                            // raw elements inside arrays.
+                            .expect("array data type must be stridable");
+                        let aop = AddressOperand::Scaled {
+                            base,
+                            index,
+                            stride,
+                            offset: 0,
+                        };
+                        return (aop, elem_size);
+                    }
                 };
-
-                (
-                    AddressComputation {
-                        offset: 0,
-                        base,
-                        index,
-                    },
-                    elem_size,
-                )
+                assert!(idx >= 0);
+                let idx = idx as i64;
+                let offset = elem_size as i64 * idx;
+                (base, offset, elem_size)
             }
-            _ => unreachable!("Load/Store nodes only have Sel and Member nodes as input"),
-        }
+            x => panic!(
+                "address computation only works for member and sel nodes, got {:?}",
+                x
+            ),
+        };
+
+        let operand = match (base, offset) {
+            (Operand::Imm(_), _) => unimplemented!(),       // lea
+            (Operand::Param { .. }, _) => unimplemented!(), // TODO ??? LoadParam!!!
+            (Operand::Slot(slot), offset) => {
+                if offset > i32::min_value().into() && offset < i32::max_value().into() {
+                    let offset = offset as i32;
+                    AddressOperand::RegisterRelativeOffset { base: slot, offset }
+                } else {
+                    // TODO allocate value slot for index and do scaled
+                    unimplemented!()
+                }
+            }
+        };
+
+        (operand, size)
     }
 }

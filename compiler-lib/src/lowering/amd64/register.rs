@@ -192,6 +192,10 @@ impl Amd64Reg {
             | _ => None,
         }
     }
+
+    pub fn all() -> impl Iterator<Item = Self> {
+        (0..16).into_iter().map(|i| Self::try_from(i).unwrap())
+    }
 }
 
 pub(super) struct RegisterAllocator {

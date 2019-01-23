@@ -1,7 +1,7 @@
 use super::{
     function,
     linear_scan::{self, Location},
-    lir::{self, MultiSlot},
+    lir::{self, AddressOperand, MultiSlot},
     live_variable_analysis,
     register::{Amd64Reg, Amd64RegByte, Amd64RegDouble},
     var_id, CallingConv, VarId,
@@ -163,10 +163,9 @@ impl Codegen {
                 });
                 instrs.push(Mov(MovInstruction {
                     src: SrcOperand::Reg(Amd64Reg::arg(i)),
-                    dst: DstOperand::Mem(lir::AddressComputation {
-                        offset: -((*idx + self.num_saved_regs) as isize) * 8,
+                    dst: DstOperand::Mem(lir::AddressOperand::RegisterRelativeOffset {
+                        offset: -((*idx + self.num_saved_regs) as i32) * 8,
                         base: Amd64Reg::Rbp,
-                        index: lir::IndexComputation::Zero,
                     }),
                     size: 8,
                 }));
@@ -286,28 +285,172 @@ impl Codegen {
                 instrs.push(Mov(MovInstruction { src, dst, size: 8 }))
             }
             lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
+
             lir::Instruction::StoreMem { src, dst, size } => {
-                let src = self.lir_to_src_operand(*src, instrs);
-                self.gen_load_store(instrs, dst, src.reg(), None, |addr| {
-                    Mov(MovInstruction {
-                        src,
-                        dst: DstOperand::Mem(addr),
-                        size: *size,
-                    })
-                })
+                // nearly duped from LoadMem
+
+                let src: SrcOperand = self.lir_to_src_operand(*src, instrs);
+
+                // convert AddressOperand to dst operand
+                macro_rules! slot_to_operand {
+                    ( $ptr_multi_slot:expr ) => {{
+                        let lirop = lir::Operand::Slot($ptr_multi_slot);
+                        let x = self.lir_to_src_operand(lirop, instrs).try_into().unwrap();
+                        //factors.push(x);
+                        match x {
+                            DstOperand::Reg(reg) => reg,
+                            _ => panic!("expecting register allocation to allocate reg"),
+                        }
+                    }};
+                }
+                let dst: AddressOperand<Amd64Reg> = match *dst {
+                    AddressOperand::RegisterRelativeOffset { base, offset } => {
+                        let base = slot_to_operand!(base);
+                        AddressOperand::RegisterRelativeOffset { base, offset }
+                    }
+                    AddressOperand::Scaled {
+                        base,
+                        index,
+                        stride,
+                        offset,
+                    } => {
+                        let base = slot_to_operand!(base);
+                        let index = slot_to_operand!(index);
+                        AddressOperand::Scaled {
+                            base,
+                            index,
+                            stride,
+                            offset,
+                        }
+                    }
+                };
+                // factors must be in registers for x86 reg-relative addressing
+                // the following situation is very unlikely, but because codegen
+                // happens after register allocation, and because we do not have a way
+                // to require registers for certain lir::Operand::Slot(_) (FIXME @flip1995 )
+                // this situation can happen
+                // let (factor_regs, factor_notyetregs) = factors.partition(|factor| match
+                // factor {     SrcOperand::Reg(_) => true,
+                //     _ => false,
+                // });
+                // let mut free_regs =
+                //     Amd64Reg::all().filter(|reg| factor_regs.iter().find(reg).is_none());
+                // let mut spills: Vec<(Amd64Reg> = vec![];
+                // for factor in &factor_notyetregs {
+                //     let slot = match factor {
+                //         SrcOperand::Reg(_) => unreachable!(),
+                //         SrcOperand::Imm(_) => unreachable!(),
+                //         SrcOperand::Mem(slot) => slot,
+                //     };
+                //     let
+                //     spills.push(free_regsfactor,
+                // }
+                instrs.push(Mov(MovInstruction {
+                    dst: DstOperand::Mem(dst),
+                    src,
+                    size: *size,
+                }));
+
+                // let dst: DstOperand = self
+                //     .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
+                //     .try_into()
+                //     .unwrap();
+                // self.gen_load_store(instrs, src, None, dst.reg(), |addr| {
+                //     Mov(MovInstruction {
+                //         src: SrcOperand::Mem(addr),
+                //         dst,
+                //         size: *size,
+                //     })
+                // })
+
+                unimplemented!()
+                // let src = self.lir_to_src_operand(*src, instrs);
+                // self.gen_load_store(instrs, dst, src.reg(), None, |addr| {
+                //     Mov(MovInstruction {
+                //         src,
+                //         dst: DstOperand::Mem(addr),
+                //         size: *size,
+                //     })
+                // })
             }
             lir::Instruction::LoadMem { src, dst, size } => {
                 let dst: DstOperand = self
                     .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
                     .try_into()
                     .unwrap();
-                self.gen_load_store(instrs, src, None, dst.reg(), |addr| {
-                    Mov(MovInstruction {
-                        src: SrcOperand::Mem(addr),
-                        dst,
-                        size: *size,
-                    })
-                })
+
+                // convert AddressOperand to src operand
+                // let mut factors = vec![];
+                macro_rules! slot_to_operand {
+                    ( $ptr_multi_slot:expr ) => {{
+                        let lirop = lir::Operand::Slot($ptr_multi_slot);
+                        let x = self.lir_to_src_operand(lirop, instrs);
+                        //factors.push(x);
+                        match x {
+                            SrcOperand::Reg(reg) => reg,
+                            _ => panic!("expecting register allocation to allocate reg"),
+                        }
+                    }};
+                }
+                let src = match *src {
+                    AddressOperand::RegisterRelativeOffset { base, offset } => {
+                        let base = slot_to_operand!(base);
+                        AddressOperand::RegisterRelativeOffset { base, offset }
+                    }
+                    AddressOperand::Scaled {
+                        base,
+                        index,
+                        stride,
+                        offset,
+                    } => {
+                        let base = slot_to_operand!(base);
+                        let index = slot_to_operand!(index);
+                        AddressOperand::Scaled {
+                            base,
+                            index,
+                            stride,
+                            offset,
+                        }
+                    }
+                };
+                // factors must be in registers for x86 reg-relative addressing
+                // the following situation is very unlikely, but because codegen
+                // happens after register allocation, and because we do not have a way
+                // to require registers for certain lir::Operand::Slot(_) (FIXME @flip1995 )
+                // this situation can happen
+                // let (factor_regs, factor_notyetregs) = factors.partition(|factor| match
+                // factor {     SrcOperand::Reg(_) => true,
+                //     _ => false,
+                // });
+                // let mut free_regs =
+                //     Amd64Reg::all().filter(|reg| factor_regs.iter().find(reg).is_none());
+                // let mut spills: Vec<(Amd64Reg> = vec![];
+                // for factor in &factor_notyetregs {
+                //     let slot = match factor {
+                //         SrcOperand::Reg(_) => unreachable!(),
+                //         SrcOperand::Imm(_) => unreachable!(),
+                //         SrcOperand::Mem(slot) => slot,
+                //     };
+                //     let
+                //     spills.push(free_regsfactor,
+                // }
+                instrs.push(Mov(MovInstruction {
+                    src: SrcOperand::Mem(src),
+                    dst,
+                    size: *size,
+                }));
+
+                // let dst: DstOperand = self
+                //     .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
+                //     .try_into()
+                //     .unwrap();
+                // self.gen_load_store(instrs, src, None, dst.reg(), |addr| {
+                //     Mov(MovInstruction {
+                //         src: SrcOperand::Mem(addr),
+                //         dst,
+                //         size: *size,
+                //     })
+                // })
             }
             lir::Instruction::Call { .. } => unreachable!("Call already converted"),
             lir::Instruction::Comment(_) => (),
@@ -625,100 +768,100 @@ impl Codegen {
         }
     }
 
-    fn gen_load_store<F>(
-        &mut self,
-        instrs: &mut Vec<Instruction>,
-        addr: &lir::AddressComputation<lir::Operand>,
-        src_reg: Option<Amd64Reg>,
-        dst_reg: Option<Amd64Reg>,
-        f: F,
-    ) where
-        F: FnOnce(lir::AddressComputation<Amd64Reg>) -> Instruction,
-    {
-        use self::Instruction::{Mov, Popq, Pushq};
+    // fn gen_load_store<F>(
+    //     &mut self,
+    //     instrs: &mut Vec<Instruction>,
+    //     addr: &lir::AddressOperand,
+    //     src_reg: Option<Amd64Reg>,
+    //     dst_reg: Option<Amd64Reg>,
+    //     f: F,
+    // ) where
+    //     F: FnOnce(lir::AddressComputation<Amd64Reg>) -> Instruction,
+    // {
+    //     use self::Instruction::{Mov, Popq, Pushq};
 
-        debug_assert!(!(src_reg.is_some() && dst_reg.is_some()));
-        // when dst is rdx or rax, we don't need to spill the respective register,
-        // because it is overidden anyway
-        let (dst_is_rdx, dst_is_rax) = dst_reg.map_or((false, false), |reg| match reg {
-            Amd64Reg::Rdx => (true, false),
-            Amd64Reg::Rax => (false, true),
-            _ => (false, false),
-        });
-        let (base_spill_reg, index_spill_reg) =
-            src_reg.map_or((Amd64Reg::Rax, Amd64Reg::Rdx), |reg| match reg {
-                Amd64Reg::Rdx => (Amd64Reg::Rax, Amd64Reg::Rsi),
-                Amd64Reg::Rax => (Amd64Reg::Rsi, Amd64Reg::Rdx),
-                _ => (Amd64Reg::Rax, Amd64Reg::Rdx),
-            });
+    //     debug_assert!(!(src_reg.is_some() && dst_reg.is_some()));
+    //     // when dst is rdx or rax, we don't need to spill the respective
+    // register,     // because it is overidden anyway
+    //     let (dst_is_rdx, dst_is_rax) = dst_reg.map_or((false, false), |reg| match
+    // reg {         Amd64Reg::Rdx => (true, false),
+    //         Amd64Reg::Rax => (false, true),
+    //         _ => (false, false),
+    //     });
+    //     let (base_spill_reg, index_spill_reg) =
+    //         src_reg.map_or((Amd64Reg::Rax, Amd64Reg::Rdx), |reg| match reg {
+    //             Amd64Reg::Rdx => (Amd64Reg::Rax, Amd64Reg::Rsi),
+    //             Amd64Reg::Rax => (Amd64Reg::Rsi, Amd64Reg::Rdx),
+    //             _ => (Amd64Reg::Rax, Amd64Reg::Rdx),
+    //         });
 
-        let lir::AddressComputation {
-            offset,
-            base,
-            index,
-        } = addr;
-        let base = self.lir_to_src_operand(*base, instrs);
-        let (base, base_new_reg) = match base {
-            SrcOperand::Reg(reg) => (reg, false),
-            _ => {
-                if !dst_is_rax {
-                    instrs.push(Pushq {
-                        src: SrcOperand::Reg(base_spill_reg),
-                    });
-                }
-                instrs.push(Mov(MovInstruction {
-                    src: base,
-                    dst: DstOperand::Reg(base_spill_reg),
-                    size: 8,
-                }));
-                // Recover rax, iff dst is not rax
-                (base_spill_reg, !dst_is_rax)
-            }
-        };
-        let (index, index_new_reg) = match index {
-            lir::IndexComputation::Zero => (lir::IndexComputation::Zero, false),
-            lir::IndexComputation::Displacement(op, s) => {
-                let op = self.lir_to_src_operand(*op, instrs);
-                match op {
-                    SrcOperand::Reg(reg) => (lir::IndexComputation::Displacement(reg, *s), false),
-                    _ => {
-                        if !dst_is_rdx {
-                            instrs.push(Pushq {
-                                src: SrcOperand::Reg(index_spill_reg),
-                            });
-                        }
-                        instrs.push(Mov(MovInstruction {
-                            src: op,
-                            dst: DstOperand::Reg(index_spill_reg),
-                            size: 8,
-                        }));
-                        // Recover rdx, iff dst is not rdx
-                        (
-                            lir::IndexComputation::Displacement(index_spill_reg, *s),
-                            !dst_is_rdx,
-                        )
-                    }
-                }
-            }
-        };
+    //     let lir::AddressComputation {
+    //         offset,
+    //         base,
+    //         index,
+    //     } = addr;
+    //     let base = self.lir_to_src_operand(*base, instrs);
+    //     let (base, base_new_reg) = match base {
+    //         SrcOperand::Reg(reg) => (reg, false),
+    //         _ => {
+    //             if !dst_is_rax {
+    //                 instrs.push(Pushq {
+    //                     src: SrcOperand::Reg(base_spill_reg),
+    //                 });
+    //             }
+    //             instrs.push(Mov(MovInstruction {
+    //                 src: base,
+    //                 dst: DstOperand::Reg(base_spill_reg),
+    //                 size: 8,
+    //             }));
+    //             // Recover rax, iff dst is not rax
+    //             (base_spill_reg, !dst_is_rax)
+    //         }
+    //     };
+    //     let (index, index_new_reg) = match index {
+    //         lir::IndexComputation::Zero => (lir::IndexComputation::Zero, false),
+    //         lir::IndexComputation::Displacement(op, s) => {
+    //             let op = self.lir_to_src_operand(*op, instrs);
+    //             match op {
+    //                 SrcOperand::Reg(reg) =>
+    // (lir::IndexComputation::Displacement(reg, *s), false),                 _
+    // => {                     if !dst_is_rdx {
+    //                         instrs.push(Pushq {
+    //                             src: SrcOperand::Reg(index_spill_reg),
+    //                         });
+    //                     }
+    //                     instrs.push(Mov(MovInstruction {
+    //                         src: op,
+    //                         dst: DstOperand::Reg(index_spill_reg),
+    //                         size: 8,
+    //                     }));
+    //                     // Recover rdx, iff dst is not rdx
+    //                     (
+    //                         lir::IndexComputation::Displacement(index_spill_reg,
+    // *s),                         !dst_is_rdx,
+    //                     )
+    //                 }
+    //             }
+    //         }
+    //     };
 
-        instrs.push(f(lir::AddressComputation {
-            offset: *offset,
-            base,
-            index,
-        }));
+    //     instrs.push(f(lir::AddressComputation {
+    //         offset: *offset,
+    //         base,
+    //         index,
+    //     }));
 
-        if base_new_reg {
-            instrs.push(Popq {
-                dst: DstOperand::Reg(Amd64Reg::Rax),
-            });
-        }
-        if index_new_reg {
-            instrs.push(Popq {
-                dst: DstOperand::Reg(Amd64Reg::Rdx),
-            });
-        }
-    }
+    //     if base_new_reg {
+    //         instrs.push(Popq {
+    //             dst: DstOperand::Reg(Amd64Reg::Rax),
+    //         });
+    //     }
+    //     if index_new_reg {
+    //         instrs.push(Popq {
+    //             dst: DstOperand::Reg(Amd64Reg::Rdx),
+    //         });
+    //     }
+    // }
 
     fn gen_call(&mut self, call: &function::FunctionCall, instrs: &mut Vec<Instruction>) {
         use self::Instruction::{Addq, Call, Comment, Mov, Popq, Pushq};
@@ -936,11 +1079,12 @@ impl Codegen {
             lir::Operand::Imm(c) => SrcOperand::Imm(c),
             lir::Operand::Slot(_) => match self.var_location[&var_id(op)] {
                 Location::Reg(reg) => SrcOperand::Reg(reg),
-                Location::Mem(idx) => SrcOperand::Mem(lir::AddressComputation {
-                    offset: -((idx + self.num_saved_regs) as isize) * 8,
-                    base: Amd64Reg::Rbp,
-                    index: lir::IndexComputation::Zero,
-                }),
+                Location::Mem(idx) => {
+                    SrcOperand::Mem(lir::AddressOperand::RegisterRelativeOffset {
+                        offset: -((idx + self.num_saved_regs) as i32) * 8,
+                        base: Amd64Reg::Rbp,
+                    })
+                }
                 Location::ParamMem => unreachable!("a slot never has a ParamMem location"),
             },
             lir::Operand::Param { idx } => match self.var_location[&var_id(op)] {
@@ -954,16 +1098,18 @@ impl Codegen {
                 }
                 // This can happen when the param was originally in a register but got moved on
                 // the stack.
-                Location::Mem(idx) => SrcOperand::Mem(lir::AddressComputation {
-                    offset: -((idx + self.num_saved_regs) as isize) * 8,
-                    base: Amd64Reg::Rbp,
-                    index: lir::IndexComputation::Zero,
-                }),
-                Location::ParamMem => SrcOperand::Mem(lir::AddressComputation {
-                    offset: (idx as isize) * 8,
-                    base: Amd64Reg::Rbp,
-                    index: lir::IndexComputation::Zero,
-                }),
+                Location::Mem(idx) => {
+                    SrcOperand::Mem(lir::AddressOperand::RegisterRelativeOffset {
+                        offset: -((idx + self.num_saved_regs) as i32) * 8,
+                        base: Amd64Reg::Rbp,
+                    })
+                }
+                Location::ParamMem => {
+                    SrcOperand::Mem(lir::AddressOperand::RegisterRelativeOffset {
+                        offset: (idx as i32) * 8,
+                        base: Amd64Reg::Rbp,
+                    })
+                }
             },
         }
     }
@@ -983,12 +1129,11 @@ impl Codegen {
         if idx < self.cconv.num_arg_regs() {
             return None;
         }
-        let offset = ((idx + 1).checked_sub(self.cconv.num_arg_regs()).unwrap() * 8 + 8) as isize;
+        let offset = ((idx + 1).checked_sub(self.cconv.num_arg_regs()).unwrap() * 8 + 8) as i32;
         Some(Instruction::Mov(MovInstruction {
-            src: SrcOperand::Mem(lir::AddressComputation {
+            src: SrcOperand::Mem(lir::AddressOperand::RegisterRelativeOffset {
                 offset,
                 base: Amd64Reg::Rbp,
-                index: lir::IndexComputation::Zero,
             }),
             dst,
             size: 8,
@@ -1102,7 +1247,7 @@ impl fmt::Display for MovInstruction {
 
 #[derive(Copy, Clone)]
 pub(super) enum SrcOperand {
-    Mem(lir::AddressComputation<Amd64Reg>),
+    Mem(lir::AddressOperand<Amd64Reg>),
     Reg(Amd64Reg),
     Imm(Tarval),
 }
@@ -1119,7 +1264,7 @@ impl SrcOperand {
 
 #[derive(Copy, Clone)]
 pub(super) enum DstOperand {
-    Mem(lir::AddressComputation<Amd64Reg>),
+    Mem(lir::AddressOperand<Amd64Reg>),
     Reg(Amd64Reg),
 }
 
