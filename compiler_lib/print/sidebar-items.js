@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["lextest",""],["pretty",""],["structure",""]]});
+initSidebarItems({"mod":[["pretty",""],["structure",""]]});

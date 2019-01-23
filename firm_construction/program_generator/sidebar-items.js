@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ProgramGenerator",""],["Spans","This struct is only for debugging."]]});

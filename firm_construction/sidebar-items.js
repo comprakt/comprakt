@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["FirmError",""]],"mod":[["ast",""],["firm_program",""],["method_body_generator",""],["program_generator",""],["ref_eq",""],["runtime",""]],"struct":[["Options","Enable or disable behaviour during the lowering phase"]]});

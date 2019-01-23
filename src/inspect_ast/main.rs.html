@@ -359,15 +359,15 @@
     <span class="ident">ast</span>::{<span class="self">self</span>, <span class="ident">Expr</span>},
     <span class="ident">context</span>::{<span class="self">self</span>, <span class="ident">Context</span>},
     <span class="ident">lexer</span>::{<span class="ident">Lexer</span>, <span class="ident">TokenKind</span>},
-    <span class="ident">parser</span>::<span class="ident">Parser</span>,
-    <span class="ident">semantics</span>,
     <span class="ident">strtab</span>::<span class="ident">StringTable</span>,
     <span class="ident">type_checking</span>::{
+        <span class="ident">semantics</span>,
         <span class="ident">type_analysis</span>::{<span class="ident">ExprInfo</span>, <span class="ident">RefInfo</span>, <span class="ident">TypeAnalysis</span>},
         <span class="ident">type_system</span>::<span class="ident">CheckedType</span>,
     },
     <span class="ident">visitor</span>::<span class="ident">NodeKind</span>,
 };
+<span class="kw">use</span> <span class="ident">parser</span>::<span class="ident">Parser</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Fail</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CliError</span> {

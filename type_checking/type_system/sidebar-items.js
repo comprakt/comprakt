@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["BuiltinMethodBody",""],["CheckedType",""],["ClassMethodBody",""]],"struct":[["ClassAlreadyDeclared",""],["ClassDef",""],["ClassDefId","A `ClassDefId` refers to a class definition."],["ClassDoesNotExist",""],["ClassFieldDef",""],["ClassMethodDef",""],["MethodParamDef",""],["TypeSystem",""]],"type":[["Body",""]]});
