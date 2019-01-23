@@ -16,6 +16,7 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{self, BufReader},
     path::PathBuf,
+    process::Command,
     time::{Duration, SystemTime},
 };
 use structopt::StructOpt;
@@ -48,7 +49,8 @@ fn big_tests() -> Vec<BigTest> {
                     stdin.pop();
                     stdin.push(stem);
                     // set new extension
-                    stdin.set_extension("inputc");
+                    // TODO: support multiple input files
+                    stdin.set_extension("0.inputc");
                     log::debug!("looking for stdin file at {}", stdin.display());
                     if stdin.is_file() {
                         Some(stdin)
@@ -71,11 +73,12 @@ fn big_tests() -> Vec<BigTest> {
 fn profile_compiler(
     test: &BigTest,
     optimizations: optimization::Level,
-) -> Option<CompilerMeasurements> {
+) -> Option<(PathBuf, CompilerMeasurements)> {
+    let outpath = test.minijava.with_extension("benchmark.out");
     let mut cmd = compiler_call(
         CompilerCall::RawCompiler(CompilerPhase::BinaryLibfirm {
             // TODO: use temp dir, don't trash
-            output: test.minijava.with_extension("out"),
+            output: outpath.clone(),
             assembly: None,
             optimizations,
         }),
@@ -112,7 +115,7 @@ fn profile_compiler(
     let stats_reader = BufReader::new(stats_file);
     let profile = serde_json::from_reader(stats_reader).unwrap();
     log::debug!("Stats:\n{}", AsciiDisp(&profile));
-    Some(profile)
+    Some((outpath, profile))
 }
 
 #[derive(StructOpt)]
@@ -162,10 +165,14 @@ fn main() {
         }
 
         let mut bench = Benchmark::new(big_test.minijava.clone());
+        let mut out = None;
 
         for _ in 0..opts.samples {
-            if let Some(timings) = profile_compiler(big_test, opts.opt_level.clone().into()) {
+            if let Some((outbinary, timings)) =
+                profile_compiler(big_test, opts.opt_level.clone().into())
+            {
                 bench.add(&timings);
+                out = Some(outbinary);
             }
         }
 
@@ -180,6 +187,47 @@ fn main() {
         println!("{}\n", bench);
 
         bench.write_to_disk();
+
+        if let (Ok(cmd_str), Some(binary_path)) = (
+            if big_test.stdin.is_some() {
+                std::env::var("COMPILED_PROGRAM_BENCHMARK_WITH_STDIN")
+            } else {
+                std::env::var("COMPILED_PROGRAM_BENCHMARK")
+            },
+            out,
+        ) {
+            let cmd_str = cmd_str.replace("BINARY_PATH", binary_path.as_path().to_str().unwrap());
+
+            let cmd_str = if let Some(stdin_file) = &big_test.stdin {
+                cmd_str.replace(
+                    "INPUT_PATH",
+                    &stdin_file.as_path().to_str().unwrap().to_owned(),
+                )
+            } else {
+                cmd_str
+            };
+
+            let pieces = shell_words::split(&cmd_str).expect("invalid program benchmark command");
+            let (prog, args) = pieces.split_at(1);
+
+            let mut cmd = Command::new(&prog[0]);
+            cmd.args(args);
+
+            log::debug!("Benchmarking generated binary using: {:?}", cmd);
+
+            match cmd.status() {
+                Ok(status) if status.success() => {}
+                Ok(status) => {
+                    log::error!(
+                        "binary benchmark failed with non-zero exit code: {:?}",
+                        status
+                    );
+                }
+                Err(msg) => {
+                    log::error!("binary benchmark crash {:?}", msg);
+                }
+            }
+        }
     }
 }
 
@@ -241,7 +289,7 @@ impl Benchmark {
     }
 
     fn filename(&self) -> PathBuf {
-        self.file.with_extension(".benchmark.json")
+        self.file.with_extension("benchmark.json")
     }
 
     fn write_to_disk(&self) {

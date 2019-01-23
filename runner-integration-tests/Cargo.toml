@@ -24,3 +24,4 @@ env_logger = "0.6"
 # for benchmarking
 streaming-stats = "0.2"
 humantime = "1.2.0"
+shell-words = "0.1.0"
