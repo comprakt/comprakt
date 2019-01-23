@@ -1,14 +1,14 @@
 use super::{
     codegen::{self, Codegen},
     linear_scan,
-    live_variable_analysis::LiveVariableAnalysis,
+    live_variable_analysis::{self, LiveVariableAnalysis},
     register::RegisterAllocator,
     var_id, Amd64Reg, CallingConv, VarId,
 };
 use crate::lowering::{lir, lir_allocator::Ptr};
 use interval::{ops::Range, Interval};
 use libfirm_rs::Tarval;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
 /// SaveRegList stores a list of registers to be saved before
 /// and restored after a function call.
@@ -49,6 +49,7 @@ type Label = String;
 pub(super) enum FnInstruction {
     Movq { src: FnOperand, dst: FnOperand },
     Pushq { src: FnOperand },
+    Popq { dst: FnOperand },
     Addq { src: Tarval, dst: Amd64Reg },
     Subq { src: Tarval, dst: Amd64Reg },
     Leave,
@@ -74,7 +75,12 @@ impl std::fmt::Display for FnOperand {
 pub(super) struct FunctionCall {
     /// Arguments to save before & restore after call.
     pub(super) saved_regs: SaveRegList<Amd64Reg>,
-    /// Put the parameters where they belong
+    /// List of parameters that will be passed in registers
+    pub(super) reg_setup: Vec<lir::Operand>,
+    /// List of parameters that need to be pushed on the stack
+    pub(super) push_setup: VecDeque<lir::Operand>,
+    /// Setup code generated after the register allocator assigned locations to
+    /// the args in `reg_setup` and `push_setup`
     pub(super) setup: Vec<FnInstruction>,
     /// Call label
     pub(super) label: Label,
@@ -88,78 +94,114 @@ impl FunctionCall {
     pub(super) fn new(cconv: CallingConv, call_instr: &lir::Instruction) -> Self {
         let mut call = Self::default();
 
-        match cconv {
-            CallingConv::X86_64 => call.setup_x86_64_cconv(call_instr),
-            CallingConv::Stack => call.setup_stack_cconv(call_instr),
+        if let lir::Instruction::Call { func, args, dst } = call_instr {
+            call.label = func.clone();
+
+            for (i, arg) in args.iter().enumerate() {
+                if i < cconv.num_arg_regs() {
+                    // Fill the function argument registers
+                    call.reg_setup.push(*arg);
+                } else {
+                    // Push the other args on the stack
+                    call.push_setup.push_front(*arg);
+                }
+            }
+
+            if !call.push_setup.is_empty() {
+                // Remove the pushed args from stack after the call
+                call.recover = Some(FnInstruction::Addq {
+                    src: Tarval::mj_int((call.push_setup.len() * 8) as i64),
+                    dst: Amd64Reg::Rsp,
+                });
+            }
+
+            call.move_res = dst.map(|dst| FnInstruction::Movq {
+                src: FnOperand::Reg(Amd64Reg::Rax),
+                dst: FnOperand::Lir(lir::Operand::Slot(dst)),
+            });
+        } else {
+            unreachable!("A FunctionCall can only be setup for a Call instruction")
         }
 
         call
     }
 
-    fn setup_x86_64_cconv(&mut self, call: &lir::Instruction) {
-        if let lir::Instruction::Call { func, args, dst } = call {
-            self.label = func.clone();
+    fn gen_setup(&mut self, var_location: &HashMap<VarId, linear_scan::Location>) {
+        for op in &self.push_setup {
+            self.setup.push(FnInstruction::Pushq {
+                src: FnOperand::Lir(*op),
+            });
+        }
 
-            let mut push_setup = vec![];
-            for (i, arg) in args.iter().enumerate() {
-                if i < CallingConv::X86_64.num_arg_regs() {
-                    // Fill the function argument registers
+        debug_assert!(self.reg_setup.len() <= 6);
+
+        let mut reg_graph = HashMap::new();
+
+        for (i, op) in self.reg_setup.iter().enumerate() {
+            match op {
+                lir::Operand::Imm(_) => self.setup.push(FnInstruction::Movq {
+                    src: FnOperand::Lir(*op),
+                    dst: FnOperand::Reg(Amd64Reg::arg(i)),
+                }),
+                _ => {
+                    match var_location.get(&var_id(*op)).unwrap() {
+                        linear_scan::Location::Reg(reg) => {
+                            let arg_reg = Amd64Reg::arg(i);
+                            // If the argument already has the correct register assigned we don't
+                            // need to add the 1-cycle, since every argument register node has
+                            // exactly one incoming edge.
+                            if *reg != arg_reg {
+                                let reg_node = Node::new(*reg);
+                                let arg_node = Node::new(arg_reg);
+                                reg_graph
+                                    .entry(*reg)
+                                    .or_insert(reg_node)
+                                    .add_out_edge(arg_reg);
+                                reg_graph
+                                    .entry(arg_reg)
+                                    .or_insert(arg_node)
+                                    .set_in_edge(*reg);
+                            }
+                        }
+                        _ => self.setup.push(FnInstruction::Movq {
+                            src: FnOperand::Lir(*op),
+                            dst: FnOperand::Reg(Amd64Reg::arg(i)),
+                        }),
+                    }
+                }
+            }
+        }
+
+        let reg_graph_len = reg_graph.len();
+        let nodes = gen_node_list_with_min_left_edges(&mut reg_graph);
+
+        debug_assert_eq!(nodes.len(), reg_graph_len);
+
+        let mut recover_list = VecDeque::new();
+        let mut visited = HashSet::new();
+        for node in nodes.iter().rev() {
+            visited.insert(node.reg);
+            for out in node.outs.iter().filter(|reg| !visited.contains(reg)) {
+                self.setup.push(FnInstruction::Pushq {
+                    src: FnOperand::Reg(node.reg),
+                });
+                recover_list.push_front(*out);
+            }
+
+            if let Some(in_) = node.in_ {
+                if !visited.contains(&in_) {
                     self.setup.push(FnInstruction::Movq {
-                        src: FnOperand::Lir(*arg),
-                        dst: FnOperand::Reg(Amd64Reg::arg(i)),
-                    });
-                } else {
-                    // Push the other args on the stack
-                    push_setup.push(FnInstruction::Pushq {
-                        src: FnOperand::Lir(*arg),
+                        src: FnOperand::Reg(in_),
+                        dst: FnOperand::Reg(node.reg),
                     });
                 }
             }
-            if !push_setup.is_empty() {
-                // Remove the pushed args from stack after the call
-                self.recover = Some(FnInstruction::Addq {
-                    src: Tarval::mj_int((push_setup.len() * 8) as i64),
-                    dst: Amd64Reg::Rsp,
-                });
-
-                // Rev the pushed args order: .., 8, 7, 6
-                self.setup
-                    .append(&mut push_setup.into_iter().rev().collect());
-            }
-
-            self.move_res = dst.map(|dst| FnInstruction::Movq {
-                src: FnOperand::Reg(Amd64Reg::Rax),
-                dst: FnOperand::Lir(lir::Operand::Slot(dst)),
-            });
-        } else {
-            unreachable!("A FunctionCall can only be setup for a Call instruction")
         }
-    }
 
-    fn setup_stack_cconv(&mut self, call: &lir::Instruction) {
-        if let lir::Instruction::Call { func, args, dst } = call {
-            self.label = func.clone();
-
-            for arg in args.iter().rev() {
-                self.setup.push(FnInstruction::Pushq {
-                    src: FnOperand::Lir(*arg),
-                });
-            }
-
-            if !self.setup.is_empty() {
-                // Remove the pushed args from stack after the call
-                self.recover = Some(FnInstruction::Addq {
-                    src: Tarval::mj_int((self.setup.len() * 8) as i64),
-                    dst: Amd64Reg::Rsp,
-                });
-            }
-
-            self.move_res = dst.map(|dst| FnInstruction::Movq {
-                src: FnOperand::Reg(Amd64Reg::Rax),
-                dst: FnOperand::Lir(lir::Operand::Slot(dst)),
+        for reg in recover_list {
+            self.setup.push(FnInstruction::Popq {
+                dst: FnOperand::Reg(reg),
             });
-        } else {
-            unreachable!("A FunctionCall can only be setup for a Call instruction")
         }
     }
 
@@ -266,6 +308,13 @@ impl Function {
 
         self.save_callee_save_regs(lsa.num_regs_required);
         self.allocate_stack(lsa.stack_vars_counter);
+        for block in lva.postorder_blocks.iter_mut() {
+            for instr in block.instrs.iter_mut() {
+                if let live_variable_analysis::Instruction::Call(call) = instr {
+                    call.gen_setup(&lsa.var_location);
+                }
+            }
+        }
 
         let mut codegen = Codegen::new(lsa.var_location, self.cconv);
         self.instrs = codegen.run(&self, lva.postorder_blocks);
@@ -353,4 +402,117 @@ impl Function {
             var_live,
         )
     }
+}
+
+#[derive(Clone)]
+struct Node {
+    reg: Amd64Reg,
+
+    in_: Option<Amd64Reg>,
+    outs: HashSet<Amd64Reg>,
+}
+
+impl Node {
+    fn new(reg: Amd64Reg) -> Self {
+        Self {
+            reg,
+            in_: None,
+            outs: HashSet::new(),
+        }
+    }
+
+    fn set_in_edge(&mut self, reg: Amd64Reg) {
+        debug_assert!(self.in_.is_none());
+        self.in_ = Some(reg);
+    }
+
+    fn add_out_edge(&mut self, reg: Amd64Reg) {
+        self.outs.insert(reg);
+    }
+
+    fn is_sink(&self) -> bool {
+        self.outs.is_empty()
+    }
+
+    fn is_source(&self) -> bool {
+        self.in_.is_none()
+    }
+}
+
+type RegGraph = HashMap<Amd64Reg, Node>;
+
+/// This is a greedy cycle removal algorithm from "Graph Drawing: Algorithms for the Visualization
+/// of Graphs" by Eades et al.
+// TODO(flip1995): comment what it does
+fn gen_node_list_with_min_left_edges(reg_graph: &mut RegGraph) -> VecDeque<Node> {
+    let mut l_nodes = VecDeque::new();
+    let mut r_nodes = VecDeque::new();
+    let mut visited = HashSet::new();
+
+    while !reg_graph.is_empty() {
+        let mut sink_exists = true;
+        while sink_exists {
+            let sinks: Vec<_> = reg_graph
+                .values()
+                .filter(|node| node.is_sink() || node.outs.iter().all(|reg| visited.contains(reg)))
+                .cloned()
+                .collect();
+            sink_exists = false;
+            for node in &sinks {
+                reg_graph.remove(&node.reg);
+                visited.insert(node.reg);
+                r_nodes.push_front(node.clone());
+                if let Some(pred) = &node.in_ {
+                    if let Some(pred_node) = reg_graph.get(&pred) {
+                        if pred_node.outs.iter().all(|reg| visited.contains(reg)) {
+                            if pred_node.in_.is_none() {
+                                // Isolated node
+                                r_nodes.push_front(pred_node.clone());
+                                reg_graph.remove(&pred);
+                            } else {
+                                sink_exists = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut source_exists = true;
+        while source_exists {
+            let sources: Vec<_> = reg_graph
+                .values()
+                .filter(|node| node.is_source() || visited.contains(&node.in_.unwrap()))
+                .cloned()
+                .collect();
+            source_exists = false;
+            for node in &sources {
+                reg_graph.remove(&node.reg);
+                visited.insert(node.reg);
+                l_nodes.push_back(node.clone());
+                source_exists = true;
+            }
+        }
+
+        if !reg_graph.is_empty() {
+            let node = reg_graph
+                .values()
+                .max_by_key(|node| {
+                    node.outs
+                        .iter()
+                        .filter(|reg| !visited.contains(reg))
+                        .collect::<Vec<_>>()
+                        .len()
+                        - if node.in_.is_some() { 1 } else { 0 }
+                })
+                .cloned()
+                .unwrap();
+            reg_graph.remove(&node.reg);
+            visited.insert(node.reg);
+            l_nodes.push_back(node);
+        }
+    }
+
+    l_nodes.append(&mut r_nodes);
+    l_nodes
 }
