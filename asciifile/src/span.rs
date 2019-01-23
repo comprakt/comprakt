@@ -53,7 +53,7 @@ impl<'f> Span<'f> {
     /// Creates a span containing only the given position
     ///
     /// ```
-    /// use compiler_lib::asciifile::{AsciiFile, Position, Span};
+    /// use asciifile::{AsciiFile, Position, Span};
     ///
     /// let file = AsciiFile::new(b"ABCD").unwrap();
     /// let position = file.iter().nth(2).unwrap();
@@ -70,7 +70,7 @@ impl<'f> Span<'f> {
     /// Creates a span containing only the given position
     ///
     /// ```
-    /// use compiler_lib::asciifile::{AsciiFile, Position, Span};
+    /// use asciifile::{AsciiFile, Position, Span};
     ///
     /// let file = AsciiFile::new(b"abcdfeghAAA").unwrap();
     ///
@@ -114,7 +114,7 @@ impl<'f> Span<'f> {
     /// whitespace as multiline.
     ///
     /// ```
-    /// use compiler_lib::asciifile::{AsciiFile, Span};
+    /// use asciifile::{AsciiFile, Span};
     ///
     /// let file = AsciiFile::new("a\n".as_bytes()).unwrap();
     /// let first = file.iter().next().unwrap();
@@ -127,7 +127,7 @@ impl<'f> Span<'f> {
     /// multiline.
     ///
     /// ```
-    /// use compiler_lib::asciifile::{AsciiFile, Span};
+    /// use asciifile::{AsciiFile, Span};
     ///
     /// let file = AsciiFile::new("\n".as_bytes()).unwrap();
     /// let newline = file.iter().next().unwrap();
@@ -139,7 +139,7 @@ impl<'f> Span<'f> {
     /// multiline.
     ///
     /// ```
-    /// use compiler_lib::asciifile::{AsciiFile, Span};
+    /// use asciifile::{AsciiFile, Span};
     ///
     /// let file = AsciiFile::new("\na".as_bytes()).unwrap();
     /// let first = file.iter().next().unwrap();
@@ -230,7 +230,7 @@ impl fmt::Display for Span<'_> {
 /// will be true, since "\n" is positioned at the next line.
 ///
 /// ```
-/// use compiler_lib::asciifile::{AsciiFile, Position, Span};
+/// use asciifile::{AsciiFile, Position, Span};
 ///
 /// let file = AsciiFile::new(b"abcd\nefgh\nijkl").unwrap();
 /// let start = file.iter().nth(2).unwrap();
@@ -291,7 +291,7 @@ impl<'span, 'file> Iterator for LineIterator<'span, 'file> {
 /// Iterator adapter that adds line numbers to a `LineIterator`
 ///
 /// ```
-/// use compiler_lib::asciifile::{AsciiFile, Position, Span};
+/// use asciifile::{AsciiFile, Position, Span};
 ///
 /// let file = AsciiFile::new(b"abcd\n\n\nefgh\nijkl").unwrap();
 /// let start = file.iter().nth(2).unwrap();

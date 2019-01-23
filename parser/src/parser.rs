@@ -831,7 +831,11 @@ where
 #[allow(clippy::print_stdout, clippy::string_lit_as_bytes)]
 mod tests {
     use super::*;
-    use crate::{asciifile::AsciiFile, context::Context, lexer::Lexer, strtab::StringTable};
+    use asciifile::AsciiFile;
+    use compiler_shared::context::Context;
+    use lexer::Lexer;
+    use strtab::StringTable;
+    use utils::assert_matches;
 
     macro_rules! lex_input {
         ($itervar:ident = $input:expr) => {

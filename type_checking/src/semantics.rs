@@ -311,14 +311,12 @@ impl<'f, 'cx> ClassesAndMembersVisitor<'f, 'cx> {
 #[allow(clippy::print_stdout)]
 mod tests {
     use super::*;
-    use crate::{
-        asciifile::AsciiFile,
-        lexer::{Lexer, TokenKind},
-        parser::Parser,
-        strtab::StringTable,
-    };
+    use asciifile::AsciiFile;
+    use lexer::{Lexer, TokenKind};
     use mjtest::SemanticTestCase;
     use mjtest_macros::gen_semantic_tests;
+    use parser::Parser;
+    use strtab::StringTable;
 
     macro_rules! gen_check_code {
         ($check_res:ident = $input:expr) => {

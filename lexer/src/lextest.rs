@@ -1,4 +1,4 @@
-use crate::lexer::TokenKind::{self, *};
+use super::TokenKind::{self, *};
 use std::fmt;
 ///! Our default `Display` output for each `TokenKind` is less ambiguous
 ///! than the format required by `--lextest` and therefore improves error

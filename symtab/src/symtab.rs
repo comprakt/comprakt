@@ -104,6 +104,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use utils::assert_matches;
 
     macro_rules! def {
         ($scoped:expr, $s:expr) => {

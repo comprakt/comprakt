@@ -1,5 +1,7 @@
 #![feature(try_from)]
 
+pub mod lextest;
+
 #[macro_use]
 extern crate derive_more;
 
@@ -599,14 +601,11 @@ impl<'f, 's> Iterator for Lexer<'f, 's> {
 #[allow(clippy::print_stdout)]
 mod tests {
 
-    use super::is_minijava_whitespace;
-    use crate::{
-        lexer::{Keyword, Operator, TokenKind},
-        print::lextest,
-        strtab::StringTable,
-    };
+    use super::{is_minijava_whitespace, Keyword, Operator, TokenKind};
+    use crate::lextest;
     use failure::Error;
     use std::io;
+    use strtab::StringTable;
 
     // TODO: duplicated across compilercli and compilerlib
     fn write_token<O: io::Write>(out: &mut O, token: &TokenKind<'_>) -> Result<(), Error> {

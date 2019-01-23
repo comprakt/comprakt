@@ -39,7 +39,6 @@ extern crate parser;
 
 pub use parser::{ast, visitor};
 
-#[allow(dead_code)]
 #[macro_use]
 extern crate debugging;
 pub(crate) use debugging::dot;

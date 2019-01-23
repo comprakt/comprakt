@@ -67,11 +67,13 @@ use std::{
     collections::{HashMap, HashSet},
     io::Cursor,
     sync::{
-        mpsc::{self, Receiver, Sender, SyncSender},
-        Mutex, RwLock,
+        mpsc::{self, Sender, SyncSender},
+        RwLock,
     },
-    thread::{self, JoinHandle},
 };
+
+#[cfg(feature = "debugger_gui")]
+use {std::sync::mpsc::Receiver, std::sync::Mutex, std::thread, std::thread::JoinHandle};
 
 #[cfg(feature = "debugger_gui")]
 #[macro_export]
@@ -117,11 +119,13 @@ macro_rules! breakpoint {
     }};
 }
 
+#[cfg(feature = "debugger_gui")]
 lazy_static::lazy_static! {
     static ref GUI: Mutex<Option<GuiThread>> = Mutex::new(None);
     static ref FILTERS: Mutex<BreakpointFilters> = Mutex::new(BreakpointFilters::default());
 }
 
+#[cfg(feature = "debugger_gui")]
 fn gui_thread() -> &'static GUI {
     if (*GUI.lock().unwrap()).is_none() {
         spawn_gui_thread();
@@ -130,14 +134,15 @@ fn gui_thread() -> &'static GUI {
     &GUI
 }
 
+#[cfg(feature = "debugger_gui")]
 fn spawn_gui_thread() {
     let (sender, receiver) = mpsc::sync_channel::<MsgToCompiler>(256);
 
-    let handle = thread::spawn(|| {
+    let _handle = thread::spawn(|| {
         http_server(sender);
     });
 
-    *GUI.lock().unwrap() = Some(GuiThread { handle, receiver });
+    *GUI.lock().unwrap() = Some(GuiThread { _handle, receiver });
 }
 
 #[cfg(not(feature = "debugger_gui"))]
@@ -338,7 +343,9 @@ enum MsgToGui {
 }
 
 struct GuiThread {
-    handle: JoinHandle<()>,
+    #[cfg(feature = "debugger_gui")]
+    _handle: JoinHandle<()>,
+    #[cfg(feature = "debugger_gui")]
     receiver: Receiver<MsgToCompiler>,
 }
 
@@ -358,6 +365,7 @@ struct CompiliationState {
 }
 
 impl CompiliationState {
+    #[cfg(feature = "debugger_gui")]
     fn new(breakpoint: Breakpoint, graphs: HashMap<String, GraphState>) -> Self {
         Self { breakpoint, graphs }
     }

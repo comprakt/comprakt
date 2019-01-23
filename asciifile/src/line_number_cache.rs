@@ -3,7 +3,7 @@
 //! request line numbers in a few cases (e.g. on error).
 //!
 //! ```
-//! use compiler_lib::asciifile::LineNumberCache;
+//! use asciifile::LineNumberCache;
 //!
 //! let input = "asd\nqwer\nZU\nfgfh";
 //! let positions = input

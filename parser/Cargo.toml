@@ -16,7 +16,6 @@ path = "src/parser.rs"
 
 [dependencies]
 failure = "0.1.3"
-#compiler-shared = { path = "../compiler-shared" }
 utils = { path = "../utils" }
 asciifile = { path = "../asciifile" }
 strtab = { path = "../strtab" }
@@ -26,3 +25,9 @@ derive_more = "0.13"
 strum = "0.11.0"
 strum_macros = "0.11.0"
 itertools = "0.7"
+
+[dev-dependencies]
+termcolor = "1.0.4"
+mjtest = { path = "../mjtest-rs" }
+mjtest_macros = { path = "../mjtest-rs/mjtest_macros" }
+compiler-shared = { path = "../compiler-shared" }

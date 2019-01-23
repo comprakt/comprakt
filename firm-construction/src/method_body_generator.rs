@@ -880,16 +880,14 @@ impl<'src> LValue<'src> {
     ) -> (Block, Node) {
         use self::LValue::*;
         match self {
-            Var {
-                slot_idx, mode: _, ..
-            } => {
+            Var { slot_idx, .. } => {
                 act_block.set_value(slot_idx, value);
                 (act_block, value)
             }
             ArrayOrField {
                 sel_or_mem,
                 item_ty,
-                span: _,
+                ..
             } => {
                 let store = span_storage.with_span(
                     span,

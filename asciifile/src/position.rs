@@ -169,7 +169,7 @@ impl<'t> Position<'t> {
     /// of the line.
     ///
     /// ```
-    /// use compiler_lib::asciifile::{AsciiFile, Position, Span};
+    /// use asciifile::{AsciiFile, Position, Span};
     ///
     /// let file = AsciiFile::new(b"banana\napple\n\nkiwi").unwrap();
     ///
