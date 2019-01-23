@@ -246,12 +246,12 @@ impl Block {
         Block::new(cdom)
     }
 
-    pub fn dominates(&self, other: Block) -> bool {
+    pub fn dominates(self, other: Block) -> bool {
         // TODO: check if dominators are computed
         unsafe { bindings::block_dominates(self.internal_ir_node(), other.internal_ir_node()) > 0 }
     }
 
-    pub fn immediate_dominator(&self) -> Option<Block> {
+    pub fn immediate_dominator(self) -> Option<Block> {
         // TODO: check if dominators are computed
         let idom = unsafe { bindings::get_Block_idom(self.internal_ir_node()) };
         if idom.is_null() {
@@ -261,13 +261,13 @@ impl Block {
         }
     }
 
-    pub fn loop_depth(&self) -> u32 {
+    pub fn loop_depth(self) -> u32 {
         // TODO: check if loop info is computed
         let loop_ref = unsafe { bindings::get_irn_loop(self.internal_ir_node()) };
         unsafe { bindings::get_loop_depth(loop_ref) }
     }
 
-    pub fn immediate_post_dominator(&self) -> Option<Block> {
+    pub fn immediate_post_dominator(self) -> Option<Block> {
         // TODO: check if post dominators are computed
         let ipostdom = unsafe { bindings::get_Block_ipostdom(self.internal_ir_node()) };
         if ipostdom.is_null() {

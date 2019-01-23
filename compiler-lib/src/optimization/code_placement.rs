@@ -96,9 +96,9 @@ impl CodePlacement {
     fn run(&mut self) -> Outcome {
         let earlier_placement = EarliestPlacement::optimize_function(self.graph);
 
-        breakpoint!("Graph in Earliest Placement", self.graph,
-            &|node: &Node| dom_info_box(node)
-        );
+        breakpoint!("Graph in Earliest Placement", self.graph, &|node: &Node| {
+            dom_info_box(node)
+        });
 
         let optimal_placement = CostMinimizingPlacement::optimize_function(self.graph);
 
@@ -397,11 +397,11 @@ impl CostMinimizingPlacement {
             }
 
             // # Optimize Position of Current Node
-
-            // - Some nodes are not in theory safe to move, but optimizations
-            //   in libfirm require them to be in the start block. Currently, the only
-            //   floatable node that has to stay in the start block is Const.
-            //   All other start-block-only nodes like Bad, Unknown, ... are pinned anyways.
+            //
+            // - Some nodes are not in theory safe to move, but optimizations in libfirm
+            //   require them to be in the start block. Currently, the only floatable node
+            //   that has to stay in the start block is Const. All other start-block-only
+            //   nodes like Bad, Unknown, ... are pinned anyways.
             // - Projections have to stay in the same block as the node they are projecting
             //   (I think? But it would be weird otherwise), we move them separately
             if current_node.is_only_valid_in_start_block() || Node::is_proj(current_node) {
@@ -411,30 +411,41 @@ impl CostMinimizingPlacement {
             // "deepest common ancestor" is just the dom tree for the out edges
             //
             // What is happening here?
-            // 
+            //
             // TODO: explain
             //
             let earliest_allowed = current_node.block();
-            let latest_by_consumers = self.latest_possible_placement_allowed_by_consumers(current_node);
+            let latest_by_consumers =
+                self.latest_possible_placement_allowed_by_consumers(current_node);
 
             // TODO: we do not have to set this here since we move again below
             if let Some(block) = latest_by_consumers {
                 if block != current_node.block() {
                     breakpoint!(
                         &format!(
-                            "MinCost Placement: Non-trivial control dependence motion for {:?} to {:?} possible",
+                            "MinCost Placement: Non-trivial control dependence motion\
+                             for {:?} to {:?} possible",
                             current_node, latest_by_consumers
                         ),
                         self.graph,
-                        &|node: &Node| label_for_late_placement(node, current_node, earliest_allowed, latest_by_consumers)
+                        &|node: &Node| label_for_late_placement(
+                            node,
+                            current_node,
+                            earliest_allowed,
+                            latest_by_consumers
+                        )
                     );
 
                     current_node.set_block(block);
                 }
             }
 
-            // TODO: why is this done when earliest and latest_possible_placement are identical?
-            let loop_invariant_placement = Self::minimize_loop_nesting(earliest_allowed, latest_by_consumers.unwrap_or_else(|| earliest_allowed));
+            // TODO: why is this done when earliest and latest_possible_placement are
+            // identical?
+            let loop_invariant_placement = Self::minimize_loop_nesting(
+                earliest_allowed,
+                latest_by_consumers.unwrap_or_else(|| earliest_allowed),
+            );
 
             if loop_invariant_placement != current_node.block() {
                 breakpoint!(
@@ -444,7 +455,12 @@ impl CostMinimizingPlacement {
                     ),
                     self.graph,
                     &|node: &Node| {
-                        let mut label = label_for_late_placement(node, current_node, earliest_allowed, latest_by_consumers);
+                        let mut label = label_for_late_placement(
+                            node,
+                            current_node,
+                            earliest_allowed,
+                            latest_by_consumers,
+                        );
                         if node == &Node::Block(loop_invariant_placement) {
                             label = label
                                 .add_style(Style::Filled)
@@ -463,10 +479,13 @@ impl CostMinimizingPlacement {
         }
     }
 
-    /// Returns the deepest common dominator of all consumers of `current_node` and `current_node`.
-    /// If the node does not have consumers (it is only kept alive), the block of the
-    /// `current_node` is returned.
-    fn latest_possible_placement_allowed_by_consumers(&self, current_node :Node) -> Option<nodes::Block> {
+    /// Returns the deepest common dominator of all consumers of `current_node`
+    /// and `current_node`. If the node does not have consumers (it is only
+    /// kept alive), the block of the `current_node` is returned.
+    fn latest_possible_placement_allowed_by_consumers(
+        &self,
+        current_node: Node,
+    ) -> Option<nodes::Block> {
         // `current_node.block()` is the correct initialization since we assume
         // `current_node` is placed at the earliest valid position.
         // => "shallowest common dominator"
@@ -476,36 +495,53 @@ impl CostMinimizingPlacement {
         for consumer in current_node.out_nodes() {
             match consumer {
                 Node::End(..) => {
-                    // following keep-alive edges should be avoided since end/keep-alives have special
-                    // semantic regarding dominance. See dominance tree example above!
-                    continue
-                },
+                    // following keep-alive edges should be avoided since end/keep-alives have
+                    // special semantic regarding dominance. See dominance tree
+                    // example above!
+                    continue;
+                }
                 Node::Proj(..) => {
                     // this check is not necessary, for correctness
-                    // but improves placement since projections are always in the same block as the node
-                    // they project (e.g. the same block as the Cond node) so the real
-                    // users can be found in the children of the proj (I think?)
-                    // TODO: but this does not seem necessary since we visit the proj anyway? They
-                    // will only be temporarily split, right?
-                    
+                    // but improves placement since projections are always in the same block as the
+                    // node they project (e.g. the same block as the Cond node)
+                    // so the real users can be found in the children of the
+                    // proj (I think?) TODO: but this does not seem necessary
+                    // since we visit the proj anyway? They will only be
+                    // temporarily split, right?
+
                     // "act as if Cond followed by Projs is a single node"
-                    if let Some(common_dominator) = self.latest_possible_placement_allowed_by_consumers(consumer) {
-                    deepest_common_dominator = Self::update_deepest_common_dominator(deepest_common_dominator, common_dominator);
+                    if let Some(common_dominator) =
+                        self.latest_possible_placement_allowed_by_consumers(consumer)
+                    {
+                        deepest_common_dominator = Self::update_deepest_common_dominator(
+                            deepest_common_dominator,
+                            common_dominator,
+                        );
                     }
-                },
+                }
                 Node::Phi(phi) => {
                     // TODO: think about this again, does this make sense????
                     // act as if the Phi does not exist, since it is just proxying the
                     // actual user
                     // find the actual consumer correspondig to the current node
-                    let actual_consumer_index = phi.phi_preds().position(|pred| pred == current_node).unwrap();
-                    let actual_consumer = phi.block().cfg_preds().nth(actual_consumer_index).unwrap();
+                    let actual_consumer_index = phi
+                        .phi_preds()
+                        .position(|pred| pred == current_node)
+                        .unwrap();
+                    let actual_consumer =
+                        phi.block().cfg_preds().nth(actual_consumer_index).unwrap();
 
                     //self.latest_possible_placement(actual_consumer)
-                    deepest_common_dominator = Self::update_deepest_common_dominator(deepest_common_dominator, actual_consumer.block());
+                    deepest_common_dominator = Self::update_deepest_common_dominator(
+                        deepest_common_dominator,
+                        actual_consumer.block(),
+                    );
                 }
                 node => {
-                    deepest_common_dominator = Self::update_deepest_common_dominator(deepest_common_dominator, node.block());
+                    deepest_common_dominator = Self::update_deepest_common_dominator(
+                        deepest_common_dominator,
+                        node.block(),
+                    );
                 }
             }
         }
@@ -513,39 +549,39 @@ impl CostMinimizingPlacement {
         deepest_common_dominator
     }
 
-    fn update_deepest_common_dominator(dca :Option<nodes::Block>, block: nodes::Block)  -> Option<nodes::Block> {
+    fn update_deepest_common_dominator(
+        dca: Option<nodes::Block>,
+        block: nodes::Block,
+    ) -> Option<nodes::Block> {
         match dca {
-            None => {
-                Some(block)
-            },
-            Some(common) if common == block => {
-                Some(common)
-            },
-            Some(common) => {
-                Some(nodes::Block::deepest_common_dominator(block, common))
-            }
+            None => Some(block),
+            Some(common) if common == block => Some(common),
+            Some(common) => Some(nodes::Block::deepest_common_dominator(block, common)),
         }
     }
 
-    // TODO: rename to optimize_execution_frequency, and use built in frequency analysis instead
-    fn minimize_loop_nesting(earliest_allowed :nodes::Block, latest_allowed :nodes::Block) -> nodes::Block {
-        
+    // TODO: rename to optimize_execution_frequency, and use built in frequency
+    // analysis instead
+    fn minimize_loop_nesting(
+        earliest_allowed: nodes::Block,
+        latest_allowed: nodes::Block,
+    ) -> nodes::Block {
         // initialize best to latest allowed by the consumers of the node
-	let mut block      = latest_allowed;
-	let mut best       = block;
-	let mut best_depth = best.loop_depth();
+        let mut block = latest_allowed;
+        let mut best = block;
+        let mut best_depth = best.loop_depth();
 
-        // walk the segment of the dominance tree from the latest ("closest to end") to earliest
-        // ("closest to start"), push the current node out of all loops 
-	while block != earliest_allowed {
-		let idom = block.immediate_dominator().unwrap();
-		let idom_depth = idom.loop_depth();
-		if idom_depth < best_depth {
-			best = idom;
-			best_depth = idom_depth;
-		}
-		block = idom;
-	}
+        // walk the segment of the dominance tree from the latest ("closest to end") to
+        // earliest ("closest to start"), push the current node out of all loops
+        while block != earliest_allowed {
+            let idom = block.immediate_dominator().unwrap();
+            let idom_depth = idom.loop_depth();
+            if idom_depth < best_depth {
+                best = idom;
+                best_depth = idom_depth;
+            }
+            block = idom;
+        }
 
         best
     }
@@ -612,13 +648,19 @@ pub fn dom_info_box(node: &Node) -> Label {
     }
 }
 
-pub fn label_for_late_placement(node :&Node, current_node : Node, earliest_allowed : nodes::Block, latest_allowed : Option<nodes::Block>) -> Label {
+pub fn label_for_late_placement(
+    node: &Node,
+    current_node: Node,
+    earliest_allowed: nodes::Block,
+    latest_allowed: Option<nodes::Block>,
+) -> Label {
     let mut label = dom_info_box(node);
 
     if let Node::Block(rendered_block) = node {
         // is within the chain of possibilities
         if let Some(latest_block) = latest_allowed {
-            if earliest_allowed.dominates(*rendered_block) && rendered_block.dominates(latest_block) {
+            if earliest_allowed.dominates(*rendered_block) && rendered_block.dominates(latest_block)
+            {
                 label = label
                     .add_style(Style::Filled)
                     .fillcolor(X11Color::Pink)
