@@ -29,11 +29,18 @@ pub enum CompilerPhase {
     Parser,
     Ast,
     Semantic,
-    BinaryLibfirm {
+    Binary {
+        backend: Backend,
         output: PathBuf,
         assembly: Option<PathBuf>,
         optimizations: Level,
     },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Backend {
+    Own,
+    Libfirm,
 }
 
 #[derive(Debug, Clone)]
@@ -54,13 +61,19 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
         CompilerPhase::Parser => &["--parsetest"],
         CompilerPhase::Ast => &["--print-ast"],
         CompilerPhase::Semantic => &["--check"],
-        CompilerPhase::BinaryLibfirm {
+        CompilerPhase::Binary {
+            backend,
             output,
             assembly,
             optimizations,
         } => {
+            let cmd_flag = match backend {
+                Backend::Libfirm => "--compile-firm",
+                Backend::Own => "--compile",
+            };
+
             let mut flags = vec![
-                OsString::from("--compile-firm"),
+                OsString::from(cmd_flag),
                 OsString::from("-o"),
                 output.as_os_str().to_os_string(),
             ];
