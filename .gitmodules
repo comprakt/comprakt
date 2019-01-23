@@ -6,5 +6,5 @@
 	url = https://github.com/comprakt/libfirm.git
 	branch = set_b_value
 [submodule "compiler-lib/debugger-gui"]
-	path = compiler-lib/debugger-gui
+	path = debugging/debugger-gui
 	url = https://github.com/comprakt/dot-visualizer.git
