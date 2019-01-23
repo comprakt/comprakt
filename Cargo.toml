@@ -4,6 +4,7 @@ members = [
     "compiler-lib",
     "compiler-cli",
     "compiler-shared",
+    "debugging",
     "diagnostics",
     "firm-construction",
     "inspect-ast",

@@ -224,6 +224,7 @@ dependencies = [
  "asciifile 0.1.0",
  "compiler-shared 0.1.0",
  "criterion 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "debugging 0.1.0",
  "derive_more 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "diagnostics 0.1.0",
  "failure 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -359,6 +360,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "debugging"
+version = "0.1.0"
+dependencies = [
+ "derive_more 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "firm-construction 0.1.0",
+ "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libfirm-rs 0.0.1",
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "petgraph 0.4.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rocket 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rocket_contrib 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.82 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.82 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.33 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

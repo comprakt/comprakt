@@ -1,3 +1,5 @@
+#![feature(proc_macro_hygiene, decl_macro)]
+
 //! This is a browser-based graphical debugger for FIRM graphs.
 //!
 //! # Usage
@@ -43,6 +45,14 @@
 //! a breakpoint is encountered. We pause execution by blocking
 //! on a message send on a rendevouz-channel to the webserver. The
 //! message content is the current compiler state.
+
+pub mod dot;
+
+// Fix legacy imports
+pub(crate) use firm_construction as firm;
+
+#[macro_use]
+extern crate derive_more;
 
 use crate::dot::GraphState;
 use rocket::{

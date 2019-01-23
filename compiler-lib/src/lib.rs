@@ -39,10 +39,11 @@ extern crate parser;
 
 pub use parser::{ast, visitor};
 
-pub mod dot;
-#[macro_use]
 #[allow(dead_code)]
-pub mod debugging;
+#[macro_use]
+extern crate debugging;
+pub(crate) use debugging::dot;
+
 pub use firm_construction as firm;
 pub mod optimization;
 pub mod print;
