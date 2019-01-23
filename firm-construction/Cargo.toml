@@ -12,18 +12,16 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-failure = "0.1.3"
-compiler-shared = { path = "../compiler-shared" }
-utils = { path = "../utils" }
 asciifile = { path = "../asciifile" }
+compiler-shared = { path = "../compiler-shared" }
+libfirm-rs = { path = "../libfirm-rs" }
+parser = { path = "../parser" }
 strtab = { path = "../strtab" }
 type-checking = { path = "../type_checking" }
-parser = { path = "../parser" }
+utils = { path = "../utils" }
 
-#diagnostics = { path = "../diagnostics" }
-libfirm-rs = { path = "../libfirm-rs" }
+failure = "0.1.3"
 libc = "0.2"
-#lexer = { path = "../lexer" }
 derive_more = "0.13"
 strum = "0.11.0"
 strum_macros = "0.11.0"

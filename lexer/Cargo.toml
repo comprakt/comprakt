@@ -15,10 +15,11 @@ license = "MIT OR Apache-2.0"
 path = "src/lexer.rs"
 
 [dependencies]
-failure = "0.1.3"
-compiler-shared = { path = "../compiler-shared" }
-utils = { path = "../utils" }
 asciifile = { path = "../asciifile" }
-strtab = { path = "../strtab" }
+compiler-shared = { path = "../compiler-shared" }
 diagnostics = { path = "../diagnostics" }
+strtab = { path = "../strtab" }
+utils = { path = "../utils" }
+
 derive_more = "0.13"
+failure = "0.1.3"
