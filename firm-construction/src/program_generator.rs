@@ -2,12 +2,12 @@ use super::{firm_program::*, runtime::Runtime, MethodBodyGenerator};
 use crate::{
     asciifile::Span,
     ast,
+    parser::visitor::NodeKind,
     strtab::StringTable,
     type_checking::{
         type_analysis::TypeAnalysis,
         type_system::{Body, ClassMethodBody, TypeSystem},
     },
-    visitor::NodeKind,
 };
 use libfirm_rs::{
     nodes::{Node, NodeTrait},

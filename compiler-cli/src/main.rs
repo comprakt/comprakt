@@ -396,7 +396,7 @@ macro_rules! compile_command_common {
 
         let mut $bingen = BinaryGenerator::new(&binary_path)?;
 
-        let mut $firm_ctx = firm::FirmContext::build(
+        let mut $firm_ctx = compiler_lib::FirmContext::build(
             &pre_be_opts.dump_folder,
             &type_system,
             &type_analysis,

@@ -5,6 +5,7 @@ members = [
     "compiler-cli",
     "compiler-shared",
     "diagnostics",
+    "firm-construction",
     "inspect-ast",
     "lexer",
     "libfirm-rs-bindings",

@@ -1,7 +1,7 @@
 use super::type_translation::*;
 use crate::{
-    firm::runtime::Runtime,
     ref_eq::RefEq,
+    runtime::Runtime,
     type_checking::type_system::{
         ClassDef, ClassFieldDef, ClassMethodBody, ClassMethodDef, TypeSystem,
     },

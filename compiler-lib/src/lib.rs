@@ -43,10 +43,13 @@ pub mod dot;
 #[macro_use]
 #[allow(dead_code)]
 pub mod debugging;
-pub mod firm;
+pub use firm_construction as firm;
 pub mod optimization;
 pub mod print;
 pub use self::utils::OutputSpecification;
 pub use strtab;
 pub use symtab;
 pub use type_checking;
+
+mod firm_context;
+pub use crate::firm_context::FirmContext;
