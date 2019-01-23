@@ -745,6 +745,10 @@ impl Codegen {
                     let src = self.fn_to_src_operand(*src, instrs);
                     instrs.push(Pushq { src });
                 }
+                function::FnInstruction::Popq { dst } => {
+                    let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
+                    instrs.push(Popq { dst });
+                }
                 _ => unreachable!(),
             }
         }

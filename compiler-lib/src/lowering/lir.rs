@@ -1103,7 +1103,7 @@ impl MultiSlotBuilder {
         {
             let is_duplicate = self.slots.iter().any(|slot| slot.firm == value);
 
-            assert!(!is_duplicate);
+            // assert!(!is_duplicate);
         }
 
         let slot = ValueSlot {

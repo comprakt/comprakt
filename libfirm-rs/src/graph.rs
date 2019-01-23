@@ -91,6 +91,10 @@ impl Graph {
         unsafe { bindings::assure_irg_outs(self.irg) }
     }
 
+    pub fn recompute_outs(self) {
+        unsafe { bindings::compute_irg_outs(self.irg) }
+    }
+
     pub fn remove_bads(self) {
         unsafe { bindings::remove_bads(self.irg) }
     }
@@ -103,16 +107,11 @@ impl Graph {
         unsafe { bindings::remove_unreachable_code(self.irg) }
     }
 
-    /// Walks over all reachable nodes in the graph, ensuring that nodes inside
-    /// a basic block are visited in topological order.
-    ///
-    /// Nodes in different blocks might get visited in an interleaved order.
-    ///
-    /// ## Parameters
-    ///  - `walker`	walker function
-    ///
-    /// Does not use the link field.
-    pub fn walk_topological<F>(self, mut walker: F)
+    pub fn compute_dominance_frontiers(self) {
+        unsafe { bindings::ir_compute_dominance_frontiers(self.irg) }
+    }
+
+    pub fn walk_topological2<F>(self, mut walker: F)
     where
         F: FnMut(&Node),
     {
@@ -123,8 +122,29 @@ impl Graph {
         let thin_pointer = &mut fat_pointer;
 
         unsafe {
-            bindings::irg_walk_topological(
+            bindings::irg_walk_blkwise_dom_top_down(
                 self.irg,
+                None,
+                Some(closure_handler),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
+    pub fn walk<F>(self, mut walker: F)
+    where
+        F: FnMut(&Node),
+    {
+        // We need the type ascription here, because otherwise rust infers `&mut F`,
+        // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
+        // `closure_handler` doesn't know the concrete `F`.
+        let mut fat_pointer: &mut dyn FnMut(&Node) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            bindings::irg_walk_graph(
+                self.irg,
+                None,
                 Some(closure_handler),
                 thin_pointer as *mut &mut _ as *mut c_void,
             );
@@ -183,7 +203,7 @@ impl Graph {
 
     pub fn nodes(self) -> Vec<Node> {
         let mut result = Vec::new();
-        self.walk_topological(|n| {
+        self.walk(|n| {
             result.push(*n);
         });
         result

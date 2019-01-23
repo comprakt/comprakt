@@ -201,10 +201,7 @@ impl LiveVariableAnalysis {
 
 impl Instruction {
     pub(super) fn src_operands(&self) -> Vec<lir::Operand> {
-        use super::{
-            function::FnInstruction,
-            lir::{Instruction::*, Leave::*},
-        };
+        use super::lir::{Instruction::*, Leave::*};
         match self {
             Instruction::Lir(lir) => match lir {
                 Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
@@ -242,19 +239,11 @@ impl Instruction {
                 // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
                 let mut ops = vec![];
 
-                for instr in &call.setup {
-                    match instr {
-                        // dst in setup is always a Reg in a Movq instruction
-                        FnInstruction::Movq { src, .. } => match src {
-                            FnOperand::Lir(op) => ops.push(*op),
-                            FnOperand::Reg(_) => (),
-                        },
-                        FnInstruction::Pushq { src } => match src {
-                            FnOperand::Lir(op) => ops.push(*op),
-                            FnOperand::Reg(_) => (),
-                        },
-                        _ => unreachable!(), // Popq and Addq are not in setup
-                    }
+                for op in &call.reg_setup {
+                    ops.push(*op);
+                }
+                for op in &call.push_setup {
+                    ops.push(*op);
                 }
                 // src of move_res is always %rax
                 // recover is just an Addq op with a constant and a register
