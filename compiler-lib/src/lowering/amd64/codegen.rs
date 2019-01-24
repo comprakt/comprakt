@@ -165,7 +165,7 @@ impl Codegen {
                 instrs.push(Mov(MovInstruction {
                     src: SrcOperand::Reg(Amd64Reg::arg(i)),
                     dst: DstOperand::Mem(lir::AddressComputation {
-                        offset: -((*idx + self.num_saved_regs) as isize) * 8,
+                        offset: -((*idx + 1 + self.num_saved_regs) as isize) * 8,
                         base: Amd64Reg::Rbp,
                         index: lir::IndexComputation::Zero,
                     }),
@@ -913,7 +913,7 @@ impl Codegen {
             lir::Operand::Slot(_) => match self.var_location[&var_id(op)] {
                 Location::Reg(reg) => SrcOperand::Reg(reg),
                 Location::Mem(idx) => SrcOperand::Mem(lir::AddressComputation {
-                    offset: -((idx + self.num_saved_regs) as isize) * 8,
+                    offset: -((idx + 1 + self.num_saved_regs) as isize) * 8,
                     base: Amd64Reg::Rbp,
                     index: lir::IndexComputation::Zero,
                 }),
@@ -931,12 +931,12 @@ impl Codegen {
                 // This can happen when the param was originally in a register but got moved on
                 // the stack.
                 Location::Mem(idx) => SrcOperand::Mem(lir::AddressComputation {
-                    offset: -((idx + self.num_saved_regs) as isize) * 8,
+                    offset: -((idx + 1 + self.num_saved_regs) as isize) * 8,
                     base: Amd64Reg::Rbp,
                     index: lir::IndexComputation::Zero,
                 }),
                 Location::ParamMem => SrcOperand::Mem(lir::AddressComputation {
-                    offset: (idx as isize) * 8,
+                    offset: ((idx as isize) + 2) * 8,
                     base: Amd64Reg::Rbp,
                     index: lir::IndexComputation::Zero,
                 }),
@@ -1017,7 +1017,7 @@ pub(super) enum Instruction {
     Ret,
     #[display(fmt = "{}:", label)]
     Label { label: String },
-    #[display(fmt = "cqto")]
+    #[display(fmt = "\tcqto")]
     Cqto,
     #[display(fmt = "\t/* {} */", comment)]
     Comment { comment: String },
