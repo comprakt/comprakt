@@ -219,9 +219,6 @@ impl Codegen {
                 instrs.push(Mov(MovInstruction { src, dst, size: 8 }));
             }
             (SrcOperand::Mem(_), DstOperand::Mem(_)) => {
-                instrs.push(Pushq {
-                    src: SrcOperand::Reg(Amd64Reg::Rax),
-                });
                 instrs.push(Mov(MovInstruction {
                     src,
                     dst: DstOperand::Reg(Amd64Reg::Rax),
@@ -232,9 +229,6 @@ impl Codegen {
                     dst,
                     size: 8,
                 }));
-                instrs.push(Popq {
-                    dst: DstOperand::Reg(Amd64Reg::Rax),
-                });
             }
             (SrcOperand::Imm(_), _) => instrs.push(Mov(MovInstruction { src, dst, size: 8 })),
         }
@@ -385,14 +379,11 @@ impl Codegen {
                     push_binop!(kind, src2, dst);
                 }
                 (SrcOperand::Mem(_), SrcOperand::Mem(_)) => {
-                    // This case is bad. There aren't any (mem, mem) ops. This means we
-                    // need to spill one register:
+                    // This case is bad. There aren't any (mem, mem) ops.
+                    // This means we need to spill one register, and that is Rax.
                     // `op mem, mem -> mem` => `op reg, mem`
                     // We want to move src2 -> dst, but first we need to move src2 -> %rax:
                     let spill = Amd64Reg::Rax;
-                    instrs.push(Pushq {
-                        src: SrcOperand::Reg(spill),
-                    });
                     instrs.push(Mov(MovInstruction {
                         src: src1,
                         dst: DstOperand::Reg(spill),
@@ -413,11 +404,6 @@ impl Codegen {
                     }));
                     // Now the instruction `op %rax, mem`:
                     push_binop!(kind, SrcOperand::Reg(spill), dst);
-
-                    // And last but not least: recover %rax
-                    instrs.push(Popq {
-                        dst: DstOperand::Reg(spill),
-                    });
                 }
                 // src1 is Reg or Imm, src2 is Mem
                 (SrcOperand::Reg(_), SrcOperand::Mem(_))
@@ -430,9 +416,6 @@ impl Codegen {
                         size: 8,
                     }));
                     let spill = Amd64Reg::Rax;
-                    instrs.push(Pushq {
-                        src: SrcOperand::Reg(spill),
-                    });
                     instrs.push(Mov(MovInstruction {
                         src: src2,
                         dst: DstOperand::Reg(spill),
@@ -441,10 +424,6 @@ impl Codegen {
                     // Now the instruction `op spill(src2), mem(dst == src1)`:
                     push_binop!(kind, SrcOperand::Reg(spill), dst);
                     // Now mem(dst == src1 OP src2)
-
-                    instrs.push(Popq {
-                        dst: DstOperand::Reg(spill),
-                    });
                 }
                 // src1 is Mem, src2 is Reg or Imm
                 (SrcOperand::Mem(_), SrcOperand::Reg(_))
@@ -457,9 +436,6 @@ impl Codegen {
                         size: 8,
                     }));
                     let spill = Amd64Reg::Rax;
-                    instrs.push(Pushq {
-                        src: SrcOperand::Reg(spill),
-                    });
                     instrs.push(Mov(MovInstruction {
                         src: src1,
                         dst: DstOperand::Reg(spill),
@@ -477,10 +453,6 @@ impl Codegen {
                         // Let's use: src1-src2 = -(src2-src1)
                         instrs.push(Negq { src: dst })
                     }
-
-                    instrs.push(Popq {
-                        dst: DstOperand::Reg(spill),
-                    });
                 }
             },
         }
@@ -599,9 +571,6 @@ impl Codegen {
                     push_unop!(kind, dst);
                 }
                 SrcOperand::Mem(_) => {
-                    instrs.push(Pushq {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
-                    });
                     // src -> %rax
                     instrs.push(Mov(MovInstruction {
                         src,
@@ -616,10 +585,6 @@ impl Codegen {
                         dst,
                         size: 8,
                     }));
-                    // And last but not least: recover %rax
-                    instrs.push(Popq {
-                        dst: DstOperand::Reg(Amd64Reg::Rax),
-                    });
                 }
             },
         }
