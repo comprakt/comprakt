@@ -508,6 +508,7 @@ impl Codegen {
                 _ => (false, false, false),
             });
 
+
         if !dst_is_rdx {
             // Needed for sign extend of rax -> rdx:rax
             instrs.push(Pushq {

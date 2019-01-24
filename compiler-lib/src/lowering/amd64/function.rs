@@ -8,7 +8,10 @@ use super::{
 use crate::lowering::{lir, lir_allocator::Ptr};
 use interval::{ops::Range, Interval};
 use libfirm_rs::Tarval;
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::{
+    collections::{BTreeSet, HashMap, HashSet, VecDeque},
+    ops::{DerefMut, Deref},
+};
 
 /// SaveRegList stores a list of registers to be saved before
 /// and restored after a function call.
@@ -135,8 +138,8 @@ impl FunctionCall {
 
         debug_assert!(self.reg_setup.len() <= 6);
 
-        let mut reg_graph = HashMap::new();
-
+        let mut source_regs = vec![];
+        let mut target_regs = vec![];
         for (i, op) in self.reg_setup.iter().enumerate() {
             match op {
                 lir::Operand::Imm(_) => self.setup.push(FnInstruction::Movq {
@@ -146,22 +149,8 @@ impl FunctionCall {
                 _ => {
                     match var_location.get(&var_id(*op)).unwrap() {
                         linear_scan::Location::Reg(reg) => {
-                            let arg_reg = Amd64Reg::arg(i);
-                            // If the argument already has the correct register assigned we don't
-                            // need to add the 1-cycle, since every argument register node has
-                            // exactly one incoming edge.
-                            if *reg != arg_reg {
-                                let reg_node = Node::new(*reg);
-                                let arg_node = Node::new(arg_reg);
-                                reg_graph
-                                    .entry(*reg)
-                                    .or_insert(reg_node)
-                                    .add_out_edge(arg_reg);
-                                reg_graph
-                                    .entry(arg_reg)
-                                    .or_insert(arg_node)
-                                    .set_in_edge(*reg);
-                            }
+                            source_regs.push(*reg);
+                            target_regs.push(Amd64Reg::arg(i));
                         }
                         _ => self.setup.push(FnInstruction::Movq {
                             src: FnOperand::Lir(*op),
@@ -172,8 +161,10 @@ impl FunctionCall {
             }
         }
 
+        let mut reg_graph = RegGraph::new(&source_regs, &target_regs);
+
         let reg_graph_len = reg_graph.len();
-        let nodes = gen_node_list_with_min_left_edges(&mut reg_graph);
+        let nodes = reg_graph.gen_node_list_with_min_left_edges();
 
         debug_assert_eq!(nodes.len(), reg_graph_len);
 
@@ -439,79 +430,119 @@ impl Node {
     }
 }
 
-type RegGraph = HashMap<Amd64Reg, Node>;
+#[derive(Default)]
+struct RegGraph(HashMap<Amd64Reg, Node>);
 
-/// This is a greedy cycle removal algorithm from "Graph Drawing: Algorithms for
-/// the Visualization of Graphs" by Eades et al.
-// TODO(flip1995): comment what it does
-fn gen_node_list_with_min_left_edges(reg_graph: &mut RegGraph) -> VecDeque<Node> {
-    let mut l_nodes = VecDeque::new();
-    let mut r_nodes = VecDeque::new();
-    let mut visited = HashSet::new();
+impl RegGraph {
+    fn new(sources: &[Amd64Reg], targets: &[Amd64Reg]) -> Self {
+        let mut reg_graph = Self::default();
+        debug_assert_eq!(sources.len(), targets.len());
+        for (src, target) in sources.iter().zip(targets) {
+            if src != target {
+                let src_node = Node::new(*src);
+                let target_node = Node::new(*target);
+                reg_graph
+                    .entry(*src)
+                    .or_insert(src_node)
+                    .add_out_edge(*target);
+                reg_graph
+                    .entry(*target)
+                    .or_insert(target_node)
+                    .set_in_edge(*src);
+            }
+        }
 
-    while !reg_graph.is_empty() {
-        let mut sink_exists = true;
-        while sink_exists {
-            let sinks: Vec<_> = reg_graph
-                .values()
-                .filter(|node| node.is_sink() || node.outs.iter().all(|reg| visited.contains(reg)))
-                .cloned()
-                .collect();
-            sink_exists = false;
-            for node in &sinks {
-                reg_graph.remove(&node.reg);
-                visited.insert(node.reg);
-                r_nodes.push_front(node.clone());
-                if let Some(pred) = &node.in_ {
-                    if let Some(pred_node) = reg_graph.get(&pred) {
-                        if pred_node.outs.iter().all(|reg| visited.contains(reg)) {
-                            if pred_node.in_.is_none() {
-                                // Isolated node
-                                r_nodes.push_front(pred_node.clone());
-                                reg_graph.remove(&pred);
-                            } else {
-                                sink_exists = true;
+        reg_graph
+    }
+
+    /// This is a greedy cycle removal algorithm from "Graph Drawing: Algorithms
+    /// for the Visualization of Graphs" by Eades et al.
+    // TODO(flip1995): comment what it does
+    fn gen_node_list_with_min_left_edges(&mut self) -> VecDeque<Node> {
+        let mut l_nodes = VecDeque::new();
+        let mut r_nodes = VecDeque::new();
+        let mut visited = HashSet::new();
+
+        while !self.is_empty() {
+            let mut sink_exists = true;
+            while sink_exists {
+                let sinks: Vec<_> = self
+                    .values()
+                    .filter(|node| {
+                        node.is_sink() || node.outs.iter().all(|reg| visited.contains(reg))
+                    })
+                    .cloned()
+                    .collect();
+                sink_exists = false;
+                for node in &sinks {
+                    self.remove(&node.reg);
+                    visited.insert(node.reg);
+                    r_nodes.push_front(node.clone());
+                    if let Some(pred) = &node.in_ {
+                        if let Some(pred_node) = self.get(&pred) {
+                            if pred_node.outs.iter().all(|reg| visited.contains(reg)) {
+                                if pred_node.in_.is_none() {
+                                    // Isolated node
+                                    r_nodes.push_front(pred_node.clone());
+                                    self.remove(&pred);
+                                } else {
+                                    sink_exists = true;
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        let mut source_exists = true;
-        while source_exists {
-            let sources: Vec<_> = reg_graph
-                .values()
-                .filter(|node| node.is_source() || visited.contains(&node.in_.unwrap()))
-                .cloned()
-                .collect();
-            source_exists = false;
-            for node in &sources {
-                reg_graph.remove(&node.reg);
+            let mut source_exists = true;
+            while source_exists {
+                let sources: Vec<_> = self
+                    .values()
+                    .filter(|node| node.is_source() || visited.contains(&node.in_.unwrap()))
+                    .cloned()
+                    .collect();
+                source_exists = false;
+                for node in &sources {
+                    self.remove(&node.reg);
+                    visited.insert(node.reg);
+                    l_nodes.push_back(node.clone());
+                    source_exists = true;
+                }
+            }
+
+            if !self.is_empty() {
+                let node = self
+                    .values()
+                    .max_by_key(|node| {
+                        node.outs
+                            .iter()
+                            .filter(|reg| !visited.contains(reg))
+                            .count()
+                            - if node.in_.is_some() { 1 } else { 0 }
+                    })
+                    .cloned()
+                    .unwrap();
+                self.remove(&node.reg);
                 visited.insert(node.reg);
-                l_nodes.push_back(node.clone());
-                source_exists = true;
+                l_nodes.push_back(node);
             }
         }
 
-        if !reg_graph.is_empty() {
-            let node = reg_graph
-                .values()
-                .max_by_key(|node| {
-                    node.outs
-                        .iter()
-                        .filter(|reg| !visited.contains(reg))
-                        .count()
-                        - if node.in_.is_some() { 1 } else { 0 }
-                })
-                .cloned()
-                .unwrap();
-            reg_graph.remove(&node.reg);
-            visited.insert(node.reg);
-            l_nodes.push_back(node);
-        }
+        l_nodes.append(&mut r_nodes);
+        l_nodes
     }
+}
 
-    l_nodes.append(&mut r_nodes);
-    l_nodes
+impl Deref for RegGraph {
+    type Target = HashMap<Amd64Reg, Node>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for RegGraph {
+    fn deref_mut(&mut self) -> &mut HashMap<Amd64Reg, Node> {
+        &mut self.0
+    }
 }

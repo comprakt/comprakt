@@ -91,6 +91,7 @@ impl TryFrom<usize> for Amd64Reg {
         }
     }
 }
+
 impl Ord for Amd64Reg {
     fn cmp(&self, other: &Amd64Reg) -> Ordering {
         let l: usize = (*self).into();
