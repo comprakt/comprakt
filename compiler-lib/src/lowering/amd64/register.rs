@@ -49,14 +49,14 @@ impl From<Amd64Reg> for usize {
             Amd64Reg::R9  => 5,  // Caller-save
             Amd64Reg::R10 => 6,  // Caller-save
             Amd64Reg::R11 => 7,  // Caller-save
-            Amd64Reg::Rax => 8,  // Caller-save
 
-            Amd64Reg::Rbx => 9,  // Callee-save
-            Amd64Reg::R12 => 10, // Callee-save
-            Amd64Reg::R13 => 11, // Callee-save
-            Amd64Reg::R14 => 12, // Callee-save
-            Amd64Reg::R15 => 13, // Callee-save
+            Amd64Reg::Rbx => 8,  // Callee-save
+            Amd64Reg::R12 => 9, // Callee-save
+            Amd64Reg::R13 => 10, // Callee-save
+            Amd64Reg::R14 => 11, // Callee-save
+            Amd64Reg::R15 => 12, // Callee-save
 
+            Amd64Reg::Rax => 13, // scratch
             Amd64Reg::Rsp => 14, // should not be used
             Amd64Reg::Rbp => 15, // should not be used
         }
@@ -77,14 +77,14 @@ impl TryFrom<usize> for Amd64Reg {
             5  => Ok(Amd64Reg::R9),  // Caller-save
             6  => Ok(Amd64Reg::R10), // Caller-save
             7  => Ok(Amd64Reg::R11), // Caller-save
-            8  => Ok(Amd64Reg::Rax), // Caller-save
 
-            9  => Ok(Amd64Reg::Rbx), // Callee-save
-            10 => Ok(Amd64Reg::R12), // Callee-save
-            11 => Ok(Amd64Reg::R13), // Callee-save
-            12 => Ok(Amd64Reg::R14), // Callee-save
-            13 => Ok(Amd64Reg::R15), // Callee-save
+            8  => Ok(Amd64Reg::Rbx), // Callee-save
+            9  => Ok(Amd64Reg::R12), // Callee-save
+            10 => Ok(Amd64Reg::R13), // Callee-save
+            11 => Ok(Amd64Reg::R14), // Callee-save
+            12 => Ok(Amd64Reg::R15), // Callee-save
 
+            13 => Ok(Amd64Reg::Rax), // scratch
             14 => Ok(Amd64Reg::Rsp), // should not be used
             15 => Ok(Amd64Reg::Rbp), // should not be used
             _  => Err(()),
@@ -143,9 +143,9 @@ impl Amd64Reg {
             | Amd64Reg::R8
             | Amd64Reg::R9
             | Amd64Reg::R10
-            | Amd64Reg::R11
-            | Amd64Reg::Rax => true,
-            _ => false,
+            | Amd64Reg::R11 => true,
+            Amd64Reg::Rax // scratch register
+            | _ => false,
         }
     }
 
@@ -180,16 +180,16 @@ impl Amd64Reg {
             5  => Some(Amd64Reg::R9),  // Caller-save
             6  => Some(Amd64Reg::R10), // Caller-save
             7  => Some(Amd64Reg::R11), // Caller-save
-            8  => Some(Amd64Reg::Rax), // Caller-save
 
-            9  => Some(Amd64Reg::Rbx), // Callee-save
-            10 => Some(Amd64Reg::R12), // Callee-save
-            11 => Some(Amd64Reg::R13), // Callee-save
-            12 => Some(Amd64Reg::R14), // Callee-save
-            13 => Some(Amd64Reg::R15), // Callee-save
+            8  => Some(Amd64Reg::Rbx), // Callee-save
+            9  => Some(Amd64Reg::R12), // Callee-save
+            10 => Some(Amd64Reg::R13), // Callee-save
+            11 => Some(Amd64Reg::R14), // Callee-save
+            12 => Some(Amd64Reg::R15), // Callee-save
 
-            14   // `Amd64Reg::Rsp` should not be used
-            | 15 // `Amd64Reg::Rbp` should not be used
+            13   // `Amd64Reg::Rsp` should not be used
+            | 14 // `Amd64Reg::Rbp` should not be used
+            | 15 // `Amd64Reg::Rax` is scratch
             | _ => None,
         }
     }
