@@ -10,7 +10,7 @@ use interval::{ops::Range, Interval};
 use libfirm_rs::Tarval;
 use std::{
     collections::{BTreeSet, HashMap, HashSet, VecDeque},
-    ops::{DerefMut, Deref},
+    ops::{Deref, DerefMut},
 };
 
 /// SaveRegList stores a list of registers to be saved before
@@ -146,18 +146,16 @@ impl FunctionCall {
                     src: FnOperand::Lir(*op),
                     dst: FnOperand::Reg(Amd64Reg::arg(i)),
                 }),
-                _ => {
-                    match var_location.get(&var_id(*op)).unwrap() {
-                        linear_scan::Location::Reg(reg) => {
-                            source_regs.push(*reg);
-                            target_regs.push(Amd64Reg::arg(i));
-                        }
-                        _ => self.setup.push(FnInstruction::Movq {
-                            src: FnOperand::Lir(*op),
-                            dst: FnOperand::Reg(Amd64Reg::arg(i)),
-                        }),
+                _ => match var_location.get(&var_id(*op)).unwrap() {
+                    linear_scan::Location::Reg(reg) => {
+                        source_regs.push(*reg);
+                        target_regs.push(Amd64Reg::arg(i));
                     }
-                }
+                    _ => self.setup.push(FnInstruction::Movq {
+                        src: FnOperand::Lir(*op),
+                        dst: FnOperand::Reg(Amd64Reg::arg(i)),
+                    }),
+                },
             }
         }
 
