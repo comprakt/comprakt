@@ -270,30 +270,16 @@ impl Codegen {
             }
             lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
             lir::Instruction::StoreMem { src, dst, size } => {
-                let used_regs_addr_computation =
-                    |ac: lir::AddressComputation<Amd64Reg>| ac.operands();
-
-                let src_operand_used_regs = |op| match op {
-                    SrcOperand::Mem(ac) => used_regs_addr_computation(ac),
-                    SrcOperand::Reg(reg) => vec![reg],
-                    SrcOperand::Imm(_) => vec![],
-                };
-                let dst_operand_used_regs = |op| match op {
-                    DstOperand::Mem(ac) => used_regs_addr_computation(ac),
-                    DstOperand::Reg(reg) => vec![reg],
-                };
-
                 let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
                 dst.operands()
                     .into_iter()
                     .map(|operand| self.lir_to_src_operand(operand, instrs))
-                    .flat_map(src_operand_used_regs)
+                    .flat_map(OperandUsingRegs::used_regs)
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
                     });
-                self.lir_to_src_operand(*src, instrs)
-                    .try_into()
-                    .map(dst_operand_used_regs)
+                DstOperand::try_from(self.lir_to_src_operand(*src, instrs))
+                    .map(OperandUsingRegs::used_regs)
                     .unwrap_or(vec![])
                     .into_iter()
                     .for_each(|occupied_reg| {
@@ -408,30 +394,16 @@ impl Codegen {
                 }));
             }
             lir::Instruction::LoadMem { src, dst, size } => {
-                let used_regs_addr_computation =
-                    |ac: lir::AddressComputation<Amd64Reg>| ac.operands();
-
-                let src_operand_used_regs = |op| match op {
-                    SrcOperand::Mem(ac) => used_regs_addr_computation(ac),
-                    SrcOperand::Reg(reg) => vec![reg],
-                    SrcOperand::Imm(_) => vec![],
-                };
-                let dst_operand_used_regs = |op| match op {
-                    DstOperand::Mem(ac) => used_regs_addr_computation(ac),
-                    DstOperand::Reg(reg) => vec![reg],
-                };
-
                 let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
                 src.operands()
                     .into_iter()
                     .map(|operand| self.lir_to_src_operand(operand, instrs))
-                    .flat_map(src_operand_used_regs)
+                    .flat_map(OperandUsingRegs::used_regs)
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
                     });
-                self.lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
-                    .try_into()
-                    .map(dst_operand_used_regs)
+                DstOperand::try_from(self.lir_to_src_operand(lir::Operand::Slot(*dst), instrs))
+                    .map(OperandUsingRegs::used_regs)
                     .unwrap()
                     .into_iter()
                     .for_each(|occupied_reg| {
@@ -557,6 +529,14 @@ impl Codegen {
             lir::Instruction::Call { .. } => unreachable!("Call already converted"),
             lir::Instruction::Comment(_) => (),
         }
+    }
+
+    fn gen_load_or_storemem(
+        &mut self,
+        instrs: &mut Vec<Instruction>,
+        load_or_store: LoadOrStoreMem,
+    ) {
+        unimplemented!()
     }
 
     fn gen_binop(
@@ -1038,6 +1018,19 @@ impl Codegen {
     }
 }
 
+enum LoadOrStoreMem {
+    StoreMem {
+        src: lir::Operand,
+        dst: lir::AddressComputation<lir::Operand>,
+        size: u32,
+    },
+    LoadMem {
+        src: lir::AddressComputation<Amd64Reg>,
+        dst: Ptr<lir::MultiSlot>,
+        size: u32,
+    },
+}
+
 #[derive(Display)]
 pub(super) enum Instruction {
     #[display(fmt = "\t{}", _0)]
@@ -1142,6 +1135,16 @@ impl fmt::Display for MovInstruction {
     }
 }
 
+trait OperandUsingRegs {
+    fn used_regs(self) -> Vec<Amd64Reg>;
+}
+
+impl OperandUsingRegs for lir::AddressComputation<Amd64Reg> {
+    fn used_regs(self) -> Vec<Amd64Reg> {
+        self.operands() // FIXME move that here
+    }
+}
+
 #[derive(Copy, Clone)]
 pub(super) enum SrcOperand {
     Mem(lir::AddressComputation<Amd64Reg>),
@@ -1149,10 +1152,29 @@ pub(super) enum SrcOperand {
     Imm(Tarval),
 }
 
+impl OperandUsingRegs for SrcOperand {
+    fn used_regs(self) -> Vec<Amd64Reg> {
+        match self {
+            SrcOperand::Mem(ac) => ac.used_regs(),
+            SrcOperand::Reg(reg) => vec![reg],
+            SrcOperand::Imm(_) => vec![],
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 pub(super) enum DstOperand {
     Mem(lir::AddressComputation<Amd64Reg>),
     Reg(Amd64Reg),
+}
+
+impl OperandUsingRegs for DstOperand {
+    fn used_regs(self) -> Vec<Amd64Reg> {
+        match self {
+            DstOperand::Mem(ac) => ac.used_regs(),
+            DstOperand::Reg(reg) => vec![reg],
+        }
+    }
 }
 
 impl TryFrom<SrcOperand> for DstOperand {
