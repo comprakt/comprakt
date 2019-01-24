@@ -433,7 +433,7 @@ impl Codegen {
 
                 use self::{lir::IndexComputation, Instruction::*};
 
-                let src: SrcOperand = {
+                let src: lir::AddressComputation<Amd64Reg> = {
                     let lir::AddressComputation {
                         offset,
                         base,
@@ -475,12 +475,13 @@ impl Codegen {
                             IndexComputation::Zero
                         }
                     };
-                    SrcOperand::Mem(lir::AddressComputation {
+                    lir::AddressComputation {
                         base,
                         index,
                         offset: *offset,
-                    })
+                    }
                 };
+                let src = SrcOperand::Mem(src);
 
                 let dst = {
                     let dst: DstOperand = self
