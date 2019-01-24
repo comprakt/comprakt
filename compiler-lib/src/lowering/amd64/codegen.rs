@@ -1,17 +1,18 @@
 use super::{
-    function,
+    function::{self, SaveRegList},
     linear_scan::{self, Location},
     lir::{self, MultiSlot},
     live_variable_analysis,
-    register::{Amd64Reg, Amd64RegByte, Amd64RegDouble},
+    register::{Amd64Reg, Amd64RegByte, Amd64RegDouble, RegisterAllocator},
     var_id, CallingConv, VarId,
 };
 use crate::lowering::lir_allocator::Ptr;
 use libfirm_rs::{nodes::NodeTrait, Tarval};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     convert::{TryFrom, TryInto},
     fmt,
+    iter::FromIterator,
 };
 
 pub(super) struct Codegen {
@@ -250,26 +251,14 @@ impl Codegen {
                     .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
                     .try_into()
                     .unwrap();
-                self.gen_div(instrs, src1, src2, dst.reg(), || {
-                    Mov(MovInstruction {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
-                        dst,
-                        size: 8,
-                    })
-                });
+                unimplemented!()
             }
             lir::Instruction::Mod { src1, src2, dst } => {
                 let dst: DstOperand = self
                     .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
                     .try_into()
                     .unwrap();
-                self.gen_div(instrs, src1, src2, dst.reg(), || {
-                    Mov(MovInstruction {
-                        src: SrcOperand::Reg(Amd64Reg::Rdx),
-                        dst,
-                        size: 8,
-                    })
-                });
+                unimplemented!()
             }
             lir::Instruction::Conv { src, dst } => {
                 let src = self.lir_to_src_operand(*src, instrs);
@@ -280,28 +269,153 @@ impl Codegen {
                 instrs.push(Mov(MovInstruction { src, dst, size: 8 }))
             }
             lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
-            lir::Instruction::StoreMem { src, dst, size } => {
-                let src = self.lir_to_src_operand(*src, instrs);
-                self.gen_load_store(instrs, dst, src.reg(), None, |addr| {
-                    Mov(MovInstruction {
-                        src,
-                        dst: DstOperand::Mem(addr),
-                        size: *size,
-                    })
-                })
-            }
+            lir::Instruction::StoreMem { src, dst, size } => unimplemented!(),
             lir::Instruction::LoadMem { src, dst, size } => {
-                let dst: DstOperand = self
-                    .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
+                let used_regs_addr_computation =
+                    |ac: lir::AddressComputation<Amd64Reg>| ac.operands();
+
+                let src_operand_used_regs = |op| match op {
+                    SrcOperand::Mem(ac) => used_regs_addr_computation(ac),
+                    SrcOperand::Reg(reg) => vec![reg],
+                    SrcOperand::Imm(_) => vec![],
+                };
+                let dst_operand_used_regs = |op| match op {
+                    DstOperand::Mem(ac) => used_regs_addr_computation(ac),
+                    DstOperand::Reg(reg) => vec![reg],
+                };
+
+                let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
+                src.operands()
+                    .into_iter()
+                    .map(|operand| self.lir_to_src_operand(operand, instrs))
+                    .flat_map(src_operand_used_regs)
+                    .for_each(|occupied_reg| {
+                        free_regs.remove(&occupied_reg);
+                    });
+                self.lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
                     .try_into()
-                    .unwrap();
-                self.gen_load_store(instrs, src, None, dst.reg(), |addr| {
-                    Mov(MovInstruction {
-                        src: SrcOperand::Mem(addr),
-                        dst,
-                        size: *size,
+                    .map(dst_operand_used_regs)
+                    .unwrap()
+                    .into_iter()
+                    .for_each(|occupied_reg| {
+                        free_regs.remove(&occupied_reg);
+                    });
+
+                // rev because eax is the last one, and we want to use it first because it is
+                // scratch
+                let mut free_regs = free_regs.into_iter().rev();
+                let mut spills = SaveRegList::default();
+                let mut setup_instrs = vec![];
+                let mut post_mov_instrs = vec![];
+                macro_rules! spill {
+                    ($src:expr) => {{
+                        let spill = free_regs.next().unwrap();
+                        if spill != Amd64Reg::Rax {
+                            spills.add_regs(&[spill]);
+                        }
+                        setup_instrs.push(Mov(MovInstruction {
+                            src: $src,
+                            dst: DstOperand::Reg(spill),
+                            size: 8,
+                        }));
+                        spill
+                    }};
+                }
+
+                use self::{lir::IndexComputation, Instruction::*};
+
+                let src: SrcOperand = {
+                    let lir::AddressComputation {
+                        offset,
+                        base,
+                        index,
+                    } = src;
+                    let base = self.lir_to_src_operand(*base, instrs);
+                    let base: Amd64Reg = match base {
+                        // the base address of src is stored in a reg, this is fine
+                        SrcOperand::Reg(reg) => reg,
+                        SrcOperand::Imm(_) => unreachable!(),
+                        // base address of src operand is stored in the AR, we need it in a register
+                        SrcOperand::Mem(ar_addr_comp) => {
+                            // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                            assert!(ar_addr_comp.base == Amd64Reg::Rbp);
+                            assert!(ar_addr_comp.index.is_zero());
+                            spill!(base)
+                        }
+                    };
+                    let index: IndexComputation<Amd64Reg> = {
+                        if let IndexComputation::Displacement(index, stride) = *index {
+                            let index = self.lir_to_src_operand(index, instrs);
+                            match index {
+                                // the index is stored in a reg, this is fine
+                                SrcOperand::Reg(reg) => IndexComputation::Displacement(reg, stride),
+                                // the index is an immediate, move it to a spilled reg
+                                SrcOperand::Imm(_) => {
+                                    IndexComputation::Displacement(spill!(index), stride)
+                                }
+                                // the index is stored in the AR, we need it in a register
+                                SrcOperand::Mem(ar_addr_comp) => {
+                                    // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                                    assert!(ar_addr_comp.base == Amd64Reg::Rbp);
+                                    assert!(ar_addr_comp.index.is_zero());
+                                    IndexComputation::Displacement(spill!(index), stride)
+                                }
+                            }
+                        } else {
+                            // the only other variant of IndexComputation
+                            IndexComputation::Zero
+                        }
+                    };
+                    SrcOperand::Mem(lir::AddressComputation {
+                        base,
+                        index,
+                        offset: *offset,
                     })
-                })
+                };
+
+                let dst = {
+                    let dst: DstOperand = self
+                        .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
+                        .try_into()
+                        .unwrap();
+                    let dst: Amd64Reg = match dst {
+                        // the dst is stored in a reg, this is fine
+                        DstOperand::Reg(reg) => reg,
+                        // the dst is stored in the activation record
+                        DstOperand::Mem(ar_addr_comp) => {
+                            // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                            assert!(ar_addr_comp.base == Amd64Reg::Rbp);
+                            assert!(ar_addr_comp.index.is_zero());
+                            // to avoid mem mem move, use rax as scratch
+                            // using rax without consulting free_regs is safe because
+                            // because any usage as spill space for src
+                            // ends during the execution of mov
+                            post_mov_instrs.push(Mov(MovInstruction {
+                                src: SrcOperand::Reg(Amd64Reg::Rax),
+                                dst,
+                                size: 8,
+                            }));
+                            Amd64Reg::Rax
+                        }
+                    };
+                    DstOperand::Reg(dst)
+                };
+
+                // Emit the instructoins
+                instrs.extend(spills.saves().map(|r| Pushq {
+                    src: SrcOperand::Reg(r),
+                }));
+                instrs.extend(setup_instrs);
+                // This whole function is just about the following statement
+                instrs.push(Mov(MovInstruction {
+                    src,
+                    dst,
+                    size: *size,
+                }));
+                instrs.extend(post_mov_instrs);
+                instrs.extend(spills.restores().map(|r| Popq {
+                    dst: DstOperand::Reg(r),
+                }));
             }
             lir::Instruction::Call { .. } => unreachable!("Call already converted"),
             lir::Instruction::Comment(_) => (),
@@ -455,85 +569,6 @@ impl Codegen {
                     }
                 }
             },
-        }
-    }
-
-    fn gen_div<F>(
-        &mut self,
-        instrs: &mut Vec<Instruction>,
-        src1: &lir::Operand,
-        src2: &lir::Operand,
-        dst_reg: Option<Amd64Reg>,
-        f: F,
-    ) where
-        F: FnOnce() -> Instruction,
-    {
-        use self::Instruction::{Cqto, Divq, Mov, Popq, Pushq};
-
-        // when dst is rdx, rax or rsi, we don't need to spill the respective register,
-        // because it is overidden anyway
-        let (dst_is_rdx, dst_is_rax, dst_is_rsi) =
-            dst_reg.map_or((false, false, false), |reg| match reg {
-                Amd64Reg::Rdx => (true, false, false),
-                Amd64Reg::Rax => (false, true, false),
-                Amd64Reg::Rsi => (false, false, true),
-                _ => (false, false, false),
-            });
-
-        if !dst_is_rdx {
-            // Needed for sign extend of rax -> rdx:rax
-            instrs.push(Pushq {
-                src: SrcOperand::Reg(Amd64Reg::Rdx),
-            });
-        }
-        if !dst_is_rax {
-            instrs.push(Pushq {
-                src: SrcOperand::Reg(Amd64Reg::Rax),
-            });
-        }
-
-        let src = self.lir_to_src_operand(*src1, instrs);
-        instrs.push(Mov(MovInstruction {
-            src,
-            dst: DstOperand::Reg(Amd64Reg::Rax),
-            size: 8,
-        }));
-        instrs.push(Cqto);
-        if let lir::Operand::Imm(_) = src2 {
-            if !dst_is_rsi {
-                instrs.push(Pushq {
-                    src: SrcOperand::Reg(Amd64Reg::Rsi),
-                });
-            }
-            let src = self.lir_to_src_operand(*src2, instrs);
-            instrs.push(Mov(MovInstruction {
-                src,
-                dst: DstOperand::Reg(Amd64Reg::Rsi),
-                size: 8,
-            }));
-            instrs.push(Divq {
-                src: DstOperand::Reg(Amd64Reg::Rsi),
-            });
-            if !dst_is_rsi {
-                instrs.push(Popq {
-                    dst: DstOperand::Reg(Amd64Reg::Rsi),
-                });
-            }
-        } else {
-            let src = self.lir_to_src_operand(*src2, instrs).try_into().unwrap();
-            instrs.push(Divq { src });
-        }
-        instrs.push(f());
-
-        if !dst_is_rax {
-            instrs.push(Popq {
-                dst: DstOperand::Reg(Amd64Reg::Rax),
-            });
-        }
-        if !dst_is_rdx {
-            instrs.push(Popq {
-                dst: DstOperand::Reg(Amd64Reg::Rdx),
-            });
         }
     }
 
@@ -1072,30 +1107,10 @@ pub(super) enum SrcOperand {
     Imm(Tarval),
 }
 
-impl SrcOperand {
-    fn reg(self) -> Option<Amd64Reg> {
-        if let SrcOperand::Reg(reg) = self {
-            Some(reg)
-        } else {
-            None
-        }
-    }
-}
-
 #[derive(Copy, Clone)]
 pub(super) enum DstOperand {
     Mem(lir::AddressComputation<Amd64Reg>),
     Reg(Amd64Reg),
-}
-
-impl DstOperand {
-    fn reg(self) -> Option<Amd64Reg> {
-        if let DstOperand::Reg(reg) = self {
-            Some(reg)
-        } else {
-            None
-        }
-    }
 }
 
 impl TryFrom<SrcOperand> for DstOperand {

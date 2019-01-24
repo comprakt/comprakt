@@ -187,11 +187,16 @@ impl Amd64Reg {
             11 => Some(Amd64Reg::R14), // Callee-save
             12 => Some(Amd64Reg::R15), // Callee-save
 
-            13   // `Amd64Reg::Rsp` should not be used
-            | 14 // `Amd64Reg::Rbp` should not be used
-            | 15 // `Amd64Reg::Rax` is scratch
+            13 // `Amd64Reg::Rax` is scratch
+            | 14   // `Amd64Reg::Rsp` should not be used
+            | 15 // `Amd64Reg::Rbp` should not be used
             | _ => None,
         }
+    }
+
+    pub fn all_but_rsp_and_rbp() -> impl Iterator<Item = Self> {
+        // inclusive range
+        (0..=13).map(|i| Amd64Reg::try_from(i).unwrap())
     }
 }
 
@@ -233,6 +238,16 @@ impl RegisterAllocator {
             .and_then(|(reg, _)| Some(*reg))
         {
             self.free_list.insert(reg, false);
+            Some(reg)
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn alloc_specific_reg(&mut self, reg: Amd64Reg) -> Option<Amd64Reg> {
+        let is_free = self.free_list.get_mut(&reg).unwrap();
+        if *is_free {
+            *is_free = false;
             Some(reg)
         } else {
             None

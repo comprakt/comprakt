@@ -285,6 +285,16 @@ pub struct AddressComputation<Op: Display + Copy> {
     pub index: IndexComputation<Op>,
 }
 
+impl<Op: Display + Copy> AddressComputation<Op> {
+    pub fn operands(&self) -> Vec<Op> {
+        let mut operands = vec![self.base];
+        if let IndexComputation::Displacement(op, _) = self.index {
+            operands.push(op);
+        }
+        operands
+    }
+}
+
 impl<Op: Display + Copy> std::fmt::Display for AddressComputation<Op> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let index = match &self.index {
@@ -300,6 +310,21 @@ impl<Op: Display + Copy> std::fmt::Display for AddressComputation<Op> {
 pub enum IndexComputation<Op: Display + Copy> {
     Displacement(Op, Stride),
     Zero,
+}
+
+impl<Op: Display + Copy> IndexComputation<Op> {
+    pub fn is_zero(&self) -> bool {
+        match self {
+            IndexComputation::Zero => true,
+            _ => false,
+        }
+    }
+    pub fn displacement_op(&self) -> Option<&Op> {
+        match self {
+            IndexComputation::Displacement(op, _) => Some(op),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Display, Copy, Clone)]
