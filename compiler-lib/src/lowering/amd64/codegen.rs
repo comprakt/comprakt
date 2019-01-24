@@ -288,24 +288,8 @@ impl Codegen {
 
                 // rev because eax is the last one, and we want to use it first because it is
                 // scratch
-                let mut free_regs = free_regs.into_iter().rev();
-                let mut spills = SaveRegList::default();
-                let mut setup_instrs = vec![];
-                let mut post_mov_instrs = vec![];
-                macro_rules! spill {
-                    ($src:expr) => {{
-                        let spill = free_regs.next().unwrap();
-                        if spill != Amd64Reg::Rax {
-                            spills.add_regs(&[spill]);
-                        }
-                        setup_instrs.push(Mov(MovInstruction {
-                            src: $src,
-                            dst: DstOperand::Reg(spill),
-                            size: 8,
-                        }));
-                        spill
-                    }};
-                }
+                let mut free_regs = free_regs.into_iter().rev().collect();
+                let mut spill_ctx = SpillContext::new(free_regs);
 
                 use self::{lir::IndexComputation, Instruction::*};
 
@@ -325,7 +309,7 @@ impl Codegen {
                             // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
                             assert!(ar_addr_comp.base == Amd64Reg::Rbp);
                             assert!(ar_addr_comp.index.is_zero());
-                            spill!(base)
+                            spill_ctx.spill_and_load_operand(base)
                         }
                     };
                     let index: IndexComputation<Amd64Reg> = {
@@ -336,14 +320,16 @@ impl Codegen {
                                 SrcOperand::Reg(reg) => IndexComputation::Displacement(reg, stride),
                                 // the index is an immediate, move it to a spilled reg
                                 SrcOperand::Imm(_) => {
-                                    IndexComputation::Displacement(spill!(index), stride)
+                                    let index = spill_ctx.spill_and_load_operand(index);
+                                    IndexComputation::Displacement(index, stride)
                                 }
                                 // the index is stored in the AR, we need it in a register
                                 SrcOperand::Mem(ar_addr_comp) => {
                                     // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
                                     assert!(ar_addr_comp.base == Amd64Reg::Rbp);
                                     assert!(ar_addr_comp.index.is_zero());
-                                    IndexComputation::Displacement(spill!(index), stride)
+                                    let index = spill_ctx.spill_and_load_operand(index);
+                                    IndexComputation::Displacement(index, stride)
                                 }
                             }
                         } else {
@@ -372,26 +358,20 @@ impl Codegen {
                             assert!(ar_addr_comp.index.is_zero());
                             // we cannot spill into rax (our scratch) because
                             // it may be the base / index of dst
-                            SrcOperand::Reg(spill!(src))
+                            let src = spill_ctx.spill_and_load_operand(src);
+                            SrcOperand::Reg(src)
                         }
                     }
                 };
 
                 // Emit the instructoins
-                instrs.extend(spills.saves().map(|r| Pushq {
-                    src: SrcOperand::Reg(r),
-                }));
-                instrs.extend(setup_instrs);
                 // This whole function is just about the following statement
-                instrs.push(Mov(MovInstruction {
+                let surrounded = vec![Mov(MovInstruction {
                     src,
                     dst,
                     size: *size,
-                }));
-                instrs.extend(post_mov_instrs);
-                instrs.extend(spills.restores().map(|r| Popq {
-                    dst: DstOperand::Reg(r),
-                }));
+                })];
+                instrs.extend(spill_ctx.emit_surrounded_instrs(surrounded));
             }
             lir::Instruction::LoadMem { src, dst, size } => {
                 let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
@@ -412,24 +392,9 @@ impl Codegen {
 
                 // rev because eax is the last one, and we want to use it first because it is
                 // scratch
-                let mut free_regs = free_regs.into_iter().rev();
-                let mut spills = SaveRegList::default();
-                let mut setup_instrs = vec![];
+                let mut free_regs = free_regs.into_iter().rev().collect();
+                let mut spill_ctx = SpillContext::new(free_regs);
                 let mut post_mov_instrs = vec![];
-                macro_rules! spill {
-                    ($src:expr) => {{
-                        let spill = free_regs.next().unwrap();
-                        if spill != Amd64Reg::Rax {
-                            spills.add_regs(&[spill]);
-                        }
-                        setup_instrs.push(Mov(MovInstruction {
-                            src: $src,
-                            dst: DstOperand::Reg(spill),
-                            size: 8,
-                        }));
-                        spill
-                    }};
-                }
 
                 use self::{lir::IndexComputation, Instruction::*};
 
@@ -449,7 +414,7 @@ impl Codegen {
                             // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
                             assert!(ar_addr_comp.base == Amd64Reg::Rbp);
                             assert!(ar_addr_comp.index.is_zero());
-                            spill!(base)
+                            spill_ctx.spill_and_load_operand(base)
                         }
                     };
                     let index: IndexComputation<Amd64Reg> = {
@@ -460,14 +425,16 @@ impl Codegen {
                                 SrcOperand::Reg(reg) => IndexComputation::Displacement(reg, stride),
                                 // the index is an immediate, move it to a spilled reg
                                 SrcOperand::Imm(_) => {
-                                    IndexComputation::Displacement(spill!(index), stride)
+                                    let index = spill_ctx.spill_and_load_operand(index);
+                                    IndexComputation::Displacement(index, stride)
                                 }
                                 // the index is stored in the AR, we need it in a register
                                 SrcOperand::Mem(ar_addr_comp) => {
                                     // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
                                     assert!(ar_addr_comp.base == Amd64Reg::Rbp);
                                     assert!(ar_addr_comp.index.is_zero());
-                                    IndexComputation::Displacement(spill!(index), stride)
+                                    let index = spill_ctx.spill_and_load_operand(index);
+                                    IndexComputation::Displacement(index, stride)
                                 }
                             }
                         } else {
@@ -511,21 +478,15 @@ impl Codegen {
                     DstOperand::Reg(dst)
                 };
 
-                // Emit the instructoins
-                instrs.extend(spills.saves().map(|r| Pushq {
-                    src: SrcOperand::Reg(r),
-                }));
-                instrs.extend(setup_instrs);
+                // Emit the instructions
                 // This whole function is just about the following statement
-                instrs.push(Mov(MovInstruction {
+                let mut surrounded = vec![Mov(MovInstruction {
                     src,
                     dst,
                     size: *size,
-                }));
-                instrs.extend(post_mov_instrs);
-                instrs.extend(spills.restores().map(|r| Popq {
-                    dst: DstOperand::Reg(r),
-                }));
+                })];
+                surrounded.extend(post_mov_instrs);
+                instrs.extend(spill_ctx.emit_surrounded_instrs(surrounded));
             }
             lir::Instruction::Call { .. } => unreachable!("Call already converted"),
             lir::Instruction::Comment(_) => (),
@@ -1133,6 +1094,75 @@ impl fmt::Display for MovInstruction {
             },
             (SrcOperand::Mem(_), DstOperand::Mem(_)) => unreachable!(),
         }
+    }
+}
+
+/// SpillContext tracks the temporary spilling of registers, which is usually
+/// necessary to satisfy x86 operand constraints.
+///
+/// Registers from `free_regs` are eligible for spilling, i.e., being pushed
+/// onto the stack, then reused for another SrcOperand, and later popped back to
+/// their original value.
+struct SpillContext {
+    used_regs: HashSet<Amd64Reg>,
+    free_regs: Box<Iterator<Item = Amd64Reg>>,
+    spills: SaveRegList<Amd64Reg>,
+    mov_to_spilled: Vec<Instruction>,
+}
+
+impl SpillContext {
+    /// `free_regs` must return a register at most once
+    /// It must not return `Amd64Reg::Rsp` or `Amd64Reg::Rbp`.
+    fn new(free_regs: Vec<Amd64Reg>) -> Self {
+        SpillContext {
+            used_regs: HashSet::new(),
+            free_regs: box free_regs.into_iter(),
+            spills: SaveRegList::default(),
+            mov_to_spilled: vec![],
+        }
+    }
+
+    /// mark a register as spilled and load the given SrcOperand
+    /// into that register, and return that register
+    /// If Rax is returned from the free_regs iterator, it is not spilled
+    /// because it is assumed to be a scratch register.
+    ///
+    /// No entry of `src.used_regs()` must ever be returned by free_regs.
+    fn spill_and_load_operand(&mut self, src: SrcOperand) -> Amd64Reg {
+        let spill = self.free_regs.next().unwrap();
+        self.used_regs.insert(spill);
+
+        src.used_regs().into_iter().for_each(|r| {
+            let was_unused = self.used_regs.insert(r);
+            debug_assert!(
+                was_unused,
+                "src operand depends on registers returned by free_regs"
+            )
+        });
+
+        if spill != Amd64Reg::Rax {
+            self.spills.add_regs(&[spill]);
+        }
+        self.mov_to_spilled.push(Instruction::Mov(MovInstruction {
+            src,
+            dst: DstOperand::Reg(spill),
+            size: 8,
+        }));
+        spill
+    }
+
+    /// emit the spill instructions around those contained in `surrounded`
+    fn emit_surrounded_instrs(self, surrounded: Vec<Instruction>) -> Vec<Instruction> {
+        let mut instrs = vec![];
+        instrs.extend(self.spills.saves().map(|r| Instruction::Pushq {
+            src: SrcOperand::Reg(r),
+        }));
+        instrs.extend(self.mov_to_spilled);
+        instrs.extend(surrounded);
+        instrs.extend(self.spills.restores().map(|r| Instruction::Popq {
+            dst: DstOperand::Reg(r),
+        }));
+        instrs
     }
 }
 
