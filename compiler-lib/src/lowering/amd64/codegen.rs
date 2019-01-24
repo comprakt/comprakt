@@ -236,7 +236,7 @@ impl Codegen {
                     dst: DstOperand::Reg(Amd64Reg::Rax),
                 });
             }
-            (SrcOperand::Imm(_), _) => unreachable!(),
+            (SrcOperand::Imm(_), _) => instrs.push(Mov(MovInstruction { src, dst, size: 8 })),
         }
     }
 
