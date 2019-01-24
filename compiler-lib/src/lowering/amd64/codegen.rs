@@ -1,5 +1,6 @@
 use super::{
     function,
+    function::SaveRegList,
     linear_scan::{self, Location},
     lir::{self, AddressOperand, MultiSlot},
     live_variable_analysis,
@@ -13,6 +14,7 @@ use std::{
     convert::{TryFrom, TryInto},
     fmt,
 };
+use std::iter::FromIterator;
 
 pub(super) struct Codegen {
     var_location: HashMap<VarId, linear_scan::Location>,
@@ -287,91 +289,35 @@ impl Codegen {
             lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
 
             lir::Instruction::StoreMem { src, dst, size } => {
-                // nearly duped from LoadMem
 
-                let src: SrcOperand = self.lir_to_src_operand(*src, instrs);
-
-                // convert AddressOperand to dst operand
-                macro_rules! slot_to_operand {
-                    ( $ptr_multi_slot:expr ) => {{
-                        let lirop = lir::Operand::Slot($ptr_multi_slot);
-                        let x = self.lir_to_src_operand(lirop, instrs).try_into().unwrap();
-                        //factors.push(x);
-                        match x {
-                            DstOperand::Reg(reg) => reg,
-                            _ => panic!("expecting register allocation to allocate reg"),
-                        }
-                    }};
+                let mut constraints = vec![
+                    (*src, OperandConstraints::AnyRegister),
+                ];
+                match dst {
+                    lir::AddressOperand::RegisterRelativeOffset { base, .. } => unimplemented!(),
+                    lir::AddressOperand::Scaled { base, index, stride, offset } => {
+                        let base = lir::Operand::Slot(*base);
+                        let index = lir::Operand::Slot(*index);
+                        constraints.push((base, OperandConstraints::AnyRegister));
+                        constraints.push((index, OperandConstraints::AnyRegister));
+                        // FIXME invalid free reg list
+                        let free_reg_list = RegFreeList::new(Amd64Reg::all().collect());
+                        self.with_operand_constraints(instrs, free_reg_list, &constraints, &move |any, reg| {
+                            let src = any(src);
+                            let dst = lir::AddressOperand::Scaled {
+                                base: reg(&base),
+                                index: reg(&index),
+                                stride: *stride,
+                                offset: *offset,
+                            };
+                            vec![Mov(MovInstruction{
+                                src,
+                                dst: DstOperand::Mem(dst),
+                                size: *size,
+                            })]
+                        });
+                    }
                 }
-                let dst: AddressOperand<Amd64Reg> = match *dst {
-                    AddressOperand::RegisterRelativeOffset { base, offset } => {
-                        let base = slot_to_operand!(base);
-                        AddressOperand::RegisterRelativeOffset { base, offset }
-                    }
-                    AddressOperand::Scaled {
-                        base,
-                        index,
-                        stride,
-                        offset,
-                    } => {
-                        let base = slot_to_operand!(base);
-                        let index = slot_to_operand!(index);
-                        AddressOperand::Scaled {
-                            base,
-                            index,
-                            stride,
-                            offset,
-                        }
-                    }
-                };
-                // factors must be in registers for x86 reg-relative addressing
-                // the following situation is very unlikely, but because codegen
-                // happens after register allocation, and because we do not have a way
-                // to require registers for certain lir::Operand::Slot(_) (FIXME @flip1995 )
-                // this situation can happen
-                // let (factor_regs, factor_notyetregs) = factors.partition(|factor| match
-                // factor {     SrcOperand::Reg(_) => true,
-                //     _ => false,
-                // });
-                // let mut free_regs =
-                //     Amd64Reg::all().filter(|reg| factor_regs.iter().find(reg).is_none());
-                // let mut spills: Vec<(Amd64Reg> = vec![];
-                // for factor in &factor_notyetregs {
-                //     let slot = match factor {
-                //         SrcOperand::Reg(_) => unreachable!(),
-                //         SrcOperand::Imm(_) => unreachable!(),
-                //         SrcOperand::Mem(slot) => slot,
-                //     };
-                //     let
-                //     spills.push(free_regsfactor,
-                // }
-                instrs.push(Mov(MovInstruction {
-                    dst: DstOperand::Mem(dst),
-                    src,
-                    size: *size,
-                }));
-
-                // let dst: DstOperand = self
-                //     .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
-                //     .try_into()
-                //     .unwrap();
-                // self.gen_load_store(instrs, src, None, dst.reg(), |addr| {
-                //     Mov(MovInstruction {
-                //         src: SrcOperand::Mem(addr),
-                //         dst,
-                //         size: *size,
-                //     })
-                // })
-
-                unimplemented!()
-                // let src = self.lir_to_src_operand(*src, instrs);
-                // self.gen_load_store(instrs, dst, src.reg(), None, |addr| {
-                //     Mov(MovInstruction {
-                //         src,
-                //         dst: DstOperand::Mem(addr),
-                //         size: *size,
-                //     })
-                // })
             }
             lir::Instruction::LoadMem { src, dst, size } => {
                 let dst: DstOperand = self
@@ -455,6 +401,158 @@ impl Codegen {
             lir::Instruction::Call { .. } => unreachable!("Call already converted"),
             lir::Instruction::Comment(_) => (),
         }
+    }
+
+    fn with_operand_constraints<F>(&self, instrs: &mut Vec<Instruction>, free_regs: RegFreeList, constraints: &[(lir::Operand, OperandConstraints)], f: &F)
+    where
+        F: FnMut(& dyn Fn(&lir::Operand) -> SrcOperand, & dyn Fn(&lir::Operand) -> Amd64Reg) -> Vec<Instruction>,
+    {
+
+            use self::{Location as L, OperandConstraints as C};
+        let (mut satisfied_reg, mut unsatisfied_reg_to_specific_reg, mut unsatisfied_mem_to_any_reg, mut unsatisfied_mem_to_specific_reg) =
+            (vec![], vec![], vec![], vec![]);
+        for (operand, constraint) in constraints.clone() {
+            let location = self.var_location[&var_id(*operand)];
+            match (location, *constraint) {
+                (L::Reg(r), C::AnyRegister)
+                | (L::Reg(r), C::MemOrRegister) => satisfied_reg.push((operand, r)),
+                (L::Mem(_), C::MemOrRegister)
+                | (L::ParamMem, C::MemOrRegister) => (), // nothing to do
+                (L::Reg(r_l), C::Register(r_c)) => {
+                    if r_l == r_c {
+                        satisfied_reg.push((operand, r_l))
+                    } else {
+                        unsatisfied_reg_to_specific_reg.push((operand, r_l, r_c))
+                    }
+                }
+                (L::Mem(mem), C::AnyRegister) => unsatisfied_mem_to_any_reg.push(operand),
+                (L::Mem(mem), C::Register(r)) => unsatisfied_mem_to_specific_reg.push((operand, r)),
+                (L::ParamMem, C::AnyRegister) => unsatisfied_mem_to_any_reg.push(operand),
+                (L::ParamMem, C::Register(r)) => unsatisfied_mem_to_specific_reg.push((operand, r)),
+            }
+        }
+
+        // TODO consistency check: do unsatisfied target regs overlap?
+        // are target locations disjoint?
+
+        // Any time we write to a register, add it to this list to ensure its original value
+        // is restored after the instructions generated by f
+        let mut save_reg_list = SaveRegList::default();
+
+        let mut free_regs = free_regs;
+
+        let mut assignments = HashMap::new();
+
+        // satisfied_reg are already satisfied, just make sure they are not available
+        // for any_reg constraints
+        for (operand, reg) in satisfied_reg {
+            free_regs.begin_use(reg);
+            assignments.insert(operand, DstOperand::Reg(reg));
+        }
+
+        use self::Instruction::*;
+        // satisfy reg_to_specific_reg
+        {
+            // TODO cycle detection, only spill as necessary
+            // spill everything on the stack and restore it immediately
+            let (mut pushs, mut pops) = (vec![], vec![]);
+            for (operand, r_source, r_target) in &unsatisfied_reg_to_specific_reg {
+                save_reg_list.add_regs(&[r_target]);
+                free_regs.begin_use(r_target);
+                assignments.insert(operand, DstOperand::Reg(r_target));
+                pushs.push(Pushq{ src: SrcOperand::Reg(*r_source) });
+                pops.push(Popq{ dst: DstOperand::Reg(*r_target) });
+            }
+            instrs.extend(pushs);
+            instrs.extend(pops.into_iter().rev());
+        }
+
+        let mem_location_address = &|idx| {
+            lir::AddressOperand::RegisterRelativeOffset {
+                offset: -((idx + self.num_saved_regs) as i32) * 8,
+                base: Amd64Reg::Rbp,
+            }
+        };
+
+        let parammem_location_address = &|param_idx| {
+            lir::AddressOperand::RegisterRelativeOffset {
+                offset: (param_idx as i32) * 8,
+                base: Amd64Reg::Rbp,
+            }
+        };
+
+        // satisfy unsatisfied_mem_to_specific_reg
+        for (operand, reg) in unsatisfied_mem_to_specific_reg {
+            let src_address = match self.var_location[&var_id(*operand)] {
+                Location::Reg(_) => unreachable!(),
+                Location::Mem(idx) => mem_location_address(idx),
+                Location::ParamMem => {
+                    if let lir::Operand::Param{idx} = operand {
+                        parammem_location_address(*idx)
+                    } else {
+                        unreachable!()
+                    }
+                }
+            };
+            save_reg_list.add_regs(&[reg]);
+            free_regs.begin_use(reg);
+            assignments.insert(operand, DstOperand::Reg(reg));
+            instrs.push(Mov(MovInstruction{
+                src: SrcOperand::Mem(src_address),
+                dst: DstOperand::Reg(reg),
+                size: 8,
+            }))
+        }
+
+        // satisfy unsatisfied_mem_to_any_reg
+        // => consult free list, spill every entry in it as the register may be in use
+        // outside of this function
+        let mut free_regs =  free_regs.into_unused_regs_iter();
+        let mut movs = vec![];
+        for operand in  unsatisfied_mem_to_any_reg {
+            let reg = if let Some(r) = free_regs.next() {
+                save_reg_list.add_regs(&[r]);
+                assignments.insert(operand, DstOperand::Reg(r));
+                r
+            } else {
+                panic!("unsatisfiable constraints: no free registers left")
+            };
+            // TODO following stmt copied from above
+            let src_address = match self.var_location[&var_id(*operand)] {
+                Location::Reg(_) => unreachable!(),
+                Location::Mem(idx) => mem_location_address(idx),
+                Location::ParamMem => {
+                    if let lir::Operand::Param{idx} = operand {
+                        parammem_location_address(*idx)
+                    } else {
+                        unreachable!()
+                    }
+                }
+            };
+            movs.push(Mov(MovInstruction{
+                src: SrcOperand::Mem(src_address),
+                dst: DstOperand::Reg(reg),
+                size: 8, // TODO is this always correct?
+            }));
+        }
+
+        // save the regs whose values are changed by the movs
+        instrs.extend(save_reg_list.saves().map(|r| Pushq{ src: SrcOperand::Reg(*r) } ));
+        // emit the movs
+        instrs.extend(movs);
+        // not all operands are in the place they need to be for f, call it
+        let any = |operand| {
+            assignments.get(operand).expect("invalid use of API")
+        };
+        let reg = |operand| {
+            match any(operand) {
+                DstOperand::Reg(r) => r,
+                DstOperand::Mem(_) => panic!("invlaid use of API or implementation error"),
+            }
+        };
+        instrs.extend(f(any, reg));
+        // restore the regs whose values were changed by the movs
+        instrs.extend(save_reg_list.restores().map(|r| Popq{ dst: DstOperand::Reg(*r) }));
     }
 
     fn gen_binop(
@@ -1140,6 +1238,56 @@ impl Codegen {
         }))
     }
 }
+
+use std::collections::{BTreeMap,BTreeSet};
+
+#[derive(Clone, Copy, Debug)]
+enum OperandConstraints {
+    /// Operand may be in a register or memory location.
+    MemOrRegister,
+    /// Operand must be in a register.
+    AnyRegister,
+    /// Operand must be placed in a specific register.
+    Register(Amd64Reg),
+}
+
+struct RegFreeList {
+    free: BTreeSet<Amd64Reg>,
+    occupied: BTreeMap<Amd64Reg, usize>,
+}
+
+impl RegFreeList {
+    /// Initializes list to all free
+    fn new(free: BTreeSet<Amd64Reg>) -> Self {
+        let occupied = BTreeMap::new();
+        Self { free, occupied }
+    }
+    fn begin_use(&mut self, r: &Amd64Reg) {
+        if self.free.contains(r) {
+            self.free.remove(r);
+            assert!(!self.occupied.contains_key(r));
+            self.occupied.insert(*r, 1);
+        } else {
+            let entry = self.occupied.get_mut(r).unwrap();
+            *entry += 1;
+        }
+    }
+    fn end_use(&mut self, r: &Amd64Reg) {
+        debug_assert!(!self.free.contains(r), "double free");
+        let entry = self.occupied.get_mut(r).unwrap();
+        *entry -= 1;
+        if *entry == 0 {
+            drop(entry);
+            self.occupied.remove(r);
+            let did_overwrite = self.free.insert(*r);
+            assert!(!did_overwrite);
+        }
+    }
+    fn into_unused_regs_iter(self) -> impl Iterator<Item=Amd64Reg> {
+        self.free.into_iter()
+    }
+}
+
 
 #[derive(Display)]
 pub(super) enum Instruction {

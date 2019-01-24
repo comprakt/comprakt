@@ -289,6 +289,17 @@ pub enum AddressOperand<Reg: Copy> {
     },
 }
 
+impl<Reg: Copy + Sized> AddressOperand<Reg> {
+    /// The Regs that are part of the address operand, i.e. those aspects
+    /// that contribute to the effective address that are runtime-dependent.
+    pub fn runtime_dependent_params(&self) -> Vec<Reg> {
+        match self {
+            AddressOperand::RegisterRelativeOffset { base, .. } => vec![*base],
+            AddressOperand::Scaled { base, index, .. } => vec![*base, *index],
+        }
+    }
+}
+
 impl<Op: Display + Copy> std::fmt::Display for AddressOperand<Op> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -505,7 +516,7 @@ impl fmt::Debug for CopyPropagation {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub enum Operand {
     Slot(Ptr<MultiSlot>),
 

@@ -72,6 +72,7 @@ impl LiveVariableAnalysis {
         let mut outs: HashMap<libfirm_rs::nodes::Block, HashSet<VarId>> = HashMap::new();
         let mut block_code_map: HashMap<libfirm_rs::nodes::Block, Block> = HashMap::new();
 
+        // basic block scheduling + initialization
         for (num, block) in self.graph.postorder_blocks().iter().rev().enumerate() {
             block_code_map.insert(
                 block.firm,
