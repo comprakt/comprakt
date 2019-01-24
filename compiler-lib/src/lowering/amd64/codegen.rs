@@ -269,7 +269,144 @@ impl Codegen {
                 instrs.push(Mov(MovInstruction { src, dst, size: 8 }))
             }
             lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
-            lir::Instruction::StoreMem { src, dst, size } => unimplemented!(),
+            lir::Instruction::StoreMem { src, dst, size } => {
+                let used_regs_addr_computation =
+                    |ac: lir::AddressComputation<Amd64Reg>| ac.operands();
+
+                let src_operand_used_regs = |op| match op {
+                    SrcOperand::Mem(ac) => used_regs_addr_computation(ac),
+                    SrcOperand::Reg(reg) => vec![reg],
+                    SrcOperand::Imm(_) => vec![],
+                };
+                let dst_operand_used_regs = |op| match op {
+                    DstOperand::Mem(ac) => used_regs_addr_computation(ac),
+                    DstOperand::Reg(reg) => vec![reg],
+                };
+
+                let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
+                dst.operands()
+                    .into_iter()
+                    .map(|operand| self.lir_to_src_operand(operand, instrs))
+                    .flat_map(src_operand_used_regs)
+                    .for_each(|occupied_reg| {
+                        free_regs.remove(&occupied_reg);
+                    });
+                self.lir_to_src_operand(*src, instrs)
+                    .try_into()
+                    .map(dst_operand_used_regs)
+                    .unwrap_or(vec![])
+                    .into_iter()
+                    .for_each(|occupied_reg| {
+                        free_regs.remove(&occupied_reg);
+                    });
+
+                // rev because eax is the last one, and we want to use it first because it is
+                // scratch
+                let mut free_regs = free_regs.into_iter().rev();
+                let mut spills = SaveRegList::default();
+                let mut setup_instrs = vec![];
+                let mut post_mov_instrs = vec![];
+                macro_rules! spill {
+                    ($src:expr) => {{
+                        let spill = free_regs.next().unwrap();
+                        if spill != Amd64Reg::Rax {
+                            spills.add_regs(&[spill]);
+                        }
+                        setup_instrs.push(Mov(MovInstruction {
+                            src: $src,
+                            dst: DstOperand::Reg(spill),
+                            size: 8,
+                        }));
+                        spill
+                    }};
+                }
+
+                use self::{lir::IndexComputation, Instruction::*};
+
+                let dst: lir::AddressComputation<Amd64Reg> = {
+                    let lir::AddressComputation {
+                        offset,
+                        base,
+                        index,
+                    } = dst;
+                    let base = self.lir_to_src_operand(*base, instrs);
+                    let base: Amd64Reg = match base {
+                        // the base address of src is stored in a reg, this is fine
+                        SrcOperand::Reg(reg) => reg,
+                        SrcOperand::Imm(_) => unreachable!(),
+                        // base address of src operand is stored in the AR, we need it in a register
+                        SrcOperand::Mem(ar_addr_comp) => {
+                            // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                            assert!(ar_addr_comp.base == Amd64Reg::Rbp);
+                            assert!(ar_addr_comp.index.is_zero());
+                            spill!(base)
+                        }
+                    };
+                    let index: IndexComputation<Amd64Reg> = {
+                        if let IndexComputation::Displacement(index, stride) = *index {
+                            let index = self.lir_to_src_operand(index, instrs);
+                            match index {
+                                // the index is stored in a reg, this is fine
+                                SrcOperand::Reg(reg) => IndexComputation::Displacement(reg, stride),
+                                // the index is an immediate, move it to a spilled reg
+                                SrcOperand::Imm(_) => {
+                                    IndexComputation::Displacement(spill!(index), stride)
+                                }
+                                // the index is stored in the AR, we need it in a register
+                                SrcOperand::Mem(ar_addr_comp) => {
+                                    // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                                    assert!(ar_addr_comp.base == Amd64Reg::Rbp);
+                                    assert!(ar_addr_comp.index.is_zero());
+                                    IndexComputation::Displacement(spill!(index), stride)
+                                }
+                            }
+                        } else {
+                            // the only other variant of IndexComputation
+                            IndexComputation::Zero
+                        }
+                    };
+                    lir::AddressComputation {
+                        base,
+                        index,
+                        offset: *offset,
+                    }
+                };
+                let dst = SrcOperand::Mem(dst).try_into().unwrap();
+
+                let src = {
+                    let src: SrcOperand = self.lir_to_src_operand(*src, instrs);
+                    match src {
+                        // the dst is stored in a reg, this is fine
+                        SrcOperand::Reg(reg) => src,
+                        SrcOperand::Imm(_) => src,
+                        // the source is stored in the activation record
+                        SrcOperand::Mem(ar_addr_comp) => {
+                            // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                            assert!(ar_addr_comp.base == Amd64Reg::Rbp);
+                            assert!(ar_addr_comp.index.is_zero());
+                            // we cannot spill into rax (our scratch) because
+                            // it may be the base / index of dst
+                            SrcOperand::Reg(spill!(src))
+                        }
+                    }
+                };
+
+                // Emit the instructoins
+                instrs.extend(spills.saves().map(|r| Pushq {
+                    src: SrcOperand::Reg(r),
+                }));
+                instrs.extend(setup_instrs);
+                // This whole function is just about the following statement
+                instrs.push(Mov(MovInstruction {
+                    src,
+                    dst,
+                    size: *size,
+                }));
+                instrs.extend(post_mov_instrs);
+                instrs.extend(spills.restores().map(|r| Popq {
+                    dst: DstOperand::Reg(r),
+                }));
+            }
             lir::Instruction::LoadMem { src, dst, size } => {
                 let used_regs_addr_computation =
                     |ac: lir::AddressComputation<Amd64Reg>| ac.operands();
