@@ -246,20 +246,32 @@ impl Codegen {
                 src2,
                 dst,
             } => self.gen_binop(instrs, kind, src1, src2, *dst),
-            lir::Instruction::Div { src1, src2, dst } => {
-                let dst: DstOperand = self
-                    .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
-                    .try_into()
-                    .unwrap();
-                unimplemented!()
-            }
-            lir::Instruction::Mod { src1, src2, dst } => {
-                let dst: DstOperand = self
-                    .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
-                    .try_into()
-                    .unwrap();
-                unimplemented!()
-            }
+            lir::Instruction::Div { src1, src2, dst } => self.gen_div(
+                src1,
+                src2,
+                *dst,
+                |dst| {
+                    Mov(MovInstruction {
+                        src: SrcOperand::Reg(Amd64Reg::Rax),
+                        dst,
+                        size: 8,
+                    })
+                },
+                instrs,
+            ),
+            lir::Instruction::Mod { src1, src2, dst } => self.gen_div(
+                src1,
+                src2,
+                *dst,
+                |dst| {
+                    Mov(MovInstruction {
+                        src: SrcOperand::Reg(Amd64Reg::Rdx),
+                        dst,
+                        size: 8,
+                    })
+                },
+                instrs,
+            ),
             lir::Instruction::Conv { src, dst } => {
                 let src = self.lir_to_src_operand(*src, instrs);
                 let dst = self
@@ -301,7 +313,7 @@ impl Codegen {
                         SrcOperand::Imm(_) => src,
                         // the source is stored in the activation record, move to scratch
                         SrcOperand::Mem(ar_addr_comp) => {
-                            // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                            // TODO @flip1995 SrcOperand::ActivationRecordEntry refactor
                             assert!(ar_addr_comp.base == Amd64Reg::Rbp);
                             assert!(ar_addr_comp.index.is_zero());
                             let src = spill_ctx.spill_and_load_operand(src);
@@ -352,7 +364,7 @@ impl Codegen {
                         DstOperand::Reg(reg) => reg,
                         // the dst is stored in the activation record
                         DstOperand::Mem(ar_addr_comp) => {
-                            // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                            // TODO @flip1995 SrcOperand::ActivationRecordEntry refactor
                             assert!(ar_addr_comp.base == Amd64Reg::Rbp);
                             assert!(ar_addr_comp.index.is_zero());
                             // To avoid mem mem move, use rax as scratch for result.
@@ -418,7 +430,7 @@ impl Codegen {
             SrcOperand::Imm(_) => unreachable!(),
             // base address of ac operand is stored in the AR, we need it in a register
             SrcOperand::Mem(ar_addr_comp) => {
-                // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                // TODO @flip1995 SrcOperand::ActivationRecordEntry refactor
                 assert!(ar_addr_comp.base == Amd64Reg::Rbp);
                 assert!(ar_addr_comp.index.is_zero());
                 spill_ctx.spill_and_load_operand(base)
@@ -441,7 +453,7 @@ impl Codegen {
                     }
                     // the index is stored in the AR, we need it in a register
                     SrcOperand::Mem(ar_addr_comp) => {
-                        // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                        // TODO @flip1995 SrcOperand::ActivationRecordEntry refactor
                         assert!(ar_addr_comp.base == Amd64Reg::Rbp);
                         assert!(ar_addr_comp.index.is_zero());
                         let index = spill_ctx.spill_and_load_operand(index);
@@ -581,7 +593,7 @@ impl Codegen {
                         size: 8,
                     }));
                     // We're now at a 2-address code state: `op mem, mem`
-                    // Now we need to move src1 -> %rax
+                    // Now we need to move src2 -> %rax
                     instrs.push(Mov(MovInstruction {
                         src: src2,
                         dst: DstOperand::Reg(spill),
@@ -694,6 +706,141 @@ impl Codegen {
                 }
             },
         }
+    }
+
+    fn gen_div<F>(
+        &mut self,
+        src1: &lir::Operand,
+        src2: &lir::Operand,
+        dst: Ptr<MultiSlot>,
+        f: F,
+        instrs: &mut Vec<Instruction>,
+    ) where
+        F: FnOnce(DstOperand) -> Instruction,
+    {
+        use self::Instruction::*;
+        instrs.push(Comment {
+            comment: "div instr start".to_string(),
+        });
+        // `idivq %r` divides %rdx:%rax by %r
+        // the quotient is stored in %rax, the remainder in %rdx
+
+        let used_regs_addr_computation = |ac: lir::AddressComputation<Amd64Reg>| ac.operands();
+        let dst_operand_used_regs = |op| match op {
+            DstOperand::Mem(ac) => used_regs_addr_computation(ac),
+            DstOperand::Reg(reg) => vec![reg],
+        };
+
+        let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
+        free_regs.remove(&Amd64Reg::Rax);
+        free_regs.remove(&Amd64Reg::Rdx);
+        self.lir_to_src_operand(lir::Operand::Slot(dst), instrs)
+            .try_into()
+            .map(dst_operand_used_regs)
+            .unwrap_or(vec![])
+            .into_iter()
+            .for_each(|occupied_reg| {
+                free_regs.remove(&occupied_reg);
+            });
+        let mut free_regs = free_regs.into_iter();
+
+        let mut setup_instr = None;
+        let mut spills = SaveRegList::default();
+        let mut post_div_instr = None;
+        let mut rdx_spilled = false;
+
+        let dst: DstOperand = self
+            .lir_to_src_operand(lir::Operand::Slot(dst), instrs)
+            .try_into()
+            .unwrap();
+
+        let src1 = self.lir_to_src_operand(*src1, instrs);
+        match (src1, dst) {
+            // We don't need to spill src1, if we overide it anyway
+            (SrcOperand::Reg(x), DstOperand::Reg(y)) if x == y => (),
+            (SrcOperand::Reg(Amd64Reg::Rdx), _) => {
+                // When src1 is in %rdx it would be overidden by cqto
+                spills.add_regs(&[Amd64Reg::Rdx]);
+                rdx_spilled = true;
+            }
+            _ => (),
+        }
+
+        let src2 = self.lir_to_src_operand(*src2, instrs);
+        let src2 = match (src2, dst) {
+            (SrcOperand::Reg(Amd64Reg::Rdx), DstOperand::Reg(Amd64Reg::Rdx))
+            | (SrcOperand::Imm(_), _) => {
+                let spill = free_regs.next().unwrap();
+                spills.add_regs(&[spill]);
+                setup_instr = Some(Mov(MovInstruction {
+                    src: src2,
+                    dst: DstOperand::Reg(spill),
+                    size: 8,
+                }));
+                SrcOperand::Reg(spill)
+            }
+            // When src2 is in %rdx it would be overidden by cqto
+            (SrcOperand::Reg(Amd64Reg::Rdx), _) => {
+                let spill = free_regs.next().unwrap();
+                spills.add_regs(&[spill]);
+                setup_instr = Some(Mov(MovInstruction {
+                    src: src2,
+                    dst: DstOperand::Reg(spill),
+                    size: 8,
+                }));
+                // src2 can be easily recovered by moving it out of the spill register since
+                // this register won't be modified by the div instruction
+                post_div_instr = Some(Mov(MovInstruction {
+                    src: SrcOperand::Reg(spill),
+                    dst: DstOperand::Reg(Amd64Reg::Rdx),
+                    size: 8,
+                }));
+                rdx_spilled = true;
+                SrcOperand::Reg(spill)
+            }
+            _ => src2,
+        };
+        let src2 = src2.try_into().unwrap();
+
+        // When the dst register is %rdx, we don't need to spill it, since it will be
+        // overidden anyway in any other case we need to spill %rdx, since it could be
+        // used by another var unrelated to the div instruction
+        match dst {
+            _ if rdx_spilled => (),
+            DstOperand::Reg(Amd64Reg::Rdx) => (),
+            DstOperand::Reg(_) | DstOperand::Mem(_) => spills.add_regs(&[Amd64Reg::Rdx]),
+        }
+
+        instrs.extend(spills.saves().map(|r| Pushq {
+            src: SrcOperand::Reg(r),
+        }));
+        // Move src1 to %rax
+        instrs.push(Mov(MovInstruction {
+            src: src1,
+            dst: DstOperand::Reg(Amd64Reg::Rax),
+            size: 8,
+        }));
+        if let Some(instr) = setup_instr {
+            // This moves src2 to spill register
+            instrs.push(instr);
+        }
+        // sign extend
+        instrs.push(Cqto);
+        // div instructions writes quotient in %rax and remainder in %rdx
+        instrs.push(Divq { src: src2 });
+        // write result to dst
+        instrs.push(f(dst));
+        // recover src2, if it was moved from %rdx into a spill register
+        if let Some(instr) = post_div_instr {
+            instrs.push(instr);
+        }
+        // recover pushed spill registers
+        instrs.extend(spills.restores().map(|r| Popq {
+            dst: DstOperand::Reg(r),
+        }));
+        instrs.push(Comment {
+            comment: "div instr end".to_string(),
+        });
     }
 
     fn gen_call(&mut self, call: &function::FunctionCall, instrs: &mut Vec<Instruction>) {
@@ -852,9 +999,6 @@ impl Codegen {
                         // This case is bad we don't know if there is a free
                         // register left. So we have to spill one register.
                         let spill = Amd64Reg::Rax;
-                        instrs.push(Pushq {
-                            src: SrcOperand::Reg(spill),
-                        });
                         // if we are in (Imm,Imm), lhs must stay Imm
                         instrs.push(Mov(MovInstruction {
                             src: rhs,
@@ -864,9 +1008,6 @@ impl Codegen {
                         instrs.push(Cmpq {
                             subtrahend: lhs,
                             minuend: SrcOperand::Reg(spill),
-                        });
-                        instrs.push(Popq {
-                            dst: DstOperand::Reg(spill),
                         });
                         op.swap()
                     }
