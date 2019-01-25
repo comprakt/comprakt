@@ -202,7 +202,7 @@ impl LiveVariableAnalysis {
 
 impl Instruction {
     pub(super) fn src_operands(&self) -> Vec<lir::Operand> {
-        use super::lir::{Instruction::*, Leave::*};
+        use super::lir::{Instruction::*, Leave::*, LoadMem, StoreMem};
         match self {
             Instruction::Lir(lir) => match lir {
                 Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
@@ -210,11 +210,11 @@ impl Instruction {
                 }
                 Unop { src, .. } | Conv { src, .. } => vec![*src],
                 Call { .. } => vec![], // already converted
-                StoreMem {
+                StoreMem(StoreMem {
                     src,
                     dst: lir::AddressComputation { base, index, .. },
                     ..
-                } => {
+                }) => {
                     let mut ops = vec![*src, *base];
                     match index {
                         lir::IndexComputation::Zero => (),
@@ -222,10 +222,10 @@ impl Instruction {
                     }
                     ops
                 }
-                LoadMem {
+                LoadMem(LoadMem {
                     src: lir::AddressComputation { base, index, .. },
                     ..
-                } => {
+                }) => {
                     let mut ops = vec![*base];
                     match index {
                         lir::IndexComputation::Zero => (),
@@ -261,7 +261,10 @@ impl Instruction {
     }
 
     pub(super) fn dst_operand(&self) -> Option<lir::Operand> {
-        use super::{function::FnInstruction, lir::Instruction::*};
+        use super::{
+            function::FnInstruction,
+            lir::{Instruction::*, LoadMem, StoreMem},
+        };
         match self {
             Instruction::Lir(lir) => match lir {
                 Binop { dst, .. } | Div { dst, .. } | Mod { dst, .. } => {
@@ -269,8 +272,8 @@ impl Instruction {
                 }
                 Unop { dst, .. } | Conv { dst, .. } => Some(lir::Operand::Slot(*dst)),
                 Call { .. } => None,
-                StoreMem { .. } => None,
-                LoadMem { dst, .. } => Some(lir::Operand::Slot(*dst)),
+                StoreMem(StoreMem { .. }) => None,
+                LoadMem(LoadMem { dst, .. }) => Some(lir::Operand::Slot(*dst)),
                 Comment(_) => None,
             },
             Instruction::Mov { dst, .. } => Some(lir::Operand::Slot(*dst)),

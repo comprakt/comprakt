@@ -510,14 +510,16 @@ impl GenInstrBlock {
             Node::Load(load) => {
                 let (src, size) = self.gen_address_computation(load.ptr());
                 let dst = self.gen_dst_slot(block, node, alloc);
-                self.code.body.push(Instruction::LoadMem { src, dst, size });
+                self.code
+                    .body
+                    .push(Instruction::LoadMem(LoadMem { src, dst, size }));
             }
             Node::Store(store) => {
                 let src = self.gen_operand_jit(store.value());
                 let (dst, size) = self.gen_address_computation(store.ptr());
                 self.code
                     .body
-                    .push(Instruction::StoreMem { src, dst, size });
+                    .push(Instruction::StoreMem(StoreMem { src, dst, size }));
                 let dst_slot = block.new_private_slot(node, alloc);
                 self.mark_computed(node, Computed::Value(dst_slot));
             }

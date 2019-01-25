@@ -269,7 +269,7 @@ impl Codegen {
                 instrs.push(Mov(MovInstruction { src, dst, size: 8 }))
             }
             lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
-            lir::Instruction::StoreMem { src, dst, size } => {
+            lir::Instruction::StoreMem(lir::StoreMem { src, dst, size }) => {
                 let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
                 dst.operands()
                     .into_iter()
@@ -328,7 +328,7 @@ impl Codegen {
                 })];
                 instrs.extend(spill_ctx.emit_surrounded_instrs(surrounded));
             }
-            lir::Instruction::LoadMem { src, dst, size } => {
+            lir::Instruction::LoadMem(lir::LoadMem { src, dst, size }) => {
                 let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
                 src.operands()
                     .into_iter()
