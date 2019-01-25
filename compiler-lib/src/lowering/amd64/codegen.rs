@@ -271,13 +271,12 @@ impl Codegen {
             lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
             lir::Instruction::StoreMem(lir::StoreMem { src, dst, size }) => {
                 let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
-                dst.operands()
+                self.lir_address_computation_operands_already_in_registers(instrs, *dst)
                     .into_iter()
-                    .map(|operand| self.lir_to_src_operand(operand, instrs))
-                    .flat_map(OperandUsingRegs::used_regs)
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
                     });
+
                 DstOperand::try_from(self.lir_to_src_operand(*src, instrs))
                     .map(OperandUsingRegs::used_regs)
                     .unwrap_or(vec![])
@@ -293,7 +292,7 @@ impl Codegen {
 
                 use self::{lir::IndexComputation, Instruction::*};
 
-                let dst = self.lir_address_computation_to_register_address_computation(
+                let (dst, _) = self.lir_address_computation_to_register_address_computation(
                     instrs,
                     *dst,
                     &mut spill_ctx,
@@ -330,13 +329,12 @@ impl Codegen {
             }
             lir::Instruction::LoadMem(lir::LoadMem { src, dst, size }) => {
                 let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
-                src.operands()
+                self.lir_address_computation_operands_already_in_registers(instrs, *src)
                     .into_iter()
-                    .map(|operand| self.lir_to_src_operand(operand, instrs))
-                    .flat_map(OperandUsingRegs::used_regs)
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
                     });
+
                 DstOperand::try_from(self.lir_to_src_operand(lir::Operand::Slot(*dst), instrs))
                     .map(OperandUsingRegs::used_regs)
                     .unwrap()
@@ -353,13 +351,12 @@ impl Codegen {
 
                 use self::{lir::IndexComputation, Instruction::*};
 
-                let src = SrcOperand::Mem(
-                    self.lir_address_computation_to_register_address_computation(
-                        instrs,
-                        *src,
-                        &mut spill_ctx,
-                    ),
+                let (src, _) = self.lir_address_computation_to_register_address_computation(
+                    instrs,
+                    *src,
+                    &mut spill_ctx,
                 );
+                let src = SrcOperand::Mem(src);
 
                 let dst = {
                     let dst: DstOperand = self
@@ -404,21 +401,36 @@ impl Codegen {
         }
     }
 
+    /// Given self.var_location and a spill_ctx, convert a given
+    /// AddressComputation that uses lir::Operands into an
+    /// AddressComputation that uses Amd64Reg.
+    ///
+    /// We need the spilling because it is not guaranteed that register
+    /// allocation will place all Operands required for address computation
+    /// (base, index) into registers.
+    ///
+    /// The returned vector contains the registers for those lir::Operands that
+    /// did not require spilling to be moved to registers (i.e. register
+    /// allocation already placed them in registers).
     fn lir_address_computation_to_register_address_computation(
         &mut self,
         instrs: &mut Vec<Instruction>,
         ac: lir::AddressComputation<lir::Operand>,
         spill_ctx: &mut SpillContext,
-    ) -> lir::AddressComputation<Amd64Reg> {
+    ) -> (lir::AddressComputation<Amd64Reg>, Vec<Amd64Reg>) {
         let lir::AddressComputation {
             offset,
             base,
             index,
         } = ac;
+        let mut already_in_registers = vec![];
         let base = self.lir_to_src_operand(base, instrs);
         let base: Amd64Reg = match base {
             // the base address of ac is stored in a reg, this is fine
-            SrcOperand::Reg(reg) => reg,
+            SrcOperand::Reg(reg) => {
+                already_in_registers.push(reg);
+                reg
+            }
             SrcOperand::Imm(_) => unreachable!(),
             // base address of ac operand is stored in the AR, we need it in a register
             SrcOperand::Mem(ar_addr_comp) => {
@@ -434,7 +446,10 @@ impl Codegen {
                 let index = self.lir_to_src_operand(index, instrs);
                 match index {
                     // the index is stored in a reg, this is fine
-                    SrcOperand::Reg(reg) => IndexComputation::Displacement(reg, stride),
+                    SrcOperand::Reg(reg) => {
+                        already_in_registers.push(reg);
+                        IndexComputation::Displacement(reg, stride)
+                    }
                     // the index is an immediate, move it to a spilled reg
                     SrcOperand::Imm(_) => {
                         let index = spill_ctx.spill_and_load_operand(index);
@@ -454,11 +469,23 @@ impl Codegen {
                 IndexComputation::Zero
             }
         };
-        lir::AddressComputation {
+        let reg_ac = lir::AddressComputation {
             base,
             index,
             offset,
-        }
+        };
+        (reg_ac, already_in_registers)
+    }
+
+    fn lir_address_computation_operands_already_in_registers(
+        &mut self,
+        instrs: &mut Vec<Instruction>,
+        ac: lir::AddressComputation<lir::Operand>,
+    ) -> Vec<Amd64Reg> {
+        let mut pseudo_spill = SpillContext::new(Vec::from_iter(Amd64Reg::all_but_rsp_and_rbp()));
+        let (_, already_in_registers) = self
+            .lir_address_computation_to_register_address_computation(instrs, ac, &mut pseudo_spill);
+        already_in_registers
     }
 
     fn gen_binop(
