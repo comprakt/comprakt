@@ -269,14 +269,9 @@ impl Codegen {
                 instrs.push(Mov(MovInstruction { src, dst, size: 8 }))
             }
             lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
-            lir::Instruction::StoreMem(lir::StoreMem { src, dst, size }) => {
+            lir::Instruction::StoreMem(store) => {
                 let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
-                self.lir_address_computation_operands_already_in_registers(instrs, *dst)
-                    .into_iter()
-                    .for_each(|occupied_reg| {
-                        free_regs.remove(&occupied_reg);
-                    });
-                self.lir_operand_used_registers(instrs, *src)
+                self.load_store_mem_occupied_regs(instrs, store)
                     .into_iter()
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
@@ -289,26 +284,28 @@ impl Codegen {
 
                 use self::{lir::IndexComputation, Instruction::*};
 
-                let (dst, _) = self.lir_address_computation_to_register_address_computation(
-                    instrs,
-                    *dst,
-                    &mut spill_ctx,
-                );
-                let dst = SrcOperand::Mem(dst).try_into().unwrap();
+                let dst: DstOperand = {
+                    let dst = store.mem_address_computation();
+                    let (dst, _) = self.lir_address_computation_to_register_address_computation(
+                        instrs,
+                        dst,
+                        &mut spill_ctx,
+                    );
+                    SrcOperand::Mem(dst).try_into().unwrap()
+                };
 
-                let src = {
-                    let src: SrcOperand = self.lir_to_src_operand(*src, instrs);
+                let src: SrcOperand = {
+                    let src = store.operand();
+                    let src: SrcOperand = self.lir_to_src_operand(src, instrs);
                     match src {
-                        // the dst is stored in a reg, this is fine
+                        // the src is stored in a reg, this is fine
                         SrcOperand::Reg(reg) => src,
                         SrcOperand::Imm(_) => src,
-                        // the source is stored in the activation record
+                        // the source is stored in the activation record, move to scratch
                         SrcOperand::Mem(ar_addr_comp) => {
                             // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
                             assert!(ar_addr_comp.base == Amd64Reg::Rbp);
                             assert!(ar_addr_comp.index.is_zero());
-                            // we cannot spill into rax (our scratch) because
-                            // it may be the base / index of dst
                             let src = spill_ctx.spill_and_load_operand(src);
                             SrcOperand::Reg(src)
                         }
@@ -320,18 +317,13 @@ impl Codegen {
                 let surrounded = vec![Mov(MovInstruction {
                     src,
                     dst,
-                    size: *size,
+                    size: store.size(),
                 })];
                 instrs.extend(spill_ctx.emit_surrounded_instrs(surrounded));
             }
-            lir::Instruction::LoadMem(lir::LoadMem { src, dst, size }) => {
+            lir::Instruction::LoadMem(load) => {
                 let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
-                self.lir_address_computation_operands_already_in_registers(instrs, *src)
-                    .into_iter()
-                    .for_each(|occupied_reg| {
-                        free_regs.remove(&occupied_reg);
-                    });
-                self.lir_operand_used_registers(instrs, lir::Operand::Slot(*dst))
+                self.load_store_mem_occupied_regs(instrs, load)
                     .into_iter()
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
@@ -345,18 +337,20 @@ impl Codegen {
 
                 use self::{lir::IndexComputation, Instruction::*};
 
-                let (src, _) = self.lir_address_computation_to_register_address_computation(
-                    instrs,
-                    *src,
-                    &mut spill_ctx,
-                );
-                let src = SrcOperand::Mem(src);
+                let src: SrcOperand = {
+                    let src = load.mem_address_computation();
+                    let (src, _) = self.lir_address_computation_to_register_address_computation(
+                        instrs,
+                        src,
+                        &mut spill_ctx,
+                    );
+                    let src = SrcOperand::Mem(src);
+                    src
+                };
 
                 let dst = {
-                    let dst: DstOperand = self
-                        .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
-                        .try_into()
-                        .unwrap();
+                    let dst = load.operand();
+                    let dst: DstOperand = self.lir_to_src_operand(dst, instrs).try_into().unwrap();
                     let dst: Amd64Reg = match dst {
                         // the dst is stored in a reg, this is fine
                         DstOperand::Reg(reg) => reg,
@@ -365,8 +359,8 @@ impl Codegen {
                             // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
                             assert!(ar_addr_comp.base == Amd64Reg::Rbp);
                             assert!(ar_addr_comp.index.is_zero());
-                            // to avoid mem mem move, use rax as scratch
-                            // using rax without consulting free_regs is safe because
+                            // To avoid mem mem move, use rax as scratch for result.
+                            // Using rax without consulting free_regs is safe because
                             // because any usage as spill space for src
                             // ends during the execution of mov
                             post_mov_instrs.push(Mov(MovInstruction {
@@ -385,7 +379,7 @@ impl Codegen {
                 let mut surrounded = vec![Mov(MovInstruction {
                     src,
                     dst,
-                    size: *size,
+                    size: load.size(),
                 })];
                 surrounded.extend(post_mov_instrs);
                 instrs.extend(spill_ctx.emit_surrounded_instrs(surrounded));
@@ -488,6 +482,19 @@ impl Codegen {
         op: lir::Operand,
     ) -> Vec<Amd64Reg> {
         self.lir_to_src_operand(op, instrs).used_regs()
+    }
+
+    fn load_store_mem_occupied_regs<I: LoadOrStoreMem>(
+        &mut self,
+        instrs: &mut Vec<Instruction>,
+        load_or_store: &I,
+    ) -> Vec<Amd64Reg> {
+        let mut regs = vec![];
+        let ac = load_or_store.mem_address_computation();
+        regs.extend(self.lir_address_computation_operands_already_in_registers(instrs, ac));
+        let op = load_or_store.operand();
+        regs.extend(self.lir_operand_used_registers(instrs, op));
+        regs
     }
 
     fn gen_binop(
@@ -1184,33 +1191,43 @@ impl OperandUsingRegs for DstOperand {
     }
 }
 
-// trait LoadOrStoreOperation: OperandUsingRegs {
-//     fn address_computation(&self) -> lir::AddressComputation<Amd64Reg>;
-//     fn register_or_activation_record(&self) ->
-// }
+/// A LoadOrStoreMem represents the commonalities of LoadMem and StoreMem
+/// instructions:
+trait LoadOrStoreMem {
+    /// The address computation for the memory address (not a stack address
+    /// computation!).
+    fn mem_address_computation(&self) -> lir::AddressComputation<lir::Operand>;
+    /// The operand into which data is loaded from mem, or the operand
+    /// containing data to be stored to mem.
+    fn operand(&self) -> lir::Operand;
 
-enum LoadOrStoreMem {
-    StoreMem {
-        src: lir::Operand,
-        dst: lir::AddressComputation<lir::Operand>,
-        size: u32,
-    },
-    LoadMem {
-        src: lir::AddressComputation<Amd64Reg>,
-        dst: Ptr<lir::MultiSlot>,
-        size: u32,
-    },
+    fn size(&self) -> u32;
 }
 
-// impl TryFrom<lir::Instruction>  for LoadOrStoreMem {
-//     fn try_from(i: lir::Instruction) -> Self {
-//         match i {
-//             lir::Instruction::LoadMem {
-
-//             }
-//         }
-//     }
-// }
+impl LoadOrStoreMem for lir::LoadMem {
+    // FIXME: rename this to mem_operand
+    fn mem_address_computation(&self) -> lir::AddressComputation<lir::Operand> {
+        self.src
+    }
+    // FIXME: rename this to reg_or_stack_operand
+    fn operand(&self) -> lir::Operand {
+        lir::Operand::Slot(self.dst)
+    }
+    fn size(&self) -> u32 {
+        self.size
+    }
+}
+impl LoadOrStoreMem for lir::StoreMem {
+    fn mem_address_computation(&self) -> lir::AddressComputation<lir::Operand> {
+        self.dst
+    }
+    fn operand(&self) -> lir::Operand {
+        self.src
+    }
+    fn size(&self) -> u32 {
+        self.size
+    }
+}
 
 impl TryFrom<SrcOperand> for DstOperand {
     type Error = ();
