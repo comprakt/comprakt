@@ -276,10 +276,7 @@ impl Codegen {
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
                     });
-
-                DstOperand::try_from(self.lir_to_src_operand(*src, instrs))
-                    .map(OperandUsingRegs::used_regs)
-                    .unwrap_or(vec![])
+                self.lir_operand_used_registers(instrs, *src)
                     .into_iter()
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
@@ -334,10 +331,7 @@ impl Codegen {
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
                     });
-
-                DstOperand::try_from(self.lir_to_src_operand(lir::Operand::Slot(*dst), instrs))
-                    .map(OperandUsingRegs::used_regs)
-                    .unwrap()
+                self.lir_operand_used_registers(instrs, lir::Operand::Slot(*dst))
                     .into_iter()
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
@@ -486,6 +480,14 @@ impl Codegen {
         let (_, already_in_registers) = self
             .lir_address_computation_to_register_address_computation(instrs, ac, &mut pseudo_spill);
         already_in_registers
+    }
+
+    fn lir_operand_used_registers(
+        &mut self,
+        instrs: &mut Vec<Instruction>,
+        op: lir::Operand,
+    ) -> Vec<Amd64Reg> {
+        self.lir_to_src_operand(op, instrs).used_regs()
     }
 
     fn gen_binop(
@@ -967,19 +969,6 @@ impl Codegen {
     }
 }
 
-enum LoadOrStoreMem {
-    StoreMem {
-        src: lir::Operand,
-        dst: lir::AddressComputation<lir::Operand>,
-        size: u32,
-    },
-    LoadMem {
-        src: lir::AddressComputation<Amd64Reg>,
-        dst: Ptr<lir::MultiSlot>,
-        size: u32,
-    },
-}
-
 #[derive(Display)]
 pub(super) enum Instruction {
     #[display(fmt = "\t{}", _0)]
@@ -1194,6 +1183,34 @@ impl OperandUsingRegs for DstOperand {
         }
     }
 }
+
+// trait LoadOrStoreOperation: OperandUsingRegs {
+//     fn address_computation(&self) -> lir::AddressComputation<Amd64Reg>;
+//     fn register_or_activation_record(&self) ->
+// }
+
+enum LoadOrStoreMem {
+    StoreMem {
+        src: lir::Operand,
+        dst: lir::AddressComputation<lir::Operand>,
+        size: u32,
+    },
+    LoadMem {
+        src: lir::AddressComputation<Amd64Reg>,
+        dst: Ptr<lir::MultiSlot>,
+        size: u32,
+    },
+}
+
+// impl TryFrom<lir::Instruction>  for LoadOrStoreMem {
+//     fn try_from(i: lir::Instruction) -> Self {
+//         match i {
+//             lir::Instruction::LoadMem {
+
+//             }
+//         }
+//     }
+// }
 
 impl TryFrom<SrcOperand> for DstOperand {
     type Error = ();
