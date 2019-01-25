@@ -228,22 +228,29 @@ pub enum Instruction {
         args: Vec<Operand>,
         dst: Option<Ptr<MultiSlot>>,
     },
-    StoreMem {
-        src: Operand,
-        dst: AddressComputation<Operand>,
-        size: u32,
-    },
-    LoadMem {
-        src: AddressComputation<Operand>,
-        dst: Ptr<MultiSlot>,
-        size: u32,
-    },
+    StoreMem(StoreMem),
+    LoadMem(LoadMem),
     Comment(String),
+}
+
+#[derive(Clone)]
+pub struct LoadMem {
+    pub src: AddressComputation<Operand>,
+    pub dst: Ptr<MultiSlot>,
+    pub size: u32,
+}
+
+#[derive(Clone)]
+pub struct StoreMem {
+    pub src: Operand,
+    pub dst: AddressComputation<Operand>,
+    pub size: u32,
 }
 
 impl fmt::Debug for Instruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use self::Instruction::*;
+        use self::{Instruction::*, LoadMem, StoreMem};
+
         match self {
             Binop {
                 kind,
@@ -263,8 +270,8 @@ impl fmt::Debug for Instruction {
                     .join(", ");
                 write!(fmt, "call {:?} [ {:?} ] => {:?}", func, args, dst)
             }
-            StoreMem { src, dst, .. } => write!(fmt, "storemem {:?} => {:?}", src, dst),
-            LoadMem { src, dst, .. } => write!(fmt, "loadmem {:?} => {:?}", src, dst),
+            StoreMem(StoreMem { src, dst, .. }) => write!(fmt, "storemem {:?} => {:?}", src, dst),
+            LoadMem(LoadMem { src, dst, .. }) => write!(fmt, "loadmem {:?} => {:?}", src, dst),
             Comment(comment) => {
                 for line in comment.lines() {
                     write!(fmt, "// {}", line)?;
