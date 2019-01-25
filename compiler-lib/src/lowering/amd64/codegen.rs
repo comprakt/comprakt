@@ -293,56 +293,11 @@ impl Codegen {
 
                 use self::{lir::IndexComputation, Instruction::*};
 
-                let dst: lir::AddressComputation<Amd64Reg> = {
-                    let lir::AddressComputation {
-                        offset,
-                        base,
-                        index,
-                    } = dst;
-                    let base = self.lir_to_src_operand(*base, instrs);
-                    let base: Amd64Reg = match base {
-                        // the base address of src is stored in a reg, this is fine
-                        SrcOperand::Reg(reg) => reg,
-                        SrcOperand::Imm(_) => unreachable!(),
-                        // base address of src operand is stored in the AR, we need it in a register
-                        SrcOperand::Mem(ar_addr_comp) => {
-                            // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
-                            assert!(ar_addr_comp.base == Amd64Reg::Rbp);
-                            assert!(ar_addr_comp.index.is_zero());
-                            spill_ctx.spill_and_load_operand(base)
-                        }
-                    };
-                    let index: IndexComputation<Amd64Reg> = {
-                        if let IndexComputation::Displacement(index, stride) = *index {
-                            let index = self.lir_to_src_operand(index, instrs);
-                            match index {
-                                // the index is stored in a reg, this is fine
-                                SrcOperand::Reg(reg) => IndexComputation::Displacement(reg, stride),
-                                // the index is an immediate, move it to a spilled reg
-                                SrcOperand::Imm(_) => {
-                                    let index = spill_ctx.spill_and_load_operand(index);
-                                    IndexComputation::Displacement(index, stride)
-                                }
-                                // the index is stored in the AR, we need it in a register
-                                SrcOperand::Mem(ar_addr_comp) => {
-                                    // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
-                                    assert!(ar_addr_comp.base == Amd64Reg::Rbp);
-                                    assert!(ar_addr_comp.index.is_zero());
-                                    let index = spill_ctx.spill_and_load_operand(index);
-                                    IndexComputation::Displacement(index, stride)
-                                }
-                            }
-                        } else {
-                            // the only other variant of IndexComputation
-                            IndexComputation::Zero
-                        }
-                    };
-                    lir::AddressComputation {
-                        base,
-                        index,
-                        offset: *offset,
-                    }
-                };
+                let dst = self.lir_address_computation_to_register_address_computation(
+                    instrs,
+                    *dst,
+                    &mut spill_ctx,
+                );
                 let dst = SrcOperand::Mem(dst).try_into().unwrap();
 
                 let src = {
@@ -398,57 +353,13 @@ impl Codegen {
 
                 use self::{lir::IndexComputation, Instruction::*};
 
-                let src: lir::AddressComputation<Amd64Reg> = {
-                    let lir::AddressComputation {
-                        offset,
-                        base,
-                        index,
-                    } = src;
-                    let base = self.lir_to_src_operand(*base, instrs);
-                    let base: Amd64Reg = match base {
-                        // the base address of src is stored in a reg, this is fine
-                        SrcOperand::Reg(reg) => reg,
-                        SrcOperand::Imm(_) => unreachable!(),
-                        // base address of src operand is stored in the AR, we need it in a register
-                        SrcOperand::Mem(ar_addr_comp) => {
-                            // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
-                            assert!(ar_addr_comp.base == Amd64Reg::Rbp);
-                            assert!(ar_addr_comp.index.is_zero());
-                            spill_ctx.spill_and_load_operand(base)
-                        }
-                    };
-                    let index: IndexComputation<Amd64Reg> = {
-                        if let IndexComputation::Displacement(index, stride) = *index {
-                            let index = self.lir_to_src_operand(index, instrs);
-                            match index {
-                                // the index is stored in a reg, this is fine
-                                SrcOperand::Reg(reg) => IndexComputation::Displacement(reg, stride),
-                                // the index is an immediate, move it to a spilled reg
-                                SrcOperand::Imm(_) => {
-                                    let index = spill_ctx.spill_and_load_operand(index);
-                                    IndexComputation::Displacement(index, stride)
-                                }
-                                // the index is stored in the AR, we need it in a register
-                                SrcOperand::Mem(ar_addr_comp) => {
-                                    // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
-                                    assert!(ar_addr_comp.base == Amd64Reg::Rbp);
-                                    assert!(ar_addr_comp.index.is_zero());
-                                    let index = spill_ctx.spill_and_load_operand(index);
-                                    IndexComputation::Displacement(index, stride)
-                                }
-                            }
-                        } else {
-                            // the only other variant of IndexComputation
-                            IndexComputation::Zero
-                        }
-                    };
-                    lir::AddressComputation {
-                        base,
-                        index,
-                        offset: *offset,
-                    }
-                };
-                let src = SrcOperand::Mem(src);
+                let src = SrcOperand::Mem(
+                    self.lir_address_computation_to_register_address_computation(
+                        instrs,
+                        *src,
+                        &mut spill_ctx,
+                    ),
+                );
 
                 let dst = {
                     let dst: DstOperand = self
@@ -493,12 +404,61 @@ impl Codegen {
         }
     }
 
-    fn gen_load_or_storemem(
+    fn lir_address_computation_to_register_address_computation(
         &mut self,
         instrs: &mut Vec<Instruction>,
-        load_or_store: LoadOrStoreMem,
-    ) {
-        unimplemented!()
+        ac: lir::AddressComputation<lir::Operand>,
+        spill_ctx: &mut SpillContext,
+    ) -> lir::AddressComputation<Amd64Reg> {
+        let lir::AddressComputation {
+            offset,
+            base,
+            index,
+        } = ac;
+        let base = self.lir_to_src_operand(base, instrs);
+        let base: Amd64Reg = match base {
+            // the base address of ac is stored in a reg, this is fine
+            SrcOperand::Reg(reg) => reg,
+            SrcOperand::Imm(_) => unreachable!(),
+            // base address of ac operand is stored in the AR, we need it in a register
+            SrcOperand::Mem(ar_addr_comp) => {
+                // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                assert!(ar_addr_comp.base == Amd64Reg::Rbp);
+                assert!(ar_addr_comp.index.is_zero());
+                spill_ctx.spill_and_load_operand(base)
+            }
+        };
+        use self::{lir::IndexComputation, Instruction::*};
+        let index: IndexComputation<Amd64Reg> = {
+            if let IndexComputation::Displacement(index, stride) = index {
+                let index = self.lir_to_src_operand(index, instrs);
+                match index {
+                    // the index is stored in a reg, this is fine
+                    SrcOperand::Reg(reg) => IndexComputation::Displacement(reg, stride),
+                    // the index is an immediate, move it to a spilled reg
+                    SrcOperand::Imm(_) => {
+                        let index = spill_ctx.spill_and_load_operand(index);
+                        IndexComputation::Displacement(index, stride)
+                    }
+                    // the index is stored in the AR, we need it in a register
+                    SrcOperand::Mem(ar_addr_comp) => {
+                        // TODO @flip1996 SrcOperand::ActivationRecordEntry refactor
+                        assert!(ar_addr_comp.base == Amd64Reg::Rbp);
+                        assert!(ar_addr_comp.index.is_zero());
+                        let index = spill_ctx.spill_and_load_operand(index);
+                        IndexComputation::Displacement(index, stride)
+                    }
+                }
+            } else {
+                // the only other variant of IndexComputation
+                IndexComputation::Zero
+            }
+        };
+        lir::AddressComputation {
+            base,
+            index,
+            offset,
+        }
     }
 
     fn gen_binop(
