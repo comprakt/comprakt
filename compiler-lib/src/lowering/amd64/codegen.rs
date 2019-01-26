@@ -1229,12 +1229,27 @@ pub(super) struct CallInstruction {
 /// (This works because we always spill quad-words (pushQ, popQ)).
 impl fmt::Display for CallInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(fmt, "\tpushq %rsp")?;
-        writeln!(fmt, "\tpushq (%rsp)")?;
-        writeln!(fmt, "\tandq $-16, %rsp")?;
-        writeln!(fmt, "\tcall {}", self.label)?;
-        writeln!(fmt, "\tmovq 8(%rsp), %rsp")?;
-        Ok(())
+        match &*self.label {
+            "mjrt_system_out_println"
+            | "mjrt_system_out_write"
+            | "mjrt_system_out_flush"
+            | "mjrt_system_in_read"
+            | "mjrt_new" => {
+                writeln!(fmt, "\tpushq %rsp")?;
+                writeln!(fmt, "\tpushq (%rsp)")?;
+                writeln!(fmt, "\tandq $-16, %rsp")?;
+                writeln!(fmt, "\tcall {}", self.label)?;
+                write!(fmt, "\tmovq 8(%rsp), %rsp")?;
+                Ok(())
+            }
+            "mjrt_dumpstack"
+            | "mjrt_div_by_zero"
+            | "mjrt_null_usage"
+            | "mjrt_array_out_of_bounds" => unimplemented!(),
+            // We don't need to align the stack pointer for our own functions, since we address
+            // always correctly in our own interpretation of System V AMD64 ABI calling convention
+            _ => write!(fmt, "\tcall {}", self.label),
+        }
     }
 }
 
