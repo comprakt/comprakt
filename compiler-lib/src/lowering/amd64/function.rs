@@ -371,7 +371,8 @@ impl Function {
             });
             let interval = Interval::new(
                 instrs[0].1,
-                if last_block_alive == last_instr.0 {
+                // FIXME: This makes some liveranges unnecessary long. Improve this!
+                if last_block_alive == last_instr.0 && false {
                     last_instr.1
                 } else {
                     block_last_instr[last_block_alive]
