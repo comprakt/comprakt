@@ -364,15 +364,15 @@ impl Function {
 }
 
 #[derive(Clone)]
-struct Node {
-    reg: Amd64Reg,
+pub struct Node<R> {
+    reg: R,
 
-    in_: Option<Amd64Reg>,
-    outs: HashSet<Amd64Reg>,
+    in_: Option<R>,
+    outs: HashSet<R>,
 }
 
-impl Node {
-    fn new(reg: Amd64Reg) -> Self {
+impl<R: std::hash::Hash + Eq> Node<R> {
+    fn new(reg: R) -> Self {
         Self {
             reg,
             in_: None,
@@ -380,12 +380,12 @@ impl Node {
         }
     }
 
-    fn set_in_edge(&mut self, reg: Amd64Reg) {
+    fn set_in_edge(&mut self, reg: R) {
         debug_assert!(self.in_.is_none());
         self.in_ = Some(reg);
     }
 
-    fn add_out_edge(&mut self, reg: Amd64Reg) {
+    fn add_out_edge(&mut self, reg: R) {
         self.outs.insert(reg);
     }
 
@@ -399,22 +399,22 @@ impl Node {
 }
 
 #[derive(Default)]
-struct RegGraph(HashMap<Amd64Reg, Node>);
+pub struct RegGraph<R: std::hash::Hash + Eq>(HashMap<R, Node<R>>);
 
-struct RegToRegTransfer {
-    src: Amd64Reg,
-    dst: Amd64Reg,
+pub struct RegToRegTransfer<R> {
+    src: R,
+    dst: R,
 }
 
-enum RegGraphMinLeftEdgeInstruction {
-    Push(Amd64Reg),
-    Pop(Amd64Reg),
-    Mov(RegToRegTransfer),
+pub enum RegGraphMinLeftEdgeInstruction<R> {
+    Push(R),
+    Pop(R),
+    Mov(RegToRegTransfer<R>),
 }
 
-impl RegGraph {
-    fn new(transfers: Vec<RegToRegTransfer>) -> Self {
-        let mut reg_graph = Self::default();
+impl<R: std::hash::Hash + Eq + Clone + Copy> RegGraph<R> {
+    pub fn new(transfers: Vec<RegToRegTransfer<R>>) -> Self {
+        let mut reg_graph = Self(HashMap::new());
         for RegToRegTransfer { src, dst } in transfers {
             if src != dst {
                 let src_node = Node::new(src);
@@ -432,7 +432,7 @@ impl RegGraph {
     // TODO(flip1995): comment what it does
     // TODO(problame): use Vecs (r_nodes.push_front) can be replace by reversing the
     // vec in the end)
-    fn gen_node_list_with_min_left_edges(mut self) -> VecDeque<Node> {
+    fn gen_node_list_with_min_left_edges(mut self) -> VecDeque<Node<R>> {
         let mut l_nodes = VecDeque::new();
         let mut r_nodes = VecDeque::new();
         let mut visited = HashSet::new();
@@ -506,7 +506,9 @@ impl RegGraph {
         l_nodes
     }
 
-    fn into_instructions<I: From<RegGraphMinLeftEdgeInstruction>>(self) -> impl Iterator<Item = I> {
+    pub fn into_instructions<I: From<RegGraphMinLeftEdgeInstruction<R>>>(
+        self,
+    ) -> impl Iterator<Item = I> {
         let mut instrs = vec![];
 
         let reg_graph_len = self.len();
@@ -538,8 +540,8 @@ impl RegGraph {
     }
 }
 
-impl From<RegGraphMinLeftEdgeInstruction> for FnInstruction {
-    fn from(i: RegGraphMinLeftEdgeInstruction) -> Self {
+impl From<RegGraphMinLeftEdgeInstruction<Amd64Reg>> for FnInstruction {
+    fn from(i: RegGraphMinLeftEdgeInstruction<Amd64Reg>) -> Self {
         match i {
             RegGraphMinLeftEdgeInstruction::Push(reg) => FnInstruction::Pushq {
                 src: FnOperand::Reg(reg),
@@ -557,16 +559,16 @@ impl From<RegGraphMinLeftEdgeInstruction> for FnInstruction {
     }
 }
 
-impl Deref for RegGraph {
-    type Target = HashMap<Amd64Reg, Node>;
+impl<R: std::hash::Hash + Eq> Deref for RegGraph<R> {
+    type Target = HashMap<R, Node<R>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for RegGraph {
-    fn deref_mut(&mut self) -> &mut HashMap<Amd64Reg, Node> {
+impl<R: std::hash::Hash + Eq> DerefMut for RegGraph<R> {
+    fn deref_mut(&mut self) -> &mut HashMap<R, Node<R>> {
         &mut self.0
     }
 }
