@@ -465,7 +465,19 @@ impl Codegen {
                 already_in_registers.push(reg);
                 reg
             }
-            SrcOperand::Imm(_) => unreachable!(),
+            SrcOperand::Imm(tv) => {
+                assert!(tv.is_long());
+                if tv.get_long() == 0 {
+                    // some operation relative to the null pointer
+                    // let's use the undefined behavior here
+                    // for some funny stuff
+                    Amd64Reg::Rsp
+                } else {
+                    // hardcoded addresses are impossible in MJ
+                    // and with our optimizations
+                    unreachable!();
+                }
+            }
             // base address of ac operand is stored in the AR, we need it in a register
             SrcOperand::Mem(ar_addr_comp) => {
                 // TODO @flip1995 SrcOperand::ActivationRecordEntry refactor
