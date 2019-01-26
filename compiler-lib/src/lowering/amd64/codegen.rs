@@ -1259,11 +1259,16 @@ impl fmt::Display for MovInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match (self.src, self.dst) {
             (SrcOperand::Reg(src), DstOperand::Reg(dst)) => {
-                write!(
-                    fmt,
-                    "movq {}, {}\t\t/* {} */",
-                    self.src, self.dst, self.comment
-                )
+                // FIXME: handling this in the Display impl is wrong. Do this right!
+                if src == dst {
+                    write!(fmt, "/* mov %r, %r */")
+                } else {
+                    write!(
+                        fmt,
+                        "movq {}, {}\t\t/* {} */",
+                        self.src, self.dst, self.comment
+                    )
+                }
             }
             (SrcOperand::Imm(_), DstOperand::Reg(_)) => write!(
                 fmt,
