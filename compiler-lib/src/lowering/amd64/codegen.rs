@@ -46,8 +46,6 @@ impl Codegen {
 
         self.gen_function_prolog(function, &mut instrs);
 
-        self.gen_spill_arg_regs(&mut instrs);
-
         let mut block_iter = blocks.iter().peekable();
         while let Some(block) = block_iter.next() {
             instrs.push(Label {
@@ -157,28 +155,6 @@ impl Codegen {
         }
     }
 
-    fn gen_spill_arg_regs(&self, instrs: &mut Vec<Instruction>) {
-        use self::Instruction::{Comment, Mov};
-
-        for i in 0..self.cconv.num_arg_regs() {
-            if let Some(Location::Mem(idx)) = self.var_location.get(&(-1, i as usize)) {
-                instrs.push(Comment {
-                    comment: format!("spill argument register {}", i),
-                });
-                instrs.push(Mov(MovInstruction {
-                    src: SrcOperand::Reg(Amd64Reg::arg(i)),
-                    dst: DstOperand::Mem(lir::AddressComputation {
-                        offset: -((*idx + 1 + self.num_saved_regs) as isize) * 8,
-                        base: Amd64Reg::Rbp,
-                        index: lir::IndexComputation::Zero,
-                    }),
-                    size: 8,
-                    comment: String::new(),
-                }));
-            }
-        }
-    }
-
     fn gen_function_epilog(
         &mut self,
         function: &function::Function,
@@ -256,6 +232,7 @@ impl Codegen {
 
         log::debug!("Gen lir: {:?}", lir);
         match lir {
+            lir::Instruction::LoadParam { idx } => self.gen_load_param(*idx, instrs),
             lir::Instruction::Binop {
                 kind,
                 src1,
@@ -418,6 +395,44 @@ impl Codegen {
             }
             lir::Instruction::Call { .. } => unreachable!("Call already converted"),
             lir::Instruction::Comment(_) => (),
+        }
+    }
+
+    fn gen_load_param(&self, idx: u32, instrs: &mut Vec<Instruction>) {
+        use self::Instruction::{Comment, Mov};
+
+        let param = self
+            .var_location
+            .get(&var_id(lir::Operand::Param { idx }))
+            .unwrap();
+        match param {
+            Location::Reg(reg) => {
+                if let Some(instr) = self.arg_from_stack(idx as usize, DstOperand::Reg(*reg)) {
+                    instrs.push(Instruction::Comment {
+                        comment: "move stack arg in reg".to_string(),
+                    });
+                    instrs.push(instr);
+                }
+            }
+            // This can happen when the param was originally in a register but got spilled
+            // to the stack. So we need to move from the register to the stack
+            Location::Mem(i) => {
+                let arg_reg = Amd64Reg::arg(idx as usize);
+                instrs.push(Comment {
+                    comment: format!("spill argument register {}", arg_reg),
+                });
+                instrs.push(Mov(MovInstruction {
+                    src: SrcOperand::Reg(arg_reg),
+                    dst: DstOperand::Mem(lir::AddressComputation {
+                        offset: -((*i + 1 + self.num_saved_regs) as isize) * 8,
+                        base: Amd64Reg::Rbp,
+                        index: lir::IndexComputation::Zero,
+                    }),
+                    size: 8,
+                    comment: "move param to stack".to_string(),
+                }));
+            }
+            Location::ParamMem => (), // param is already on the stack and stays there
         }
     }
 
@@ -1139,7 +1154,8 @@ impl Codegen {
         if idx < self.cconv.num_arg_regs() {
             return None;
         }
-        let offset = ((idx + 1).checked_sub(self.cconv.num_arg_regs()).unwrap() * 8 + 8) as isize;
+        let effective_idx = idx.checked_sub(self.cconv.num_arg_regs()).unwrap();
+        let offset = ((effective_idx + 2) * 8) as isize;
         Some(Instruction::Mov(MovInstruction {
             src: SrcOperand::Mem(lir::AddressComputation {
                 offset,

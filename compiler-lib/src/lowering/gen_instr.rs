@@ -39,6 +39,20 @@ impl GenInstrBlock {
             code: Code::default(),
             computed: HashMap::new(),
         };
+        if let Some(start_node) = block.start_node() {
+            if let Some(proj_args) = start_node.out_proj_t_args() {
+                for arg in proj_args.out_nodes() {
+                    if let Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) = arg {
+                        b.code.body.push(Instruction::LoadParam { idx });
+                    } else {
+                        unreachable!(
+                            "the proj node Start_TArgs has only \
+                             Start_TArgs_Arg projs as out nodes"
+                        );
+                    }
+                }
+            }
+        }
         b.gen(graph, block, alloc);
         let GenInstrBlock { code, .. } = b;
         block.code = code;

@@ -190,6 +190,9 @@ impl fmt::Debug for MultiSlot {
 
 #[derive(Clone)]
 pub enum Instruction {
+    LoadParam {
+        idx: u32,
+    },
     Binop {
         kind: BinopKind,
         src1: Operand,
@@ -252,6 +255,7 @@ impl fmt::Debug for Instruction {
         use self::{Instruction::*, LoadMem, StoreMem};
 
         match self {
+            LoadParam { idx } => write!(fmt, "load_param {}", idx),
             Binop {
                 kind,
                 src1,
@@ -1096,6 +1100,23 @@ impl BasicBlock {
 
     pub(super) fn succ_blocks(&self) -> impl Iterator<Item = Ptr<BasicBlock>> + '_ {
         self.succs.iter().map(|succ| succ.target)
+    }
+
+    pub fn start_node(&self) -> Option<libfirm_rs::nodes::Start> {
+        if self.is_start() {
+            for out_node in self.firm.out_nodes() {
+                if let Node::Start(start) = out_node {
+                    return Some(start);
+                }
+            }
+        }
+        None
+    }
+
+    fn is_start(&self) -> bool {
+        let firm_block = self.firm;
+        let firm_start_block = self.graph.head.firm;
+        firm_block == firm_start_block
     }
 }
 

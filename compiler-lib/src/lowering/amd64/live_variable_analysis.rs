@@ -205,6 +205,7 @@ impl Instruction {
         use super::lir::{Instruction::*, Leave::*, LoadMem, StoreMem};
         match self {
             Instruction::Lir(lir) => match lir {
+                LoadParam { idx } => vec![lir::Operand::Param { idx: *idx }],
                 Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
                     vec![*src1, *src2]
                 }
@@ -267,6 +268,7 @@ impl Instruction {
         };
         match self {
             Instruction::Lir(lir) => match lir {
+                LoadParam { .. } => None,
                 Binop { dst, .. } | Div { dst, .. } | Mod { dst, .. } => {
                     Some(lir::Operand::Slot(*dst))
                 }
