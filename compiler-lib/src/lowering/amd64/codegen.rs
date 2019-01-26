@@ -3,7 +3,7 @@ use super::{
     linear_scan::{self, Location},
     lir::{self, MultiSlot},
     live_variable_analysis,
-    register::{Amd64Reg, Amd64RegByte, Amd64RegDouble, RegisterAllocator},
+    register::{Amd64Reg, Amd64RegByte, Amd64RegDouble},
     var_id, CallingConv, VarId,
 };
 use crate::lowering::lir_allocator::Ptr;
@@ -208,7 +208,7 @@ impl Codegen {
         dst: Ptr<MultiSlot>,
         instrs: &mut Vec<Instruction>,
     ) {
-        use self::Instruction::{Mov, Popq, Pushq};
+        use self::Instruction::Mov;
 
         let src = self.lir_to_src_operand(src.into(), instrs);
         let dst = self
@@ -277,12 +277,10 @@ impl Codegen {
                         free_regs.remove(&occupied_reg);
                     });
 
-                // rev because eax is the last one, and we want to use it first because it is
-                // scratch
-                let mut free_regs = free_regs.into_iter().rev().collect();
+                // rev because rax is the last in all_but_rsp_and_rbp
+                // but we want it first because spill_ctx doesn't spill for it
+                let free_regs = free_regs.into_iter().rev().collect();
                 let mut spill_ctx = SpillContext::new(free_regs);
-
-                use self::{lir::IndexComputation, Instruction::*};
 
                 let dst: DstOperand = {
                     let dst = store.mem_address_computation();
@@ -299,7 +297,7 @@ impl Codegen {
                     let src: SrcOperand = self.lir_to_src_operand(src, instrs);
                     match src {
                         // the src is stored in a reg, this is fine
-                        SrcOperand::Reg(reg) => src,
+                        SrcOperand::Reg(_) => src,
                         SrcOperand::Imm(_) => src,
                         // the source is stored in the activation record, move to scratch
                         SrcOperand::Mem(ar_addr_comp) => {
@@ -329,13 +327,11 @@ impl Codegen {
                         free_regs.remove(&occupied_reg);
                     });
 
-                // rev because eax is the last one, and we want to use it first because it is
-                // scratch
-                let mut free_regs = free_regs.into_iter().rev().collect();
+                // rev because rax is the last in all_but_rsp_and_rbp
+                // but we want it first because spill_ctx doesn't spill for it
+                let free_regs = free_regs.into_iter().rev().collect();
                 let mut spill_ctx = SpillContext::new(free_regs);
                 let mut post_mov_instrs = vec![];
-
-                use self::{lir::IndexComputation, Instruction::*};
 
                 let src: SrcOperand = {
                     let src = load.mem_address_computation();
@@ -363,7 +359,7 @@ impl Codegen {
                             // Using rax without consulting free_regs is safe because
                             // because any usage as spill space for src
                             // ends during the execution of mov
-                            post_mov_instrs.push(Mov(MovInstruction {
+                            post_mov_instrs.push(Instruction::Mov(MovInstruction {
                                 src: SrcOperand::Reg(Amd64Reg::Rax),
                                 dst,
                                 size: 8,
@@ -428,7 +424,7 @@ impl Codegen {
                 spill_ctx.spill_and_load_operand(base)
             }
         };
-        use self::{lir::IndexComputation, Instruction::*};
+        use self::lir::IndexComputation;
         let index: IndexComputation<Amd64Reg> = {
             if let IndexComputation::Displacement(index, stride) = index {
                 let index = self.lir_to_src_operand(index, instrs);
@@ -654,7 +650,7 @@ impl Codegen {
         src: &lir::Operand,
         dst: Ptr<MultiSlot>,
     ) {
-        use self::Instruction::{Mov, Negq, Notq, Popq, Pushq};
+        use self::Instruction::{Mov, Negq, Notq};
 
         macro_rules! push_unop {
             ($kind:expr, $dst:expr) => {{
@@ -1088,7 +1084,7 @@ impl fmt::Display for MovInstruction {
 /// their original value.
 struct SpillContext {
     used_regs: HashSet<Amd64Reg>,
-    free_regs: Box<Iterator<Item = Amd64Reg>>,
+    free_regs: Box<dyn Iterator<Item = Amd64Reg>>,
     spills: SaveRegList<Amd64Reg>,
     mov_to_spilled: Vec<Instruction>,
 }

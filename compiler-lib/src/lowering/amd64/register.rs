@@ -244,16 +244,6 @@ impl RegisterAllocator {
         }
     }
 
-    pub(super) fn alloc_specific_reg(&mut self, reg: Amd64Reg) -> Option<Amd64Reg> {
-        let is_free = self.free_list.get_mut(&reg).unwrap();
-        if *is_free {
-            *is_free = false;
-            Some(reg)
-        } else {
-            None
-        }
-    }
-
     /// Inserts a register into the `free_list`. Also registers which were not
     /// initially in the free_list can be inserted. This can be useful for
     /// function argument registers, that won't get used anymore.
