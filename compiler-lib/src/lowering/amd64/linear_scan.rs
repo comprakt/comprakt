@@ -219,7 +219,7 @@ impl LinearScanAllocator {
         if let Some(keep) = self
             .active
             .iter()
-            .find(|a| a.interval.upper() >= interval.lower())
+            .find(|a| a.interval.upper() > interval.lower())
         {
             let new_active = self.active.split_off(&keep.clone());
             for live_range in &self.active {

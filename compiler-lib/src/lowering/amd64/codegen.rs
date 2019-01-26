@@ -584,16 +584,39 @@ impl Codegen {
             .try_into()
             .unwrap();
         match dst {
-            DstOperand::Reg(_) => {
+            DstOperand::Reg(dst_reg) => {
                 // When the dst is a Reg, we just have to move the second operand in this
                 // Reg. It doesn't matter if the `src`s are Reg, Mem or Imm
-                instrs.push(Mov(MovInstruction {
-                    src: src1,
-                    dst,
-                    size: 8,
-                    comment: "binop setup".to_string(),
-                }));
-                push_binop!(kind, src2, dst);
+                if let SrcOperand::Reg(src2_reg) = src2 {
+                    if src2_reg == dst_reg {
+                        push_binop!(kind, src1, dst);
+                        if let lir::BinopKind::Sub = kind {
+                            // sub is the only binop that is not commutative
+                            // OP = -
+                            // and in fact, we wanted to compute dst = src1 OP src2
+                            // but we computed src2 OP src1
+                            //
+                            // Let's use: src1-src2 = -(src2-src1)
+                            instrs.push(Negq { src: dst })
+                        }
+                    } else {
+                        instrs.push(Mov(MovInstruction {
+                            src: src1,
+                            dst,
+                            size: 8,
+                            comment: "binop setup".to_string(),
+                        }));
+                        push_binop!(kind, src2, dst);
+                    }
+                } else {
+                    instrs.push(Mov(MovInstruction {
+                        src: src1,
+                        dst,
+                        size: 8,
+                        comment: "binop setup".to_string(),
+                    }));
+                    push_binop!(kind, src2, dst);
+                }
             }
             DstOperand::Mem(_) => match (src1, src2) {
                 // Enforce that we always get `op reg/imm, mem`
