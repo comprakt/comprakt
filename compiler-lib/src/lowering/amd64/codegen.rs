@@ -18,7 +18,6 @@ use std::{
 pub(super) struct Codegen {
     var_location: HashMap<VarId, linear_scan::Location>,
     cconv: CallingConv,
-    params_moved_from_stack: HashSet<u32>,
     num_saved_regs: usize,
 }
 
@@ -30,7 +29,6 @@ impl Codegen {
         Self {
             var_location,
             cconv,
-            params_moved_from_stack: HashSet::new(),
             num_saved_regs: 0,
         }
     }
@@ -119,12 +117,12 @@ impl Codegen {
         for instr in &function.prolog {
             match instr {
                 function::FnInstruction::Pushq { src } => {
-                    let src = self.fn_to_src_operand(*src, instrs);
+                    let src = self.fn_to_src_operand(*src);
                     instrs.push(Pushq { src });
                 }
                 function::FnInstruction::Movq { src, dst } => {
-                    let src = self.fn_to_src_operand(*src, instrs);
-                    let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
+                    let src = self.fn_to_src_operand(*src);
+                    let dst = self.fn_to_src_operand(*dst).try_into().unwrap();
                     instrs.push(Mov(MovInstruction {
                         src,
                         dst,
@@ -216,9 +214,9 @@ impl Codegen {
     ) {
         use self::Instruction::Mov;
 
-        let src = self.lir_to_src_operand(src.into(), instrs);
+        let src = self.lir_to_src_operand(src.into());
         let dst = self
-            .lir_to_src_operand(lir::Operand::Slot(dst), instrs)
+            .lir_to_src_operand(lir::Operand::Slot(dst))
             .try_into()
             .unwrap();
         match (src, dst) {
@@ -293,9 +291,9 @@ impl Codegen {
                 instrs,
             ),
             lir::Instruction::Conv { src, dst } => {
-                let src = self.lir_to_src_operand(*src, instrs);
+                let src = self.lir_to_src_operand(*src);
                 let dst = self
-                    .lir_to_src_operand(lir::Operand::Slot(*dst), instrs)
+                    .lir_to_src_operand(lir::Operand::Slot(*dst))
                     .try_into()
                     .unwrap();
                 instrs.push(Mov(MovInstruction {
@@ -308,7 +306,7 @@ impl Codegen {
             lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
             lir::Instruction::StoreMem(store) => {
                 let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
-                self.load_store_mem_occupied_regs(instrs, store)
+                self.load_store_mem_occupied_regs(store)
                     .into_iter()
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
@@ -322,7 +320,6 @@ impl Codegen {
                 let dst: DstOperand = {
                     let dst = store.mem_address_computation();
                     let (dst, _) = self.lir_address_computation_to_register_address_computation(
-                        instrs,
                         dst,
                         &mut spill_ctx,
                     );
@@ -331,7 +328,7 @@ impl Codegen {
 
                 let src: SrcOperand = {
                     let src = store.operand();
-                    let src: SrcOperand = self.lir_to_src_operand(src, instrs);
+                    let src: SrcOperand = self.lir_to_src_operand(src);
                     match src {
                         // the src is stored in a reg, this is fine
                         SrcOperand::Reg(_) => src,
@@ -359,7 +356,7 @@ impl Codegen {
             }
             lir::Instruction::LoadMem(load) => {
                 let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
-                self.load_store_mem_occupied_regs(instrs, load)
+                self.load_store_mem_occupied_regs(load)
                     .into_iter()
                     .for_each(|occupied_reg| {
                         free_regs.remove(&occupied_reg);
@@ -374,7 +371,6 @@ impl Codegen {
                 let src: SrcOperand = {
                     let src = load.mem_address_computation();
                     let (src, _) = self.lir_address_computation_to_register_address_computation(
-                        instrs,
                         src,
                         &mut spill_ctx,
                     );
@@ -384,7 +380,7 @@ impl Codegen {
 
                 let dst = {
                     let dst = load.operand();
-                    let dst: DstOperand = self.lir_to_src_operand(dst, instrs).try_into().unwrap();
+                    let dst: DstOperand = self.lir_to_src_operand(dst).try_into().unwrap();
                     let dst: Amd64Reg = match dst {
                         // the dst is stored in a reg, this is fine
                         DstOperand::Reg(reg) => reg,
@@ -438,7 +434,6 @@ impl Codegen {
     /// allocation already placed them in registers).
     fn lir_address_computation_to_register_address_computation(
         &mut self,
-        instrs: &mut Vec<Instruction>,
         ac: lir::AddressComputation<lir::Operand>,
         spill_ctx: &mut SpillContext,
     ) -> (lir::AddressComputation<Amd64Reg>, Vec<Amd64Reg>) {
@@ -448,7 +443,7 @@ impl Codegen {
             index,
         } = ac;
         let mut already_in_registers = vec![];
-        let base = self.lir_to_src_operand(base, instrs);
+        let base = self.lir_to_src_operand(base);
         let base: Amd64Reg = match base {
             // the base address of ac is stored in a reg, this is fine
             SrcOperand::Reg(reg) => {
@@ -467,7 +462,7 @@ impl Codegen {
         use self::lir::IndexComputation;
         let index: IndexComputation<Amd64Reg> = {
             if let IndexComputation::Displacement(index, stride) = index {
-                let index = self.lir_to_src_operand(index, instrs);
+                let index = self.lir_to_src_operand(index);
                 match index {
                     // the index is stored in a reg, this is fine
                     SrcOperand::Reg(reg) => {
@@ -503,33 +498,27 @@ impl Codegen {
 
     fn lir_address_computation_operands_already_in_registers(
         &mut self,
-        instrs: &mut Vec<Instruction>,
         ac: lir::AddressComputation<lir::Operand>,
     ) -> Vec<Amd64Reg> {
         let mut pseudo_spill = SpillContext::new(Vec::from_iter(Amd64Reg::all_but_rsp_and_rbp()));
-        let (_, already_in_registers) = self
-            .lir_address_computation_to_register_address_computation(instrs, ac, &mut pseudo_spill);
+        let (_, already_in_registers) =
+            self.lir_address_computation_to_register_address_computation(ac, &mut pseudo_spill);
         already_in_registers
     }
 
-    fn lir_operand_used_registers(
-        &mut self,
-        instrs: &mut Vec<Instruction>,
-        op: lir::Operand,
-    ) -> Vec<Amd64Reg> {
-        self.lir_to_src_operand(op, instrs).used_regs()
+    fn lir_operand_used_registers(&mut self, op: lir::Operand) -> Vec<Amd64Reg> {
+        self.lir_to_src_operand(op).used_regs()
     }
 
     fn load_store_mem_occupied_regs<I: LoadOrStoreMem>(
         &mut self,
-        instrs: &mut Vec<Instruction>,
         load_or_store: &I,
     ) -> Vec<Amd64Reg> {
         let mut regs = vec![];
         let ac = load_or_store.mem_address_computation();
-        regs.extend(self.lir_address_computation_operands_already_in_registers(instrs, ac));
+        regs.extend(self.lir_address_computation_operands_already_in_registers(ac));
         let op = load_or_store.operand();
-        regs.extend(self.lir_operand_used_registers(instrs, op));
+        regs.extend(self.lir_operand_used_registers(op));
         regs
     }
 
@@ -573,10 +562,10 @@ impl Codegen {
             }};
         }
 
-        let src1 = self.lir_to_src_operand(*src1, instrs);
-        let src2 = self.lir_to_src_operand(*src2, instrs);
+        let src1 = self.lir_to_src_operand(*src1);
+        let src2 = self.lir_to_src_operand(*src2);
         let dst = self
-            .lir_to_src_operand(lir::Operand::Slot(dst), instrs)
+            .lir_to_src_operand(lir::Operand::Slot(dst))
             .try_into()
             .unwrap();
         match dst {
@@ -710,9 +699,9 @@ impl Codegen {
             }};
         }
 
-        let src = self.lir_to_src_operand(*src, instrs);
+        let src = self.lir_to_src_operand(*src);
         let dst = self
-            .lir_to_src_operand(lir::Operand::Slot(dst), instrs)
+            .lir_to_src_operand(lir::Operand::Slot(dst))
             .try_into()
             .unwrap();
         match dst {
@@ -783,7 +772,7 @@ impl Codegen {
         let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
         free_regs.remove(&Amd64Reg::Rax);
         free_regs.remove(&Amd64Reg::Rdx);
-        self.lir_to_src_operand(lir::Operand::Slot(dst), instrs)
+        self.lir_to_src_operand(lir::Operand::Slot(dst))
             .try_into()
             .map(dst_operand_used_regs)
             .unwrap_or(vec![])
@@ -799,11 +788,11 @@ impl Codegen {
         let mut rdx_spilled = false;
 
         let dst: DstOperand = self
-            .lir_to_src_operand(lir::Operand::Slot(dst), instrs)
+            .lir_to_src_operand(lir::Operand::Slot(dst))
             .try_into()
             .unwrap();
 
-        let src1 = self.lir_to_src_operand(*src1, instrs);
+        let src1 = self.lir_to_src_operand(*src1);
         match (src1, dst) {
             // We don't need to spill src1, if we overide it anyway
             (SrcOperand::Reg(x), DstOperand::Reg(y)) if x == y => (),
@@ -815,7 +804,7 @@ impl Codegen {
             _ => (),
         }
 
-        let src2 = self.lir_to_src_operand(*src2, instrs);
+        let src2 = self.lir_to_src_operand(*src2);
         let src2 = match (src2, dst) {
             (SrcOperand::Reg(Amd64Reg::Rdx), DstOperand::Reg(Amd64Reg::Rdx))
             | (SrcOperand::Imm(_), _) => {
@@ -913,8 +902,8 @@ impl Codegen {
         for instr in &call.setup {
             match instr {
                 function::FnInstruction::Movq { src, dst } => {
-                    let src = self.fn_to_src_operand(*src, instrs);
-                    let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
+                    let src = self.fn_to_src_operand(*src);
+                    let dst = self.fn_to_src_operand(*dst).try_into().unwrap();
                     instrs.push(Mov(MovInstruction {
                         src,
                         dst,
@@ -923,11 +912,11 @@ impl Codegen {
                     }));
                 }
                 function::FnInstruction::Pushq { src } => {
-                    let src = self.fn_to_src_operand(*src, instrs);
+                    let src = self.fn_to_src_operand(*src);
                     instrs.push(Pushq { src });
                 }
                 function::FnInstruction::Popq { dst } => {
-                    let dst = self.fn_to_src_operand(*dst, instrs).try_into().unwrap();
+                    let dst = self.fn_to_src_operand(*dst).try_into().unwrap();
                     instrs.push(Popq { dst });
                 }
                 _ => unreachable!(),
@@ -942,8 +931,8 @@ impl Codegen {
             instrs.push(Comment {
                 comment: "call move from %rax".to_string(),
             });
-            let src = self.fn_to_src_operand(src, instrs);
-            let dst = self.fn_to_src_operand(dst, instrs).try_into().unwrap();
+            let src = self.fn_to_src_operand(src);
+            let dst = self.fn_to_src_operand(dst).try_into().unwrap();
             instrs.push(Mov(MovInstruction {
                 src,
                 dst,
@@ -977,7 +966,7 @@ impl Codegen {
         next_block_num: i64,
         instrs: &mut Vec<Instruction>,
     ) {
-        use self::Instruction::{Cmpq, Jmp, Mov, Popq, Pushq};
+        use self::Instruction::{Cmpq, Jmp, Mov};
 
         macro_rules! push_jmp {
             ($kind:expr, $target:expr, $next_block_num:expr, fall=$fall:expr) => {{
@@ -1032,8 +1021,8 @@ impl Codegen {
                 //
                 // NOTE: ja, jae, etc. don't work because we require signed comparison
 
-                let lhs = self.lir_to_src_operand(*lhs, instrs);
-                let rhs = self.lir_to_src_operand(*rhs, instrs);
+                let lhs = self.lir_to_src_operand(*lhs);
+                let rhs = self.lir_to_src_operand(*rhs);
                 let op = match (lhs, rhs) {
                     (SrcOperand::Reg(_), SrcOperand::Mem(_))
                     | (_, SrcOperand::Reg(_))
@@ -1091,7 +1080,7 @@ impl Codegen {
             }
             lir::Leave::Return { value, end_block } => {
                 if let Some(value) = value {
-                    let src = self.lir_to_src_operand(*value, instrs);
+                    let src = self.lir_to_src_operand(*value);
                     instrs.push(Mov(MovInstruction {
                         src,
                         dst: DstOperand::Reg(Amd64Reg::Rax),
@@ -1109,11 +1098,7 @@ impl Codegen {
         }
     }
 
-    fn lir_to_src_operand(
-        &mut self,
-        op: lir::Operand,
-        instrs: &mut Vec<Instruction>,
-    ) -> SrcOperand {
+    fn lir_to_src_operand(&self, op: lir::Operand) -> SrcOperand {
         match op {
             lir::Operand::Imm(c) => SrcOperand::Imm(c),
             lir::Operand::Slot(_) => match self.var_location[&var_id(op)] {
@@ -1126,14 +1111,7 @@ impl Codegen {
                 Location::ParamMem => unreachable!("a slot never has a ParamMem location"),
             },
             lir::Operand::Param { idx } => match self.var_location[&var_id(op)] {
-                Location::Reg(reg) => {
-                    if let Some(instr) = self.arg_from_stack(idx as usize, DstOperand::Reg(reg)) {
-                        if self.params_moved_from_stack.insert(idx) {
-                            instrs.push(instr);
-                        }
-                    }
-                    SrcOperand::Reg(reg)
-                }
+                Location::Reg(reg) => SrcOperand::Reg(reg),
                 // This can happen when the param was originally in a register but got moved on
                 // the stack.
                 Location::Mem(idx) => SrcOperand::Mem(lir::AddressComputation {
@@ -1150,13 +1128,9 @@ impl Codegen {
         }
     }
 
-    fn fn_to_src_operand(
-        &mut self,
-        op: function::FnOperand,
-        instrs: &mut Vec<Instruction>,
-    ) -> SrcOperand {
+    fn fn_to_src_operand(&self, op: function::FnOperand) -> SrcOperand {
         match op {
-            function::FnOperand::Lir(lir) => self.lir_to_src_operand(lir, instrs),
+            function::FnOperand::Lir(lir) => self.lir_to_src_operand(lir),
             function::FnOperand::Reg(reg) => SrcOperand::Reg(reg),
         }
     }
