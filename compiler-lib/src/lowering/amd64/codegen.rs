@@ -643,104 +643,120 @@ impl Codegen {
                     push_binop!(kind, src2, dst);
                 }
             }
-            DstOperand::Mem(_) => match (src1, src2) {
-                // Enforce that we always get `op reg/imm, mem`
-                (SrcOperand::Reg(_), SrcOperand::Reg(_))
-                | (SrcOperand::Reg(_), SrcOperand::Imm(_))
-                | (SrcOperand::Imm(_), SrcOperand::Reg(_))
-                | (SrcOperand::Imm(_), SrcOperand::Imm(_)) => {
-                    instrs.push(Mov(MovInstruction {
-                        src: src1,
-                        dst,
-                        size: 8,
-                        comment: "binop setup".to_string(),
-                    }));
-                    push_binop!(kind, src2, dst);
-                }
-                (SrcOperand::Mem(_), SrcOperand::Mem(_)) => {
-                    // This case is bad. There aren't any (mem, mem) ops.
-                    // This means we need to spill one register, and that is Rax.
-                    // `op mem, mem -> mem` => `op reg, mem`
-                    // We want to move src2 -> dst, but first we need to move src2 -> %rax:
-                    let spill = Amd64Reg::Rax;
-                    instrs.push(Mov(MovInstruction {
-                        src: src1,
-                        dst: DstOperand::Reg(spill),
-                        size: 8,
-                        comment: "binop 3xmem setup".to_string(),
-                    }));
-                    // Now we can move %rax -> dst
-                    instrs.push(Mov(MovInstruction {
-                        src: SrcOperand::Reg(spill),
-                        dst,
-                        size: 8,
-                        comment: "binop 3xmem setup".to_string(),
-                    }));
-                    // We're now at a 2-address code state: `op mem, mem`
-                    // Now we need to move src2 -> %rax
-                    instrs.push(Mov(MovInstruction {
-                        src: src2,
-                        dst: DstOperand::Reg(spill),
-                        size: 8,
-                        comment: "binop setup".to_string(),
-                    }));
-                    // Now the instruction `op %rax, mem`:
-                    push_binop!(kind, SrcOperand::Reg(spill), dst);
-                }
-                // src1 is Reg or Imm, src2 is Mem
-                (SrcOperand::Reg(_), SrcOperand::Mem(_))
-                | (SrcOperand::Imm(_), SrcOperand::Mem(_)) => {
-                    // move src1 into accumulator
-                    // (using src1, not src2 for correct sub support)
-                    instrs.push(Mov(MovInstruction {
-                        src: src1,
-                        dst,
-                        size: 8,
-                        comment: "binop setup".to_string(),
-                    }));
-                    let spill = Amd64Reg::Rax;
-                    instrs.push(Mov(MovInstruction {
-                        src: src2,
-                        dst: DstOperand::Reg(spill),
-                        size: 8,
-                        comment: "binop spill".to_string(),
-                    }));
-                    // Now the instruction `op spill(src2), mem(dst == src1)`:
-                    push_binop!(kind, SrcOperand::Reg(spill), dst);
-                    // Now mem(dst == src1 OP src2)
-                }
-                // src1 is Mem, src2 is Reg or Imm
-                (SrcOperand::Mem(_), SrcOperand::Reg(_))
-                | (SrcOperand::Mem(_), SrcOperand::Imm(_)) => {
-                    // The same approach like above, but with src1 and src2 swapped
-                    // and a special case for `sub` because it's not commutative (see `if` comment)
-                    instrs.push(Mov(MovInstruction {
-                        src: src2,
-                        dst,
-                        size: 8,
-                        comment: "binop setup".to_string(),
-                    }));
-                    let spill = Amd64Reg::Rax;
-                    instrs.push(Mov(MovInstruction {
-                        src: src1,
-                        dst: DstOperand::Reg(spill),
-                        size: 8,
-                        comment: "binop spill".to_string(),
-                    }));
-                    // Now the instruction `op spill(src1), mem(dst == src2)`:
-                    push_binop!(kind, SrcOperand::Reg(spill), dst);
-                    // Now mem(dst == src2 OP src1)
-                    if let lir::BinopKind::Sub = kind {
-                        // sub is the only binop that is not commutative
-                        // OP = -
-                        // and in fact, we wanted to compute dst = src1 OP src2
-                        // but we computed src2 OP src1
-                        //
-                        // Let's use: src1-src2 = -(src2-src1)
-                        instrs.push(Negq { src: dst })
+            DstOperand::Mem(_) => {
+                let dst_spill = if let lir::BinopKind::Mul = kind {
+                    DstOperand::Reg(Amd64Reg::Rax)
+                } else {
+                    dst
+                };
+                match (src1, src2) {
+                    // Enforce that we always get `op reg/imm, mem`
+                    (SrcOperand::Reg(_), SrcOperand::Reg(_))
+                    | (SrcOperand::Reg(_), SrcOperand::Imm(_))
+                    | (SrcOperand::Imm(_), SrcOperand::Reg(_))
+                    | (SrcOperand::Imm(_), SrcOperand::Imm(_)) => {
+                        instrs.push(Mov(MovInstruction {
+                            src: src1,
+                            dst: dst_spill,
+                            size: 8,
+                            comment: "binop setup".to_string(),
+                        }));
+                        push_binop!(kind, src2, dst_spill);
+                    }
+                    (SrcOperand::Mem(_), SrcOperand::Mem(_)) => {
+                        // This case is bad. There aren't any (mem, mem) ops.
+                        // This means we need to spill one register, and that is Rax.
+                        // `op mem, mem -> mem` => `op reg, mem`
+                        // We want to move src2 -> dst, but first we need to move src2 -> %rax:
+                        let spill = Amd64Reg::Rax;
+                        instrs.push(Mov(MovInstruction {
+                            src: src1,
+                            dst: DstOperand::Reg(spill),
+                            size: 8,
+                            comment: "binop 3xmem setup".to_string(),
+                        }));
+                        // Now we can move %rax -> dst
+                        instrs.push(Mov(MovInstruction {
+                            src: SrcOperand::Reg(spill),
+                            dst: dst_spill,
+                            size: 8,
+                            comment: "binop 3xmem setup".to_string(),
+                        }));
+                        // We're now at a 2-address code state: `op mem, mem`
+                        // Now we need to move src2 -> %rax
+                        instrs.push(Mov(MovInstruction {
+                            src: src2,
+                            dst: DstOperand::Reg(spill),
+                            size: 8,
+                            comment: "binop setup".to_string(),
+                        }));
+                        // Now the instruction `op %rax, mem`:
+                        push_binop!(kind, SrcOperand::Reg(spill), dst_spill);
+                    }
+                    // src1 is Reg or Imm, src2 is Mem
+                    (SrcOperand::Reg(_), SrcOperand::Mem(_))
+                    | (SrcOperand::Imm(_), SrcOperand::Mem(_)) => {
+                        // move src1 into accumulator
+                        // (using src1, not src2 for correct sub support)
+                        instrs.push(Mov(MovInstruction {
+                            src: src1,
+                            dst: dst_spill,
+                            size: 8,
+                            comment: "binop setup".to_string(),
+                        }));
+                        let spill = Amd64Reg::Rax;
+                        instrs.push(Mov(MovInstruction {
+                            src: src2,
+                            dst: DstOperand::Reg(spill),
+                            size: 8,
+                            comment: "binop spill".to_string(),
+                        }));
+                        // Now the instruction `op spill(src2), mem(dst == src1)`:
+                        push_binop!(kind, SrcOperand::Reg(spill), dst_spill);
+                        // Now mem(dst == src1 OP src2)
+                    }
+                    // src1 is Mem, src2 is Reg or Imm
+                    (SrcOperand::Mem(_), SrcOperand::Reg(_))
+                    | (SrcOperand::Mem(_), SrcOperand::Imm(_)) => {
+                        // The same approach like above, but with src1 and src2 swapped
+                        // and a special case for `sub` because it's not commutative (see `if`
+                        // comment)
+                        instrs.push(Mov(MovInstruction {
+                            src: src2,
+                            dst: dst_spill,
+                            size: 8,
+                            comment: "binop setup".to_string(),
+                        }));
+                        let spill = Amd64Reg::Rax;
+                        instrs.push(Mov(MovInstruction {
+                            src: src1,
+                            dst: DstOperand::Reg(spill),
+                            size: 8,
+                            comment: "binop spill".to_string(),
+                        }));
+                        // Now the instruction `op spill(src1), mem(dst == src2)`:
+                        push_binop!(kind, SrcOperand::Reg(spill), dst_spill);
+                        // Now mem(dst == src2 OP src1)
+                        if let lir::BinopKind::Sub = kind {
+                            // sub is the only binop that is not commutative
+                            // OP = -
+                            // and in fact, we wanted to compute dst = src1 OP src2
+                            // but we computed src2 OP src1
+                            //
+                            // Let's use: src1-src2 = -(src2-src1)
+                            instrs.push(Negq { src: dst_spill })
+                        }
                     }
                 }
-            },
+                if let lir::BinopKind::Mul = kind {
+                    instrs.push(Mov(MovInstruction {
+                        src: SrcOperand::Reg(Amd64Reg::Rax),
+                        dst,
+                        size: 8,
+                        comment: "imul dst mem".to_string(),
+                    }));
+                }
+            }
         }
     }
 
