@@ -273,6 +273,19 @@ impl Codegen {
                     .lir_to_src_operand(lir::Operand::Slot(*dst))
                     .try_into()
                     .unwrap();
+                let src = match (src, dst) {
+                    (SrcOperand::Mem(_), DstOperand::Mem(_)) => {
+                        let spill = Amd64Reg::Rax;
+                        instrs.push(Mov(MovInstruction {
+                            src,
+                            dst: DstOperand::Reg(spill),
+                            size: 8,
+                            comment: "conv spill".to_string(),
+                        }));
+                        SrcOperand::Reg(spill)
+                    }
+                    _ => src,
+                };
                 instrs.push(Mov(MovInstruction {
                     src,
                     dst,
@@ -1301,7 +1314,7 @@ impl fmt::Display for MovInstruction {
             (SrcOperand::Reg(src), DstOperand::Reg(dst)) => {
                 // FIXME: handling this in the Display impl is wrong. Do this right!
                 if src == dst {
-                    write!(fmt, "/* mov %r, %r */")
+                    write!(fmt, "/* mov %r, %r */\t\t/* {} */", self.comment)
                 } else {
                     write!(
                         fmt,
