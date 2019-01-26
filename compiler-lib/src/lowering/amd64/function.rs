@@ -138,8 +138,7 @@ impl FunctionCall {
 
         debug_assert!(self.reg_setup.len() <= 6);
 
-        let mut source_regs = vec![];
-        let mut target_regs = vec![];
+        let mut transfers = vec![];
         for (i, op) in self.reg_setup.iter().enumerate() {
             match op {
                 lir::Operand::Imm(_) => self.setup.push(FnInstruction::Movq {
@@ -147,10 +146,10 @@ impl FunctionCall {
                     dst: FnOperand::Reg(Amd64Reg::arg(i)),
                 }),
                 _ => match var_location.get(&var_id(*op)).unwrap() {
-                    linear_scan::Location::Reg(reg) => {
-                        source_regs.push(*reg);
-                        target_regs.push(Amd64Reg::arg(i));
-                    }
+                    linear_scan::Location::Reg(reg) => transfers.push(RegToRegTransfer {
+                        src: *reg,
+                        dst: Amd64Reg::arg(i),
+                    }),
                     _ => self.setup.push(FnInstruction::Movq {
                         src: FnOperand::Lir(*op),
                         dst: FnOperand::Reg(Amd64Reg::arg(i)),
@@ -159,39 +158,9 @@ impl FunctionCall {
             }
         }
 
-        let mut reg_graph = RegGraph::new(&source_regs, &target_regs);
-
-        let reg_graph_len = reg_graph.len();
-        let nodes = reg_graph.gen_node_list_with_min_left_edges();
-
-        debug_assert_eq!(nodes.len(), reg_graph_len);
-
-        let mut recover_list = VecDeque::new();
-        let mut visited = HashSet::new();
-        for node in nodes.iter().rev() {
-            visited.insert(node.reg);
-            for out in node.outs.iter().filter(|reg| !visited.contains(reg)) {
-                self.setup.push(FnInstruction::Pushq {
-                    src: FnOperand::Reg(node.reg),
-                });
-                recover_list.push_front(*out);
-            }
-
-            if let Some(in_) = node.in_ {
-                if !visited.contains(&in_) {
-                    self.setup.push(FnInstruction::Movq {
-                        src: FnOperand::Reg(in_),
-                        dst: FnOperand::Reg(node.reg),
-                    });
-                }
-            }
-        }
-
-        for reg in recover_list {
-            self.setup.push(FnInstruction::Popq {
-                dst: FnOperand::Reg(reg),
-            });
-        }
+        let reg_graph = RegGraph::new(transfers);
+        let swap_instrs = reg_graph.into_instructions::<FnInstruction>();
+        self.setup.extend(swap_instrs);
     }
 
     pub(super) fn save_reg(&mut self, reg: Amd64Reg) {
@@ -432,22 +401,26 @@ impl Node {
 #[derive(Default)]
 struct RegGraph(HashMap<Amd64Reg, Node>);
 
+struct RegToRegTransfer {
+    src: Amd64Reg,
+    dst: Amd64Reg,
+}
+
+enum RegGraphMinLeftEdgeInstruction {
+    Push(Amd64Reg),
+    Pop(Amd64Reg),
+    Mov(RegToRegTransfer),
+}
+
 impl RegGraph {
-    fn new(sources: &[Amd64Reg], targets: &[Amd64Reg]) -> Self {
+    fn new(transfers: Vec<RegToRegTransfer>) -> Self {
         let mut reg_graph = Self::default();
-        debug_assert_eq!(sources.len(), targets.len());
-        for (src, target) in sources.iter().zip(targets) {
-            if src != target {
-                let src_node = Node::new(*src);
-                let target_node = Node::new(*target);
-                reg_graph
-                    .entry(*src)
-                    .or_insert(src_node)
-                    .add_out_edge(*target);
-                reg_graph
-                    .entry(*target)
-                    .or_insert(target_node)
-                    .set_in_edge(*src);
+        for RegToRegTransfer { src, dst } in transfers {
+            if src != dst {
+                let src_node = Node::new(src);
+                let dst_node = Node::new(dst);
+                reg_graph.entry(src).or_insert(src_node).add_out_edge(dst);
+                reg_graph.entry(dst).or_insert(dst_node).set_in_edge(src);
             }
         }
 
@@ -457,7 +430,9 @@ impl RegGraph {
     /// This is a greedy cycle removal algorithm from "Graph Drawing: Algorithms
     /// for the Visualization of Graphs" by Eades et al.
     // TODO(flip1995): comment what it does
-    fn gen_node_list_with_min_left_edges(&mut self) -> VecDeque<Node> {
+    // TODO(problame): use Vecs (r_nodes.push_front) can be replace by reversing the
+    // vec in the end)
+    fn gen_node_list_with_min_left_edges(mut self) -> VecDeque<Node> {
         let mut l_nodes = VecDeque::new();
         let mut r_nodes = VecDeque::new();
         let mut visited = HashSet::new();
@@ -529,6 +504,56 @@ impl RegGraph {
 
         l_nodes.append(&mut r_nodes);
         l_nodes
+    }
+
+    fn into_instructions<I: From<RegGraphMinLeftEdgeInstruction>>(self) -> impl Iterator<Item = I> {
+        let mut instrs = vec![];
+
+        let reg_graph_len = self.len();
+        let nodes = self.gen_node_list_with_min_left_edges();
+
+        debug_assert_eq!(nodes.len(), reg_graph_len);
+
+        let mut recover = vec![];
+        use self::RegGraphMinLeftEdgeInstruction::*;
+        let mut visited = HashSet::new();
+        for node in nodes.iter().rev() {
+            visited.insert(node.reg);
+            for out in node.outs.iter().filter(|reg| !visited.contains(reg)) {
+                instrs.push(Push(node.reg));
+                recover.push(Pop(*out));
+            }
+
+            if let Some(in_) = node.in_ {
+                if !visited.contains(&in_) {
+                    instrs.push(Mov(RegToRegTransfer {
+                        src: in_,
+                        dst: node.reg,
+                    }));
+                }
+            }
+        }
+        instrs.extend(recover);
+        instrs.into_iter().map(From::from)
+    }
+}
+
+impl From<RegGraphMinLeftEdgeInstruction> for FnInstruction {
+    fn from(i: RegGraphMinLeftEdgeInstruction) -> Self {
+        match i {
+            RegGraphMinLeftEdgeInstruction::Push(reg) => FnInstruction::Pushq {
+                src: FnOperand::Reg(reg),
+            },
+            RegGraphMinLeftEdgeInstruction::Pop(reg) => FnInstruction::Popq {
+                dst: FnOperand::Reg(reg),
+            },
+            RegGraphMinLeftEdgeInstruction::Mov(RegToRegTransfer { src, dst }) => {
+                FnInstruction::Movq {
+                    src: FnOperand::Reg(src),
+                    dst: FnOperand::Reg(dst),
+                }
+            }
+        }
     }
 }
 
