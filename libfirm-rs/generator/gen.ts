@@ -316,12 +316,12 @@ generateGraphImpl();
 generateBlockImpl();
 
 w.closeFile("nodes_gen.rs");
-w.save("../src/nodes/");
-
-exec("cargo fmt --package libfirm-rs", (err, stdout, stderr) => {
-    if (err) { console.error(err); }
-    if (stderr) { console.error(stderr); }
-    if (stdout) { console.log(stdout); }
+w.save("../src/nodes/").then(() => {
+    exec("cargo fmt --package libfirm-rs", (err, stdout, stderr) => {
+        if (err) { console.error(err); }
+        if (stderr) { console.error(stderr); }
+        if (stdout) { console.log(stdout); }
+    });
 });
 
 
