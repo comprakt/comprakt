@@ -215,7 +215,8 @@ impl BreakpointFilters {
         breakpoint: &Breakpoint,
         program: &HashMap<String, GraphState>,
     ) -> bool {
-        self.filters
+        !self
+            .filters
             .iter()
             .any(|filter| filter.matches(breakpoint, program))
     }
@@ -301,8 +302,10 @@ impl Filter {
     fn matches(&self, breakpoint: &Breakpoint, program: &HashMap<String, GraphState>) -> bool {
         match self {
             Filter::Location { file, line } => breakpoint.line == *line && breakpoint.file == *file,
-            Filter::Graph { name } => program.values().any(|graph| graph.name == *name),
-            Filter::Label { name } => breakpoint.label == *name,
+            Filter::Graph { name } => program
+                .values()
+                .any(|graph| graph.name.matches(name).count() > 0),
+            Filter::Label { name } => breakpoint.label.matches(name).count() > 0,
         }
     }
 }
