@@ -110,12 +110,23 @@ pub struct BlockGraph {
 }
 derive_ptr_debug!(Ptr<BlockGraph>);
 
-#[derive(Debug, Default)]
-pub struct Code {
-    pub copy_in: Vec<CopyPropagation>,
-    pub body: Vec<Instruction>,
-    pub copy_out: Vec<CopyPropagation>,
-    pub leave: Vec<Leave>,
+#[derive(Debug)]
+pub struct Code<CopyInInstr, CopyOutInstr, BodyInstr, LeaveInstr> {
+    pub copy_in: Vec<CopyInInstr>,
+    pub body: Vec<BodyInstr>,
+    pub copy_out: Vec<CopyOutInstr>,
+    pub leave: Vec<LeaveInstr>,
+}
+
+impl<A, B, C, D> Default for Code<A, B, C, D> {
+    fn default() -> Self {
+        Code {
+            copy_in: vec![],
+            body: vec![],
+            copy_out: vec![],
+            leave: vec![],
+        }
+    }
 }
 
 /// This is a vertex in the basic-block graph
@@ -125,7 +136,7 @@ pub struct BasicBlock {
     /// The Pseudo-registers used by the Block
     pub regs: Vec<Ptr<MultiSlot>>,
     /// The instructions (using arbitrarily many registers) of the block
-    pub code: Code,
+    pub code: Code<CopyPropagation, CopyPropagation, Instruction, Leave>,
     /// Control flow-transfers *to* this block.
     /// Usually at most 2
     pub preds: Vec<Ptr<ControlFlowTransfer>>,

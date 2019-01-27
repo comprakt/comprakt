@@ -29,7 +29,7 @@ enum Computed {
 }
 
 pub struct GenInstrBlock {
-    code: Code,
+    code: Code<CopyPropagation, CopyPropagation, Instruction, Leave>,
     computed: HashMap<Node, Computed>,
 }
 
