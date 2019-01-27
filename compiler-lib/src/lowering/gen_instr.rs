@@ -298,22 +298,34 @@ impl GenInstrBlock {
                     dst,
                 });
             }};
-            (@DIV, $op:expr, $block:expr, $node:expr) => {{
-                let (src1, src2, dst) = gen_binop!(@INTERNAL, $op, $block, $node);
-                self.code.body.push(Instruction::Div {
-                    src1,
-                    src2,
-                    dst,
-                });
+
+            // Div and Mod do not produce a value themselves:
+            // it's their _result_ projection that gets assigned a value slot.
+            (@DIV, $op:expr, $block:expr, $div_node:expr) => {{
+                self.mark_computed(Node::from($div_node), Computed::Void);
+                if let Some(res_proj) = $div_node.out_proj_res() {
+                    let (src1, src2, dst) =
+                        gen_binop!(@INTERNAL, $op, $block, Node::from(res_proj));
+                    self.code.body.push(Instruction::Div {
+                        src1,
+                        src2,
+                        dst,
+                    });
+                }
             }};
-            (@MOD, $op:expr, $block:expr, $node:expr) => {{
-                let (src1, src2, dst) = gen_binop!(@INTERNAL, $op, $block, $node);
-                self.code.body.push(Instruction::Mod {
-                    src1,
-                    src2,
-                    dst,
-                });
+            (@MOD, $op:expr, $block:expr, $mod_node:expr) => {{
+                self.mark_computed(Node::from($mod_node), Computed::Void);
+                if let Some(res_proj) = $mod_node.out_proj_res() {
+                    let (src1, src2, dst) =
+                        gen_binop!(@INTERNAL, $op, $block, Node::from(res_proj));
+                    self.code.body.push(Instruction::Mod {
+                        src1,
+                        src2,
+                        dst,
+                    });
+                }
             }};
+
             (@INTERNAL, $op:expr, $block:expr, $node:expr) => {{
                 let src1 = op_operand!(left, $op);
                 let src2 = op_operand!(right, $op);
@@ -358,8 +370,10 @@ impl GenInstrBlock {
             Node::Add(add) => gen_binop!(Add, add, block, node),
             Node::Sub(sub) => gen_binop!(Sub, sub, block, node),
             Node::Mul(mul) => gen_binop!(Mul, mul, block, node),
-            Node::Div(div) => gen_binop!(@DIV, div, block, node),
-            Node::Mod(mod_) => gen_binop!(@MOD, mod_, block, node),
+
+            Node::Div(div) => gen_binop!(@DIV, div, block, div),
+            Node::Mod(mod_) => gen_binop!(@MOD, mod_, block, mod_),
+
             Node::And(and) => gen_binop!(And, and, block, node),
             Node::Or(or) => gen_binop!(Or, or, block, node),
             Node::Eor(or) => gen_binop!(Xor, or, block, node),
