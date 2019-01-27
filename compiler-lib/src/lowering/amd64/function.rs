@@ -304,6 +304,7 @@ impl Function {
     }
 
     fn build_lsa(&self, lva: &LiveVariableAnalysis) -> linear_scan::LinearScanAllocator {
+        let mut instrs_by_instr_counter = vec![];
         let mut instr_counter = 0;
         let mut map: HashMap<VarId, Vec<(usize, usize)>> = HashMap::new();
         let mut block_last_instr = vec![];
@@ -329,6 +330,8 @@ impl Function {
                 }
                 instr_counter += 1;
             }
+
+            instrs_by_instr_counter.extend(block.instrs.iter());
             block_last_instr.push(instr_counter - 1);
         }
 
@@ -354,7 +357,32 @@ impl Function {
             });
         }
 
+        use gcollections::ops::set::Contains;
+
         debug_assert_eq!(var_live.len(), map.len());
+
+        let mut table = prettytable::Table::new();
+        instrs_by_instr_counter.iter().for_each(|_| {
+            let cells = (0..=var_live.len())
+                .map(|_| prettytable::Cell::new(""))
+                .collect();
+            let row = prettytable::Row::new(cells);
+            table.add_row(row);
+        });
+        for (i, linear_scan::LiveRange { var_id, interval }) in var_live.iter().enumerate() {
+            for (row_num, row_cell) in table.column_iter_mut(i + 1).enumerate() {
+                let label = if interval.contains(&row_num) { "O" } else { "" };
+                *row_cell = prettytable::Cell::new(label);
+            }
+        }
+        for (row_num, row_cell) in table.column_iter_mut(0).enumerate() {
+            *row_cell = prettytable::Cell::new(&format!("{:?}", instrs_by_instr_counter[row_num]));
+        }
+
+        println!("{}", "\n".repeat(20));
+        println!("FUNCTION {}", self.name);
+        table.printstd();
+        println!("{}", "\n".repeat(20));
 
         linear_scan::LinearScanAllocator::new(
             RegisterAllocator::new(self.nargs, self.cconv),
