@@ -3,8 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "scripts": {
+    "generate": "ts-node ./gen.ts"
+  },
   "dependencies": {
     "@types/node": "^10.12.12",
-    "codemaker": "^0.7.11"
+    "codemaker": "^0.7.11",
+    "ts-node": "*",
+    "typescript": "*"
   }
 }
