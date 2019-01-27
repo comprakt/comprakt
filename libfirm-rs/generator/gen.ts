@@ -560,12 +560,13 @@ function generateNodeImpl(node: NodeImpl) {
         if (out.comment) { w.line(`/// ${out.comment}.`); }
 
         w.indent(`pub fn ${out.out_proj_fnName}(self) -> Option<Proj> {`);
-        w.indent(`for out_node in self.out_nodes() {`);
-        w.indent(`if let Node::Proj(proj, ProjKind::${out.projKind_variantCtor("_")}) = out_node {`);
-        w.line(`return Some(proj);`);
-        w.unindent(`}`);
-        w.unindent(`}`);
-        w.line(`None`);
+        w.indent(`let mut res = self.out_nodes().filter_map(|out_node| match out_node {`);
+        w.indent(`Node::Proj(proj, ProjKind::${out.projKind_variantCtor("_")}) => Some(proj),`);
+        w.line(`    _ => None,`);
+        w.unindent(`});`);
+        w.line(`let ret = res.next();`);
+        w.line(`debug_assert!(res.count() == 0, "expect at most one of ProjKind::${out.projKind_variantCtor("_")}");`);
+        w.line(`ret`);
         w.unindent(`}`);
         w.line();
     }
