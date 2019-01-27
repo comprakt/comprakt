@@ -52,19 +52,20 @@ impl Codegen {
                 label: lir::gen_label(block.firm_num),
             });
 
-            for instr in &block.instrs {
+            for instr in block.code.iter_unified() {
+                use self::{lir::CodeInstruction as CI, live_variable_analysis as lva};
                 match instr {
                     // Match over every instruction and generate amd64 instructions
-                    live_variable_analysis::Instruction::Call(call) => {
+                    CI::Body(lva::Instruction::Call(call)) => {
                         instrs.push(Comment {
                             comment: "call instruction".to_string(),
                         });
                         self.gen_call(call, &mut instrs);
                     }
-                    live_variable_analysis::Instruction::Lir(lir) => {
+                    CI::Body(lva::Instruction::Lir(lir)) => {
                         self.gen_lir(lir, &mut instrs);
                     }
-                    live_variable_analysis::Instruction::Leave(leave) => {
+                    CI::Leave(leave) => {
                         instrs.push(Comment {
                             comment: "leave instruction".to_string(),
                         });
@@ -74,7 +75,7 @@ impl Codegen {
                             &mut instrs,
                         );
                     }
-                    live_variable_analysis::Instruction::Mov { src, dst } => {
+                    CI::CopyIn(lva::Mov { src, dst }) | CI::CopyOut(lva::Mov { src, dst }) => {
                         instrs.push(Comment {
                             comment: "copy instruction".to_string(),
                         });

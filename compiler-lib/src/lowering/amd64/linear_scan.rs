@@ -164,10 +164,10 @@ impl LinearScanAllocator {
         let mut instr_counter = 0;
 
         for block in blocks.iter_mut() {
-            for instr in block.instrs.iter_mut() {
+            for instr in block.code.iter_unified_mut() {
                 // Special case: caller-saved args used before the call
                 // and are live after the call must be saved.
-                if let Instruction::Call(call) = instr {
+                if let super::lir::CodeInstruction::Body(Instruction::Call(call)) = instr {
                     for reg in self.reg_alloc.occupied_regs() {
                         if let Some(lr) = self.reg_lr_map.get(&reg) {
                             if lr.interval.upper() > instr_counter {

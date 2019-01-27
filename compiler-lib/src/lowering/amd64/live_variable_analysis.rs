@@ -15,12 +15,27 @@ pub(super) enum Instruction {
     // Clippy wants this boxed
     Call(Box<FunctionCall>),
     Lir(lir::Instruction),
-    Mov {
-        src: lir::CopyPropagationSrc,
-        dst: Ptr<MultiSlot>,
-    },
-    Leave(lir::Leave),
 }
+
+/// The representation of CopyPropagation for the lva and its consumers.
+/// The main point is that `dst` is a `MultiSlot` instead of
+/// `CopyPropagation::dst`'s `ValueSlot`.
+#[derive(Debug, Clone)]
+pub(super) struct Mov {
+    pub(super) src: lir::CopyPropagationSrc,
+    pub(super) dst: Ptr<MultiSlot>,
+}
+
+impl From<&lir::CopyPropagation> for Mov {
+    fn from(cp: &lir::CopyPropagation) -> Self {
+        Self {
+            src: cp.src,
+            dst: cp.dst.multislot(),
+        }
+    }
+}
+
+type Code = lir::Code<Mov, Mov, Instruction, lir::Leave>;
 
 #[derive(Debug, Clone)]
 pub(super) struct Block {
@@ -30,7 +45,7 @@ pub(super) struct Block {
     pub(super) num: usize,
     /// For label generation
     pub(super) firm_num: i64,
-    pub(super) instrs: Vec<Instruction>,
+    pub(super) code: Code,
 }
 
 impl PartialEq for Block {
@@ -49,7 +64,7 @@ impl Hash for Block {
 
 pub(super) struct LiveVariableAnalysis {
     cconv: CallingConv,
-    queue: VecDeque<Ptr<BasicBlock>>,
+    queue: VecDeque<Ptr<lir::BasicBlock>>,
     graph: Ptr<lir::BlockGraph>,
 
     pub(super) liveness: HashMap<VarId, HashSet<Block>>,
@@ -67,7 +82,7 @@ impl LiveVariableAnalysis {
         }
     }
 
-    pub fn run(&mut self, end_block: Ptr<BasicBlock>) {
+    pub fn run(&mut self, end_block: Ptr<lir::BasicBlock>) {
         self.gen_queue(end_block, &mut HashSet::new());
         let mut ins: HashMap<libfirm_rs::nodes::Block, HashSet<VarId>> = HashMap::new();
         let mut outs: HashMap<libfirm_rs::nodes::Block, HashSet<VarId>> = HashMap::new();
@@ -79,7 +94,7 @@ impl LiveVariableAnalysis {
                 Block {
                     num,
                     firm_num: block.num,
-                    instrs: self.gen_code(&block),
+                    code: self.gen_code(&block),
                 },
             );
             ins.insert(block.firm, HashSet::new());
@@ -87,7 +102,7 @@ impl LiveVariableAnalysis {
         }
 
         while let Some(block) = self.queue.pop_front() {
-            let code = &block_code_map[&block.firm].instrs;
+            let code = &block_code_map[&block.firm].code;
 
             // ins(b) = f_b(outs) = gen(b)+(outs(b)-kill(b))
             let (gen, kill) = build_gen_kill(code);
@@ -136,33 +151,23 @@ impl LiveVariableAnalysis {
         }
     }
 
-    fn gen_code(&self, block: &BasicBlock) -> Vec<Instruction> {
-        let code = &block.code;
-        let mut instrs = vec![];
+    fn gen_code(&self, block: &lir::BasicBlock) -> Code {
+        let lir_code = &block.code; // lir::Code
 
-        for lir::CopyPropagation { src, dst } in &code.copy_in {
-            instrs.push(Instruction::Mov {
-                src: *src,
-                dst: dst.multislot(),
-            });
-        }
-        for instr in &code.body {
+        let mut code = Code::default();
+
+        code.copy_in.extend(lir_code.copy_in.iter().map(From::from));
+        for instr in &lir_code.body {
             match instr {
-                lir::Instruction::Comment(_) => (),
-                _ => instrs.push(self.gen_instr(instr)),
+                lir::Instruction::Comment(_) => (), // TODO @flip1995 why ignore comments?
+                _ => code.body.push(self.gen_instr(instr)),
             }
         }
-        for lir::CopyPropagation { src, dst } in &code.copy_out {
-            instrs.push(Instruction::Mov {
-                src: *src,
-                dst: dst.multislot(),
-            })
-        }
-        if let Some(leave) = code.leave.get(0) {
-            instrs.push(Instruction::Leave(leave.clone()));
-        }
+        code.copy_out
+            .extend(lir_code.copy_out.iter().map(From::from));
+        code.leave.extend(lir_code.leave.iter().cloned());
 
-        instrs
+        code
     }
 
     fn gen_instr(&self, instr: &lir::Instruction) -> Instruction {
@@ -200,58 +205,76 @@ impl LiveVariableAnalysis {
     }
 }
 
-impl Instruction {
-    pub(super) fn src_operands(&self) -> Vec<lir::Operand> {
-        use super::lir::{Instruction::*, Leave::*, LoadMem, StoreMem};
-        match self {
-            Instruction::Lir(lir) => match lir {
-                LoadParam { idx } => vec![lir::Operand::Param { idx: *idx }],
-                Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
-                    vec![*src1, *src2]
-                }
-                Unop { src, .. } | Conv { src, .. } => vec![*src],
-                Call { .. } => vec![], // already converted
-                StoreMem(StoreMem {
-                    src,
-                    dst: lir::AddressComputation { base, index, .. },
-                    ..
-                }) => {
-                    let mut ops = vec![*src, *base];
-                    match index {
-                        lir::IndexComputation::Zero => (),
-                        lir::IndexComputation::Displacement(op, _) => ops.push(*op),
-                    }
-                    ops
-                }
-                LoadMem(LoadMem {
-                    src: lir::AddressComputation { base, index, .. },
-                    ..
-                }) => {
-                    let mut ops = vec![*base];
-                    match index {
-                        lir::IndexComputation::Zero => (),
-                        lir::IndexComputation::Displacement(op, _) => ops.push(*op),
-                    }
-                    ops
-                }
-                Comment(_) => vec![],
-            },
-            Instruction::Mov { src, .. } => vec![(*src).into()],
-            Instruction::Call(call) => {
-                // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
-                let mut ops = vec![];
+pub(super) trait Operands {
+    fn src_operands(&self) -> Vec<lir::Operand>;
+    fn dst_operand(&self) -> Option<lir::Operand>;
+}
 
-                for op in &call.reg_setup {
-                    ops.push(*op);
+use std::borrow::Borrow;
+
+// note the repeated A (for Mov)
+impl<A, B, C> Operands for lir::CodeInstruction<A, A, B, C>
+where
+    A: Borrow<Mov>,
+    B: Borrow<Instruction>,
+    C: Borrow<lir::Leave>,
+{
+    fn src_operands(&self) -> Vec<lir::Operand> {
+        use super::lir::{CodeInstruction as CI, Instruction::*, Leave::*, LoadMem, StoreMem};
+        match self {
+            CI::Body(body) => match body.borrow() {
+                Instruction::Lir(lir) => match lir {
+                    LoadParam { idx } => vec![lir::Operand::Param { idx: *idx }],
+                    Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
+                        vec![*src1, *src2]
+                    }
+                    Unop { src, .. } | Conv { src, .. } => vec![*src],
+                    Call { .. } => vec![], // already converted
+                    StoreMem(StoreMem {
+                        src,
+                        dst: lir::AddressComputation { base, index, .. },
+                        ..
+                    }) => {
+                        let mut ops = vec![*src, *base];
+                        match index {
+                            lir::IndexComputation::Zero => (),
+                            lir::IndexComputation::Displacement(op, _) => ops.push(*op),
+                        }
+                        ops
+                    }
+                    LoadMem(LoadMem {
+                        src: lir::AddressComputation { base, index, .. },
+                        ..
+                    }) => {
+                        let mut ops = vec![*base];
+                        match index {
+                            lir::IndexComputation::Zero => (),
+                            lir::IndexComputation::Displacement(op, _) => ops.push(*op),
+                        }
+                        ops
+                    }
+                    Comment(_) => vec![],
+                },
+                Instruction::Call(call) => {
+                    // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
+                    let mut ops = vec![];
+
+                    for op in &call.reg_setup {
+                        ops.push(*op);
+                    }
+                    for op in &call.push_setup {
+                        ops.push(*op);
+                    }
+                    // src of move_res is always %rax
+                    // recover is just an Addq op with a constant and a register
+                    ops
                 }
-                for op in &call.push_setup {
-                    ops.push(*op);
-                }
-                // src of move_res is always %rax
-                // recover is just an Addq op with a constant and a register
-                ops
+            },
+            CI::CopyIn(mov) | CI::CopyOut(mov) => {
+                let Mov { src, .. } = mov.borrow();
+                vec![(*src).into()]
             }
-            Instruction::Leave(leave) => match leave {
+            CI::Leave(leave) => match leave.borrow() {
                 CondJmp { lhs, rhs, .. } => vec![*lhs, *rhs],
                 Return {
                     value: Some(value), ..
@@ -261,52 +284,57 @@ impl Instruction {
         }
     }
 
-    pub(super) fn dst_operand(&self) -> Option<lir::Operand> {
+    fn dst_operand(&self) -> Option<lir::Operand> {
         use super::{
             function::FnInstruction,
-            lir::{Instruction::*, LoadMem, StoreMem},
+            lir::{CodeInstruction as CI, Instruction::*, LoadMem, StoreMem},
         };
         match self {
-            Instruction::Lir(lir) => match lir {
-                LoadParam { .. } => None,
-                Binop { dst, .. } | Div { dst, .. } | Mod { dst, .. } => {
-                    Some(lir::Operand::Slot(*dst))
-                }
-                Unop { dst, .. } | Conv { dst, .. } => Some(lir::Operand::Slot(*dst)),
-                Call { .. } => None,
-                StoreMem(StoreMem { .. }) => None,
-                LoadMem(LoadMem { dst, .. }) => Some(lir::Operand::Slot(*dst)),
-                Comment(_) => None,
-            },
-            Instruction::Mov { dst, .. } => Some(lir::Operand::Slot(*dst)),
-            Instruction::Call(call) => {
-                // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
-
-                // Setup just moves in registers or pushes on the stack
-
-                if let Some(res) = call.move_res {
-                    // src of move_res is always %rax
-                    if let FnInstruction::Movq { dst, .. } = res {
-                        match dst {
-                            FnOperand::Lir(op) => return Some(op),
-                            FnOperand::Reg(_) => unreachable!(),
-                        }
-                    } else {
-                        unreachable!()
+            CI::Body(body) => match body.borrow() {
+                Instruction::Lir(lir) => match lir {
+                    LoadParam { .. } => None,
+                    Binop { dst, .. } | Div { dst, .. } | Mod { dst, .. } => {
+                        Some(lir::Operand::Slot(*dst))
                     }
+                    Unop { dst, .. } | Conv { dst, .. } => Some(lir::Operand::Slot(*dst)),
+                    Call { .. } => None,
+                    StoreMem(StoreMem { .. }) => None,
+                    LoadMem(LoadMem { dst, .. }) => Some(lir::Operand::Slot(*dst)),
+                    Comment(_) => None,
+                },
+                Instruction::Call(call) => {
+                    // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
+
+                    // Setup just moves in registers or pushes on the stack
+
+                    if let Some(res) = call.move_res {
+                        // src of move_res is always %rax
+                        if let FnInstruction::Movq { dst, .. } = res {
+                            match dst {
+                                FnOperand::Lir(op) => return Some(op),
+                                FnOperand::Reg(_) => unreachable!(),
+                            }
+                        } else {
+                            unreachable!()
+                        }
+                    }
+
+                    // recover is just an Addq op with a constant and a register
+
+                    None
                 }
-
-                // recover is just an Addq op with a constant and a register
-
-                None
+            },
+            CI::CopyIn(mov) | CI::CopyOut(mov) => {
+                let Mov { dst, .. } = mov.borrow();
+                Some(lir::Operand::Slot(*dst))
             }
             // No dst for leave instructions
-            Instruction::Leave(_) => None,
+            CI::Leave(_) => None,
         }
     }
 }
 
-fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
+fn build_gen_kill(code: &Code) -> (Vec<VarId>, Vec<VarId>) {
     use super::lir::Operand::*;
 
     let mut gen = vec![];
@@ -327,7 +355,7 @@ fn build_gen_kill(code: &[Instruction]) -> (Vec<VarId>, Vec<VarId>) {
         };
     }
 
-    for instr in code {
+    for instr in code.iter_unified() {
         for op in instr.src_operands() {
             match op {
                 lir::Operand::Imm(_) => (),

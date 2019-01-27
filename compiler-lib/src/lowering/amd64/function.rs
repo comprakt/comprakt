@@ -1,7 +1,7 @@
 use super::{
     codegen::{self, Codegen},
     linear_scan,
-    live_variable_analysis::{self, LiveVariableAnalysis},
+    live_variable_analysis::{self, LiveVariableAnalysis, Operands},
     register::RegisterAllocator,
     var_id, Amd64Reg, CallingConv, VarId,
 };
@@ -267,8 +267,10 @@ impl Function {
         self.save_callee_save_regs(lsa.num_regs_required);
         self.allocate_stack(lsa.stack_vars_counter);
         for block in lva.postorder_blocks.iter_mut() {
-            for instr in block.instrs.iter_mut() {
-                if let live_variable_analysis::Instruction::Call(call) = instr {
+            for instr in block.code.iter_unified_mut() {
+                if let lir::CodeInstruction::Body(live_variable_analysis::Instruction::Call(call)) =
+                    instr
+                {
                     call.gen_setup(&lsa.var_location);
                 }
             }
@@ -308,7 +310,7 @@ impl Function {
         let mut map: HashMap<VarId, Vec<(usize, usize)>> = HashMap::new();
         let mut block_last_instr = vec![];
         for block in &lva.postorder_blocks {
-            for instr in &block.instrs {
+            for instr in block.code.iter_unified() {
                 for op in instr.src_operands() {
                     match op {
                         lir::Operand::Imm(_) => (),
