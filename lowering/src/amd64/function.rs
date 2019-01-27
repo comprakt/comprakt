@@ -340,15 +340,12 @@ impl Function {
             let last_block_alive = lva.liveness.get(&var_id).map_or(last_instr.0, |blocks| {
                 blocks.iter().max_by(|a, b| a.num.cmp(&b.num)).unwrap().num
             });
-            let interval = Interval::new(
-                instrs[0].1,
-                // FIXME: This makes some liveranges unnecessary long. Improve this!
-                if false {
-                    last_instr.1
-                } else {
-                    block_last_instr[last_block_alive]
-                },
-            );
+            let end = if last_block_alive == instrs[0].0 && last_block_alive == last_instr.0 {
+                last_instr.1
+            } else {
+                block_last_instr[last_block_alive]
+            };
+            let interval = Interval::new(instrs[0].1, end);
 
             var_live.insert(linear_scan::LiveRange {
                 var_id: *var_id,
