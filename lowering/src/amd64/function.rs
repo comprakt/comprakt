@@ -401,8 +401,8 @@ impl<R: std::hash::Hash + Eq> Node<R> {
 pub struct RegGraph<R: std::hash::Hash + Eq>(HashMap<R, Node<R>>);
 
 pub struct RegToRegTransfer<R> {
-    src: R,
-    dst: R,
+    pub(super) src: R,
+    pub(super) dst: R,
 }
 
 pub enum RegGraphMinLeftEdgeInstruction<R> {

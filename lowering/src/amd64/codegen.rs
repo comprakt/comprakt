@@ -1,5 +1,5 @@
 use super::{
-    function::{self, SaveRegList},
+    function::{self, RegGraph, RegGraphMinLeftEdgeInstruction, RegToRegTransfer, SaveRegList},
     linear_scan::{self, Location},
     lir::{self, MultiSlot},
     live_variable_analysis,
@@ -7,11 +7,13 @@ use super::{
     var_id, CallingConv, VarId,
 };
 use crate::lowering::lir_allocator::Ptr;
+use itertools::Itertools;
 use libfirm_rs::{nodes::NodeTrait, Tarval};
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
     convert::{TryFrom, TryInto},
     fmt,
+    hash::{Hash, Hasher},
     iter::FromIterator,
 };
 
@@ -20,6 +22,8 @@ pub(super) struct Codegen {
     cconv: CallingConv,
     num_saved_regs: usize,
 }
+
+type Code = lir::Code<Mov, Mov, Instruction, Instruction>;
 
 impl Codegen {
     pub(super) fn new(
@@ -46,9 +50,12 @@ impl Codegen {
 
         self.gen_function_prolog(function, &mut instrs);
 
+        let mut code_instrs = vec![];
+
         let mut block_iter = blocks.iter().peekable();
         while let Some(block) = block_iter.next() {
-            instrs.push(Label {
+            let mut code = Code::default();
+            code.body.push(Label {
                 label: lir::gen_label(block.firm_num),
             });
 
@@ -57,35 +64,56 @@ impl Codegen {
                 match instr {
                     // Match over every instruction and generate amd64 instructions
                     CI::Body(lva::Instruction::Call(call)) => {
-                        instrs.push(Comment {
+                        code.body.push(Comment {
                             comment: "call instruction".to_string(),
                         });
-                        self.gen_call(call, &mut instrs);
+                        self.gen_call(call, &mut code.body);
                     }
                     CI::Body(lva::Instruction::Lir(lir)) => {
-                        self.gen_lir(lir, &mut instrs);
+                        self.gen_lir(lir, &mut code.body);
                     }
                     CI::Leave(leave) => {
-                        instrs.push(Comment {
+                        code.leave.push(Comment {
                             comment: "leave instruction".to_string(),
                         });
                         self.gen_leave(
                             leave,
                             block_iter.peek().map_or(-1, |block| block.firm_num),
-                            &mut instrs,
+                            &mut code.leave,
                         );
                     }
-                    CI::CopyIn(lva::Mov { src, dst }) | CI::CopyOut(lva::Mov { src, dst }) => {
-                        instrs.push(Comment {
-                            comment: "copy instruction".to_string(),
-                        });
-                        self.gen_mov(*src, *dst, &mut instrs);
+                    CI::CopyIn(lva::Mov { src, dst }) => {
+                        self.gen_mov(*src, *dst, &mut code.copy_in);
+                    }
+                    CI::CopyOut(lva::Mov { src, dst }) => {
+                        self.gen_mov(*src, *dst, &mut code.copy_out);
                     }
                 }
             }
+
+            code_instrs.push(code);
         }
 
+        instrs.extend(self.resolve_copy_prop_cycles(&mut code_instrs));
+
         self.gen_function_epilog(function, &mut instrs);
+
+        instrs
+    }
+
+    fn resolve_copy_prop_cycles(&self, code_instrs: &mut Vec<Code>) -> Vec<Instruction> {
+        let mut instrs = vec![];
+        for code in code_instrs {
+            let mut code_body = code.body.iter().cloned().peekable();
+            if let Some(Instruction::Label { .. }) = code_body.peek() {
+                // Push the label of the block first
+                instrs.push(code_body.next().unwrap());
+            }
+            sort_copy_prop(&code.copy_in, &mut instrs);
+            instrs.extend(code_body);
+            sort_copy_prop(&code.copy_out, &mut instrs);
+            instrs.extend(code.leave.iter().cloned());
+        }
 
         instrs
     }
@@ -187,10 +215,8 @@ impl Codegen {
         &mut self,
         src: lir::CopyPropagationSrc,
         dst: Ptr<MultiSlot>,
-        instrs: &mut Vec<Instruction>,
+        instrs: &mut Vec<Mov>,
     ) {
-        use self::Instruction::Mov;
-
         let src = self.lir_to_src_operand(src.into());
         let dst = self
             .lir_to_src_operand(lir::Operand::Slot(dst))
@@ -198,33 +224,19 @@ impl Codegen {
             .unwrap();
         match (src, dst) {
             (SrcOperand::Reg(_), _) | (_, DstOperand::Reg(_)) => {
-                instrs.push(Mov(MovInstruction {
-                    src,
-                    dst,
-                    size: 8,
-                    comment: "copy prop".to_string(),
-                }));
+                instrs.push(Mov { src, dst });
             }
             (SrcOperand::Mem(_), DstOperand::Mem(_)) => {
-                instrs.push(Mov(MovInstruction {
+                instrs.push(Mov {
                     src,
                     dst: DstOperand::Reg(Amd64Reg::Rax),
-                    size: 8,
-                    comment: "copy prop spill".to_string(),
-                }));
-                instrs.push(Mov(MovInstruction {
+                });
+                instrs.push(Mov {
                     src: SrcOperand::Reg(Amd64Reg::Rax),
                     dst,
-                    size: 8,
-                    comment: "copy prop".to_string(),
-                }));
+                });
             }
-            (SrcOperand::Imm(_), _) => instrs.push(Mov(MovInstruction {
-                src,
-                dst,
-                size: 8,
-                comment: "copy prop".to_string(),
-            })),
+            (SrcOperand::Imm(_), _) => instrs.push(Mov { src, dst }),
         }
     }
 
@@ -1236,7 +1248,7 @@ impl Codegen {
     }
 }
 
-#[derive(Display)]
+#[derive(Display, Clone)]
 pub(super) enum Instruction {
     #[display(fmt = "\t{}", _0)]
     Mov(MovInstruction),
@@ -1287,6 +1299,7 @@ pub(super) enum Instruction {
     Comment { comment: String },
 }
 
+#[derive(Debug, Clone)]
 pub(super) struct CallInstruction {
     label: String,
 }
@@ -1320,6 +1333,7 @@ impl fmt::Display for CallInstruction {
     }
 }
 
+#[derive(Clone)]
 pub(super) struct MovInstruction {
     src: SrcOperand,
     dst: DstOperand,
@@ -1589,4 +1603,129 @@ impl std::fmt::Display for DstOperand {
             DstOperand::Reg(reg) => write!(fmt, "{}", reg),
         }
     }
+}
+
+impl Hash for DstOperand {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            DstOperand::Reg(reg) => reg.hash(state),
+            DstOperand::Mem(lir::AddressComputation {
+                offset,
+                base,
+                index,
+            }) => {
+                offset.hash(state);
+                base.hash(state);
+                match index {
+                    lir::IndexComputation::Displacement(reg, s) => {
+                        reg.hash(state);
+                        s.hash(state);
+                    }
+                    lir::IndexComputation::Zero => (),
+                }
+            }
+        }
+    }
+}
+
+impl PartialEq for DstOperand {
+    fn eq(&self, other: &DstOperand) -> bool {
+        use self::DstOperand::*;
+        use super::lir::IndexComputation::*;
+        match (self, other) {
+            (Reg(reg1), Reg(reg2)) => reg1 == reg2,
+            (
+                Mem(lir::AddressComputation {
+                    offset: offset1,
+                    base: base1,
+                    index: index1,
+                }),
+                Mem(lir::AddressComputation {
+                    offset: offset2,
+                    base: base2,
+                    index: index2,
+                }),
+            ) => {
+                offset1 == offset2
+                    && base1 == base2
+                    && match (index1, index2) {
+                        (Displacement(reg1, s1), Displacement(reg2, s2)) => {
+                            reg1 == reg2 && s1 == s2
+                        }
+                        (Zero, Zero) => true,
+                        _ => false,
+                    }
+            }
+            _ => false,
+        }
+    }
+}
+
+impl Eq for DstOperand {}
+
+struct Mov {
+    src: SrcOperand,
+    dst: DstOperand,
+}
+
+impl From<RegGraphMinLeftEdgeInstruction<DstOperand>> for Instruction {
+    fn from(i: RegGraphMinLeftEdgeInstruction<DstOperand>) -> Self {
+        use self::Instruction::{Mov, Popq, Pushq};
+        match i {
+            RegGraphMinLeftEdgeInstruction::Push(src) => {
+                let src = match src {
+                    DstOperand::Reg(reg) => SrcOperand::Reg(reg),
+                    DstOperand::Mem(addr) => SrcOperand::Mem(addr),
+                };
+                Pushq { src }
+            }
+            RegGraphMinLeftEdgeInstruction::Pop(dst) => Popq { dst },
+            RegGraphMinLeftEdgeInstruction::Mov(RegToRegTransfer { src, dst }) => {
+                let src = match src {
+                    DstOperand::Reg(reg) => SrcOperand::Reg(reg),
+                    DstOperand::Mem(addr) => SrcOperand::Mem(addr),
+                };
+                Mov(MovInstruction {
+                    src,
+                    dst,
+                    size: 8,
+                    comment: "copy prop".to_string(),
+                })
+            }
+        }
+    }
+}
+
+fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
+    use self::Instruction::Mov;
+
+    let mut mov_imm = vec![];
+
+    debug_assert_eq!(
+        copies.iter().map(|mov| mov.dst).dedup().count(),
+        copies.len()
+    );
+
+    let mut transfers = vec![];
+    for instr in copies.iter() {
+        match instr.src {
+            SrcOperand::Imm(_) => mov_imm.push(Mov(MovInstruction {
+                src: instr.src,
+                dst: instr.dst,
+                size: 8,
+                comment: "copy prop imm move".to_string(),
+            })),
+            _ => {
+                transfers.push(RegToRegTransfer {
+                    src: instr.src.try_into().unwrap(),
+                    dst: instr.dst,
+                });
+            }
+        }
+    }
+
+    let reg_graph = RegGraph::new(transfers);
+
+    instrs.extend(reg_graph.into_instructions::<Instruction>());
+    instrs.extend(mov_imm);
 }

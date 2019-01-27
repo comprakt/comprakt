@@ -384,7 +384,7 @@ impl<Op: Display + Copy> IndexComputation<Op> {
     }
 }
 
-#[derive(Debug, Display, Copy, Clone)]
+#[derive(Debug, Display, Copy, Clone, Hash, Eq, PartialEq)]
 pub enum Stride {
     #[display(fmt = "1")]
     One,
@@ -532,7 +532,7 @@ impl fmt::Debug for CopyPropagation {
 pub enum Operand {
     Slot(Ptr<MultiSlot>),
 
-    /// NOTE: Tarcval contains a raw pointer, thus Imm(t) is only valid for the
+    /// NOTE: Tarval contains a raw pointer, thus Imm(t) is only valid for the
     /// lifetime of that pointer (the FIRM graph).
     Imm(Tarval),
     /// only readable!
