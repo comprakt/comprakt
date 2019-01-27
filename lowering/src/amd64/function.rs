@@ -247,12 +247,12 @@ impl Function {
         // There are 10 caller save registers, but %rsp is reserved, so we need to save
         // registers if more than 9 registers are required.
         match num_regs_required {
-            x if x < 10 => (), // Enough caller save registers available
-            10 => self.saved_regs.add_regs(&[Rbx]),
-            11 => self.saved_regs.add_regs(&[Rbx, R12]),
-            12 => self.saved_regs.add_regs(&[Rbx, R12, R13]),
-            13 => self.saved_regs.add_regs(&[Rbx, R12, R13, R14]),
-            14 => self.saved_regs.add_regs(&[Rbx, R12, R13, R14, R15]),
+            x if x < 9 => (), // Enough caller save registers available
+            9 => self.saved_regs.add_regs(&[Rbx]),
+            10 => self.saved_regs.add_regs(&[Rbx, R12]),
+            11 => self.saved_regs.add_regs(&[Rbx, R12, R13]),
+            12 => self.saved_regs.add_regs(&[Rbx, R12, R13, R14]),
+            13 => self.saved_regs.add_regs(&[Rbx, R12, R13, R14, R15]),
             _ => unreachable!("More registers required than available"),
         }
     }
