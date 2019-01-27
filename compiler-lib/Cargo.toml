@@ -12,32 +12,46 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+diagnostics = { path = "../diagnostics" }
+compiler-shared = { path = "../compiler-shared" }
+asciifile = { path = "../asciifile" }
+symtab = { path = "../symtab" }
+strtab = { path = "../strtab" }
+lexer = { path = "../lexer" }
+lowering = { path = "../lowering" }
+optimization = { path = "../optimization" }
+parser = { path = "../parser" }
+utils = { path = "../utils" }
+type-checking = { path = "../type_checking" }
+firm-construction = { path = "../firm-construction" }
+debugging = { path = "../debugging" }
+libfirm-rs = { path = "../libfirm-rs" }
+
 failure = "0.1.3"
-termcolor = "1.0.4"
-derive_more = "0.13"
+log = "0.4"
+#derive_more = "0.13"
 strum = "0.11.0"
 strum_macros = "0.11.0"
-itertools = "0.7"
-libfirm-rs = { path = "../libfirm-rs" }
-# we need libc to open files for libfirm
+
+# firm context
 libc = "0.2"
-log = "0.4"
+lazy_static = "1.2.0"
+
+# timing
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
+
+# optimizations
 priority-queue = "0.5.2"
 petgraph = "0.4.13"
 intervallum = "1.3.0"
 gcollections = "1.4.0"
 
-# for the gui debugger
-rocket = "0.4.0"
-rocket_contrib = "0.4.0"
-lazy_static = "1.2.0"
-
 [dev-dependencies]
 mjtest = { path = "../mjtest-rs" }
 mjtest_macros = { path = "../mjtest-rs/mjtest_macros" }
+
 criterion = "0.2"
 
 [[bench]]
@@ -46,7 +60,5 @@ harness = false
 
 [features]
 default = [ ]
-# This feature enables the `breakpoint!` macro, which
-# among other things, is used to implement the `gui`
-# flag in custom optimization sequences.
-debugger_gui = [ ]
+
+debugger_gui = [ "debugging/debugger_gui" ]

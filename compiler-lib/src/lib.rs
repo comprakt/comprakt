@@ -17,36 +17,34 @@
 #![feature(weak_ptr_eq)]
 #![feature(type_ascription)]
 #![feature(duration_as_u128)]
-#[macro_use]
-extern crate derive_more;
 
-mod analysis;
-pub mod asciifile;
+pub use asciifile;
 pub mod backend;
-pub mod timing;
+
 #[macro_use]
-mod utils;
-pub mod ast;
-mod color;
-pub mod context;
-pub mod diagnostics;
-pub mod lexer;
-pub mod parser;
+extern crate utils;
+pub use utils::ref_eq;
+
+pub use diagnostics;
+
+pub use compiler_shared::context;
+
+pub use lexer;
+
+pub(crate) use debugging;
+
 #[macro_use]
-pub mod visitor;
-pub mod dot;
-#[macro_use]
-#[allow(dead_code)]
-pub mod debugging;
-pub mod firm;
-#[macro_use]
-pub mod lowering;
-pub mod optimization;
+extern crate parser;
+
+pub use parser::{ast, visitor};
+
+pub use firm_construction as firm;
 pub mod print;
-mod ref_eq;
-pub mod semantics;
-mod spantracker;
-pub mod strtab;
-pub mod symtab;
-pub mod type_checking;
+
 pub use self::utils::OutputSpecification;
+pub use strtab;
+pub use symtab;
+pub use type_checking;
+
+mod firm_context;
+pub use crate::firm_context::FirmContext;

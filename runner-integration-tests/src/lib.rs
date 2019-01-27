@@ -5,9 +5,9 @@ pub mod serde_humantime;
 mod testkind;
 pub mod yaml;
 pub use self::{lookup::*, testkind::*};
-use compiler_lib::optimization::Level;
 use difference::Changeset;
 use failure::Fail;
+use optimization::Level;
 use serde::de::DeserializeOwned;
 use serde_derive::Deserialize;
 use std::{

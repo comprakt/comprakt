@@ -1,5 +1,5 @@
 use crate::*;
-use compiler_lib::optimization;
+use optimization;
 
 pub const DEFAULT_TIMEOUT_SECONDS: u64 = 3;
 

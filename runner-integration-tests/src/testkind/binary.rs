@@ -1,5 +1,5 @@
 use crate::*;
-use compiler_lib::optimization;
+use optimization;
 use serde_derive::{Deserialize, Serialize};
 use std::{
     fs::File,

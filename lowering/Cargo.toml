@@ -1,0 +1,33 @@
+[package]
+name = "lowering"
+version = "0.1.0"
+authors = [
+    "flip1995 <>",
+    "hediet <>",
+    "joshuabach <>",
+    "problame <>",
+    "reiner-dolp <>"
+]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+utils = { path = "../utils" }
+debugging = { path = "../debugging" }
+firm-construction = { path = "../firm-construction" }
+libfirm-rs = { path = "../libfirm-rs" }
+optimization = { path = "../optimization" }
+type-checking = { path = "../type_checking" }
+
+failure = "0.1.3"
+log = "0.4"
+derive_more = "0.13"
+strum = "0.11.0"
+strum_macros = "0.11.0"
+intervallum = "1.3.0"
+gcollections = "1.4.0"
+itertools = "0.8"
+
+
+[dev-dependencies]
+

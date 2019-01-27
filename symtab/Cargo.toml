@@ -1,0 +1,18 @@
+[package]
+name = "symtab"
+version = "0.1.0"
+authors = [
+    "flip1995 <>",
+    "hediet <>",
+    "joshuabach <>",
+    "problame <>",
+    "reiner-dolp <>"
+]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+[lib]
+path = "src/symtab.rs"
+
+[dependencies]
+utils = { path = "../utils" }

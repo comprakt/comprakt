@@ -15,15 +15,15 @@ use compiler_lib::{
     ast::{self, Expr},
     context::{self, Context},
     lexer::{Lexer, TokenKind},
-    parser::Parser,
-    semantics,
     strtab::StringTable,
     type_checking::{
+        semantics,
         type_analysis::{ExprInfo, RefInfo, TypeAnalysis},
         type_system::CheckedType,
     },
     visitor::NodeKind,
 };
+use parser::Parser;
 
 #[derive(Debug, Fail)]
 pub enum CliError {

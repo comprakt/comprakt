@@ -1,0 +1,33 @@
+[package]
+name = "parser"
+version = "0.1.0"
+authors = [
+    "flip1995 <>",
+    "hediet <>",
+    "joshuabach <>",
+    "problame <>",
+    "reiner-dolp <>"
+]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+[lib]
+path = "src/parser.rs"
+
+[dependencies]
+utils = { path = "../utils" }
+asciifile = { path = "../asciifile" }
+strtab = { path = "../strtab" }
+lexer = { path = "../lexer" }
+
+failure = "0.1.3"
+derive_more = "0.13"
+strum = "0.11.0"
+strum_macros = "0.11.0"
+itertools = "0.7"
+
+[dev-dependencies]
+termcolor = "1.0.4"
+mjtest = { path = "../mjtest-rs" }
+mjtest_macros = { path = "../mjtest-rs/mjtest_macros" }
+compiler-shared = { path = "../compiler-shared" }

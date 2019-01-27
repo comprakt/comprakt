@@ -8,16 +8,13 @@ pub trait AsmBackend {
 
 pub mod amd64 {
 
-    use crate::{
-        breakpoint, dot,
-        firm::FirmContext,
-        lowering::{
-            amd64,
-            lir::{self, LIR},
-        },
+    use crate::firm_context::FirmContext;
+    use lowering::{
+        amd64,
+        lir::{self, LIR},
     };
 
-    pub use crate::lowering::amd64::CallingConv;
+    pub use lowering::amd64::CallingConv;
 
     pub struct Options {
         pub cconv: CallingConv,
@@ -34,8 +31,8 @@ pub mod amd64 {
     impl AsmBackend for Backend<'_, '_> {
         fn emit_asm(&mut self, out: &mut dyn AsmOut) -> std::io::Result<()> {
             let lir = LIR::from(self.firm_ctx.use_external_backend());
-            breakpoint!("LIR representation", lir, &|block: &lir::BasicBlock| {
-                dot::default_lir_label(block)
+            crate::debugging::breakpoint!("LIR representation", lir, &|block: &lir::BasicBlock| {
+                lowering::lir_debugging::default_lir_label(block)
             });
 
             let mut p = amd64::Program::new(&lir, self.opts.cconv);

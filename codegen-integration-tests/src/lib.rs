@@ -95,7 +95,7 @@ pub fn gen_binary_integration_tests(args: TokenStream) -> TokenStream {
             #[test]
             fn #function_name() {
                 let input = PathBuf::from(#path_str);
-                exec_binary_test(input, compiler_lib::optimization::Level::None, #backend);
+                exec_binary_test(input, ::optimization::Level::None, #backend);
             }
         }
     })
@@ -122,7 +122,7 @@ pub fn gen_optimized_binary_integration_tests(args: TokenStream) -> TokenStream 
                     let input = PathBuf::from(#path_str);
                     exec_binary_test(
                         input,
-                        compiler_lib::optimization::Level::Aggressive,
+                        optimization::Level::Aggressive,
                         #backend
                     );
                 }
