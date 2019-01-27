@@ -419,7 +419,10 @@ impl Codegen {
             .get(&var_id(lir::Operand::Param { idx }))
             .unwrap();
         match param {
+            // Register allocation placed argument into a register.
             Location::Reg(reg) => {
+                // However, calling convention might still dictate that the argument is placed
+                // on the stack.
                 if let Some(instr) = self.arg_from_stack(idx as usize, DstOperand::Reg(*reg)) {
                     instrs.push(Instruction::Comment {
                         comment: "move stack arg in reg".to_string(),
@@ -427,8 +430,9 @@ impl Codegen {
                     instrs.push(instr);
                 }
             }
-            // This can happen when the param was originally in a register but got spilled
-            // to the stack. So we need to move from the register to the stack
+            // Register allocation placed argument into the AR, but the calling convetion placed
+            // the argument into a register, somove it to the AR slot.
+            // TODO(@flip1995): this should be Location::Ar(...)
             Location::Mem(i) => {
                 let arg_reg = Amd64Reg::arg(idx as usize);
                 instrs.push(Comment {
@@ -445,7 +449,8 @@ impl Codegen {
                     comment: "move param to stack".to_string(),
                 }));
             }
-            Location::ParamMem => (), // param is already on the stack and stays there
+            // param is already on the stack and stays there
+            Location::ParamMem => (),
         }
     }
 
@@ -1221,6 +1226,7 @@ impl Codegen {
         let effective_idx = idx.checked_sub(self.cconv.num_arg_regs()).unwrap();
         let offset = ((effective_idx + 2) * 8) as isize;
         Some(Instruction::Mov(MovInstruction {
+            // TODO(@flip1995): This should be SrcOperand::Ar(...)
             src: SrcOperand::Mem(lir::AddressComputation {
                 offset,
                 base: Amd64Reg::Rbp,
