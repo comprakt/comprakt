@@ -521,13 +521,21 @@ impl GenInstrBlock {
                 let dst_slot = block.new_private_slot(node, alloc);
                 self.mark_computed(node, Computed::Value(dst_slot));
             }
+
+            // Load itself does not create a computed value, only its result projection does.
             Node::Load(load) => {
                 let (src, size) = self.gen_address_computation(load.ptr());
-                let dst = self.gen_dst_slot(block, node, alloc);
-                self.code
-                    .body
-                    .push(Instruction::LoadMem(LoadMem { src, dst, size }));
+                self.mark_computed(node, Computed::Void);
+                if let Some(res_proj) = load.out_proj_res() {
+                    let dst = self.gen_dst_slot(block, Node::from(res_proj), alloc);
+                    self.code
+                        .body
+                        .push(Instruction::LoadMem(LoadMem { src, dst, size }));
+                }
             }
+            // handled in Node::Load match arm
+            Node::Proj(_, ProjKind::Load_Res(_)) => {}
+
             Node::Store(store) => {
                 let src = self.gen_operand_jit(store.value());
                 let (dst, size) = self.gen_address_computation(store.ptr());
