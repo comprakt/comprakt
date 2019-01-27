@@ -110,7 +110,7 @@ pub struct BlockGraph {
 }
 derive_ptr_debug!(Ptr<BlockGraph>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Code<CopyInInstr, CopyOutInstr, BodyInstr, LeaveInstr> {
     pub copy_in: Vec<CopyInInstr>,
     pub body: Vec<BodyInstr>,
@@ -126,6 +126,41 @@ impl<A, B, C, D> Default for Code<A, B, C, D> {
             copy_out: vec![],
             leave: vec![],
         }
+    }
+}
+
+/// A unifying enum over the different operations contained in Code.
+pub enum CodeInstruction<CopyInInstr, CopyOutInstr, BodyInstr, LeaveInstr> {
+    CopyIn(CopyInInstr),
+    Body(BodyInstr),
+    CopyOut(CopyOutInstr),
+    Leave(LeaveInstr),
+}
+
+impl<A, B, C, D> Code<A, B, C, D> {
+    /// Iterate over the members of code in the following order:
+    ///
+    /// 1. `self.copy_in`
+    /// 2. `self.body`
+    /// 3. `self.copy_out`
+    /// 4. `self.leave`
+    pub fn iter_unified(&self) -> impl Iterator<Item = CodeInstruction<&A, &B, &C, &D>> {
+        let copy_in = box self.copy_in.iter().map(CodeInstruction::CopyIn);
+        let body = box self.body.iter().map(CodeInstruction::Body);
+        let copy_out = box self.copy_out.iter().map(CodeInstruction::CopyOut);
+        let leave = box self.leave.iter().map(CodeInstruction::Leave);
+        copy_in.chain(body).chain(copy_out).chain(leave)
+    }
+
+    /// Like iter_unified, but iterate with mutable references.
+    pub fn iter_unified_mut(
+        &mut self,
+    ) -> impl Iterator<Item = CodeInstruction<&mut A, &mut B, &mut C, &mut D>> {
+        let copy_in = box self.copy_in.iter_mut().map(CodeInstruction::CopyIn);
+        let body = box self.body.iter_mut().map(CodeInstruction::Body);
+        let copy_out = box self.copy_out.iter_mut().map(CodeInstruction::CopyOut);
+        let leave = box self.leave.iter_mut().map(CodeInstruction::Leave);
+        copy_in.chain(body).chain(copy_out).chain(leave)
     }
 }
 
@@ -1223,4 +1258,40 @@ impl MultiSlotBuilder {
 #[inline]
 pub(super) fn gen_label(block_num: i64) -> String {
     format!(".L{}", block_num)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    #[test]
+    fn code_iterator_works() {
+        let mut code = Code::default();
+
+        code.copy_in.push(1);
+        code.copy_in.push(2);
+        code.body.push(3);
+        code.body.push(4);
+        code.copy_out.push(5);
+        code.copy_out.push(6);
+        code.leave.push(7);
+        code.leave.push(8);
+
+        let res = code
+            .iter_unified()
+            .map(|instr| match instr {
+                CodeInstruction::CopyIn(v) => v,
+                CodeInstruction::Body(v) => v,
+                CodeInstruction::CopyOut(v) => v,
+                CodeInstruction::Leave(v) => v,
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        assert_eq!(res.len(), 8);
+
+        let (_, is_sorted) = res.iter().cloned().fold((0, true), |(prev, sorted), next| {
+            (next, sorted && prev <= next)
+        });
+        assert!(is_sorted);
+    }
 }
