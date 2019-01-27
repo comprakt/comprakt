@@ -268,6 +268,37 @@ impl GenInstrBlock {
         }
     }
 
+    /// `gen_value_walk_callback` is the callback for a DFS post-order traversal
+    /// over the nodes of the given `block` which
+    ///     1. stops at Phi nodes
+    ///     2. does not cross block boundaries (green dots in ycomp)
+    /// The DFS invokes `gen_value_walk_callback` for each `node: Node` in the
+    /// traversal. For each node, this function determines the node's entry
+    /// in `self.computed`:
+    ///
+    /// ### `Node::{Alloc,Call,Load,Div,Mod}`
+    /// Do not produce a value (slot) themselves: That is because these
+    /// operations have mem and result projections in libFIRM. Thus, the
+    /// value-result for these node kinds is their result out projection.
+    /// (Above list was determined by a search for `pn_(.*)_res` over the
+    /// libfirm code base)
+    ///
+    /// ### `Node::{Const,Address,Member,Sel,Size}`
+    /// Are compile-time constants and do not produce a value slot. Their are
+    /// still used in match arms for other node types, e.g. a const being
+    /// used as an operand for an addition.
+    ///
+    /// ### Projections of `ProjKind::Start_TArgs_Arg`
+    /// Are almost like constants, but are also special in that they emit
+    /// `LoadParam` instructions at the beginning of a function, which is an
+    /// implicit requirement of the later stages of the backend.
+    ///
+    /// ### Other Projections
+    /// Projections that are not result projections of the above nodes copy
+    /// their predecessors `self.computed` value.
+    ///
+    /// ### All other nodes
+    /// All other nodes produce a value slot.
     fn gen_value_walk_callback(
         &mut self,
         graph: &BlockGraph,
@@ -298,9 +329,14 @@ impl GenInstrBlock {
                     dst,
                 });
             }};
+            (@INTERNAL, $op:expr, $block:expr, $node:expr) => {{
+                let src1 = op_operand!(left, $op);
+                let src2 = op_operand!(right, $op);
+                let dst = self.gen_dst_slot($block, $node, alloc);
+                (src1, src2, dst)
+            }};
 
-            // Div and Mod do not produce a value themselves:
-            // it's their _result_ projection that gets assigned a value slot.
+            // DIV is special, see function-level comment
             (@DIV, $op:expr, $block:expr, $div_node:expr) => {{
                 self.mark_computed(Node::from($div_node), Computed::Void);
                 if let Some(res_proj) = $div_node.out_proj_res() {
@@ -313,6 +349,7 @@ impl GenInstrBlock {
                     });
                 }
             }};
+            // MOD is special, see function-level comment
             (@MOD, $op:expr, $block:expr, $mod_node:expr) => {{
                 self.mark_computed(Node::from($mod_node), Computed::Void);
                 if let Some(res_proj) = $mod_node.out_proj_res() {
@@ -326,12 +363,6 @@ impl GenInstrBlock {
                 }
             }};
 
-            (@INTERNAL, $op:expr, $block:expr, $node:expr) => {{
-                let src1 = op_operand!(left, $op);
-                let src2 = op_operand!(right, $op);
-                let dst = self.gen_dst_slot($block, $node, alloc);
-                (src1, src2, dst)
-            }};
         }
         macro_rules! gen_unop {
             ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
@@ -370,10 +401,10 @@ impl GenInstrBlock {
             Node::Add(add) => gen_binop!(Add, add, block, node),
             Node::Sub(sub) => gen_binop!(Sub, sub, block, node),
             Node::Mul(mul) => gen_binop!(Mul, mul, block, node),
-
+            // Div is special, see function-level comment
             Node::Div(div) => gen_binop!(@DIV, div, block, div),
+            // Mod is special, see function-level comment
             Node::Mod(mod_) => gen_binop!(@MOD, mod_, block, mod_),
-
             Node::And(and) => gen_binop!(And, and, block, node),
             Node::Or(or) => gen_binop!(Or, or, block, node),
             Node::Eor(or) => gen_binop!(Xor, or, block, node),
@@ -438,15 +469,11 @@ impl GenInstrBlock {
                 });
             }
 
-            // Call nodes are special, in that they do not create a value directly:
+            // Only Call's result projection (if there is any) produces a value slot.
+            // (See function-level comment)
+            //
             // To get the return value of a call, the following projection chain is found in the
             // graph: Call => Call_TResult => Call_TResult_Arg
-            // Like other nodes, a Call node may produce at most one value slot.
-            // And that value slot's FIRM value _must_ be the return value (an int, bool, ptr)
-            // returned by the call, because this is the value we need to flow over the edges.
-            // That return value is the Call_TResult_Arg.
-            // However, Call_TResult and Call must have entries in self.computed because
-            // other Projs, e.g. Call_M expect there to be a value for Call.
             Node::Call(call) => {
                 log::debug!("call={:?}", call);
                 let func: Entity = match call.ptr() {
@@ -460,17 +487,7 @@ impl GenInstrBlock {
                 let dst = {
                     // Find this call node's result tuple projection.
                     // This code expects there to be at most one.
-                    let result_tuple = {
-                        let result_tuple_projs = call
-                            .out_nodes()
-                            .filter_map(|n| match n {
-                                Node::Proj(rt, ProjKind::Call_TResult(_)) => Some(rt),
-                                _ => None,
-                            })
-                            .collect::<Vec<_>>();
-                        assert!(result_tuple_projs.len() <= 1);
-                        result_tuple_projs.into_iter().next()
-                    };
+                    let result_tuple = call.out_proj_t_result();
                     log::debug!("call: result tuple proj: {:?}", result_tuple);
 
                     let result_tuple_0 = result_tuple.map(|rt| {
