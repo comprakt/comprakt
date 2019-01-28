@@ -76,14 +76,14 @@ impl GenInstrBlock {
             //
             // However, we don't want to burden consumers of the LIR with that
             // implementation ~~detail~~ hack, so let's filter out any copy
-            // propagation that uses mem nodes. Note that this leaves the mem
+            // propagation that uses non-data nodes. Note that this leaves the mem
             // nodes' value slots intact, but the LIR consumer will usually not
             // enumerate over those, so that's fine for now -,-.
-            let not_a_mem_flow = &|src: Ptr<MultiSlot>, dst: Ptr<ValueSlot>| -> bool {
-                let src_is_mem = src.firm().mode().is_mem();
-                let dst_is_mem = dst.firm.mode().is_mem();
-                assert!((src_is_mem && dst_is_mem) || (!src_is_mem && !dst_is_mem));
-                !src_is_mem && !dst_is_mem
+            let is_data = &|src: Ptr<MultiSlot>, dst: Ptr<ValueSlot>| -> bool {
+                let src_mode = src.firm().mode();
+                let dst_mode = dst.firm.mode();
+                assert_eq!(src_mode, dst_mode);
+                src_mode.is_data()
             };
 
             let slot_to_copy_propagation_src = &|src: Ptr<MultiSlot>| -> CopyPropagationSrc {
@@ -115,7 +115,7 @@ impl GenInstrBlock {
                         // demonstrated by the above assertion
                         !must_copy_in_source
                     })
-                    .filter(|(_, (src, dst))| not_a_mem_flow(*src, *dst))
+                    .filter(|(_, (src, dst))| is_data(*src, *dst))
                     .for_each(|(_, (src, dst))| {
                         let (src, dst) = (*src, *dst);
                         let src = slot_to_copy_propagation_src(src);
@@ -140,7 +140,7 @@ impl GenInstrBlock {
                     .enumerate()
                     .filter(|(_, (src, _))| src.num() == num)
                     .filter(|(idx, _)| edge.must_copy_in_source(*idx))
-                    .filter(|(_, (src, dst))| not_a_mem_flow(*src, *dst))
+                    .filter(|(_, (src, dst))| is_data(*src, *dst))
                     .for_each(|(_, (src, dst))| {
                         let (src, dst) = (*src, *dst);
                         let src = slot_to_copy_propagation_src(src);
