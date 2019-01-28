@@ -32,14 +32,33 @@ impl Measurement {
         }
     }
 
-    pub fn stop(self) {
+    pub fn stop(&self) {
         let measurement = CompletedMeasurement {
-            label: self.label,
-            start: self.start,
+            label: self.label.clone(),
+            start: self.start.clone(),
             stop: Instant::now(),
         };
         TIMINGS.lock().unwrap().measurements.push(measurement);
     }
+
+    pub fn guard(label: &str) -> MeasurementGuard {
+        MeasurementGuard(Measurement::start(label))
+    }
+}
+
+pub struct MeasurementGuard(Measurement);
+
+impl Drop for MeasurementGuard {
+    fn drop(&mut self) {
+        self.0.stop();
+    }
+}
+
+#[macro_export]
+macro_rules! timed_scope {
+    ($label:expr) => {
+        let measurement = ::compiler_shared::timing::Measurement::guard($label);
+    };
 }
 
 #[derive(Debug, Clone)]
