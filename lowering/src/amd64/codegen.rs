@@ -222,22 +222,7 @@ impl Codegen {
             .lir_to_src_operand(lir::Operand::Slot(dst))
             .try_into()
             .unwrap();
-        match (src, dst) {
-            (SrcOperand::Reg(_), _) | (_, DstOperand::Reg(_)) => {
-                instrs.push(Mov { src, dst });
-            }
-            (SrcOperand::Mem(_), DstOperand::Mem(_)) => {
-                instrs.push(Mov {
-                    src,
-                    dst: DstOperand::Reg(Amd64Reg::Rax),
-                });
-                instrs.push(Mov {
-                    src: SrcOperand::Reg(Amd64Reg::Rax),
-                    dst,
-                });
-            }
-            (SrcOperand::Imm(_), _) => instrs.push(Mov { src, dst }),
-        }
+        instrs.push(Mov { src, dst });
     }
 
     fn gen_lir(&mut self, lir: &lir::Instruction, instrs: &mut Vec<Instruction>) {
@@ -1701,10 +1686,7 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
 
     let mut mov_imm = vec![];
 
-    debug_assert_eq!(
-        copies.iter().map(|mov| mov.dst).dedup().count(),
-        copies.len()
-    );
+    debug_assert_eq!(copies.iter().unique_by(|mov| mov.dst).count(), copies.len());
 
     let mut transfers = vec![];
     for instr in copies.iter() {
@@ -1726,6 +1708,47 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
 
     let reg_graph = RegGraph::new(transfers);
 
-    instrs.extend(reg_graph.into_instructions::<Instruction>());
-    instrs.extend(mov_imm);
+    let mut copy_instrs: Vec<_> = reg_graph.into_instructions::<Instruction>().collect();
+    copy_instrs.extend(mov_imm);
+    for instr in copy_instrs {
+        match instr {
+            Instruction::Pushq { .. } | Instruction::Popq { .. } => instrs.push(instr),
+            Instruction::Mov(MovInstruction {
+                src,
+                dst,
+                size,
+                comment,
+            }) => match (src, dst) {
+                (SrcOperand::Reg(_), _) | (_, DstOperand::Reg(_)) => {
+                    instrs.push(Mov(MovInstruction {
+                        src,
+                        dst,
+                        size,
+                        comment,
+                    }));
+                }
+                (SrcOperand::Mem(_), DstOperand::Mem(_)) => {
+                    instrs.push(Mov(MovInstruction {
+                        src,
+                        dst: DstOperand::Reg(Amd64Reg::Rax),
+                        size,
+                        comment: "copy prop spill".to_string(),
+                    }));
+                    instrs.push(Mov(MovInstruction {
+                        src: SrcOperand::Reg(Amd64Reg::Rax),
+                        dst,
+                        size,
+                        comment,
+                    }));
+                }
+                (SrcOperand::Imm(_), _) => instrs.push(Mov(MovInstruction {
+                    src,
+                    dst,
+                    size,
+                    comment,
+                })),
+            },
+            _ => unreachable!(),
+        }
+    }
 }
