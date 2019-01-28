@@ -384,6 +384,11 @@ impl GenInstrBlock {
             // The following group of nodes doesn't need code gen as
             // we know their result at compile time.
             // They are only used as operands and constructed in gen_operand_jit
+            //
+            // NOTE: This list must be kept in sync with the flow construction
+            // in lir.rs, specifically the BasicBlock::new_slot method which
+            // checks whether a variable "orginates here", i.e., in that BasicBlock.
+            // Grep for this: LIR_JIT_COMPUTED_OPERAND_SEARCH_MARKER
             Node::Const(_)
             | Node::Proj(_, ProjKind::Start_TArgs_Arg(..))
             | Node::Address(_)

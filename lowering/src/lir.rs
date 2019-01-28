@@ -1059,11 +1059,19 @@ impl Ptr<BasicBlock> {
                     // If the value is foreign, we need to "get it" from each blocks above us.
                     //
                     // NOTE:
-                    // In FIRM, const, address and param proj nodes are all in the start block, no
-                    // matter where they are used, however we don't want or need to
-                    // transfer them down to the usage from the start block, so we can
-                    // treat those nodes as "originating here".
-                    // HOWEVER, we cannot make above assumption if this node is used as input to a
+                    // Some FIRM values (e.g. const) are always located in the FIRM start block.
+                    // We do ont want to flow those values all the way through the graph because
+                    // it would likely increase register pressure / incur overhead during LIR
+                    // construction.
+                    // In gen_instr.rs terms, those values are "JIT operands", which is a term
+                    // that should be abandoned but stands for value that we know at compile time.
+                    //
+                    // For the above reasons, we'll treat those values as "originating here".
+                    //
+                    // The match arms below must be kept in sync with gen_instr.rs:
+                    // Search for LIR_JIT_COMPUTED_OPERAND_SEARCH_MARKER
+                    //
+                    // IMPORTANT: we cannot make above assumption if this node is used as input to a
                     // Phi node in this block, because the value needs to originate in the
                     // corresponding cfg_pred. However, when creating slots for the inputs of phi
                     // nodes, this function (`MutRc<BasicBlock>::new_slot`), in not used. So the
@@ -1076,6 +1084,9 @@ impl Ptr<BasicBlock> {
                         };
                     let originates_here = Node::is_const(slot.firm)
                         || Node::is_address(slot.firm)
+                        || Node::is_size(slot.firm)
+                        || Node::is_member(slot.firm)
+                        || Node::is_sel(slot.firm)
                         || node_is_arg_proj
                         || slot.allocated_in.firm == slot.originates_in.firm;
                     if !originates_here {
