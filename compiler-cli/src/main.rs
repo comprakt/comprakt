@@ -366,6 +366,8 @@ macro_rules! until_after_type_check {
         let input = $input;
         setup_io!(let context = input);
 
+        let m_parser = compiler_shared::timing::Measurement::start("frontend::ast_construction");
+
         let mut $strtab = StringTable::new();
         let lexer = Lexer::new(&mut $strtab, &context);
 
@@ -394,11 +396,17 @@ macro_rules! until_after_type_check {
             }
         };
 
+        m_parser.stop();
+
+        let m_typecheck = compiler_shared::timing::Measurement::start("semantics");
+
         let ($type_system, $type_analysis) = crate::semantics::check(&mut $strtab, &ast, &context)
             .unwrap_or_else(|()| {
                 context.diagnostics.write_statistics();
                 exit(1);
             });
+
+        m_typecheck.stop();
 
     }
 }
