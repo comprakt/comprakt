@@ -138,10 +138,11 @@ impl FunctionCall {
 
         debug_assert!(self.reg_setup.len() <= 6);
 
+        let mut mov_imm = vec![];
         let mut transfers = vec![];
         for (i, op) in self.reg_setup.iter().enumerate() {
             match op {
-                lir::Operand::Imm(_) => self.setup.push(FnInstruction::Movq {
+                lir::Operand::Imm(_) => mov_imm.push(FnInstruction::Movq {
                     src: FnOperand::Lir(*op),
                     dst: FnOperand::Reg(Amd64Reg::arg(i)),
                 }),
@@ -161,6 +162,7 @@ impl FunctionCall {
         let reg_graph = RegGraph::new(transfers);
         let swap_instrs = reg_graph.into_instructions::<FnInstruction>();
         self.setup.extend(swap_instrs);
+        self.setup.extend(mov_imm);
     }
 
     pub(super) fn save_reg(&mut self, reg: Amd64Reg) {
