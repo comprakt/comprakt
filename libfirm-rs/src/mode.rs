@@ -56,6 +56,9 @@ impl Mode {
     pub fn is_mem(self) -> bool {
         self == Mode::M()
     }
+    pub fn is_data(self) -> bool {
+        unsafe { bindings::mode_is_data(self.0) != 0 }
+    }
 
     pub fn reference_offset_mode(self) -> Mode {
         Mode::from_libfirm(unsafe { bindings::get_reference_offset_mode(self.0) })
