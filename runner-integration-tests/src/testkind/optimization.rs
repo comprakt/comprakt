@@ -49,6 +49,7 @@ pub struct OptimizationTestData {
     /// the unoptimized and the optimized asm of
     /// the binary.
     pub expect: AsmComparisonOutcome,
+    pub dont_compare_asm_with_own_backend: Option<bool>,
 }
 
 impl FromReferencesPath<OptimizationTestData> for OptimizationTestData {
@@ -66,6 +67,7 @@ impl FromReferencesPath<OptimizationTestData> for OptimizationTestData {
             stdin: None,
             optimizations: vec![],
             expect: AsmComparisonOutcome::Change,
+            dont_compare_asm_with_own_backend: None,
         }
     }
 }
@@ -269,6 +271,15 @@ pub fn exec_optimization_test(input: PathBuf, backend: Backend) {
         &normalized_reference_asm,
     )
     .unwrap();
+
+    match test_data.reference.dont_compare_asm_with_own_backend {
+        Some(true) => {
+            if backend == Backend::Own {
+                return;
+            }
+        }
+        None | Some(false) => (),
+    };
 
     match test_data.reference.expect {
         AsmComparisonOutcome::Change => {

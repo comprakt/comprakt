@@ -37,7 +37,7 @@ pub enum CompilerPhase {
     },
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Backend {
     Own,
     Libfirm,
