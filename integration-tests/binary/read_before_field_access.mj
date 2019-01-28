@@ -7,8 +7,8 @@ class Foo {
     }
 
     public void read() {
-        someField = 1; /* This works */
-        someField = System.in.read(); /* this System.in.read call fails */
+        someField = 1;
+        someField = System.in.read();
     }
 }
 
