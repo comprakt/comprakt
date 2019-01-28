@@ -1445,11 +1445,7 @@ impl SpillContext {
         self.used_regs.insert(spill);
 
         src.used_regs().into_iter().for_each(|r| {
-            let was_unused = self.used_regs.insert(r);
-            debug_assert!(
-                was_unused,
-                "src operand depends on registers returned by free_regs"
-            )
+            self.used_regs.insert(r);
         });
 
         if spill != Amd64Reg::Rax {
