@@ -124,7 +124,7 @@ impl Codegen {
         instrs.push(Comment {
             comment: format!("Calling convention: {:?}", self.cconv),
         });
-        for (id, location) in &self.var_location {
+        for (id, location) in self.var_location.iter().sorted_by_key(|(id, _)| *id) {
             instrs.push(Comment {
                 comment: format!("Var {:?} in {:?}", id, location),
             });
