@@ -1198,7 +1198,9 @@ impl Codegen {
                     index: lir::IndexComputation::Zero,
                 }),
                 Location::ParamMem => SrcOperand::Mem(lir::AddressComputation {
-                    offset: ((idx as isize) + 2) * 8,
+                    offset: ((idx.checked_sub(self.cconv.num_arg_regs() as u32).unwrap() as isize)
+                        + 2)
+                        * 8,
                     base: Amd64Reg::Rbp,
                     index: lir::IndexComputation::Zero,
                 }),

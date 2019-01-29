@@ -35,7 +35,7 @@ impl Measurement {
     pub fn stop(&self) {
         let measurement = CompletedMeasurement {
             label: self.label.clone(),
-            start: self.start.clone(),
+            start: self.start,
             stop: Instant::now(),
         };
         TIMINGS.lock().unwrap().measurements.push(measurement);
