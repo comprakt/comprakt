@@ -800,11 +800,15 @@ impl BlockGraph {
 
                 // Foreign values are the green points in yComp (inter-block edges)
                 for node_in_block in firm_block.out_nodes() {
+                    log::debug!("VISIT {:?}: NODE {:?}", firm_block, node_in_block);
                     match node_in_block {
                         // The end node is only for keep alive edges, which we don't care about
                         Node::End(_) => (),
 
                         Node::Phi(_) => {
+                            assert!(node_in_block.block() == *firm_block);
+                            log::debug!(
+"CONSTRUCT_FLOWS: PHI IN BLOCK: local_block.new_terminating_slot {:?}", node_in_block);
                             local_block.new_terminating_slot(node_in_block, alloc);
                         }
 
@@ -877,6 +881,18 @@ impl Ptr<ControlFlowTransfer> {
             .iter()
             .find(|(_, existing_slot)| target_slot.firm == existing_slot.firm)
         {
+            log::debug!("\t\tedge is {:?}->{:?}", self.source.firm, self.target.firm);
+            log::debug!(
+                "\t\tslot pair is source={:?} target={:?}",
+                source,
+                target.multislot()
+            );
+            log::debug!(
+                "\t\tslot pair is source={:?} target={:?}",
+                source.firm(),
+                target.firm
+            );
+            log::debug!("\t\ttarget_slot.firm = {:?}", target_slot.firm);
             log::debug!(
                 "\t\t? {:?}({:?}) := {:?}",
                 target_slot.allocated_in.firm,
@@ -912,7 +928,11 @@ impl Ptr<ControlFlowTransfer> {
             );
             //assert_eq!(target.num, target_slot.num);
 
-            return;
+            if Node::is_phi(source.firm()) && Node::is_phi(target.firm) {
+                // fallthrough
+            } else {
+                return;
+            }
         }
 
         let source_slot = self.source.new_forwarding_slot(&target_slot, alloc);
@@ -1001,12 +1021,14 @@ impl Ptr<BasicBlock> {
             .map(|(cfg_pred, value, original_block)| {
                 (
                     cfg_pred,
+                    // emits ALLOC
                     slotbuilder.add_possible_value(value, original_block, alloc),
                 )
             })
             .for_each(|(cfg_pred, value_slot)| {
                 self.find_incoming_edge_from(cfg_pred)
                     .unwrap()
+                    // emits \t\t notices
                     .add_incoming_value_flow(value_slot, alloc);
             });
 
@@ -1050,9 +1072,11 @@ impl Ptr<BasicBlock> {
 
             match value {
                 Node::Phi(phi) if value.block() == self.firm => {
+                    log::debug!("\tNEW_SLOT::MULTISLOT_FROM_PHI: {:?}", value);
                     self.new_multislot_from_phi(phi, terminates_in, alloc)
                 }
                 _ => {
+                    log::debug!("\tNEW_SLOT::NORMAL: {:?}", value);
                     let mut slotbuilder = self.new_multislot(terminates_in);
                     let slot = slotbuilder.add_possible_value(value, originates_in, alloc);
 
