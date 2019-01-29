@@ -154,6 +154,12 @@ pub fn pause(_breakpoint: Breakpoint, _program: HashMap<String, GraphState>) {}
 #[cfg(feature = "debugger_gui")]
 #[allow(clippy::implicit_hasher)]
 pub fn pause(breakpoint: Breakpoint, program: HashMap<String, GraphState>) {
+    if std::env::var("COMPRAKT_DEBUGGER_GUI_DUMP_LIR_DOT_GRAPH_MJ_MAIN_TO_STDOUT").is_ok() {
+        if breakpoint.label.matches("LIR").count() > 0 {
+            println!("{}", program["mj_main"].dot_content);
+        }
+    }
+
     let mut filters = FILTERS.lock().unwrap();
 
     if filters.is_disabled(&breakpoint, &program) {

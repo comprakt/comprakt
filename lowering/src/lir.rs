@@ -692,6 +692,11 @@ impl BlockGraph {
     fn from(firm_graph: libfirm_rs::Graph, alloc: &Allocator) -> Ptr<Self> {
         RemoveCriticalEdges::optimize_function(firm_graph);
 
+        if std::env::var("COMPRAKT_LOWERING_LIR_DUMP_YCOMP_PRE_LIR").is_ok() {
+            let suffix = std::ffi::CString::new("pre-lir").unwrap();
+            unsafe { libfirm_rs::bindings::dump_all_ir_graphs(suffix.as_ptr()) };
+        }
+
         firm_graph.assure_outs();
         let mut graph = BlockGraph::build_skeleton(firm_graph, alloc);
         graph.construct_flows(alloc);
