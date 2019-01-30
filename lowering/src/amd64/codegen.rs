@@ -131,6 +131,11 @@ impl Codegen {
         }
     }
 
+    fn stack_slots_space(&mut self, function: &function::Function) -> Tarval {
+        let space = (function.num_stackslots as i64).checked_mul(8).unwrap();
+        Tarval::mj_int(space)
+    }
+
     fn gen_function_prolog(
         &mut self,
         function: &function::Function,
@@ -169,19 +174,13 @@ impl Codegen {
             instrs.push(Pushq { src });
         }
 
-        if let Some(instr) = function.allocate {
-            instrs.push(Comment {
-                comment: "function allocate stack space".to_string(),
-            });
-            if let function::FnInstruction::Subq { src, dst } = instr {
-                instrs.push(Subq {
-                    subtrahend: SrcOperand::Imm(src),
-                    acc: DstOperand::Reg(dst),
-                });
-            } else {
-                unreachable!();
-            }
-        }
+        instrs.push(Comment {
+            comment: "function allocate stack slots".to_string(),
+        });
+        instrs.push(Subq {
+            subtrahend: SrcOperand::Imm(self.stack_slots_space(function)),
+            acc: DstOperand::Reg(Amd64Reg::Rsp),
+        });
     }
 
     fn gen_function_epilog(
@@ -189,7 +188,15 @@ impl Codegen {
         function: &function::Function,
         instrs: &mut Vec<Instruction>,
     ) {
-        use self::Instruction::{Comment, Leave, Popq, Ret};
+        use self::Instruction::{Addq, Comment, Leave, Popq, Ret};
+
+        instrs.push(Comment {
+            comment: "function de-allocate stack slots".to_string(),
+        });
+        instrs.push(Addq {
+            src: SrcOperand::Imm(self.stack_slots_space(function)),
+            dst: DstOperand::Reg(Amd64Reg::Rsp),
+        });
 
         instrs.push(Comment {
             comment: "function restore regs".to_string(),
