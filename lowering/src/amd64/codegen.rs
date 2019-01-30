@@ -1005,20 +1005,6 @@ impl Codegen {
             label: call.label.clone(),
         }));
 
-        if let Some(function::FnInstruction::Movq { src, dst }) = call.move_res {
-            instrs.push(Comment {
-                comment: "call move from %rax".to_string(),
-            });
-            let src = self.fn_to_src_operand(src);
-            let dst = self.fn_to_src_operand(dst).try_into().unwrap();
-            instrs.push(Mov(MovInstruction {
-                src,
-                dst,
-                size: 8,
-                comment: "call move result from %rax".to_string(),
-            }));
-        }
-
         if let Some(function::FnInstruction::Addq { src, dst }) = call.recover {
             instrs.push(Comment {
                 comment: "call restore %rsp".to_string(),
@@ -1033,8 +1019,24 @@ impl Codegen {
             comment: "call recover args".to_string(),
         });
         for dst in call.saved_regs.restores() {
+            assert_ne!(dst, Amd64Reg::Rax);
             let dst = DstOperand::Reg(dst);
             instrs.push(Popq { dst });
+        }
+
+        if let Some(function::FnInstruction::Movq { src, dst }) = call.move_res {
+            instrs.push(Comment {
+                comment: "call move from %rax".to_string(),
+            });
+            let src = self.fn_to_src_operand(src);
+            assert_eq!(DstOperand::Reg(Amd64Reg::Rax), src.try_into().unwrap());
+            let dst = self.fn_to_src_operand(dst).try_into().unwrap();
+            instrs.push(Mov(MovInstruction {
+                src,
+                dst,
+                size: 8,
+                comment: "call move result from %rax".to_string(),
+            }));
         }
     }
 
@@ -1504,7 +1506,7 @@ impl OperandUsingRegs for SrcOperand {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub(super) enum DstOperand {
     Mem(lir::AddressComputation<Amd64Reg>),
     Reg(Amd64Reg),
