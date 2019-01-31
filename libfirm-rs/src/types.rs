@@ -17,7 +17,19 @@ macro_rules! gen_e {
         impl TyTrait for $name {
             fn ir_type(self) -> *mut bindings::ir_type {
                 match self {
-                    $($name::$var(x) => x.ir_type(),)*
+                    $(
+                        $name::$var(x) => x.ir_type(),
+                    )*
+                }
+            }
+        }
+
+        impl fmt::Debug for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    $(
+                        $name::$var(x) => write!(f, "{:?}", x),
+                    )*
                 }
             }
         }
@@ -48,6 +60,32 @@ gen_e!(Ty;
     Method(MethodTy),
     Array(ArrayTy),
     Class(ClassTy),
+    Segment(SegmentTy),
+    Pointer(PointerTy),
+    Struct(StructTy),
+    Union(UnionTy),
+    Other(OtherTy)
+);
+
+macro_rules! gen_debug {
+    ($name:ident; $($var:ident($ty:ident)),*) => {
+        $(
+            impl fmt::Debug for $ty {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    write!(
+                        f,
+                        stringify!($var),
+                    )
+                }
+            }
+        )*
+    }
+}
+
+gen_debug!(Ty;
+    Primitive(PrimitiveTy),
+    Method(MethodTy),
+    Array(ArrayTy),
     Segment(SegmentTy),
     Pointer(PointerTy),
     Struct(StructTy),
@@ -195,6 +233,19 @@ impl ClassTy {
 impl fmt::Debug for ClassTy {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name_string())
+    }
+}
+
+impl MethodTy {
+    pub fn res_count(self) -> usize {
+        unsafe { bindings::get_method_n_ress(self.0) }
+    }
+    pub fn single_result_ty(self) -> Option<Ty> {
+        if self.res_count() == 0 {
+            None
+        } else {
+            unsafe { Some(Ty::from_ir_type(bindings::get_method_res_type(self.0, 0))) }
+        }
     }
 }
 
