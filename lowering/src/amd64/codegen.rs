@@ -158,7 +158,6 @@ impl Codegen {
                     instrs.push(Mov(MovInstruction {
                         src,
                         dst,
-                        size: 8,
                         comment: "fn prolog".to_string(),
                     }));
                 }
@@ -252,7 +251,6 @@ impl Codegen {
                     Mov(MovInstruction {
                         src: SrcOperand::Reg(Amd64Reg::Rax),
                         dst,
-                        size: 8,
                         comment: "div result".to_string(),
                     })
                 },
@@ -266,7 +264,6 @@ impl Codegen {
                     Mov(MovInstruction {
                         src: SrcOperand::Reg(Amd64Reg::Rdx),
                         dst,
-                        size: 8,
                         comment: "mod result".to_string(),
                     })
                 },
@@ -284,7 +281,6 @@ impl Codegen {
                         instrs.push(Mov(MovInstruction {
                             src,
                             dst: DstOperand::Reg(spill),
-                            size: 8,
                             comment: "conv spill".to_string(),
                         }));
                         SrcOperand::Reg(spill)
@@ -294,7 +290,6 @@ impl Codegen {
                 instrs.push(Mov(MovInstruction {
                     src,
                     dst,
-                    size: 8,
                     comment: "conv".to_string(),
                 }))
             }
@@ -382,7 +377,6 @@ impl Codegen {
                             post_mov_instrs.push(Instruction::Mov(MovInstruction {
                                 src: SrcOperand::Reg(Amd64Reg::Rax),
                                 dst,
-                                size: 8,
                                 comment: "load dst mem from rax".to_string(),
                             }));
                             Amd64Reg::Rax
@@ -430,7 +424,6 @@ impl Codegen {
                 instrs.push(Mov(MovInstruction {
                     src: SrcOperand::Reg(arg_reg),
                     dst: DstOperand::Ar(-((*i + 1 + self.num_saved_regs) as isize)),
-                    size: 8,
                     comment: "move param to stack".to_string(),
                 }));
             }
@@ -610,7 +603,6 @@ impl Codegen {
                         instrs.push(Mov(MovInstruction {
                             src: src1,
                             dst,
-                            size: 8,
                             comment: "binop setup".to_string(),
                         }));
                         push_binop!(kind, src2, dst);
@@ -619,7 +611,6 @@ impl Codegen {
                     instrs.push(Mov(MovInstruction {
                         src: src1,
                         dst,
-                        size: 8,
                         comment: "binop setup".to_string(),
                     }));
                     push_binop!(kind, src2, dst);
@@ -640,7 +631,6 @@ impl Codegen {
                         instrs.push(Mov(MovInstruction {
                             src: src1,
                             dst: dst_spill,
-                            size: 8,
                             comment: "binop setup".to_string(),
                         }));
                         push_binop!(kind, src2, dst_spill);
@@ -654,14 +644,12 @@ impl Codegen {
                         instrs.push(Mov(MovInstruction {
                             src: src1,
                             dst: DstOperand::Reg(spill),
-                            size: 8,
                             comment: "binop 3xmem setup".to_string(),
                         }));
                         // Now we can move %rax -> dst
                         instrs.push(Mov(MovInstruction {
                             src: SrcOperand::Reg(spill),
                             dst: dst_spill,
-                            size: 8,
                             comment: "binop 3xmem setup".to_string(),
                         }));
                         // We're now at a 2-address code state: `op mem, mem`
@@ -669,7 +657,6 @@ impl Codegen {
                         instrs.push(Mov(MovInstruction {
                             src: src2,
                             dst: DstOperand::Reg(spill),
-                            size: 8,
                             comment: "binop setup".to_string(),
                         }));
                         // Now the instruction `op %rax, mem`:
@@ -683,14 +670,12 @@ impl Codegen {
                         instrs.push(Mov(MovInstruction {
                             src: src1,
                             dst: dst_spill,
-                            size: 8,
                             comment: "binop setup".to_string(),
                         }));
                         let spill = Amd64Reg::Rax;
                         instrs.push(Mov(MovInstruction {
                             src: src2,
                             dst: DstOperand::Reg(spill),
-                            size: 8,
                             comment: "binop spill".to_string(),
                         }));
                         // Now the instruction `op spill(src2), mem(dst == src1)`:
@@ -706,14 +691,12 @@ impl Codegen {
                         instrs.push(Mov(MovInstruction {
                             src: src2,
                             dst: dst_spill,
-                            size: 8,
                             comment: "binop setup".to_string(),
                         }));
                         let spill = Amd64Reg::Rax;
                         instrs.push(Mov(MovInstruction {
                             src: src1,
                             dst: DstOperand::Reg(spill),
-                            size: 8,
                             comment: "binop spill".to_string(),
                         }));
                         // Now the instruction `op spill(src1), mem(dst == src2)`:
@@ -734,7 +717,6 @@ impl Codegen {
                     instrs.push(Mov(MovInstruction {
                         src: SrcOperand::Reg(Amd64Reg::Rax),
                         dst,
-                        size: 8,
                         comment: "imul dst mem".to_string(),
                     }));
                 }
@@ -770,7 +752,6 @@ impl Codegen {
                 instrs.push(Mov(MovInstruction {
                     src,
                     dst,
-                    size: 8,
                     comment: "unop setup".to_string(),
                 }));
                 push_unop!(kind, dst);
@@ -780,7 +761,6 @@ impl Codegen {
                     instrs.push(Mov(MovInstruction {
                         src,
                         dst,
-                        size: 8,
                         comment: "unop setup".to_string(),
                     }));
                     push_unop!(kind, dst);
@@ -790,7 +770,6 @@ impl Codegen {
                     instrs.push(Mov(MovInstruction {
                         src,
                         dst: DstOperand::Reg(Amd64Reg::Rax),
-                        size: 8,
                         comment: "unop spill".to_string(),
                     }));
                     // Now the instruction `op %rax`:
@@ -799,7 +778,6 @@ impl Codegen {
                     instrs.push(Mov(MovInstruction {
                         src: SrcOperand::Reg(Amd64Reg::Rax),
                         dst,
-                        size: 8,
                         comment: "unop spill to dst".to_string(),
                     }));
                 }
@@ -873,7 +851,6 @@ impl Codegen {
                 setup_instr = Some(Mov(MovInstruction {
                     src: src2,
                     dst: DstOperand::Reg(spill),
-                    size: 8,
                     comment: "div move Imm to spill".to_string(),
                 }));
                 SrcOperand::Reg(spill)
@@ -885,7 +862,6 @@ impl Codegen {
                 setup_instr = Some(Mov(MovInstruction {
                     src: src2,
                     dst: DstOperand::Reg(spill),
-                    size: 8,
                     comment: "div spill src2 from %rdx".to_string(),
                 }));
                 // src2 can be easily recovered by moving it out of the spill register since
@@ -893,7 +869,6 @@ impl Codegen {
                 post_div_instr = Some(Mov(MovInstruction {
                     src: SrcOperand::Reg(spill),
                     dst: DstOperand::Reg(Amd64Reg::Rdx),
-                    size: 8,
                     comment: "div move src2 back to %rdx".to_string(),
                 }));
                 rdx_spilled = true;
@@ -919,7 +894,6 @@ impl Codegen {
         instrs.push(Mov(MovInstruction {
             src: src1,
             dst: DstOperand::Reg(Amd64Reg::Rax),
-            size: 8,
             comment: "div move src1 to %rax".to_string(),
         }));
         if let Some(instr) = setup_instr {
@@ -967,7 +941,6 @@ impl Codegen {
                     instrs.push(Mov(MovInstruction {
                         src,
                         dst,
-                        size: 8,
                         comment: "call setup move to arg reg".to_string(),
                     }));
                 }
@@ -1016,7 +989,6 @@ impl Codegen {
             instrs.push(Mov(MovInstruction {
                 src,
                 dst,
-                size: 8,
                 comment: "call move result from %rax".to_string(),
             }));
         }
@@ -1117,7 +1089,6 @@ impl Codegen {
                         instrs.push(Mov(MovInstruction {
                             src: rhs,
                             dst: DstOperand::Reg(spill),
-                            size: 8,
                             comment: "cond_jmp move rhs to spill".to_string(),
                         }));
                         instrs.push(Cmpq {
@@ -1146,7 +1117,6 @@ impl Codegen {
                     instrs.push(Mov(MovInstruction {
                         src,
                         dst: DstOperand::Reg(Amd64Reg::Rax),
-                        size: 8,
                         comment: "return move result to %rax".to_string(),
                     }))
                 }
@@ -1196,7 +1166,6 @@ impl Codegen {
         Some(Instruction::Mov(MovInstruction {
             src: SrcOperand::Ar(idx),
             dst,
-            size: 8,
             comment: "stack args move in register".to_string(),
         }))
     }
@@ -1295,7 +1264,6 @@ impl fmt::Display for CallInstruction {
 pub(super) struct MovInstruction {
     src: SrcOperand,
     dst: DstOperand,
-    size: u32,
     comment: String,
 }
 
@@ -1410,7 +1378,6 @@ impl SpillContext {
         self.mov_to_spilled.push(Instruction::Mov(MovInstruction {
             src,
             dst: DstOperand::Reg(spill),
-            size: 8,
             comment: "spill context move to spilled".to_string(),
         }));
         spill
@@ -1590,7 +1557,6 @@ impl From<RegGraphMinLeftEdgeInstruction<DstOperand>> for Instruction {
                 Mov(MovInstruction {
                     src,
                     dst,
-                    size: 8,
                     comment: "copy prop".to_string(),
                 })
             }
@@ -1611,7 +1577,6 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
             SrcOperand::Imm(_) => mov_imm.push(Mov(MovInstruction {
                 src: instr.src,
                 dst: instr.dst,
-                size: 8,
                 comment: "copy prop imm move".to_string(),
             })),
             _ => {
@@ -1633,14 +1598,12 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
             Instruction::Mov(MovInstruction {
                 src,
                 dst,
-                size,
                 comment,
             }) => match (src, dst) {
                 (SrcOperand::Reg(_), _) | (_, DstOperand::Reg(_)) => {
                     instrs.push(Mov(MovInstruction {
                         src,
                         dst,
-                        size,
                         comment,
                     }));
                 }
@@ -1648,20 +1611,17 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
                     instrs.push(Mov(MovInstruction {
                         src,
                         dst: DstOperand::Reg(Amd64Reg::Rax),
-                        size,
                         comment: "copy prop spill".to_string(),
                     }));
                     instrs.push(Mov(MovInstruction {
                         src: SrcOperand::Reg(Amd64Reg::Rax),
                         dst,
-                        size,
                         comment,
                     }));
                 }
                 (SrcOperand::Imm(_), _) => instrs.push(Mov(MovInstruction {
                     src,
                     dst,
-                    size,
                     comment,
                 })),
             },
