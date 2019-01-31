@@ -520,6 +520,10 @@ impl Codegen {
                 match index {
                     // the index is stored in a reg, this is fine
                     SrcOperand::Reg(reg) => {
+                        assert!(
+                            reg.size() == Size::Four,
+                            "minijava only allows indexing by int"
+                        );
                         already_in_registers.push(reg.reg);
                         let sign_extended = Reg {
                             size: Size::Eight,
