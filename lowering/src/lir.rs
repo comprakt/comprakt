@@ -1071,7 +1071,7 @@ impl Ptr<BasicBlock> {
                     (MultiSlot::Multi { phi: slot_phi, .. }, Node::Phi(value_phi)) => {
                         *slot_phi == value_phi
                     }
-                    (MultiSlot::Multi { slots, .. }, _) => {
+                    (MultiSlot::Multi { .. }, _) => {
                         // This is a passthrough flow, i.e.,  the rhs value flows through this block
                         // unmodified for later use.
                         false

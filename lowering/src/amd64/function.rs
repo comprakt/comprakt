@@ -54,7 +54,6 @@ pub(super) enum FnInstruction {
     Pushq { src: FnOperand },
     Popq { dst: FnOperand },
     Addq { src: Tarval, dst: Amd64Reg },
-    Subq { src: Tarval, dst: Amd64Reg },
     Leave,
     Ret,
 }
