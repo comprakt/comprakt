@@ -1,6 +1,14 @@
 use crate::lowering::amd64::CallingConv;
 use std::{cmp::Ordering, collections::BTreeMap, convert::TryFrom};
 
+// TODO: stab impl of reg, will be done right in the next commit
+#[derive(Display, Debug, Hash, PartialEq, Eq, Copy, Clone)]
+#[display(fmt = "{}", reg)]
+pub(super) struct Reg {
+    pub(super) size: u32,
+    pub(super) reg: Amd64Reg,
+}
+
 #[derive(Display, Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub(super) enum Amd64Reg {
     #[display(fmt = "%rax")]
@@ -261,126 +269,6 @@ impl RegisterAllocator {
             }
         } else {
             None
-        }
-    }
-}
-
-#[derive(Display, Debug, Hash, PartialEq, Eq, Copy, Clone)]
-pub(super) enum Amd64RegDouble {
-    #[display(fmt = "%eax")]
-    Eax,
-    #[display(fmt = "%ecx")]
-    Ecx,
-    #[display(fmt = "%edx")]
-    Edx,
-    #[display(fmt = "%ebx")]
-    Ebx,
-    #[display(fmt = "%esi")]
-    Esi,
-    #[display(fmt = "%edi")]
-    Edi,
-    #[display(fmt = "%esp")]
-    Esp,
-    #[display(fmt = "%ebp")]
-    Ebp,
-    #[display(fmt = "%r8d")]
-    R8d,
-    #[display(fmt = "%r9d")]
-    R9d,
-    #[display(fmt = "%r10d")]
-    R10d,
-    #[display(fmt = "%r11d")]
-    R11d,
-    #[display(fmt = "%r12d")]
-    R12d,
-    #[display(fmt = "%r13d")]
-    R13d,
-    #[display(fmt = "%r14d")]
-    R14d,
-    #[display(fmt = "%r15d")]
-    R15d,
-}
-
-#[rustfmt::skip]
-impl From<Amd64Reg> for Amd64RegDouble {
-    fn from(reg: Amd64Reg) -> Self {
-        match reg {
-            Amd64Reg::Rax => Amd64RegDouble::Eax,
-            Amd64Reg::Rcx => Amd64RegDouble::Ecx,
-            Amd64Reg::Rdx => Amd64RegDouble::Edx,
-            Amd64Reg::Rbx => Amd64RegDouble::Ebx,
-            Amd64Reg::Rsi => Amd64RegDouble::Esi,
-            Amd64Reg::Rdi => Amd64RegDouble::Edi,
-            Amd64Reg::Rsp => Amd64RegDouble::Esp,
-            Amd64Reg::Rbp => Amd64RegDouble::Ebp,
-            Amd64Reg::R8  => Amd64RegDouble::R8d,
-            Amd64Reg::R9  => Amd64RegDouble::R9d,
-            Amd64Reg::R10 => Amd64RegDouble::R10d,
-            Amd64Reg::R11 => Amd64RegDouble::R11d,
-            Amd64Reg::R12 => Amd64RegDouble::R12d,
-            Amd64Reg::R13 => Amd64RegDouble::R13d,
-            Amd64Reg::R14 => Amd64RegDouble::R14d,
-            Amd64Reg::R15 => Amd64RegDouble::R15d,
-        }
-    }
-}
-
-#[derive(Display, Debug, Hash, PartialEq, Eq, Copy, Clone)]
-pub(super) enum Amd64RegByte {
-    #[display(fmt = "%al")]
-    Al,
-    #[display(fmt = "%cl")]
-    Cl,
-    #[display(fmt = "%dl")]
-    Dl,
-    #[display(fmt = "%bl")]
-    Bl,
-    #[display(fmt = "%sil")]
-    Sil,
-    #[display(fmt = "%dil")]
-    Dil,
-    #[display(fmt = "%spl")]
-    Spl,
-    #[display(fmt = "%bpl")]
-    Bpl,
-    #[display(fmt = "%r8b")]
-    R8b,
-    #[display(fmt = "%r9b")]
-    R9b,
-    #[display(fmt = "%r10b")]
-    R10b,
-    #[display(fmt = "%r11b")]
-    R11b,
-    #[display(fmt = "%r12b")]
-    R12b,
-    #[display(fmt = "%r13b")]
-    R13b,
-    #[display(fmt = "%r14b")]
-    R14b,
-    #[display(fmt = "%r15b")]
-    R15b,
-}
-
-#[rustfmt::skip]
-impl From<Amd64Reg> for Amd64RegByte {
-    fn from(reg: Amd64Reg) -> Self {
-        match reg {
-            Amd64Reg::Rax => Amd64RegByte::Al,
-            Amd64Reg::Rcx => Amd64RegByte::Cl,
-            Amd64Reg::Rdx => Amd64RegByte::Dl,
-            Amd64Reg::Rbx => Amd64RegByte::Bl,
-            Amd64Reg::Rsi => Amd64RegByte::Sil,
-            Amd64Reg::Rdi => Amd64RegByte::Dil,
-            Amd64Reg::Rsp => Amd64RegByte::Spl,
-            Amd64Reg::Rbp => Amd64RegByte::Bpl,
-            Amd64Reg::R8  => Amd64RegByte::R8b,
-            Amd64Reg::R9  => Amd64RegByte::R9b,
-            Amd64Reg::R10 => Amd64RegByte::R10b,
-            Amd64Reg::R11 => Amd64RegByte::R11b,
-            Amd64Reg::R12 => Amd64RegByte::R12b,
-            Amd64Reg::R13 => Amd64RegByte::R13b,
-            Amd64Reg::R14 => Amd64RegByte::R14b,
-            Amd64Reg::R15 => Amd64RegByte::R15b,
         }
     }
 }

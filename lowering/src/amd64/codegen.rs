@@ -3,7 +3,7 @@ use super::{
     linear_scan::{self, Location},
     lir::{self, MultiSlot},
     live_variable_analysis,
-    register::{Amd64Reg, Amd64RegByte, Amd64RegDouble},
+    register::{Reg, Amd64Reg},
     var_id, CallingConv, VarId,
 };
 use crate::lowering::lir_allocator::Ptr;
@@ -233,7 +233,7 @@ impl Codegen {
     }
 
     fn gen_lir(&mut self, lir: &lir::Instruction, instrs: &mut Vec<Instruction>) {
-        use self::Instruction::Mov;
+        use self::Instruction::{Store, Load, Mov};
 
         log::debug!("Gen lir: {:?}", lir);
         match lir {
@@ -289,9 +289,6 @@ impl Codegen {
                         }));
                         SrcOperand::Reg(spill)
                     }
-                    (SrcOperand::Mem(_), _) | (_, DstOperand::Mem(_)) => {
-                        unreachable!("operand mem only in load/store possible")
-                    }
                     _ => src,
                 };
                 instrs.push(Mov(MovInstruction {
@@ -315,13 +312,13 @@ impl Codegen {
                 let free_regs = free_regs.into_iter().rev().collect();
                 let mut spill_ctx = SpillContext::new(free_regs);
 
-                let dst: DstOperand = {
+                let dst: lir::AddressComputation<Amd64Reg> = {
                     let dst = store.mem_address_computation();
                     let (dst, _) = self.lir_address_computation_to_register_address_computation(
                         dst,
                         &mut spill_ctx,
                     );
-                    SrcOperand::Mem(dst).try_into().unwrap()
+                    dst
                 };
 
                 let src: SrcOperand = {
@@ -336,17 +333,14 @@ impl Codegen {
                             let src = spill_ctx.spill_and_load_operand(src);
                             SrcOperand::Reg(src)
                         }
-                        SrcOperand::Mem(_) => unreachable!("no load mem -> mem possible"),
                     }
                 };
 
                 // Emit the instructoins
                 // This whole function is just about the following statement
-                let surrounded = vec![Mov(MovInstruction {
+                let surrounded = vec![Store(StoreInstruction {
                     src,
                     dst,
-                    size: store.size(),
-                    comment: "load store".to_string(),
                 })];
                 instrs.extend(spill_ctx.emit_surrounded_instrs(surrounded));
             }
@@ -364,19 +358,19 @@ impl Codegen {
                 let mut spill_ctx = SpillContext::new(free_regs);
                 let mut post_mov_instrs = vec![];
 
-                let src: SrcOperand = {
+                let src: lir::AddressComputation<Amd64Reg> = {
                     let src = load.mem_address_computation();
                     let (src, _) = self.lir_address_computation_to_register_address_computation(
                         src,
                         &mut spill_ctx,
                     );
-                    SrcOperand::Mem(src)
+                    src
                 };
 
                 let dst = {
                     let dst = load.operand();
                     let dst: DstOperand = self.lir_to_src_operand(dst).try_into().unwrap();
-                    let dst: Amd64Reg = match dst {
+                    match dst {
                         // the dst is stored in a reg, this is fine
                         DstOperand::Reg(reg) => reg,
                         // the dst is stored in the activation record
@@ -393,18 +387,14 @@ impl Codegen {
                             }));
                             Amd64Reg::Rax
                         }
-                        DstOperand::Mem(_) => unreachable!("no store mem -> mem possible"),
-                    };
-                    DstOperand::Reg(dst)
+                    }
                 };
 
                 // Emit the instructions
                 // This whole function is just about the following statement
-                let mut surrounded = vec![Mov(MovInstruction {
+                let mut surrounded = vec![Load(LoadInstruction {
                     src,
-                    dst,
-                    size: load.size(),
-                    comment: "load store".to_string(),
+                    dst: Reg { size: load.size(), reg: dst },
                 })];
                 surrounded.extend(post_mov_instrs);
                 instrs.extend(spill_ctx.emit_surrounded_instrs(surrounded));
@@ -493,7 +483,6 @@ impl Codegen {
             }
             // base address of ac operand is stored in the AR, we need it in a register
             SrcOperand::Ar(_) => spill_ctx.spill_and_load_operand(base),
-            SrcOperand::Mem(_) => unreachable!("no mem as addr base possible"),
         };
         use self::lir::IndexComputation;
         let index: IndexComputation<Amd64Reg> = {
@@ -515,7 +504,6 @@ impl Codegen {
                         let index = spill_ctx.spill_and_load_operand(index);
                         IndexComputation::Displacement(index, stride)
                     }
-                    SrcOperand::Mem(_) => unreachable!("no mem as addr idx possible"),
                 }
             } else {
                 // the only other variant of IndexComputation
@@ -741,9 +729,6 @@ impl Codegen {
                             instrs.push(Negq { src: dst_spill })
                         }
                     }
-                    (SrcOperand::Mem(_), _) | (_, SrcOperand::Mem(_)) => {
-                        unreachable!("operand mem only in load/store possible")
-                    }
                 }
                 if let lir::BinopKind::Mul = kind {
                     instrs.push(Mov(MovInstruction {
@@ -754,7 +739,6 @@ impl Codegen {
                     }));
                 }
             }
-            DstOperand::Mem(_) => unreachable!("operand mem only in load/store possible"),
         }
     }
 
@@ -819,9 +803,7 @@ impl Codegen {
                         comment: "unop spill to dst".to_string(),
                     }));
                 }
-                SrcOperand::Mem(_) => unreachable!("operand mem only in load/store possible"),
             },
-            DstOperand::Mem(_) => unreachable!("operand mem only in load/store possible"),
         }
     }
 
@@ -845,7 +827,6 @@ impl Codegen {
         let dst_operand_used_regs = |op| match op {
             DstOperand::Ar(_) => vec![Amd64Reg::Rbp],
             DstOperand::Reg(reg) => vec![reg],
-            DstOperand::Mem(_) => unreachable!("operand mem only in load/store possible"),
         };
 
         let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
@@ -929,7 +910,6 @@ impl Codegen {
             _ if rdx_spilled => (),
             DstOperand::Reg(Amd64Reg::Rdx) => (),
             DstOperand::Reg(_) | DstOperand::Ar(_) => spills.add_regs(&[Amd64Reg::Rdx]),
-            DstOperand::Mem(_) => unreachable!("operand mem only in load/store possible"),
         }
 
         instrs.extend(spills.saves().map(|r| Pushq {
@@ -1146,9 +1126,6 @@ impl Codegen {
                         });
                         op.swap()
                     }
-                    (SrcOperand::Mem(_), _) | (_, SrcOperand::Mem(_)) => {
-                        unreachable!("operand mem only in load/store possible")
-                    }
                 };
                 push_jmp!(
                     lir::JmpKind::Conditional(op),
@@ -1229,6 +1206,10 @@ impl Codegen {
 pub(super) enum Instruction {
     #[display(fmt = "\t{}", _0)]
     Mov(MovInstruction),
+    #[display(fmt = "\t{}", _0)]
+    Load(LoadInstruction),
+    #[display(fmt = "\t{}", _0)]
+    Store(StoreInstruction),
     #[display(fmt = "\taddq {}, {}", src, dst)]
     Addq { src: SrcOperand, dst: DstOperand },
     #[display(fmt = "\tsubq {}, {}", subtrahend, acc)]
@@ -1341,69 +1322,46 @@ impl fmt::Display for MovInstruction {
                     )
                 }
             }
-            (SrcOperand::Reg(reg), DstOperand::Mem(_)) => match self.size {
-                1 => write!(
-                    fmt,
-                    "movb {}, {}\t\t/* {} */",
-                    Amd64RegByte::from(reg),
-                    self.dst,
-                    self.comment
-                ),
-                4 => write!(
-                    fmt,
-                    "movl {}, {}\t\t/* {} */",
-                    Amd64RegDouble::from(reg),
-                    self.dst,
-                    self.comment
-                ),
-                8 => write!(
-                    fmt,
-                    "movq {}, {}\t\t/* {} */",
-                    self.src, self.dst, self.comment
-                ),
-                _ => unreachable!(),
-            },
-            (SrcOperand::Mem(_), DstOperand::Reg(_)) => match self.size {
-                1 => write!(
-                    fmt,
-                    "movsbq {}, {}\t\t/* {} */",
-                    self.src, self.dst, self.comment
-                ),
-                4 => write!(
-                    fmt,
-                    "movslq {}, {}\t\t/* {} */",
-                    self.src, self.dst, self.comment
-                ),
-                8 => write!(
-                    fmt,
-                    "movq {}, {}\t\t/* {} */",
-                    self.src, self.dst, self.comment
-                ),
-                _ => unreachable!(),
-            },
-            (SrcOperand::Imm(_), DstOperand::Mem(_)) => match self.size {
-                1 => write!(
-                    fmt,
-                    "movb {}, {}\t\t/* {} */",
-                    self.src, self.dst, self.comment
-                ),
-                4 => write!(
-                    fmt,
-                    "movl {}, {}\t\t/* {} */",
-                    self.src, self.dst, self.comment
-                ),
-                8 => write!(
-                    fmt,
-                    "movq {}, {}\t\t/* {} */",
-                    self.src, self.dst, self.comment
-                ),
-                _ => unreachable!(),
-            },
-            (SrcOperand::Mem(_), DstOperand::Mem(_))
-            | (SrcOperand::Mem(_), DstOperand::Ar(_))
-            | (SrcOperand::Ar(_), DstOperand::Mem(_))
             | (SrcOperand::Ar(_), DstOperand::Ar(_)) => unreachable!(),
         }
+    }
+}
+
+#[derive(Clone)]
+pub(super) struct LoadInstruction {
+    src: lir::AddressComputation<Amd64Reg>,
+    dst: Reg,
+}
+
+impl fmt::Display for LoadInstruction {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mov_suffix = match self.dst.size {
+            1 => "b",
+            4 => "l",
+            8 => "q",
+            _ => unreachable!(),
+        };
+        write!(fmt, "mov{} {}, {}\t\t/* load */", mov_suffix, self.src, self.dst)
+    }
+}
+
+#[derive(Clone)]
+pub(super) struct StoreInstruction {
+    src: SrcOperand,
+    dst: lir::AddressComputation<Amd64Reg>,
+}
+
+impl fmt::Display for StoreInstruction {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO will be done right in next commit
+        // let mov_suffix = match self.src.size {
+        //     1 => "sbq",
+        //     4 => "slq",
+        //     8 => "q",
+        //     _ => unreachable!(),
+        // };
+        let mov_suffix = "q";
+        write!(fmt, "mov{} {}, {}\t\t/* store */", mov_suffix, self.src, self.dst)
     }
 }
 
@@ -1485,7 +1443,6 @@ impl OperandUsingRegs for lir::AddressComputation<Amd64Reg> {
 
 #[derive(Copy, Clone)]
 pub(super) enum SrcOperand {
-    Mem(lir::AddressComputation<Amd64Reg>),
     Ar(isize),
     Reg(Amd64Reg),
     Imm(Tarval),
@@ -1494,7 +1451,6 @@ pub(super) enum SrcOperand {
 impl OperandUsingRegs for SrcOperand {
     fn used_regs(self) -> Vec<Amd64Reg> {
         match self {
-            SrcOperand::Mem(ac) => ac.used_regs(),
             SrcOperand::Reg(reg) => vec![reg],
             SrcOperand::Imm(_) => vec![],
             SrcOperand::Ar(_) => vec![Amd64Reg::Rbp],
@@ -1504,7 +1460,6 @@ impl OperandUsingRegs for SrcOperand {
 
 #[derive(Debug, Copy, Clone)]
 pub(super) enum DstOperand {
-    Mem(lir::AddressComputation<Amd64Reg>),
     Ar(isize),
     Reg(Amd64Reg),
 }
@@ -1512,7 +1467,6 @@ pub(super) enum DstOperand {
 impl OperandUsingRegs for DstOperand {
     fn used_regs(self) -> Vec<Amd64Reg> {
         match self {
-            DstOperand::Mem(ac) => ac.used_regs(),
             DstOperand::Reg(reg) => vec![reg],
             DstOperand::Ar(_) => vec![Amd64Reg::Rbp],
         }
@@ -1563,7 +1517,6 @@ impl TryFrom<SrcOperand> for DstOperand {
     fn try_from(op: SrcOperand) -> Result<Self, ()> {
         match op {
             SrcOperand::Reg(reg) => Ok(DstOperand::Reg(reg)),
-            SrcOperand::Mem(addr) => Ok(DstOperand::Mem(addr)),
             SrcOperand::Ar(idx) => Ok(DstOperand::Ar(idx)),
             SrcOperand::Imm(_) => Err(()),
         }
@@ -1573,7 +1526,6 @@ impl TryFrom<SrcOperand> for DstOperand {
 impl std::fmt::Display for SrcOperand {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SrcOperand::Mem(addr) => write!(fmt, "{}", addr),
             SrcOperand::Reg(reg) => write!(fmt, "{}", reg),
             SrcOperand::Ar(idx) => write!(fmt, "{}(%rbp)", idx.checked_mul(8).unwrap()),
             SrcOperand::Imm(c) => write!(fmt, "${}", c.get_long()),
@@ -1584,7 +1536,6 @@ impl std::fmt::Display for SrcOperand {
 impl std::fmt::Display for DstOperand {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DstOperand::Mem(addr) => write!(fmt, "{}", addr),
             DstOperand::Ar(idx) => write!(fmt, "{}(%rbp)", idx.checked_mul(8).unwrap()),
             DstOperand::Reg(reg) => write!(fmt, "{}", reg),
         }
@@ -1596,21 +1547,6 @@ impl Hash for DstOperand {
         match self {
             DstOperand::Reg(reg) => reg.hash(state),
             DstOperand::Ar(idx) => idx.hash(state),
-            DstOperand::Mem(lir::AddressComputation {
-                offset,
-                base,
-                index,
-            }) => {
-                offset.hash(state);
-                base.hash(state);
-                match index {
-                    lir::IndexComputation::Displacement(reg, s) => {
-                        reg.hash(state);
-                        s.hash(state);
-                    }
-                    lir::IndexComputation::Zero => (),
-                }
-            }
         }
     }
 }
@@ -1618,36 +1554,9 @@ impl Hash for DstOperand {
 impl PartialEq for DstOperand {
     fn eq(&self, other: &DstOperand) -> bool {
         use self::DstOperand::*;
-        use super::lir::IndexComputation::*;
         match (self, other) {
             (Reg(reg1), Reg(reg2)) => reg1 == reg2,
-            (
-                Mem(lir::AddressComputation {
-                    offset: offset1,
-                    base: base1,
-                    index: index1,
-                }),
-                Mem(lir::AddressComputation {
-                    offset: offset2,
-                    base: base2,
-                    index: index2,
-                }),
-            ) => {
-                offset1 == offset2
-                    && base1 == base2
-                    && match (index1, index2) {
-                        (Displacement(reg1, s1), Displacement(reg2, s2)) => {
-                            reg1 == reg2 && s1 == s2
-                        }
-                        (Zero, Zero) => true,
-                        _ => false,
-                    }
-            }
             (Ar(idx1), Ar(idx2)) => idx1 == idx2,
-            (Mem(_), Ar(_))
-            | (Ar(_), Mem(_))
-            | (Mem(_), Reg(_))
-            | (Reg(_), Mem(_))
             | (Ar(_), Reg(_))
             | (Reg(_), Ar(_)) => false,
         }
@@ -1668,7 +1577,6 @@ impl From<RegGraphMinLeftEdgeInstruction<DstOperand>> for Instruction {
             RegGraphMinLeftEdgeInstruction::Push(src) => {
                 let src = match src {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
-                    DstOperand::Mem(addr) => SrcOperand::Mem(addr),
                     DstOperand::Ar(idx) => SrcOperand::Ar(idx),
                 };
                 Pushq { src }
@@ -1677,7 +1585,6 @@ impl From<RegGraphMinLeftEdgeInstruction<DstOperand>> for Instruction {
             RegGraphMinLeftEdgeInstruction::Mov(RegToRegTransfer { src, dst }) => {
                 let src = match src {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
-                    DstOperand::Mem(addr) => SrcOperand::Mem(addr),
                     DstOperand::Ar(idx) => SrcOperand::Ar(idx),
                 };
                 Mov(MovInstruction {
@@ -1757,9 +1664,6 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
                     size,
                     comment,
                 })),
-                (SrcOperand::Mem(_), _) | (_, DstOperand::Mem(_)) => {
-                    unreachable!("operand mem only in load/store possible")
-                }
             },
             _ => unreachable!(),
         }
