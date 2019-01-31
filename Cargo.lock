@@ -900,6 +900,7 @@ dependencies = [
  "gcollections 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "intervallum 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libfirm-rs 0.0.1",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "optimization 0.1.0",
@@ -995,6 +996,7 @@ name = "mjrt-impl"
 version = "0.1.0"
 dependencies = [
  "backtrace 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.45 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc-extra 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

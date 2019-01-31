@@ -688,13 +688,20 @@ pub struct ControlFlowTransfer {
     pub target: Ptr<BasicBlock>,
 }
 
+lazy_static::lazy_static! {
+    static ref COMPRAKT_LOWERING_LIR_DUMP_YCOMP_PRE_LIR_DUMPED: std::sync::Once =
+        std::sync::Once::new();
+}
+
 impl BlockGraph {
     fn from(firm_graph: libfirm_rs::Graph, alloc: &Allocator) -> Ptr<Self> {
         RemoveCriticalEdges::optimize_function(firm_graph);
 
         if std::env::var("COMPRAKT_LOWERING_LIR_DUMP_YCOMP_PRE_LIR").is_ok() {
-            let suffix = std::ffi::CString::new("pre-lir").unwrap();
-            unsafe { libfirm_rs::bindings::dump_all_ir_graphs(suffix.as_ptr()) };
+            COMPRAKT_LOWERING_LIR_DUMP_YCOMP_PRE_LIR_DUMPED.call_once(|| {
+                let suffix = std::ffi::CString::new("pre-lir").unwrap();
+                unsafe { libfirm_rs::bindings::dump_all_ir_graphs(suffix.as_ptr()) };
+            });
         }
 
         firm_graph.assure_outs();
