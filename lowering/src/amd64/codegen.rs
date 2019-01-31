@@ -1480,7 +1480,7 @@ impl fmt::Display for Instruction {
             Mov(mov) => write!(fmt, "\t{}", mov),
             Load(load) => write!(fmt, "\t{}", load),
             Store(store) => write!(fmt, "\t{}", store),
-            Divq { src } => write!(fmt, "\tdivq {}", src),
+            Divq { src } => write!(fmt, "\tidivq {}", src),
             Pushq { src } => write!(fmt, "\tpushq {}", src),
             Popq { dst } => write!(fmt, "\tpopq {}", dst),
             Jmp { kind, label } => write!(fmt, "\t{} {}", kind, label),
