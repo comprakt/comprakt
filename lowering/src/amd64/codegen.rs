@@ -489,17 +489,9 @@ impl Codegen {
         let base: Reg = match base {
             // the base address of ac is stored in a reg, this is fine
             SrcOperand::Reg(reg) => {
+                assert!(reg.size() == Size::Eight); // must be a pointer
                 already_in_registers.push(reg.reg);
-                let sign_extended = Reg {
-                    size: Size::Eight,
-                    reg: reg.reg,
-                };
-                spill_ctx.sign_extension.push(Mov(MovInstruction {
-                    src: base,
-                    dst: DstOperand::Reg(sign_extended),
-                    comment: "load store sign extension".to_string(),
-                }));
-                sign_extended
+                reg
             }
             SrcOperand::Imm(tv) => {
                 assert!(tv.is_long());
@@ -1538,23 +1530,18 @@ pub(super) struct MovInstruction {
 impl fmt::Display for MovInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         use super::Size::*;
-        let (mov_suffix, src, dst) = match (self.src.size(), self.dst.size()) {
-            (One, One) => ("b", self.src, self.dst),
-            (One, Four) => ("sbl", self.src, self.dst),
-            (One, Eight) => ("sbq", self.src, self.dst),
-            (Four, One) => ("b", self.src.into_size(One), self.dst),
-            (Four, Four) => ("l", self.src, self.dst),
-            (Four, Eight) => ("slq", self.src, self.dst),
-            (Eight, One) => ("b", self.src.into_size(One), self.dst),
-            (Eight, Four) => ("l", self.src.into_size(Four), self.dst),
-            (Eight, Eight) => ("q", self.src, self.dst),
-        };
+        let (src, dst) = (self.src, self.dst);
         match (src, dst) {
-            (SrcOperand::Ar(_), DstOperand::Reg(_)) => write!(
-                fmt,
-                "mov{} {}, {}\t\t/* {} */",
-                mov_suffix, src, dst, self.comment
-            ),
+            (SrcOperand::Ar(_), DstOperand::Reg(_)) => {
+                // we use movq because then assembler will panic if dst has wrong size
+                write!(
+                    fmt,
+                    "movq {}, {}\t\t/* {} */",
+                    src,
+                    dst.into_size(Eight),
+                    self.comment
+                )
+            }
             (SrcOperand::Imm(_), DstOperand::Reg(_)) => {
                 let mov_suffix = match dst.size() {
                     One => "b",
@@ -1567,19 +1554,28 @@ impl fmt::Display for MovInstruction {
                     mov_suffix, src, dst, self.comment
                 )
             }
-            (SrcOperand::Reg(_), DstOperand::Ar(_)) | (SrcOperand::Imm(_), DstOperand::Ar(_)) => {
-                let mov_suffix = match src.size() {
-                    One => "b",
-                    Four => "l",
-                    Eight => "q",
-                };
-                write!(
-                    fmt,
-                    "mov{} {}, {}\t\t/* {} */",
-                    mov_suffix, src, dst, self.comment
-                )
+            (SrcOperand::Reg(_), DstOperand::Ar(_)) => write!(
+                fmt,
+                "movq {}, {}\t\t/* {} */",
+                src.into_size(Eight),
+                dst,
+                self.comment
+            ),
+            (SrcOperand::Imm(_), DstOperand::Ar(_)) => {
+                write!(fmt, "movq {}, {}\t\t/* {} */", src, dst, self.comment)
             }
             (SrcOperand::Reg(src_reg), DstOperand::Reg(dst_reg)) => {
+                let (mov_suffix, src, dst) = match (self.src.size(), self.dst.size()) {
+                    (One, One) => ("b", self.src, self.dst),
+                    (One, Four) => ("sbl", self.src, self.dst),
+                    (One, Eight) => ("sbq", self.src, self.dst),
+                    (Four, One) => ("b", self.src.into_size(One), self.dst),
+                    (Four, Four) => ("l", self.src, self.dst),
+                    (Four, Eight) => ("slq", self.src, self.dst),
+                    (Eight, One) => ("b", self.src.into_size(One), self.dst),
+                    (Eight, Four) => ("l", self.src.into_size(Four), self.dst),
+                    (Eight, Eight) => ("q", self.src, self.dst),
+                };
                 // FIXME: handling this in the Display impl is wrong. Do this right!
                 if src_reg == dst_reg {
                     write!(fmt, "/* mov %r, %r */\t\t/* {} */", self.comment)
@@ -1605,14 +1601,16 @@ pub(super) struct LoadInstruction {
 impl fmt::Display for LoadInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mov_suffix = match self.dst.size {
-            Size::One => "b",
-            Size::Four => "l",
+            Size::One => "sbq",
+            Size::Four => "slq",
             Size::Eight => "q",
         };
         write!(
             fmt,
             "mov{} {}, {}\t\t/* load */",
-            mov_suffix, self.src, self.dst
+            mov_suffix,
+            self.src,
+            self.dst.into_size(Size::Eight)
         )
     }
 }
@@ -1742,7 +1740,7 @@ impl OperandTrait for SrcOperand {
     fn size(self) -> Size {
         match self {
             SrcOperand::Ar(_) => Size::Eight,
-            SrcOperand::Reg(reg) => reg.size,
+            SrcOperand::Reg(reg) => reg.size(),
             SrcOperand::Imm(tv) => tv.mode().size_bytes().try_into().unwrap(),
         }
     }
@@ -1750,8 +1748,20 @@ impl OperandTrait for SrcOperand {
         match self {
             // We can't convert the size of an Ar entry, but that's ok
             SrcOperand::Ar(_) => self,
-            SrcOperand::Reg(reg) => SrcOperand::Reg(Reg { size, reg: reg.reg }),
+            SrcOperand::Reg(reg) => SrcOperand::Reg(reg.into_size(size)),
             SrcOperand::Imm(_) => self,
+        }
+    }
+}
+
+impl OperandTrait for Reg {
+    fn size(self) -> Size {
+        self.size
+    }
+    fn into_size(self, size: Size) -> Self {
+        Self {
+            size,
+            reg: self.reg,
         }
     }
 }
@@ -1783,7 +1793,7 @@ impl OperandTrait for DstOperand {
         match self {
             // We can't convert the size of an Ar entry, but that's ok
             DstOperand::Ar(_) => self,
-            DstOperand::Reg(reg) => DstOperand::Reg(Reg { size, reg: reg.reg }),
+            DstOperand::Reg(reg) => DstOperand::Reg(reg.into_size(size)),
         }
     }
 }
