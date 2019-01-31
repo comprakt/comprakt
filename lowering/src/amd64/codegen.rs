@@ -970,13 +970,16 @@ impl Codegen {
                 comment: "call move from %rax".to_string(),
             });
             let src = self.fn_to_src_operand(src);
-            assert_eq!(
-                DstOperand::Reg(Reg {
-                    size: Size::Eight,
-                    reg: Amd64Reg::A,
-                }),
-                src.try_into().unwrap()
-            );
+            {
+                let x: DstOperand = src.try_into().unwrap();
+                assert_eq!(
+                    x.reg_unchecked(),
+                    Reg {
+                        size: Size::Eight,
+                        reg: Amd64Reg::A,
+                    }
+                )
+            }
             // TODO this will always return Size::Eight ATM
             let dst = self.fn_to_src_operand(dst).try_into().unwrap();
             instrs.push(Mov(MovInstruction {
@@ -1577,6 +1580,7 @@ impl SpillContext {
 }
 
 trait OperandUsingRegs {
+    // The list of registers used by the operand, excluding rsp and rbp.
     fn used_regs(self) -> Vec<Amd64Reg>;
 }
 
@@ -1650,7 +1654,7 @@ impl OperandUsingRegs for SrcOperand {
         match self {
             SrcOperand::Reg(reg) => vec![reg.reg],
             SrcOperand::Imm(_) => vec![],
-            SrcOperand::Ar(_) => vec![Amd64Reg::Bp],
+            SrcOperand::Ar(_) => vec![], // trait definition says rbp is not part of used_regs
         }
     }
 }
@@ -1659,6 +1663,15 @@ impl OperandUsingRegs for SrcOperand {
 pub(super) enum DstOperand {
     Ar(Ar),
     Reg(Reg),
+}
+
+impl DstOperand {
+    fn reg_unchecked(self) -> Reg {
+        match self {
+            DstOperand::Reg(reg) => reg,
+            x => panic!("reg_unchecked: {:?}", x),
+        }
+    }
 }
 
 impl OperandTrait for DstOperand {
@@ -1680,7 +1693,7 @@ impl OperandUsingRegs for DstOperand {
     fn used_regs(self) -> Vec<Amd64Reg> {
         match self {
             DstOperand::Reg(reg) => vec![reg.reg],
-            DstOperand::Ar(_) => vec![Amd64Reg::Bp],
+            DstOperand::Ar(_) => vec![], // per definition is rbp not part of this list
         }
     }
 }
@@ -1754,39 +1767,51 @@ impl std::fmt::Display for DstOperand {
     }
 }
 
-impl Hash for DstOperand {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            DstOperand::Reg(reg) => reg.hash(state),
-            DstOperand::Ar(idx) => idx.hash(state),
-        }
-    }
-}
-
-impl PartialEq for DstOperand {
-    fn eq(&self, other: &DstOperand) -> bool {
-        use self::DstOperand::*;
-        match (self, other) {
-            (Reg(reg1), Reg(reg2)) => reg1 == reg2,
-            (Ar(idx1), Ar(idx2)) => idx1 == idx2,
-            (Ar(_), Reg(_)) | (Reg(_), Ar(_)) => false,
-        }
-    }
-}
-
-impl Eq for DstOperand {}
-
 struct Mov {
     src: SrcOperand,
     dst: DstOperand,
 }
 
-impl From<RegGraphMinLeftEdgeInstruction<DstOperand>> for Instruction {
-    fn from(i: RegGraphMinLeftEdgeInstruction<DstOperand>) -> Self {
+/// A newtype around DstOperand for the purpose of copy propagation cycle
+/// removal.
+#[derive(Clone, Copy, From)]
+struct SortCopyPropEntity(DstOperand);
+
+// keep in sync with Hash
+impl PartialEq for SortCopyPropEntity {
+    fn eq(&self, other: &Self) -> bool {
+        use self::DstOperand::*;
+        match (self.0, other.0) {
+            // size is not identifying here (rax and eax) **must** be the same for the purpose of
+            // cycle removal
+            (Reg(reg1), Reg(reg2)) => reg1.reg == reg2.reg,
+            // same goes for Ar
+            (Ar(ar1), Ar(ar2)) => ar1.pos == ar2.pos,
+            (Reg(_), Ar(_)) | (Ar(_), Reg(_)) => false,
+        }
+    }
+}
+
+// keep in sync with PartialEq
+impl Hash for SortCopyPropEntity {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self.0 {
+            // size is not identifying here (rax and eax) **must** be the same for the purpose of
+            // cycle removal
+            DstOperand::Reg(reg) => reg.reg.hash(state),
+            DstOperand::Ar(ar) => ar.pos.hash(state),
+        }
+    }
+}
+
+impl Eq for SortCopyPropEntity {}
+
+impl From<RegGraphMinLeftEdgeInstruction<SortCopyPropEntity>> for Instruction {
+    fn from(i: RegGraphMinLeftEdgeInstruction<SortCopyPropEntity>) -> Self {
         use self::Instruction::{Mov, Popq, Pushq};
         match i {
             RegGraphMinLeftEdgeInstruction::Push(src) => {
-                let src = match src {
+                let src = match src.0 {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
                     DstOperand::Ar(idx) => SrcOperand::Ar(idx),
                 };
@@ -1795,16 +1820,16 @@ impl From<RegGraphMinLeftEdgeInstruction<DstOperand>> for Instruction {
                 }
             }
             RegGraphMinLeftEdgeInstruction::Pop(dst) => Popq {
-                dst: dst.into_size(Size::Eight),
+                dst: dst.0.into_size(Size::Eight),
             },
             RegGraphMinLeftEdgeInstruction::Mov(RegToRegTransfer { src, dst }) => {
-                let src = match src {
+                let src = match src.0 {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
                     DstOperand::Ar(idx) => SrcOperand::Ar(idx),
                 };
                 Mov(MovInstruction {
                     src,
-                    dst,
+                    dst: dst.0,
                     comment: "copy prop".to_string(),
                 })
             }
@@ -1817,9 +1842,7 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
 
     let mut mov_imm = vec![];
 
-    debug_assert_eq!(copies.iter().unique_by(|mov| mov.dst).count(), copies.len());
-
-    let mut transfers = vec![];
+    let mut transfers: Vec<RegToRegTransfer<SortCopyPropEntity>> = vec![];
     for instr in copies.iter() {
         match instr.src {
             SrcOperand::Imm(_) => mov_imm.push(Mov(MovInstruction {
@@ -1829,8 +1852,8 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
             })),
             _ => {
                 transfers.push(RegToRegTransfer {
-                    src: instr.src.try_into().unwrap(),
-                    dst: instr.dst,
+                    src: SortCopyPropEntity(instr.src.try_into().unwrap()),
+                    dst: instr.dst.into(),
                 });
             }
         }
