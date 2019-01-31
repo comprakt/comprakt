@@ -996,7 +996,6 @@ name = "mjrt-impl"
 version = "0.1.0"
 dependencies = [
  "backtrace 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.45 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc-extra 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
