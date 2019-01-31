@@ -454,7 +454,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             }
             ArrayAccess(target, idx_expr) => {
                 let item_ty = &self.type_analysis.expr_info(expr).ty;
-                let item_ty = ty_from_checked_type(item_ty).expect("not void");
+                let item_ty = ty_from_checked_type(item_ty, self.type_system, self.program)
+                    .expect("not void");
                 let arr_ty = item_ty.array().into();
                 let (act_block, target) = self.gen_value(act_block, target);
                 let (act_block, idx_node) = self.gen_value(act_block, idx_expr);
