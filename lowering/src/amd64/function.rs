@@ -3,7 +3,7 @@ use super::{
     linear_scan,
     live_variable_analysis::{self, LiveVariableAnalysis, Operands},
     register::RegisterAllocator,
-    var_id, Amd64Reg, CallingConv, VarId,
+    var_id, Amd64Reg, CallingConv, Reg, Size, VarId,
 };
 use crate::lowering::{lir, lir_allocator::Ptr};
 use interval::{ops::Range, Interval};
@@ -53,7 +53,7 @@ pub(super) enum FnInstruction {
     Movq { src: FnOperand, dst: FnOperand },
     Pushq { src: FnOperand },
     Popq { dst: FnOperand },
-    Addq { src: Tarval, dst: Amd64Reg },
+    Addq { src: Tarval, dst: Reg },
     Leave,
     Ret,
 }
@@ -113,12 +113,15 @@ impl FunctionCall {
                 // Remove the pushed args from stack after the call
                 call.recover = Some(FnInstruction::Addq {
                     src: Tarval::mj_int((call.push_setup.len() * 8) as i64),
-                    dst: Amd64Reg::Rsp,
+                    dst: Reg {
+                        size: Size::Eight,
+                        reg: Amd64Reg::Sp,
+                    },
                 });
             }
 
             call.move_res = dst.map(|dst| FnInstruction::Movq {
-                src: FnOperand::Reg(Amd64Reg::Rax),
+                src: FnOperand::Reg(Amd64Reg::A),
                 dst: FnOperand::Lir(lir::Operand::Slot(dst)),
             });
         } else {
@@ -207,11 +210,11 @@ impl Function {
         };
 
         function.prolog.push(FnInstruction::Pushq {
-            src: FnOperand::Reg(Amd64Reg::Rbp),
+            src: FnOperand::Reg(Amd64Reg::Bp),
         });
         function.prolog.push(FnInstruction::Movq {
-            src: FnOperand::Reg(Amd64Reg::Rsp),
-            dst: FnOperand::Reg(Amd64Reg::Rbp),
+            src: FnOperand::Reg(Amd64Reg::Sp),
+            dst: FnOperand::Reg(Amd64Reg::Bp),
         });
 
         function.epilog.push(FnInstruction::Leave);
@@ -241,11 +244,11 @@ impl Function {
         // registers if more than 9 registers are required.
         match num_regs_required {
             x if x < 9 => (), // Enough caller save registers available
-            9 => self.saved_regs.add_regs(&[Rbx]),
-            10 => self.saved_regs.add_regs(&[Rbx, R12]),
-            11 => self.saved_regs.add_regs(&[Rbx, R12, R13]),
-            12 => self.saved_regs.add_regs(&[Rbx, R12, R13, R14]),
-            13 => self.saved_regs.add_regs(&[Rbx, R12, R13, R14, R15]),
+            9 => self.saved_regs.add_regs(&[B]),
+            10 => self.saved_regs.add_regs(&[B, R12]),
+            11 => self.saved_regs.add_regs(&[B, R12, R13]),
+            12 => self.saved_regs.add_regs(&[B, R12, R13, R14]),
+            13 => self.saved_regs.add_regs(&[B, R12, R13, R14, R15]),
             _ => unreachable!("More registers required than available"),
         }
     }

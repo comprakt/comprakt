@@ -224,7 +224,10 @@ where
         match self {
             CI::Body(body) => match body.borrow() {
                 Instruction::Lir(lir) => match lir {
-                    LoadParam { idx } => vec![lir::Operand::Param { idx: *idx }],
+                    LoadParam { idx, size } => vec![lir::Operand::Param {
+                        idx: *idx,
+                        size: *size,
+                    }],
                     Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
                         vec![*src1, *src2]
                     }

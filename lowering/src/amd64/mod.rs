@@ -7,7 +7,8 @@ mod live_variable_analysis;
 mod register;
 
 pub use self::function::Function;
-use self::register::Amd64Reg;
+use self::register::{Amd64Reg, Reg};
+use std::convert::TryFrom;
 
 pub(super) type VarId = (i64, usize);
 
@@ -15,7 +16,7 @@ fn var_id(op: lir::Operand) -> VarId {
     use super::lir::Operand::*;
     match op {
         Slot(slot) => (slot.allocated_in().num, slot.num()),
-        Param { idx } => (-1, idx as usize),
+        Param { idx, .. } => (-1, idx as usize),
         Imm(_) => unreachable!(),
     }
 }
@@ -58,5 +59,25 @@ impl Program {
             f.emit_asm(out)?;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
+pub(self) enum Size {
+    One,
+    Four,
+    Eight,
+}
+
+impl TryFrom<u32> for Size {
+    type Error = ();
+
+    fn try_from(size: u32) -> Result<Self, Self::Error> {
+        match size {
+            1 => Ok(Size::One),
+            4 => Ok(Size::Four),
+            8 => Ok(Size::Eight),
+            _ => Err(()),
+        }
     }
 }

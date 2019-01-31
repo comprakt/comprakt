@@ -245,6 +245,7 @@ impl fmt::Debug for MultiSlot {
 pub enum Instruction {
     LoadParam {
         idx: u32,
+        size: u32,
     },
     Binop {
         kind: BinopKind,
@@ -308,7 +309,7 @@ impl fmt::Debug for Instruction {
         use self::{Instruction::*, LoadMem, StoreMem};
 
         match self {
-            LoadParam { idx } => write!(fmt, "load_param {}", idx),
+            LoadParam { idx, .. } => write!(fmt, "load_param {}", idx),
             Binop {
                 kind,
                 src1,
@@ -525,7 +526,7 @@ pub struct CopyPropagation {
 #[derive(Debug, Copy, Clone)]
 pub enum CopyPropagationSrc {
     Slot(Ptr<MultiSlot>),
-    Param { idx: u32 },
+    Param { idx: u32, size: u32 },
     Imm(Tarval),
 }
 
@@ -545,6 +546,7 @@ pub enum Operand {
     /// only readable!
     Param {
         idx: u32,
+        size: u32,
     },
 }
 
@@ -554,7 +556,7 @@ impl fmt::Debug for Operand {
         match self {
             Imm(tv) => write!(fmt, "Imm{{{:?}}}", tv),
             Slot(ms) => write!(fmt, "Slot#{:?}", ms),
-            Param { idx } => write!(fmt, "Param#{}", idx),
+            Param { idx, .. } => write!(fmt, "Param#{}", idx),
         }
     }
 }
@@ -569,7 +571,7 @@ impl From<CopyPropagationSrc> for Operand {
     fn from(op: CopyPropagationSrc) -> Self {
         match op {
             CopyPropagationSrc::Slot(s) => Operand::Slot(s),
-            CopyPropagationSrc::Param { idx } => Operand::Param { idx },
+            CopyPropagationSrc::Param { idx, size } => Operand::Param { idx, size },
             CopyPropagationSrc::Imm(val) => Operand::Imm(val),
         }
     }

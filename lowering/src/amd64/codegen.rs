@@ -3,8 +3,8 @@ use super::{
     linear_scan::{self, Location},
     lir::{self, MultiSlot},
     live_variable_analysis,
-    register::{Reg, Amd64Reg},
-    var_id, CallingConv, VarId,
+    register::{Amd64Reg, Reg},
+    var_id, CallingConv, Size, VarId,
 };
 use crate::lowering::lir_allocator::Ptr;
 use itertools::Itertools;
@@ -141,7 +141,7 @@ impl Codegen {
         function: &function::Function,
         instrs: &mut Vec<Instruction>,
     ) {
-        use self::Instruction::{Comment, Mov, Pushq, Subq};
+        use self::Instruction::{Comment, Mov, Pushq, Sub};
 
         instrs.push(Comment {
             comment: "function prolog".to_string(),
@@ -150,7 +150,7 @@ impl Codegen {
             match instr {
                 function::FnInstruction::Pushq { src } => {
                     let src = self.fn_to_src_operand(*src);
-                    instrs.push(Pushq { src });
+                    instrs.push(Pushq { src: src.into_size(Size::Eight) });
                 }
                 function::FnInstruction::Movq { src, dst } => {
                     let src = self.fn_to_src_operand(*src);
@@ -169,16 +169,22 @@ impl Codegen {
             comment: "function save regs".to_string(),
         });
         for src in function.saved_regs.saves() {
-            let src = SrcOperand::Reg(src);
+            let src = SrcOperand::Reg(Reg {
+                size: Size::Eight,
+                reg: src,
+            });
             instrs.push(Pushq { src });
         }
 
         instrs.push(Comment {
             comment: "function allocate stack slots".to_string(),
         });
-        instrs.push(Subq {
+        instrs.push(Sub {
             subtrahend: SrcOperand::Imm(self.stack_slots_space(function)),
-            acc: DstOperand::Reg(Amd64Reg::Rsp),
+            acc: DstOperand::Reg(Reg {
+                size: Size::Eight,
+                reg: Amd64Reg::Sp,
+            }),
         });
     }
 
@@ -187,21 +193,27 @@ impl Codegen {
         function: &function::Function,
         instrs: &mut Vec<Instruction>,
     ) {
-        use self::Instruction::{Addq, Comment, Leave, Popq, Ret};
+        use self::Instruction::{Add, Comment, Leave, Popq, Ret};
 
         instrs.push(Comment {
             comment: "function de-allocate stack slots".to_string(),
         });
-        instrs.push(Addq {
+        instrs.push(Add {
             src: SrcOperand::Imm(self.stack_slots_space(function)),
-            dst: DstOperand::Reg(Amd64Reg::Rsp),
+            dst: DstOperand::Reg(Reg {
+                size: Size::Eight,
+                reg: Amd64Reg::Sp,
+            }),
         });
 
         instrs.push(Comment {
             comment: "function restore regs".to_string(),
         });
         for dst in function.saved_regs.restores() {
-            let dst = DstOperand::Reg(dst);
+            let dst = DstOperand::Reg(Reg {
+                size: Size::Eight,
+                reg: dst,
+            });
             instrs.push(Popq { dst });
         }
 
@@ -232,11 +244,11 @@ impl Codegen {
     }
 
     fn gen_lir(&mut self, lir: &lir::Instruction, instrs: &mut Vec<Instruction>) {
-        use self::Instruction::{Store, Load, Mov};
+        use self::Instruction::{Load, Mov, Store};
 
         log::debug!("Gen lir: {:?}", lir);
         match lir {
-            lir::Instruction::LoadParam { idx } => self.gen_load_param(*idx, instrs),
+            lir::Instruction::LoadParam { idx, size } => self.gen_load_param(*idx, *size, instrs),
             lir::Instruction::Binop {
                 kind,
                 src1,
@@ -249,7 +261,10 @@ impl Codegen {
                 *dst,
                 |dst| {
                     Mov(MovInstruction {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
+                        src: SrcOperand::Reg(Reg {
+                            size: dst.size(),
+                            reg: Amd64Reg::A,
+                        }),
                         dst,
                         comment: "div result".to_string(),
                     })
@@ -262,7 +277,10 @@ impl Codegen {
                 *dst,
                 |dst| {
                     Mov(MovInstruction {
-                        src: SrcOperand::Reg(Amd64Reg::Rdx),
+                        src: SrcOperand::Reg(Reg {
+                            size: dst.size(),
+                            reg: Amd64Reg::D,
+                        }),
                         dst,
                         comment: "mod result".to_string(),
                     })
@@ -277,7 +295,10 @@ impl Codegen {
                     .unwrap();
                 let src = match (src, dst) {
                     (SrcOperand::Ar(_), DstOperand::Ar(_)) => {
-                        let spill = Amd64Reg::Rax;
+                        let spill = Reg {
+                            size: Size::Eight,
+                            reg: Amd64Reg::A,
+                        };
                         instrs.push(Mov(MovInstruction {
                             src,
                             dst: DstOperand::Reg(spill),
@@ -307,7 +328,7 @@ impl Codegen {
                 let free_regs = free_regs.into_iter().rev().collect();
                 let mut spill_ctx = SpillContext::new(free_regs);
 
-                let dst: lir::AddressComputation<Amd64Reg> = {
+                let dst: lir::AddressComputation<Reg> = {
                     let dst = store.mem_address_computation();
                     let (dst, _) = self.lir_address_computation_to_register_address_computation(
                         dst,
@@ -333,10 +354,7 @@ impl Codegen {
 
                 // Emit the instructoins
                 // This whole function is just about the following statement
-                let surrounded = vec![Store(StoreInstruction {
-                    src,
-                    dst,
-                })];
+                let surrounded = vec![Store(StoreInstruction { src, dst })];
                 instrs.extend(spill_ctx.emit_surrounded_instrs(surrounded));
             }
             lir::Instruction::LoadMem(load) => {
@@ -353,7 +371,7 @@ impl Codegen {
                 let mut spill_ctx = SpillContext::new(free_regs);
                 let mut post_mov_instrs = vec![];
 
-                let src: lir::AddressComputation<Amd64Reg> = {
+                let src: lir::AddressComputation<Reg> = {
                     let src = load.mem_address_computation();
                     let (src, _) = self.lir_address_computation_to_register_address_computation(
                         src,
@@ -374,22 +392,23 @@ impl Codegen {
                             // Using rax without consulting free_regs is safe because
                             // because any usage as spill space for src
                             // ends during the execution of mov
+                            let spill = Reg {
+                                size: dst.size(),
+                                reg: Amd64Reg::A,
+                            };
                             post_mov_instrs.push(Instruction::Mov(MovInstruction {
-                                src: SrcOperand::Reg(Amd64Reg::Rax),
+                                src: SrcOperand::Reg(spill),
                                 dst,
                                 comment: "load dst mem from rax".to_string(),
                             }));
-                            Amd64Reg::Rax
+                            spill
                         }
                     }
                 };
 
                 // Emit the instructions
                 // This whole function is just about the following statement
-                let mut surrounded = vec![Load(LoadInstruction {
-                    src,
-                    dst: Reg { size: load.size(), reg: dst },
-                })];
+                let mut surrounded = vec![Load(LoadInstruction { src, dst })];
                 surrounded.extend(post_mov_instrs);
                 instrs.extend(spill_ctx.emit_surrounded_instrs(surrounded));
             }
@@ -398,31 +417,41 @@ impl Codegen {
         }
     }
 
-    fn gen_load_param(&self, idx: u32, instrs: &mut Vec<Instruction>) {
+    fn gen_load_param(&self, idx: u32, size: u32, instrs: &mut Vec<Instruction>) {
         use self::Instruction::{Comment, Mov};
 
-        let param = &self.var_location[&var_id(lir::Operand::Param { idx })];
+        let param = &self.var_location[&var_id(lir::Operand::Param { idx, size })];
+        let size = size.try_into().unwrap();
         match param {
             // Register allocation placed argument into a register.
             Location::Reg(reg) => {
                 // However, calling convention might still dictate that the argument is placed
                 // on the stack.
-                if let Some(instr) = self.arg_from_stack(idx as usize, DstOperand::Reg(*reg)) {
+                let reg = Reg { size, reg: *reg };
+                if let Some(instr) = self.arg_from_stack(idx as usize, DstOperand::Reg(reg)) {
                     instrs.push(Instruction::Comment {
                         comment: "move stack arg in reg".to_string(),
                     });
                     instrs.push(instr);
+                    instrs.push(Mov(MovInstruction {
+                        src: SrcOperand::Reg(reg),
+                        dst: DstOperand::Reg(Reg {
+                            size: Size::Eight,
+                            reg: reg.reg,
+                        }),
+                        comment: "sign extend stack arg".to_string(),
+                    }));
                 }
             }
             // Register allocation placed argument into the AR, but the calling convetion placed
-            // the argument into a register, somove it to the AR slot.
+            // the argument into a register, so move it to the AR slot.
             Location::Ar(i) => {
                 let arg_reg = Amd64Reg::arg(idx as usize);
                 instrs.push(Comment {
                     comment: format!("spill argument register {}", arg_reg),
                 });
                 instrs.push(Mov(MovInstruction {
-                    src: SrcOperand::Reg(arg_reg),
+                    src: SrcOperand::Reg(Reg { size, reg: arg_reg }),
                     dst: DstOperand::Ar(-((*i + 1 + self.num_saved_regs) as isize)),
                     comment: "move param to stack".to_string(),
                 }));
@@ -447,7 +476,9 @@ impl Codegen {
         &mut self,
         ac: lir::AddressComputation<lir::Operand>,
         spill_ctx: &mut SpillContext,
-    ) -> (lir::AddressComputation<Amd64Reg>, Vec<Amd64Reg>) {
+    ) -> (lir::AddressComputation<Reg>, Vec<Amd64Reg>) {
+        use self::Instruction::Mov;
+
         let lir::AddressComputation {
             offset,
             base,
@@ -455,11 +486,20 @@ impl Codegen {
         } = ac;
         let mut already_in_registers = vec![];
         let base = self.lir_to_src_operand(base);
-        let base: Amd64Reg = match base {
+        let base: Reg = match base {
             // the base address of ac is stored in a reg, this is fine
             SrcOperand::Reg(reg) => {
-                already_in_registers.push(reg);
-                reg
+                already_in_registers.push(reg.reg);
+                let sign_extended = Reg {
+                    size: Size::Eight,
+                    reg: reg.reg,
+                };
+                spill_ctx.sign_extension.push(Mov(MovInstruction {
+                    src: base,
+                    dst: DstOperand::Reg(sign_extended),
+                    comment: "load store sign extension".to_string(),
+                }));
+                sign_extended
             }
             SrcOperand::Imm(tv) => {
                 assert!(tv.is_long());
@@ -467,7 +507,10 @@ impl Codegen {
                     // some operation relative to the null pointer
                     // let's use the undefined behavior here
                     // for some funny stuff
-                    Amd64Reg::Rsp
+                    Reg {
+                        size: Size::Eight,
+                        reg: Amd64Reg::Sp,
+                    }
                 } else {
                     // hardcoded addresses are impossible in MJ
                     // and with our optimizations
@@ -478,14 +521,23 @@ impl Codegen {
             SrcOperand::Ar(_) => spill_ctx.spill_and_load_operand(base),
         };
         use self::lir::IndexComputation;
-        let index: IndexComputation<Amd64Reg> = {
+        let index: IndexComputation<Reg> = {
             if let IndexComputation::Displacement(index, stride) = index {
                 let index = self.lir_to_src_operand(index);
                 match index {
                     // the index is stored in a reg, this is fine
                     SrcOperand::Reg(reg) => {
-                        already_in_registers.push(reg);
-                        IndexComputation::Displacement(reg, stride)
+                        already_in_registers.push(reg.reg);
+                        let sign_extended = Reg {
+                            size: Size::Eight,
+                            reg: reg.reg,
+                        };
+                        spill_ctx.sign_extension.push(Mov(MovInstruction {
+                            src: index,
+                            dst: DstOperand::Reg(sign_extended),
+                            comment: "load store sign extension".to_string(),
+                        }));
+                        IndexComputation::Displacement(sign_extended, stride)
                     }
                     // the index is an immediate, move it to a spilled reg
                     SrcOperand::Imm(_) => {
@@ -549,27 +601,27 @@ impl Codegen {
         macro_rules! push_binop {
             ($kind:expr, $src:expr, $dst:expr) => {{
                 match $kind {
-                    lir::BinopKind::Add => instrs.push(Addq {
+                    lir::BinopKind::Add => instrs.push(Add {
                         src: $src,
                         dst: $dst,
                     }),
-                    lir::BinopKind::Mul => instrs.push(Mulq {
+                    lir::BinopKind::Mul => instrs.push(Mul {
                         src: $src,
                         dst: $dst,
                     }),
-                    lir::BinopKind::And => instrs.push(Andq {
+                    lir::BinopKind::And => instrs.push(And {
                         src: $src,
                         dst: $dst,
                     }),
-                    lir::BinopKind::Or => instrs.push(Orq {
+                    lir::BinopKind::Or => instrs.push(Or {
                         src: $src,
                         dst: $dst,
                     }),
-                    lir::BinopKind::Xor => instrs.push(Xorq {
+                    lir::BinopKind::Xor => instrs.push(Xor {
                         src: $src,
                         dst: $dst,
                     }),
-                    lir::BinopKind::Sub => instrs.push(Subq {
+                    lir::BinopKind::Sub => instrs.push(Sub {
                         subtrahend: $src,
                         acc: $dst,
                     }),
@@ -597,7 +649,7 @@ impl Codegen {
                             // but we computed src2 OP src1
                             //
                             // Let's use: src1-src2 = -(src2-src1)
-                            instrs.push(Negq { src: dst })
+                            instrs.push(Neg { src: dst })
                         }
                     } else {
                         instrs.push(Mov(MovInstruction {
@@ -618,7 +670,10 @@ impl Codegen {
             }
             DstOperand::Ar(_) => {
                 let dst_spill = if let lir::BinopKind::Mul = kind {
-                    DstOperand::Reg(Amd64Reg::Rax)
+                    DstOperand::Reg(Reg {
+                        size: dst.size(),
+                        reg: Amd64Reg::A,
+                    })
                 } else {
                     dst
                 };
@@ -640,7 +695,11 @@ impl Codegen {
                         // This means we need to spill one register, and that is Rax.
                         // `op mem, mem -> mem` => `op reg, mem`
                         // We want to move src2 -> dst, but first we need to move src2 -> %rax:
-                        let spill = Amd64Reg::Rax;
+                        // TODO: We can't use %rax here if it's a mul instr
+                        let spill = Reg {
+                            size: Size::Eight,
+                            reg: Amd64Reg::A,
+                        };
                         instrs.push(Mov(MovInstruction {
                             src: src1,
                             dst: DstOperand::Reg(spill),
@@ -672,7 +731,11 @@ impl Codegen {
                             dst: dst_spill,
                             comment: "binop setup".to_string(),
                         }));
-                        let spill = Amd64Reg::Rax;
+                        // TODO: We can't use %rax here if it's a mul instr
+                        let spill = Reg {
+                            size: Size::Eight,
+                            reg: Amd64Reg::A,
+                        };
                         instrs.push(Mov(MovInstruction {
                             src: src2,
                             dst: DstOperand::Reg(spill),
@@ -693,7 +756,11 @@ impl Codegen {
                             dst: dst_spill,
                             comment: "binop setup".to_string(),
                         }));
-                        let spill = Amd64Reg::Rax;
+                        // TODO: We can't use %rax here if it's a mul instr
+                        let spill = Reg {
+                            size: Size::Eight,
+                            reg: Amd64Reg::A,
+                        };
                         instrs.push(Mov(MovInstruction {
                             src: src1,
                             dst: DstOperand::Reg(spill),
@@ -709,13 +776,16 @@ impl Codegen {
                             // but we computed src2 OP src1
                             //
                             // Let's use: src1-src2 = -(src2-src1)
-                            instrs.push(Negq { src: dst_spill })
+                            instrs.push(Neg { src: dst_spill })
                         }
                     }
                 }
                 if let lir::BinopKind::Mul = kind {
                     instrs.push(Mov(MovInstruction {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
+                        src: SrcOperand::Reg(Reg {
+                            size: dst.size(),
+                            reg: Amd64Reg::A,
+                        }),
                         dst,
                         comment: "imul dst mem".to_string(),
                     }));
@@ -731,13 +801,13 @@ impl Codegen {
         src: &lir::Operand,
         dst: Ptr<MultiSlot>,
     ) {
-        use self::Instruction::{Mov, Negq, Notq};
+        use self::Instruction::{Mov, Neg, Not};
 
         macro_rules! push_unop {
             ($kind:expr, $dst:expr) => {{
                 match $kind {
-                    lir::UnopKind::Not => instrs.push(Notq { src: $dst }),
-                    lir::UnopKind::Neg => instrs.push(Negq { src: $dst }),
+                    lir::UnopKind::Not => instrs.push(Not { src: $dst }),
+                    lir::UnopKind::Neg => instrs.push(Neg { src: $dst }),
                 }
             }};
         }
@@ -766,17 +836,22 @@ impl Codegen {
                     push_unop!(kind, dst);
                 }
                 SrcOperand::Ar(_) => {
+                    debug_assert_eq!(src.size(), dst.size());
+                    let spill = Reg {
+                        size: src.size(),
+                        reg: Amd64Reg::A,
+                    };
                     // src -> %rax
                     instrs.push(Mov(MovInstruction {
                         src,
-                        dst: DstOperand::Reg(Amd64Reg::Rax),
+                        dst: DstOperand::Reg(spill),
                         comment: "unop spill".to_string(),
                     }));
                     // Now the instruction `op %rax`:
-                    push_unop!(kind, DstOperand::Reg(Amd64Reg::Rax));
+                    push_unop!(kind, DstOperand::Reg(spill));
                     // %rax -> dst
                     instrs.push(Mov(MovInstruction {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
+                        src: SrcOperand::Reg(spill),
                         dst,
                         comment: "unop spill to dst".to_string(),
                     }));
@@ -803,13 +878,13 @@ impl Codegen {
         // the quotient is stored in %rax, the remainder in %rdx
 
         let dst_operand_used_regs = |op| match op {
-            DstOperand::Ar(_) => vec![Amd64Reg::Rbp],
-            DstOperand::Reg(reg) => vec![reg],
+            DstOperand::Ar(_) => vec![Amd64Reg::Bp],
+            DstOperand::Reg(reg) => vec![reg.reg],
         };
 
         let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
-        free_regs.remove(&Amd64Reg::Rax);
-        free_regs.remove(&Amd64Reg::Rdx);
+        free_regs.remove(&Amd64Reg::A);
+        free_regs.remove(&Amd64Reg::D);
         self.lir_to_src_operand(lir::Operand::Slot(dst))
             .try_into()
             .map(dst_operand_used_regs)
@@ -834,9 +909,14 @@ impl Codegen {
         match (src1, dst) {
             // We don't need to spill src1, if we overide it anyway
             (SrcOperand::Reg(x), DstOperand::Reg(y)) if x == y => (),
-            (SrcOperand::Reg(Amd64Reg::Rdx), _) => {
+            (
+                SrcOperand::Reg(Reg {
+                    reg: Amd64Reg::D, ..
+                }),
+                _,
+            ) => {
                 // When src1 is in %rdx it would be overidden by cqto
-                spills.add_regs(&[Amd64Reg::Rdx]);
+                spills.add_regs(&[Amd64Reg::D]);
                 rdx_spilled = true;
             }
             _ => (),
@@ -844,37 +924,80 @@ impl Codegen {
 
         let src2 = self.lir_to_src_operand(*src2);
         let src2 = match (src2, dst) {
-            (SrcOperand::Reg(Amd64Reg::Rdx), DstOperand::Reg(Amd64Reg::Rdx))
+            (
+                SrcOperand::Reg(Reg {
+                    reg: Amd64Reg::D, ..
+                }),
+                DstOperand::Reg(Reg {
+                    reg: Amd64Reg::D, ..
+                }),
+            )
             | (SrcOperand::Imm(_), _) => {
+                debug_assert_eq!(src2.size(), dst.size());
                 let spill = free_regs.next().unwrap();
                 spills.add_regs(&[spill]);
                 setup_instr = Some(Mov(MovInstruction {
                     src: src2,
-                    dst: DstOperand::Reg(spill),
-                    comment: "div move Imm to spill".to_string(),
+                    dst: DstOperand::Reg(Reg {
+                        size: Size::Eight,
+                        reg: spill,
+                    }),
+                    comment: "div move Imm/%rdx to spill".to_string(),
                 }));
-                SrcOperand::Reg(spill)
+                SrcOperand::Reg(Reg {
+                    size: Size::Eight,
+                    reg: spill,
+                })
             }
             // When src2 is in %rdx it would be overidden by cqto
-            (SrcOperand::Reg(Amd64Reg::Rdx), _) => {
+            (
+                SrcOperand::Reg(Reg {
+                    reg: Amd64Reg::D, ..
+                }),
+                _,
+            ) => {
                 let spill = free_regs.next().unwrap();
                 spills.add_regs(&[spill]);
                 setup_instr = Some(Mov(MovInstruction {
                     src: src2,
-                    dst: DstOperand::Reg(spill),
+                    dst: DstOperand::Reg(Reg {
+                        size: Size::Eight,
+                        reg: spill,
+                    }),
                     comment: "div spill src2 from %rdx".to_string(),
                 }));
                 // src2 can be easily recovered by moving it out of the spill register since
                 // this register won't be modified by the div instruction
                 post_div_instr = Some(Mov(MovInstruction {
-                    src: SrcOperand::Reg(spill),
-                    dst: DstOperand::Reg(Amd64Reg::Rdx),
+                    src: SrcOperand::Reg(Reg {
+                        size: src2.size(),
+                        reg: spill,
+                    }),
+                    dst: DstOperand::Reg(Reg {
+                        size: src2.size(),
+                        reg: Amd64Reg::D,
+                    }),
                     comment: "div move src2 back to %rdx".to_string(),
                 }));
                 rdx_spilled = true;
-                SrcOperand::Reg(spill)
+                SrcOperand::Reg(Reg {
+                    size: Size::Eight,
+                    reg: spill,
+                })
             }
-            _ => src2,
+            (SrcOperand::Reg(reg), _) => {
+                let sign_extended = Reg {
+                    size: Size::Eight,
+                    reg: reg.reg,
+                };
+                setup_instr = Some(Mov(MovInstruction {
+                    src: src2,
+                    dst: DstOperand::Reg(sign_extended),
+                    comment: "div sign extend src2".to_string(),
+                }));
+                SrcOperand::Reg(sign_extended)
+            }
+            (SrcOperand::Ar(_), _) => src2,
         };
         let src2 = src2.try_into().unwrap();
 
@@ -883,17 +1006,25 @@ impl Codegen {
         // used by another var unrelated to the div instruction
         match dst {
             _ if rdx_spilled => (),
-            DstOperand::Reg(Amd64Reg::Rdx) => (),
-            DstOperand::Reg(_) | DstOperand::Ar(_) => spills.add_regs(&[Amd64Reg::Rdx]),
+            DstOperand::Reg(Reg {
+                reg: Amd64Reg::D, ..
+            }) => (),
+            DstOperand::Reg(_) | DstOperand::Ar(_) => spills.add_regs(&[Amd64Reg::D]),
         }
 
-        instrs.extend(spills.saves().map(|r| Pushq {
-            src: SrcOperand::Reg(r),
+        instrs.extend(spills.saves().map(|reg| Pushq {
+            src: SrcOperand::Reg(Reg {
+                size: Size::Eight,
+                reg,
+            }),
         }));
         // Move src1 to %rax
         instrs.push(Mov(MovInstruction {
             src: src1,
-            dst: DstOperand::Reg(Amd64Reg::Rax),
+            dst: DstOperand::Reg(Reg {
+                size: Size::Eight,
+                reg: Amd64Reg::A,
+            }),
             comment: "div move src1 to %rax".to_string(),
         }));
         if let Some(instr) = setup_instr {
@@ -911,8 +1042,11 @@ impl Codegen {
             instrs.push(instr);
         }
         // recover pushed spill registers
-        instrs.extend(spills.restores().map(|r| Popq {
-            dst: DstOperand::Reg(r),
+        instrs.extend(spills.restores().map(|reg| Popq {
+            dst: DstOperand::Reg(Reg {
+                size: Size::Eight,
+                reg,
+            }),
         }));
         instrs.push(Comment {
             comment: "div instr end".to_string(),
@@ -920,13 +1054,16 @@ impl Codegen {
     }
 
     fn gen_call(&mut self, call: &function::FunctionCall, instrs: &mut Vec<Instruction>) {
-        use self::Instruction::{Addq, Call, Comment, Mov, Popq, Pushq};
+        use self::Instruction::{Add, Call, Comment, Mov, Popq, Pushq};
 
         instrs.push(Comment {
             comment: "call save args".to_string(),
         });
         for src in call.saved_regs.saves() {
-            let src = SrcOperand::Reg(src);
+            let src = SrcOperand::Reg(Reg {
+                size: Size::Eight,
+                reg: src,
+            });
             instrs.push(Pushq { src });
         }
 
@@ -964,7 +1101,7 @@ impl Codegen {
             instrs.push(Comment {
                 comment: "call restore %rsp".to_string(),
             });
-            instrs.push(Addq {
+            instrs.push(Add {
                 src: SrcOperand::Imm(src),
                 dst: DstOperand::Reg(dst),
             });
@@ -974,8 +1111,11 @@ impl Codegen {
             comment: "call recover args".to_string(),
         });
         for dst in call.saved_regs.restores() {
-            assert_ne!(dst, Amd64Reg::Rax);
-            let dst = DstOperand::Reg(dst);
+            assert_ne!(dst, Amd64Reg::A);
+            let dst = DstOperand::Reg(Reg {
+                size: Size::Eight,
+                reg: dst,
+            });
             instrs.push(Popq { dst });
         }
 
@@ -984,7 +1124,13 @@ impl Codegen {
                 comment: "call move from %rax".to_string(),
             });
             let src = self.fn_to_src_operand(src);
-            assert_eq!(DstOperand::Reg(Amd64Reg::Rax), src.try_into().unwrap());
+            assert_eq!(
+                DstOperand::Reg(Reg {
+                    size: src.size(),
+                    reg: Amd64Reg::A,
+                }),
+                src.try_into().unwrap()
+            );
             let dst = self.fn_to_src_operand(dst).try_into().unwrap();
             instrs.push(Mov(MovInstruction {
                 src,
@@ -1000,7 +1146,7 @@ impl Codegen {
         next_block_num: i64,
         instrs: &mut Vec<Instruction>,
     ) {
-        use self::Instruction::{Cmpq, Jmp, Mov};
+        use self::Instruction::{Cmp, Jmp, Mov};
 
         macro_rules! push_jmp {
             ($kind:expr, $target:expr, $next_block_num:expr, fall=$fall:expr) => {{
@@ -1061,9 +1207,9 @@ impl Codegen {
                     (SrcOperand::Reg(_), SrcOperand::Ar(_))
                     | (_, SrcOperand::Reg(_))
                     | (SrcOperand::Imm(_), SrcOperand::Ar(_)) => {
-                        instrs.push(Cmpq {
+                        instrs.push(Cmp {
                             subtrahend: lhs,
-                            minuend: rhs,
+                            minuend: rhs.try_into().unwrap(),
                         });
                         // swap op to account for GAS syntax
                         op.swap()
@@ -1073,9 +1219,9 @@ impl Codegen {
                     | (SrcOperand::Ar(_), SrcOperand::Imm(_)) => {
                         // only the subtrahend is allowed to be immediate
                         // thus, swap rhs and lhs on their subtrahend / minuend position
-                        instrs.push(Cmpq {
+                        instrs.push(Cmp {
                             subtrahend: rhs,
-                            minuend: lhs,
+                            minuend: lhs.try_into().unwrap(),
                         });
                         // do not swap op for GAS, we already swapped rhs and lhs
                         *op
@@ -1084,16 +1230,19 @@ impl Codegen {
                     | (SrcOperand::Imm(_), SrcOperand::Imm(_)) => {
                         // This case is bad we don't know if there is a free
                         // register left. So we have to spill one register.
-                        let spill = Amd64Reg::Rax;
+                        let spill = Reg {
+                            size: rhs.size(),
+                            reg: Amd64Reg::A,
+                        };
                         // if we are in (Imm,Imm), lhs must stay Imm
                         instrs.push(Mov(MovInstruction {
                             src: rhs,
                             dst: DstOperand::Reg(spill),
                             comment: "cond_jmp move rhs to spill".to_string(),
                         }));
-                        instrs.push(Cmpq {
+                        instrs.push(Cmp {
                             subtrahend: lhs,
-                            minuend: SrcOperand::Reg(spill),
+                            minuend: DstOperand::Reg(spill),
                         });
                         op.swap()
                     }
@@ -1116,7 +1265,10 @@ impl Codegen {
                     let src = self.lir_to_src_operand(*value);
                     instrs.push(Mov(MovInstruction {
                         src,
-                        dst: DstOperand::Reg(Amd64Reg::Rax),
+                        dst: DstOperand::Reg(Reg {
+                            size: Size::Eight,
+                            reg: Amd64Reg::A,
+                        }),
                         comment: "return move result to %rax".to_string(),
                     }))
                 }
@@ -1133,13 +1285,19 @@ impl Codegen {
     fn lir_to_src_operand(&self, op: lir::Operand) -> SrcOperand {
         match op {
             lir::Operand::Imm(c) => SrcOperand::Imm(c),
-            lir::Operand::Slot(_) => match self.var_location[&var_id(op)] {
-                Location::Reg(reg) => SrcOperand::Reg(reg),
+            lir::Operand::Slot(slot) => match self.var_location[&var_id(op)] {
+                Location::Reg(reg) => SrcOperand::Reg(Reg {
+                    size: slot.firm().mode().size_bytes().try_into().unwrap(),
+                    reg,
+                }),
                 Location::Ar(idx) => SrcOperand::Ar(-((idx + 1 + self.num_saved_regs) as isize)),
                 Location::ParamMem => unreachable!("a slot never has a ParamMem location"),
             },
-            lir::Operand::Param { idx } => match self.var_location[&var_id(op)] {
-                Location::Reg(reg) => SrcOperand::Reg(reg),
+            lir::Operand::Param { idx, size } => match self.var_location[&var_id(op)] {
+                Location::Reg(reg) => SrcOperand::Reg(Reg {
+                    size: size.try_into().unwrap(),
+                    reg,
+                }),
                 // This can happen when the param was originally in a register but got moved on
                 // the stack.
                 Location::Ar(idx) => SrcOperand::Ar(-((idx + 1 + self.num_saved_regs) as isize)),
@@ -1153,7 +1311,10 @@ impl Codegen {
     fn fn_to_src_operand(&self, op: function::FnOperand) -> SrcOperand {
         match op {
             function::FnOperand::Lir(lir) => self.lir_to_src_operand(lir),
-            function::FnOperand::Reg(reg) => SrcOperand::Reg(reg),
+            function::FnOperand::Reg(reg) => SrcOperand::Reg(Reg {
+                size: Size::Eight,
+                reg,
+            }),
         }
     }
 
@@ -1171,59 +1332,166 @@ impl Codegen {
     }
 }
 
-#[derive(Display, Clone)]
+#[derive(Clone)]
 pub(super) enum Instruction {
-    #[display(fmt = "\t{}", _0)]
     Mov(MovInstruction),
-    #[display(fmt = "\t{}", _0)]
     Load(LoadInstruction),
-    #[display(fmt = "\t{}", _0)]
     Store(StoreInstruction),
-    #[display(fmt = "\taddq {}, {}", src, dst)]
-    Addq { src: SrcOperand, dst: DstOperand },
-    #[display(fmt = "\tsubq {}, {}", subtrahend, acc)]
-    Subq {
+    Add {
+        src: SrcOperand,
+        dst: DstOperand,
+    },
+    Sub {
         subtrahend: SrcOperand,
         acc: DstOperand,
     },
-    #[display(fmt = "\timulq {}, {}", src, dst)]
-    Mulq { src: SrcOperand, dst: DstOperand },
-    #[display(fmt = "\tandq {}, {}", src, dst)]
-    Andq { src: SrcOperand, dst: DstOperand },
-    #[display(fmt = "\torq {}, {}", src, dst)]
-    Orq { src: SrcOperand, dst: DstOperand },
-    #[display(fmt = "\txorq {}, {}", src, dst)]
-    Xorq { src: SrcOperand, dst: DstOperand },
-    #[display(fmt = "\tidivq {}", src)]
-    Divq { src: DstOperand },
-    #[display(fmt = "\tnotq {}", src)]
-    Notq { src: DstOperand },
-    #[display(fmt = "\tnegq {}", src)]
-    Negq { src: DstOperand },
-    #[display(fmt = "\tpushq {}", src)]
-    Pushq { src: SrcOperand },
-    #[display(fmt = "\tpopq {}", dst)]
-    Popq { dst: DstOperand },
-    #[display(fmt = "\tcmpq {}, {}", subtrahend, minuend)]
-    Cmpq {
-        subtrahend: SrcOperand,
-        minuend: SrcOperand,
+    Mul {
+        src: SrcOperand,
+        dst: DstOperand,
     },
-    #[display(fmt = "\t{} {}", kind, label)]
-    Jmp { label: String, kind: lir::JmpKind },
+    And {
+        src: SrcOperand,
+        dst: DstOperand,
+    },
+    Or {
+        src: SrcOperand,
+        dst: DstOperand,
+    },
+    Xor {
+        src: SrcOperand,
+        dst: DstOperand,
+    },
+    Divq {
+        src: DstOperand,
+    },
+    Not {
+        src: DstOperand,
+    },
+    Neg {
+        src: DstOperand,
+    },
+    Pushq {
+        src: SrcOperand,
+    },
+    Popq {
+        dst: DstOperand,
+    },
+    Cmp {
+        subtrahend: SrcOperand,
+        minuend: DstOperand,
+    },
+    Jmp {
+        label: String,
+        kind: lir::JmpKind,
+    },
     // multi-line output by CallInstruction Display impl
-    #[display(fmt = "{}", _0)]
     Call(CallInstruction),
-    #[display(fmt = "\tleave")]
     Leave,
-    #[display(fmt = "\tret")]
     Ret,
-    #[display(fmt = "{}:", label)]
-    Label { label: String },
-    #[display(fmt = "\tcqto")]
+    Label {
+        label: String,
+    },
     Cqto,
-    #[display(fmt = "\t/* {} */", comment)]
-    Comment { comment: String },
+    Comment {
+        comment: String,
+    },
+}
+
+impl Instruction {
+    fn instr_suffix(&self) -> String {
+        use self::Instruction::*;
+        match self {
+            Add { src, dst }
+            | Sub {
+                subtrahend: src,
+                acc: dst,
+            }
+            | Mul { src, dst }
+            | And { src, dst }
+            | Or { src, dst }
+            | Xor { src, dst }
+            | Cmp {
+                subtrahend: src,
+                minuend: dst,
+            } => {
+                let relevant_size = match (src, dst) {
+                    (SrcOperand::Imm(_), _) => dst.size(),
+                    (SrcOperand::Reg(_), DstOperand::Ar(_)) => src.size(),
+                    (SrcOperand::Ar(_), DstOperand::Reg(_)) => dst.size(),
+                    (SrcOperand::Reg(_), DstOperand::Reg(_)) => {
+                        debug_assert_eq!(src.size(), dst.size());
+                        src.size()
+                    }
+                    (SrcOperand::Ar(_), DstOperand::Ar(_)) => unreachable!(),
+                };
+                match relevant_size {
+                    Size::One => "b",
+                    Size::Four => "l",
+                    Size::Eight => "q",
+                }
+            }
+            Not { src } | Neg { src } => match src.size() {
+                Size::One => "b",
+                Size::Four => "l",
+                Size::Eight => "q",
+            },
+            Mov(_)
+            | Load(_)
+            | Store(_)
+            | Divq { .. }
+            | Pushq { .. }
+            | Popq { .. }
+            | Jmp { .. }
+            | Call(_)
+            | Leave
+            | Ret
+            | Label { .. }
+            | Cqto
+            | Comment { .. } => "",
+        }
+        .to_string()
+    }
+}
+
+impl fmt::Display for Instruction {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use self::Instruction::*;
+        match self {
+            Add { src, dst } => write!(fmt, "\tadd{} {}, {}", self.instr_suffix(), src, dst),
+            Sub { subtrahend, acc } => {
+                write!(fmt, "\tsub{} {}, {}", self.instr_suffix(), subtrahend, acc)
+            }
+            Mul { src, dst } => write!(fmt, "\timul{} {}, {}", self.instr_suffix(), src, dst),
+            And { src, dst } => write!(fmt, "\tand{} {}, {}", self.instr_suffix(), src, dst),
+            Or { src, dst } => write!(fmt, "\tor{} {}, {}", self.instr_suffix(), src, dst),
+            Xor { src, dst } => write!(fmt, "\txor{} {}, {}", self.instr_suffix(), src, dst),
+            Cmp {
+                subtrahend,
+                minuend,
+            } => write!(
+                fmt,
+                "\tcmp{} {}, {}",
+                self.instr_suffix(),
+                subtrahend,
+                minuend
+            ),
+            Not { src } => write!(fmt, "\tnot{} {}", self.instr_suffix(), src),
+            Neg { src } => write!(fmt, "\tneg{} {}", self.instr_suffix(), src),
+            Mov(mov) => write!(fmt, "\t{}", mov),
+            Load(load) => write!(fmt, "\t{}", load),
+            Store(store) => write!(fmt, "\t{}", store),
+            Divq { src } => write!(fmt, "\tdivq {}", src),
+            Pushq { src } => write!(fmt, "\tpushq {}", src),
+            Popq { dst } => write!(fmt, "\tpopq {}", dst),
+            Jmp { kind, label } => write!(fmt, "\t{} {}", kind, label),
+            Call(call) => write!(fmt, "\t{}", call),
+            Leave => write!(fmt, "\tleave"),
+            Ret => write!(fmt, "\tret"),
+            Label { label } => write!(fmt, "{}:", label),
+            Cqto => write!(fmt, "\tcqto"),
+            Comment { comment } => write!(fmt, "\t/* {} */", comment),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1269,67 +1537,104 @@ pub(super) struct MovInstruction {
 
 impl fmt::Display for MovInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match (self.src, self.dst) {
-            (SrcOperand::Ar(_), DstOperand::Reg(_))
-            | (SrcOperand::Reg(_), DstOperand::Ar(_))
-            | (SrcOperand::Imm(_), DstOperand::Ar(_))
-            | (SrcOperand::Imm(_), DstOperand::Reg(_)) => write!(
+        use super::Size::*;
+        let (mov_suffix, src, dst) = match (self.src.size(), self.dst.size()) {
+            (One, One) => ("b", self.src, self.dst),
+            (One, Four) => ("sbl", self.src, self.dst),
+            (One, Eight) => ("sbq", self.src, self.dst),
+            (Four, One) => ("b", self.src.into_size(One), self.dst),
+            (Four, Four) => ("l", self.src, self.dst),
+            (Four, Eight) => ("slq", self.src, self.dst),
+            (Eight, One) => ("b", self.src.into_size(One), self.dst),
+            (Eight, Four) => ("l", self.src.into_size(Four), self.dst),
+            (Eight, Eight) => ("q", self.src, self.dst),
+        };
+        match (src, dst) {
+            (SrcOperand::Ar(_), DstOperand::Reg(_)) => write!(
                 fmt,
-                "movq {}, {}\t\t/* {} */",
-                self.src, self.dst, self.comment
+                "mov{} {}, {}\t\t/* {} */",
+                mov_suffix, src, dst, self.comment
             ),
-            (SrcOperand::Reg(src), DstOperand::Reg(dst)) => {
+            (SrcOperand::Imm(_), DstOperand::Reg(_)) => {
+                let mov_suffix = match dst.size() {
+                    One => "b",
+                    Four => "l",
+                    Eight => "q",
+                };
+                write!(
+                    fmt,
+                    "mov{} {}, {}\t\t/* {} */",
+                    mov_suffix, src, dst, self.comment
+                )
+            }
+            (SrcOperand::Reg(_), DstOperand::Ar(_)) | (SrcOperand::Imm(_), DstOperand::Ar(_)) => {
+                let mov_suffix = match src.size() {
+                    One => "b",
+                    Four => "l",
+                    Eight => "q",
+                };
+                write!(
+                    fmt,
+                    "mov{} {}, {}\t\t/* {} */",
+                    mov_suffix, src, dst, self.comment
+                )
+            }
+            (SrcOperand::Reg(src_reg), DstOperand::Reg(dst_reg)) => {
                 // FIXME: handling this in the Display impl is wrong. Do this right!
-                if src == dst {
+                if src_reg == dst_reg {
                     write!(fmt, "/* mov %r, %r */\t\t/* {} */", self.comment)
                 } else {
                     write!(
                         fmt,
-                        "movq {}, {}\t\t/* {} */",
-                        self.src, self.dst, self.comment
+                        "mov{} {}, {}\t\t/* {} */",
+                        mov_suffix, src, dst, self.comment
                     )
                 }
             }
-            | (SrcOperand::Ar(_), DstOperand::Ar(_)) => unreachable!(),
+            (SrcOperand::Ar(_), DstOperand::Ar(_)) => unreachable!(),
         }
     }
 }
 
 #[derive(Clone)]
 pub(super) struct LoadInstruction {
-    src: lir::AddressComputation<Amd64Reg>,
+    src: lir::AddressComputation<Reg>,
     dst: Reg,
 }
 
 impl fmt::Display for LoadInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mov_suffix = match self.dst.size {
-            1 => "b",
-            4 => "l",
-            8 => "q",
-            _ => unreachable!(),
+            Size::One => "b",
+            Size::Four => "l",
+            Size::Eight => "q",
         };
-        write!(fmt, "mov{} {}, {}\t\t/* load */", mov_suffix, self.src, self.dst)
+        write!(
+            fmt,
+            "mov{} {}, {}\t\t/* load */",
+            mov_suffix, self.src, self.dst
+        )
     }
 }
 
 #[derive(Clone)]
 pub(super) struct StoreInstruction {
     src: SrcOperand,
-    dst: lir::AddressComputation<Amd64Reg>,
+    dst: lir::AddressComputation<Reg>,
 }
 
 impl fmt::Display for StoreInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // TODO will be done right in next commit
-        // let mov_suffix = match self.src.size {
-        //     1 => "sbq",
-        //     4 => "slq",
-        //     8 => "q",
-        //     _ => unreachable!(),
-        // };
-        let mov_suffix = "q";
-        write!(fmt, "mov{} {}, {}\t\t/* store */", mov_suffix, self.src, self.dst)
+        let mov_suffix = match self.src.size() {
+            Size::One => "b",
+            Size::Four => "l",
+            Size::Eight => "q",
+        };
+        write!(
+            fmt,
+            "mov{} {}, {}\t\t/* store */",
+            mov_suffix, self.src, self.dst
+        )
     }
 }
 
@@ -1344,17 +1649,19 @@ struct SpillContext {
     free_regs: Box<dyn Iterator<Item = Amd64Reg>>,
     spills: SaveRegList<Amd64Reg>,
     mov_to_spilled: Vec<Instruction>,
+    sign_extension: Vec<Instruction>,
 }
 
 impl SpillContext {
     /// `free_regs` must return a register at most once
-    /// It must not return `Amd64Reg::Rsp` or `Amd64Reg::Rbp`.
+    /// It must not return `Amd64Reg::Sp` or `Amd64Reg::Bp`.
     fn new(free_regs: Vec<Amd64Reg>) -> Self {
         SpillContext {
             used_regs: HashSet::new(),
             free_regs: box free_regs.into_iter(),
             spills: SaveRegList::default(),
             mov_to_spilled: vec![],
+            sign_extension: vec![],
         }
     }
 
@@ -1364,7 +1671,7 @@ impl SpillContext {
     /// because it is assumed to be a scratch register.
     ///
     /// No entry of `src.used_regs()` must ever be returned by free_regs.
-    fn spill_and_load_operand(&mut self, src: SrcOperand) -> Amd64Reg {
+    fn spill_and_load_operand(&mut self, src: SrcOperand) -> Reg {
         let spill = self.free_regs.next().unwrap();
         self.used_regs.insert(spill);
 
@@ -1372,9 +1679,13 @@ impl SpillContext {
             self.used_regs.insert(r);
         });
 
-        if spill != Amd64Reg::Rax {
+        if spill != Amd64Reg::A {
             self.spills.add_regs(&[spill]);
         }
+        let spill = Reg {
+            size: Size::Eight,
+            reg: spill,
+        };
         self.mov_to_spilled.push(Instruction::Mov(MovInstruction {
             src,
             dst: DstOperand::Reg(spill),
@@ -1386,13 +1697,20 @@ impl SpillContext {
     /// emit the spill instructions around those contained in `surrounded`
     fn emit_surrounded_instrs(self, surrounded: Vec<Instruction>) -> Vec<Instruction> {
         let mut instrs = vec![];
-        instrs.extend(self.spills.saves().map(|r| Instruction::Pushq {
-            src: SrcOperand::Reg(r),
+        instrs.extend(self.spills.saves().map(|reg| Instruction::Pushq {
+            src: SrcOperand::Reg(Reg {
+                size: Size::Eight,
+                reg,
+            }),
         }));
         instrs.extend(self.mov_to_spilled);
+        instrs.extend(self.sign_extension);
         instrs.extend(surrounded);
-        instrs.extend(self.spills.restores().map(|r| Instruction::Popq {
-            dst: DstOperand::Reg(r),
+        instrs.extend(self.spills.restores().map(|reg| Instruction::Popq {
+            dst: DstOperand::Reg(Reg {
+                size: Size::Eight,
+                reg,
+            }),
         }));
         instrs
     }
@@ -1408,19 +1726,42 @@ impl OperandUsingRegs for lir::AddressComputation<Amd64Reg> {
     }
 }
 
+trait OperandTrait {
+    fn size(self) -> Size;
+    fn into_size(self, size: Size) -> Self;
+}
+
 #[derive(Copy, Clone)]
 pub(super) enum SrcOperand {
     Ar(isize),
-    Reg(Amd64Reg),
+    Reg(Reg),
     Imm(Tarval),
+}
+
+impl OperandTrait for SrcOperand {
+    fn size(self) -> Size {
+        match self {
+            SrcOperand::Ar(_) => Size::Eight,
+            SrcOperand::Reg(reg) => reg.size,
+            SrcOperand::Imm(tv) => tv.mode().size_bytes().try_into().unwrap(),
+        }
+    }
+    fn into_size(self, size: Size) -> Self {
+        match self {
+            // We can't convert the size of an Ar entry, but that's ok
+            SrcOperand::Ar(_) => self,
+            SrcOperand::Reg(reg) => SrcOperand::Reg(Reg { size, reg: reg.reg }),
+            SrcOperand::Imm(_) => self,
+        }
+    }
 }
 
 impl OperandUsingRegs for SrcOperand {
     fn used_regs(self) -> Vec<Amd64Reg> {
         match self {
-            SrcOperand::Reg(reg) => vec![reg],
+            SrcOperand::Reg(reg) => vec![reg.reg],
             SrcOperand::Imm(_) => vec![],
-            SrcOperand::Ar(_) => vec![Amd64Reg::Rbp],
+            SrcOperand::Ar(_) => vec![Amd64Reg::Bp],
         }
     }
 }
@@ -1428,14 +1769,30 @@ impl OperandUsingRegs for SrcOperand {
 #[derive(Debug, Copy, Clone)]
 pub(super) enum DstOperand {
     Ar(isize),
-    Reg(Amd64Reg),
+    Reg(Reg),
+}
+
+impl OperandTrait for DstOperand {
+    fn size(self) -> Size {
+        match self {
+            DstOperand::Ar(_) => Size::Eight,
+            DstOperand::Reg(reg) => reg.size,
+        }
+    }
+    fn into_size(self, size: Size) -> Self {
+        match self {
+            // We can't convert the size of an Ar entry, but that's ok
+            DstOperand::Ar(_) => self,
+            DstOperand::Reg(reg) => DstOperand::Reg(Reg { size, reg: reg.reg }),
+        }
+    }
 }
 
 impl OperandUsingRegs for DstOperand {
     fn used_regs(self) -> Vec<Amd64Reg> {
         match self {
-            DstOperand::Reg(reg) => vec![reg],
-            DstOperand::Ar(_) => vec![Amd64Reg::Rbp],
+            DstOperand::Reg(reg) => vec![reg.reg],
+            DstOperand::Ar(_) => vec![Amd64Reg::Bp],
         }
     }
 }
@@ -1524,8 +1881,7 @@ impl PartialEq for DstOperand {
         match (self, other) {
             (Reg(reg1), Reg(reg2)) => reg1 == reg2,
             (Ar(idx1), Ar(idx2)) => idx1 == idx2,
-            | (Ar(_), Reg(_))
-            | (Reg(_), Ar(_)) => false,
+            (Ar(_), Reg(_)) | (Reg(_), Ar(_)) => false,
         }
     }
 }
@@ -1546,9 +1902,9 @@ impl From<RegGraphMinLeftEdgeInstruction<DstOperand>> for Instruction {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
                     DstOperand::Ar(idx) => SrcOperand::Ar(idx),
                 };
-                Pushq { src }
+                Pushq { src: src.into_size(Size::Eight) }
             }
-            RegGraphMinLeftEdgeInstruction::Pop(dst) => Popq { dst },
+            RegGraphMinLeftEdgeInstruction::Pop(dst) => Popq { dst: dst.into_size(Size::Eight) },
             RegGraphMinLeftEdgeInstruction::Mov(RegToRegTransfer { src, dst }) => {
                 let src = match src {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
@@ -1595,35 +1951,29 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
     for instr in copy_instrs {
         match instr {
             Instruction::Pushq { .. } | Instruction::Popq { .. } => instrs.push(instr),
-            Instruction::Mov(MovInstruction {
-                src,
-                dst,
-                comment,
-            }) => match (src, dst) {
+            Instruction::Mov(MovInstruction { src, dst, comment }) => match (src, dst) {
                 (SrcOperand::Reg(_), _) | (_, DstOperand::Reg(_)) => {
-                    instrs.push(Mov(MovInstruction {
-                        src,
-                        dst,
-                        comment,
-                    }));
+                    instrs.push(Mov(MovInstruction { src, dst, comment }));
                 }
                 (SrcOperand::Ar(_), DstOperand::Ar(_)) => {
                     instrs.push(Mov(MovInstruction {
                         src,
-                        dst: DstOperand::Reg(Amd64Reg::Rax),
+                        dst: DstOperand::Reg(Reg {
+                            size: src.size(),
+                            reg: Amd64Reg::A,
+                        }),
                         comment: "copy prop spill".to_string(),
                     }));
                     instrs.push(Mov(MovInstruction {
-                        src: SrcOperand::Reg(Amd64Reg::Rax),
+                        src: SrcOperand::Reg(Reg {
+                            size: src.size(),
+                            reg: Amd64Reg::A,
+                        }),
                         dst,
                         comment,
                     }));
                 }
-                (SrcOperand::Imm(_), _) => instrs.push(Mov(MovInstruction {
-                    src,
-                    dst,
-                    comment,
-                })),
+                (SrcOperand::Imm(_), _) => instrs.push(Mov(MovInstruction { src, dst, comment })),
             },
             _ => unreachable!(),
         }

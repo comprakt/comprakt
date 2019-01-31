@@ -1,47 +1,73 @@
 use crate::lowering::amd64::CallingConv;
 use std::{cmp::Ordering, collections::BTreeMap, convert::TryFrom};
+use super::Size;
 
-// TODO: stab impl of reg, will be done right in the next commit
-#[derive(Display, Debug, Hash, PartialEq, Eq, Copy, Clone)]
-#[display(fmt = "{}", reg)]
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub(super) struct Reg {
-    pub(super) size: u32,
+    pub(super) size: Size,
     pub(super) reg: Amd64Reg,
+}
+
+impl std::fmt::Display for Reg {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use self::Amd64Reg::*;
+        use super::Size::*;
+        let (prefix, suffix) = match (self.reg, self.size) {
+            (name, One) => match name {
+                A | B | C | D => ("", "l"),
+                Si | Di | Sp | Bp => ("", "l"),
+                R8 | R9 | R10 | R11 | R12 | R13 | R14 | R15 => ("", "b"),
+            },
+            (name, Four) => match name {
+                A | B | C | D => ("e", "x"),
+                Si | Di | Sp | Bp => ("e", ""),
+                R8 | R9 | R10 | R11 | R12 | R13 | R14 | R15 => ("", "d"),
+            },
+            (name, Eight) => match name {
+                A | B | C | D => ("r", "x"),
+                Si | Di | Sp | Bp => ("r", ""),
+                R8 | R9 | R10 | R11 | R12 | R13 | R14 | R15 => ("", ""),
+            },
+        };
+        write!(fmt, "%{}{}{}", prefix, self.reg, suffix)
+    }
 }
 
 #[derive(Display, Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub(super) enum Amd64Reg {
-    #[display(fmt = "%rax")]
-    Rax,
-    #[display(fmt = "%rcx")]
-    Rcx,
-    #[display(fmt = "%rdx")]
-    Rdx,
-    #[display(fmt = "%rbx")]
-    Rbx,
-    #[display(fmt = "%rsi")]
-    Rsi,
-    #[display(fmt = "%rdi")]
-    Rdi,
-    #[display(fmt = "%rsp")]
-    Rsp,
-    #[display(fmt = "%rbp")]
-    Rbp,
-    #[display(fmt = "%r8")]
+    #[display(fmt = "a")]
+    A,
+    #[display(fmt = "b")]
+    B,
+    #[display(fmt = "c")]
+    C,
+    #[display(fmt = "d")]
+    D,
+
+    #[display(fmt = "si")]
+    Si,
+    #[display(fmt = "di")]
+    Di,
+    #[display(fmt = "sp")]
+    Sp,
+    #[display(fmt = "bp")]
+    Bp,
+
+    #[display(fmt = "r8")]
     R8,
-    #[display(fmt = "%r9")]
+    #[display(fmt = "r9")]
     R9,
-    #[display(fmt = "%r10")]
+    #[display(fmt = "r10")]
     R10,
-    #[display(fmt = "%r11")]
+    #[display(fmt = "r11")]
     R11,
-    #[display(fmt = "%r12")]
+    #[display(fmt = "r12")]
     R12,
-    #[display(fmt = "%r13")]
+    #[display(fmt = "r13")]
     R13,
-    #[display(fmt = "%r14")]
+    #[display(fmt = "r14")]
     R14,
-    #[display(fmt = "%r15")]
+    #[display(fmt = "r15")]
     R15,
 }
 
@@ -49,24 +75,24 @@ pub(super) enum Amd64Reg {
 impl From<Amd64Reg> for usize {
     fn from(reg: Amd64Reg) -> usize {
         match reg {
-            Amd64Reg::Rdi => 0,  // Caller-save
-            Amd64Reg::Rsi => 1,  // Caller-save
-            Amd64Reg::Rdx => 2,  // Caller-save
-            Amd64Reg::Rcx => 3,  // Caller-save
+            Amd64Reg::Di => 0,   // Caller-save
+            Amd64Reg::Si => 1,   // Caller-save
+            Amd64Reg::D => 2,    // Caller-save
+            Amd64Reg::C => 3,    // Caller-save
             Amd64Reg::R8  => 4,  // Caller-save
             Amd64Reg::R9  => 5,  // Caller-save
             Amd64Reg::R10 => 6,  // Caller-save
             Amd64Reg::R11 => 7,  // Caller-save
 
-            Amd64Reg::Rbx => 8,  // Callee-save
-            Amd64Reg::R12 => 9, // Callee-save
+            Amd64Reg::B => 8,    // Callee-save
+            Amd64Reg::R12 => 9,  // Callee-save
             Amd64Reg::R13 => 10, // Callee-save
             Amd64Reg::R14 => 11, // Callee-save
             Amd64Reg::R15 => 12, // Callee-save
 
-            Amd64Reg::Rax => 13, // scratch
-            Amd64Reg::Rsp => 14, // should not be used
-            Amd64Reg::Rbp => 15, // should not be used
+            Amd64Reg::A => 13,   // scratch
+            Amd64Reg::Sp => 14,  // should not be used
+            Amd64Reg::Bp => 15,  // should not be used
         }
     }
 }
@@ -77,24 +103,24 @@ impl TryFrom<usize> for Amd64Reg {
 
     fn try_from(idx: usize) -> Result<Self, ()> {
         match idx {
-            0  => Ok(Amd64Reg::Rdi), // Caller-save
-            1  => Ok(Amd64Reg::Rsi), // Caller-save
-            2  => Ok(Amd64Reg::Rdx), // Caller-save
-            3  => Ok(Amd64Reg::Rcx), // Caller-save
+            0  => Ok(Amd64Reg::Di),  // Caller-save
+            1  => Ok(Amd64Reg::Si),  // Caller-save
+            2  => Ok(Amd64Reg::D),   // Caller-save
+            3  => Ok(Amd64Reg::C),   // Caller-save
             4  => Ok(Amd64Reg::R8),  // Caller-save
             5  => Ok(Amd64Reg::R9),  // Caller-save
             6  => Ok(Amd64Reg::R10), // Caller-save
             7  => Ok(Amd64Reg::R11), // Caller-save
 
-            8  => Ok(Amd64Reg::Rbx), // Callee-save
+            8  => Ok(Amd64Reg::B),   // Callee-save
             9  => Ok(Amd64Reg::R12), // Callee-save
             10 => Ok(Amd64Reg::R13), // Callee-save
             11 => Ok(Amd64Reg::R14), // Callee-save
             12 => Ok(Amd64Reg::R15), // Callee-save
 
-            13 => Ok(Amd64Reg::Rax), // scratch
-            14 => Ok(Amd64Reg::Rsp), // should not be used
-            15 => Ok(Amd64Reg::Rbp), // should not be used
+            13 => Ok(Amd64Reg::A),   // scratch
+            14 => Ok(Amd64Reg::Sp),  // should not be used
+            15 => Ok(Amd64Reg::Bp),  // should not be used
             _  => Err(()),
         }
     }
@@ -132,10 +158,10 @@ impl Amd64Reg {
     /// registers for function arguments
     pub fn arg(idx: usize) -> Self {
         match idx {
-            0 => Amd64Reg::Rdi,
-            1 => Amd64Reg::Rsi,
-            2 => Amd64Reg::Rdx,
-            3 => Amd64Reg::Rcx,
+            0 => Amd64Reg::Di,
+            1 => Amd64Reg::Si,
+            2 => Amd64Reg::D,
+            3 => Amd64Reg::C,
             4 => Amd64Reg::R8,
             5 => Amd64Reg::R9,
             _ => unreachable!("This arg is on the stack"),
@@ -144,16 +170,16 @@ impl Amd64Reg {
 
     pub(super) fn is_caller_save(self) -> bool {
         match self {
-            Amd64Reg::Rdi
-            | Amd64Reg::Rsi
-            | Amd64Reg::Rdx
-            | Amd64Reg::Rcx
+            Amd64Reg::Di
+            | Amd64Reg::Si
+            | Amd64Reg::D
+            | Amd64Reg::C
             | Amd64Reg::R8
             | Amd64Reg::R9
             | Amd64Reg::R10
             | Amd64Reg::R11 => true,
             // scratch register
-            Amd64Reg::Rax | _ => false,
+            Amd64Reg::A | _ => false,
         }
     }
 
@@ -180,24 +206,24 @@ impl Amd64Reg {
     fn reg(idx: usize, nargs: usize, cconv: CallingConv) -> Option<Self> {
         let offset = usize::min(nargs, cconv.num_arg_regs());
         match idx + offset {
-            0  => Some(Amd64Reg::Rdi), // Caller-save
-            1  => Some(Amd64Reg::Rsi), // Caller-save
-            2  => Some(Amd64Reg::Rdx), // Caller-save
-            3  => Some(Amd64Reg::Rcx), // Caller-save
+            0  => Some(Amd64Reg::Di),  // Caller-save
+            1  => Some(Amd64Reg::Si),  // Caller-save
+            2  => Some(Amd64Reg::D),   // Caller-save
+            3  => Some(Amd64Reg::C),   // Caller-save
             4  => Some(Amd64Reg::R8),  // Caller-save
             5  => Some(Amd64Reg::R9),  // Caller-save
             6  => Some(Amd64Reg::R10), // Caller-save
             7  => Some(Amd64Reg::R11), // Caller-save
 
-            8  => Some(Amd64Reg::Rbx), // Callee-save
+            8  => Some(Amd64Reg::B),   // Callee-save
             9  => Some(Amd64Reg::R12), // Callee-save
             10 => Some(Amd64Reg::R13), // Callee-save
             11 => Some(Amd64Reg::R14), // Callee-save
             12 => Some(Amd64Reg::R15), // Callee-save
 
-            13 // `Amd64Reg::Rax` is scratch
-            | 14   // `Amd64Reg::Rsp` should not be used
-            | 15 // `Amd64Reg::Rbp` should not be used
+            13   // `Amd64Reg::A` is scratch
+            | 14 // `Amd64Reg::Sp` should not be used
+            | 15 // `Amd64Reg::Bp` should not be used
             | _ => None,
         }
     }
@@ -293,11 +319,11 @@ mod test {
     fn register_allocation_works() {
         let mut allocator = RegisterAllocator::new(2, CallingConv::X86_64);
 
-        assert_eq!(allocator.alloc_reg().unwrap(), Amd64Reg::Rdx);
+        assert_eq!(allocator.alloc_reg().unwrap(), Amd64Reg::D);
 
-        allocator.free_reg(Amd64Reg::Rsi);
+        allocator.free_reg(Amd64Reg::Si);
 
-        assert_eq!(allocator.alloc_reg().unwrap(), Amd64Reg::Rsi);
+        assert_eq!(allocator.alloc_reg().unwrap(), Amd64Reg::Si);
 
         let mut count = 0;
         while let Some(_) = allocator.alloc_reg() {

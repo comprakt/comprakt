@@ -42,8 +42,11 @@ impl GenInstrBlock {
         if let Some(start_node) = block.start_node() {
             if let Some(proj_args) = start_node.out_proj_t_args() {
                 for arg in proj_args.out_nodes() {
-                    if let Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) = arg {
-                        b.code.body.push(Instruction::LoadParam { idx });
+                    if let Node::Proj(proj, ProjKind::Start_TArgs_Arg(idx, ..)) = arg {
+                        b.code.body.push(Instruction::LoadParam {
+                            idx,
+                            size: proj.mode().size_bytes(),
+                        });
                     } else {
                         unreachable!(
                             "the proj node Start_TArgs has only \
@@ -88,8 +91,11 @@ impl GenInstrBlock {
 
             let slot_to_copy_propagation_src = &|src: Ptr<MultiSlot>| -> CopyPropagationSrc {
                 match src.firm() {
-                    Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => {
-                        CopyPropagationSrc::Param { idx }
+                    Node::Proj(proj, ProjKind::Start_TArgs_Arg(idx, ..)) => {
+                        CopyPropagationSrc::Param {
+                            idx,
+                            size: proj.mode().size_bytes(),
+                        }
                     }
                     Node::Const(val) => CopyPropagationSrc::Imm(val.tarval()),
                     _ => CopyPropagationSrc::Slot(src),
@@ -260,7 +266,10 @@ impl GenInstrBlock {
         match node {
             Node::Const(c) => Operand::Imm(c.tarval()),
             Node::Size(s) => Operand::Imm(libfirm_rs::Tarval::mj_int(i64::from(s.ty().size()))),
-            Node::Proj(_, ProjKind::Start_TArgs_Arg(idx, ..)) => Operand::Param { idx },
+            Node::Proj(proj, ProjKind::Start_TArgs_Arg(idx, ..)) => Operand::Param {
+                idx,
+                size: proj.mode().size_bytes(),
+            },
             n => match self.must_computed(n) {
                 Computed::InCFGPred(ms) | Computed::Value(ms) => Operand::Slot(*ms),
                 Computed::Void => panic!("expecting computed operand for {:?}, got Void", n),
