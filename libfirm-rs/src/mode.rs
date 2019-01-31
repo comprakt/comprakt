@@ -56,6 +56,10 @@ impl Mode {
     pub fn is_mem(self) -> bool {
         self == Mode::M()
     }
+
+    pub fn is_pointer(self) -> bool {
+        self == Mode::P()
+    }
 }
 
 use std::fmt::{self, Debug, Formatter};
