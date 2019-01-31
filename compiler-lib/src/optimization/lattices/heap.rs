@@ -1,7 +1,7 @@
 use super::{Lattice, Val};
 use libfirm_rs::{
-    nodes::Node,
-    types::{ClassTy, TyTrait},
+    nodes::{Node, NodeDebug},
+    types::{ClassTy, PointerTy, Ty, TyTrait},
     Entity, Tarval,
 };
 use std::{
@@ -10,105 +10,75 @@ use std::{
     rc::Rc,
 };
 
-// == Pointer ==
-
-/// Represents a symbolic pointer. Two equal points point to the same memory.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Pointer {
-    p: usize,
-    recent: bool,
-}
-
-impl Pointer {
-    pub fn new(p: usize) -> Self {
-        Self { p, recent: false }
-    }
-
-    pub fn recent(self) -> bool {
-        self.recent
-    }
-
-    pub fn as_recent(self) -> Self {
-        Self {
-            p: self.p,
-            recent: true,
-        }
-    }
-}
-
-impl fmt::Debug for Pointer {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "#{}{}", self.p, if self.recent { "r" } else { "" })
-    }
-}
-
-// == PointerSet ==
+// == MemoryArea ==
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct PointerSet {
-    pointers: HashSet<Pointer>,
-    can_be_null: bool,
+pub struct MemoryArea {
+    allocators: HashSet<Node>,
+    unrestricted: bool,
 }
 
-impl PointerSet {
-    pub fn can_be_null(&self) -> bool {
-        self.can_be_null
-    }
-
-    pub fn with_null(&self) -> PointerSet {
-        PointerSet {
-            pointers: self.pointers.clone(),
-            can_be_null: true,
-        }
-    }
-
-    pub fn as_single_ignoring_null(&self) -> Option<Pointer> {
-        if self.pointers.is_empty() {
-            None
-        } else {
-            self.pointers.iter().next().cloned()
-        }
-    }
-
-    pub fn pointers(&self) -> &HashSet<Pointer> {
-        &self.pointers
-    }
-}
-
-impl From<Pointer> for PointerSet {
-    fn from(p: Pointer) -> PointerSet {
-        let mut pointers = HashSet::new();
-        pointers.insert(p);
+impl MemoryArea {
+    pub fn empty() -> Self {
         Self {
-            pointers,
-            can_be_null: false,
+            allocators: HashSet::new(),
+            unrestricted: false,
+        }
+    }
+
+    pub fn single(allocator: Node) -> Self {
+        let mut allocators = HashSet::new();
+        allocators.insert(allocator);
+        Self {
+            allocators,
+            unrestricted: false,
+        }
+    }
+
+    pub fn unrestricted() -> Self {
+        Self {
+            allocators: HashSet::new(),
+            unrestricted: true,
+        }
+    }
+
+    pub fn intersects(&self, other: &Self) -> bool {
+        (self.unrestricted && other.unrestricted) || !self.allocators.is_disjoint(&other.allocators)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.allocators.is_empty() && !self.unrestricted
+    }
+
+    pub fn join_mut(&mut self, other: &Self) {
+        self.allocators.extend(&other.allocators);
+        self.unrestricted |= other.unrestricted;
+    }
+}
+
+impl Lattice for MemoryArea {
+    fn is_progression_of(&self, other: &Self) -> bool {
+        self.allocators.is_superset(&other.allocators) && (!other.unrestricted || self.unrestricted)
+    }
+
+    fn join(&self, other: &Self) -> Self {
+        Self {
+            allocators: &self.allocators | &other.allocators,
+            unrestricted: self.unrestricted || other.unrestricted,
         }
     }
 }
 
-impl Lattice for PointerSet {
-    fn is_progression_of(&self, other: &PointerSet) -> bool {
-        self.pointers.is_superset(&other.pointers) && (!other.can_be_null || self.can_be_null)
-    }
-
-    fn join(&self, other: &PointerSet) -> PointerSet {
-        PointerSet {
-            pointers: self.pointers.union(&other.pointers).cloned().collect(),
-            can_be_null: self.can_be_null || other.can_be_null,
-        }
-    }
-}
-
-impl fmt::Debug for PointerSet {
+impl fmt::Debug for MemoryArea {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{{{}}}",
-            self.pointers
+            self.allocators
                 .iter()
-                .map(|o| format!("{:?}", o))
-                .chain(if self.can_be_null {
-                    vec!["null".to_owned()]
+                .map(|allocator| format!("{}", allocator.debug_fmt().short(true)))
+                .chain(if self.unrestricted {
+                    vec!["*".to_owned()]
                 } else {
                     vec![]
                 })
@@ -118,17 +88,76 @@ impl fmt::Debug for PointerSet {
     }
 }
 
+// == Pointer ==
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct Pointer {
+    pub target: MemoryArea,
+    pub can_be_null: bool,
+}
+
+impl Pointer {
+    pub fn to(target: MemoryArea) -> Self {
+        Self {
+            target,
+            can_be_null: false,
+        }
+    }
+
+    pub fn to_null_and_(target: MemoryArea) -> Self {
+        Self {
+            target,
+            can_be_null: true,
+        }
+    }
+
+    pub fn null() -> Self {
+        Self {
+            target: MemoryArea::empty(),
+            can_be_null: true,
+        }
+    }
+
+    pub fn is_null(&self) -> bool {
+        self.can_be_null && self.target.is_empty()
+    }
+}
+
+impl Lattice for Pointer {
+    fn is_progression_of(&self, other: &Self) -> bool {
+        self.target.is_progression_of(&other.target) && (!other.can_be_null || self.can_be_null)
+    }
+
+    fn join(&self, other: &Self) -> Self {
+        Self {
+            target: self.target.join(&other.target),
+            can_be_null: self.can_be_null || other.can_be_null,
+        }
+    }
+}
+
+impl fmt::Debug for Pointer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?}{}",
+            self.target,
+            if self.can_be_null { "|null" } else { "" }
+        )
+    }
+}
+
 // == HeapVal ==
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Heap {
-    objects: HashMap<Pointer, Rc<ObjectInfo>>,
+    object_infos: HashMap<Node, Rc<ObjectInfo>>,
 }
 
 impl fmt::Debug for Heap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (ptr, obj_info) in &self.objects {
-            writeln!(f, "{:?} = {:?}", ptr, obj_info)?
+        for (ptr, obj_info) in &self.object_infos {
+            writeln!(f, "{} = {:?}", ptr.debug_fmt().short(true), obj_info)?
         }
         Ok(())
     }
@@ -137,76 +166,99 @@ impl fmt::Debug for Heap {
 impl Heap {
     pub fn start() -> Self {
         Self {
-            objects: HashMap::new(),
+            object_infos: HashMap::new(),
         }
     }
 
-    pub fn new_obj(&mut self, p: Pointer, obj_ty: ClassTy) {
-        let obj_info = Rc::new(ObjectInfo::new(obj_ty));
-        self.objects.insert(p, obj_info);
-    }
-
-    pub fn exists(&self, ptr: Pointer) -> bool {
-        self.objects.contains_key(&ptr)
-    }
-
-    fn is_ptr_class(&self, ptr: Pointer) -> bool {
-        !ptr.recent() && self.objects.contains_key(&ptr.as_recent())
-    }
-
-    pub fn reset(&mut self) {
-        self.objects = self
-            .objects
-            .iter()
-            .map(|(ptr, obj_info)| (*ptr, Rc::new(obj_info.resetted())))
-            .collect();
-    }
-
-    pub fn update_field(
-        &mut self,
-        _ptr: Node,
-        ptrs: Option<&PointerSet>,
-        field: Entity,
-        val: &Val,
-    ) {
-        match ptrs.and_then(|ptrs| ptrs.as_single_ignoring_null()) {
-            Some(obj) if !self.is_ptr_class(obj) => {
-                let mut obj_info = (**self
-                    .objects
-                    .get(&obj)
-                    .unwrap_or_else(|| panic!("{:?} to have {:?}", self, obj)))
-                .clone();
-                obj_info.update_field(field, val);
-                self.objects
-                    .insert(obj, Rc::new(obj_info))
-                    .expect("to exist");
+    pub fn non_const_val(&self, ty: Ty) -> Val {
+        if ty.mode().is_pointer() {
+            let ty = PointerTy::from(ty).unwrap();
+            let mut mem = MemoryArea::unrestricted();
+            if let Some(ty) = ClassTy::from(ty.points_to()) {
+                for (_, info) in &self.object_infos {
+                    if info.ty == ty {
+                        mem.join_mut(&info.mem);
+                    }
+                }
+            } else {
+                panic!("{:?}", ty);
             }
-            _ => {
-                // fallback: clear all info for now
-                self.reset()
-            }
-        }
-    }
-
-    pub fn lookup_field(&mut self, _ptr: Node, ptrs: Option<&PointerSet>, field: Entity) -> Val {
-        if let Some(ptrs) = ptrs {
-            let result = Val::join_many(ptrs.pointers().iter().map(|p| {
-                self.objects
-                    .get(&p)
-                    .unwrap_or_else(|| panic!("{:?} to have {:?}", self, p))
-                    .lookup_field(field)
-            }));
-            result.unwrap_or(Val::NonConstant)
+            Val::Pointer(Pointer::to_null_and_(mem))
         } else {
-            Val::NonConstant
+            Val::from_tarval_internal(Tarval::bad())
+        }
+    }
+
+    pub fn reset_heap_accessed_by(&mut self, ptrs: MemoryArea, _nodes: HashSet<Node>) {
+        /*
+            if !ptrs.is_empty_ignoring_null() {
+                let result = self
+                    .objects
+                    .iter()
+                    .map(|(ptr, obj_info)| {
+                        // if ptrs.contains(ptr) {
+                        (*ptr, Rc::new(obj_info.resetted(&self)))
+                        //} else {
+                        //(*ptr, Rc::clone(obj.info))
+                        //}
+                    })
+                    .collect();
+                self.object_infos = result;
+            }
+        */
+    }
+
+    /*pub fn reset(&mut self) {
+        let result = self
+            .object_infos
+            .iter()
+            .map(|(ptr, obj_info)| (*ptr, Rc::new(obj_info.resetted(&self))))
+            .collect();
+        self.object_infos = result;
+    }*/
+
+    pub fn new_obj(&mut self, new_node: Node, obj_ty: ClassTy) -> Pointer {
+        let mem = MemoryArea::single(new_node);
+        let obj_info = Rc::new(ObjectInfo::new(mem.clone(), obj_ty));
+        self.object_infos.insert(new_node, obj_info);
+        Pointer::to(mem)
+    }
+
+    pub fn update_field(&mut self, ptr_val: Node, ptr: &Pointer, field: Entity, val: &Val) {
+        let class_ty = ClassTy::from(field.owner()).unwrap();
+
+        for (_node, intersect_obj) in self.object_infos.iter_mut() {
+            if intersect_obj.ty == class_ty && intersect_obj.mem.intersects(&ptr.target) {
+                let mut obj = (**intersect_obj).clone();
+                obj.join_field(field, val);
+                *intersect_obj = Rc::new(obj);
+            }
+        }
+
+        let obj_info = self.object_infos.get(&ptr_val);
+        let mut obj_info = if let Some(obj_info) = obj_info {
+            (&**obj_info).clone()
+        } else {
+            ObjectInfo::new_non_const(class_ty, ptr.target.clone(), &self)
+        };
+
+        obj_info.update_field(field, val);
+        self.object_infos.insert(ptr_val, Rc::new(obj_info));
+    }
+
+    pub fn lookup_field(&mut self, ptr_val: Node, ptr: &Pointer, field: Entity) -> Val {
+        if let Some(obj_info) = self.object_infos.get(&ptr_val) {
+            obj_info.lookup_field(field).clone()
+        } else {
+            self.non_const_val(field.ty())
         }
     }
 }
 
 impl Lattice for Heap {
     fn is_progression_of(&self, other: &Self) -> bool {
-        for (p, obj_info) in &self.objects {
-            if let Some(other_obj_info) = other.objects.get(&p) {
+        for (p, obj_info) in &self.object_infos {
+            if let Some(other_obj_info) = other.object_infos.get(&p) {
                 if !obj_info.is_progression_of(other_obj_info) {
                     return false;
                 }
@@ -216,15 +268,15 @@ impl Lattice for Heap {
     }
 
     fn join(&self, other: &Self) -> Self {
-        let mut objects = self.objects.clone();
-        for (p, obj_info) in other.objects.iter() {
-            if let Some(other_obj_info) = objects.get(&p) {
-                objects.insert(*p, Rc::new(obj_info.join(other_obj_info)));
+        let mut object_infos = self.object_infos.clone();
+        for (p, obj_info) in other.object_infos.iter() {
+            if let Some(other_obj_info) = object_infos.get(p) {
+                object_infos.insert(*p, Rc::new(obj_info.join(other_obj_info)));
             } else {
-                objects.insert(*p, Rc::clone(&obj_info));
+                object_infos.insert(*p, Rc::clone(&obj_info));
             }
         }
-        Heap { objects }
+        Heap { object_infos }
     }
 }
 
@@ -233,6 +285,7 @@ impl Lattice for Heap {
 #[derive(Clone, PartialEq, Eq)]
 pub struct ObjectInfo {
     ty: ClassTy,
+    mem: MemoryArea,
     // stores a value for each field
     fields: Vec<Val>,
 }
@@ -250,33 +303,39 @@ impl fmt::Debug for ObjectInfo {
             write!(f, "{}: {:?}", field_name, val)?;
             first = false;
         }
-        write!(f, "}}")
+        write!(f, "}} ({:?})", self.mem)
     }
 }
 
 impl ObjectInfo {
-    pub fn new(ty: ClassTy) -> Self {
+    pub fn new(mem: MemoryArea, ty: ClassTy) -> Self {
         Self {
             ty,
+            mem,
             fields: ty
                 .fields()
                 .map(|field| {
                     let mode = field.ty().mode();
-                    Val::Tarval(Tarval::zero(mode))
+                    Val::from_tarval_initially(Tarval::zero(mode), mode)
                 })
                 .collect(),
         }
     }
 
-    pub fn new_non_const(ty: ClassTy) -> Self {
+    pub fn new_non_const(ty: ClassTy, mem: MemoryArea, heap: &Heap) -> Self {
         Self {
             ty,
-            fields: ty.fields().map(|_field| Val::NonConstant).collect(),
+            mem,
+            fields: ty
+                .fields()
+                .map(|field| heap.non_const_val(field.ty()))
+                .collect(),
         }
     }
 
-    pub fn resetted(&self) -> Self {
-        Self::new_non_const(self.ty)
+    pub fn join_field(&mut self, field: Entity, val: &Val) {
+        let field_idx = self.ty.idx_of_field(field);
+        self.fields[field_idx] = val.join(&self.fields[field_idx]);
     }
 
     pub fn update_field(&mut self, field: Entity, val: &Val) {
@@ -311,11 +370,13 @@ impl Lattice for ObjectInfo {
         }
         Self {
             ty: self.ty,
+            mem: self.mem.join(&other.mem),
             fields: updated_fields,
         }
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -354,11 +415,11 @@ mod tests {
         assert_eq!(p2.p, 1);
         assert_eq!(p2.recent, true);
 
-        let p1_set: PointerSet = p1.into();
+        let p1_set: MemoryArea = p1.into();
         assert_eq!(p1_set.can_be_null, false);
         assert_eq!(p1_set.pointers, [p1].iter().cloned().collect());
 
-        let p2_set: PointerSet = p2.into();
+        let p2_set: MemoryArea = p2.into();
 
         let p12_set = p1_set.join(&p2_set);
         assert_eq!(p12_set.can_be_null, false);
@@ -369,3 +430,4 @@ mod tests {
         test_lattice(&[p1_set, p2_set, p12_set]);
     }
 }
+*/
