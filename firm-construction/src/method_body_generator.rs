@@ -839,6 +839,51 @@ enum LValue<'src> {
 }
 
 impl<'src> LValue<'src> {
+    fn gen_null_ptr_check(
+        &self,
+        sel_or_mem: Node,
+        method_body: &mut MethodBodyGenerator<'_, 'src, '_>,
+        act_block: Block,
+    ) -> Block {
+        if !method_body.safety_flags.contains(&safety::Flag::CheckNull) {
+            return act_block;
+        }
+
+        let ptr = match sel_or_mem {
+            Node::Member(mem) => mem.ptr(),
+            Node::Sel(sel) => sel.ptr(),
+            _ => unreachable!(),
+        };
+
+        let cmp_with_null = act_block.new_cmp(
+            ptr,
+            method_body.graph.new_const(Tarval::zero(Mode::P())),
+            bindings::ir_relation::Equal,
+        );
+
+        let CondProjection {
+            tr: is_null,
+            fls: is_not_null,
+        } = CondProjection::new(act_block.new_cond(cmp_with_null));
+
+        let err_block = method_body.graph.new_block(&[is_null]);
+        let err_fn = method_body.runtime.null_usage;
+        let err_call = err_block.new_call(
+            err_block.cur_store(),
+            method_body.graph.new_address(err_fn),
+            &[],
+            err_fn.ty(),
+        );
+        err_block.set_store(err_call.new_proj_m());
+        method_body
+            .graph
+            .end_block()
+            .imm_add_pred(err_block.new_return(err_block.cur_store(), &[]));
+        err_block.mature();
+
+        method_body.graph.new_block(&[is_not_null])
+    }
+
     /// Evaluate the lvalue just as if it were handled as a normal expression
     fn gen_eval(
         self,
@@ -846,6 +891,7 @@ impl<'src> LValue<'src> {
         act_block: Block,
     ) -> (Block, Node) {
         let mut load_array_or_field = |sel_or_mem, item_ty: Ty, span| {
+            let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
             let load = span_storage.with_span(
                 span,
                 act_block.new_load(
@@ -892,6 +938,7 @@ impl<'src> LValue<'src> {
         value: Node,
     ) -> (Block, Node) {
         let mut store_array_or_field = |sel_or_mem, item_ty| {
+            let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
             let store = span_storage.with_span(
                 span,
                 act_block.new_store(
