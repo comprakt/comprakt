@@ -298,7 +298,7 @@ impl Codegen {
                 let src = match (src, dst) {
                     (SrcOperand::Ar(_), DstOperand::Ar(_)) => {
                         let spill = Reg {
-                            size: Size::Eight,
+                            size: src.size(),
                             reg: Amd64Reg::A,
                         };
                         instrs.push(Mov(MovInstruction {
@@ -454,7 +454,10 @@ impl Codegen {
                 });
                 instrs.push(Mov(MovInstruction {
                     src: SrcOperand::Reg(Reg { size, reg: arg_reg }),
-                    dst: DstOperand::Ar(-((*i + 1 + self.num_saved_regs) as isize)),
+                    dst: DstOperand::Ar(Ar {
+                        size,
+                        pos: -((*i + 1 + self.num_saved_regs) as isize),
+                    }),
                     comment: "move param to stack".to_string(),
                 }));
             }
@@ -691,7 +694,7 @@ impl Codegen {
                         // We want to move src2 -> dst, but first we need to move src2 -> %rax:
                         // TODO: We can't use %rax here if it's a mul instr
                         let spill = Reg {
-                            size: Size::Eight,
+                            size: src1.size(),
                             reg: Amd64Reg::A,
                         };
                         instrs.push(Mov(MovInstruction {
@@ -727,7 +730,7 @@ impl Codegen {
                         }));
                         // TODO: We can't use %rax here if it's a mul instr
                         let spill = Reg {
-                            size: Size::Eight,
+                            size: src2.size(),
                             reg: Amd64Reg::A,
                         };
                         instrs.push(Mov(MovInstruction {
@@ -752,7 +755,7 @@ impl Codegen {
                         }));
                         // TODO: We can't use %rax here if it's a mul instr
                         let spill = Reg {
-                            size: Size::Eight,
+                            size: src1.size(),
                             reg: Amd64Reg::A,
                         };
                         instrs.push(Mov(MovInstruction {
@@ -1120,11 +1123,12 @@ impl Codegen {
             let src = self.fn_to_src_operand(src);
             assert_eq!(
                 DstOperand::Reg(Reg {
-                    size: src.size(),
+                    size: Size::Eight,
                     reg: Amd64Reg::A,
                 }),
                 src.try_into().unwrap()
             );
+            // TODO this will always return Size::Eight ATM
             let dst = self.fn_to_src_operand(dst).try_into().unwrap();
             instrs.push(Mov(MovInstruction {
                 src,
@@ -1284,7 +1288,10 @@ impl Codegen {
                     size: slot.firm().mode().size_bytes().try_into().unwrap(),
                     reg,
                 }),
-                Location::Ar(idx) => SrcOperand::Ar(-((idx + 1 + self.num_saved_regs) as isize)),
+                Location::Ar(idx) => SrcOperand::Ar(Ar {
+                    size: slot.firm().mode().size_bytes().try_into().unwrap(),
+                    pos: -((idx + 1 + self.num_saved_regs) as isize),
+                }),
                 Location::ParamMem => unreachable!("a slot never has a ParamMem location"),
             },
             lir::Operand::Param { idx, size } => match self.var_location[&var_id(op)] {
@@ -1294,10 +1301,14 @@ impl Codegen {
                 }),
                 // This can happen when the param was originally in a register but got moved on
                 // the stack.
-                Location::Ar(idx) => SrcOperand::Ar(-((idx + 1 + self.num_saved_regs) as isize)),
-                Location::ParamMem => SrcOperand::Ar(
-                    (idx.checked_sub(self.cconv.num_arg_regs() as u32).unwrap() as isize) + 2,
-                ),
+                Location::Ar(idx) => SrcOperand::Ar(Ar {
+                    size: size.try_into().unwrap(),
+                    pos: -((idx + 1 + self.num_saved_regs) as isize),
+                }),
+                Location::ParamMem => SrcOperand::Ar(Ar {
+                    size: size.try_into().unwrap(),
+                    pos: (idx.checked_sub(self.cconv.num_arg_regs() as u32).unwrap() as isize) + 2,
+                }),
             },
         }
     }
@@ -1319,7 +1330,10 @@ impl Codegen {
         let effective_idx = idx.checked_sub(self.cconv.num_arg_regs()).unwrap();
         let idx = (effective_idx + 2) as isize;
         Some(Instruction::Mov(MovInstruction {
-            src: SrcOperand::Ar(idx),
+            src: SrcOperand::Ar(Ar {
+                pos: idx,
+                size: dst.size(),
+            }),
             dst,
             comment: "stack args move in register".to_string(),
         }))
@@ -1532,16 +1546,24 @@ pub(super) struct MovInstruction {
 impl fmt::Display for MovInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         use super::Size::*;
-        let (src, dst) = (self.src, self.dst);
+        let (mov_suffix, src, dst) = match (self.src.size(), self.dst.size()) {
+            (One, One) => ("b", self.src, self.dst),
+            (One, Four) => ("sbl", self.src, self.dst),
+            (One, Eight) => ("sbq", self.src, self.dst),
+            (Four, One) => ("b", self.src.into_size(One), self.dst),
+            (Four, Four) => ("l", self.src, self.dst),
+            (Four, Eight) => ("slq", self.src, self.dst),
+            (Eight, One) => ("b", self.src.into_size(One), self.dst),
+            (Eight, Four) => ("l", self.src.into_size(Four), self.dst),
+            (Eight, Eight) => ("q", self.src, self.dst),
+        };
         match (src, dst) {
             (SrcOperand::Ar(_), DstOperand::Reg(_)) => {
                 // we use movq because then assembler will panic if dst has wrong size
                 write!(
                     fmt,
-                    "movq {}, {}\t\t/* {} */",
-                    src,
-                    dst.into_size(Eight),
-                    self.comment
+                    "mov{} {}, {}\t\t/* {} */",
+                    mov_suffix, src, dst, self.comment
                 )
             }
             (SrcOperand::Imm(_), DstOperand::Reg(_)) => {
@@ -1558,26 +1580,15 @@ impl fmt::Display for MovInstruction {
             }
             (SrcOperand::Reg(_), DstOperand::Ar(_)) => write!(
                 fmt,
-                "movq {}, {}\t\t/* {} */",
-                src.into_size(Eight),
-                dst,
-                self.comment
+                "mov{} {}, {}\t\t/* {} */",
+                mov_suffix, src, dst, self.comment
             ),
-            (SrcOperand::Imm(_), DstOperand::Ar(_)) => {
-                write!(fmt, "movq {}, {}\t\t/* {} */", src, dst, self.comment)
-            }
+            (SrcOperand::Imm(_), DstOperand::Ar(_)) => write!(
+                fmt,
+                "mov{} {}, {}\t\t/* {} */",
+                mov_suffix, src, dst, self.comment
+            ),
             (SrcOperand::Reg(src_reg), DstOperand::Reg(dst_reg)) => {
-                let (mov_suffix, src, dst) = match (self.src.size(), self.dst.size()) {
-                    (One, One) => ("b", self.src, self.dst),
-                    (One, Four) => ("sbl", self.src, self.dst),
-                    (One, Eight) => ("sbq", self.src, self.dst),
-                    (Four, One) => ("b", self.src.into_size(One), self.dst),
-                    (Four, Four) => ("l", self.src, self.dst),
-                    (Four, Eight) => ("slq", self.src, self.dst),
-                    (Eight, One) => ("b", self.src.into_size(One), self.dst),
-                    (Eight, Four) => ("l", self.src.into_size(Four), self.dst),
-                    (Eight, Eight) => ("q", self.src, self.dst),
-                };
                 // FIXME: handling this in the Display impl is wrong. Do this right!
                 if src_reg == dst_reg {
                     write!(fmt, "/* mov %r, %r */\t\t/* {} */", self.comment)
@@ -1733,23 +1744,28 @@ trait OperandTrait {
 
 #[derive(Copy, Clone)]
 pub(super) enum SrcOperand {
-    Ar(isize),
+    Ar(Ar),
     Reg(Reg),
     Imm(Tarval),
+}
+
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub(super) struct Ar {
+    pub(super) pos: isize,
+    pub(super) size: Size,
 }
 
 impl OperandTrait for SrcOperand {
     fn size(self) -> Size {
         match self {
-            SrcOperand::Ar(_) => Size::Eight,
+            SrcOperand::Ar(ar) => ar.size(),
             SrcOperand::Reg(reg) => reg.size(),
             SrcOperand::Imm(tv) => tv.mode().size_bytes().try_into().unwrap(),
         }
     }
     fn into_size(self, size: Size) -> Self {
         match self {
-            // We can't convert the size of an Ar entry, but that's ok
-            SrcOperand::Ar(_) => self,
+            SrcOperand::Ar(ar) => SrcOperand::Ar(ar.into_size(size)),
             SrcOperand::Reg(reg) => SrcOperand::Reg(reg.into_size(size)),
             SrcOperand::Imm(_) => self,
         }
@@ -1768,6 +1784,18 @@ impl OperandTrait for Reg {
     }
 }
 
+impl OperandTrait for Ar {
+    fn size(self) -> Size {
+        self.size
+    }
+    fn into_size(self, size: Size) -> Self {
+        Self {
+            size,
+            pos: self.pos,
+        }
+    }
+}
+
 impl OperandUsingRegs for SrcOperand {
     fn used_regs(self) -> Vec<Amd64Reg> {
         match self {
@@ -1780,21 +1808,20 @@ impl OperandUsingRegs for SrcOperand {
 
 #[derive(Debug, Copy, Clone)]
 pub(super) enum DstOperand {
-    Ar(isize),
+    Ar(Ar),
     Reg(Reg),
 }
 
 impl OperandTrait for DstOperand {
     fn size(self) -> Size {
         match self {
-            DstOperand::Ar(_) => Size::Eight,
+            DstOperand::Ar(ar) => ar.size(),
             DstOperand::Reg(reg) => reg.size,
         }
     }
     fn into_size(self, size: Size) -> Self {
         match self {
-            // We can't convert the size of an Ar entry, but that's ok
-            DstOperand::Ar(_) => self,
+            DstOperand::Ar(ar) => DstOperand::Ar(ar.into_size(size)),
             DstOperand::Reg(reg) => DstOperand::Reg(reg.into_size(size)),
         }
     }
@@ -1853,7 +1880,7 @@ impl TryFrom<SrcOperand> for DstOperand {
     fn try_from(op: SrcOperand) -> Result<Self, ()> {
         match op {
             SrcOperand::Reg(reg) => Ok(DstOperand::Reg(reg)),
-            SrcOperand::Ar(idx) => Ok(DstOperand::Ar(idx)),
+            SrcOperand::Ar(ar) => Ok(DstOperand::Ar(ar)),
             SrcOperand::Imm(_) => Err(()),
         }
     }
@@ -1863,7 +1890,7 @@ impl std::fmt::Display for SrcOperand {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SrcOperand::Reg(reg) => write!(fmt, "{}", reg),
-            SrcOperand::Ar(idx) => write!(fmt, "{}(%rbp)", idx.checked_mul(8).unwrap()),
+            SrcOperand::Ar(ar) => write!(fmt, "{}(%rbp)", ar.pos.checked_mul(8).unwrap()),
             SrcOperand::Imm(c) => write!(fmt, "${}", c.get_long()),
         }
     }
@@ -1872,7 +1899,7 @@ impl std::fmt::Display for SrcOperand {
 impl std::fmt::Display for DstOperand {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DstOperand::Ar(idx) => write!(fmt, "{}(%rbp)", idx.checked_mul(8).unwrap()),
+            DstOperand::Ar(ar) => write!(fmt, "{}(%rbp)", ar.pos.checked_mul(8).unwrap()),
             DstOperand::Reg(reg) => write!(fmt, "{}", reg),
         }
     }
