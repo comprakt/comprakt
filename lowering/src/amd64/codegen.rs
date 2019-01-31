@@ -295,25 +295,21 @@ impl Codegen {
                     .lir_to_src_operand(lir::Operand::Slot(*dst))
                     .try_into()
                     .unwrap();
-                let src = match (src, dst) {
-                    (SrcOperand::Ar(_), DstOperand::Ar(_)) => {
-                        let spill = Reg {
-                            size: src.size(),
-                            reg: Amd64Reg::A,
-                        };
-                        instrs.push(Mov(MovInstruction {
-                            src,
-                            dst: DstOperand::Reg(spill),
-                            comment: "conv spill".to_string(),
-                        }));
-                        SrcOperand::Reg(spill)
-                    }
-                    _ => src,
+
+                // TODO peephole this away for regs
+                let spill = Reg {
+                    size: Size::Eight,
+                    reg: Amd64Reg::A,
                 };
                 instrs.push(Mov(MovInstruction {
                     src,
+                    dst: DstOperand::Reg(spill),
+                    comment: "conv load".to_string(),
+                }));
+                instrs.push(Mov(MovInstruction {
+                    src: SrcOperand::Reg(spill),
                     dst,
-                    comment: "conv".to_string(),
+                    comment: "conv store".to_string(),
                 }))
             }
             lir::Instruction::Unop { kind, src, dst } => self.gen_unop(instrs, kind, src, *dst),
