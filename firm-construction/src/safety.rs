@@ -6,7 +6,7 @@ pub enum Flag {
     // Disable all safety features
     None,
     // Always check for null before dereferencing (loading) a pointer
-    CheckNull
+    CheckNull,
 }
 
 #[derive(Debug, Display)]

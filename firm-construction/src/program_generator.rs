@@ -1,4 +1,4 @@
-use super::{firm_program::*, runtime::Runtime, MethodBodyGenerator, safety};
+use super::{firm_program::*, runtime::Runtime, safety, MethodBodyGenerator};
 use crate::{
     asciifile::Span,
     ast,
@@ -73,7 +73,7 @@ impl Spans {
 
 pub struct ProgramGenerator<'src, 'ast> {
     runtime: Rc<Runtime>,
-    safety_flags: &'src[safety::Flag],
+    safety_flags: &'src [safety::Flag],
     type_system: &'src TypeSystem<'src, 'ast>,
     type_analysis: &'src TypeAnalysis<'src, 'ast>,
     strtab: &'src StringTable<'src>,
@@ -82,7 +82,7 @@ pub struct ProgramGenerator<'src, 'ast> {
 impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
     pub fn new(
         runtime: Rc<Runtime>,
-        safety_flags: &'src[safety::Flag],
+        safety_flags: &'src [safety::Flag],
         type_system: &'src TypeSystem<'src, 'ast>,
         type_analysis: &'src TypeAnalysis<'src, 'ast>,
         strtab: &'src StringTable<'src>,

@@ -1,8 +1,8 @@
 use super::{
     firm_program::FirmProgram,
+    safety,
     type_translation::{get_firm_mode, ty_from_checked_type},
     Runtime,
-    safety
 };
 use crate::{
     asciifile::{Span, Spanned},
@@ -36,7 +36,7 @@ pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     type_analysis: &'ir TypeAnalysis<'src, 'ast>,
     strtab: &'ir StringTable<'src>,
     pub spans: HashMap<Node, Span<'src>>,
-    safety_flags: &'src[safety::Flag],
+    safety_flags: &'src [safety::Flag],
 }
 
 enum ActiveBlock {
@@ -53,7 +53,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         type_analysis: &'ir TypeAnalysis<'src, 'ast>,
         runtime: &'ir Runtime,
         strtab: &'ir StringTable<'src>,
-        safety_flags: &'src[safety::Flag],
+        safety_flags: &'src [safety::Flag],
     ) -> Self {
         Self {
             graph,

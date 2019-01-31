@@ -170,7 +170,7 @@ pub struct PreBackendOptions {
     #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
     pub opt_level: optimization_arg::Arg,
 
-    /// List of safety features to enable
+    /// List of safety features to enable. Possible values are: `check-null'
     #[structopt(long = "safety", default_value = "check-null")]
     pub safety: Vec<SafetyFlag>,
 
