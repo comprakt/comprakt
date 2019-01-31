@@ -884,28 +884,35 @@ impl<'src> LValue<'src> {
         method_body.graph.new_block(&[is_not_null])
     }
 
+    fn load_array_or_field(
+        &self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        sel_or_mem: Node,
+        item_ty: Ty,
+        span: Span<'src>,
+        act_block: Block,
+    ) -> (Block, Node) {
+        let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
+        let load = span_storage.with_span(
+            span,
+            act_block.new_load(
+                act_block.cur_store(),
+                sel_or_mem,
+                item_ty.mode(),
+                item_ty,
+                bindings::ir_cons_flags::None,
+            ),
+        );
+        act_block.set_store(load.new_proj_m());
+        (act_block, load.new_proj_res(item_ty.mode()).into())
+    }
+
     /// Evaluate the lvalue just as if it were handled as a normal expression
     fn gen_eval(
         self,
         span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
         act_block: Block,
     ) -> (Block, Node) {
-        let mut load_array_or_field = |sel_or_mem, item_ty: Ty, span| {
-            let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
-            let load = span_storage.with_span(
-                span,
-                act_block.new_load(
-                    act_block.cur_store(),
-                    sel_or_mem,
-                    item_ty.mode(),
-                    item_ty,
-                    bindings::ir_cons_flags::None,
-                ),
-            );
-            act_block.set_store(load.new_proj_m());
-            (act_block, load.new_proj_res(item_ty.mode()).into())
-        };
-
         use self::LValue::*;
         match self {
             Var {
@@ -919,14 +926,47 @@ impl<'src> LValue<'src> {
                 }
                 (act_block, val)
             }
-            Array { sel, item_ty, span } => load_array_or_field(Node::Sel(sel), item_ty, span),
+            Array { sel, item_ty, span } => {
+                //let act_block = self.check_array_bounds(sel, item_ty, act_block);
+                self.load_array_or_field(span_storage, Node::Sel(sel), item_ty, span, act_block)
+            }
 
             Field {
                 member,
                 target_ty,
                 span,
-            } => load_array_or_field(Node::Member(member), target_ty, span),
+            } => self.load_array_or_field(
+                span_storage,
+                Node::Member(member),
+                target_ty,
+                span,
+                act_block,
+            ),
         }
+    }
+
+    fn store_array_or_field(
+        &self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        sel_or_mem: Node,
+        item_ty: Ty,
+        value: Node,
+        span: Span<'src>,
+        act_block: Block,
+    ) -> (Block, Node) {
+        let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
+        let store = span_storage.with_span(
+            span,
+            act_block.new_store(
+                act_block.cur_store(),
+                sel_or_mem,
+                value,
+                item_ty,
+                bindings::ir_cons_flags::None,
+            ),
+        );
+        act_block.set_store(store.new_proj_m());
+        (act_block, value)
     }
 
     /// Store the given value at the location described by this lvalue
@@ -937,22 +977,6 @@ impl<'src> LValue<'src> {
         act_block: Block,
         value: Node,
     ) -> (Block, Node) {
-        let mut store_array_or_field = |sel_or_mem, item_ty| {
-            let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
-            let store = span_storage.with_span(
-                span,
-                act_block.new_store(
-                    act_block.cur_store(),
-                    sel_or_mem,
-                    value,
-                    item_ty,
-                    bindings::ir_cons_flags::None,
-                ),
-            );
-            act_block.set_store(store.new_proj_m());
-            (act_block, value)
-        };
-
         use self::LValue::*;
         match self {
             Var { slot_idx, .. } => {
@@ -960,11 +984,25 @@ impl<'src> LValue<'src> {
                 (act_block, value)
             }
 
-            Array { sel, item_ty, .. } => store_array_or_field(Node::Sel(sel), item_ty),
+            Array { sel, item_ty, .. } => self.store_array_or_field(
+                span_storage,
+                Node::Sel(sel),
+                item_ty,
+                value,
+                span,
+                act_block,
+            ),
 
             Field {
                 member, target_ty, ..
-            } => store_array_or_field(Node::Member(member), target_ty),
+            } => self.store_array_or_field(
+                span_storage,
+                Node::Member(member),
+                target_ty,
+                value,
+                span,
+                act_block,
+            ),
         }
     }
 }
