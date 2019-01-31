@@ -1,5 +1,13 @@
 ///! # Code Motion / Code Placement
 ///!
+///! NOTE: the built in libfirm backend for amd64 calls `place_code` (libfirm's
+///! own implementation of this optimization) even when optimizations are
+///! disabled. You have to either use our backend or comment out
+///! line 3337 in file <ir/be/amd64/amd64_transform.c> to use this
+///! optimization.
+///!
+///! ---
+///!
 ///! This reimplements the "Code Placement" Optimization in Libfirm as
 ///! a more powerful optimization than "Loop Invariant Code Motion".
 ///! The algorithm has two steps, which are thoroughly explained below:
@@ -85,6 +93,138 @@ pub struct CodePlacement {
 impl optimization::Local for CodePlacement {
     fn optimize_function(graph: Graph) -> Outcome {
         CodePlacement::new(graph).run()
+    }
+}
+
+/// Performs global common subexpression elimination.
+///
+/// Keep in mind that common subexpression elimination is a trade-off.  It's not
+/// always better to merge common subexpressions. This is especially true if you
+/// merge two common subexpression A and B, where neither A dominates B, nor B
+/// dominates A.
+struct CommonSubExpr(Node);
+
+impl CommonSubExpr {
+    fn normalize_node(_node: Node) {
+        // try to find a order for children,
+        // e.g. oder Consts by size or whatever
+        // df79debd25b9372f92c416c4d659d2b1cf17009d/ir/opt/iropt.c#L7812
+        // TODO
+    }
+
+    /// Check if two nodes represent the same computation
+    ///
+    /// BEWARE: this may alter the order of out nodes of `a` and `b`!
+    /// BEWARE: this assumes nodes passed are floatable
+    ///         => nodes do not have side effects, are not blocks or phis, ...
+    fn is_same_expr(a: Node, b: Node) -> bool {
+        assert!(!a.is_pinned(), "GCSE only supports floatable nodes");
+        assert!(!b.is_pinned(), "GCSE only supports floatable nodes");
+        assert!(!Node::is_block(a));
+
+        CommonSubExpr::normalize_node(a);
+        CommonSubExpr::normalize_node(b);
+
+        // self comparison, pointer to the identical node,
+        // a block can only be equal to itself
+        if a == b {
+            return true;
+        }
+
+        // test if it describes the same node variant,
+        // e.g. is both a "Const Is" node?
+        if (unsafe {
+            bindings::get_irn_op(a.internal_ir_node()) != bindings::get_irn_op(b.internal_ir_node())
+        }) || a.mode() != b.mode()
+        {
+            return false;
+        }
+
+        // blocks are never the same
+        //if Node::is_block(a) {
+        //return false;
+        //}
+
+        // check if the predecessors are the same
+        //
+        // Speed up the common case of iterators with unequal
+        // length. (Iterator::eq does not optimize this case)
+        let in_nodes_a = a.in_nodes();
+        let in_nodes_b = b.in_nodes();
+
+        if in_nodes_a.len() != in_nodes_b.len() {
+            return false;
+        }
+
+        if !Iterator::eq(in_nodes_a, in_nodes_b) {
+            return false;
+        }
+
+        // Some nodes have attributes that have to be identical, e.g.
+        // - Const nodes have their tarval as attribute
+        // - ASM nodes have the assembly as their attributes
+        //
+        // Internally, the equivalence of node attributes can be checked using
+        // `node->op->ops.attrs_equal(a,b)`, but this is not part of the public API.
+        //
+        // Since libfirm does not expose shit regarding this API, we employ a whitelist.
+        // In case you want to compare this to the actual implementation:
+        //
+        // - Nodes default to no attributes, therefore they are by default 'always
+        //   equal'
+        // - A list of overrides for middle end nodes can be found in:
+        //   83e6f63dba4f83f743b7f5d383af08454f95e90d/ir/ir/irop.c#L580
+        // - Backend specific nodes for the amd64 target default to 'always unequal' by
+        //   default
+        // - Overrides for backend nodes are implemented in:
+        //   fa4fea6c01a13e4cb7bfbffb018b9407f531f80b/ir/be/benode.c#L652
+
+        // performing GCSE on const like nodes, e.g. Const and Address, that do not
+        // result in instructions is still desired as we expect predecessors to
+        // be indentical (pointer equality)
+        match (a, b) {
+            (Node::Const(a), Node::Const(b)) => {
+                // TODO: add asserts for unknown and bad tarval
+                a.tarval() == b.tarval()
+            }
+            (Node::Or(_), Node::Or(_))
+            | (Node::Add(_), Node::Add(_))
+            | (Node::Sub(_), Node::Sub(_))
+            | (Node::Mul(_), Node::Mul(_))
+            | (Node::And(_), Node::And(_))
+            | (Node::Not(_), Node::Not(_))
+            | (Node::Minus(_), Node::Minus(_)) => true,
+            unknown => {
+                log::debug!("missing attribute equality for {:?}", unknown);
+                false
+            }
+        }
+
+        // we now know that the local structure of the
+        // nodes is identical (same node with same predecessors).
+        // Check the global structure within the graph:
+
+        //let block_a = a.block();
+        //let block_b = b.block();
+
+        //if a.is_pinned() {
+        //assert!(b.is_pinned(), "same firm @op (same Node enum variant) => both
+        // pinned");
+
+        // pinned nodes can only be equal if they are in the same block
+        //if block_a != block_b {
+        //return false;
+        //} else {
+        // NOTE: at this point, in theory, everything qualifies
+        // for common sub expression elimination, but in general, you
+        // want to apply a heuristic that implements a trade-off between
+        // "unnecessary computations" and "control flow depth".
+        //
+        // A safe bet is to just eliminate common subexpressions
+        // if the block of one node dominates the block of the other
+        // node (rematerialization of a value).
+        //return true;
+        //}
     }
 }
 
@@ -258,8 +398,7 @@ impl EarliestPlacement {
             //   block of the predecessor with the __maximal__ dominator tree depth. (Since
             //   the predecessor with the maximal dominator tree depth is computed/available
             //   last.)
-            // - The predecessor with maximal dominator tree depth is unique since it is a
-            //   tree.
+            // - The block with maximal dominator tree depth is unique since it is a tree.
             let mut earliest_allowed_block = None;
             let mut earliest_allowed_depth = 0;
             for pred in current_node.in_nodes() {
@@ -314,6 +453,11 @@ impl EarliestPlacement {
 /// - control deepest position, by pushing to the dominance deepest (minimize
 ///   unnecessary computations)
 /// - loop nesting level, effectively implementing loop invariant code motion
+/// - or instead of loop nesting level, execution frequency reduction, which
+///   will also implement loop invariant code motion in most scenarios since
+///   loops are considered in execution frequency analysis.
+/// - common subexpression elimination. If an expression occurs multiple times
+///   in the identical earliest block, it is removed.
 ///
 /// NOTE: this expects all computations the be placed as early as possible. Call
 /// [`EarliestPlacement`] first or use [`CodePlacement`], which combines both
@@ -322,6 +466,8 @@ pub struct CostMinimizingPlacement {
     graph: Graph,
     worklist: VecDeque<Node>,
     visited: HashSet<Node>,
+    /// nodes that were removed by global common subexpression elimination
+    eliminated: HashSet<Node>,
     num_changed: usize,
 }
 
@@ -339,13 +485,15 @@ impl CostMinimizingPlacement {
             graph,
             worklist: VecDeque::new(),
             visited: HashSet::new(),
+            eliminated: HashSet::new(),
             num_changed: 0,
         }
     }
 
     fn run(&mut self) -> Outcome {
         // analog recursion to `EarliestPlacement`. The latest valid position
-        // of the current node is dependent on the position of all its users/consumers.
+        // of the current node is dependent on the position of all its users/consumers
+        // which are given by the out edges.
         //
         // => Use Depth First Search on out edges
         let start_block = self.graph.start_block();
@@ -374,6 +522,21 @@ impl CostMinimizingPlacement {
             );
             return Outcome::Unchanged;
         }
+
+        if self.eliminated.contains(&current_node) {
+            breakpoint!(
+                &format!(
+                    "MinCost Placement: ignoring {:?} eliminated by GCSE",
+                    current_node
+                ),
+                self.graph,
+                &|node: &Node| label_with_dom_info(self.graph, node, &current_node)
+            );
+            return Outcome::Unchanged;
+        }
+
+        let has_change_by_elimination = self.eliminate_common_subexprs(current_node);
+
         self.visited.insert(current_node);
 
         breakpoint!(
@@ -382,7 +545,107 @@ impl CostMinimizingPlacement {
             &|node: &Node| label_with_dom_info(self.graph, node, &current_node)
         );
 
-        self.move_to_cost_minimizing_block(current_node)
+        let change_by_movement = self.move_to_cost_minimizing_block(current_node);
+
+        if change_by_movement == Outcome::Changed || has_change_by_elimination == Outcome::Changed {
+            Outcome::Changed
+        } else {
+            Outcome::Unchanged
+        }
+    }
+
+    /// Performs global common subexpression elimination for floatable nodes.
+    ///
+    /// This will remove all nodes that are structural and semantically
+    /// equal to the given `current_node`. The `current_node` is kept as sole
+    /// representant of the expression, as a result the number of out nodes
+    /// of `current_node` may change!
+    ///
+    ///
+    /// NOTE: this is based on our assumption that nodes that can be eliminated
+    /// by GCSE share the same earliest block. As a result GCSE can be
+    /// implemented as a simple __local__ common sub-expression elimination.
+    ///
+    /// BEWARE: this function has fragile semantics! You must ensure that
+    /// - you only pass a floatable node
+    /// - the block has to be traversed depth first
+    /// - out nodes have to be current
+    fn eliminate_common_subexprs(&mut self, current_node: Node) -> Outcome {
+        if current_node.is_pinned() {
+            return Outcome::Unchanged;
+        }
+        //assert!(!current_node.is_pinned(), format!("GCSE can only handle floating
+        // nodes! got a pinned {:?}", current_node));
+
+        let mut outcome = Outcome::Unchanged;
+
+        // TODO: ensure that out nodes are always current
+        // TODO: is the order of elimination important? I think we have to do this depth
+        // first! TODO: replace this with a explicit list instead of recomputing
+        // out nodes all the time
+        for local_node in current_node.block().out_nodes() {
+            // TODO: this is fragile code. This only works since
+            // we expect in nodes to be identical (address of pointers equal).
+            // TODO: think about this again. Can this result in malformed graphs???
+
+            if local_node == current_node
+                || local_node.is_pinned()
+                || self.eliminated.contains(&local_node)
+            {
+                continue;
+            }
+
+            if CommonSubExpr::is_same_expr(current_node, local_node) {
+                // TODO: this may result in trivial phi nodes
+                // which reference the same input multiple times.
+                breakpoint!(
+                    &format!(
+                        "GCSE: {:?} and {:?} are congruent",
+                        current_node, local_node
+                    ),
+                    self.graph,
+                    &|node: &Node| {
+                        let mut label = dom_info_box(node);
+
+                        if local_node == *node || current_node == *node {
+                            label = label
+                                .add_style(Style::Filled)
+                                .fillcolor(X11Color::Green)
+                                .fontcolor(X11Color::White);
+                        }
+
+                        label
+                    }
+                );
+
+                // remove the local node from the graph
+
+                for (consumer, idx) in local_node.out_nodes_ex() {
+                    consumer.set_input_at(idx, current_node);
+                }
+
+                local_node.set_in_nodes(&[]);
+
+                self.eliminated.insert(local_node);
+
+                log::debug!(
+                    "GCSE: combined congruent {:?} and {:?}",
+                    current_node,
+                    local_node
+                );
+
+                outcome = Outcome::Changed;
+            }
+        }
+
+        // TODO: too expensive
+        self.graph.assure_outs();
+        // TODO: this is too expensive, I think running it once after
+        // the whole optimization sequence is sufficient for correctness
+        self.graph.remove_unreachable_code();
+        self.graph.remove_bads();
+
+        outcome
     }
 
     fn move_to_cost_minimizing_block(&mut self, current_node: Node) -> Outcome {
@@ -418,7 +681,8 @@ impl CostMinimizingPlacement {
             let latest_by_consumers =
                 self.latest_possible_placement_allowed_by_consumers(current_node);
 
-            // TODO: we do not have to set this here since we move again below
+            // TODO: we do not have to set this here since we move again below, this is only
+            // done for debugging purposes
             if let Some(block) = latest_by_consumers {
                 if block != current_node.block() {
                     breakpoint!(
