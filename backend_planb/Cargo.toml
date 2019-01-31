@@ -1,0 +1,16 @@
+[package]
+name = "backend_planb"
+version = "0.1.0"
+authors = ["Christian Schwarz <me@cschwarz.com>"]
+edition = "2018"
+
+[dependencies]
+utils = { path = "../utils" }
+debugging = { path = "../debugging" }
+firm-construction = { path = "../firm-construction" }
+libfirm-rs = { path = "../libfirm-rs" }
+optimization = { path = "../optimization" }
+type-checking = { path = "../type_checking" }
+
+log = "0.4"
+derive_more = "*"

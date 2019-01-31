@@ -52,6 +52,27 @@ pub mod amd64 {
 
 }
 
+pub mod planb {
+
+    use crate::firm_context::FirmContext;
+
+    pub struct Backend<'src, 'ast> {
+        // member lir holds raw pointers to data stored in firm_ctx
+        pub firm_ctx: FirmContext<'src, 'ast>,
+    }
+
+    use super::{AsmBackend, AsmOut};
+
+    impl AsmBackend for Backend<'_, '_> {
+        fn emit_asm(&mut self, out: &mut dyn AsmOut) -> std::io::Result<()> {
+            let firm_program = self.firm_ctx.use_external_backend();
+            compiler_shared::timed_scope!("planb");
+            backend_planb::emit_asm(&mut box out, firm_program)
+        }
+    }
+
+}
+
 pub mod molki {
     // TODO: MolkiBackend
 }

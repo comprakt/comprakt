@@ -26,6 +26,7 @@ type-checking = { path = "../type_checking" }
 firm-construction = { path = "../firm-construction" }
 debugging = { path = "../debugging" }
 libfirm-rs = { path = "../libfirm-rs" }
+backend_planb = { path = "../backend_planb"}
 
 failure = "0.1.3"
 log = "0.4"

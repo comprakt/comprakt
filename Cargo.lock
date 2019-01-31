@@ -37,6 +37,20 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "backend_planb"
+version = "0.1.0"
+dependencies = [
+ "debugging 0.1.0",
+ "derive_more 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "firm-construction 0.1.0",
+ "libfirm-rs 0.0.1",
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "optimization 0.1.0",
+ "type-checking 0.1.0",
+ "utils 0.1.0",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -237,6 +251,7 @@ name = "compiler-lib"
 version = "0.0.1"
 dependencies = [
  "asciifile 0.1.0",
+ "backend_planb 0.1.0",
  "compiler-shared 0.1.0",
  "criterion 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "debugging 0.1.0",

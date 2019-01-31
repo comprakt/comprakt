@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "asciifile",
+    "backend_planb",
     "compiler-lib",
     "compiler-cli",
     "compiler-shared",

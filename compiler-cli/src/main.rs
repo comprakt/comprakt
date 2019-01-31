@@ -125,6 +125,9 @@ pub enum CliCommand {
     /// backend. Defaults to 'a.out' in the current working directory.
     #[structopt(name = "--compile")]
     Compile(CompileOptions),
+
+    #[structopt(name = "--compile-planb")]
+    CompilePlanb(CompilePlanbOptions),
 }
 
 /// Backends supported by the [`CliCommand::Compile`] (`--compile`) command.
@@ -166,6 +169,16 @@ pub struct CompileFirmOptions {
 pub struct CompileOptions {
     #[structopt(long = "--backend", default_value = "amd64")]
     backend: CompileBackend,
+    #[structopt(flatten)]
+    pre_backend_options: PreBackendOptions,
+    #[structopt(flatten)]
+    backend_options: BackendOptions,
+}
+
+/// Command-line options for the [`CliCommand::CompilePlanb`]
+/// (`--compile-planb`) call.
+#[derive(StructOpt, Debug, Clone)]
+pub struct CompilePlanbOptions {
     #[structopt(flatten)]
     pre_backend_options: PreBackendOptions,
     #[structopt(flatten)]
@@ -299,6 +312,7 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::Check { path } => cmd_check(path),
         CliCommand::CompileFirm(options) => cmd_compile_firm(options),
         CliCommand::Compile(options) => cmd_compile(options),
+        CliCommand::CompilePlanb(options) => cmd_compile_planb(options),
     }
 }
 
@@ -501,6 +515,32 @@ fn cmd_compile(options: &CompileOptions) -> Result<(), Error> {
         .map(OutputSpecification::File);
 
     let res = bingen.emit_binary(&mut *backend, dump_asm);
+    if std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP").is_ok() {
+        let path = bingen.stop_and_keep_temp_dir();
+        eprintln!(
+            "Temporary compilation directory was persisted to {:?}",
+            path
+        );
+    }
+    res
+}
+
+fn cmd_compile_planb(options: &CompilePlanbOptions) -> Result<(), Error> {
+    // --compile-firm always uses bingen, hence always use our own runtime Mjrt
+
+    let rtlib = box runtime::Mjrt;
+    compile_command_common!(let (firm_ctx, bingen) =
+                            (&options.pre_backend_options, &options.backend_options, rtlib));
+
+    let dump_asm = options
+        .backend_options
+        .dump_assembly
+        .clone()
+        .map(OutputSpecification::File);
+
+    let mut backend = backend::planb::Backend { firm_ctx };
+
+    let res = bingen.emit_binary(&mut backend, dump_asm);
     if std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP").is_ok() {
         let path = bingen.stop_and_keep_temp_dir();
         eprintln!(
