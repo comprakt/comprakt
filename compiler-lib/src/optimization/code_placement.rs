@@ -85,7 +85,10 @@ use libfirm_rs::{
     Graph,
 };
 
-use std::collections::{HashSet, VecDeque};
+use std::{
+    cmp::Ordering,
+    collections::{HashSet, VecDeque},
+};
 pub struct CodePlacement {
     graph: Graph,
 }
@@ -105,11 +108,79 @@ impl optimization::Local for CodePlacement {
 struct CommonSubExpr(Node);
 
 impl CommonSubExpr {
-    fn normalize_node(_node: Node) {
-        // try to find a order for children,
-        // e.g. oder Consts by size or whatever
+    fn normalize_node(node: Node, graph: &Graph) {
+        // put commutative ops in an arbitrary but stable order
+        // Exaustive list of commutative nodes: add, and, eor, mul, mulh, or
+        if node.is_commutative() {
+            let operand_right =
+                Node::wrap(unsafe { bindings::get_binop_right(node.internal_ir_node()).into() });
+            let operand_left =
+                Node::wrap(unsafe { bindings::get_binop_left(node.internal_ir_node()).into() });
+
+            if CommonSubExpr::cmp(operand_left, operand_right) == Ordering::Greater {
+                breakpoint!(
+                    &format!(
+                        "GCSE: normalizing order of commutative operands {:?} and {:?} of {:?}",
+                        operand_left, operand_right, node
+                    ),
+                    graph,
+                    &|rendered: &Node| {
+                        let mut label = dom_info_box(rendered);
+
+                        if *rendered == node {
+                            label = label
+                                .add_style(Style::Filled)
+                                .fillcolor(X11Color::Blue)
+                                .fontcolor(X11Color::White);
+                        }
+
+                        if *rendered == operand_right || *rendered == operand_left {
+                            label = label
+                                .add_style(Style::Filled)
+                                .fillcolor(X11Color::Green)
+                                .fontcolor(X11Color::White);
+                        }
+                        label
+                    }
+                );
+
+                unsafe {
+                    bindings::set_binop_right(
+                        node.internal_ir_node(),
+                        operand_left.internal_ir_node(),
+                    )
+                };
+                unsafe {
+                    bindings::set_binop_left(
+                        node.internal_ir_node(),
+                        operand_right.internal_ir_node(),
+                    )
+                };
+            }
+        }
+    }
+
+    fn cmp(a: Node, b: Node) -> Ordering {
+        // we try to compute any stable order of children for
+        // the purpose of normalization.
+        //
+        // We sort by two criteria:
+        // 1.) split set into const and variable nodes, put const nodes first
+        // 2.) within each set, order the nodes by their libfirm node id
+        //
+        // Libfirm also handles a third class of "constlike" nodes, which consists
+        // of [Unknown, Const, Dummy, ...], but this is not necessary at all for
+        // our use case.
+        //
         // df79debd25b9372f92c416c4d659d2b1cf17009d/ir/opt/iropt.c#L7812
-        // TODO
+        // df79debd25b9372f92c416c4d659d2b1cf17009d/ir/opt/iropt.c#L2169
+
+        match (a, b) {
+            (Node::Const(_), Node::Const(_)) => a.node_id().cmp(&b.node_id()),
+            (Node::Const(_), _) => Ordering::Less,
+            (_, Node::Const(_)) => Ordering::Greater,
+            (_, _) => a.node_id().cmp(&b.node_id()),
+        }
     }
 
     /// Check if two nodes represent the same computation
@@ -121,9 +192,6 @@ impl CommonSubExpr {
         assert!(!a.is_pinned(), "GCSE only supports floatable nodes");
         assert!(!b.is_pinned(), "GCSE only supports floatable nodes");
         assert!(!Node::is_block(a));
-
-        CommonSubExpr::normalize_node(a);
-        CommonSubExpr::normalize_node(b);
 
         // self comparison, pointer to the identical node,
         // a block can only be equal to itself
@@ -583,6 +651,16 @@ impl CostMinimizingPlacement {
         // TODO: is the order of elimination important? I think we have to do this depth
         // first! TODO: replace this with a explicit list instead of recomputing
         // out nodes all the time
+
+        // normalize node order for all nodes in block, this includes
+        // the current node
+        for local_node in current_node.block().out_nodes() {
+            CommonSubExpr::normalize_node(local_node, &self.graph);
+        }
+
+        // recompute the out indices, since edges were reordered
+        self.graph.recompute_outs();
+
         for local_node in current_node.block().out_nodes() {
             // TODO: this is fragile code. This only works since
             // we expect in nodes to be identical (address of pointers equal).
@@ -627,12 +705,6 @@ impl CostMinimizingPlacement {
                 local_node.set_in_nodes(&[]);
 
                 self.eliminated.insert(local_node);
-
-                log::debug!(
-                    "GCSE: combined congruent {:?} and {:?}",
-                    current_node,
-                    local_node
-                );
 
                 outcome = Outcome::Changed;
             }

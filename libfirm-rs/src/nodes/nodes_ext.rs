@@ -151,6 +151,12 @@ pub trait NodeTrait {
         unsafe { bindings::get_irn_pinned(self.internal_ir_node()) > 0 }
     }
 
+    fn is_commutative(&self) -> bool {
+        let op = unsafe { bindings::get_irn_op(self.internal_ir_node()) };
+        let flags = unsafe { bindings::get_op_flags(op) };
+        (flags & bindings::irop_flags::Commutative) > 0
+    }
+
     fn is_only_valid_in_start_block(&self) -> bool {
         unsafe { bindings::is_irn_start_block_placed(self.internal_ir_node()) > 0 }
     }
