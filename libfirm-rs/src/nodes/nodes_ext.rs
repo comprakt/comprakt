@@ -1,7 +1,7 @@
 use super::nodes_gen::*;
 use crate::{
     bindings,
-    types::{ClassTy, Ty},
+    types::{ClassTy, MethodTy, Ty},
     Entity, Graph, Mode,
 };
 use std::{
@@ -84,6 +84,10 @@ macro_rules! simple_node_iterator {
 pub trait NodeTrait {
     fn internal_ir_node(&self) -> *mut bindings::ir_node;
 
+    fn as_node(&self) -> Node {
+        Node::wrap(self.internal_ir_node())
+    }
+
     // TODO move to graph
     fn keep_alive(&self) {
         unsafe { bindings::keep_alive(self.internal_ir_node()) }
@@ -94,6 +98,9 @@ pub trait NodeTrait {
     }
 
     fn block(&self) -> Block {
+        if Node::is_block(self.as_node()) {
+            return Block::new(self.internal_ir_node());
+        }
         let block_ir_node = unsafe { bindings::get_nodes_block(self.internal_ir_node()) };
         Block::new(block_ir_node)
     }
@@ -308,6 +315,14 @@ impl Block {
             bindings::add_immBlock_pred(self.internal_ir_node(), pred.internal_ir_node());
         }
     }
+
+    pub fn dom_depth(self) -> usize {
+        unsafe { get_Block_dom_depth(self.internal_ir_node()) as usize }
+    }
+}
+
+extern "C" {
+    pub fn get_Block_dom_depth(bl: *const bindings::ir_node) -> ::std::os::raw::c_int;
 }
 
 simple_node_iterator!(
@@ -393,6 +408,15 @@ impl Call {
         CallArgsIterator::new(self.internal_ir_node())
     }
 
+    pub fn out_single_result(self) -> Option<Node> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Call_TResult(_)) = out_node {
+                return proj.out_nodes().idx(0);
+            }
+        }
+        None
+    }
+
     pub fn is_new(self) -> IsNewResult {
         if let Some(addr) = Node::as_address(self.ptr()) {
             if addr.entity().name_string() == "mjrt_new" {
@@ -404,6 +428,19 @@ impl Call {
             }
         }
         IsNewResult::No
+    }
+
+    pub fn method_ty(self) -> MethodTy {
+        unsafe {
+            MethodTy::from(Ty::from_ir_type(bindings::get_Call_type(
+                self.internal_ir_node(),
+            )))
+            .unwrap()
+        }
+    }
+
+    pub fn single_result_ty(self) -> Option<Ty> {
+        self.method_ty().single_result_ty()
     }
 }
 
@@ -428,27 +465,33 @@ pub trait NodeDebug {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct NodeDebugOpts {
-    short: bool,
+    pub short: bool,
+    pub new_print_class: bool,
+    pub print_id: bool,
 }
 
 impl NodeDebugOpts {
-    pub fn short(self) -> bool {
-        self.short
-    }
-
-    pub fn with_short(mut self, val: bool) -> Self {
-        self.short = val;
-        self
+    pub fn default() -> Self {
+        Self {
+            short: false,
+            new_print_class: true,
+            print_id: true,
+        }
     }
 }
 
 #[derive(Copy, Clone)]
 pub struct NodeDebugFmt<T: NodeDebug + Sized + Copy>(T, NodeDebugOpts);
 impl<T: NodeDebug + Copy> NodeDebugFmt<T> {
-    pub fn short(self, val: bool) -> Self {
-        NodeDebugFmt(self.0, self.1.with_short(val))
+    pub fn short(mut self, val: bool) -> Self {
+        self.1.short = val;
+        self
+    }
+    pub fn new_print_class(mut self, val: bool) -> Self {
+        self.1.new_print_class = val;
+        self
     }
     pub fn with(self, opts: NodeDebugOpts) -> Self {
         NodeDebugFmt(self.0, opts)
@@ -470,8 +513,12 @@ impl<T: NodeDebug + Copy> fmt::Debug for NodeDebugFmt<T> {
 // = Debug fmt impls =
 
 impl NodeDebug for Proj {
-    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        write!(f, "Proj {}: {:?}", self.node_id(), self.kind())
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "Proj {}", self.node_id())
+        } else {
+            write!(f, "Proj {}: {:?}", self.node_id(), self.kind())
+        }
     }
 }
 
@@ -483,7 +530,18 @@ impl NodeDebug for Const {
 
 impl NodeDebug for Call {
     fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
-        if opts.short {
+        if let IsNewResult::Yes(class_ty) = self.is_new() {
+            write!(
+                f,
+                "New{} {}",
+                if opts.new_print_class {
+                    format!(" {:?}", class_ty)
+                } else {
+                    format!("")
+                },
+                self.node_id()
+            )
+        } else if opts.short {
             write!(f, "Call {}", self.node_id())
         } else {
             write!(
