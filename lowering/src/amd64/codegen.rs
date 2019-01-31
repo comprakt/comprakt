@@ -279,7 +279,7 @@ impl Codegen {
                     .try_into()
                     .unwrap();
                 let src = match (src, dst) {
-                    (SrcOperand::Mem(_), DstOperand::Mem(_)) => {
+                    (SrcOperand::Ar(_), DstOperand::Ar(_)) => {
                         let spill = Amd64Reg::Rax;
                         instrs.push(Mov(MovInstruction {
                             src,
@@ -288,6 +288,9 @@ impl Codegen {
                             comment: "conv spill".to_string(),
                         }));
                         SrcOperand::Reg(spill)
+                    }
+                    (SrcOperand::Mem(_), _) | (_, DstOperand::Mem(_)) => {
+                        unreachable!("operand mem only in load/store possible")
                     }
                     _ => src,
                 };
@@ -329,13 +332,11 @@ impl Codegen {
                         SrcOperand::Reg(_) => src,
                         SrcOperand::Imm(_) => src,
                         // the source is stored in the activation record, move to scratch
-                        SrcOperand::Mem(ar_addr_comp) => {
-                            // TODO @flip1995 SrcOperand::ActivationRecordEntry refactor
-                            assert!(ar_addr_comp.base == Amd64Reg::Rbp);
-                            assert!(ar_addr_comp.index.is_zero());
+                        SrcOperand::Ar(_) => {
                             let src = spill_ctx.spill_and_load_operand(src);
                             SrcOperand::Reg(src)
                         }
+                        SrcOperand::Mem(_) => unreachable!("no load mem -> mem possible"),
                     }
                 };
 
@@ -379,10 +380,7 @@ impl Codegen {
                         // the dst is stored in a reg, this is fine
                         DstOperand::Reg(reg) => reg,
                         // the dst is stored in the activation record
-                        DstOperand::Mem(ar_addr_comp) => {
-                            // TODO @flip1995 SrcOperand::ActivationRecordEntry refactor
-                            assert!(ar_addr_comp.base == Amd64Reg::Rbp);
-                            assert!(ar_addr_comp.index.is_zero());
+                        DstOperand::Ar(_) => {
                             // To avoid mem mem move, use rax as scratch for result.
                             // Using rax without consulting free_regs is safe because
                             // because any usage as spill space for src
@@ -395,6 +393,7 @@ impl Codegen {
                             }));
                             Amd64Reg::Rax
                         }
+                        DstOperand::Mem(_) => unreachable!("no store mem -> mem possible"),
                     };
                     DstOperand::Reg(dst)
                 };
@@ -433,19 +432,14 @@ impl Codegen {
             }
             // Register allocation placed argument into the AR, but the calling convetion placed
             // the argument into a register, somove it to the AR slot.
-            // TODO(@flip1995): this should be Location::Ar(...)
-            Location::Mem(i) => {
+            Location::Ar(i) => {
                 let arg_reg = Amd64Reg::arg(idx as usize);
                 instrs.push(Comment {
                     comment: format!("spill argument register {}", arg_reg),
                 });
                 instrs.push(Mov(MovInstruction {
                     src: SrcOperand::Reg(arg_reg),
-                    dst: DstOperand::Mem(lir::AddressComputation {
-                        offset: -((*i + 1 + self.num_saved_regs) as isize) * 8,
-                        base: Amd64Reg::Rbp,
-                        index: lir::IndexComputation::Zero,
-                    }),
+                    dst: DstOperand::Ar(-((*i + 1 + self.num_saved_regs) as isize)),
                     size: 8,
                     comment: "move param to stack".to_string(),
                 }));
@@ -498,12 +492,8 @@ impl Codegen {
                 }
             }
             // base address of ac operand is stored in the AR, we need it in a register
-            SrcOperand::Mem(ar_addr_comp) => {
-                // TODO @flip1995 SrcOperand::ActivationRecordEntry refactor
-                assert!(ar_addr_comp.base == Amd64Reg::Rbp);
-                assert!(ar_addr_comp.index.is_zero());
-                spill_ctx.spill_and_load_operand(base)
-            }
+            SrcOperand::Ar(_) => spill_ctx.spill_and_load_operand(base),
+            SrcOperand::Mem(_) => unreachable!("no mem as addr base possible"),
         };
         use self::lir::IndexComputation;
         let index: IndexComputation<Amd64Reg> = {
@@ -521,13 +511,11 @@ impl Codegen {
                         IndexComputation::Displacement(index, stride)
                     }
                     // the index is stored in the AR, we need it in a register
-                    SrcOperand::Mem(ar_addr_comp) => {
-                        // TODO @flip1995 SrcOperand::ActivationRecordEntry refactor
-                        assert!(ar_addr_comp.base == Amd64Reg::Rbp);
-                        assert!(ar_addr_comp.index.is_zero());
+                    SrcOperand::Ar(_) => {
                         let index = spill_ctx.spill_and_load_operand(index);
                         IndexComputation::Displacement(index, stride)
                     }
+                    SrcOperand::Mem(_) => unreachable!("no mem as addr idx possible"),
                 }
             } else {
                 // the only other variant of IndexComputation
@@ -649,7 +637,7 @@ impl Codegen {
                     push_binop!(kind, src2, dst);
                 }
             }
-            DstOperand::Mem(_) => {
+            DstOperand::Ar(_) => {
                 let dst_spill = if let lir::BinopKind::Mul = kind {
                     DstOperand::Reg(Amd64Reg::Rax)
                 } else {
@@ -669,7 +657,7 @@ impl Codegen {
                         }));
                         push_binop!(kind, src2, dst_spill);
                     }
-                    (SrcOperand::Mem(_), SrcOperand::Mem(_)) => {
+                    (SrcOperand::Ar(_), SrcOperand::Ar(_)) => {
                         // This case is bad. There aren't any (mem, mem) ops.
                         // This means we need to spill one register, and that is Rax.
                         // `op mem, mem -> mem` => `op reg, mem`
@@ -700,8 +688,8 @@ impl Codegen {
                         push_binop!(kind, SrcOperand::Reg(spill), dst_spill);
                     }
                     // src1 is Reg or Imm, src2 is Mem
-                    (SrcOperand::Reg(_), SrcOperand::Mem(_))
-                    | (SrcOperand::Imm(_), SrcOperand::Mem(_)) => {
+                    (SrcOperand::Reg(_), SrcOperand::Ar(_))
+                    | (SrcOperand::Imm(_), SrcOperand::Ar(_)) => {
                         // move src1 into accumulator
                         // (using src1, not src2 for correct sub support)
                         instrs.push(Mov(MovInstruction {
@@ -722,8 +710,8 @@ impl Codegen {
                         // Now mem(dst == src1 OP src2)
                     }
                     // src1 is Mem, src2 is Reg or Imm
-                    (SrcOperand::Mem(_), SrcOperand::Reg(_))
-                    | (SrcOperand::Mem(_), SrcOperand::Imm(_)) => {
+                    (SrcOperand::Ar(_), SrcOperand::Reg(_))
+                    | (SrcOperand::Ar(_), SrcOperand::Imm(_)) => {
                         // The same approach like above, but with src1 and src2 swapped
                         // and a special case for `sub` because it's not commutative (see `if`
                         // comment)
@@ -753,6 +741,9 @@ impl Codegen {
                             instrs.push(Negq { src: dst_spill })
                         }
                     }
+                    (SrcOperand::Mem(_), _) | (_, SrcOperand::Mem(_)) => {
+                        unreachable!("operand mem only in load/store possible")
+                    }
                 }
                 if let lir::BinopKind::Mul = kind {
                     instrs.push(Mov(MovInstruction {
@@ -763,6 +754,7 @@ impl Codegen {
                     }));
                 }
             }
+            DstOperand::Mem(_) => unreachable!("operand mem only in load/store possible"),
         }
     }
 
@@ -799,7 +791,7 @@ impl Codegen {
                 }));
                 push_unop!(kind, dst);
             }
-            DstOperand::Mem(_) => match src {
+            DstOperand::Ar(_) => match src {
                 SrcOperand::Reg(_) | SrcOperand::Imm(_) => {
                     instrs.push(Mov(MovInstruction {
                         src,
@@ -809,7 +801,7 @@ impl Codegen {
                     }));
                     push_unop!(kind, dst);
                 }
-                SrcOperand::Mem(_) => {
+                SrcOperand::Ar(_) => {
                     // src -> %rax
                     instrs.push(Mov(MovInstruction {
                         src,
@@ -827,7 +819,9 @@ impl Codegen {
                         comment: "unop spill to dst".to_string(),
                     }));
                 }
+                SrcOperand::Mem(_) => unreachable!("operand mem only in load/store possible"),
             },
+            DstOperand::Mem(_) => unreachable!("operand mem only in load/store possible"),
         }
     }
 
@@ -848,10 +842,10 @@ impl Codegen {
         // `idivq %r` divides %rdx:%rax by %r
         // the quotient is stored in %rax, the remainder in %rdx
 
-        let used_regs_addr_computation = |ac: lir::AddressComputation<Amd64Reg>| ac.operands();
         let dst_operand_used_regs = |op| match op {
-            DstOperand::Mem(ac) => used_regs_addr_computation(ac),
+            DstOperand::Ar(_) => vec![Amd64Reg::Rbp],
             DstOperand::Reg(reg) => vec![reg],
+            DstOperand::Mem(_) => unreachable!("operand mem only in load/store possible"),
         };
 
         let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
@@ -934,7 +928,8 @@ impl Codegen {
         match dst {
             _ if rdx_spilled => (),
             DstOperand::Reg(Amd64Reg::Rdx) => (),
-            DstOperand::Reg(_) | DstOperand::Mem(_) => spills.add_regs(&[Amd64Reg::Rdx]),
+            DstOperand::Reg(_) | DstOperand::Ar(_) => spills.add_regs(&[Amd64Reg::Rdx]),
+            DstOperand::Mem(_) => unreachable!("operand mem only in load/store possible"),
         }
 
         instrs.extend(spills.saves().map(|r| Pushq {
@@ -1111,9 +1106,9 @@ impl Codegen {
                 let lhs = self.lir_to_src_operand(*lhs);
                 let rhs = self.lir_to_src_operand(*rhs);
                 let op = match (lhs, rhs) {
-                    (SrcOperand::Reg(_), SrcOperand::Mem(_))
+                    (SrcOperand::Reg(_), SrcOperand::Ar(_))
                     | (_, SrcOperand::Reg(_))
-                    | (SrcOperand::Imm(_), SrcOperand::Mem(_)) => {
+                    | (SrcOperand::Imm(_), SrcOperand::Ar(_)) => {
                         instrs.push(Cmpq {
                             subtrahend: lhs,
                             minuend: rhs,
@@ -1123,7 +1118,7 @@ impl Codegen {
                     }
 
                     (SrcOperand::Reg(_), SrcOperand::Imm(_))
-                    | (SrcOperand::Mem(_), SrcOperand::Imm(_)) => {
+                    | (SrcOperand::Ar(_), SrcOperand::Imm(_)) => {
                         // only the subtrahend is allowed to be immediate
                         // thus, swap rhs and lhs on their subtrahend / minuend position
                         instrs.push(Cmpq {
@@ -1133,7 +1128,7 @@ impl Codegen {
                         // do not swap op for GAS, we already swapped rhs and lhs
                         *op
                     }
-                    (SrcOperand::Mem(_), SrcOperand::Mem(_))
+                    (SrcOperand::Ar(_), SrcOperand::Ar(_))
                     | (SrcOperand::Imm(_), SrcOperand::Imm(_)) => {
                         // This case is bad we don't know if there is a free
                         // register left. So we have to spill one register.
@@ -1150,6 +1145,9 @@ impl Codegen {
                             minuend: SrcOperand::Reg(spill),
                         });
                         op.swap()
+                    }
+                    (SrcOperand::Mem(_), _) | (_, SrcOperand::Mem(_)) => {
+                        unreachable!("operand mem only in load/store possible")
                     }
                 };
                 push_jmp!(
@@ -1190,29 +1188,17 @@ impl Codegen {
             lir::Operand::Imm(c) => SrcOperand::Imm(c),
             lir::Operand::Slot(_) => match self.var_location[&var_id(op)] {
                 Location::Reg(reg) => SrcOperand::Reg(reg),
-                Location::Mem(idx) => SrcOperand::Mem(lir::AddressComputation {
-                    offset: -((idx + 1 + self.num_saved_regs) as isize) * 8,
-                    base: Amd64Reg::Rbp,
-                    index: lir::IndexComputation::Zero,
-                }),
+                Location::Ar(idx) => SrcOperand::Ar(-((idx + 1 + self.num_saved_regs) as isize)),
                 Location::ParamMem => unreachable!("a slot never has a ParamMem location"),
             },
             lir::Operand::Param { idx } => match self.var_location[&var_id(op)] {
                 Location::Reg(reg) => SrcOperand::Reg(reg),
                 // This can happen when the param was originally in a register but got moved on
                 // the stack.
-                Location::Mem(idx) => SrcOperand::Mem(lir::AddressComputation {
-                    offset: -((idx + 1 + self.num_saved_regs) as isize) * 8,
-                    base: Amd64Reg::Rbp,
-                    index: lir::IndexComputation::Zero,
-                }),
-                Location::ParamMem => SrcOperand::Mem(lir::AddressComputation {
-                    offset: ((idx.checked_sub(self.cconv.num_arg_regs() as u32).unwrap() as isize)
-                        + 2)
-                        * 8,
-                    base: Amd64Reg::Rbp,
-                    index: lir::IndexComputation::Zero,
-                }),
+                Location::Ar(idx) => SrcOperand::Ar(-((idx + 1 + self.num_saved_regs) as isize)),
+                Location::ParamMem => SrcOperand::Ar(
+                    (idx.checked_sub(self.cconv.num_arg_regs() as u32).unwrap() as isize) + 2,
+                ),
             },
         }
     }
@@ -1229,14 +1215,9 @@ impl Codegen {
             return None;
         }
         let effective_idx = idx.checked_sub(self.cconv.num_arg_regs()).unwrap();
-        let offset = ((effective_idx + 2) * 8) as isize;
+        let idx = (effective_idx + 2) as isize;
         Some(Instruction::Mov(MovInstruction {
-            // TODO(@flip1995): This should be SrcOperand::Ar(...)
-            src: SrcOperand::Mem(lir::AddressComputation {
-                offset,
-                base: Amd64Reg::Rbp,
-                index: lir::IndexComputation::Zero,
-            }),
+            src: SrcOperand::Ar(idx),
             dst,
             size: 8,
             comment: "stack args move in register".to_string(),
@@ -1340,6 +1321,14 @@ pub(super) struct MovInstruction {
 impl fmt::Display for MovInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match (self.src, self.dst) {
+            (SrcOperand::Ar(_), DstOperand::Reg(_))
+            | (SrcOperand::Reg(_), DstOperand::Ar(_))
+            | (SrcOperand::Imm(_), DstOperand::Ar(_))
+            | (SrcOperand::Imm(_), DstOperand::Reg(_)) => write!(
+                fmt,
+                "movq {}, {}\t\t/* {} */",
+                self.src, self.dst, self.comment
+            ),
             (SrcOperand::Reg(src), DstOperand::Reg(dst)) => {
                 // FIXME: handling this in the Display impl is wrong. Do this right!
                 if src == dst {
@@ -1352,11 +1341,6 @@ impl fmt::Display for MovInstruction {
                     )
                 }
             }
-            (SrcOperand::Imm(_), DstOperand::Reg(_)) => write!(
-                fmt,
-                "movq {}, {}\t\t/* {} */",
-                self.src, self.dst, self.comment
-            ),
             (SrcOperand::Reg(reg), DstOperand::Mem(_)) => match self.size {
                 1 => write!(
                     fmt,
@@ -1415,7 +1399,10 @@ impl fmt::Display for MovInstruction {
                 ),
                 _ => unreachable!(),
             },
-            (SrcOperand::Mem(_), DstOperand::Mem(_)) => unreachable!(),
+            (SrcOperand::Mem(_), DstOperand::Mem(_))
+            | (SrcOperand::Mem(_), DstOperand::Ar(_))
+            | (SrcOperand::Ar(_), DstOperand::Mem(_))
+            | (SrcOperand::Ar(_), DstOperand::Ar(_)) => unreachable!(),
         }
     }
 }
@@ -1499,6 +1486,7 @@ impl OperandUsingRegs for lir::AddressComputation<Amd64Reg> {
 #[derive(Copy, Clone)]
 pub(super) enum SrcOperand {
     Mem(lir::AddressComputation<Amd64Reg>),
+    Ar(isize),
     Reg(Amd64Reg),
     Imm(Tarval),
 }
@@ -1509,6 +1497,7 @@ impl OperandUsingRegs for SrcOperand {
             SrcOperand::Mem(ac) => ac.used_regs(),
             SrcOperand::Reg(reg) => vec![reg],
             SrcOperand::Imm(_) => vec![],
+            SrcOperand::Ar(_) => vec![Amd64Reg::Rbp],
         }
     }
 }
@@ -1516,6 +1505,7 @@ impl OperandUsingRegs for SrcOperand {
 #[derive(Debug, Copy, Clone)]
 pub(super) enum DstOperand {
     Mem(lir::AddressComputation<Amd64Reg>),
+    Ar(isize),
     Reg(Amd64Reg),
 }
 
@@ -1524,6 +1514,7 @@ impl OperandUsingRegs for DstOperand {
         match self {
             DstOperand::Mem(ac) => ac.used_regs(),
             DstOperand::Reg(reg) => vec![reg],
+            DstOperand::Ar(_) => vec![Amd64Reg::Rbp],
         }
     }
 }
@@ -1573,6 +1564,7 @@ impl TryFrom<SrcOperand> for DstOperand {
         match op {
             SrcOperand::Reg(reg) => Ok(DstOperand::Reg(reg)),
             SrcOperand::Mem(addr) => Ok(DstOperand::Mem(addr)),
+            SrcOperand::Ar(idx) => Ok(DstOperand::Ar(idx)),
             SrcOperand::Imm(_) => Err(()),
         }
     }
@@ -1583,6 +1575,7 @@ impl std::fmt::Display for SrcOperand {
         match self {
             SrcOperand::Mem(addr) => write!(fmt, "{}", addr),
             SrcOperand::Reg(reg) => write!(fmt, "{}", reg),
+            SrcOperand::Ar(idx) => write!(fmt, "{}(%rbp)", idx.checked_mul(8).unwrap()),
             SrcOperand::Imm(c) => write!(fmt, "${}", c.get_long()),
         }
     }
@@ -1592,6 +1585,7 @@ impl std::fmt::Display for DstOperand {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DstOperand::Mem(addr) => write!(fmt, "{}", addr),
+            DstOperand::Ar(idx) => write!(fmt, "{}(%rbp)", idx.checked_mul(8).unwrap()),
             DstOperand::Reg(reg) => write!(fmt, "{}", reg),
         }
     }
@@ -1601,6 +1595,7 @@ impl Hash for DstOperand {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             DstOperand::Reg(reg) => reg.hash(state),
+            DstOperand::Ar(idx) => idx.hash(state),
             DstOperand::Mem(lir::AddressComputation {
                 offset,
                 base,
@@ -1648,7 +1643,13 @@ impl PartialEq for DstOperand {
                         _ => false,
                     }
             }
-            _ => false,
+            (Ar(idx1), Ar(idx2)) => idx1 == idx2,
+            (Mem(_), Ar(_))
+            | (Ar(_), Mem(_))
+            | (Mem(_), Reg(_))
+            | (Reg(_), Mem(_))
+            | (Ar(_), Reg(_))
+            | (Reg(_), Ar(_)) => false,
         }
     }
 }
@@ -1668,6 +1669,7 @@ impl From<RegGraphMinLeftEdgeInstruction<DstOperand>> for Instruction {
                 let src = match src {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
                     DstOperand::Mem(addr) => SrcOperand::Mem(addr),
+                    DstOperand::Ar(idx) => SrcOperand::Ar(idx),
                 };
                 Pushq { src }
             }
@@ -1676,6 +1678,7 @@ impl From<RegGraphMinLeftEdgeInstruction<DstOperand>> for Instruction {
                 let src = match src {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
                     DstOperand::Mem(addr) => SrcOperand::Mem(addr),
+                    DstOperand::Ar(idx) => SrcOperand::Ar(idx),
                 };
                 Mov(MovInstruction {
                     src,
@@ -1734,7 +1737,7 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
                         comment,
                     }));
                 }
-                (SrcOperand::Mem(_), DstOperand::Mem(_)) => {
+                (SrcOperand::Ar(_), DstOperand::Ar(_)) => {
                     instrs.push(Mov(MovInstruction {
                         src,
                         dst: DstOperand::Reg(Amd64Reg::Rax),
@@ -1754,6 +1757,9 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
                     size,
                     comment,
                 })),
+                (SrcOperand::Mem(_), _) | (_, DstOperand::Mem(_)) => {
+                    unreachable!("operand mem only in load/store possible")
+                }
             },
             _ => unreachable!(),
         }

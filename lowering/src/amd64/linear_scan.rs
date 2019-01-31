@@ -79,7 +79,7 @@ pub(super) enum Location {
     /// instructions, but can just Move from/onto the stack. This means,
     /// that we just need the position on the stack and then can access the Var
     /// with `-idx*8(%rbp)`
-    Mem(usize),
+    Ar(usize),
     /// Params which are already stored on the stack won't need extra allocation
     /// on the stack. The exact address computation for these is already
     /// handled by the instruction selection
@@ -90,7 +90,7 @@ impl Location {
     fn reg_unchecked(self) -> Amd64Reg {
         match self {
             Location::Reg(reg) => reg,
-            Location::Mem(_) => panic!("reg_unchecked: Mem"),
+            Location::Ar(_) => panic!("reg_unchecked: Ar"),
             Location::ParamMem => panic!("reg_unchecked: ParamMem"),
         }
     }
@@ -266,7 +266,7 @@ impl LinearScanAllocator {
             self.active.insert(Active(live_range));
         } else {
             let spill = *self.active.iter().last().unwrap();
-            let mem_slot = Location::Mem(self.stack_vars_counter);
+            let mem_slot = Location::Ar(self.stack_vars_counter);
             self.stack_vars_counter += 1;
 
             if spill.interval.upper() > live_range.interval.upper() {
