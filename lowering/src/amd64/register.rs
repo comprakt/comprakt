@@ -1,6 +1,6 @@
+use super::Size;
 use crate::lowering::amd64::CallingConv;
 use std::{cmp::Ordering, collections::BTreeMap, convert::TryFrom};
-use super::Size;
 
 #[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub(super) struct Reg {

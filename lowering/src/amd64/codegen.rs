@@ -150,7 +150,9 @@ impl Codegen {
             match instr {
                 function::FnInstruction::Pushq { src } => {
                     let src = self.fn_to_src_operand(*src);
-                    instrs.push(Pushq { src: src.into_size(Size::Eight) });
+                    instrs.push(Pushq {
+                        src: src.into_size(Size::Eight),
+                    });
                 }
                 function::FnInstruction::Movq { src, dst } => {
                     let src = self.fn_to_src_operand(*src);
@@ -962,11 +964,11 @@ impl Codegen {
                 // this register won't be modified by the div instruction
                 post_div_instr = Some(Mov(MovInstruction {
                     src: SrcOperand::Reg(Reg {
-                        size: src2.size(),
+                        size: Size::Eight,
                         reg: spill,
                     }),
                     dst: DstOperand::Reg(Reg {
-                        size: src2.size(),
+                        size: Size::Eight,
                         reg: Amd64Reg::D,
                     }),
                     comment: "div move src2 back to %rdx".to_string(),
@@ -1912,9 +1914,13 @@ impl From<RegGraphMinLeftEdgeInstruction<DstOperand>> for Instruction {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
                     DstOperand::Ar(idx) => SrcOperand::Ar(idx),
                 };
-                Pushq { src: src.into_size(Size::Eight) }
+                Pushq {
+                    src: src.into_size(Size::Eight),
+                }
             }
-            RegGraphMinLeftEdgeInstruction::Pop(dst) => Popq { dst: dst.into_size(Size::Eight) },
+            RegGraphMinLeftEdgeInstruction::Pop(dst) => Popq {
+                dst: dst.into_size(Size::Eight),
+            },
             RegGraphMinLeftEdgeInstruction::Mov(RegToRegTransfer { src, dst }) => {
                 let src = match src {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
