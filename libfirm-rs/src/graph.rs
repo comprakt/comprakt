@@ -103,11 +103,11 @@ impl Graph {
         unsafe { bindings::remove_unreachable_code(self.irg) }
     }
 
-    pub fn compute_dominance_frontiers(self) {
-        unsafe { bindings::ir_compute_dominance_frontiers(self.irg) }
+    pub fn compute_doms(self) {
+        unsafe { bindings::compute_doms(self.irg) }
     }
 
-    pub fn walk_topological2<F>(self, mut walker: F)
+    pub fn walk_blkwise_dom_top_down<F>(self, mut walker: F)
     where
         F: FnMut(&Node),
     {
