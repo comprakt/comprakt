@@ -537,7 +537,7 @@ impl NodeDebug for Call {
                 if opts.new_print_class {
                     format!(" {:?}", class_ty)
                 } else {
-                    format!("")
+                    "".to_string()
                 },
                 self.node_id()
             )
