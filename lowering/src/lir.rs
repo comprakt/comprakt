@@ -217,6 +217,13 @@ impl MultiSlot {
             Multi { phi, .. } => Node::Phi(*phi),
         }
     }
+
+    pub fn is_single(&self) -> bool {
+        match self {
+            MultiSlot::Single(_) => true,
+            MultiSlot::Multi { .. } => false,
+        }
+    }
 }
 
 impl fmt::Debug for Ptr<MultiSlot> {
@@ -888,10 +895,10 @@ impl BasicBlockPostorderVisitor {
 impl Ptr<ControlFlowTransfer> {
     /// Only call this from target
     fn add_incoming_value_flow(mut self, target_slot: Ptr<ValueSlot>, alloc: &Allocator) {
-        if let Some((source, target)) = self
-            .register_transitions
-            .iter()
-            .find(|(_, existing_slot)| target_slot.firm == existing_slot.firm)
+        if let Some((source, target)) =
+            self.register_transitions.iter().find(|(_, existing_slot)| {
+                target_slot.firm == existing_slot.firm && existing_slot.multislot().is_single()
+            })
         {
             log::debug!("\t\tedge is {:?}->{:?}", self.source.firm, self.target.firm);
             log::debug!(
@@ -1065,7 +1072,9 @@ impl Ptr<BasicBlock> {
                         *slot_phi == value_phi
                     }
                     (MultiSlot::Multi { slots, .. }, _) => {
-                        slots.iter().any(|slot| slot.firm == value)
+                        // This is a passthrough flow, i.e.,  the rhs value flows through this block
+                        // unmodified for later use.
+                        false
                     }
                     (MultiSlot::Single(slot), _) => slot.firm == value,
                 });
