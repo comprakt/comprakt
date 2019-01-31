@@ -1,6 +1,7 @@
 use crate::{
     firm::{
         runtime::{self, Runtime},
+        safety,
         FirmProgram, Options, ProgramGenerator,
     },
     strtab::StringTable,
@@ -59,6 +60,7 @@ impl<'src, 'ast> FirmContext<'src, 'ast> {
     /// it will panic otherwise.
     pub fn build(
         dump_dir: &Path,
+        safety_flags: &'src[safety::Flag],
         type_system: &'src TypeSystem<'src, 'ast>,
         type_analysis: &'src TypeAnalysis<'src, 'ast>,
         strtab: &'src StringTable<'src>,
@@ -100,7 +102,7 @@ impl<'src, 'ast> FirmContext<'src, 'ast> {
         }
 
         let runtime = std::rc::Rc::new(Runtime::new(rtlib));
-        let generator = ProgramGenerator::new(runtime, type_system, type_analysis, strtab);
+        let generator = ProgramGenerator::new(runtime, safety_flags, type_system, type_analysis, strtab);
         let program = generator.generate();
 
         FirmContext {
