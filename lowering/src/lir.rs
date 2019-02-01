@@ -901,7 +901,9 @@ impl Ptr<ControlFlowTransfer> {
     fn add_incoming_value_flow(mut self, target_slot: Ptr<ValueSlot>, alloc: &Allocator) {
         if let Some((source, target)) =
             self.register_transitions.iter().find(|(_, existing_slot)| {
-                target_slot.firm == existing_slot.firm && existing_slot.multislot().is_single()
+                // compare slot numbers, not firm node ids, because it is possible that we
+                // need to flow a single source value to multiple target slots
+                target_slot.num == existing_slot.num && existing_slot.multislot().is_single()
             })
         {
             log::debug!("\t\tedge is {:?}->{:?}", self.source.firm, self.target.firm);
