@@ -19,6 +19,24 @@ impl Node {
         //NodeFactory::new().create(ir_node)
         NODE_FACTORY.create(ir_node)
     }
+
+    pub fn is_proj_kind_argtuple_arg(n: Self) -> bool {
+        if let Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) = n {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn must_member(self) -> Member {
+        assert!(Node::is_member(self));
+        Member::new(self.internal_ir_node())
+    }
+
+    pub fn must_sel(self) -> Sel {
+        assert!(Node::is_sel(self));
+        Sel::new(self.internal_ir_node())
+    }
 }
 
 unsafe impl Send for Node {}

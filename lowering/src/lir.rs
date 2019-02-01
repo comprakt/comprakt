@@ -846,7 +846,9 @@ impl BlockGraph {
                                 local_block.new_terminating_slot(value, alloc);
                             }),
                     }
+                    log::debug!("VISIT {:?}: DONE: NODE {:?}", firm_block, node_in_block);
                 }
+                log::debug!("VISIT DONE {:?}", firm_block);
             }
 
             VisitTime::AfterPredecessors => (),
@@ -975,6 +977,13 @@ impl Ptr<ControlFlowTransfer> {
             ),
         }
 
+        log::debug!(
+            "\tINCOMING_VALUE_FLOW: from='{:?}' to='{:?}' src_slot='{:?}' dst_slot='{:?}'",
+            self.source.firm,
+            self.target.firm,
+            source_slot,
+            *target_slot
+        );
         self.register_transitions.push((source_slot, target_slot));
     }
 
@@ -1091,8 +1100,6 @@ impl Ptr<BasicBlock> {
 
             *multislot
         } else {
-            let originates_in = self.graph.get_block(value.block());
-
             match value {
                 Node::Phi(phi) if value.block() == self.firm => {
                     log::debug!("\tNEW_SLOT::MULTISLOT_FROM_PHI: {:?}", value);
@@ -1100,8 +1107,6 @@ impl Ptr<BasicBlock> {
                 }
                 _ => {
                     log::debug!("\tNEW_SLOT::NORMAL: {:?}", value);
-                    let mut slotbuilder = self.new_multislot(terminates_in);
-                    let slot = slotbuilder.add_possible_value(value, originates_in, alloc);
 
                     // If the value is foreign, we need to "get it" from each blocks above us.
                     //
@@ -1123,23 +1128,39 @@ impl Ptr<BasicBlock> {
                     // corresponding cfg_pred. However, when creating slots for the inputs of phi
                     // nodes, this function (`MutRc<BasicBlock>::new_slot`), in not used. So the
                     // assumption holds, but BE AWARE OF THIS when refactoring.
-                    let node_is_arg_proj =
-                        if let Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) = slot.firm {
-                            true
-                        } else {
-                            false
-                        };
-                    let originates_here = Node::is_const(slot.firm)
-                        || Node::is_address(slot.firm)
-                        || Node::is_size(slot.firm)
-                        || Node::is_member(slot.firm)
-                        || Node::is_sel(slot.firm)
-                        || node_is_arg_proj
-                        || slot.allocated_in.firm == slot.originates_in.firm;
-                    if !originates_here {
-                        for incoming_edge in &self.preds {
-                            incoming_edge.add_incoming_value_flow(slot, alloc);
+
+                    let flowed_value = if Node::is_proj_kind_argtuple_arg(value)
+                        || Node::is_const(value)
+                        || Node::is_address(value)
+                        || Node::is_size(value)
+                    {
+                        None
+                    } else if Node::is_member(value) {
+                        Some(value.must_member().ptr())
+                    } else if Node::is_sel(value) {
+                        Some(value.must_sel().ptr())
+                    } else {
+                        Some(value)
+                    };
+
+                    let mut slotbuilder = self.new_multislot(terminates_in);
+
+                    if let Some(flowed_value) = flowed_value {
+                        // we need to flow an actual value, do it
+                        let originates_in = self.graph.get_block(flowed_value.block());
+                        let slot =
+                            slotbuilder.add_possible_value(flowed_value, originates_in, alloc);
+                        if slot.allocated_in.firm != slot.originates_in.firm {
+                            for incoming_edge in &self.preds {
+                                incoming_edge.add_incoming_value_flow(slot, alloc);
+                            }
                         }
+                    } else {
+                        // the value does not need to be flowed because it is computed
+                        // in this block (or loaded from a constant)
+                        // still need to create the multislot, confusing name
+                        let originates_in = self.graph.get_block(value.block());
+                        slotbuilder.add_possible_value(value, originates_in, alloc);
                     }
 
                     slotbuilder.get_multislot(alloc)
