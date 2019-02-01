@@ -238,10 +238,11 @@ impl Codegen {
         instrs: &mut Vec<Mov>,
     ) {
         let src = self.lir_to_src_operand(src.into());
-        let dst = self
+        let dst: DstOperand = self
             .lir_to_src_operand(lir::Operand::Slot(dst))
             .try_into()
             .unwrap();
+        assert_eq!(src.size(), dst.size(), "src: {:?}, dst: {:?}", src, dst);
         instrs.push(Mov { src, dst });
     }
 
@@ -1606,7 +1607,7 @@ trait OperandTrait {
     fn into_size(self, size: Size) -> Self;
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub(super) enum SrcOperand {
     Ar(Ar),
     Reg(Reg),
@@ -1785,7 +1786,7 @@ struct Mov {
 
 /// A newtype around DstOperand for the purpose of copy propagation cycle
 /// removal.
-#[derive(Clone, Copy, From)]
+#[derive(Debug, Clone, Copy, From)]
 struct SortCopyPropEntity(DstOperand);
 
 // keep in sync with Hash
@@ -1824,7 +1825,7 @@ impl From<RegGraphMinLeftEdgeInstruction<SortCopyPropEntity>> for Instruction {
             RegGraphMinLeftEdgeInstruction::Push(src) => {
                 let src = match src.0 {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
-                    DstOperand::Ar(idx) => SrcOperand::Ar(idx),
+                    DstOperand::Ar(ar) => SrcOperand::Ar(ar),
                 };
                 Pushq {
                     src: src.into_size(Size::Eight),
@@ -1836,11 +1837,11 @@ impl From<RegGraphMinLeftEdgeInstruction<SortCopyPropEntity>> for Instruction {
             RegGraphMinLeftEdgeInstruction::Mov(RegToRegTransfer { src, dst }) => {
                 let src = match src.0 {
                     DstOperand::Reg(reg) => SrcOperand::Reg(reg),
-                    DstOperand::Ar(idx) => SrcOperand::Ar(idx),
+                    DstOperand::Ar(ar) => SrcOperand::Ar(ar),
                 };
                 Mov(MovInstruction {
-                    src,
-                    dst: dst.0,
+                    src: src.into_size(Size::Eight),
+                    dst: dst.0.into_size(Size::Eight),
                     comment: "copy prop".to_string(),
                 })
             }

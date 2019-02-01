@@ -9,7 +9,7 @@ use crate::{derive_ptr_debug, firm, type_checking::type_system::CheckedType};
 use crate::optimization::{Local, RemoveCriticalEdges};
 use libfirm_rs::{
     bindings,
-    nodes::{self, Node, NodeTrait, ProjKind},
+    nodes::{self, Node, NodeTrait},
     Tarval, VisitTime,
 };
 use std::{
