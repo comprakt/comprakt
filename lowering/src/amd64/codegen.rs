@@ -648,7 +648,7 @@ impl Codegen {
         // registers => pay attention: src1 and src2 must not be modified
 
         let spill = Reg {
-            size: size,
+            size,
             reg: Amd64Reg::A,
         };
         instrs.push(Mov(MovInstruction {
@@ -659,7 +659,7 @@ impl Codegen {
         push_binop!(kind, src2, DstOperand::Reg(spill));
         instrs.push(Mov(MovInstruction {
             src: SrcOperand::Reg(spill),
-            dst: dst,
+            dst,
             comment: "binop step 3".to_string(),
         }));
     }
