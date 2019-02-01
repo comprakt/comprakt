@@ -1275,9 +1275,6 @@ impl MultiSlotBuilder {
         originates_in: Ptr<BasicBlock>,
         alloc: &Allocator,
     ) -> Ptr<ValueSlot> {
-        assert!(self.allocated_in.regs.len() >= self.num);
-        assert!(self.allocated_in.regs.len() <= self.num + 1);
-
         // let is_duplicate = self.slots.iter().any(|slot| slot.firm == value);
         // assert!(!is_duplicate);
 

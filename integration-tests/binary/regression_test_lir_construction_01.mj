@@ -1,0 +1,18 @@
+class a {
+	public static void main(String[] args) {
+	}
+
+	public void sort(int[] a) {
+		while (false) {
+            int j = 0;
+			int index = 0;
+			while (false) {
+				if (true) {
+					index=j;
+				}
+				j=j+1;
+			}
+			int temp = a[index];
+		}
+	}		
+}
