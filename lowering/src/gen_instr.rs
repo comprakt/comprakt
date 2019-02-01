@@ -1,8 +1,4 @@
-use super::{
-    lir::{Allocator, *},
-    lir_allocator::Ptr,
-};
-use itertools::Itertools;
+use super::{lir::*, lir_allocator::Ptr};
 use libfirm_rs::{
     nodes::{Node, NodeTrait, ProjKind},
     types::{Ty, TyTrait},
@@ -13,209 +9,56 @@ use strum_macros::*;
 
 #[derive(Debug, Clone, EnumDiscriminants)]
 // TODO naming
-/// This enum describes how a FIRM node has been converted to instructions, and
-/// where the potential result is stored.
+/// This enum describes how a FIRM node has been converted to instructions,
+/// whether that instruction produced a result and in which var that result is
+/// stored.
 enum Computed {
-    /// Instructions that generate the value are in CFGpred, and
-    /// `lir.rs::construct_flows` already set up the necessary copy-out/ copy-in
-    /// code.
-    InCFGPred(Ptr<MultiSlot>),
-    /// Instructions for this value have been emitted in this block, but the
-    /// instructions do not produce a result (apart from mem flow).
+    /// Instructions for this FIRM node have been emitted in this block, but the
+    /// instructions do not produce a result.
     Void,
     /// Instructions for this value have been emitted in this block and the
-    /// result was written to MultiSlot.
-    Value(Ptr<MultiSlot>),
+    /// result was written to Var.
+    Value(Var),
 }
 
 pub struct GenInstrBlock {
-    code: Code<CopyPropagation, CopyPropagation, Instruction, Leave>,
+    body: Vec<Instruction>,
+    leave: Vec<Leave>,
     computed: HashMap<Node, Computed>,
 }
 
 impl GenInstrBlock {
-    pub(super) fn fill_instrs(graph: &BlockGraph, mut block: Ptr<BasicBlock>, alloc: &Allocator) {
+    pub(super) fn fill_instrs(graph: Ptr<BlockGraph>, mut block: Ptr<BasicBlock>) {
         let mut b = GenInstrBlock {
-            code: Code::default(),
+            body: vec![],
+            leave: vec![],
             computed: HashMap::new(),
         };
-        if let Some(start_node) = block.start_node() {
-            if let Some(proj_args) = start_node.out_proj_t_args() {
-                for arg in proj_args.out_nodes() {
-                    if let Node::Proj(proj, ProjKind::Start_TArgs_Arg(idx, ..)) = arg {
-                        b.code.body.push(Instruction::LoadParam {
-                            idx,
-                            size: proj.mode().size_bytes(),
-                        });
-                    } else {
-                        unreachable!(
-                            "the proj node Start_TArgs has only \
-                             Start_TArgs_Arg projs as out nodes"
-                        );
-                    }
-                }
-            }
-        }
-        b.gen(graph, block, alloc);
-        let GenInstrBlock { code, .. } = b;
-        block.code = code;
+        b.gen(graph, block);
+        let GenInstrBlock { body, leave, .. } = b;
+        // do not overwrite block.code because it already contains instrs from
+        // construction / LoadParam
+        block.code.body.extend(body);
+        block.code.leave.extend(leave);
     }
 
-    fn comment(&mut self, args: std::fmt::Arguments<'_>) {
-        self.code
-            .body
-            .push(Instruction::Comment(format!("{}", args)));
-    }
-
-    fn gen(&mut self, graph: &BlockGraph, block: Ptr<BasicBlock>, alloc: &Allocator) {
-        for (num, multislot) in block.regs.iter().enumerate() {
-            self.comment(format_args!("Slot {}:", num));
-
-            // LIR has mem nodes (mem Phi's in particular) in value slots because it enables
-            // code generation (`values_to_compute`, see below) to just use post-order DFS
-            // starting from each out-flowed value. Mem nodes need to be included in
-            // values_to_compute because of memory-only side effects (e.g. a function body
-            // that only calls other functions will only have out-flowing mems.
-            //
-            // However, we don't want to burden consumers of the LIR with that
-            // implementation ~~detail~~ hack, so let's filter out any copy
-            // propagation that uses mem nodes. Note that this leaves the mem
-            // nodes' value slots intact, but the LIR consumer will usually not
-            // enumerate over those, so that's fine for now -,-.
-            let not_a_mem_flow = &|src: Ptr<MultiSlot>, dst: Ptr<ValueSlot>| -> bool {
-                let src_is_mem = src.firm().mode().is_mem();
-                let dst_is_mem = dst.firm.mode().is_mem();
-                assert!((src_is_mem && dst_is_mem) || (!src_is_mem && !dst_is_mem));
-                !src_is_mem && !dst_is_mem
+    fn gen(&mut self, graph: Ptr<BlockGraph>, block: Ptr<BasicBlock>) {
+        for ValueReq { firm, .. } in &block.value_requirements {
+            log::debug!("REQ {:?}", firm);
+            let computed = if graph.can_be_var(*firm) {
+                Computed::Value(graph.var(*firm))
+            } else {
+                Computed::Void
             };
-
-            let slot_to_copy_propagation_src = &|src: Ptr<MultiSlot>| -> CopyPropagationSrc {
-                match src.firm() {
-                    Node::Proj(proj, ProjKind::Start_TArgs_Arg(idx, ..)) => {
-                        CopyPropagationSrc::Param {
-                            idx,
-                            size: proj.mode().size_bytes(),
-                        }
-                    }
-                    Node::Const(val) => CopyPropagationSrc::Imm(val.tarval()),
-                    _ => CopyPropagationSrc::Slot(src),
-                }
-            };
-
-            // Fill copy_in
-            for edge in block.preds.iter() {
-                edge.register_transitions
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, (_, dst))| dst.num == num)
-                    .filter(|(idx, _)| {
-                        let must_copy_in_source = edge.must_copy_in_source(*idx);
-                        assert!(
-                            // "must_copy_in_source => !must_copy_in_target"
-                            !must_copy_in_source || !edge.must_copy_in_target(*idx),
-                            "possible lost-copy detected"
-                        );
-
-                        // We copy everything that doesn't have to be copied in `source` in `target`
-                        // (this includes everything that *has* to be copied in `target`), as
-                        // demonstrated by the above assertion
-                        !must_copy_in_source
-                    })
-                    .filter(|(_, (src, dst))| not_a_mem_flow(*src, *dst))
-                    .for_each(|(_, (src, dst))| {
-                        let (src, dst) = (*src, *dst);
-                        let src = slot_to_copy_propagation_src(src);
-                        self.code.copy_in.push(CopyPropagation { src, dst });
-                    })
-            }
-
-            // Debug output ( @josh still necessary?)
-            match &(**multislot) {
-                MultiSlot::Single(slot) => self.comment(format_args!("\t=  {:?}", slot.firm)),
-                MultiSlot::Multi { ref slots, .. } => {
-                    for slot in slots {
-                        self.comment(format_args!("\t=  {:?}", slot.firm));
-                    }
-                }
-            }
-
-            // Fill copy_out
-            for edge in block.succs.iter() {
-                edge.register_transitions
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, (src, _))| src.num() == num)
-                    .filter(|(idx, _)| edge.must_copy_in_source(*idx))
-                    .filter(|(_, (src, dst))| not_a_mem_flow(*src, *dst))
-                    .for_each(|(_, (src, dst))| {
-                        let (src, dst) = (*src, *dst);
-                        let src = slot_to_copy_propagation_src(src);
-                        self.code.copy_out.push(CopyPropagation { src, dst });
-                    })
-            }
+            self.mark_computed(*firm, computed);
         }
-
-        // LIR conversion
-        // We compute the values required by our successors.
-        let values_to_compute = {
-            let mut v: Vec<Node> = Vec::new();
-
-            v.extend(
-                block
-                    .succs
-                    .iter()
-                    .flat_map(move |out_edge| {
-                        out_edge
-                            .register_transitions
-                            .iter()
-                            .map(|(src_slot, _)| src_slot)
-                            .collect::<Vec<_>>()
-                    })
-                    .map(|src_slot| src_slot.firm())
-                    .dedup(),
-            );
-
-            // Apart from the values that _must_ be flown out, all leave
-            // instructions must be computed to account for side-effects calls, etc.
-            // => return_nodes, jmp_nodes, cond_nodes
-            let leave_nodes = block
-                .firm
-                .out_nodes()
-                .filter(|n| Node::is_return(*n) || Node::is_jmp(*n) || Node::is_cond(*n))
-                .collect::<Vec<_>>();
-            log::debug!("block {:?} leave nodes: {:?}", block.firm, leave_nodes);
-            v.extend(leave_nodes);
-
-            v
-        };
-
-        let already_computed = block
-            .preds
-            .iter()
-            .flat_map(|in_edge| {
-                in_edge
-                    .register_transitions
-                    .iter()
-                    .map(|(_, dst_slot)| dst_slot.multislot())
-                    .collect::<Vec<_>>()
-            })
-            // if the same value flows in over multiple preds, ignore the dupes
-            .unique_by(|dst_slot| dst_slot.firm());
-
-        for dst_slot in already_computed {
-            log::debug!(
-                "InCFGPred for slot.num={:?} {:?}",
-                dst_slot.num(),
-                dst_slot.firm()
-            );
-            self.mark_computed(dst_slot.firm(), Computed::InCFGPred(dst_slot));
+        for node in &block.values_to_compute {
+            log::debug!("TO COMPUTE: {:?}", node);
         }
-
-        log::debug!("values to compute = {:?}", values_to_compute);
-        for out_value in values_to_compute {
-            log::debug!("gen code for out_value={:?}", out_value);
-            self.comment(format_args!("\tgen code for out_value={:?}", out_value));
-            self.gen_value(graph, block, alloc, out_value);
+        for node in &block.values_to_compute {
+            log::debug!("=> COMPUTE: {:?}", node);
+            debug_assert!(node.block() == block.firm);
+            self.gen_value(graph, block, *node);
         }
     }
 
@@ -239,39 +82,24 @@ impl GenInstrBlock {
         );
     }
 
-    fn gen_value(
-        &mut self,
-        graph: &BlockGraph,
-        block: Ptr<BasicBlock>,
-        alloc: &Allocator,
-        out_value: Node,
-    ) {
+    fn gen_value(&mut self, graph: Ptr<BlockGraph>, block: Ptr<BasicBlock>, out_value: Node) {
         out_value.walk_dfs_in_block_stop_at_phi_node(block.firm, &mut |n| {
-            self.gen_value_walk_callback(graph, block, alloc, n)
+            self.gen_value_walk_callback(graph, block, n)
         });
     }
 
-    fn gen_dst_slot(
-        &mut self,
-        block: Ptr<BasicBlock>,
-        node: Node,
-        alloc: &Allocator,
-    ) -> Ptr<MultiSlot> {
-        let dst_slot = block.new_private_slot(node, alloc);
-        self.mark_computed(node, Computed::Value(dst_slot));
-        dst_slot
+    fn gen_dst_var(&mut self, block: Ptr<BasicBlock>, node: Node) -> Var {
+        let var = block.graph.var(node);
+        self.mark_computed(node, Computed::Value(var));
+        var
     }
 
     fn gen_operand_jit(&self, node: Node) -> Operand {
         match node {
             Node::Const(c) => Operand::Imm(c.tarval()),
             Node::Size(s) => Operand::Imm(libfirm_rs::Tarval::mj_int(i64::from(s.ty().size()))),
-            Node::Proj(proj, ProjKind::Start_TArgs_Arg(idx, ..)) => Operand::Param {
-                idx,
-                size: proj.mode().size_bytes(),
-            },
             n => match self.must_computed(n) {
-                Computed::InCFGPred(ms) | Computed::Value(ms) => Operand::Slot(*ms),
+                Computed::Value(ms) => Operand::Var(*ms),
                 Computed::Void => panic!("expecting computed operand for {:?}, got Void", n),
             },
         }
@@ -286,33 +114,34 @@ impl GenInstrBlock {
     /// in `self.computed`:
     ///
     /// ### `Node::{Alloc,Call,Load,Div,Mod}`
-    /// Do not produce a value (slot) themselves: That is because these
+    /// Do not produce a value themselves: That is because these
     /// operations have mem and result projections in libFIRM. Thus, the
     /// value-result for these node kinds is their result out projection.
     /// (Above list was determined by a search for `pn_(.*)_res` over the
     /// libfirm code base)
     ///
     /// ### `Node::{Const,Address,Member,Sel,Size}`
-    /// Are compile-time constants and do not produce a value slot. Their are
-    /// still used in match arms for other node types, e.g. a const being
-    /// used as an operand for an addition.
+    /// Are compile-time constants. While we allocate vars for them, match
+    /// arms for other node types night use their tarval as an immediate.
+    /// Note that const nodes that are preds of Phi nodes are converted
+    /// to variable definitions in ssa_deconstruction.
     ///
     /// ### Projections of `ProjKind::Start_TArgs_Arg`
-    /// Are almost like constants, but are also special in that they emit
-    /// `LoadParam` instructions at the beginning of a function, which is an
-    /// implicit requirement of the later stages of the backend.
+    /// Are almost like constants, but are also special in that for each of
+    /// them, a `LoadParm` instruction is emitted at the beginning of the start
+    /// block, which is an implicit requirement of the later stages of the
+    /// backend.
     ///
     /// ### Other Projections
     /// Projections that are not result projections of the above nodes copy
     /// their predecessors `self.computed` value.
     ///
     /// ### All other nodes
-    /// All other nodes produce a value slot.
+    /// All other nodes produce a value value.
     fn gen_value_walk_callback(
         &mut self,
-        graph: &BlockGraph,
+        graph: Ptr<BlockGraph>,
         block: Ptr<BasicBlock>,
-        alloc: &Allocator,
         node: Node,
     ) {
         log::debug!("visit node={:?}", node);
@@ -331,7 +160,7 @@ impl GenInstrBlock {
         macro_rules! gen_binop {
             ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let (src1, src2, dst) = gen_binop!(@INTERNAL, $op, $block, $node);
-                self.code.body.push(Instruction::Binop {
+                self.body.push(Instruction::Binop {
                     kind: $kind,
                     src1,
                     src2,
@@ -341,7 +170,7 @@ impl GenInstrBlock {
             (@INTERNAL, $op:expr, $block:expr, $node:expr) => {{
                 let src1 = op_operand!(left, $op);
                 let src2 = op_operand!(right, $op);
-                let dst = self.gen_dst_slot($block, $node, alloc);
+                let dst = self.gen_dst_var($block, $node);
                 (src1, src2, dst)
             }};
 
@@ -351,7 +180,7 @@ impl GenInstrBlock {
                 if let Some(res_proj) = $div_node.out_proj_res() {
                     let (src1, src2, dst) =
                         gen_binop!(@INTERNAL, $op, $block, Node::from(res_proj));
-                    self.code.body.push(Instruction::Div {
+                    self.body.push(Instruction::Div {
                         src1,
                         src2,
                         dst,
@@ -364,7 +193,7 @@ impl GenInstrBlock {
                 if let Some(res_proj) = $mod_node.out_proj_res() {
                     let (src1, src2, dst) =
                         gen_binop!(@INTERNAL, $op, $block, Node::from(res_proj));
-                    self.code.body.push(Instruction::Mod {
+                    self.body.push(Instruction::Mod {
                         src1,
                         src2,
                         dst,
@@ -376,8 +205,8 @@ impl GenInstrBlock {
         macro_rules! gen_unop {
             ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let src = op_operand!(op, $op);
-                let dst = self.gen_dst_slot($block, $node, alloc);
-                self.code.body.push(Instruction::Unop {
+                let dst = self.gen_dst_var($block, $node);
+                self.body.push(Instruction::Unop {
                     kind: $kind,
                     src,
                     dst,
@@ -393,23 +222,25 @@ impl GenInstrBlock {
             // The following group of nodes doesn't need code gen as
             // we know their result at compile time.
             // They are only used as operands and constructed in gen_operand_jit
-            //
-            // NOTE: This list must be kept in sync with the flow construction
-            // in lir.rs, specifically the BasicBlock::new_slot method which
-            // checks whether a variable "orginates here", i.e., in that BasicBlock.
-            // Grep for this: LIR_JIT_COMPUTED_OPERAND_SEARCH_MARKER
-            Node::Const(_)
-            | Node::Proj(_, ProjKind::Start_TArgs_Arg(..))
-            | Node::Address(_)
-            | Node::Member(_)
-            | Node::Sel(_)
-            | Node::Size(_) => (),
+            Node::Const(_) | Node::Address(_) | Node::Member(_) | Node::Sel(_) | Node::Size(_) => {}
+
+            Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) => {
+                self.mark_computed(node, Computed::Value(graph.existing_var(node)))
+            }
+
+            Node::Phi(phi) => {
+                if phi.mode().is_data() {
+                    self.gen_dst_var(block, node);
+                } else {
+                    self.mark_computed(node, Computed::Void);
+                }
+            }
 
             Node::Conv(conv) => {
                 let pred = conv.op();
                 let src = self.gen_operand_jit(pred);
-                let dst = self.gen_dst_slot(block, node, alloc);
-                self.code.body.push(Instruction::Conv { src, dst });
+                let dst = self.gen_dst_var(block, node);
+                self.body.push(Instruction::Conv { src, dst });
             }
 
             Node::Add(add) => gen_binop!(Add, add, block, node),
@@ -433,12 +264,12 @@ impl GenInstrBlock {
                     None
                 };
                 let end_block = graph.end_block;
-                self.code.leave.push(Leave::Return { value, end_block });
+                self.leave.push(Leave::Return { value, end_block });
             }
             Node::Jmp(jmp) => {
                 let firm_target_block = jmp.out_target_block().unwrap();
                 let target = block.graph.get_block(firm_target_block);
-                self.code.leave.push(Leave::Jmp { target });
+                self.leave.push(Leave::Jmp { target });
             }
 
             // Cmp and Cond are handled together
@@ -474,16 +305,17 @@ impl GenInstrBlock {
                 }
                 let true_target = cond_target!(true);
                 let false_target = cond_target!(false);
-                self.code.leave.push(Leave::CondJmp {
+                self.leave.push(Leave::CondJmp {
                     op,
                     lhs,
                     rhs,
                     true_target,
                     false_target,
                 });
+                self.mark_computed(node, Computed::Void);
             }
 
-            // Only Call's result projection (if there is any) produces a value slot.
+            // Only Call's result projection (if there is any) produces a value.
             // (See function-level comment)
             //
             // To get the return value of a call, the following projection chain is found in the
@@ -497,7 +329,7 @@ impl GenInstrBlock {
                 assert!(func.ty().is_method());
                 log::debug!("called func={:?}", func.ld_name());
 
-                // Allocate value slot for this call node as described in match arm comment
+                // Allocate var for this call node as described in match arm comment
                 let dst = {
                     // Find this call node's result tuple projection.
                     // This code expects there to be at most one.
@@ -508,24 +340,21 @@ impl GenInstrBlock {
                         let tuple_elems = rt.all_out_projs();
                         // Not sure if we are allowed to expect the following,
                         // but we require it because tuple_elems[0] will be
-                        // the FIRM node for the ValueSlot produced by this call.
-                        // And there cannot be multiple ValueSlots produced by a call.
+                        // the FIRM node for the Var produced by this call.
+                        // And there cannot be multiple Vars produced by a call.
                         // So this assumption better hold!
                         assert_eq!(tuple_elems.len(), 1);
                         tuple_elems[0]
                     });
 
                     if let Some(elem0) = result_tuple_0 {
-                        // (gen_dst_slot has implicit mark_computed)
-                        let slot = self.gen_dst_slot(block, Node::from(elem0), alloc);
+                        // (gen_dst_var has implicit mark_computed)
+                        let var = self.gen_dst_var(block, Node::from(elem0));
                         // but other nodes will require Call to be computed
-                        self.mark_computed(Node::from(call), Computed::Value(slot));
+                        self.mark_computed(Node::from(call), Computed::Value(var));
                         // and for completeness, do the same for the resul_tuple
-                        self.mark_computed(
-                            Node::from(result_tuple.unwrap()),
-                            Computed::Value(slot),
-                        );
-                        Some(slot)
+                        self.mark_computed(Node::from(result_tuple.unwrap()), Computed::Value(var));
+                        Some(var)
                     } else {
                         self.mark_computed(Node::from(call), Computed::Void);
                         if let Some(rt) = result_tuple {
@@ -536,7 +365,6 @@ impl GenInstrBlock {
                         None
                     }
                 };
-                log::debug!("\tdst slot {:?}", dst);
 
                 let args = call
                     .args()
@@ -547,7 +375,7 @@ impl GenInstrBlock {
                     .collect();
 
                 let func_name = func.ld_name().to_str().unwrap().to_owned();
-                self.code.body.push(Instruction::Call {
+                self.body.push(Instruction::Call {
                     func: func_name,
                     args,
                     dst,
@@ -563,8 +391,8 @@ impl GenInstrBlock {
                 //
                 // write somehting to computed for now
                 //
-                let dst_slot = block.new_private_slot(node, alloc);
-                self.mark_computed(node, Computed::Value(dst_slot));
+                let var = self.gen_dst_var(block, node);
+                self.mark_computed(node, Computed::Value(var));
             }
 
             // Load itself does not create a computed value, only its result projection does.
@@ -572,9 +400,8 @@ impl GenInstrBlock {
                 let (src, size) = self.gen_address_computation(load.ptr());
                 self.mark_computed(node, Computed::Void);
                 if let Some(res_proj) = load.out_proj_res() {
-                    let dst = self.gen_dst_slot(block, Node::from(res_proj), alloc);
-                    self.code
-                        .body
+                    let dst = self.gen_dst_var(block, Node::from(res_proj));
+                    self.body
                         .push(Instruction::LoadMem(LoadMem { src, dst, size }));
                 }
             }
@@ -584,11 +411,9 @@ impl GenInstrBlock {
             Node::Store(store) => {
                 let src = self.gen_operand_jit(store.value());
                 let (dst, size) = self.gen_address_computation(store.ptr());
-                self.code
-                    .body
+                self.body
                     .push(Instruction::StoreMem(StoreMem { src, dst, size }));
-                let dst_slot = block.new_private_slot(node, alloc);
-                self.mark_computed(node, Computed::Value(dst_slot));
+                self.mark_computed(node, Computed::Void);
             }
 
             // The default case for proj is that its predecessor must have been visited before and
@@ -597,8 +422,8 @@ impl GenInstrBlock {
                 log::debug!("proj={:?} kind={:?}", proj, kind);
                 // copy the value produced by predecessor
                 let pred = proj.pred();
-                let pred_slot = self.must_computed(pred).clone();
-                self.mark_computed(node, pred_slot);
+                let pred_computed = self.must_computed(pred).clone();
+                self.mark_computed(node, pred_computed);
             }
 
             x => panic!("unimplemented: {:?}", x),

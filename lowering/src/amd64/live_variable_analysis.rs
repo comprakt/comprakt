@@ -1,6 +1,6 @@
 use super::{
     function::{FnOperand, FunctionCall},
-    lir::{self, BasicBlock, MultiSlot},
+    lir::{self, BasicBlock},
     var_id, CallingConv, VarId,
 };
 use crate::lowering::lir_allocator::Ptr;
@@ -17,23 +17,7 @@ pub(super) enum Instruction {
     Lir(lir::Instruction),
 }
 
-/// The representation of CopyPropagation for the lva and its consumers.
-/// The main point is that `dst` is a `MultiSlot` instead of
-/// `CopyPropagation::dst`'s `ValueSlot`.
-#[derive(Debug, Clone)]
-pub(super) struct Mov {
-    pub(super) src: lir::CopyPropagationSrc,
-    pub(super) dst: Ptr<MultiSlot>,
-}
-
-impl From<&lir::CopyPropagation> for Mov {
-    fn from(cp: &lir::CopyPropagation) -> Self {
-        Self {
-            src: cp.src,
-            dst: cp.dst.multislot(),
-        }
-    }
-}
+pub type Mov = lir::CopyPropagation;
 
 type Code = lir::Code<Mov, Mov, Instruction, lir::Leave>;
 
@@ -127,7 +111,7 @@ impl LiveVariableAnalysis {
             }
 
             if changed {
-                for pred in block.pred_blocks() {
+                for pred in block.preds.iter().cloned() {
                     for var_id in &ins[&block.firm] {
                         outs.get_mut(&pred.firm).unwrap().insert(*var_id);
                     }
@@ -156,15 +140,14 @@ impl LiveVariableAnalysis {
 
         let mut code = Code::default();
 
-        code.copy_in.extend(lir_code.copy_in.iter().map(From::from));
+        code.copy_in.extend(lir_code.copy_in.iter().cloned());
         for instr in &lir_code.body {
             match instr {
                 lir::Instruction::Comment(_) => (), // TODO @flip1995 why ignore comments?
                 _ => code.body.push(self.gen_instr(instr)),
             }
         }
-        code.copy_out
-            .extend(lir_code.copy_out.iter().map(From::from));
+        code.copy_out.extend(lir_code.copy_out.iter().cloned());
         code.leave.extend(lir_code.leave.iter().cloned());
 
         code
@@ -197,7 +180,7 @@ impl LiveVariableAnalysis {
     ) {
         self.queue.push_back(end_block);
 
-        for pred in end_block.pred_blocks() {
+        for pred in end_block.preds.iter().cloned() {
             if visited.insert(pred.firm) {
                 self.gen_queue(pred, visited);
             }
@@ -224,10 +207,7 @@ where
         match self {
             CI::Body(body) => match body.borrow() {
                 Instruction::Lir(lir) => match lir {
-                    LoadParam { idx, size } => vec![lir::Operand::Param {
-                        idx: *idx,
-                        size: *size,
-                    }],
+                    LoadParam { dst, .. } => vec![lir::Operand::Var(*dst)],
                     Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
                         vec![*src1, *src2]
                     }
@@ -295,14 +275,15 @@ where
         match self {
             CI::Body(body) => match body.borrow() {
                 Instruction::Lir(lir) => match lir {
+                    // LoadParam::dst is a src_operand for the purposes of LVA:
                     LoadParam { .. } => None,
                     Binop { dst, .. } | Div { dst, .. } | Mod { dst, .. } => {
-                        Some(lir::Operand::Slot(*dst))
+                        Some(lir::Operand::Var(*dst))
                     }
-                    Unop { dst, .. } | Conv { dst, .. } => Some(lir::Operand::Slot(*dst)),
+                    Unop { dst, .. } | Conv { dst, .. } => Some(lir::Operand::Var(*dst)),
                     Call { .. } => None,
                     StoreMem(StoreMem { .. }) => None,
-                    LoadMem(LoadMem { dst, .. }) => Some(lir::Operand::Slot(*dst)),
+                    LoadMem(LoadMem { dst, .. }) => Some(lir::Operand::Var(*dst)),
                     Comment(_) => None,
                 },
                 Instruction::Call(call) => {
@@ -329,7 +310,7 @@ where
             },
             CI::CopyIn(mov) | CI::CopyOut(mov) => {
                 let Mov { dst, .. } = mov.borrow();
-                Some(lir::Operand::Slot(*dst))
+                Some(lir::Operand::Var(*dst))
             }
             // No dst for leave instructions
             CI::Leave(_) => None,
@@ -347,13 +328,12 @@ fn build_gen_kill(code: &Code) -> (Vec<VarId>, Vec<VarId>) {
         ($vec:expr, $op:expr) => {
             match $op {
                 Imm(_) => (),
-                Slot(slot) => {
-                    debug_assert!(slot.firm().mode() != libfirm_rs::Mode::X());
-                    if !slot.firm().mode().is_mem() {
+                Var(var) => {
+                    debug_assert!(var.firm().mode() != libfirm_rs::Mode::X());
+                    if !var.firm().mode().is_mem() {
                         $vec.push(var_id($op))
                     }
                 }
-                Param { .. } => $vec.push(var_id($op)),
             }
         };
     }

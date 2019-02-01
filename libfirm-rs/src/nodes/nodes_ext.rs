@@ -37,6 +37,19 @@ impl Node {
         assert!(Node::is_sel(self));
         Sel::new(self.internal_ir_node())
     }
+
+    pub fn must_phi(self) -> Phi {
+        assert!(Node::is_phi(self));
+        Phi::new(self.internal_ir_node())
+    }
+
+    pub fn opt_phi(self) -> Option<Phi> {
+        if Node::is_phi(self) {
+            Some(Phi::new(self.internal_ir_node()))
+        } else {
+            None
+        }
+    }
 }
 
 unsafe impl Send for Node {}
@@ -414,6 +427,10 @@ impl Block {
         unsafe {
             bindings::add_immBlock_pred(self.internal_ir_node(), pred.internal_ir_node());
         }
+    }
+
+    pub fn all_nodes_in_block(self) -> impl Iterator<Item = Node> {
+        self.out_nodes()
     }
 }
 

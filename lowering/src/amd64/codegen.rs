@@ -1,12 +1,10 @@
 use super::{
     function::{self, RegGraph, RegGraphMinLeftEdgeInstruction, RegToRegTransfer, SaveRegList},
     linear_scan::{self, Location},
-    lir::{self, MultiSlot},
-    live_variable_analysis,
+    lir, live_variable_analysis,
     register::{Amd64Reg, Reg},
     var_id, CallingConv, Size, VarId,
 };
-use crate::lowering::lir_allocator::Ptr;
 use itertools::Itertools;
 use libfirm_rs::{nodes::NodeTrait, Tarval};
 use std::{
@@ -86,6 +84,7 @@ impl Codegen {
                         self.gen_mov(*src, *dst, &mut code.copy_in);
                     }
                     CI::CopyOut(lva::Mov { src, dst }) => {
+                        log::debug!("codegen: copy out {:?}", instr);
                         self.gen_mov(*src, *dst, &mut code.copy_out);
                     }
                 }
@@ -231,15 +230,10 @@ impl Codegen {
         }
     }
 
-    fn gen_mov(
-        &mut self,
-        src: lir::CopyPropagationSrc,
-        dst: Ptr<MultiSlot>,
-        instrs: &mut Vec<Mov>,
-    ) {
+    fn gen_mov(&mut self, src: lir::CopyPropagationSrc, dst: lir::Var, instrs: &mut Vec<Mov>) {
         let src = self.lir_to_src_operand(src.into());
         let dst: DstOperand = self
-            .lir_to_src_operand(lir::Operand::Slot(dst))
+            .lir_to_src_operand(lir::Operand::Var(dst))
             .try_into()
             .unwrap();
         assert_eq!(src.size(), dst.size(), "src: {:?}, dst: {:?}", src, dst);
@@ -251,7 +245,9 @@ impl Codegen {
 
         log::debug!("Gen lir: {:?}", lir);
         match lir {
-            lir::Instruction::LoadParam { idx, size } => self.gen_load_param(*idx, *size, instrs),
+            lir::Instruction::LoadParam { idx, size, dst } => {
+                self.gen_load_param(*idx, *size, *dst, instrs)
+            }
             lir::Instruction::Binop {
                 kind,
                 src1,
@@ -293,7 +289,7 @@ impl Codegen {
             lir::Instruction::Conv { src, dst } => {
                 let src = self.lir_to_src_operand(*src);
                 let dst = self
-                    .lir_to_src_operand(lir::Operand::Slot(*dst))
+                    .lir_to_src_operand(lir::Operand::Var(*dst))
                     .try_into()
                     .unwrap();
 
@@ -337,6 +333,7 @@ impl Codegen {
                 };
 
                 let src: SrcOperand = {
+                    let size = store.size();
                     let src = store.operand();
                     let src: SrcOperand = self.lir_to_src_operand(src);
                     match src {
@@ -346,7 +343,7 @@ impl Codegen {
                         // the source is stored in the activation record, move to scratch
                         SrcOperand::Ar(_) => {
                             let src = spill_ctx.spill_and_load_operand(src);
-                            SrcOperand::Reg(src)
+                            SrcOperand::Reg(src.into_size(size.try_into().unwrap()))
                         }
                     }
                 };
@@ -416,10 +413,10 @@ impl Codegen {
         }
     }
 
-    fn gen_load_param(&self, idx: u32, size: u32, instrs: &mut Vec<Instruction>) {
+    fn gen_load_param(&self, idx: u32, size: u32, dst: lir::Var, instrs: &mut Vec<Instruction>) {
         use self::Instruction::{Comment, Mov};
 
-        let param = &self.var_location[&var_id(lir::Operand::Param { idx, size })];
+        let param = &self.var_location[&var_id(lir::Operand::Var(dst))]; // FIXME confusing
         let size = size.try_into().unwrap();
         match param {
             // Register allocation placed argument into a register.
@@ -445,6 +442,8 @@ impl Codegen {
             // Register allocation placed argument into the AR, but the calling convetion placed
             // the argument into a register, so move it to the AR slot.
             Location::Ar(i) => {
+                log::debug!("idx={:?} i={:?} dst={:?}", idx, i, dst);
+                // if Amd64Reg::arg panics, idx is too big, location should have been ParamMem
                 let arg_reg = Amd64Reg::arg(idx as usize);
                 instrs.push(Comment {
                     comment: format!("spill argument register {}", arg_reg),
@@ -459,7 +458,7 @@ impl Codegen {
                 }));
             }
             // param is already on the stack and stays there
-            Location::ParamMem => (),
+            Location::ParamMem(_) => (),
         }
     }
 
@@ -593,7 +592,7 @@ impl Codegen {
         kind: &lir::BinopKind,
         src1: &lir::Operand,
         src2: &lir::Operand,
-        dst: Ptr<MultiSlot>,
+        dst: lir::Var,
     ) {
         use self::Instruction::*;
         macro_rules! push_binop {
@@ -630,7 +629,7 @@ impl Codegen {
         let src1 = self.lir_to_src_operand(*src1);
         let src2 = self.lir_to_src_operand(*src2);
         let dst: DstOperand = self
-            .lir_to_src_operand(lir::Operand::Slot(dst))
+            .lir_to_src_operand(lir::Operand::Var(dst))
             .try_into()
             .unwrap();
 
@@ -670,7 +669,7 @@ impl Codegen {
         instrs: &mut Vec<Instruction>,
         kind: &lir::UnopKind,
         src: &lir::Operand,
-        dst: Ptr<MultiSlot>,
+        dst: lir::Var,
     ) {
         use self::Instruction::{Mov, Neg, Not};
 
@@ -685,7 +684,7 @@ impl Codegen {
 
         let src = self.lir_to_src_operand(*src);
         let dst: DstOperand = self
-            .lir_to_src_operand(lir::Operand::Slot(dst))
+            .lir_to_src_operand(lir::Operand::Var(dst))
             .try_into()
             .unwrap();
         assert_eq!(src.size(), dst.size());
@@ -715,7 +714,7 @@ impl Codegen {
         &mut self,
         src1: &lir::Operand,
         src2: &lir::Operand,
-        dst: Ptr<MultiSlot>,
+        dst: lir::Var,
         f: F,
         instrs: &mut Vec<Instruction>,
     ) where
@@ -736,7 +735,7 @@ impl Codegen {
         let mut free_regs = BTreeSet::from_iter(Amd64Reg::all_but_rsp_and_rbp());
         free_regs.remove(&Amd64Reg::A);
         free_regs.remove(&Amd64Reg::D);
-        self.lir_to_src_operand(lir::Operand::Slot(dst))
+        self.lir_to_src_operand(lir::Operand::Var(dst))
             .try_into()
             .map(dst_operand_used_regs)
             .unwrap_or_else(|_| vec![])
@@ -752,7 +751,7 @@ impl Codegen {
         let mut rdx_spilled = false;
 
         let dst: DstOperand = self
-            .lir_to_src_operand(lir::Operand::Slot(dst))
+            .lir_to_src_operand(lir::Operand::Var(dst))
             .try_into()
             .unwrap();
 
@@ -1140,31 +1139,24 @@ impl Codegen {
     fn lir_to_src_operand(&self, op: lir::Operand) -> SrcOperand {
         match op {
             lir::Operand::Imm(c) => SrcOperand::Imm(c),
-            lir::Operand::Slot(slot) => match self.var_location[&var_id(op)] {
+            lir::Operand::Var(var) => match self.var_location[&var_id(op)] {
                 Location::Reg(reg) => SrcOperand::Reg(Reg {
-                    size: slot.firm().mode().size_bytes().try_into().unwrap(),
+                    size: {
+                        log::debug!("LIR_TO_SRC_OPERAND {:?}", var.firm());
+                        var.firm().mode().size_bytes().try_into().unwrap()
+                    },
                     reg,
                 }),
                 Location::Ar(idx) => SrcOperand::Ar(Ar {
-                    size: slot.firm().mode().size_bytes().try_into().unwrap(),
+                    size: {
+                        log::debug!("LIR_TO_SRC_OPERAND {:?}", var.firm());
+                        var.firm().mode().size_bytes().try_into().unwrap()
+                    },
                     pos: -((idx + 1 + self.num_saved_regs) as isize),
                 }),
-                Location::ParamMem => unreachable!("a slot never has a ParamMem location"),
-            },
-            lir::Operand::Param { idx, size } => match self.var_location[&var_id(op)] {
-                Location::Reg(reg) => SrcOperand::Reg(Reg {
-                    size: size.try_into().unwrap(),
-                    reg,
-                }),
-                // This can happen when the param was originally in a register but got moved on
-                // the stack.
-                Location::Ar(idx) => SrcOperand::Ar(Ar {
-                    size: size.try_into().unwrap(),
-                    pos: -((idx + 1 + self.num_saved_regs) as isize),
-                }),
-                Location::ParamMem => SrcOperand::Ar(Ar {
-                    size: size.try_into().unwrap(),
-                    pos: (idx.checked_sub(self.cconv.num_arg_regs() as u32).unwrap() as isize) + 2,
+                Location::ParamMem(idx) => SrcOperand::Ar(Ar {
+                    size: var.firm().mode().size_bytes().try_into().unwrap(),
+                    pos: (idx.checked_sub(self.cconv.num_arg_regs()).unwrap() as isize) + 2,
                 }),
             },
         }
@@ -1462,6 +1454,12 @@ impl fmt::Display for MovInstruction {
     }
 }
 
+impl fmt::Debug for MovInstruction {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, fmt)
+    }
+}
+
 #[derive(Clone)]
 pub(super) struct LoadInstruction {
     src: lir::AddressComputation<Reg>,
@@ -1730,7 +1728,7 @@ impl LoadOrStoreMem for lir::LoadMem {
     }
     // FIXME: rename this to reg_or_stack_operand
     fn operand(&self) -> lir::Operand {
-        lir::Operand::Slot(self.dst)
+        lir::Operand::Var(self.dst)
     }
     fn size(&self) -> u32 {
         self.size
@@ -1852,15 +1850,15 @@ impl From<RegGraphMinLeftEdgeInstruction<SortCopyPropEntity>> for Instruction {
 fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
     use self::Instruction::Mov;
 
+    // Resolve reg-to-reg copy cycles using RegGraph
     let mut mov_imm = vec![];
-
     let mut transfers: Vec<RegToRegTransfer<SortCopyPropEntity>> = vec![];
     for instr in copies.iter() {
         match instr.src {
-            SrcOperand::Imm(_) => mov_imm.push(Mov(MovInstruction {
-                src: instr.src,
+            SrcOperand::Imm(tv) => mov_imm.push(Mov(MovInstruction {
+                src: SrcOperand::Imm(tv),
                 dst: instr.dst,
-                comment: "copy prop imm move".to_string(),
+                comment: "copy prop imm move".to_owned(),
             })),
             _ => {
                 transfers.push(RegToRegTransfer {
@@ -1870,11 +1868,14 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
             }
         }
     }
-
     let reg_graph = RegGraph::new(transfers);
 
+    // first move registers, then immediates, because the dsts of the immediates
+    // may be src of reg-to-reg-moves
     let mut copy_instrs: Vec<_> = reg_graph.into_instructions::<Instruction>().collect();
     copy_instrs.extend(mov_imm);
+
+    // now emit instrs
     for instr in copy_instrs {
         match instr {
             Instruction::Pushq { .. } | Instruction::Popq { .. } => instrs.push(instr),

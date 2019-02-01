@@ -122,7 +122,7 @@ impl FunctionCall {
 
             call.move_res = dst.map(|dst| FnInstruction::Movq {
                 src: FnOperand::Reg(Amd64Reg::A),
-                dst: FnOperand::Lir(lir::Operand::Slot(dst)),
+                dst: FnOperand::Lir(lir::Operand::Var(dst)),
             });
         } else {
             unreachable!("A FunctionCall can only be setup for a Call instruction")
@@ -272,6 +272,17 @@ impl Function {
             }
         }
 
+        lva.postorder_blocks
+            .iter()
+            .enumerate()
+            .for_each(|(i, block)| {
+                log::debug!(
+                    "lva.postorder_block[{}]: copy_out.len() = {}",
+                    i,
+                    block.code.copy_out.len()
+                )
+            });
+
         let mut codegen = Codegen::new(lsa.var_location, self.cconv);
         self.instrs = codegen.run(&self, lva.postorder_blocks);
     }
@@ -306,6 +317,11 @@ impl Function {
         let mut map: HashMap<VarId, Vec<(usize, usize)>> = HashMap::new();
         let mut block_last_instr = vec![];
         for block in &lva.postorder_blocks {
+            log::debug!(
+                "build_lsa {:?}: code_out.len() = {}",
+                self.name,
+                block.code.copy_out.len()
+            );
             for instr in block.code.iter_unified() {
                 for op in instr.src_operands() {
                     match op {
@@ -351,9 +367,28 @@ impl Function {
 
         debug_assert_eq!(var_live.len(), map.len());
 
+        // TODO hacky
+        let params = lva.postorder_blocks[0]
+            .code
+            .body
+            .iter()
+            .filter_map(|instr| match instr {
+                live_variable_analysis::Instruction::Lir(lir::Instruction::LoadParam {
+                    idx,
+                    dst,
+                    ..
+                }) => Some(linear_scan::Param {
+                    pos: *idx as usize,
+                    var_id: var_id(lir::Operand::Var(*dst)),
+                }),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
         linear_scan::LinearScanAllocator::new(
             RegisterAllocator::new(self.nargs, self.cconv),
             var_live,
+            &params[..],
         )
     }
 }
@@ -396,12 +431,13 @@ impl<R: std::hash::Hash + Eq> Node<R> {
 #[derive(Default)]
 pub struct RegGraph<R: std::hash::Hash + Eq>(HashMap<R, Node<R>>);
 
-pub struct RegToRegTransfer<R> {
+#[derive(Hash, PartialEq, Eq, Clone, Copy)]
+pub struct RegToRegTransfer<R: std::hash::Hash + Eq + Clone + Copy> {
     pub(super) src: R,
     pub(super) dst: R,
 }
 
-pub enum RegGraphMinLeftEdgeInstruction<R> {
+pub enum RegGraphMinLeftEdgeInstruction<R: std::hash::Hash + Eq + Clone + Copy> {
     Push(R),
     Pop(R),
     Mov(RegToRegTransfer<R>),
@@ -530,7 +566,7 @@ impl<R: std::hash::Hash + Eq + Clone + Copy> RegGraph<R> {
                 }
             }
         }
-        instrs.extend(recover);
+        instrs.extend(recover.into_iter().rev());
         instrs.into_iter().map(From::from)
     }
 }
