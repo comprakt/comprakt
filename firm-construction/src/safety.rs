@@ -5,6 +5,8 @@ use std::str::FromStr;
 pub enum Flag {
     // Disable all safety features
     None,
+    // Enable all safety features
+    All,
     // Always check for null before dereferencing (loading) a pointer
     CheckNull,
 }
@@ -19,6 +21,7 @@ impl FromStr for Flag {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "none" | "" => Ok(Flag::None),
+            "all" => Ok(Flag::All),
             "check-null" | "null" => Ok(Flag::CheckNull),
             _ => Err(UnknownSafetyFlag(s.to_string())),
         }
