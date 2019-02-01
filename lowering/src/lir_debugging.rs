@@ -1,9 +1,8 @@
 use super::lir::{self, BasicBlock};
 use debugging::dot::{
-    dot_string, escape_record_content, Color, Dot, GraphData, GraphState, Label, LabelMaker, Shape,
-    Style, X11Color,
+    dot_string, escape_record_content, Dot, GraphData, GraphState, Label, LabelMaker, Shape, Style,
+    X11Color,
 };
-use itertools::Itertools;
 use libfirm_rs::nodes::NodeTrait;
 use std::{collections::HashMap, io::Write};
 
@@ -34,19 +33,10 @@ pub fn default_lir_label(block: &BasicBlock) -> Label {
 }
 
 pub fn lir_box(block: &BasicBlock, body: &str) -> Label {
-    let pins = 0..block.regs.len();
-
     Label::from_text(format!(
-        r#"{{{{{input_slots}}}|<header> Block {block_id}|<code>{code}|{{{out_slots}}}}}"#,
+        r#"{{|<header> Block {block_id}|<code>{code}|}}"#,
         block_id = block.firm.node_id(),
         code = escape_record_content(body),
-        input_slots = pins
-            .clone()
-            .map(|index| format!("<in{idx}>{idx}", idx = index))
-            .join("|"),
-        out_slots = pins
-            .map(|index| format!("<out{idx}>{idx}", idx = index))
-            .join("|"),
     ))
     .shape(Shape::Record)
     .styles(vec![Style::Rounded, Style::Filled])
@@ -104,39 +94,16 @@ impl Dot<BasicBlock> for lir::BlockGraph {
                 block.succs.len()
             );
 
-            for control_flow_transfer in &block.succs {
-                log::debug!(
-                    "num transfers: {}",
-                    control_flow_transfer.register_transitions.len(),
-                );
-
+            for succ in &block.succs {
                 writeln!(
                     writer,
                     " {block_out} -> {block_in}\
                      [color=\"{color}\", penwidth=2];",
                     block_out = block.firm.node_id(),
-                    block_in = control_flow_transfer.target.firm.node_id(),
+                    block_in = succ.firm.node_id(),
                     color = X11Color::Black,
                 )
                 .unwrap();
-
-                for (source_slot, target_slot) in &control_flow_transfer.register_transitions {
-                    let source_num = source_slot.num();
-                    let target_num = target_slot.num;
-
-                    writeln!(
-                        writer,
-                        " {block_out}:out{out_slot} -> {block_in}:in{in_slot} \
-                         [color=\"{color_out};0.5:{color_in}\"];",
-                        block_out = block.firm.node_id(),
-                        block_in = control_flow_transfer.target.firm.node_id(),
-                        out_slot = source_num,
-                        in_slot = target_num,
-                        color_out = Color::from(source_num),
-                        color_in = Color::from(target_num),
-                    )
-                    .unwrap();
-                }
             }
         }
 

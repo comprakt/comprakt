@@ -253,10 +253,6 @@ impl RegisterAllocator {
         Self { cconv, free_list }
     }
 
-    pub(super) fn cconv(&self) -> CallingConv {
-        self.cconv
-    }
-
     pub(super) fn occupied_regs(&self) -> impl Iterator<Item = Amd64Reg> + '_ {
         self.free_list
             .iter()

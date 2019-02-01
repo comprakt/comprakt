@@ -10,13 +10,13 @@ pub use self::function::Function;
 use self::register::{Amd64Reg, Reg};
 use std::convert::TryFrom;
 
-pub(super) type VarId = (i64, usize);
+pub(super) type VarId = (usize);
 
+/// FIXME refactor
 fn var_id(op: lir::Operand) -> VarId {
     use super::lir::Operand::*;
     match op {
-        Slot(slot) => (slot.allocated_in().num, slot.num()),
-        Param { idx, .. } => (-1, idx as usize),
+        Var(var) => (var.num()),
         Imm(_) => unreachable!(),
     }
 }
@@ -70,14 +70,14 @@ pub(self) enum Size {
 }
 
 impl TryFrom<u32> for Size {
-    type Error = ();
+    type Error = String;
 
     fn try_from(size: u32) -> Result<Self, Self::Error> {
         match size {
             1 => Ok(Size::One),
             4 => Ok(Size::Four),
             8 => Ok(Size::Eight),
-            _ => Err(()),
+            x => Err(format!("only sizes 1,4 and 8 are supported, got {:?}", x)),
         }
     }
 }
