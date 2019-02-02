@@ -272,6 +272,10 @@ impl Heap {
     }
 
     pub fn lookup_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity) -> Val {
+        if ptr.is_null() {
+            return Val::Tarval(Tarval::zero(field.ty().mode()));
+        }
+
         let class_ty = ClassTy::from(field.owner()).unwrap();
 
         if let Some(obj_info) = self.object_infos.get(&ptr_node) {
@@ -324,7 +328,7 @@ impl Heap {
             arr_info.lookup_cell(idx).clone()
         } else {
             if ptr.target.unrestricted {
-                return self.non_const_val(item_ty.array().pointer().into());
+                return self.non_const_val(item_ty);
             }
 
             let mut val = Val::NoInfoYet;

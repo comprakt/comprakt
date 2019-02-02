@@ -3,7 +3,7 @@ use crate::{dot::*, optimization};
 use firm_construction::program_generator::Spans;
 use libfirm_rs::{
     nodes::{try_as_value_node, Block, NewKind, Node, NodeTrait, ProjKind},
-    Graph, Tarval, TarvalKind,
+    Graph, Mode, Tarval, TarvalKind,
 };
 use priority_queue::PriorityQueue;
 use std::{
@@ -204,6 +204,24 @@ impl ConstantFolding {
                     invalidate!(out_node);
                 }
 
+                // todo: test only
+                match updated_lattice.value() {
+                    Val::Tarval(val) => assert_ne!(
+                        cur_node.mode(),
+                        Mode::P(),
+                        "node: {:?}, val: {:?}",
+                        cur_node,
+                        val
+                    ),
+                    Val::Pointer(ptr) => assert_eq!(
+                        cur_node.mode(),
+                        Mode::P(),
+                        "node: {:?}, {:?}",
+                        cur_node,
+                        ptr
+                    ),
+                    _ => {}
+                }
                 self.update(cur_node, updated_lattice);
             }
 
@@ -362,8 +380,12 @@ impl ConstantFolding {
                     }
                 }
             }
-            Proj(_, Call_TResult(node)) => self.lookup_val(node.into()).tuple_1().clone(),
-            Proj(_, Call_TResult_Arg(_, _, node)) => self.lookup_val(node.into()).clone(),
+            Proj(_, Call_TResult(node)) => {
+                // we have to wrap the result in a tuple, as modeT nodes cannot have a pointer
+                // as value
+                Val::tuple(self.lookup_val(node.into()).tuple_1().clone(), Val::Invalid)
+            }
+            Proj(_, Call_TResult_Arg(_, _, node)) => self.lookup_val(node.into()).tuple_1().clone(),
             Proj(_, Call_M(node)) => self.lookup_val(node.into()).tuple_2().clone(),
 
             Store(store) => match (store.ptr(), self.lookup_val(store.mem())) {
@@ -384,6 +406,12 @@ impl ConstantFolding {
                         let mut heap = (**heap).clone();
                         let val = self.lookup_val(store.value());
                         let idx = self.node_to_idx(sel.index());
+                        /*println!(
+                            "val: {:?} val.mode: {:?} ty: {:?}",
+                            val,
+                            store.value().mode(),
+                            sel.ty()
+                        );*/
                         heap.update_cell(ptr_node, ptr, idx, val, sel.element_ty());
                         Val::Heap(Rc::new(heap))
                     } else {
