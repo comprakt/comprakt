@@ -10,6 +10,8 @@ use std::{ascii::escape_default, cell::RefCell, collections::HashMap, fmt::Displ
 use termcolor::{Color, WriteColor};
 use utils::color::ColorOutput;
 
+pub mod lint;
+
 pub fn u8_to_printable_representation(byte: u8) -> String {
     let bytes = escape_default(byte).collect::<Vec<u8>>();
     let rep = unsafe { std::str::from_utf8_unchecked(&bytes) };
@@ -173,6 +175,10 @@ impl Diagnostics {
     #[allow(dead_code)]
     pub fn error<'a, 'b, T: Printable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
         self.emit(MessageLevel::Error, kind.as_maybe_spanned())
+    }
+
+    pub fn lint(&self, lint: &lint::Lint, span: Span, msg: String) {
+        self.emit(lint.level, Spanned::new(span, msg).as_maybe_spanned())
     }
 
     #[allow(dead_code)]

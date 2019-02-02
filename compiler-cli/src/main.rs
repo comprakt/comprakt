@@ -374,6 +374,14 @@ macro_rules! until_after_type_check {
 
         m_parser.stop();
 
+        let m_linter = compiler_shared::timing::Measurement::start("frontend::linter");
+
+        let mut linter = compiler_lib::linter::Linter::default();
+        linter.register_ast_passes();
+        linter.check(&context, &ast);
+
+        m_linter.stop();
+
         let m_typecheck = compiler_shared::timing::Measurement::start("semantics");
 
         let ($type_system, $type_analysis) = crate::semantics::check(&mut $strtab, &ast, &context)
