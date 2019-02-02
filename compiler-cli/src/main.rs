@@ -459,6 +459,7 @@ impl BinaryGenerator {
         let asm_out_file = std::fs::OpenOptions::new()
             .write(true)
             .read(true) // for dump_asm
+            .truncate(true)
             .create(true)
             .open(&asm_out)?;
         Ok(BinaryGenerator {
@@ -500,6 +501,7 @@ impl BinaryGenerator {
             Some(OutputSpecification::File(path)) => Some(
                 box std::fs::OpenOptions::new()
                     .write(true)
+                    .truncate(true)
                     .create(true)
                     .open(path)?,
             ),
