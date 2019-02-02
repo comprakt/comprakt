@@ -1,6 +1,6 @@
 use super::{
     firm_program::FirmProgram,
-    type_translation::{get_firm_mode, size_of, ty_from_checked_type},
+    type_translation::{get_firm_mode, ty_from_checked_type},
     Runtime,
 };
 use crate::{
@@ -498,18 +498,17 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 )
             }
             NewArray(_, num_expr, _) => {
-                let new_array_type = &self
+                let checked_elem_ty = &self
                     .type_analysis
                     .expr_info(expr)
                     .ty
                     .inner_type()
                     .expect("type of array must have inner type");
+                let elem_ty = ty_from_checked_type(checked_elem_ty, self.type_system, self.program)
+                    .expect("To be a valid type");
                 let (act_block, num_elts) = self.gen_value(act_block, num_expr);
-                let elt_size = self.graph.new_const(Tarval::mj_int(
-                    size_of(new_array_type)
-                        .map(i64::from)
-                        .expect("cannot allocate array of unsized type"),
-                ));
+                let elt_size = self.graph.new_size(Mode::Is(), elem_ty);
+
                 let alloc_size = act_block.new_mul(num_elts, elt_size);
                 let call = act_block.new_call(
                     act_block.cur_store(),
@@ -866,7 +865,12 @@ impl<'src> LValue<'src> {
                     ),
                 );
                 act_block.set_store(load.new_proj_m());
-                (act_block, load.new_proj_res(item_ty.mode()).into())
+                (
+                    act_block,
+                    span_storage
+                        .with_span(span, load.new_proj_res(item_ty.mode()))
+                        .into(),
+                )
             }
         }
     }

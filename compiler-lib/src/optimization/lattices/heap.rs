@@ -73,7 +73,7 @@ impl fmt::Debug for MemoryArea {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{{{}}}",
+            "{}",
             self.allocators
                 .iter()
                 .map(|allocator| format!("{}", allocator.debug_fmt().short(true)))
@@ -104,7 +104,8 @@ impl Pointer {
         }
     }
 
-    pub fn to_null_and_(target: MemoryArea) -> Self {
+    #[allow(clippy::wrong_self_convention)]
+    pub fn to_null_and(target: MemoryArea) -> Self {
         Self {
             target,
             can_be_null: true,
@@ -138,26 +139,45 @@ impl Lattice for Pointer {
 
 impl fmt::Debug for Pointer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let target_str = format!("{:?}", self.target);
         write!(
             f,
-            "{:?}{}",
-            self.target,
-            if self.can_be_null { "|null" } else { "" }
+            "{{{}{}}}",
+            target_str,
+            if self.can_be_null {
+                if target_str.is_empty() {
+                    &"null"
+                } else {
+                    &", null"
+                }
+            } else {
+                &""
+            }
         )
     }
 }
 
 // == HeapVal ==
 
+#[derive(Debug, Copy, Clone)]
+pub enum Idx {
+    Node(Node),
+    Const(usize),
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct Heap {
     object_infos: HashMap<Node, Rc<ObjectInfo>>,
+    array_infos: HashMap<Node, Rc<ArrayInfo>>,
 }
 
 impl fmt::Debug for Heap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (ptr, obj_info) in &self.object_infos {
-            writeln!(f, "{} = {:?}", ptr.debug_fmt().short(true), obj_info)?
+            writeln!(f, "obj {} = {:?}", ptr.debug_fmt().short(true), obj_info)?
+        }
+        for (ptr, obj_info) in &self.array_infos {
+            writeln!(f, "arr {} = {:?}", ptr.debug_fmt().short(true), obj_info)?
         }
         Ok(())
     }
@@ -167,55 +187,59 @@ impl Heap {
     pub fn start() -> Self {
         Self {
             object_infos: HashMap::new(),
+            array_infos: HashMap::new(),
         }
     }
 
     pub fn non_const_val(&self, ty: Ty) -> Val {
         if ty.mode().is_pointer() {
-            let ty = PointerTy::from(ty).unwrap();
+            let ty = PointerTy::from(ty).unwrap_or_else(|| panic!("{:?} to be pointer type", ty));
             let mut mem = MemoryArea::unrestricted();
-            if let Some(ty) = ClassTy::from(ty.points_to()) {
-                for (_, info) in &self.object_infos {
-                    if info.ty == ty {
-                        mem.join_mut(&info.mem);
+
+            match ty.points_to() {
+                Ty::Class(ty) => {
+                    for info in self.object_infos.values() {
+                        if info.ty == ty {
+                            mem.join_mut(&info.mem);
+                        }
                     }
                 }
-            } else {
-                panic!("{:?}", ty);
+                Ty::Array(ty) => {
+                    let item_ty = ty.element_type();
+                    for info in self.array_infos.values() {
+                        if info.item_ty == item_ty {
+                            mem.join_mut(&info.mem);
+                        }
+                    }
+                }
+                other_ty => panic!("unexpected type {:?}", other_ty),
             }
-            Val::Pointer(Pointer::to_null_and_(mem))
+            Val::Pointer(Pointer::to_null_and(mem))
         } else {
             Val::from_tarval_internal(Tarval::bad())
         }
     }
 
-    pub fn reset_heap_accessed_by(&mut self, ptrs: MemoryArea, _nodes: HashSet<Node>) {
-        /*
-            if !ptrs.is_empty_ignoring_null() {
-                let result = self
-                    .objects
-                    .iter()
-                    .map(|(ptr, obj_info)| {
-                        // if ptrs.contains(ptr) {
-                        (*ptr, Rc::new(obj_info.resetted(&self)))
-                        //} else {
-                        //(*ptr, Rc::clone(obj.info))
-                        //}
-                    })
-                    .collect();
-                self.object_infos = result;
-            }
-        */
+    pub fn reset_heap_accessed_by(&mut self, mem: MemoryArea, _nodes: HashSet<Node>) {
+        // for now, reset everything
+        if !mem.is_empty() {
+            self.reset();
+        }
     }
 
-    /*pub fn reset(&mut self) {
-        let result = self
+    pub fn reset(&mut self) {
+        self.object_infos = self
             .object_infos
             .iter()
             .map(|(ptr, obj_info)| (*ptr, Rc::new(obj_info.resetted(&self))))
             .collect();
-        self.object_infos = result;
-    }*/
+
+        self.array_infos = self
+            .array_infos
+            .iter()
+            .map(|(ptr, arr_info)| (*ptr, Rc::new(arr_info.resetted(&self))))
+            .collect();
+    }
 
     pub fn new_obj(&mut self, new_node: Node, obj_ty: ClassTy) -> Pointer {
         let mem = MemoryArea::single(new_node);
@@ -224,7 +248,7 @@ impl Heap {
         Pointer::to(mem)
     }
 
-    pub fn update_field(&mut self, ptr_val: Node, ptr: &Pointer, field: Entity, val: &Val) {
+    pub fn update_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity, val: &Val) {
         let class_ty = ClassTy::from(field.owner()).unwrap();
 
         for (_node, intersect_obj) in self.object_infos.iter_mut() {
@@ -235,22 +259,84 @@ impl Heap {
             }
         }
 
-        let obj_info = self.object_infos.get(&ptr_val);
+        let obj_info = self.object_infos.get(&ptr_node);
         let mut obj_info = if let Some(obj_info) = obj_info {
             (&**obj_info).clone()
         } else {
+            // we could be more precise here
             ObjectInfo::new_non_const(class_ty, ptr.target.clone(), &self)
         };
 
         obj_info.update_field(field, val);
-        self.object_infos.insert(ptr_val, Rc::new(obj_info));
+        self.object_infos.insert(ptr_node, Rc::new(obj_info));
     }
 
-    pub fn lookup_field(&mut self, ptr_val: Node, ptr: &Pointer, field: Entity) -> Val {
-        if let Some(obj_info) = self.object_infos.get(&ptr_val) {
+    pub fn lookup_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity) -> Val {
+        let class_ty = ClassTy::from(field.owner()).unwrap();
+
+        if let Some(obj_info) = self.object_infos.get(&ptr_node) {
             obj_info.lookup_field(field).clone()
         } else {
-            self.non_const_val(field.ty())
+            if ptr.target.unrestricted {
+                return self.non_const_val(field.ty());
+            }
+
+            let mut val = Val::NoInfoYet;
+            for (_node, intersect_obj) in self.object_infos.iter_mut() {
+                if intersect_obj.ty == class_ty && intersect_obj.mem.intersects(&ptr.target) {
+                    val = val.join(intersect_obj.lookup_field(field));
+                }
+            }
+            assert_ne!(val, Val::NoInfoYet);
+            val
+        }
+    }
+
+    pub fn new_arr(&mut self, new_node: Node, item_ty: Ty) -> Pointer {
+        let mem = MemoryArea::single(new_node);
+        let arr_info = Rc::new(ArrayInfo::new(mem.clone(), item_ty));
+        self.array_infos.insert(new_node, arr_info);
+        Pointer::to(mem)
+    }
+
+    pub fn update_cell(&mut self, ptr_node: Node, ptr: &Pointer, idx: Idx, val: &Val, item_ty: Ty) {
+        for (_node, intersect_arr) in self.array_infos.iter_mut() {
+            if intersect_arr.item_ty == item_ty && intersect_arr.mem.intersects(&ptr.target) {
+                let mut arr = (**intersect_arr).clone();
+                arr.join_cell(idx, val);
+                *intersect_arr = Rc::new(arr);
+            }
+        }
+
+        let arr_info = self.array_infos.get(&ptr_node);
+        let mut arr_info = if let Some(arr_info) = arr_info {
+            (&**arr_info).clone()
+        } else {
+            ArrayInfo::new_non_const(item_ty, ptr.target.clone(), &self)
+        };
+
+        arr_info.update_cell(idx, val.clone());
+        self.array_infos.insert(ptr_node, Rc::new(arr_info));
+    }
+
+    pub fn lookup_cell(&mut self, ptr_node: Node, ptr: &Pointer, idx: Idx, item_ty: Ty) -> Val {
+        if let Some(arr_info) = self.array_infos.get(&ptr_node) {
+            arr_info.lookup_cell(idx).clone()
+        } else {
+            if ptr.target.unrestricted {
+                return self.non_const_val(item_ty.array().pointer().into());
+            }
+
+            let mut val = Val::NoInfoYet;
+            for (_node, intersect_arr) in self.array_infos.iter_mut() {
+                if intersect_arr.item_ty == item_ty && intersect_arr.mem.intersects(&ptr.target) {
+                    val = val.join(&intersect_arr.lookup_cell(idx));
+                }
+            }
+
+            assert_ne!(val, Val::NoInfoYet);
+
+            val
         }
     }
 }
@@ -276,7 +362,232 @@ impl Lattice for Heap {
                 object_infos.insert(*p, Rc::clone(&obj_info));
             }
         }
-        Heap { object_infos }
+
+        let mut array_infos = self.array_infos.clone();
+        for (p, arr_info) in other.array_infos.iter() {
+            if let Some(other_arr_info) = array_infos.get(p) {
+                array_infos.insert(*p, Rc::new(arr_info.join(other_arr_info)));
+            } else {
+                array_infos.insert(*p, Rc::clone(&arr_info));
+            }
+        }
+        Heap {
+            object_infos,
+            array_infos,
+        }
+    }
+}
+
+// == ArrayInfo ==
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+enum ArrayInfoState {
+    Const(HashMap<usize, Val>),
+    Dynamic(Node, Val),
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct ArrayInfo {
+    item_ty: Ty,
+    mem: MemoryArea,
+    default_val: Val,
+    state: ArrayInfoState,
+    //size: usize,
+}
+
+impl fmt::Debug for ArrayInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}[] {{", self.item_ty)?;
+        let mut first = true;
+        match &self.state {
+            ArrayInfoState::Const(cells) => {
+                for (idx, val) in cells {
+                    if !first {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}: {:?}", idx, val)?;
+                    first = false;
+                }
+            }
+            ArrayInfoState::Dynamic(node, val) => {
+                write!(f, "[{}]: {:?}", node.debug_fmt().short(true), val)?;
+                first = false;
+            }
+        }
+
+        if !first {
+            write!(f, ", ")?;
+        }
+        write!(f, "{:?}", self.default_val)?;
+        write!(f, "}} ({:?})", self.mem)
+    }
+}
+
+impl ArrayInfo {
+    pub fn new(mem: MemoryArea, item_ty: Ty) -> Self {
+        let mode = item_ty.mode();
+        Self {
+            item_ty,
+            mem,
+            default_val: Val::from_tarval_initially(Tarval::zero(mode), mode),
+            state: ArrayInfoState::Const(HashMap::new()),
+        }
+    }
+
+    pub fn resetted(&self, heap: &Heap) -> Self {
+        Self::new_non_const(self.item_ty, self.mem.clone(), heap)
+    }
+
+    pub fn new_non_const(item_ty: Ty, mem: MemoryArea, heap: &Heap) -> Self {
+        Self {
+            item_ty,
+            mem,
+            default_val: heap.non_const_val(item_ty),
+            state: ArrayInfoState::Const(HashMap::new()),
+        }
+    }
+
+    pub fn join_cell(&mut self, idx: Idx, val: &Val) {
+        let existing_val = self.lookup_cell(idx);
+        self.update_cell(idx, existing_val.join(val));
+    }
+
+    fn any_item(&self) -> Val {
+        let mut val = self.default_val.clone();
+        match &self.state {
+            ArrayInfoState::Const(cells) => {
+                for cell_val in cells.values() {
+                    val = val.join(cell_val);
+                }
+            }
+            ArrayInfoState::Dynamic(_, cell_val) => {
+                val = val.join(cell_val);
+            }
+        }
+        val
+    }
+
+    pub fn update_cell(&mut self, idx: Idx, val: Val) {
+        match (idx, &mut self.state) {
+            (Idx::Const(idx), ArrayInfoState::Const(ref mut cells)) => {
+                // [1: a, 3: b, default][1] := x => [1: x, 3: b, default]
+                // [1: a, 3: b, default][2] := x => [1: a, 2: x, 3: b, default]
+                cells.insert(idx, val);
+            }
+            (Idx::Node(node), ArrayInfoState::Const(_cells)) => {
+                // [1: a, 2: b, default][i] := x => [ [node]: val, join(default, a, b, val)]
+                self.default_val = self.any_item().join(&val);
+                self.state = ArrayInfoState::Dynamic(node, val);
+            }
+            (Idx::Const(idx), ArrayInfoState::Dynamic(_node, old_val)) => {
+                // [ [node]: val, default ][1] := x => [ 1: val, join(default, val)]
+                let mut cells = HashMap::new();
+                cells.insert(idx, val);
+                self.default_val = self.default_val.join(old_val);
+                self.state = ArrayInfoState::Const(cells);
+            }
+            (Idx::Node(node), ArrayInfoState::Dynamic(last_node, old_val)) => {
+                if node == *last_node {
+                    // [ [last_node]: old, default ][node] := x => [ [last_node]: val, default ]
+                } else {
+                    // [ [last_node]: old, def ][node] := x => [ [node]: val, join(old, def)]
+                    self.default_val = self.default_val.join(old_val);
+                }
+                self.state = ArrayInfoState::Dynamic(node, val);
+            }
+        }
+    }
+
+    pub fn lookup_cell(&self, idx: Idx) -> Val {
+        match (idx, &self.state) {
+            (Idx::Const(idx), ArrayInfoState::Const(cells)) => {
+                // [1: a, 3: b, default][1] = a
+                // [1: a, 3: b, default][2] = default
+                cells.get(&idx).unwrap_or(&self.default_val).clone()
+            }
+            (Idx::Node(_), ArrayInfoState::Const(_))
+            | (Idx::Const(_), ArrayInfoState::Dynamic(_, _)) => {
+                // [1: a, 2: b, default][i] = join(a, b, default)
+                // [ [node]: val, default ][1] = join(val, default)
+                self.any_item()
+            }
+            (Idx::Node(last_node), ArrayInfoState::Dynamic(node, val)) => {
+                if last_node == *node {
+                    // [ [last_node]: val, default ][last_node] = val
+                    val.clone()
+                } else {
+                    // [ [last_node]: val, default ][node] = join(val, default)
+                    val.join(&self.default_val)
+                }
+            }
+        }
+    }
+}
+
+impl Lattice for ArrayInfo {
+    fn is_progression_of(&self, other: &Self) -> bool {
+        assert!(self.item_ty == other.item_ty);
+
+        /*
+        TODO
+        for (idx, val) in self.vals.iter().enumerate() {
+            if !field_val.is_progression_of(&other.fields[field_idx]) {
+                return false;
+            }
+        }*/
+        true
+    }
+
+    fn join(&self, other: &Self) -> Self {
+        assert!(self.item_ty == other.item_ty);
+
+        let mut default_val = self.default_val.join(&other.default_val);
+
+        use self::ArrayInfoState::*;
+        let state = match (&self.state, &other.state) {
+            (Const(cells1), Const(cells2)) => {
+                let mut cells = HashMap::new();
+
+                for (idx, val1) in cells1 {
+                    if let Some(val2) = cells2.get(idx) {
+                        cells.insert(*idx, val1.join(val2));
+                    } else {
+                        cells.insert(*idx, val1.join(&other.default_val));
+                    }
+                }
+                for (idx, val2) in cells2 {
+                    if !cells.contains_key(&idx) {
+                        cells.insert(*idx, val2.join(&self.default_val));
+                    }
+                }
+
+                Const(cells)
+            }
+            (Dynamic(node1, val1), Dynamic(node2, val2)) => {
+                if node1 == node2 {
+                    Dynamic(*node1, val1.join(val2))
+                } else {
+                    // we could either keep node1 or node2 but not both.
+                    // for symmetry reasons, we discard both.
+                    default_val = default_val.join(val1).join(&val2);
+                    Const(HashMap::new())
+                }
+            }
+            (Dynamic(_, _), Const(_)) | (Const(_), Dynamic(_, _)) => {
+                // [ 1: a, 3: b, default1 ] & [ [node]: c, default2 ]
+                // = [ join(a, b, default1, c, default2) ]
+                // we lose all information :(
+                default_val = self.any_item().join(&other.any_item());
+                Const(HashMap::new())
+            }
+        };
+
+        Self {
+            item_ty: self.item_ty,
+            mem: self.mem.join(&other.mem),
+            default_val,
+            state,
+        }
     }
 }
 
@@ -292,7 +603,7 @@ pub struct ObjectInfo {
 
 impl fmt::Debug for ObjectInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{{", self.ty.name_string())?;
+        write!(f, "{} {{", self.ty.name_string())?;
         let mut first = true;
         for (val, field) in self.fields.iter().zip(self.ty.fields()) {
             let name = field.name_string();
@@ -320,6 +631,10 @@ impl ObjectInfo {
                 })
                 .collect(),
         }
+    }
+
+    pub fn resetted(&self, heap: &Heap) -> Self {
+        Self::new_non_const(self.ty, self.mem.clone(), heap)
     }
 
     pub fn new_non_const(ty: ClassTy, mem: MemoryArea, heap: &Heap) -> Self {

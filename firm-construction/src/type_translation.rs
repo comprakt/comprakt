@@ -47,7 +47,3 @@ pub fn get_firm_mode(ty: &CheckedType<'_>) -> Option<Mode> {
         CheckedType::Void | CheckedType::UnknownType(_) => None,
     }
 }
-
-pub fn size_of(ty: &CheckedType<'_>) -> Option<u32> {
-    get_firm_mode(ty).map(|mode| mode.size_bytes())
-}

@@ -107,6 +107,25 @@ impl Graph {
         unsafe { bindings::compute_doms(self.irg) }
     }
 
+    pub fn walk_topological<F>(self, mut walker: F)
+    where
+        F: FnMut(&Node),
+    {
+        // We need the type ascription here, because otherwise rust infers `&mut F`,
+        // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
+        // `closure_handler` doesn't know the concrete `F`.
+        let mut fat_pointer: &mut dyn FnMut(&Node) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            bindings::irg_walk_topological(
+                self.irg,
+                Some(closure_handler),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
     pub fn walk_blkwise_dom_top_down<F>(self, mut walker: F)
     where
         F: FnMut(&Node),

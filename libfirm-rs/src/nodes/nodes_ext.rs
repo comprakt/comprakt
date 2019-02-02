@@ -1,7 +1,7 @@
 use super::nodes_gen::*;
 use crate::{
     bindings,
-    types::{ClassTy, MethodTy, Ty},
+    types::{ArrayTy, ClassTy, MethodTy, Ty},
     Entity, Graph, Mode,
 };
 use std::{
@@ -398,9 +398,9 @@ impl Address {
 }
 
 #[derive(Debug)]
-pub enum IsNewResult {
-    Yes(ClassTy),
-    No,
+pub enum NewKind {
+    Object(ClassTy),
+    Array { item_ty: Ty, item_count: Node },
 }
 
 impl Call {
@@ -417,17 +417,38 @@ impl Call {
         None
     }
 
-    pub fn is_new(self) -> IsNewResult {
+    pub fn method_name(self) -> Option<String> {
         if let Some(addr) = Node::as_address(self.ptr()) {
-            if addr.entity().name_string() == "mjrt_new" {
-                let first_arg = self.args().idx(0);
-                if let Some(Node::Size(size_node)) = first_arg {
-                    let class_ty = ClassTy::from(size_node.ty()).unwrap();
-                    return IsNewResult::Yes(class_ty);
+            Some(addr.entity().name_string())
+        } else {
+            None
+        }
+    }
+
+    pub fn new_kind(self) -> Option<NewKind> {
+        if self.method_name()? != "mjrt_new" {
+            return None;
+        }
+
+        match self.args().idx(0)? {
+            Node::Size(size_node) => {
+                let class_ty = ClassTy::from(size_node.ty()).unwrap();
+                Some(NewKind::Object(class_ty))
+            }
+            Node::Mul(mul) => {
+                if let Some(size_node) = Node::as_size(mul.right()) {
+                    let item_ty = size_node.ty();
+                    let item_count = mul.left();
+                    Some(NewKind::Array {
+                        item_ty,
+                        item_count,
+                    })
+                } else {
+                    None
                 }
             }
+            _ => None,
         }
-        IsNewResult::No
     }
 
     pub fn method_ty(self) -> MethodTy {
@@ -449,6 +470,13 @@ simple_node_iterator!(CallArgsIterator, get_Call_n_params, get_Call_param, i32);
 impl Size {
     pub fn ty(self) -> Ty {
         unsafe { Ty::from_ir_type(bindings::get_Size_type(self.internal_ir_node())) }
+    }
+}
+
+impl Sel {
+    pub fn element_ty(self) -> Ty {
+        let arr = ArrayTy::from(self.ty()).unwrap();
+        arr.element_type()
     }
 }
 
@@ -530,8 +558,8 @@ impl NodeDebug for Const {
 
 impl NodeDebug for Call {
     fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
-        if let IsNewResult::Yes(class_ty) = self.is_new() {
-            write!(
+        match self.new_kind() {
+            Some(NewKind::Object(class_ty)) => write!(
                 f,
                 "New{} {}",
                 if opts.new_print_class {
@@ -540,16 +568,29 @@ impl NodeDebug for Call {
                     "".to_string()
                 },
                 self.node_id()
-            )
-        } else if opts.short {
-            write!(f, "Call {}", self.node_id())
-        } else {
-            write!(
+            ),
+            Some(NewKind::Array { item_ty, .. }) => write!(
                 f,
-                "Call to {} {}",
-                self.ptr().debug_fmt().short(true),
+                "New{}[] {}",
+                if opts.new_print_class {
+                    format!(" {:?}", item_ty)
+                } else {
+                    "".to_string()
+                },
                 self.node_id()
-            )
+            ),
+            _ => {
+                if opts.short {
+                    write!(f, "Call {}", self.node_id())
+                } else {
+                    write!(
+                        f,
+                        "Call to {} {}",
+                        self.ptr().debug_fmt().short(true),
+                        self.node_id()
+                    )
+                }
+            }
         }
     }
 }

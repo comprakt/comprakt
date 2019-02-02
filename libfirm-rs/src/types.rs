@@ -7,7 +7,7 @@ use std::{
 
 macro_rules! gen_e {
     ($name:ident; $($var:ident($ty:ident)),*) => {
-        #[derive(Clone, Copy, PartialEq, Eq)]
+        #[derive(Clone, Copy)]
         pub enum $name {
             $(
                 $var($ty),
@@ -35,7 +35,7 @@ macro_rules! gen_e {
         }
 
         $(
-            #[derive(Clone, Copy, PartialEq, Eq)]
+            #[derive(Clone, Copy)]
             pub struct $ty(*mut bindings::ir_type);
             impl $ty {
                 pub fn from(ty: $name) -> Option<Self> {
@@ -83,11 +83,8 @@ macro_rules! gen_debug {
 }
 
 gen_debug!(Ty;
-    Primitive(PrimitiveTy),
     Method(MethodTy),
-    Array(ArrayTy),
     Segment(SegmentTy),
-    Pointer(PointerTy),
     Struct(StructTy),
     Union(UnionTy),
     Other(OtherTy)
@@ -119,6 +116,40 @@ impl Ty {
                 // or unknown type kind
                 Ty::Other(OtherTy(ty))
             }
+        }
+    }
+}
+
+impl Eq for Ty {}
+impl PartialEq for Ty {
+    fn eq(&self, other: &Self) -> bool {
+        use self::Ty::*;
+        match (self, other) {
+            (Class(ty1), Class(ty2)) => ty1 == ty2,
+            (Primitive(ty1), Primitive(ty2)) => ty1 == ty2,
+            (Array(ty1), Array(ty2)) => ty1 == ty2,
+            (Pointer(ty1), Pointer(ty2)) => ty1 == ty2,
+            (Method(ty1), Method(ty2)) => panic!(
+                "Comparing {:?} with {:?} is currently not supported.",
+                ty1, ty2
+            ),
+            (Segment(ty1), Segment(ty2)) => panic!(
+                "Comparing {:?} with {:?} is currently not supported.",
+                ty1, ty2
+            ),
+            (Struct(ty1), Struct(ty2)) => panic!(
+                "Comparing {:?} with {:?} is currently not supported.",
+                ty1, ty2
+            ),
+            (Union(ty1), Union(ty2)) => panic!(
+                "Comparing {:?} with {:?} is currently not supported.",
+                ty1, ty2
+            ),
+            (Other(ty1), Other(ty2)) => panic!(
+                "Comparing {:?} with {:?} is currently not supported.",
+                ty1, ty2
+            ),
+            _ => false,
         }
     }
 }
@@ -159,6 +190,19 @@ impl PointerTy {
     }
 }
 
+impl Eq for PointerTy {}
+impl PartialEq for PointerTy {
+    fn eq(&self, other: &Self) -> bool {
+        self.points_to() == other.points_to()
+    }
+}
+
+impl fmt::Debug for PointerTy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "@{:?}", self.points_to())
+    }
+}
+
 impl ArrayTy {
     pub fn variable_length(element_type: Ty) -> Ty {
         Ty::from_ir_type(unsafe { bindings::new_type_array(element_type.ir_type(), 0) })
@@ -169,6 +213,19 @@ impl ArrayTy {
 
     pub fn element_type(self) -> Ty {
         Ty::from_ir_type(unsafe { bindings::get_array_element_type(self.ir_type()) })
+    }
+}
+
+impl Eq for ArrayTy {}
+impl PartialEq for ArrayTy {
+    fn eq(&self, other: &Self) -> bool {
+        self.element_type() == other.element_type()
+    }
+}
+
+impl fmt::Debug for ArrayTy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}[]", self.element_type())
     }
 }
 
@@ -193,6 +250,19 @@ impl PrimitiveTy {
     }
     pub fn ptr() -> PrimitiveTy {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::P) })
+    }
+}
+
+impl fmt::Debug for PrimitiveTy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Primitive:{:?}", self.mode())
+    }
+}
+
+impl Eq for PrimitiveTy {}
+impl PartialEq for PrimitiveTy {
+    fn eq(&self, other: &Self) -> bool {
+        self.mode() == other.mode()
     }
 }
 
@@ -227,6 +297,13 @@ impl ClassTy {
 
     pub fn name_string(self) -> String {
         self.name().to_string_lossy().into_owned()
+    }
+}
+
+impl Eq for ClassTy {}
+impl PartialEq for ClassTy {
+    fn eq(&self, other: &Self) -> bool {
+        self.ir_type() == other.ir_type()
     }
 }
 
