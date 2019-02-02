@@ -243,6 +243,18 @@ pub fn gen_ast_inspector_tests(_args: TokenStream) -> TokenStream {
     })
 }
 
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
+pub fn gen_lints_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests("lints", "", |test_name, mj_file| {
+        default_test_generator(
+            &quote! { CompilerCall::RawCompiler(CompilerPhase::Semantic) },
+            test_name,
+            mj_file,
+        )
+    })
+}
+
 fn default_test_generator(
     phase: &proc_macro2::TokenStream,
     test_name: &str,
