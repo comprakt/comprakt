@@ -65,6 +65,7 @@ impl From<std::option::NoneError> for InlineError {
 
 struct Inline {
     graph: Graph,
+    depth: usize,
 }
 
 struct MoveResult {
@@ -76,7 +77,7 @@ impl Inline {
         let graph = call.graph();
         graph.assure_outs();
 
-        let mut i = Inline { graph };
+        let mut i = Inline { graph, depth: 0 };
         i.inline_with_context(call)
     }
 
@@ -237,6 +238,10 @@ impl Inline {
         }
     }
 
+    fn depth_str(&self) -> String {
+        "| ".repeat(self.depth)
+    }
+
     fn copy(
         &mut self,
         old: Node,
@@ -244,11 +249,6 @@ impl Inline {
         call_to_inline: Call,
         start_block: Block,
     ) -> Node {
-        if let Some(nd) = map.get(&old) {
-            log::debug!("Reused already copied {} for {:?}", nd.node_id(), old);
-            return *nd;
-        }
-
         match old {
             Node::Proj(_proj, ProjKind::Start_TArgs_Arg(idx, _start, _)) => {
                 return call_to_inline.args().idx(idx as i32).unwrap();
@@ -266,9 +266,26 @@ impl Inline {
             ),
         };
 
+        if let Some(nd) = map.get(&old) {
+            log::debug!(
+                "{} Reused already copied {} for {:?}",
+                self.depth_str(),
+                nd.node_id(),
+                old
+            );
+            return *nd;
+        }
+
         let new_node = self.graph.copy_node_without_ins(old, target_block);
-        log::debug!("Copied {:?} to {}", old, new_node.node_id());
-        map.insert(old, new_node);
+        log::debug!(
+            "{} Copied {:?} to {}",
+            self.depth_str(),
+            old,
+            new_node.node_id()
+        );
+        self.depth += 1;
+        let existing = map.insert(old, new_node);
+        assert!(existing.is_none());
 
         let new_in_nodes: Vec<_> = old
             .in_nodes()
@@ -277,7 +294,13 @@ impl Inline {
 
         new_node.set_in_nodes(&new_in_nodes);
         // new_in_nodes might not be finished yet
-        log::debug!("Completed copying from {:?} to {}", old, new_node.node_id());
+        self.depth -= 1;
+        log::debug!(
+            "{} Completed copying from {:?} to {}",
+            self.depth_str(),
+            old,
+            new_node.node_id()
+        );
 
         new_node
     }
