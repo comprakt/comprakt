@@ -458,6 +458,7 @@ impl BinaryGenerator {
         let asm_out = temp_dir.path().join("a.s");
         let asm_out_file = std::fs::OpenOptions::new()
             .write(true)
+            .truncate(true)
             .read(true) // for dump_asm
             .truncate(true)
             .create(true)
