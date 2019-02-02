@@ -460,7 +460,6 @@ impl BinaryGenerator {
             .write(true)
             .truncate(true)
             .read(true) // for dump_asm
-            .truncate(true)
             .create(true)
             .open(&asm_out)?;
         Ok(BinaryGenerator {
