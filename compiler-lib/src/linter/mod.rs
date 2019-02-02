@@ -25,6 +25,7 @@ use asciifile::Spanned;
 use compiler_shared::context::Context;
 use parser::{ast, visitor::*};
 
+mod bools;
 mod unused_argument;
 
 #[derive(Default)]
@@ -81,6 +82,7 @@ pub trait AstLintPass<'f> {
 impl<'f> Linter<'f> {
     pub fn register_ast_passes(&mut self) {
         self.register_ast_lint(box unused_argument::UnusedArgumentPass);
+        self.register_ast_lint(box bools::BoolPass);
     }
 
     pub fn check(self, cx: &'_ Context<'f>, ast: &ast::AST<'f>) {
