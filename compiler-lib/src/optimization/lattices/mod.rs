@@ -96,6 +96,14 @@ impl Val {
         Val::NoInfoYet
     }
 
+    pub fn zero(mode: Mode) -> Val {
+        if mode.is_pointer() {
+            Val::Pointer(Pointer::null())
+        } else {
+            Val::Tarval(Tarval::zero(mode))
+        }
+    }
+
     pub fn from_tarval_initially(val: Tarval, mode: Mode) -> Val {
         match val.kind() {
             TarvalKind::Bad if mode.is_pointer() => {

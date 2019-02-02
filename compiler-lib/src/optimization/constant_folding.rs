@@ -570,7 +570,7 @@ impl ConstantFolding {
 
         let mut to_be_marked_as_bad: Vec<Block> = Vec::new();
 
-        for (node, lattice) in values {
+        for (&node, lattice) in values {
             let value = match lattice.value() {
                 Val::Tarval(tarval) if !tarval.is_bad() => tarval,
                 _ => {
@@ -579,15 +579,31 @@ impl ConstantFolding {
                 }
             };
 
-            if Node::is_const(*node) {
+            if Node::is_const(node) {
                 collector.push(Outcome::Unchanged);
                 continue;
             }
 
-            if let Ok(value_node) = try_as_value_node(*node) {
+            if try_as_value_node(node).is_ok() {
                 let const_node = self.graph.new_const(*value);
+                log::debug!("node original: {:?}", Node::wrap(node.internal_ir_node()));
                 log::debug!("exchange value {:?} with {:?}", node, value);
-                Graph::exchange_value(value_node, const_node);
+
+                let mem = match node {
+                    Node::Div(div) => Some((div.mem(), div.out_proj_m())),
+                    Node::Mod(m) => Some((m.mem(), m.out_proj_m())),
+                    _ => None,
+                };
+                if let Some((prev_mem, next_mem)) = mem {
+                    // only remove this node from memory flow.
+                    // Its value is handled in its res-proj.
+                    if let Some(next_mem) = next_mem {
+                        Graph::exchange(next_mem, prev_mem);
+                    }
+                } else {
+                    Graph::exchange(node, const_node);
+                }
+
                 collector.push(Outcome::Changed);
             } else if let (Node::Cond(cond), TarvalKind::Bool(val)) = (node, value.kind()) {
                 let (always_taken_path, target_block, _target_block_idx) =
@@ -613,7 +629,7 @@ impl ConstantFolding {
                 );
 
                 self.graph.mark_as_bad(dead_path);
-                self.graph.mark_as_bad(*cond);
+                self.graph.mark_as_bad(cond);
 
                 Graph::exchange(always_taken_path, jmp);
 

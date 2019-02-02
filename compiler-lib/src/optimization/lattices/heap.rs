@@ -122,6 +122,10 @@ impl Pointer {
     pub fn is_null(&self) -> bool {
         self.can_be_null && self.target.is_empty()
     }
+
+    pub fn is_null_or_empty(&self) -> bool {
+        self.target.is_empty()
+    }
 }
 
 impl Lattice for Pointer {
@@ -272,8 +276,8 @@ impl Heap {
     }
 
     pub fn lookup_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity) -> Val {
-        if ptr.is_null() {
-            return Val::Tarval(Tarval::zero(field.ty().mode()));
+        if ptr.is_null_or_empty() {
+            return Val::zero(field.ty().mode());
         }
 
         let class_ty = ClassTy::from(field.owner()).unwrap();
@@ -324,6 +328,10 @@ impl Heap {
     }
 
     pub fn lookup_cell(&mut self, ptr_node: Node, ptr: &Pointer, idx: Idx, item_ty: Ty) -> Val {
+        if ptr.is_null_or_empty() {
+            return Val::zero(item_ty.mode());
+        }
+
         if let Some(arr_info) = self.array_infos.get(&ptr_node) {
             arr_info.lookup_cell(idx).clone()
         } else {
@@ -336,6 +344,29 @@ impl Heap {
                 if intersect_arr.item_ty == item_ty && intersect_arr.mem.intersects(&ptr.target) {
                     val = val.join(&intersect_arr.lookup_cell(idx));
                 }
+            }
+
+            if val == Val::NoInfoYet {
+                log::error!("check why error occured:");
+                for (_node, intersect_arr) in self.array_infos.iter_mut() {
+                    log::debug!(
+                        "check for item ty '{:?}' with '{:?}' => {:?}",
+                        item_ty,
+                        intersect_arr.item_ty,
+                        item_ty == intersect_arr.item_ty
+                    );
+                    log::debug!(
+                        "check for intersection '{:?}' with '{:?}' => {:?}",
+                        &ptr.target,
+                        intersect_arr.mem,
+                        intersect_arr.mem.intersects(&ptr.target)
+                    );
+                    if intersect_arr.item_ty == item_ty && intersect_arr.mem.intersects(&ptr.target)
+                    {
+                        val = val.join(&intersect_arr.lookup_cell(idx));
+                    }
+                }
+                panic!("see log");
             }
 
             assert_ne!(val, Val::NoInfoYet);
@@ -433,7 +464,7 @@ impl ArrayInfo {
         Self {
             item_ty,
             mem,
-            default_val: Val::from_tarval_initially(Tarval::zero(mode), mode),
+            default_val: Val::zero(mode),
             state: ArrayInfoState::Const(HashMap::new()),
         }
     }
@@ -629,10 +660,7 @@ impl ObjectInfo {
             mem,
             fields: ty
                 .fields()
-                .map(|field| {
-                    let mode = field.ty().mode();
-                    Val::from_tarval_initially(Tarval::zero(mode), mode)
-                })
+                .map(|field| Val::zero(field.ty().mode()))
                 .collect(),
         }
     }
