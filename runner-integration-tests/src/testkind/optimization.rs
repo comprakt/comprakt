@@ -134,10 +134,14 @@ pub fn exec_optimization_test(input: PathBuf, backend: Backend) {
     //     - if 'expect: Change', that the asm is different
     //     - if 'expect: Unchanged', that the asm is the same
     //     - if 'expect: IsIdenticalTo', that the asm is the same
-    let path_binary_optimized = input.with_extension("optimized.out");
-    let path_binary_reference = input.with_extension("reference.out");
-    let path_asm_optimized = input.with_extension("optimized.S");
-    let path_asm_reference = input.with_extension("reference.S");
+    let path_binary_optimized =
+        input.with_extension(&format!("{}.optimized.out", backend.to_ascii_label()));
+    let path_binary_reference =
+        input.with_extension(&format!("{}.reference.out", backend.to_ascii_label()));
+    let path_asm_optimized =
+        input.with_extension(&format!("{}.optimized.S", backend.to_ascii_label()));
+    let path_asm_reference =
+        input.with_extension(&format!("{}.reference.S", backend.to_ascii_label()));
 
     let setup = TestSpec {
         references: input.clone(),

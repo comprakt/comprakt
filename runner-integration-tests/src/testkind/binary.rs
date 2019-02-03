@@ -72,7 +72,10 @@ impl BinaryTestData {
 }
 
 pub fn exec_binary_test(input: PathBuf, optimizations: optimization::Level, backend: Backend) {
-    let binary_path = input.with_extension("out");
+    let binary_path = input.with_extension(format!("{}.out", backend.to_ascii_label()));
+    let assembly_file = input.with_extension(format!("{}.out.S", backend.to_ascii_label()));
+    let reference_file_path = input.with_extension("out");
+
     let setup = TestSpec {
         references: input.clone(),
         input: input.clone(),
@@ -86,7 +89,7 @@ pub fn exec_binary_test(input: PathBuf, optimizations: optimization::Level, back
             output: binary_path.clone(),
             backend,
             optimizations,
-            assembly: Some(input.with_extension("out.S")),
+            assembly: Some(assembly_file),
         }),
         &setup,
     );
@@ -126,10 +129,12 @@ pub fn exec_binary_test(input: PathBuf, optimizations: optimization::Level, back
 
     assert_output(
         &output,
-        metadata.reference.into_binary_reference_data(&binary_path),
+        metadata
+            .reference
+            .into_binary_reference_data(&reference_file_path),
         &TestSpec {
             input: binary_path.clone(),
-            references: binary_path,
+            references: reference_file_path,
             generate_tentatives: true,
         },
     );

@@ -43,6 +43,15 @@ pub enum Backend {
     Libfirm,
 }
 
+impl Backend {
+    pub fn to_ascii_label(self) -> &'static str {
+        match self {
+            Backend::Own => "own",
+            Backend::Libfirm => "libfirm",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum CompilerCall {

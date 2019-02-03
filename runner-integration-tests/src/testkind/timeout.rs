@@ -47,14 +47,15 @@ impl IntoReferenceData for Data {
 
 pub fn exec_timeout_test(input: PathBuf, backend: Backend) {
     use wait_timeout::ChildExt;
-    let binary_path = input.with_extension("out");
+    let binary_path = input.with_extension(format!("{}.out", backend.to_ascii_label()));
+    let assembly_file = input.with_extension(format!("{}.out.S", backend.to_ascii_label()));
 
     let test_data = assert_compiler_phase::<Data>(
         CompilerCall::RawCompiler(CompilerPhase::Binary {
             output: binary_path.clone(),
             backend,
             optimizations: optimization::Level::None,
-            assembly: None,
+            assembly: Some(assembly_file),
         }),
         &TestSpec {
             references: input.clone(),
