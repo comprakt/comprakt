@@ -49,7 +49,7 @@ impl optimization::Local for ConstantFolding {
     fn optimize_function(graph: Graph) -> Outcome {
         // Uncomment this code for debugging and prefix the method to debug with "cur_".
 
-        /*if !graph.entity().name_string().contains("main") {
+        /*if !graph.entity().name_string().contains("cur") {
             return Outcome::Unchanged;
         }*/
 

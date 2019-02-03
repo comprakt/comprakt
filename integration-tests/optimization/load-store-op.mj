@@ -2,7 +2,7 @@
 optimizations: [ConstantFolding]
 expect: change
 stdout:
-    is: "1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n"
+    is: "1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n"
 
 ---
 class Obj {
@@ -28,7 +28,6 @@ class Main {
         System.out.println(d);
     }
 
-
     public void test() {
         testDirectWrite();
         testRefWriteClear();
@@ -37,6 +36,15 @@ class Main {
         testMethodCall();
         testArrayDirectWrite();
         testArrayIndirectWrite();
+        testPhi();
+    }
+
+    public int y;
+    public int x;
+    public void testPhi() {
+        if (y == 2) x = 1;
+
+        assertVariable(x + 1, x + 2, x + 3, x + 4);
     }
 
     public void testArrayIndirectWrite() {

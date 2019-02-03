@@ -339,39 +339,47 @@ impl Heap {
                 return self.non_const_val(item_ty);
             }
 
-            let mut val = Val::NoInfoYet;
+            let mut val: Option<Val> = None;
             for (_node, intersect_arr) in self.array_infos.iter_mut() {
                 if intersect_arr.item_ty == item_ty && intersect_arr.mem.intersects(&ptr.target) {
-                    val = val.join(&intersect_arr.lookup_cell(idx));
+                    val = match val {
+                        Some(val) => Some(val.join(&intersect_arr.lookup_cell(idx))),
+                        None => Some(intersect_arr.lookup_cell(idx)),
+                    };
                 }
             }
 
-            if val == Val::NoInfoYet {
-                log::error!("check why error occured:");
-                for (_node, intersect_arr) in self.array_infos.iter_mut() {
-                    log::debug!(
-                        "check for item ty '{:?}' with '{:?}' => {:?}",
-                        item_ty,
-                        intersect_arr.item_ty,
-                        item_ty == intersect_arr.item_ty
-                    );
-                    log::debug!(
-                        "check for intersection '{:?}' with '{:?}' => {:?}",
-                        &ptr.target,
-                        intersect_arr.mem,
-                        intersect_arr.mem.intersects(&ptr.target)
-                    );
-                    if intersect_arr.item_ty == item_ty && intersect_arr.mem.intersects(&ptr.target)
-                    {
-                        val = val.join(&intersect_arr.lookup_cell(idx));
+            match val {
+                Some(val) => val,
+                None => {
+                    self.non_const_val(item_ty)
+                    /*
+                    TODO implement later when use dom depth information
+
+                    log::error!("check why error occured:");
+                    for (_node, intersect_arr) in self.array_infos.iter_mut() {
+                        log::debug!(
+                            "check for item ty '{:?}' with '{:?}' => {:?}",
+                            item_ty,
+                            intersect_arr.item_ty,
+                            item_ty == intersect_arr.item_ty
+                        );
+                        log::debug!(
+                            "check for intersection '{:?}' with '{:?}' => {:?}",
+                            &ptr.target,
+                            intersect_arr.mem,
+                            intersect_arr.mem.intersects(&ptr.target)
+                        );
+                        if intersect_arr.item_ty == item_ty
+                            && intersect_arr.mem.intersects(&ptr.target)
+                        {
+                            val = val.join(&intersect_arr.lookup_cell(idx));
+                        }
                     }
+                    panic!("see log");
+                    */
                 }
-                panic!("see log");
             }
-
-            assert_ne!(val, Val::NoInfoYet);
-
-            val
         }
     }
 }
@@ -389,21 +397,17 @@ impl Lattice for Heap {
     }
 
     fn join(&self, other: &Self) -> Self {
-        let mut object_infos = self.object_infos.clone();
+        let mut object_infos = HashMap::new();
         for (p, obj_info) in other.object_infos.iter() {
-            if let Some(other_obj_info) = object_infos.get(p) {
+            if let Some(other_obj_info) = self.object_infos.get(p) {
                 object_infos.insert(*p, Rc::new(obj_info.join(other_obj_info)));
-            } else {
-                object_infos.insert(*p, Rc::clone(&obj_info));
             }
         }
 
-        let mut array_infos = self.array_infos.clone();
+        let mut array_infos = HashMap::new();
         for (p, arr_info) in other.array_infos.iter() {
-            if let Some(other_arr_info) = array_infos.get(p) {
+            if let Some(other_arr_info) = self.array_infos.get(p) {
                 array_infos.insert(*p, Rc::new(arr_info.join(other_arr_info)));
-            } else {
-                array_infos.insert(*p, Rc::clone(&arr_info));
             }
         }
         Heap {
