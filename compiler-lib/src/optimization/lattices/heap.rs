@@ -289,14 +289,24 @@ impl Heap {
                 return self.non_const_val(field.ty());
             }
 
-            let mut val = Val::NoInfoYet;
+            let mut val: Option<Val> = None;
             for (_node, intersect_obj) in self.object_infos.iter_mut() {
                 if intersect_obj.ty == class_ty && intersect_obj.mem.intersects(&ptr.target) {
-                    val = val.join(intersect_obj.lookup_field(field));
+                    val = match val {
+                        Some(val) => Some(val.join(&intersect_obj.lookup_field(field))),
+                        None => Some(intersect_obj.lookup_field(field).clone()),
+                    };
                 }
             }
-            assert_ne!(val, Val::NoInfoYet);
-            val
+
+            match val {
+                Some(val) => val,
+                None => {
+                    // maybe implement later when we don't delete objects:
+                    // assert_ne!(val, Val::NoInfoYet);
+                    self.non_const_val(field.ty())
+                }
+            }
         }
     }
 
