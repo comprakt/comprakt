@@ -1,7 +1,6 @@
-use super::AstLintPass;
+use super::{AstLintPass, LintContext, LintPass};
 use asciifile::Spanned;
-use compiler_shared::context::Context;
-use diagnostics::declare_lint;
+use diagnostics::{declare_lint, lint::LintArray, lint_array};
 use parser::ast::*;
 
 declare_lint!(
@@ -18,8 +17,14 @@ declare_lint!(
 
 pub struct BoolPass;
 
+impl LintPass for BoolPass {
+    fn get_lints(&self) -> LintArray {
+        lint_array!(BOOL_LITERAL_COMPARISON, NOT_ON_BOOL_LITERAL,)
+    }
+}
+
 impl<'f> AstLintPass<'f> for BoolPass {
-    fn check_expr(&mut self, cx: &Context<'_>, expr: &Spanned<'_, Expr<'_>>) {
+    fn check_expr(&mut self, cx: &LintContext<'_>, expr: &Spanned<'_, Expr<'_>>) {
         match &expr.data {
             Expr::Binary(BinaryOp::Equals, lhs, rhs)
             | Expr::Binary(BinaryOp::NotEquals, lhs, rhs) => match (&lhs.data, &rhs.data) {
@@ -29,15 +34,14 @@ impl<'f> AstLintPass<'f> for BoolPass {
                     } else {
                         "comparison of differing boolean literals. Consider using `false`"
                     };
-                    cx.diagnostics
-                        .lint(BOOL_LITERAL_COMPARISON, expr.span, msg.to_string());
+                    cx.struct_lint(BOOL_LITERAL_COMPARISON, expr.span, msg);
                 }
                 (Expr::Boolean(val), _) => {
                     let prefix = if *val { "" } else { "!" };
-                    cx.diagnostics.lint(
+                    cx.struct_lint(
                         BOOL_LITERAL_COMPARISON,
                         expr.span,
-                        format!(
+                        &format!(
                             "comparison with a boolean literal. Consider using `{}{}`",
                             prefix,
                             rhs.span.as_str()
@@ -46,10 +50,10 @@ impl<'f> AstLintPass<'f> for BoolPass {
                 }
                 (_, Expr::Boolean(val)) => {
                     let prefix = if *val { "" } else { "!" };
-                    cx.diagnostics.lint(
+                    cx.struct_lint(
                         BOOL_LITERAL_COMPARISON,
                         expr.span,
-                        format!(
+                        &format!(
                             "comparison with a boolean literal. Consider using `{}{}`",
                             prefix,
                             lhs.span.as_str()
@@ -66,10 +70,10 @@ impl<'f> AstLintPass<'f> for BoolPass {
                         val
                     };
                     let inverse = if val { "false" } else { "true" };
-                    cx.diagnostics.lint(
+                    cx.struct_lint(
                         NOT_ON_BOOL_LITERAL,
                         expr.span,
-                        format!(
+                        &format!(
                             "inverting a bool literal. This can be simplified to `{}`",
                             inverse
                         ),

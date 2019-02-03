@@ -1,7 +1,6 @@
-use super::AstLintPass;
+use super::{AstLintPass, LintContext, LintPass};
 use asciifile::Spanned;
-use compiler_shared::context::Context;
-use diagnostics::declare_lint;
+use diagnostics::{declare_lint, lint::LintArray, lint_array};
 use parser::{ast::*, visitor::NodeKind};
 use std::collections::HashMap;
 use strtab::Symbol;
@@ -14,10 +13,16 @@ declare_lint!(
 
 pub struct UnusedArgumentPass;
 
+impl LintPass for UnusedArgumentPass {
+    fn get_lints(&self) -> LintArray {
+        lint_array!(UNUSED_ARGUMENTS)
+    }
+}
+
 impl<'f> AstLintPass<'f> for UnusedArgumentPass {
     fn check_class_member(
         &mut self,
-        cx: &Context<'_>,
+        cx: &LintContext<'_>,
         class_member: &Spanned<'_, ClassMember<'_>>,
     ) {
         if let ClassMemberKind::Method(_, param_list, block) = &class_member.kind {
@@ -35,10 +40,10 @@ impl<'f> AstLintPass<'f> for UnusedArgumentPass {
                         {
                             debug_assert!(num_assigned <= num_usage);
                             if num_usage == num_assigned {
-                                cx.diagnostics.lint(
+                                cx.struct_lint(
                                     UNUSED_ARGUMENTS,
                                     param.span,
-                                    format!(
+                                    &format!(
                                         "unused argument: `{0}`. Consider using `_{0}` instead",
                                         param.name.as_str()
                                     ),
@@ -46,10 +51,10 @@ impl<'f> AstLintPass<'f> for UnusedArgumentPass {
                             }
                         }
                     }
-                    None => cx.diagnostics.lint(
+                    None => cx.struct_lint(
                         UNUSED_ARGUMENTS,
                         param.span,
-                        format!(
+                        &format!(
                             "unused argument: `{0}`. Consider using `_{0}` instead",
                             param.name.as_str()
                         ),

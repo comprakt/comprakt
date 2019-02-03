@@ -177,10 +177,6 @@ impl Diagnostics {
         self.emit(MessageLevel::Error, kind.as_maybe_spanned())
     }
 
-    pub fn lint(&self, lint: &lint::Lint, span: Span, msg: String) {
-        self.emit(lint.level, Spanned::new(span, msg).as_maybe_spanned())
-    }
-
     #[allow(dead_code)]
     pub fn info<'a, 'b, T: Printable<'a, 'b> + ?Sized>(&self, kind: &'b T) {
         self.emit(MessageLevel::Info, kind.as_maybe_spanned())

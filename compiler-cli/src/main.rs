@@ -377,8 +377,12 @@ macro_rules! until_after_type_check {
         let m_linter = compiler_shared::timing::Measurement::start("frontend::linter");
 
         let mut linter = compiler_lib::linter::Linter::default();
-        linter.register_ast_passes();
-        linter.check(&context, &ast);
+        if let Err(lint_err) = linter.check(&context, &ast) {
+            log::debug!("linter error");
+            context.diagnostics.error(&lint_err);
+            context.diagnostics.write_statistics();
+            exit(1);
+        }
 
         m_linter.stop();
 
