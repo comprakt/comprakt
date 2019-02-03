@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.7.11/src/adaptors/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `/home/travis/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.8.0/src/adaptors/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
 <span id="4">   4</span>
@@ -1276,21 +1276,6 @@
 <span id="1276">1276</span>
 <span id="1277">1277</span>
 <span id="1278">1278</span>
-<span id="1279">1279</span>
-<span id="1280">1280</span>
-<span id="1281">1281</span>
-<span id="1282">1282</span>
-<span id="1283">1283</span>
-<span id="1284">1284</span>
-<span id="1285">1285</span>
-<span id="1286">1286</span>
-<span id="1287">1287</span>
-<span id="1288">1288</span>
-<span id="1289">1289</span>
-<span id="1290">1290</span>
-<span id="1291">1291</span>
-<span id="1292">1292</span>
-<span id="1293">1293</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Licensed under the Apache License, Version 2.0</span>
 <span class="doccomment">//! http://www.apache.org/licenses/LICENSE-2.0 or the MIT license</span>
@@ -1307,7 +1292,6 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">iter</span>::{<span class="ident">Fuse</span>, <span class="ident">Peekable</span>, <span class="ident">FromIterator</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">marker</span>::<span class="ident">PhantomData</span>;
 <span class="kw">use</span> <span class="ident">size_hint</span>;
-<span class="kw">use</span> <span class="ident">fold</span>;
 
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">clone_fields</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">base</span>:<span class="ident">expr</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">field</span>:<span class="ident">ident</span>),<span class="op">+</span>) <span class="op">=&gt;</span> (
@@ -1702,6 +1686,8 @@
 <span class="doccomment">/// then skipping forward *n-1* elements.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// See [`.step()`](../trait.Itertools.html#method.step) for more information.</span>
+<span class="attribute">#[<span class="ident">deprecated</span>(<span class="ident">note</span><span class="op">=</span><span class="string">&quot;Use std .step_by() instead&quot;</span>, <span class="ident">since</span><span class="op">=</span><span class="string">&quot;0.8&quot;</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">deprecated</span>)]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;iterator adaptors are lazy and do nothing unless consumed&quot;</span>]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Step</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span> {
@@ -1712,6 +1698,7 @@
 <span class="doccomment">/// Create a `Step` iterator.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// **Panics** if the step is 0.</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">deprecated</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">step</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span>(<span class="ident">iter</span>: <span class="ident">I</span>, <span class="ident">step</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">Step</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span>
     <span class="kw">where</span> <span class="ident">I</span>: <span class="ident">Iterator</span>
 {
@@ -1722,6 +1709,7 @@
     }
 }
 
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">deprecated</span>)]</span>
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span> <span class="ident">Iterator</span> <span class="kw">for</span> <span class="ident">Step</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span>
     <span class="kw">where</span> <span class="ident">I</span>: <span class="ident">Iterator</span>
 {
@@ -1749,6 +1737,7 @@
 }
 
 <span class="comment">// known size</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">deprecated</span>)]</span>
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span> <span class="ident">ExactSizeIterator</span> <span class="kw">for</span> <span class="ident">Step</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span>
     <span class="kw">where</span> <span class="ident">I</span>: <span class="ident">ExactSizeIterator</span>
 {}
@@ -2328,81 +2317,62 @@
 <span class="macro">impl_tuple_combination</span><span class="macro">!</span>(<span class="ident">Tuple3Combination</span> <span class="ident">Tuple2Combination</span> ; <span class="ident">A</span>, <span class="ident">A</span>, <span class="ident">A</span>, <span class="ident">A</span> ; <span class="ident">a</span> <span class="ident">b</span>);
 <span class="macro">impl_tuple_combination</span><span class="macro">!</span>(<span class="ident">Tuple4Combination</span> <span class="ident">Tuple3Combination</span> ; <span class="ident">A</span>, <span class="ident">A</span>, <span class="ident">A</span>, <span class="ident">A</span>, <span class="ident">A</span>; <span class="ident">a</span> <span class="ident">b</span> <span class="ident">c</span>);
 
-
-<span class="doccomment">/// An iterator adapter to simply flatten a structure.</span>
+<span class="doccomment">/// An iterator adapter to apply `Into` conversion to each element.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// See [`.flatten()`](../trait.Itertools.html#method.flatten) for more information.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
+<span class="doccomment">/// See [`.map_into()`](../trait.Itertools.html#method.map_into) for more information.</span>
 <span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;iterator adaptors are lazy and do nothing unless consumed&quot;</span>]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Flatten</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">J</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MapInto</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">R</span><span class="op">&gt;</span> {
     <span class="ident">iter</span>: <span class="ident">I</span>,
-    <span class="ident">front</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">J</span><span class="op">&gt;</span>,
+    <span class="ident">_res</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="kw">fn</span>() <span class="op">-&gt;</span> <span class="ident">R</span><span class="op">&gt;</span>,
 }
 
-<span class="doccomment">/// Flatten an iterable of iterables into a single combined sequence of all</span>
-<span class="doccomment">/// the elements in the iterables.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is more or less equivalent to `.flat_map` with an identity</span>
-<span class="doccomment">/// function.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is an `IntoIterator`-enabled version of the [`.flatten()`][1] adaptor.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [1]: trait.Itertools.html#method.flatten</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">/// use itertools::flatten;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// let data = vec![vec![1, 2, 3], vec![4, 5, 6]];</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// itertools::assert_equal(flatten(&amp;data),</span>
-<span class="doccomment">///                         &amp;[1, 2, 3, 4, 5, 6]);</span>
-<span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">flatten</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">J</span><span class="op">&gt;</span>(<span class="ident">iterable</span>: <span class="ident">I</span>) <span class="op">-&gt;</span> <span class="ident">Flatten</span><span class="op">&lt;</span><span class="ident">I</span>::<span class="ident">IntoIter</span>, <span class="ident">J</span><span class="op">&gt;</span>
-    <span class="kw">where</span> <span class="ident">I</span>: <span class="ident">IntoIterator</span>,
-          <span class="ident">I</span>::<span class="ident">Item</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">IntoIter</span><span class="op">=</span><span class="ident">J</span>, <span class="ident">Item</span><span class="op">=</span><span class="ident">J</span>::<span class="ident">Item</span><span class="op">&gt;</span>,
-          <span class="ident">J</span>: <span class="ident">Iterator</span>,
-{
-    <span class="ident">Flatten</span> {
-        <span class="ident">iter</span>: <span class="ident">iterable</span>.<span class="ident">into_iter</span>(),
-        <span class="ident">front</span>: <span class="prelude-val">None</span>,
+<span class="doccomment">/// Create a new [`MapInto`](struct.MapInto.html) iterator.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">map_into</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">R</span><span class="op">&gt;</span>(<span class="ident">iter</span>: <span class="ident">I</span>) <span class="op">-&gt;</span> <span class="ident">MapInto</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">R</span><span class="op">&gt;</span> {
+    <span class="ident">MapInto</span> {
+        <span class="ident">iter</span>: <span class="ident">iter</span>,
+        <span class="ident">_res</span>: <span class="ident">PhantomData</span>,
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">J</span><span class="op">&gt;</span> <span class="ident">Iterator</span> <span class="kw">for</span> <span class="ident">Flatten</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">J</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">R</span><span class="op">&gt;</span> <span class="ident">Iterator</span> <span class="kw">for</span> <span class="ident">MapInto</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">R</span><span class="op">&gt;</span>
     <span class="kw">where</span> <span class="ident">I</span>: <span class="ident">Iterator</span>,
-          <span class="ident">I</span>::<span class="ident">Item</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">IntoIter</span><span class="op">=</span><span class="ident">J</span>, <span class="ident">Item</span><span class="op">=</span><span class="ident">J</span>::<span class="ident">Item</span><span class="op">&gt;</span>,
-          <span class="ident">J</span>: <span class="ident">Iterator</span>,
+          <span class="ident">I</span>::<span class="ident">Item</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>,
 {
-    <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> <span class="ident">J</span>::<span class="ident">Item</span>;
-    <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Item</span><span class="op">&gt;</span> {
-        <span class="kw">loop</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">f</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">front</span> {
-                <span class="kw">match</span> <span class="ident">f</span>.<span class="ident">next</span>() {
-                    <span class="ident">elt</span> @ <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="ident">elt</span>,
-                    <span class="prelude-val">None</span> <span class="op">=&gt;</span> { }
-                }
-            }
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">next_front</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">next</span>() {
-                <span class="self">self</span>.<span class="ident">front</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">next_front</span>.<span class="ident">into_iter</span>());
-            } <span class="kw">else</span> {
-                <span class="kw">break</span>;
-            }
-        }
-        <span class="prelude-val">None</span>
+    <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> <span class="ident">R</span>;
+
+    <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">iter</span>
+            .<span class="ident">next</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span>.<span class="ident">into</span>())
     }
 
-    <span class="comment">// special case to convert segmented iterator into consecutive loops</span>
-    <span class="kw">fn</span> <span class="ident">fold</span><span class="op">&lt;</span><span class="ident">Acc</span>, <span class="ident">G</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">init</span>: <span class="ident">Acc</span>, <span class="kw-2">mut</span> <span class="ident">f</span>: <span class="ident">G</span>) <span class="op">-&gt;</span> <span class="ident">Acc</span>
-        <span class="kw">where</span> <span class="ident">G</span>: <span class="ident">FnMut</span>(<span class="ident">Acc</span>, <span class="self">Self</span>::<span class="ident">Item</span>) <span class="op">-&gt;</span> <span class="ident">Acc</span>,
+    <span class="kw">fn</span> <span class="ident">size_hint</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> (<span class="ident">usize</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>) {
+        <span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">size_hint</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">fold</span><span class="op">&lt;</span><span class="ident">Acc</span>, <span class="ident">Fold</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">init</span>: <span class="ident">Acc</span>, <span class="kw-2">mut</span> <span class="ident">fold_f</span>: <span class="ident">Fold</span>) <span class="op">-&gt;</span> <span class="ident">Acc</span>
+        <span class="kw">where</span> <span class="ident">Fold</span>: <span class="ident">FnMut</span>(<span class="ident">Acc</span>, <span class="self">Self</span>::<span class="ident">Item</span>) <span class="op">-&gt;</span> <span class="ident">Acc</span>,
     {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">accum</span> <span class="op">=</span> <span class="ident">init</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">iter</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">front</span> {
-            <span class="ident">accum</span> <span class="op">=</span> <span class="ident">fold</span>(<span class="ident">iter</span>, <span class="ident">accum</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">f</span>);
-        }
-        <span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">fold</span>(<span class="ident">accum</span>, <span class="kw">move</span> <span class="op">|</span><span class="ident">accum</span>, <span class="ident">iter</span><span class="op">|</span> <span class="ident">fold</span>(<span class="ident">iter</span>, <span class="ident">accum</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">f</span>))
+        <span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">fold</span>(<span class="ident">init</span>, <span class="kw">move</span> <span class="op">|</span><span class="ident">acc</span>, <span class="ident">v</span><span class="op">|</span> <span class="ident">fold_f</span>(<span class="ident">acc</span>, <span class="ident">v</span>.<span class="ident">into</span>()))
     }
-
 }
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">R</span><span class="op">&gt;</span> <span class="ident">DoubleEndedIterator</span> <span class="kw">for</span> <span class="ident">MapInto</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">R</span><span class="op">&gt;</span>
+    <span class="kw">where</span> <span class="ident">I</span>: <span class="ident">DoubleEndedIterator</span>,
+          <span class="ident">I</span>::<span class="ident">Item</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>,
+{
+    <span class="kw">fn</span> <span class="ident">next_back</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Item</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">iter</span>
+            .<span class="ident">next_back</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span>.<span class="ident">into</span>())
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">R</span><span class="op">&gt;</span> <span class="ident">ExactSizeIterator</span> <span class="kw">for</span> <span class="ident">MapInto</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">R</span><span class="op">&gt;</span>
+<span class="kw">where</span>
+    <span class="ident">I</span>: <span class="ident">ExactSizeIterator</span>,
+    <span class="ident">I</span>::<span class="ident">Item</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>,
+{}
 
 <span class="doccomment">/// An iterator adapter to apply a transformation within a nested `Result`.</span>
 <span class="doccomment">///</span>

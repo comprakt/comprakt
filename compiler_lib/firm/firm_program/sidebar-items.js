@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["FirmEntity",""]],"struct":[["FirmClass",""],["FirmField",""],["FirmMethod",""],["FirmProgram",""]],"type":[["FirmClassP",""],["FirmFieldP",""],["FirmMethodP",""]]});

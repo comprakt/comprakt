@@ -520,6 +520,17 @@
 <span id="520">520</span>
 <span id="521">521</span>
 <span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">proc_macro_hygiene</span>, <span class="ident">decl_macro</span>)]</span>
 
@@ -541,6 +552,8 @@
 <span class="doccomment">//! the current lattice value assigned to each node, you can write:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```ignore</span>
+<span class="doccomment">//! // bring debugging into scope</span>
+<span class="doccomment">//! use debugging;</span>
 <span class="doccomment">//! // assume a context similar to:</span>
 <span class="doccomment">//! // let values :HashMap&lt;Node,Tarval&gt; = HashMap::new();</span>
 <span class="doccomment">//! // while let Some(cur) = next_node()</span>
@@ -602,7 +615,7 @@
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">breakpoint</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">label</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">prog</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
-        <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">dot</span>::<span class="ident">GraphData</span>;
+        <span class="kw">use</span> ::<span class="ident">debugging</span>::<span class="ident">dot</span>::<span class="ident">GraphData</span>;
         <span class="kw">crate</span>::<span class="ident">debugging</span>::<span class="ident">pause</span>(
             <span class="kw">crate</span>::<span class="ident">debugging</span>::<span class="ident">Breakpoint</span> {
                 <span class="ident">label</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">label</span>.<span class="ident">to_string</span>(),
@@ -614,7 +627,7 @@
         );
     }};
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">label</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">prog</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">labels</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
-        <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">dot</span>::<span class="ident">GraphData</span>;
+        <span class="kw">use</span> ::<span class="ident">debugging</span>::<span class="ident">dot</span>::<span class="ident">GraphData</span>;
         <span class="kw">crate</span>::<span class="ident">debugging</span>::<span class="ident">pause</span>(
             <span class="kw">crate</span>::<span class="ident">debugging</span>::<span class="ident">Breakpoint</span> {
                 <span class="ident">label</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">label</span>.<span class="ident">to_string</span>(),
@@ -675,6 +688,12 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debugger_gui&quot;</span>)]</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">implicit_hasher</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pause</span>(<span class="ident">breakpoint</span>: <span class="ident">Breakpoint</span>, <span class="ident">program</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">GraphState</span><span class="op">&gt;</span>) {
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">fnname</span>) <span class="op">=</span> <span class="ident">std</span>::<span class="ident">env</span>::<span class="ident">var</span>(<span class="string">&quot;COMPRAKT_DEBUGGER_GUI_DUMP_LIR_DOT_GRAPH&quot;</span>) {
+        <span class="kw">if</span> <span class="ident">breakpoint</span>.<span class="ident">label</span>.<span class="ident">matches</span>(<span class="string">&quot;LIR&quot;</span>).<span class="ident">count</span>() <span class="op">&gt;</span> <span class="number">0</span> {
+            <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">program</span>[<span class="kw-2">&amp;</span><span class="ident">fnname</span>].<span class="ident">dot_content</span>);
+        }
+    }
+
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">filters</span> <span class="op">=</span> <span class="ident">FILTERS</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
 
     <span class="kw">if</span> <span class="ident">filters</span>.<span class="ident">is_disabled</span>(<span class="kw-2">&amp;</span><span class="ident">breakpoint</span>, <span class="kw-2">&amp;</span><span class="ident">program</span>) {
@@ -753,7 +772,8 @@
         <span class="ident">breakpoint</span>: <span class="kw-2">&amp;</span><span class="ident">Breakpoint</span>,
         <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">GraphState</span><span class="op">&gt;</span>,
     ) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">filters</span>
+        <span class="op">!</span><span class="self">self</span>
+            .<span class="ident">filters</span>
             .<span class="ident">iter</span>()
             .<span class="ident">any</span>(<span class="op">|</span><span class="ident">filter</span><span class="op">|</span> <span class="ident">filter</span>.<span class="ident">matches</span>(<span class="ident">breakpoint</span>, <span class="ident">program</span>))
     }
@@ -839,8 +859,10 @@
     <span class="kw">fn</span> <span class="ident">matches</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">breakpoint</span>: <span class="kw-2">&amp;</span><span class="ident">Breakpoint</span>, <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">GraphState</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Filter</span>::<span class="ident">Location</span> { <span class="ident">file</span>, <span class="ident">line</span> } <span class="op">=&gt;</span> <span class="ident">breakpoint</span>.<span class="ident">line</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">line</span> <span class="op">&amp;&amp;</span> <span class="ident">breakpoint</span>.<span class="ident">file</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">file</span>,
-            <span class="ident">Filter</span>::<span class="ident">Graph</span> { <span class="ident">name</span> } <span class="op">=&gt;</span> <span class="ident">program</span>.<span class="ident">values</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">graph</span><span class="op">|</span> <span class="ident">graph</span>.<span class="ident">name</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">name</span>),
-            <span class="ident">Filter</span>::<span class="ident">Label</span> { <span class="ident">name</span> } <span class="op">=&gt;</span> <span class="ident">breakpoint</span>.<span class="ident">label</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">name</span>,
+            <span class="ident">Filter</span>::<span class="ident">Graph</span> { <span class="ident">name</span> } <span class="op">=&gt;</span> <span class="ident">program</span>
+                .<span class="ident">values</span>()
+                .<span class="ident">any</span>(<span class="op">|</span><span class="ident">graph</span><span class="op">|</span> <span class="ident">graph</span>.<span class="ident">name</span>.<span class="ident">matches</span>(<span class="ident">name</span>).<span class="ident">count</span>() <span class="op">&gt;</span> <span class="number">0</span>),
+            <span class="ident">Filter</span>::<span class="ident">Label</span> { <span class="ident">name</span> } <span class="op">=&gt;</span> <span class="ident">breakpoint</span>.<span class="ident">label</span>.<span class="ident">matches</span>(<span class="ident">name</span>).<span class="ident">count</span>() <span class="op">&gt;</span> <span class="number">0</span>,
         }
     }
 }

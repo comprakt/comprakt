@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["deserialize","Deserializes a `Duration` via the humantime crate."]],"struct":[["De","A wrapper type which implements `Deserialize` for types involving `Duration`."]]});

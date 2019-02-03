@@ -1,0 +1,88 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `kind` mod in crate `gcollections`."><meta name="keywords" content="rust, rustlang, rust-lang, kind"><title>gcollections::kind - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Module kind</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#traits">Traits</a></li></ul></div><p class='location'><a href='../index.html'>gcollections</a></p><script>window.sidebarCurrent = {name: 'kind', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/gcollections/kind.rs.html#9-112' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>gcollections</a>::<wbr><a class="mod" href=''>kind</a></span></h1><div class='docblock'><p>We distinguish between ground and non-ground types. A ground type is basically a type that is not parametrized by a type parameter. This distinction is done for implementing binary operations on types.</p>
+<p>Let's start with an example implementing <code>Add</code> for an option-like type with the following semantics:</p>
+<ul>
+<li><code>Some(x) + Some(y) = Some(x + y)</code></li>
+<li><code>Some(x) + None = None</code></li>
+<li><code>None + Some(y) = None</code></li>
+<li><code>None + None = None</code></li>
+</ul>
+<p>As we can see, we require inner values to be addable too. There is also another use-case:</p>
+<ul>
+<li><code>Some(x) + y = Some(x + y)</code></li>
+<li><code>x + Some(y) = Some(x + y)</code></li>
+<li><code>None + y = None</code></li>
+<li><code>x + None = None</code></li>
+</ul>
+<p>So far we have three overloadings of <code>Add</code> for <code>Option</code>:</p>
+<ul>
+<li><code>impl&lt;T, U&gt; Add&lt;Option&lt;T&gt;&gt; for Option&lt;U&gt;</code></li>
+<li><code>impl&lt;T, U&gt; Add&lt;T&gt; for Option&lt;U&gt;</code></li>
+<li><code>impl&lt;T, U&gt; Add&lt;Option&lt;T&gt;&gt; for U</code></li>
+</ul>
+<p>There is several problems:</p>
+<ul>
+<li>Generally, implementing <code>impl&lt;T, U&gt; Add&lt;Option&lt;T&gt;&gt; for U</code> will lead to the compilation error: &quot;only traits defined in the current crate can be implemented for a type parameter&quot; or &quot;type parameter <code>U</code> must be used as the type parameter for some local type&quot;.</li>
+<li>Also, admit that we define <code>Add</code> for a type <code>Vec&lt;T&gt;</code> in a similar fashion, we will have a conflicting implementation in case we do <code>Option&lt;A&gt; + Vec&lt;B&gt;</code>. First of all, saying we want to define such a computation, what should be the type of the result? <code>Vec&lt;Option&lt;C&gt;&gt;</code> or <code>Option&lt;Vec&lt;C&gt;&gt;</code> (<code>C</code> being <code>&lt;A as Add&lt;B&gt;&gt;::Output</code>)? A wrong solution is to depend on the operation order, so <code>a + b</code> and <code>b + a</code> would be different, which violates the commutativity property of addition. Our choice here is to let undefined such implementation and only propose one between <code>Option&lt;A&gt;</code> and <code>Option&lt;B&gt;</code>, and between <code>Option&lt;A&gt;</code> and <code>B</code> if <code>B</code> is a ground type (implements <code>GroundType</code>).</li>
+</ul>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">gcollections</span>::<span class="ident">kind</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ops</span>::<span class="ident">Add</span>;
+
+<span class="kw">struct</span> <span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+  <span class="ident">value</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+  <span class="kw">fn</span> <span class="ident">some</span>(<span class="ident">value</span>: <span class="ident">T</span>) <span class="op">-&gt;</span> <span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="ident">Maybe</span> {
+      <span class="ident">value</span>: <span class="prelude-val">Some</span>(<span class="ident">value</span>)
+    }
+  }
+  <span class="kw">fn</span> <span class="ident">none</span>() <span class="op">-&gt;</span> <span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="ident">Maybe</span> {
+      <span class="ident">value</span>: <span class="prelude-val">None</span>
+    }
+  }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">U</span>, <span class="ident">R</span><span class="op">&gt;</span> <span class="ident">Add</span><span class="op">&lt;</span><span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;&gt;</span> <span class="kw">for</span> <span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span> <span class="kw">where</span>
+ <span class="ident">U</span>: <span class="ident">Add</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Output</span><span class="op">=</span><span class="ident">R</span><span class="op">&gt;</span>
+{
+  <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>;
+
+  <span class="kw">fn</span> <span class="ident">add</span>(<span class="self">self</span>, <span class="ident">rhs</span>: <span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Output</span> {
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">value</span> {
+      <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">y</span>) <span class="op">=</span> <span class="ident">rhs</span>.<span class="ident">value</span> {
+        <span class="kw">return</span> <span class="ident">Maybe</span>::<span class="ident">some</span>(<span class="ident">x</span> <span class="op">+</span> <span class="ident">y</span>);
+      }
+    }
+    <span class="ident">Maybe</span>::<span class="ident">none</span>()
+  }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">U</span>, <span class="ident">R</span><span class="op">&gt;</span> <span class="ident">Add</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span> <span class="kw">where</span>
+ <span class="ident">U</span>: <span class="ident">Add</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Output</span><span class="op">=</span><span class="ident">R</span><span class="op">&gt;</span>,
+ <span class="ident">T</span>: <span class="ident">GroundType</span>
+{
+  <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>;
+
+  <span class="kw">fn</span> <span class="ident">add</span>(<span class="self">self</span>, <span class="ident">rhs</span>: <span class="ident">T</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Output</span> {
+    <span class="kw">match</span> <span class="self">self</span>.<span class="ident">value</span> {
+      <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">Maybe</span>::<span class="ident">some</span>(<span class="ident">x</span> <span class="op">+</span> <span class="ident">rhs</span>),
+      <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="ident">Maybe</span>::<span class="ident">none</span>()
+    }
+  }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>,<span class="ident">R</span><span class="op">&gt;</span> <span class="ident">Add</span><span class="op">&lt;</span><span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;&gt;</span> <span class="kw">for</span> <span class="ident">u32</span> <span class="kw">where</span>
+ <span class="ident">T</span>: <span class="ident">Add</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">Output</span><span class="op">=</span><span class="ident">R</span><span class="op">&gt;</span>
+{
+  <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>;
+  <span class="kw">fn</span> <span class="ident">add</span>(<span class="self">self</span>, <span class="ident">rhs</span>: <span class="ident">Maybe</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">Output</span> {
+    <span class="ident">rhs</span> <span class="op">+</span> <span class="self">self</span>
+  }
+}</pre></div>
+<p>The last implementation is for <code>A + Option&lt;B&gt;</code>. It should be done at the ground type level but for doing it in a generic manner, we would need all non-ground types to implement a trait such as <code>Monad</code>. Thus it would be possible to propose a generic implementation handling the commutativity property of addition. However, higher-order types are not available in Rust yet so we implement <code>A + Option&lt;B&gt;</code> in the optional module where the ground types <code>A</code> are fixed and defined (here just shown for <code>u32</code>).</p>
+</div><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.AssociativeCollection.html" title='gcollections::kind::AssociativeCollection trait'>AssociativeCollection</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="trait" href="trait.Collection.html" title='gcollections::kind::Collection trait'>Collection</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="trait" href="trait.GroundType.html" title='gcollections::kind::GroundType trait'>GroundType</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="trait" href="trait.IntervalKind.html" title='gcollections::kind::IntervalKind trait'>IntervalKind</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="trait" href="trait.SequenceKind.html" title='gcollections::kind::SequenceKind trait'>SequenceKind</a></td><td class='docblock-short'></td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "gcollections";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

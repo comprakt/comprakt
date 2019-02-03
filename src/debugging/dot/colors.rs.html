@@ -576,7 +576,36 @@
 <span id="576">576</span>
 <span id="577">577</span>
 <span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="ident">strum</span>::<span class="ident">IntoEnumIterator</span>;
+
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Color</span> {
     <span class="ident">Hsv</span>(<span class="ident">f32</span>, <span class="ident">f32</span>, <span class="ident">f32</span>),
@@ -600,7 +629,32 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Display</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Color</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">num</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        [
+            <span class="ident">X11Color</span>::<span class="ident">Red</span>,
+            <span class="ident">X11Color</span>::<span class="ident">Blue</span>,
+            <span class="ident">X11Color</span>::<span class="ident">Green</span>,
+            <span class="ident">X11Color</span>::<span class="ident">Yellow</span>,
+            <span class="ident">X11Color</span>::<span class="ident">Pink</span>,
+            <span class="ident">X11Color</span>::<span class="ident">Orange</span>,
+            <span class="ident">X11Color</span>::<span class="ident">Purple</span>,
+            <span class="ident">X11Color</span>::<span class="ident">Azure</span>,
+            <span class="ident">X11Color</span>::<span class="ident">Brown</span>,
+            <span class="ident">X11Color</span>::<span class="ident">Black</span>,
+            <span class="ident">X11Color</span>::<span class="ident">White</span>,
+        ]
+        .<span class="ident">iter</span>()
+        .<span class="ident">cloned</span>()
+        .<span class="ident">chain</span>(<span class="ident">X11Color</span>::<span class="ident">iter</span>())
+        .<span class="ident">cycle</span>()
+        .<span class="ident">nth</span>(<span class="ident">num</span>)
+        .<span class="ident">unwrap</span>()
+        .<span class="ident">into</span>()
+    }
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Display</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">strum_macros</span>::<span class="ident">EnumIter</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">X11Color</span> {
     <span class="ident">AliceBlue</span>,
     <span class="ident">AntiqueWhite</span>,

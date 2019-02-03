@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["builtin_types",""],["checker",""],["method_body_type_checker",""],["type_analysis",""],["type_system",""]]});

@@ -133,9 +133,15 @@
 <span id="133">133</span>
 <span id="134">134</span>
 <span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">compiler_lib</span>::<span class="ident">optimization</span>;
+<span class="kw">use</span> <span class="ident">optimization</span>;
 <span class="kw">use</span> <span class="ident">serde_derive</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fs</span>::<span class="ident">File</span>,
@@ -207,21 +213,25 @@
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exec_binary_test</span>(<span class="ident">input</span>: <span class="ident">PathBuf</span>, <span class="ident">optimizations</span>: <span class="ident">optimization</span>::<span class="ident">Level</span>) {
-    <span class="kw">let</span> <span class="ident">binary_path</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">with_extension</span>(<span class="string">&quot;out&quot;</span>);
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exec_binary_test</span>(<span class="ident">input</span>: <span class="ident">PathBuf</span>, <span class="ident">optimizations</span>: <span class="ident">optimization</span>::<span class="ident">Level</span>, <span class="ident">backend</span>: <span class="ident">Backend</span>) {
+    <span class="kw">let</span> <span class="ident">binary_path</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">with_extension</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}.out&quot;</span>, <span class="ident">backend</span>.<span class="ident">to_ascii_label</span>()));
+    <span class="kw">let</span> <span class="ident">assembly_file</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">with_extension</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}.out.S&quot;</span>, <span class="ident">backend</span>.<span class="ident">to_ascii_label</span>()));
+    <span class="kw">let</span> <span class="ident">reference_file_path</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">with_extension</span>(<span class="string">&quot;out&quot;</span>);
+
     <span class="kw">let</span> <span class="ident">setup</span> <span class="op">=</span> <span class="ident">TestSpec</span> {
         <span class="ident">references</span>: <span class="ident">input</span>.<span class="ident">clone</span>(),
-        <span class="ident">input</span>,
+        <span class="ident">input</span>: <span class="ident">input</span>.<span class="ident">clone</span>(),
         <span class="ident">generate_tentatives</span>: <span class="bool-val">true</span>,
     };
 
     <span class="comment">// TODO: instead of panicing when there are no references</span>
     <span class="comment">// continue and generate references for the binary.</span>
     <span class="kw">let</span> <span class="ident">metadata</span> <span class="op">=</span> <span class="ident">assert_compiler_phase</span>::<span class="op">&lt;</span><span class="ident">BinaryTestData</span><span class="op">&gt;</span>(
-        <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">BinaryLibfirm</span> {
+        <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Binary</span> {
             <span class="ident">output</span>: <span class="ident">binary_path</span>.<span class="ident">clone</span>(),
+            <span class="ident">backend</span>,
             <span class="ident">optimizations</span>,
-            <span class="ident">assembly</span>: <span class="prelude-val">None</span>,
+            <span class="ident">assembly</span>: <span class="prelude-val">Some</span>(<span class="ident">assembly_file</span>),
         }),
         <span class="kw-2">&amp;</span><span class="ident">setup</span>,
     );
@@ -261,10 +271,12 @@
 
     <span class="ident">assert_output</span>(
         <span class="kw-2">&amp;</span><span class="ident">output</span>,
-        <span class="ident">metadata</span>.<span class="ident">reference</span>.<span class="ident">into_binary_reference_data</span>(<span class="kw-2">&amp;</span><span class="ident">binary_path</span>),
+        <span class="ident">metadata</span>
+            .<span class="ident">reference</span>
+            .<span class="ident">into_binary_reference_data</span>(<span class="kw-2">&amp;</span><span class="ident">reference_file_path</span>),
         <span class="kw-2">&amp;</span><span class="ident">TestSpec</span> {
             <span class="ident">input</span>: <span class="ident">binary_path</span>.<span class="ident">clone</span>(),
-            <span class="ident">references</span>: <span class="ident">binary_path</span>,
+            <span class="ident">references</span>: <span class="ident">reference_file_path</span>,
             <span class="ident">generate_tentatives</span>: <span class="bool-val">true</span>,
         },
     );

@@ -399,6 +399,14 @@
 <span id="399">399</span>
 <span id="400">400</span>
 <span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Entity</span>, <span class="ident">Mode</span>};
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
@@ -518,6 +526,14 @@
                 <span class="comment">// or unknown type kind</span>
                 <span class="ident">Ty</span>::<span class="ident">Other</span>(<span class="ident">OtherTy</span>(<span class="ident">ty</span>))
             }
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_method</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Ty</span>::<span class="ident">Method</span>(<span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span> {
+            <span class="bool-val">true</span>
+        } <span class="kw">else</span> {
+            <span class="bool-val">false</span>
         }
     }
 }

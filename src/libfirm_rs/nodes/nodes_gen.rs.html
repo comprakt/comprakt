@@ -6749,6 +6749,120 @@
 <span id="6749">6749</span>
 <span id="6750">6750</span>
 <span id="6751">6751</span>
+<span id="6752">6752</span>
+<span id="6753">6753</span>
+<span id="6754">6754</span>
+<span id="6755">6755</span>
+<span id="6756">6756</span>
+<span id="6757">6757</span>
+<span id="6758">6758</span>
+<span id="6759">6759</span>
+<span id="6760">6760</span>
+<span id="6761">6761</span>
+<span id="6762">6762</span>
+<span id="6763">6763</span>
+<span id="6764">6764</span>
+<span id="6765">6765</span>
+<span id="6766">6766</span>
+<span id="6767">6767</span>
+<span id="6768">6768</span>
+<span id="6769">6769</span>
+<span id="6770">6770</span>
+<span id="6771">6771</span>
+<span id="6772">6772</span>
+<span id="6773">6773</span>
+<span id="6774">6774</span>
+<span id="6775">6775</span>
+<span id="6776">6776</span>
+<span id="6777">6777</span>
+<span id="6778">6778</span>
+<span id="6779">6779</span>
+<span id="6780">6780</span>
+<span id="6781">6781</span>
+<span id="6782">6782</span>
+<span id="6783">6783</span>
+<span id="6784">6784</span>
+<span id="6785">6785</span>
+<span id="6786">6786</span>
+<span id="6787">6787</span>
+<span id="6788">6788</span>
+<span id="6789">6789</span>
+<span id="6790">6790</span>
+<span id="6791">6791</span>
+<span id="6792">6792</span>
+<span id="6793">6793</span>
+<span id="6794">6794</span>
+<span id="6795">6795</span>
+<span id="6796">6796</span>
+<span id="6797">6797</span>
+<span id="6798">6798</span>
+<span id="6799">6799</span>
+<span id="6800">6800</span>
+<span id="6801">6801</span>
+<span id="6802">6802</span>
+<span id="6803">6803</span>
+<span id="6804">6804</span>
+<span id="6805">6805</span>
+<span id="6806">6806</span>
+<span id="6807">6807</span>
+<span id="6808">6808</span>
+<span id="6809">6809</span>
+<span id="6810">6810</span>
+<span id="6811">6811</span>
+<span id="6812">6812</span>
+<span id="6813">6813</span>
+<span id="6814">6814</span>
+<span id="6815">6815</span>
+<span id="6816">6816</span>
+<span id="6817">6817</span>
+<span id="6818">6818</span>
+<span id="6819">6819</span>
+<span id="6820">6820</span>
+<span id="6821">6821</span>
+<span id="6822">6822</span>
+<span id="6823">6823</span>
+<span id="6824">6824</span>
+<span id="6825">6825</span>
+<span id="6826">6826</span>
+<span id="6827">6827</span>
+<span id="6828">6828</span>
+<span id="6829">6829</span>
+<span id="6830">6830</span>
+<span id="6831">6831</span>
+<span id="6832">6832</span>
+<span id="6833">6833</span>
+<span id="6834">6834</span>
+<span id="6835">6835</span>
+<span id="6836">6836</span>
+<span id="6837">6837</span>
+<span id="6838">6838</span>
+<span id="6839">6839</span>
+<span id="6840">6840</span>
+<span id="6841">6841</span>
+<span id="6842">6842</span>
+<span id="6843">6843</span>
+<span id="6844">6844</span>
+<span id="6845">6845</span>
+<span id="6846">6846</span>
+<span id="6847">6847</span>
+<span id="6848">6848</span>
+<span id="6849">6849</span>
+<span id="6850">6850</span>
+<span id="6851">6851</span>
+<span id="6852">6852</span>
+<span id="6853">6853</span>
+<span id="6854">6854</span>
+<span id="6855">6855</span>
+<span id="6856">6856</span>
+<span id="6857">6857</span>
+<span id="6858">6858</span>
+<span id="6859">6859</span>
+<span id="6860">6860</span>
+<span id="6861">6861</span>
+<span id="6862">6862</span>
+<span id="6863">6863</span>
+<span id="6864">6864</span>
+<span id="6865">6865</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file is generated! Do not edit by hand!</span>
 <span class="comment">// Follow the instructions in the README on how to update this file.</span>
@@ -8243,22 +8357,30 @@
 
     <span class="doccomment">/// memory result.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_m</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Alloc_M</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Alloc_M</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Alloc_M(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// pointer to newly allocated memory.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_res</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Alloc_Res</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Alloc_Res</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Alloc_Res(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 }
 
@@ -8743,12 +8865,16 @@
 
     <span class="doccomment">/// memory result.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_m</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Builtin_M</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Builtin_M</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Builtin_M(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 }
 
@@ -8859,42 +8985,58 @@
 
     <span class="doccomment">/// memory result.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_m</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_M</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_M</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Call_M(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// tuple containing all results.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_t_result</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_TResult</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_TResult</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Call_TResult(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow when no exception occurs.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_x_regular</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_XRegular</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_XRegular</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Call_XRegular(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow when exception occurred.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_x_except</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_XExcept</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_XExcept</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Call_XExcept(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 }
 
@@ -9055,22 +9197,30 @@
 
     <span class="doccomment">/// control flow if operand is &quot;false&quot;.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_false</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">false</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">false</span>, <span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Cond_Val(false, _)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow if operand is &quot;true&quot;.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_true</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">true</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Cond_Val</span>(<span class="bool-val">true</span>, <span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Cond_Val(true, _)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 }
 
@@ -9551,42 +9701,55 @@
 
     <span class="doccomment">/// memory result.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_m</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Div_M</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Div_M</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>, <span class="string">&quot;expect at most one of ProjKind::Div_M(_)&quot;</span>);
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// result of computation.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_res</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Div_Res</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Div_Res</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Div_Res(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow when no exception occurs.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_x_regular</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Div_XRegular</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Div_XRegular</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Div_XRegular(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow when exception occurred.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_x_except</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Div_XExcept</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Div_XExcept</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Div_XExcept(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 }
 
@@ -10097,42 +10260,58 @@
 
     <span class="doccomment">/// memory result.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_m</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Load_M</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Load_M</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Load_M(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// result of load operation.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_res</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Load_Res</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Load_Res</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Load_Res(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow when no exception occurs.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_x_regular</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Load_XRegular</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Load_XRegular</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Load_XRegular(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow when exception occurred.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_x_except</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Load_XExcept</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Load_XExcept</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Load_XExcept(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 }
 
@@ -10374,42 +10553,55 @@
 
     <span class="doccomment">/// memory result.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_m</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Mod_M</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Mod_M</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>, <span class="string">&quot;expect at most one of ProjKind::Mod_M(_)&quot;</span>);
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// result of computation.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_res</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Mod_Res</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Mod_Res</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Mod_Res(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow when no exception occurs.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_x_regular</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Mod_XRegular</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Mod_XRegular</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Mod_XRegular(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow when exception occurred.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_x_except</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Mod_XExcept</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Mod_XExcept</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Mod_XExcept(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 }
 
@@ -11070,22 +11262,30 @@
 
     <span class="doccomment">/// memory result.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_m</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Raise_M</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Raise_M</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Raise_M(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow to exception handler.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_x</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Raise_X</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Raise_X</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Raise_X(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 }
 
@@ -11527,32 +11727,44 @@
 
     <span class="doccomment">/// initial memory.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_m</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Start_M</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Start_M</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Start_M(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// frame base pointer.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_p_frame_base</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Start_PFrameBase</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Start_PFrameBase</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Start_PFrameBase(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// function arguments.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_t_args</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Start_TArgs</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Start_TArgs</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Start_TArgs(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 }
 
@@ -11707,32 +11919,44 @@
 
     <span class="doccomment">/// memory result.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_m</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Store_M</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Store_M</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Store_M(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow when no exception occurs.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_x_regular</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Store_XRegular</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Store_XRegular</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Store_XRegular(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 
     <span class="doccomment">/// control flow when exception occurred.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_x_except</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Store_XExcept</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Store_XExcept</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Store_XExcept(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 }
 
@@ -11890,12 +12114,16 @@
 
     <span class="doccomment">/// control flow if no other case matches.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_proj_default</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Proj</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Switch_Default</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>);
-            }
-        }
-        <span class="prelude-val">None</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">out_nodes</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">out_node</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">out_node</span> {
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Switch_Default</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">proj</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        });
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">next</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">res</span>.<span class="ident">count</span>() <span class="op">==</span> <span class="number">0</span>,
+            <span class="string">&quot;expect at most one of ProjKind::Switch_Default(_)&quot;</span>
+        );
+        <span class="ident">ret</span>
     }
 }
 

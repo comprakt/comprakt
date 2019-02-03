@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Interval","Closed interval (endpoints included)."]],"trait":[["ToInterval",""]]});

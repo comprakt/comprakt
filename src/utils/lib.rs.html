@@ -92,6 +92,8 @@
 <span id="92">92</span>
 <span id="93">93</span>
 <span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">color</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">ref_eq</span>;
@@ -110,18 +112,20 @@
 
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">assert_matches</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expression</span>: <span class="ident">expr</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">pattern</span>: <span class="ident">pat</span> )<span class="op">|</span><span class="kw-2">*</span>) <span class="op">=&gt;</span> {{
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expression</span>: <span class="ident">expr</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">pattern</span>: <span class="ident">pat</span> )<span class="op">|</span><span class="op">*</span> $(<span class="kw">if</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">guard</span>:<span class="ident">expr</span>)<span class="question-mark">?</span>) <span class="op">=&gt;</span> {{
         <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">debug_assertions</span>) {
             <span class="kw">match</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expression</span> {
-                $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">pattern</span> )<span class="op">|</span><span class="op">*</span> <span class="op">=&gt;</span> (),
-                <span class="ident">expression</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(
-                    <span class="string">r#&quot;assertion failed: `(if let pattern = expression), {}:{}:{}`
+                $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">pattern</span> )<span class="op">|</span><span class="op">*</span> $(<span class="kw">if</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">guard</span>)<span class="question-mark">?</span> <span class="op">=&gt;</span> (),
+                <span class="kw-2">ref</span> <span class="ident">expression</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(
+                    <span class="string">r#&quot;assertion failed: `(expression =~ pattern, if guard ), {}:{}:{}`
 pattern: `{}`,
+guard: `{}`,
 expression: `{:?}`&quot;#</span>,
                     <span class="macro">file</span><span class="macro">!</span>(),
                     <span class="macro">line</span><span class="macro">!</span>(),
                     <span class="macro">column</span><span class="macro">!</span>(),
                     <span class="macro">stringify</span><span class="macro">!</span>($( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">pattern</span> )<span class="op">|</span><span class="kw-2">*</span>),
+                    <span class="macro">stringify</span><span class="macro">!</span>($( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">guard</span> )<span class="question-mark">?</span>),
                     <span class="ident">expression</span>
                 ),
             }

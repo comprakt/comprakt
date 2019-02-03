@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["ErrorKind",""],["Keyword",""],["Operator",""],["TokenKind","Keywords are single-ticked, operators back-ticked"],["Warning",""]],"struct":[["Lexer",""]],"type":[["IntLit",""],["LexicalError",""],["Token",""],["TokenResult",""]]});

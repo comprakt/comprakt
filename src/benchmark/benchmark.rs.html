@@ -350,18 +350,15 @@
 <span id="350">350</span>
 <span id="351">351</span>
 <span id="352">352</span>
-<span id="353">353</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">duration_as_u128</span>)]</span>
 <span class="doccomment">//! Executes all mjtests in the /exec/big folder.</span>
 <span class="kw">use</span> <span class="ident">compiler_cli</span>::<span class="ident">optimization_arg</span>;
-<span class="kw">use</span> <span class="ident">compiler_lib</span>::{
-    <span class="ident">optimization</span>,
-    <span class="ident">timing</span>::{<span class="ident">AsciiDisp</span>, <span class="ident">CompilerMeasurements</span>, <span class="ident">SingleMeasurement</span>},
-};
+<span class="kw">use</span> <span class="ident">compiler_shared</span>::<span class="ident">timing</span>::{<span class="ident">AsciiDisp</span>, <span class="ident">CompilerMeasurements</span>, <span class="ident">SingleMeasurement</span>};
 <span class="kw">use</span> <span class="ident">humantime</span>::<span class="ident">format_duration</span>;
+<span class="kw">use</span> <span class="ident">optimization</span>;
 <span class="kw">use</span> <span class="ident">regex</span>::<span class="ident">Regex</span>;
-<span class="kw">use</span> <span class="ident">runner_integration_tests</span>::{<span class="ident">compiler_call</span>, <span class="ident">CompilerCall</span>, <span class="ident">CompilerPhase</span>};
+<span class="kw">use</span> <span class="ident">runner_integration_tests</span>::{<span class="ident">compiler_call</span>, <span class="ident">Backend</span>, <span class="ident">CompilerCall</span>, <span class="ident">CompilerPhase</span>};
 <span class="kw">use</span> <span class="ident">stats</span>::<span class="ident">OnlineStats</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::<span class="ident">HashMap</span>,
@@ -427,10 +424,11 @@
     <span class="ident">optimizations</span>: <span class="ident">optimization</span>::<span class="ident">Level</span>,
 ) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">CompilerMeasurements</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">compiler_call</span>(
-        <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">BinaryLibfirm</span> {
+        <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Binary</span> {
             <span class="comment">// TODO: use temp dir, don&#39;t trash</span>
             <span class="ident">output</span>: <span class="ident">test</span>.<span class="ident">minijava</span>.<span class="ident">with_extension</span>(<span class="string">&quot;out&quot;</span>),
             <span class="ident">assembly</span>: <span class="prelude-val">None</span>,
+            <span class="ident">backend</span>: <span class="ident">Backend</span>::<span class="ident">Libfirm</span>,
             <span class="ident">optimizations</span>,
         }),
         <span class="kw-2">&amp;</span><span class="ident">test</span>.<span class="ident">minijava</span>,

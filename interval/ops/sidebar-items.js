@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Hull",""],["Range",""],["Whole",""],["Width","Limit of a bound for which the distance between `min_value()` and `max_value()` can be represented in the type `Output`."]]});

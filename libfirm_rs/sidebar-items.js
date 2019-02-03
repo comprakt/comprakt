@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["TarvalKind",""]],"fn":[["init",""]],"mod":[["nodes",""],["types",""]],"struct":[["Entity",""],["Graph",""],["Mode",""],["Tarval",""]]});
+initSidebarItems({"enum":[["TarvalKind",""],["VisitTime",""]],"fn":[["init",""]],"mod":[["nodes",""],["types",""]],"struct":[["Entity",""],["Graph",""],["Mode",""],["Tarval",""]]});

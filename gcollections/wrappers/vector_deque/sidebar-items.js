@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["VectorDeque",""]],"type":[["DequeBackFrontQueue",""],["DequeBackStack",""],["DequeFrontBackQueue",""],["DequeFrontStack",""]]});

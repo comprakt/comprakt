@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["EncodingError",""]],"struct":[["AsciiFile",""]]});

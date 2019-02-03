@@ -48,17 +48,11 @@
 <span id="48">48</span>
 <span id="49">49</span>
 <span id="50">50</span>
-<span id="51">51</span>
-<span id="52">52</span>
-<span id="53">53</span>
-<span id="54">54</span>
-<span id="55">55</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">rust_2018_idioms</span>)]</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">clippy</span>::<span class="ident">print_stdout</span>)]</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">unneeded_field_pattern</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">try_from</span>)]</span>
-<span class="attribute">#![<span class="ident">feature</span>(<span class="ident">if_while_or_patterns</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">bind_by_move_pattern_guards</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">const_str_as_bytes</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">slice_patterns</span>)]</span>
@@ -71,14 +65,12 @@
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">result_map_or_else</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">proc_macro_hygiene</span>, <span class="ident">decl_macro</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">try_trait</span>)]</span>
+<span class="attribute">#![<span class="ident">feature</span>(<span class="ident">weak_ptr_eq</span>)]</span>
+<span class="attribute">#![<span class="ident">feature</span>(<span class="ident">type_ascription</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">duration_as_u128</span>)]</span>
-<span class="attribute">#[<span class="ident">macro_use</span>]</span>
-<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">derive_more</span>;
 
-<span class="kw">mod</span> <span class="ident">analysis</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">asciifile</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">backend</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">timing</span>;
 
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">utils</span>;
@@ -90,18 +82,16 @@
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">lexer</span>;
 
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">debugging</span>;
+
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">parser</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">parser</span>::{<span class="ident">ast</span>, <span class="ident">visitor</span>};
 
-<span class="attribute">#[<span class="ident">macro_use</span>]</span>
-<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">debugging</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">debugging</span>::<span class="ident">dot</span>;
-
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">firm_construction</span> <span class="kw">as</span> <span class="ident">firm</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">optimization</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">print</span>;
+
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">utils</span>::<span class="ident">OutputSpecification</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">strtab</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">symtab</span>;

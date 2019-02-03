@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["VoidIs",""]],"fn":[["check",""],["checked_type_from_basic_ty",""],["checked_type_from_ty",""]],"struct":[["SemanticContext",""]]});

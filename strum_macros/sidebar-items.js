@@ -1,1 +1,1 @@
-initSidebarItems({"derive":[["AsRefStr",""],["AsStaticStr",""],["Display",""],["EnumDiscriminants",""],["EnumIter",""],["EnumMessage",""],["EnumProperty",""],["EnumString",""],["ToString",""]]});
+initSidebarItems({"derive":[["AsRefStr",""],["AsStaticStr",""],["Display",""],["EnumCount",""],["EnumDiscriminants",""],["EnumIter",""],["EnumMessage",""],["EnumProperty",""],["EnumString",""],["ToString",""]]});
