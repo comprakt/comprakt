@@ -1,9 +1,7 @@
 use super::{
     entity::Entity,
     mode::Mode,
-    nodes::{
-        Block, End, EndKeepAliveIterator, NoMem, Node, NodeTrait, Proj, ProjKind, Start, ValueNode,
-    },
+    nodes::{Block, End, EndKeepAliveIterator, NoMem, Node, NodeTrait, Proj, Start},
 };
 use libfirm_rs_bindings as bindings;
 use std::{
@@ -107,11 +105,30 @@ impl Graph {
         unsafe { bindings::remove_unreachable_code(self.irg) }
     }
 
-    pub fn compute_dominance_frontiers(self) {
-        unsafe { bindings::ir_compute_dominance_frontiers(self.irg) }
+    pub fn compute_doms(self) {
+        unsafe { bindings::compute_doms(self.irg) }
     }
 
-    pub fn walk_topological2<F>(self, mut walker: F)
+    pub fn walk_topological<F>(self, mut walker: F)
+    where
+        F: FnMut(&Node),
+    {
+        // We need the type ascription here, because otherwise rust infers `&mut F`,
+        // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
+        // `closure_handler` doesn't know the concrete `F`.
+        let mut fat_pointer: &mut dyn FnMut(&Node) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            bindings::irg_walk_topological(
+                self.irg,
+                Some(closure_handler),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
+    pub fn walk_blkwise_dom_top_down<F>(self, mut walker: F)
     where
         F: FnMut(&Node),
     {
@@ -212,51 +229,6 @@ impl Graph {
     pub fn exchange(prev: impl NodeTrait, new: impl NodeTrait) {
         unsafe {
             bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
-        }
-    }
-
-    pub fn exchange_value(prev: impl ValueNode + Into<Node>, new: impl ValueNode + Into<Node>) {
-        let prev: Node = prev.into();
-        let new: Node = new.into();
-        use self::Node::*;
-        match prev {
-            /* IMPROVEMENT?
-            This might be more elegant, but does not do the exact same:
-            It fails if there are multiple projects to that pin!
-            Node::Div(div) => {
-                div.out_proj_res().then(|res| Graph::exchange(res, const_node))
-                div.out_proj_m().then(|mem| Graph::exchange(mem, div.mem()))
-            }
-            */
-            Div(node) => {
-                for out_node in node.out_nodes() {
-                    match out_node {
-                        Proj(res_proj, ProjKind::Div_Res(_)) => {
-                            Graph::exchange(res_proj, new);
-                        }
-                        Proj(m_proj, ProjKind::Div_M(_)) => {
-                            Graph::exchange(m_proj, node.mem());
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            Mod(node) => {
-                for out_node in node.out_nodes() {
-                    match out_node {
-                        Proj(res_proj, ProjKind::Mod_Res(_)) => {
-                            Graph::exchange(res_proj, new);
-                        }
-                        Proj(m_proj, ProjKind::Mod_M(_)) => {
-                            Graph::exchange(m_proj, node.mem());
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            node => {
-                Graph::exchange(node, new);
-            }
         }
     }
 

@@ -42,6 +42,10 @@ impl Entity {
         unsafe { Ty::from_ir_type(bindings::get_entity_type(self.0)) }
     }
 
+    pub fn owner(self) -> Ty {
+        unsafe { Ty::from_ir_type(bindings::get_entity_owner(self.0)) }
+    }
+
     pub fn name(self) -> &'static CStr {
         unsafe { CStr::from_ptr(bindings::get_entity_name(self.0)) }
     }

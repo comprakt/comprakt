@@ -1,12 +1,12 @@
 use super::{lattices::*, Outcome, OutcomeCollector};
 use crate::{dot::*, optimization};
+use firm_construction::program_generator::Spans;
 use libfirm_rs::{
-    nodes::{try_as_value_node, Block, IsNewResult, Node, NodeTrait, ProjKind},
-    Graph, TarvalKind,
+    nodes::{try_as_value_node, Block, NewKind, Node, NodeTrait, ProjKind},
+    Graph, Mode, Tarval, TarvalKind,
 };
 use priority_queue::PriorityQueue;
 use std::{
-    cell::Cell,
     collections::{HashMap, HashSet},
     rc::Rc,
 };
@@ -16,12 +16,12 @@ use std::{
 #[derive(PartialEq, Eq, Clone, Copy)]
 struct Priority {
     topo_order: u32,
-    priority: u32, // is not needed right now
+    priority: u32, // highest priority first
 }
 
 impl std::cmp::Ord for Priority {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.priority
+        (self.priority)
             .cmp(&other.priority)
             .then_with(|| self.topo_order.cmp(&other.topo_order).reverse())
     }
@@ -36,38 +36,94 @@ impl PartialOrd for Priority {
 pub struct ConstantFolding {
     values: HashMap<Node, ConstantFoldingLattice>,
     queue: PriorityQueue<Node, Priority>,
-    node_topo_idx: HashMap<Node, u32>,
+    node_topo_idx: HashMap<Node, Priority>,
     // this field is for debugging only.
     cur_node: Option<Node>,
     graph: Graph,
     start_block: Node,
     deps: HashMap<Node, HashSet<Node>>,
-    obj_id: Cell<usize>,
     node_update_count: usize,
 }
 
 impl optimization::Local for ConstantFolding {
     fn optimize_function(graph: Graph) -> Outcome {
+        // Uncomment this code for debugging and prefix the method to debug with "cur_".
+
+        /*if !graph.entity().name_string().contains("cur") {
+            return Outcome::Unchanged;
+        }*/
+
         let mut constant_folding = ConstantFolding::new(graph);
         constant_folding.run();
-        constant_folding.apply()
+        let result = constant_folding.apply();
+
+        // TODO only do this in tests
+        check_asserts(graph);
+
+        result
     }
+}
+
+fn check_asserts(graph: Graph) {
+    graph.walk(|node| {
+        if let Some(call) = Node::as_call(*node) {
+            let check_constant = if call
+                .method_name()
+                .map(|n| n.contains(&"assertConstant"))
+                .unwrap_or(false)
+            {
+                Some(true)
+            } else if call
+                .method_name()
+                .map(|n| n.contains(&"assertVariable"))
+                .unwrap_or(false)
+            {
+                Some(false)
+            } else {
+                None
+            };
+
+            if let Some(assert_constant) = check_constant {
+                for arg in call.args().skip(1) {
+                    if Node::is_const(arg) && !assert_constant {
+                        panic!(
+                            "Node {:?}{} was asserted to be non-constant, but was constant",
+                            arg,
+                            Spans::span_str(arg),
+                        )
+                    } else if !Node::is_const(arg) && assert_constant {
+                        panic!(
+                            "Node {:?}{} was asserted to be constant, but was not",
+                            arg,
+                            Spans::span_str(arg),
+                        )
+                    }
+                }
+            }
+        }
+    });
 }
 
 impl ConstantFolding {
     fn new(graph: Graph) -> Self {
-        log::debug!("new");
         let mut queue = PriorityQueue::new();
-        let mut topo_order = 0;
+
         let mut node_topo_idx = HashMap::new();
         let mut values = HashMap::new();
 
         graph.assure_outs();
+        graph.compute_doms();
 
-        // calling this function crashes libfirm
-        // graph.compute_dominance_frontiers();
+        breakpoint!("Dominator information", graph, &|node: &Node| {
+            let block = match node {
+                Node::Block(block) => *block,
+                _ => node.block(),
+            };
+            default_label(node).append(format!("\ndom_depth: {}", block.dom_depth()))
+        });
 
-        graph.walk(|node| {
+        let mut topo_order = 0;
+        graph.walk_topological(|node| {
             topo_order += 1;
             // blocks and jumps are handled immediately,
             // so that they make things alive quicker.
@@ -75,9 +131,12 @@ impl ConstantFolding {
             log::debug!("insert {:?}", node);
             node_topo_idx.insert(
                 *node,
-                match node {
-                    Node::Block(_) | Node::Jmp(_) => 0,
-                    _ => topo_order,
+                Priority {
+                    topo_order,
+                    priority: match node {
+                        Node::Block(_) | Node::Jmp(_) => 1,
+                        _ => 0,
+                    },
                 },
             );
 
@@ -102,7 +161,6 @@ impl ConstantFolding {
             start_block,
             cur_node: None,
             deps: HashMap::new(),
-            obj_id: Cell::default(),
             node_update_count: 0,
         }
     }
@@ -122,17 +180,11 @@ impl ConstantFolding {
     fn run(&mut self) {
         macro_rules! invalidate {
             ($node: expr) => {
-                let topo_order = *self
+                let prio = *self
                     .node_topo_idx
                     .get(&$node)
-                    .expect(&format!("{:?} to exist", $node));
-                self.queue.push(
-                    $node,
-                    Priority {
-                        topo_order,
-                        priority: 0,
-                    },
-                );
+                    .expect(&format!("{:?} have an topological order", $node));
+                self.queue.push($node, prio);
             };
         }
 
@@ -152,6 +204,24 @@ impl ConstantFolding {
                     invalidate!(out_node);
                 }
 
+                // todo: test only
+                match updated_lattice.value() {
+                    Val::Tarval(val) => assert_ne!(
+                        cur_node.mode(),
+                        Mode::P(),
+                        "node: {:?}, val: {:?}",
+                        cur_node,
+                        val
+                    ),
+                    Val::Pointer(ptr) => assert_eq!(
+                        cur_node.mode(),
+                        Mode::P(),
+                        "node: {:?}, {:?}",
+                        cur_node,
+                        ptr
+                    ),
+                    _ => {}
+                }
                 self.update(cur_node, updated_lattice);
             }
 
@@ -171,7 +241,6 @@ impl ConstantFolding {
     fn breakpoint(&self, cur_node: Node) {
         breakpoint!("Constant Folding: iteration", self.graph, &|node: &Node| {
             let mut label = default_label(node);
-
             if let Some(lattice) = self.values.get(&node) {
                 label = label.append(format!("\n{:?}", lattice));
             }
@@ -198,19 +267,33 @@ impl ConstantFolding {
                 }
             }
 
-            if let Some((_node, priority)) = self.queue.get(&node) {
+            if self.queue.get(&node).is_some() {
                 label = label.style(Style::Bold);
-                label = label.append(format!("\n{}", priority.topo_order));
             }
+
+            label = label.append(format!(
+                "\ntopo: {} dom: {}",
+                self.node_topo_idx[node].topo_order,
+                node.block().dom_depth()
+            ));
 
             label
         });
     }
 
-    fn get_new_id(&self) -> usize {
-        let id = self.obj_id.get();
-        self.obj_id.set(id + 1);
-        id
+    fn node_to_idx(&self, idx_node: Node) -> Idx {
+        match &self.lookup_val(idx_node) {
+            Val::Tarval(val) if val.is_constant() => Idx::Const(val.get_long() as usize),
+            _ => Idx::Node(idx_node),
+        }
+    }
+
+    fn has_ptr_info(&self, ptr_node: Node) -> Option<&Pointer> {
+        match &self.lookup_val(ptr_node) {
+            Val::Pointer(ptr) => Some(ptr),
+            Val::NoInfoYet => None,
+            val => panic!("got unexpected {:?}", val),
+        }
     }
 
     fn update_node(
@@ -239,61 +322,89 @@ impl ConstantFolding {
             Proj(_, Start_M(_)) => Val::Heap(Rc::new(Heap::start())),
 
             Call(call) => {
-                match (self.lookup_val(call.mem()), call.is_new()) {
-                    (Val::Heap(heap), IsNewResult::Yes(class_ty)) => {
-                        let mut heap = (**heap).clone();
-                        let ptr = match cur_lattice.value() {
-                            Val::Tuple(old_ptrs, _) => {
-                                let old_ptr = if let Val::ObjPointers(old_ptrs) = &**old_ptrs {
-                                    old_ptrs.as_single_ignoring_null().unwrap()
-                                } else {
-                                    panic!("unreachable");
-                                };
-                                let ptr = if heap.exists(old_ptr) {
-                                    old_ptr.as_recent()
-                                } else {
-                                    old_ptr
-                                };
-
-                                heap.new_obj(ptr, class_ty);
-
-                                ptr
+                let result_node = call.out_single_result();
+                let mem_val = self.lookup_val(call.mem());
+                let new_kind = call.new_kind();
+                if new_kind.is_some() && result_node.is_none() {
+                    Val::tuple(Val::Invalid, mem_val.clone())
+                } else {
+                    match (mem_val, new_kind) {
+                        (Val::Heap(heap), Some(NewKind::Object(class_ty))) => {
+                            let mut heap = (**heap).clone();
+                            let ptr = heap.new_obj(result_node.unwrap(), class_ty);
+                            Val::tuple(Val::Pointer(ptr), Val::Heap(Rc::new(heap)))
+                        }
+                        (Val::Heap(heap), Some(NewKind::Array { item_ty, .. })) => {
+                            let mut heap = (**heap).clone();
+                            let ptr = heap.new_arr(result_node.unwrap(), item_ty);
+                            Val::tuple(Val::Pointer(ptr), Val::Heap(Rc::new(heap)))
+                        }
+                        // reset heap if an unknown method is called that could modify arbitrary
+                        // memory.
+                        (Val::Heap(heap), None) => {
+                            let mut heap = (&**heap).clone();
+                            let mut used_mem = MemoryArea::empty();
+                            let mut used_nodes = HashSet::new();
+                            for arg in call.args() {
+                                if let Val::Pointer(ptr) = self.lookup_val(arg) {
+                                    used_mem.join_mut(&ptr.target);
+                                    used_nodes.insert(arg);
+                                }
                             }
-                            Val::NoInfoYet => {
-                                let ptr = Pointer::new(self.get_new_id());
-                                heap.new_obj(ptr, class_ty);
-                                ptr
-                            }
-                            val => panic!("unexpected value {:?}", val),
-                        };
-                        Val::tuple(Val::ObjPointers(ptr.into()), Val::Heap(Rc::new(heap)))
+
+                            log::debug!(
+                                "{:?} uses {:?} and {:?} as args",
+                                call,
+                                used_mem,
+                                used_nodes
+                            );
+                            heap.reset_heap_accessed_by(used_mem, used_nodes);
+
+                            Val::tuple(
+                                call.single_result_ty()
+                                    .map(|ty| heap.non_const_val(ty))
+                                    .unwrap_or(Val::Invalid),
+                                Val::Heap(Rc::new(heap.clone())),
+                            )
+                        }
+                        (Val::NoInfoYet, _) => Val::NoInfoYet,
+                        val => panic!("unreachable {:?}", val),
                     }
-                    // reset heap if an unknown method is called that could modify arbitrary memory.
-                    (Val::Heap(heap), IsNewResult::No) => {
-                        let mut heap = (&**heap).clone();
-                        heap.reset();
-                        Val::tuple(Val::NonConstant, Val::Heap(Rc::new(heap)))
-                    }
-                    (Val::NoInfoYet, _) => Val::NoInfoYet,
-                    val => panic!("unreachable {:?}", val),
                 }
             }
-            Proj(_, Call_TResult(node)) => self.lookup_val(node.into()).tuple_1().clone(),
-            Proj(_, Call_TResult_Arg(_, _, node)) => self.lookup_val(node.into()).clone(),
+            Proj(_, Call_TResult(node)) => {
+                // we have to wrap the result in a tuple, as modeT nodes cannot have a pointer
+                // as value
+                Val::tuple(self.lookup_val(node.into()).tuple_1().clone(), Val::Invalid)
+            }
+            Proj(_, Call_TResult_Arg(_, _, node)) => self.lookup_val(node.into()).tuple_1().clone(),
             Proj(_, Call_M(node)) => self.lookup_val(node.into()).tuple_2().clone(),
 
             Store(store) => match (store.ptr(), self.lookup_val(store.mem())) {
                 (Node::Member(member), Val::Heap(heap)) => {
-                    let field = member.entity();
-                    let ptr = member.ptr();
-                    let ptrs = match &self.lookup_val(ptr) {
-                        Val::ObjPointers(ptrs) => Some(ptrs),
-                        _ => None,
-                    };
-                    let mut heap = (**heap).clone();
-                    let val = self.lookup_val(store.value());
-                    heap.update_field(ptr, ptrs, field, val);
-                    Val::Heap(Rc::new(heap))
+                    let ptr_node = member.ptr();
+                    deps.push(ptr_node);
+                    if let Some(ptr) = self.has_ptr_info(ptr_node) {
+                        let mut heap = (**heap).clone();
+                        let val = self.lookup_val(store.value());
+                        heap.update_field(ptr_node, ptr, member.entity(), val);
+                        Val::Heap(Rc::new(heap))
+                    } else {
+                        Val::NoInfoYet
+                    }
+                }
+                (Node::Sel(sel), Val::Heap(heap)) => {
+                    let ptr_node = sel.ptr();
+                    deps.push(ptr_node);
+                    if let Some(ptr) = self.has_ptr_info(ptr_node) {
+                        let mut heap = (**heap).clone();
+                        let val = self.lookup_val(store.value());
+                        let idx = self.node_to_idx(sel.index());
+                        heap.update_cell(ptr_node, ptr, idx, val, sel.element_ty());
+                        Val::Heap(Rc::new(heap))
+                    } else {
+                        Val::NoInfoYet
+                    }
                 }
                 (_, heap) => heap.clone(),
             },
@@ -301,20 +412,31 @@ impl ConstantFolding {
 
             Load(load) => {
                 let heap = &self.lookup_val(load.mem());
-
                 match (load.ptr(), heap) {
                     (Node::Member(member), Val::Heap(heap)) => {
-                        let field = member.entity();
-                        let ptr = member.ptr();
-                        let ptrs = match &self.lookup_val(ptr) {
-                            Val::ObjPointers(ptrs) => Some(ptrs),
-                            _ => None,
-                        };
-                        let mut heap = (**heap).clone();
-                        let val = heap.lookup_field(ptr, ptrs, field);
-                        Val::tuple(val, Val::Heap(Rc::new(heap)))
+                        let ptr_node = member.ptr();
+                        deps.push(ptr_node);
+                        if let Some(ptr) = self.has_ptr_info(ptr_node) {
+                            let mut heap = (**heap).clone();
+                            let val = heap.lookup_field(ptr_node, ptr, member.entity());
+                            Val::tuple(val, Val::Heap(Rc::new(heap)))
+                        } else {
+                            Val::NoInfoYet
+                        }
                     }
-                    (_, mem) => Val::tuple(Val::NonConstant, (*mem).clone()),
+                    (Node::Sel(sel), Val::Heap(heap)) => {
+                        let ptr_node = sel.ptr();
+                        deps.push(ptr_node);
+                        if let Some(ptr) = self.has_ptr_info(ptr_node) {
+                            let mut heap = (**heap).clone();
+                            let idx = self.node_to_idx(sel.index());
+                            let val = heap.lookup_cell(ptr_node, ptr, idx, sel.element_ty());
+                            Val::tuple(val, Val::Heap(Rc::new(heap)))
+                        } else {
+                            Val::NoInfoYet
+                        }
+                    }
+                    (_, _) => Val::tuple(Val::NoInfoYet, Val::NoInfoYet),
                 }
             }
             Proj(_, Load_Res(node)) => self.lookup_val(node.into()).tuple_1().clone(),
@@ -330,14 +452,31 @@ impl ConstantFolding {
             }
 
             // == Conditionals ==
+            Cmp(cmp) => {
+                let left_val = self.lookup_val(cmp.left());
+                let right_val = self.lookup_val(cmp.right());
+
+                match (left_val, right_val) {
+                    (Val::Tarval(t1), Val::Tarval(t2)) => {
+                        Val::Tarval(t1.lattice_cmp(cmp.relation(), *t2))
+                    }
+                    (Val::NoInfoYet, _) => Val::NoInfoYet,
+                    (_, Val::NoInfoYet) => Val::NoInfoYet,
+                    (Val::Pointer(ptrs1), Val::Pointer(ptrs2)) => {
+                        log::debug!("cmp {:?} with {:?}", ptrs1, ptrs2);
+                        //Tarval::bool_val()
+                        Val::Tarval(Tarval::bad())
+                    }
+                    val => panic!("unreachable {:?}", val),
+                }
+            }
             Cond(cond) => self.lookup_val(cond.selector()).clone(),
             Proj(_, Cond_Val(val, cond)) => {
-                if let Val::Tarval(tarval) = &self.lookup_val(cond.into()) {
-                    if tarval.is_bool_val(!val) {
-                        reachable = false;
-                    }
-                }
-                Val::NonConstant
+                reachable = match &self.lookup_val(cond.into()) {
+                    Val::Tarval(tarval) => !tarval.is_bool_val(!val) && reachable,
+                    _ => false,
+                };
+                Val::Invalid
             }
 
             // == Phi ==
@@ -376,27 +515,37 @@ impl ConstantFolding {
                     let mut tarval_args = vec![];
                     let mut non_constant = false;
                     let mut no_info = false;
-                    let mut invalid = false;
                     for arg in value_node.value_nodes() {
-                        match self.lookup_val(arg.into()) {
-                            Val::NonConstant => non_constant = true,
+                        let val = self.lookup_val(arg.as_node());
+                        match val {
                             Val::NoInfoYet => no_info = true,
-                            Val::Tarval(val) => tarval_args.push(*val),
-                            Val::ArrPointers(..)
-                            | Val::ObjPointers(..)
-                            | Val::Heap(..)
-                            | Val::Tuple(..) => invalid = true,
+                            Val::Tarval(val) => {
+                                if val.is_bad() {
+                                    non_constant = true;
+                                } else {
+                                    tarval_args.push(*val)
+                                }
+                            }
+                            Val::Pointer(..) | Val::Heap(..) | Val::Tuple(..) | Val::Invalid => {
+                                panic!(
+                                    "{:?} from {:?} is not a \
+                                     valid argument to a value node except for cmp",
+                                    val,
+                                    arg.as_node(),
+                                )
+                            }
                         }
                     }
-                    if non_constant | invalid {
-                        Val::NonConstant
+                    if non_constant {
+                        Val::from_tarval_initially(Tarval::bad(), cur_node.mode())
                     } else if no_info {
                         Val::NoInfoYet
                     } else {
-                        Val::from_tarval(value_node.compute(tarval_args))
+                        let tarval = value_node.compute(tarval_args);
+                        Val::from_tarval_initially(tarval, cur_node.mode())
                     }
                 } else {
-                    Val::NonConstant
+                    Val::Invalid
                 }
             }
         };
@@ -411,24 +560,40 @@ impl ConstantFolding {
 
         let mut to_be_marked_as_bad: Vec<Block> = Vec::new();
 
-        for (node, lattice) in values {
+        for (&node, lattice) in values {
             let value = match lattice.value() {
-                Val::Tarval(tarval) => tarval,
+                Val::Tarval(tarval) if !tarval.is_bad() => tarval,
                 _ => {
                     collector.push(Outcome::Unchanged);
                     continue;
                 }
             };
 
-            if Node::is_const(*node) {
+            if Node::is_const(node) {
                 collector.push(Outcome::Unchanged);
                 continue;
             }
 
-            if let Ok(value_node) = try_as_value_node(*node) {
+            if try_as_value_node(node).is_ok() {
                 let const_node = self.graph.new_const(*value);
+                log::debug!("node original: {:?}", Node::wrap(node.internal_ir_node()));
                 log::debug!("exchange value {:?} with {:?}", node, value);
-                Graph::exchange_value(value_node, const_node);
+
+                let mem = match node {
+                    Node::Div(div) => Some((div.mem(), div.out_proj_m())),
+                    Node::Mod(m) => Some((m.mem(), m.out_proj_m())),
+                    _ => None,
+                };
+                if let Some((prev_mem, next_mem)) = mem {
+                    // only remove this node from memory flow.
+                    // Its value is handled in its res-proj.
+                    if let Some(next_mem) = next_mem {
+                        Graph::exchange(next_mem, prev_mem);
+                    }
+                } else {
+                    Graph::exchange(node, const_node);
+                }
+
                 collector.push(Outcome::Changed);
             } else if let (Node::Cond(cond), TarvalKind::Bool(val)) = (node, value.kind()) {
                 let (always_taken_path, target_block, _target_block_idx) =
@@ -454,7 +619,7 @@ impl ConstantFolding {
                 );
 
                 self.graph.mark_as_bad(dead_path);
-                self.graph.mark_as_bad(*cond);
+                self.graph.mark_as_bad(cond);
 
                 Graph::exchange(always_taken_path, jmp);
 

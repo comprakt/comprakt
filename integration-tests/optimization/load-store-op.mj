@@ -1,0 +1,180 @@
+---
+optimizations: [ConstantFolding]
+expect: change
+stdout:
+    is: "1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n"
+
+---
+class Obj {
+    public Obj obj;
+    public int x;
+}
+
+class Main {
+    public static void main(String[] args) {
+        new Main().test();
+    }
+
+    public void assertConstant(int a, int b, int c, int d) {
+        System.out.println(a);
+        System.out.println(b);
+        System.out.println(c);
+        System.out.println(d);
+    }
+    public void assertVariable(int a, int b, int c, int d) {
+        System.out.println(a);
+        System.out.println(b);
+        System.out.println(c);
+        System.out.println(d);
+    }
+
+    public void test() {
+        testDirectWrite();
+        testRefWriteClear();
+        testArgAccess1();
+        testArgAccess2();
+        testMethodCall();
+        testArrayDirectWrite();
+        testArrayIndirectWrite();
+        testPhi();
+    }
+
+    public int y;
+    public int x;
+    public void testPhi() {
+        if (y == 2) x = 1;
+
+        assertVariable(x + 1, x + 2, x + 3, x + 4);
+    }
+
+    public void testArrayIndirectWrite() {
+        arrayIndirectWrite1(1, 1);
+        arrayIndirectWrite2(1, 1);
+    }
+
+    public void arrayIndirectWrite1(int idx1, int idx2) {
+        int[] arr = new int[4];
+        arr[0] = 1;
+        int vEq1Const = arr[0];
+        arr[idx1] = 2;
+        int vEq2Const = arr[idx1];
+        arr[idx2] = 3;
+
+        assertConstant(vEq1Const, vEq2Const, arr[idx2], 4);
+        assertVariable(arr[0], arr[0] + 1, arr[idx1], arr[3] + 4);
+    }
+
+    public void arrayIndirectWrite2(int idx1, int idx2) {
+        Obj[] arr = new Obj[4];
+        Obj a = new Obj();
+        a.x = 1;
+        Obj b = new Obj();
+        b.x = 2;
+        Obj c = new Obj();
+        c.x = 3;
+
+        arr[0] = a;
+        Obj a1 = arr[0];
+        arr[1] = a1;
+        arr[idx1] = b;
+        arr[2] = c;
+        arr[idx2] = c;
+
+        assertConstant(1, 2, arr[idx2].x, 4);
+        assertVariable(arr[0].x, arr[1].x - 1, arr[2].x, arr[2].x + 1);
+    }
+
+    public void testArrayDirectWrite() {
+        int[] arr = new int[3];
+        arr[0] = 1;
+        arr[1] = 3;
+        arr[1] = 2;
+
+        assertConstant(arr[0], arr[1], arr[2] + 3, 4);
+    }
+
+    public void testMethodCall() {
+        Obj a = new Obj();
+        Obj b = new Obj();
+        b.x = 1;
+        b.obj = new Obj();
+
+        a.obj = a;
+        changeDeep(a); /* a has no reference to b */
+        int axEq3Var = a.x - 1;
+        int bxEq1Const = b.x;
+
+        a.obj = b;
+        changeDeep(a);
+        int bxEq4Var = b.obj.x;
+        a.x = 2;
+
+        /* TODO: assertConstant(bxEq1Const, a.x, 3, 4); */
+        assertVariable(bxEq4Var - 3, bxEq4Var - 2, axEq3Var, bxEq4Var);
+    }
+
+    public void changeDeep(Obj o) {
+        o.obj.obj.x = 4;
+    }
+
+    public void testArgAccess2() {
+        Obj a = new Obj();
+        argAccess2Func(a, a);
+    }
+
+    public void argAccess2Func(Obj a, Obj b) {
+        Obj c = new Obj();
+        a.obj = c;
+
+        c.x = 1;
+        b.obj.x = 2;
+
+        int cxEq2Var = c.x;
+        assertVariable(cxEq2Var - 1, cxEq2Var, cxEq2Var + 1, cxEq2Var + 2);
+    }
+
+    public void testArgAccess1() {
+        Obj a = new Obj();
+        Obj b = new Obj();
+        argAccess1Func(a, b);
+    }
+
+    public void argAccess1Func(Obj a, Obj b) {
+        Obj c = new Obj();
+        a.x = 1;
+        c.x = 3;
+        int axEq1 = a.x;
+        c.x = 4;
+        b.x = 2;
+        assertConstant(axEq1, b.x, 3, c.x);
+        int axEq1Var = a.x;
+        assertVariable(axEq1Var, axEq1Var + 1, axEq1Var + 2, axEq1Var + 3);
+    }
+
+    public void testRefWriteClear() {
+        Obj a = new Obj(); /* 1n -> [1] */
+        Obj b = new Obj(); /* 2n -> [2] */
+        Obj c = new Obj(); /* 3n -> [3] */
+        a.obj = b; /* 1n.obj -> [2] */
+        c.x = 3;
+        a.x = 1;
+        b.x = 5;
+        Obj b2 = a.obj; /* 4n -> [2] */
+        b2.x = 2; /* invalidates [2].x */
+
+        assertConstant(a.x, 2, c.x, 4);
+        int bxEq2Var = b.x;
+        assertVariable(bxEq2Var - 1, bxEq2Var, bxEq2Var + 1, bxEq2Var + 2);
+    }
+
+    public void testDirectWrite() {
+        Obj a = new Obj();
+        Obj b = new Obj();
+        a.x = 3;
+        b.x = 4;
+        a.x = 1;
+        b.x = 2;
+
+        assertConstant(a.x, b.x, 3, 4);
+    }
+}
