@@ -5,7 +5,7 @@ use crate::{
     ref_eq::RefEq,
 };
 use debugging::dot::Label;
-use libfirm_rs::{nodes::*, types::ClassTy, Graph};
+use libfirm_rs::{bindings, nodes::*, types::ClassTy, Graph};
 use petgraph::algo::{condensation, toposort};
 use std::collections::{HashMap, HashSet};
 
@@ -73,6 +73,9 @@ impl optimization::Interprocedural for Inlining {
                 class_ty.remove_member(method_entity);
                 if !method.borrow().def.is_main {
                     program.methods.remove(&RefEq(method.borrow().def.clone()));
+                    if let Some(method_graph) = method.borrow().graph {
+                        unsafe { bindings::free_ir_graph(method_graph.into()) }
+                    }
                 }
             }
         }
