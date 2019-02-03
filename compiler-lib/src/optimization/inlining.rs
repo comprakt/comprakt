@@ -5,20 +5,31 @@ use crate::{
     optimization::{self, Outcome},
     ref_eq::RefEq,
 };
-use libfirm_rs::{nodes::*, Graph};
+use libfirm_rs::{nodes::*, types::ClassTy, Graph};
 use petgraph::algo::{condensation, toposort};
-use std::collections::hash_map::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct Inlining;
 
 impl optimization::Interprocedural for Inlining {
-    fn optimize<'src, 'ast>(program: &FirmProgram<'src, 'ast>) -> Outcome {
+    fn optimize<'src, 'ast>(program: &mut FirmProgram<'src, 'ast>) -> Outcome {
         let g = CallGraph::new(program).construct();
+        breakpoint!("before inline: graph", g, &|n: &FirmMethodP<'src, 'ast>| {
+            Label::from_text(format!("{:?}", n.borrow().def.name.as_str().to_owned()))
+        });
+
         let mut g = condensation(g, false);
 
         g.reverse();
+
+        let mut is_recursive = HashSet::new();
+
+        // remove all loops after condensation
         g.retain_edges(|g, e| {
             let (n1, n2) = g.edge_endpoints(e).unwrap();
+            if n1 == n2 {
+                is_recursive.insert(n1);
+            }
             n1 != n2
         });
 
@@ -39,14 +50,38 @@ impl optimization::Interprocedural for Inlining {
         });
 
         for node in topo_sort {
+            if is_recursive.contains(&node) {
+                // TODO: skip this continue to provoke another bug.
+                // We should investigate this.
+                continue;
+            }
+
             if g.node_weight(node).unwrap().len() != 1 {
                 continue;
             }
 
+            let method = g.node_weight(node).unwrap().first().unwrap();
+
             for edge in g.edges_directed(node, petgraph::Direction::Outgoing) {
                 Inline::inline(*edge.weight()).unwrap();
             }
+
+            let method_entity = method.borrow().entity;
+            let class_ty = ClassTy::from(method_entity.owner()).unwrap();
+            class_ty.remove_member(method_entity);
+            if !method.borrow().def.is_main {
+                program.methods.remove(&RefEq(method.borrow().def.clone()));
+            }
         }
+
+        breakpoint!(
+            "after inline: graph",
+            CallGraph::new(program).construct(),
+            &|n: &FirmMethodP<'src, 'ast>| Label::from_text(format!(
+                "{:?}",
+                n.borrow().def.name.as_str().to_owned()
+            ))
+        );
 
         log::debug!("Inline finished");
 

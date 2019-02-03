@@ -156,8 +156,7 @@ impl<'src, 'ast> FirmContext<'src, 'ast> {
             Optimized | AsmEmitted | ExternalBackend => panic!("invalid state {:?}", self.state),
         }
 
-        // Placebo const ref here, in fact, optimizations will change the program.
-        optimizations.run_all(&self.program);
+        optimizations.run_all(&mut self.program);
     }
 
     /// Must only be called once.

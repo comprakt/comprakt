@@ -287,7 +287,9 @@ impl ClassTy {
     }
 
     pub fn idx_of_field(self, field: Entity) -> usize {
-        unsafe { bindings::get_class_member_index(self.ir_type(), field.ir_entity()) }
+        let idx = unsafe { bindings::get_class_member_index(self.ir_type(), field.ir_entity()) };
+        assert!(idx < self.fields().count());
+        idx
     }
 
     pub fn name(self) -> &'static CStr {
@@ -297,6 +299,12 @@ impl ClassTy {
 
     pub fn name_string(self) -> String {
         self.name().to_string_lossy().into_owned()
+    }
+
+    pub fn remove_member(self, member: Entity) {
+        unsafe {
+            bindings::remove_compound_member(self.ir_type(), member.ir_entity());
+        }
     }
 }
 
