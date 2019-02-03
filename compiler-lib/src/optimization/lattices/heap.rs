@@ -16,6 +16,7 @@ use std::{
 pub struct MemoryArea {
     allocators: HashSet<Node>,
     unrestricted: bool,
+    arbitrary: bool,
 }
 
 impl MemoryArea {
@@ -23,6 +24,7 @@ impl MemoryArea {
         Self {
             allocators: HashSet::new(),
             unrestricted: false,
+            arbitrary: false,
         }
     }
 
@@ -32,6 +34,7 @@ impl MemoryArea {
         Self {
             allocators,
             unrestricted: false,
+            arbitrary: false,
         }
     }
 
@@ -39,11 +42,24 @@ impl MemoryArea {
         Self {
             allocators: HashSet::new(),
             unrestricted: true,
+            arbitrary: false,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn arbitrary() -> Self {
+        Self {
+            allocators: HashSet::new(),
+            unrestricted: true,
+            arbitrary: true,
         }
     }
 
     pub fn intersects(&self, other: &Self) -> bool {
-        (self.unrestricted && other.unrestricted) || !self.allocators.is_disjoint(&other.allocators)
+        self.arbitrary
+            || other.arbitrary
+            || (self.unrestricted && other.unrestricted)
+            || !self.allocators.is_disjoint(&other.allocators)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -53,6 +69,7 @@ impl MemoryArea {
     pub fn join_mut(&mut self, other: &Self) {
         self.allocators.extend(&other.allocators);
         self.unrestricted |= other.unrestricted;
+        self.arbitrary |= other.arbitrary;
     }
 }
 
@@ -65,6 +82,7 @@ impl Lattice for MemoryArea {
         Self {
             allocators: &self.allocators | &other.allocators,
             unrestricted: self.unrestricted || other.unrestricted,
+            arbitrary: self.arbitrary || other.arbitrary,
         }
     }
 }
@@ -79,6 +97,11 @@ impl fmt::Debug for MemoryArea {
                 .map(|allocator| format!("{}", allocator.debug_fmt().short(true)))
                 .chain(if self.unrestricted {
                     vec!["*".to_owned()]
+                } else {
+                    vec![]
+                })
+                .chain(if self.arbitrary {
+                    vec!["!".to_owned()]
                 } else {
                     vec![]
                 })
@@ -258,6 +281,7 @@ impl Heap {
         for (_node, intersect_obj) in self.object_infos.iter_mut() {
             if intersect_obj.ty == class_ty && intersect_obj.mem.intersects(&ptr.target) {
                 let mut obj = (**intersect_obj).clone();
+                // downgrade information as we don't know whether ptr_node points to obj.
                 obj.join_field(field, val);
                 *intersect_obj = Rc::new(obj);
             }
@@ -605,7 +629,7 @@ impl Lattice for ArrayInfo {
                     }
                 }
                 for (idx, val2) in cells2 {
-                    if !cells.contains_key(&idx) {
+                    if !cells1.contains_key(&idx) {
                         cells.insert(*idx, val2.join(&self.default_val));
                     }
                 }
@@ -736,59 +760,3 @@ impl Lattice for ObjectInfo {
         }
     }
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn test_lattice_bin<T: Lattice + std::fmt::Debug>(l1: T, l2: T) {
-        if l1 == l2 {
-            assert!(l1.is_progression_of(&l2));
-            assert!(l2.is_progression_of(&l1));
-        }
-
-        assert_eq!(l1.join(&l2), l2.join(&l1));
-        assert!(l1.join(&l2).is_progression_of(&l1));
-        assert!(l1.join(&l2).is_progression_of(&l2));
-
-        if l1.is_progression_of(&l2) && l2.is_progression_of(&l1) {
-            assert!(l1 == l2);
-        }
-        if l1.join(&l2) == l1 {
-            assert!(l1.is_progression_of(&l2));
-        }
-    }
-
-    fn test_lattice<T: Lattice + std::fmt::Debug + Clone>(elements: &[T]) {
-        for (a, b) in elements.iter().zip(elements.iter()) {
-            test_lattice_bin(a.clone(), b.clone());
-        }
-    }
-
-    #[test]
-    fn test_pointer_set() {
-        let p1 = Pointer::new(0);
-        assert_eq!(p1.p, 0);
-        assert_eq!(p1.recent, false);
-
-        let p2 = Pointer::new(1).as_recent();
-        assert_eq!(p2.p, 1);
-        assert_eq!(p2.recent, true);
-
-        let p1_set: MemoryArea = p1.into();
-        assert_eq!(p1_set.can_be_null, false);
-        assert_eq!(p1_set.pointers, [p1].iter().cloned().collect());
-
-        let p2_set: MemoryArea = p2.into();
-
-        let p12_set = p1_set.join(&p2_set);
-        assert_eq!(p12_set.can_be_null, false);
-        assert_eq!(p12_set.pointers, [p1, p2].iter().cloned().collect());
-
-        assert!(p12_set.is_progression_of(&p1_set));
-
-        test_lattice(&[p1_set, p2_set, p12_set]);
-    }
-}
-*/
