@@ -64,7 +64,7 @@ impl MemoryArea {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.allocators.is_empty() && !self.unrestricted
+        self.allocators.is_empty() && !self.unrestricted && !self.arbitrary
     }
 
     pub fn join_mut(&mut self, other: &Self) {
@@ -149,6 +149,19 @@ impl Pointer {
 
     pub fn is_null_or_empty(&self) -> bool {
         self.target.is_empty()
+    }
+
+    pub fn eq(&self, other: &Self) -> Option<bool> {
+        if self.is_null() && other.is_null() {
+            return Some(true);
+        }
+
+        if !(self.can_be_null && other.can_be_null || self.target.intersects(&other.target)) {
+            // mems are disjoint and one of them cannot be null.
+            return Some(false);
+        }
+
+        None
     }
 }
 

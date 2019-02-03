@@ -2,6 +2,7 @@ use super::{lattices::*, Outcome, OutcomeCollector};
 use crate::{dot::*, optimization};
 use firm_construction::program_generator::Spans;
 use libfirm_rs::{
+    bindings,
     nodes::{try_as_value_node, Block, NewKind, Node, NodeTrait, ProjKind},
     Graph, Mode, Tarval, TarvalKind,
 };
@@ -49,9 +50,9 @@ impl optimization::Local for ConstantFolding {
     fn optimize_function(graph: Graph) -> Outcome {
         // Uncomment this code for debugging and prefix the method to debug with "cur_".
 
-        /*if !graph.entity().name_string().contains("cur") {
+        /* if !graph.entity().name_string().contains("cur") {
             return Outcome::Unchanged;
-        }*/
+        } */
 
         let mut constant_folding = ConstantFolding::new(graph);
         constant_folding.run();
@@ -70,13 +71,13 @@ fn check_asserts(graph: Graph) {
         if let Some(call) = Node::as_call(*node) {
             let check_constant = if call
                 .method_name()
-                .map(|n| n.contains(&"assertConstant"))
+                .map(|n| n.contains(&"assertNodesAreConst"))
                 .unwrap_or(false)
             {
                 Some(true)
             } else if call
                 .method_name()
-                .map(|n| n.contains(&"assertVariable"))
+                .map(|n| n.contains(&"assertNodesAreNonConst"))
                 .unwrap_or(false)
             {
                 Some(false)
@@ -463,10 +464,18 @@ impl ConstantFolding {
                     }
                     (Val::NoInfoYet, _) => Val::NoInfoYet,
                     (_, Val::NoInfoYet) => Val::NoInfoYet,
-                    (Val::Pointer(ptrs1), Val::Pointer(ptrs2)) => {
-                        log::debug!("cmp {:?} with {:?}", ptrs1, ptrs2);
-                        //Tarval::bool_val()
-                        Val::Tarval(Tarval::bad())
+                    (Val::Pointer(ptr1), Val::Pointer(ptr2)) => {
+                        let res = match (cmp.relation(), ptr1.eq(ptr2)) {
+                            (bindings::ir_relation::Equal, Some(res)) => {
+                                Val::Tarval(Tarval::bool_val(res))
+                            }
+                            (bindings::ir_relation::LessGreater, Some(res)) => {
+                                Val::Tarval(Tarval::bool_val(!res))
+                            }
+                            _ => Val::Tarval(Tarval::bad()),
+                        };
+                        log::debug!("cmp {:?} with {:?} = {:?}", ptr1, ptr2, res);
+                        res
                     }
                     val => panic!("unreachable {:?}", val),
                 }
