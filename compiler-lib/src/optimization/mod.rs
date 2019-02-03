@@ -15,7 +15,7 @@ mod lattices;
 /// An optimization that optimizes the whole program by examining all function
 /// graphs at once.
 pub trait Interprocedural {
-    fn optimize(program: &FirmProgram<'_, '_>) -> Outcome;
+    fn optimize(program: &mut FirmProgram<'_, '_>) -> Outcome;
 }
 
 /// An optimization that only works on a single graph and therefore does not
@@ -28,7 +28,7 @@ impl<T> Interprocedural for T
 where
     T: Local,
 {
-    fn optimize(program: &FirmProgram<'_, '_>) -> Outcome {
+    fn optimize(program: &mut FirmProgram<'_, '_>) -> Outcome {
         let mut collector = OutcomeCollector::new();
         for method in program.methods.values() {
             if let Some(graph) = method.borrow().graph {
@@ -57,7 +57,7 @@ pub enum Kind {
 }
 
 impl Kind {
-    fn run(self, program: &FirmProgram<'_, '_>) -> Outcome {
+    fn run(self, program: &mut FirmProgram<'_, '_>) -> Outcome {
         match self {
             Kind::ConstantFolding => ConstantFolding::optimize(program),
             Kind::Inline => Inlining::optimize(program),
@@ -135,7 +135,7 @@ impl Optimization {
         self.flags.iter().any(|f| *f == flag)
     }
 
-    fn run(&self, program: &FirmProgram<'_, '_>) -> Outcome {
+    fn run(&self, program: &mut FirmProgram<'_, '_>) -> Outcome {
         let outcome = self.kind.run(program);
         self.apply_flags(program);
         outcome
@@ -188,7 +188,7 @@ impl OutcomeCollector {
 impl Level {
     /// run the list of optimizations defined by the optimization level
     /// on the given program
-    pub fn run_all(&self, program: &FirmProgram<'_, '_>) {
+    pub fn run_all(&self, program: &mut FirmProgram<'_, '_>) {
         breakpoint!("before optimization sequence".to_string(), program);
         let measurement_all = Measurement::start("optimization phase");
 

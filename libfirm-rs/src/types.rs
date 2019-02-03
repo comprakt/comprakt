@@ -7,7 +7,7 @@ use std::{
 
 macro_rules! gen_e {
     ($name:ident; $($var:ident($ty:ident)),*) => {
-        #[derive(Clone, Copy, PartialEq, Eq)]
+        #[derive(Clone, Copy)]
         pub enum $name {
             $(
                 $var($ty),
@@ -17,13 +17,25 @@ macro_rules! gen_e {
         impl TyTrait for $name {
             fn ir_type(self) -> *mut bindings::ir_type {
                 match self {
-                    $($name::$var(x) => x.ir_type(),)*
+                    $(
+                        $name::$var(x) => x.ir_type(),
+                    )*
+                }
+            }
+        }
+
+        impl fmt::Debug for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    $(
+                        $name::$var(x) => write!(f, "{:?}", x),
+                    )*
                 }
             }
         }
 
         $(
-            #[derive(Clone, Copy, PartialEq, Eq)]
+            #[derive(Clone, Copy)]
             pub struct $ty(*mut bindings::ir_type);
             impl $ty {
                 pub fn from(ty: $name) -> Option<Self> {
@@ -55,6 +67,29 @@ gen_e!(Ty;
     Other(OtherTy)
 );
 
+macro_rules! gen_debug {
+    ($name:ident; $($var:ident($ty:ident)),*) => {
+        $(
+            impl fmt::Debug for $ty {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    write!(
+                        f,
+                        stringify!($var),
+                    )
+                }
+            }
+        )*
+    }
+}
+
+gen_debug!(Ty;
+    Method(MethodTy),
+    Segment(SegmentTy),
+    Struct(StructTy),
+    Union(UnionTy),
+    Other(OtherTy)
+);
+
 impl Ty {
     pub fn from_ir_type(ty: *mut bindings::ir_type) -> Ty {
         unsafe {
@@ -81,6 +116,40 @@ impl Ty {
                 // or unknown type kind
                 Ty::Other(OtherTy(ty))
             }
+        }
+    }
+}
+
+impl Eq for Ty {}
+impl PartialEq for Ty {
+    fn eq(&self, other: &Self) -> bool {
+        use self::Ty::*;
+        match (self, other) {
+            (Class(ty1), Class(ty2)) => ty1 == ty2,
+            (Primitive(ty1), Primitive(ty2)) => ty1 == ty2,
+            (Array(ty1), Array(ty2)) => ty1 == ty2,
+            (Pointer(ty1), Pointer(ty2)) => ty1 == ty2,
+            (Method(ty1), Method(ty2)) => panic!(
+                "Comparing {:?} with {:?} is currently not supported.",
+                ty1, ty2
+            ),
+            (Segment(ty1), Segment(ty2)) => panic!(
+                "Comparing {:?} with {:?} is currently not supported.",
+                ty1, ty2
+            ),
+            (Struct(ty1), Struct(ty2)) => panic!(
+                "Comparing {:?} with {:?} is currently not supported.",
+                ty1, ty2
+            ),
+            (Union(ty1), Union(ty2)) => panic!(
+                "Comparing {:?} with {:?} is currently not supported.",
+                ty1, ty2
+            ),
+            (Other(ty1), Other(ty2)) => panic!(
+                "Comparing {:?} with {:?} is currently not supported.",
+                ty1, ty2
+            ),
+            _ => false,
         }
     }
 }
@@ -121,6 +190,19 @@ impl PointerTy {
     }
 }
 
+impl Eq for PointerTy {}
+impl PartialEq for PointerTy {
+    fn eq(&self, other: &Self) -> bool {
+        self.points_to() == other.points_to()
+    }
+}
+
+impl fmt::Debug for PointerTy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "@{:?}", self.points_to())
+    }
+}
+
 impl ArrayTy {
     pub fn variable_length(element_type: Ty) -> Ty {
         Ty::from_ir_type(unsafe { bindings::new_type_array(element_type.ir_type(), 0) })
@@ -131,6 +213,19 @@ impl ArrayTy {
 
     pub fn element_type(self) -> Ty {
         Ty::from_ir_type(unsafe { bindings::get_array_element_type(self.ir_type()) })
+    }
+}
+
+impl Eq for ArrayTy {}
+impl PartialEq for ArrayTy {
+    fn eq(&self, other: &Self) -> bool {
+        self.element_type() == other.element_type()
+    }
+}
+
+impl fmt::Debug for ArrayTy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}[]", self.element_type())
     }
 }
 
@@ -158,6 +253,19 @@ impl PrimitiveTy {
     }
 }
 
+impl fmt::Debug for PrimitiveTy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Primitive:{:?}", self.mode())
+    }
+}
+
+impl Eq for PrimitiveTy {}
+impl PartialEq for PrimitiveTy {
+    fn eq(&self, other: &Self) -> bool {
+        self.mode() == other.mode()
+    }
+}
+
 impl ClassTy {
     pub fn new(name: &str) -> ClassTy {
         ClassTy::from(Ty::from_ir_type(unsafe {
@@ -179,7 +287,9 @@ impl ClassTy {
     }
 
     pub fn idx_of_field(self, field: Entity) -> usize {
-        unsafe { bindings::get_class_member_index(self.ir_type(), field.ir_entity()) }
+        let idx = unsafe { bindings::get_class_member_index(self.ir_type(), field.ir_entity()) };
+        assert!(idx < self.fields().count());
+        idx
     }
 
     pub fn name(self) -> &'static CStr {
@@ -190,11 +300,37 @@ impl ClassTy {
     pub fn name_string(self) -> String {
         self.name().to_string_lossy().into_owned()
     }
+
+    pub fn remove_member(self, member: Entity) {
+        unsafe {
+            bindings::remove_compound_member(self.ir_type(), member.ir_entity());
+        }
+    }
+}
+
+impl Eq for ClassTy {}
+impl PartialEq for ClassTy {
+    fn eq(&self, other: &Self) -> bool {
+        self.ir_type() == other.ir_type()
+    }
 }
 
 impl fmt::Debug for ClassTy {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name_string())
+    }
+}
+
+impl MethodTy {
+    pub fn res_count(self) -> usize {
+        unsafe { bindings::get_method_n_ress(self.0) }
+    }
+    pub fn single_result_ty(self) -> Option<Ty> {
+        if self.res_count() == 0 {
+            None
+        } else {
+            unsafe { Some(Ty::from_ir_type(bindings::get_method_res_type(self.0, 0))) }
+        }
     }
 }
 

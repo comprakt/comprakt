@@ -43,7 +43,7 @@ pub struct FirmProgram<'src, 'ast> {
 
 pub type FirmClassP<'src, 'ast> = Rc<RefCell<FirmClass<'src, 'ast>>>;
 pub struct FirmClass<'src, 'ast> {
-    pub def: &'src ClassDef<'src, 'ast>,
+    pub def: Rc<ClassDef<'src, 'ast>>,
     pub entity: Entity,
 }
 
@@ -80,31 +80,40 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
     }
 
     fn add_type_system(&mut self, type_system: &'src TypeSystem<'src, 'ast>) {
+        let mut classes = Vec::new();
+
         for class in type_system.defined_classes.values() {
             let class_name = class.name.as_str();
             let class_type = ClassTy::new(class_name);
             let class_entity = Entity::new_global(class_name, class_type.into());
 
             let firm_class = Rc::new(RefCell::new(FirmClass {
-                def: class,
+                def: Rc::clone(class),
                 entity: class_entity,
             }));
 
+            self.classes
+                .insert(RefEq(Rc::clone(class)), Rc::clone(&firm_class));
+            classes.push(Rc::clone(&firm_class));
+            self.entities
+                .insert(class_entity, FirmEntity::Class(firm_class));
+        }
+
+        for firm_class in &classes {
+            let class = Rc::clone(&firm_class.borrow().def);
+            let class_type = ClassTy::from(firm_class.borrow().entity.ty()).unwrap();
+
             for field in class.iter_fields() {
-                self.add_field(class_type, Rc::clone(&firm_class), field);
+                self.add_field(class_type, Rc::clone(&firm_class), field, type_system);
             }
 
             for method in class.iter_methods() {
                 if let ClassMethodBody::AST(_) = method.body {
-                    self.add_method(class_type, Rc::clone(&firm_class), method);
+                    self.add_method(class_type, Rc::clone(&firm_class), method, type_system);
                 }
             }
 
             class_type.default_layout();
-            self.classes
-                .insert(RefEq(Rc::clone(class)), Rc::clone(&firm_class));
-            self.entities
-                .insert(class_entity, FirmEntity::Class(firm_class));
         }
     }
 
@@ -113,9 +122,10 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
         class_type: ClassTy,
         class: Rc<RefCell<FirmClass<'src, 'ast>>>,
         field: Rc<ClassFieldDef<'src>>,
+        type_system: &'src TypeSystem<'src, 'ast>,
     ) {
-        let field_type =
-            ty_from_checked_type(&field.ty).expect("field type must be convertible to a Firm type");
+        let field_type = ty_from_checked_type(&field.ty, type_system, self)
+            .expect("field type must be convertible to a Firm type");
 
         let field_entity = Entity::new_entity(
             class_type.into(),
@@ -138,6 +148,7 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
         class_type: ClassTy,
         class: FirmClassP<'src, 'ast>,
         method: Rc<ClassMethodDef<'src, 'ast>>,
+        type_system: &'src TypeSystem<'src, 'ast>,
     ) {
         assert!(!method.is_static || (method.is_static && method.is_main));
         let mut method_ty_builder = MethodTyBuilder::new();
@@ -148,11 +159,11 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
         }
 
         for param in &method.params {
-            let param_type = ty_from_checked_type(&param.ty)
+            let param_type = ty_from_checked_type(&param.ty, type_system, self)
                 .expect("parameter must be convertible to a Firm type");
             method_ty_builder.add_param(param_type);
         }
-        if let Some(return_ty) = ty_from_checked_type(&method.return_ty) {
+        if let Some(return_ty) = ty_from_checked_type(&method.return_ty, type_system, self) {
             method_ty_builder.set_res(return_ty);
         }
         let method_type = method_ty_builder.build(!method.is_main);

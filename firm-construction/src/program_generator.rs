@@ -30,17 +30,25 @@ impl Spans {
     pub fn new() -> Spans {
         Spans::default()
     }
-    pub fn lookup_span(node: impl NodeTrait + Into<Node>) -> Option<Span<'static>> {
+    pub fn lookup_span(node: impl NodeTrait) -> Option<Span<'static>> {
         SPANS.lock().unwrap().lookup_span_(node)
+    }
+
+    pub fn span_str(node: impl NodeTrait) -> String {
+        if let Some(span) = Self::lookup_span(node) {
+            format!(" [src:{}]", span)
+        } else {
+            "".to_string()
+        }
     }
 
     pub fn add_spans(spans: &HashMap<Node, Span<'_>>) {
         SPANS.lock().unwrap().add_spans_(spans);
     }
 
-    fn lookup_span_(&self, node: impl NodeTrait + Into<Node>) -> Option<Span<'static>> {
+    fn lookup_span_(&self, node: impl NodeTrait) -> Option<Span<'static>> {
         let map = self.spans.borrow();
-        map.get(&node.into()).cloned()
+        map.get(&node.as_node()).cloned()
     }
 
     fn add_spans_(&self, spans: &HashMap<Node, Span<'_>>) {

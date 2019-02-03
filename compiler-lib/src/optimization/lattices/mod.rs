@@ -1,7 +1,7 @@
 mod heap;
 pub use self::heap::*;
 
-use libfirm_rs::{Tarval, TarvalKind};
+use libfirm_rs::{Mode, Tarval, TarvalKind};
 use std::{fmt, rc::Rc};
 
 pub trait Lattice: Eq + Clone {
@@ -85,11 +85,10 @@ impl fmt::Debug for ConstantFoldingLattice {
 pub enum Val {
     NoInfoYet,
     Tarval(Tarval),
-    ObjPointers(PointerSet),
-    ArrPointers(PointerSet),
+    Pointer(Pointer),
     Heap(Rc<Heap>),
     Tuple(Box<Val>, Box<Val>),
-    NonConstant,
+    Invalid,
 }
 
 impl Val {
@@ -97,9 +96,27 @@ impl Val {
         Val::NoInfoYet
     }
 
-    pub fn from_tarval(val: Tarval) -> Val {
+    pub fn zero(mode: Mode) -> Val {
+        if mode.is_pointer() {
+            Val::Pointer(Pointer::null())
+        } else {
+            Val::Tarval(Tarval::zero(mode))
+        }
+    }
+
+    pub fn from_tarval_initially(val: Tarval, mode: Mode) -> Val {
         match val.kind() {
-            TarvalKind::Bad => Val::NonConstant,
+            TarvalKind::Bad if mode.is_pointer() => {
+                Val::Pointer(Pointer::to(MemoryArea::unrestricted()))
+            }
+            TarvalKind::Unknown => Val::NoInfoYet,
+            _ if mode.is_pointer() && val.is_zero() => Val::Pointer(Pointer::null()),
+            _ => Val::Tarval(val),
+        }
+    }
+
+    pub fn from_tarval_internal(val: Tarval) -> Val {
+        match val.kind() {
             TarvalKind::Unknown => Val::NoInfoYet,
             _ => Val::Tarval(val),
         }
@@ -111,7 +128,6 @@ impl Val {
 
     pub fn tuple_1(&self) -> &Val {
         match self {
-            Val::NonConstant => &Val::NonConstant,
             Val::Tuple(t1, _t2) => &t1,
             Val::NoInfoYet => &Val::NoInfoYet,
             val => panic!("Invalid data type {:?}", val),
@@ -120,24 +136,40 @@ impl Val {
 
     pub fn tuple_2(&self) -> &Val {
         match self {
-            Val::NonConstant => &Val::NonConstant,
             Val::Tuple(_t1, t2) => &t2,
             Val::NoInfoYet => &Val::NoInfoYet,
             val => panic!("Invalid data type {:?}", val),
         }
     }
+
+    /*pub fn update_dom_depth(self, dom_depth: usize) -> Self {
+        match self {
+            //Val::Heap(heap) => heap.update_dom_depth
+            Val::NoInfoYet | Val::Tarval(_) => self,
+            Val::Heap(heap) => {
+                let mut heap = (&*heap).clone();
+                heap.update_dom_depth(dom_depth);
+                Val::Heap(Rc::new(heap))
+            }
+            Val::Pointer(ptrs) => {
+                let mut ptrs = ptrs.clone();
+                ptrs.update_dom_depth(dom_depth);
+                Val::Pointer(ptrs)
+            }
+            val => panic!("{:?} is not supported.", val),
+        }
+    }*/
 }
 
 impl Lattice for Val {
     fn is_progression_of(&self, other: &Self) -> bool {
         use self::Val::*;
         match (self, other) {
-            (NonConstant, _) | (_, NoInfoYet) => true,
+            // todo
+            //(NonConst(_), _) => true,
+            (_, NoInfoYet) => true,
             (Tarval(val1), Tarval(val2)) => val1.lattice_eq(*val2),
-            (ObjPointers(ps), Tarval(val)) => ps.can_be_null() && val.is_zero(),
-            (ArrPointers(ps), Tarval(val)) => ps.can_be_null() && val.is_zero(),
-            (ObjPointers(ps1), ObjPointers(ps2)) => ps1.is_progression_of(ps2),
-            (ArrPointers(ps1), ArrPointers(ps2)) => ps1.is_progression_of(ps2),
+            (Pointer(ps1), Pointer(ps2)) => ps1.is_progression_of(ps2),
             (Heap(heap1), Heap(heap2)) => heap1.is_progression_of(heap2),
             (Tuple(a1, a2), Tuple(b1, b2)) => a1.is_progression_of(b1) && a2.is_progression_of(b2),
             _ => false,
@@ -147,27 +179,33 @@ impl Lattice for Val {
     fn join(&self, other: &Self) -> Self {
         use self::Val::*;
         match (self, other) {
-            (NonConstant, _) | (_, NonConstant) => NonConstant,
+            //(NonConst(ptrs1), NonConst(ptrs2)) => NonConst(ptrs1.join(ptrs2)),
+            //| NonConstant) => NonConstant,
             (NoInfoYet, arg2) => arg2.clone(),
             (arg1, NoInfoYet) => arg1.clone(),
             (Tarval(val1), Tarval(val2)) => {
-                if val1.lattice_eq(*val2) {
+                Val::from_tarval_internal(val1.join(*val2))
+                /*if val1.lattice_eq(*val2) {
                     Tarval(*val1)
                 } else {
-                    NonConstant
-                }
+                    NonConstant(Pointer::new_empty())
+                }*/
             }
-            (Tarval(val), ObjPointers(ps)) | (ObjPointers(ps), Tarval(val)) if val.is_zero() => {
-                ObjPointers(ps.with_null())
-            }
-            (Tarval(val), ArrPointers(ps)) | (ArrPointers(ps), Tarval(val)) if val.is_zero() => {
-                ArrPointers(ps.with_null())
-            }
-            (ObjPointers(ps1), ObjPointers(ps2)) => ObjPointers(ps1.join(ps2)),
-            (ArrPointers(ps1), ArrPointers(ps2)) => ArrPointers(ps1.join(ps2)),
+            (Pointer(ps1), Pointer(ps2)) => Pointer(ps1.join(ps2)),
             (Heap(heap1), Heap(heap2)) => Heap(Rc::new(heap1.join(heap2))),
             (Tuple(a1, a2), Tuple(b1, b2)) => Val::tuple(a1.join(b1), a2.join(b2)),
-            _ => panic!("Cannot join values of different types."),
+            (Pointer(ps), Tarval(tval)) | (Tarval(tval), Pointer(ps)) if ps.is_null() => {
+                log::debug!(
+                    "Join {:?} with {:?} that should happen only when load store is disabled",
+                    ps,
+                    tval
+                );
+                Tarval(*tval)
+            }
+            (val1, val2) => panic!(
+                "Cannot join value {:?} with {:?} - they have different types.",
+                val1, val2
+            ),
         }
     }
 }
@@ -175,12 +213,13 @@ impl Lattice for Val {
 impl fmt::Debug for Val {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Val::ObjPointers(ptrs) | Val::ArrPointers(ptrs) => write!(f, "{:?}", ptrs),
+            Val::Pointer(ptrs) => write!(f, "{:?}", ptrs),
             Val::Tarval(val) => write!(f, "{:?}", val),
-            Val::NonConstant => write!(f, "Not Const"),
+            //Val::NonConstant => write!(f, "Not Const"),
             Val::NoInfoYet => write!(f, "No info"),
             Val::Heap(heap) => write!(f, "{:?}", heap),
             Val::Tuple(..) => write!(f, "Tuple"),
+            Val::Invalid => write!(f, "Invalid"),
         }
     }
 }
