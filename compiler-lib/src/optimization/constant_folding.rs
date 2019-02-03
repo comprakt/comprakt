@@ -241,8 +241,6 @@ impl ConstantFolding {
     fn breakpoint(&self, cur_node: Node) {
         breakpoint!("Constant Folding: iteration", self.graph, &|node: &Node| {
             let mut label = default_label(node);
-            //label = label.append(format!(" dom: {}", node.block().dom_depth()));
-
             if let Some(lattice) = self.values.get(&node) {
                 label = label.append(format!("\n{:?}", lattice));
             }
@@ -391,6 +389,7 @@ impl ConstantFolding {
             Store(store) => match (store.ptr(), self.lookup_val(store.mem())) {
                 (Node::Member(member), Val::Heap(heap)) => {
                     let ptr_node = member.ptr();
+                    deps.push(ptr_node);
                     if let Some(ptr) = self.has_ptr_info(ptr_node) {
                         let mut heap = (**heap).clone();
                         let val = self.lookup_val(store.value());
@@ -402,16 +401,11 @@ impl ConstantFolding {
                 }
                 (Node::Sel(sel), Val::Heap(heap)) => {
                     let ptr_node = sel.ptr();
+                    deps.push(ptr_node);
                     if let Some(ptr) = self.has_ptr_info(ptr_node) {
                         let mut heap = (**heap).clone();
                         let val = self.lookup_val(store.value());
                         let idx = self.node_to_idx(sel.index());
-                        /*println!(
-                            "val: {:?} val.mode: {:?} ty: {:?}",
-                            val,
-                            store.value().mode(),
-                            sel.ty()
-                        );*/
                         heap.update_cell(ptr_node, ptr, idx, val, sel.element_ty());
                         Val::Heap(Rc::new(heap))
                     } else {
@@ -427,6 +421,7 @@ impl ConstantFolding {
                 match (load.ptr(), heap) {
                     (Node::Member(member), Val::Heap(heap)) => {
                         let ptr_node = member.ptr();
+                        deps.push(ptr_node);
                         if let Some(ptr) = self.has_ptr_info(ptr_node) {
                             let mut heap = (**heap).clone();
                             let val = heap.lookup_field(ptr_node, ptr, member.entity());
@@ -437,6 +432,7 @@ impl ConstantFolding {
                     }
                     (Node::Sel(sel), Val::Heap(heap)) => {
                         let ptr_node = sel.ptr();
+                        deps.push(ptr_node);
                         if let Some(ptr) = self.has_ptr_info(ptr_node) {
                             let mut heap = (**heap).clone();
                             let idx = self.node_to_idx(sel.index());

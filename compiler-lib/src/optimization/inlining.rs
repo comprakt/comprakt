@@ -15,7 +15,7 @@ impl optimization::Interprocedural for Inlining {
     fn optimize<'src, 'ast>(program: &mut FirmProgram<'src, 'ast>) -> Outcome {
         let g = CallGraph::new(program).construct();
         breakpoint!("before inline: graph", g, &|n: &FirmMethodP<'src, 'ast>| {
-            Label::from_text(format!("{:?}", n.borrow().def.name.as_str().to_owned()))
+            Label::from_text(format!("{:?}", n.borrow().entity.name_string()))
         });
 
         let mut g = condensation(g, false);
@@ -66,11 +66,13 @@ impl optimization::Interprocedural for Inlining {
                 Inline::inline(*edge.weight()).unwrap();
             }
 
-            let method_entity = method.borrow().entity;
-            let class_ty = ClassTy::from(method_entity.owner()).unwrap();
-            class_ty.remove_member(method_entity);
-            if !method.borrow().def.is_main {
-                program.methods.remove(&RefEq(method.borrow().def.clone()));
+            if !is_recursive.contains(&node) {
+                let method_entity = method.borrow().entity;
+                let class_ty = ClassTy::from(method_entity.owner()).unwrap();
+                class_ty.remove_member(method_entity);
+                if !method.borrow().def.is_main {
+                    program.methods.remove(&RefEq(method.borrow().def.clone()));
+                }
             }
         }
 
@@ -79,7 +81,7 @@ impl optimization::Interprocedural for Inlining {
             CallGraph::new(program).construct(),
             &|n: &FirmMethodP<'src, 'ast>| Label::from_text(format!(
                 "{:?}",
-                n.borrow().def.name.as_str().to_owned()
+                n.borrow().entity.name_string()
             ))
         );
 
