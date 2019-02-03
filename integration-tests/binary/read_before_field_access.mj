@@ -1,0 +1,14 @@
+class Foo {
+    public int someField;
+
+    public static void main(String[] args) throws Exception {
+        Foo foo = new Foo();
+        foo.read();
+    }
+
+    public void read() {
+        someField = 1;
+        someField = System.in.read();
+    }
+}
+

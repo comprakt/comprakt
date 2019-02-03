@@ -118,6 +118,14 @@ impl Ty {
             }
         }
     }
+
+    pub fn is_method(self) -> bool {
+        if let Ty::Method(_) = self {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl Eq for Ty {}

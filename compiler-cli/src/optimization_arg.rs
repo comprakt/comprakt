@@ -8,8 +8,8 @@
 //!
 //! where `.vcg` and `.gui` are flags applied to the `ConstantFolding`
 //! optimization
-use compiler_lib::optimization;
 use failure::Fail;
+use optimization;
 use std::str::FromStr;
 
 #[derive(Debug, Fail)]

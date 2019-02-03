@@ -20,8 +20,10 @@ default-run = "compiler-cli"
 
 [dependencies]
 compiler-lib = { path = "../compiler-lib" }
+compiler-shared= { path = "../compiler-shared" }
 inspect-ast = { path = "../inspect-ast" }
 libfirm-rs = { path = "../libfirm-rs" }
+optimization = { path = "../optimization" }
 mjrt = { path = "../mjrt" }
 parser = { path = "../parser" }
 

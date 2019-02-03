@@ -13,7 +13,6 @@
 #![warn(rust_2018_idioms)]
 #![warn(clippy::print_stdout)]
 #![feature(try_from)]
-#![feature(if_while_or_patterns)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(const_str_as_bytes)]
 #![feature(box_syntax)]
@@ -24,7 +23,7 @@
 #![feature(custom_attribute)]
 
 use compiler_lib::{
-    asciifile, ast,
+    asciifile, ast, backend,
     context::Context,
     firm::{
         self,
@@ -152,7 +151,7 @@ impl FromStr for CompileBackend {
 
 /// Command-line options for the [`CliCommand::CompileFirm`] (`--compile-firm`)
 /// call.
-#[derive(StructOpt, Debug, Clone, Default)]
+#[derive(StructOpt, Debug, Clone)]
 pub struct CompileFirmOptions {
     // backend is (implicitly) FIRM
     // gotta do that because of exercise sheet's CLI interface requirements
@@ -174,7 +173,7 @@ pub struct CompileOptions {
 }
 
 /// Common options for compiler-phases pre backend.
-#[derive(StructOpt, Debug, Clone, Default)]
+#[derive(StructOpt, Debug, Clone)]
 pub struct PreBackendOptions {
     /// Folder to dump graphs to
     #[structopt(long = "--emit-to", default_value = ".", parse(from_os_str))]
@@ -190,12 +189,24 @@ pub struct PreBackendOptions {
     pub dump_class_layouts: bool,
 
     /// Optimization level that should be applied
-    #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
+    #[structopt(long = "--optimization", short = "-O", default_value = "none")]
     pub opt_level: optimization_arg::Arg,
 
     /// A MiniJava input file
     #[structopt(name = "FILE", parse(from_os_str))]
     pub input: PathBuf,
+}
+
+impl PreBackendOptions {
+    fn default_with_input(input: PathBuf) -> Self {
+        PreBackendOptions {
+            dump_folder: PathBuf::default(),
+            dump_firm_graph: bool::default(),
+            dump_class_layouts: bool::default(),
+            opt_level: optimization_arg::Arg::from_str("none").unwrap(), // checked in test
+            input,
+        }
+    }
 }
 
 impl Into<firm::Options> for PreBackendOptions {
@@ -223,13 +234,30 @@ fn main() {
 
     libfirm_rs::init();
 
-    let cmd = CliCommand::from_args();
+    // support compilation without any flags, as required by exercise sheet
+    let single_arg = std::env::args().len() == 2;
+    let no_arg_mode = std::env::args()
+        .nth(1)
+        .map(|p| (p.clone(), std::fs::File::open(p)))
+        .map(|(p, r)| (single_arg, p, r.is_ok()));
+    let cmd = if let Some((true, input, true)) = no_arg_mode {
+        log::debug!("no-arg mode detected: {:?}", input);
+        let input = PathBuf::from(input);
+        let opts = CompileOptions {
+            backend: CompileBackend::Amd64,
+            pre_backend_options: PreBackendOptions::default_with_input(input),
+            backend_options: BackendOptions::default(),
+        };
+        CliCommand::Compile(opts)
+    } else {
+        CliCommand::from_args()
+    };
 
     if let Err(msg) = run_compiler(&cmd) {
         exit_with_error(&msg);
     }
 
-    compiler_lib::timing::print();
+    compiler_shared::timing::print();
 }
 
 use env_logger::{
@@ -338,6 +366,8 @@ macro_rules! until_after_type_check {
         let input = $input;
         setup_io!(let context = input);
 
+        let m_parser = compiler_shared::timing::Measurement::start("frontend::ast_construction");
+
         let mut $strtab = StringTable::new();
         let lexer = Lexer::new(&mut $strtab, &context);
 
@@ -366,11 +396,17 @@ macro_rules! until_after_type_check {
             }
         };
 
+        m_parser.stop();
+
+        let m_typecheck = compiler_shared::timing::Measurement::start("semantics");
+
         let ($type_system, $type_analysis) = crate::semantics::check(&mut $strtab, &ast, &context)
             .unwrap_or_else(|()| {
                 context.diagnostics.write_statistics();
                 exit(1);
             });
+
+        m_typecheck.stop();
 
     }
 }
@@ -436,8 +472,43 @@ fn cmd_compile_firm(options: &CompileFirmOptions) -> Result<(), Error> {
     res
 }
 
-fn cmd_compile(_options: &CompileOptions) -> Result<(), Error> {
-    unimplemented!()
+fn cmd_compile(options: &CompileOptions) -> Result<(), Error> {
+    // TODO make this configurable, as, in theory, it is perceivable that someone
+    // wants to just produce asm and choose their lib externally. (low prio)
+    let rtlib: Box<dyn RTLib> = match options.backend {
+        CompileBackend::Amd64 => box runtime::Mjrt,
+        CompileBackend::Molki => box runtime::Molki,
+    };
+
+    compile_command_common!( let (firm_ctx, bingen) =
+                             (&options.pre_backend_options, &options.backend_options, rtlib));
+
+    let mut backend: Box<dyn backend::AsmBackend> = match options.backend {
+        CompileBackend::Amd64 => {
+            // TODO make this configurable via CLI options
+            let opts = backend::amd64::Options {
+                cconv: backend::amd64::CallingConv::X86_64,
+            };
+            box backend::amd64::Backend { firm_ctx, opts }
+        }
+        CompileBackend::Molki => unimplemented!(),
+    };
+
+    let dump_asm = options
+        .backend_options
+        .dump_assembly
+        .clone()
+        .map(OutputSpecification::File);
+
+    let res = bingen.emit_binary(&mut *backend, dump_asm);
+    if std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP").is_ok() {
+        let path = bingen.stop_and_keep_temp_dir();
+        eprintln!(
+            "Temporary compilation directory was persisted to {:?}",
+            path
+        );
+    }
+    res
 }
 
 enum BinaryGeneratorState {

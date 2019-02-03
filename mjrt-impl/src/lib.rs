@@ -13,7 +13,7 @@ extern "C" {
     pub fn mj_main();
 }
 
-pub type MjInt = i32;
+pub type MjInt = i64;
 
 macro_rules! mjrt_runtimeexception {
     ($fn_name:ident, $description:expr) => {
@@ -68,7 +68,7 @@ pub extern "C" fn mjrt_system_in_read() -> MjInt {
     let mut byte: [u8; 1] = [0];
 
     match stdin().read_exact(&mut byte) {
-        Ok(()) => i32::from(byte[0]),
+        Ok(()) => i64::from(byte[0]),
         Err(_) => -1,
     }
 }
@@ -76,7 +76,10 @@ pub extern "C" fn mjrt_system_in_read() -> MjInt {
 #[no_mangle]
 pub extern "C" fn mjrt_system_out_println(num: MjInt) {
     unsafe {
-        libc::printf(CStr::from_bytes_with_nul_unchecked(b"%d\n\0").as_ptr(), num);
+        libc::printf(
+            CStr::from_bytes_with_nul_unchecked(b"%d\n\0").as_ptr(),
+            num as i32,
+        );
     }
 }
 

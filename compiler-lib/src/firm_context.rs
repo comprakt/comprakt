@@ -3,12 +3,13 @@ use crate::{
         runtime::{self, Runtime},
         FirmProgram, Options, ProgramGenerator,
     },
-    optimization,
     strtab::StringTable,
     type_checking::{type_analysis::TypeAnalysis, type_system::TypeSystem},
 };
+
 use lazy_static::lazy_static;
 use libfirm_rs::{bindings, types::TyTrait};
+use optimization;
 use std::{
     ffi::{CStr, CString},
     fs,

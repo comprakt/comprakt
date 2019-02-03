@@ -179,6 +179,14 @@ pub fn default_label(node: &Node) -> Label {
     label
 }
 
+pub fn escape_record_content(text: &str) -> String {
+    text.replace("|", "\\|")
+        .replace("{", "\\{")
+        .replace("}", "\\}")
+        .replace("<", "\\<")
+        .replace(">", "\\>")
+}
+
 impl<S: BuildHasher> LabelMaker<Node> for HashMap<Node, Label, S> {
     fn label_for_node(&self, node: &Node) -> Label {
         self.get(&node)

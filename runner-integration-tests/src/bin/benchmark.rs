@@ -1,13 +1,11 @@
 #![feature(duration_as_u128)]
 //! Executes all mjtests in the /exec/big folder.
 use compiler_cli::optimization_arg;
-use compiler_lib::{
-    optimization,
-    timing::{AsciiDisp, CompilerMeasurements, SingleMeasurement},
-};
+use compiler_shared::timing::{AsciiDisp, CompilerMeasurements, SingleMeasurement};
 use humantime::format_duration;
+use optimization;
 use regex::Regex;
-use runner_integration_tests::{compiler_call, CompilerCall, CompilerPhase};
+use runner_integration_tests::{compiler_call, Backend, CompilerCall, CompilerPhase};
 use stats::OnlineStats;
 use std::{
     collections::HashMap,
@@ -73,10 +71,11 @@ fn profile_compiler(
     optimizations: optimization::Level,
 ) -> Option<CompilerMeasurements> {
     let mut cmd = compiler_call(
-        CompilerCall::RawCompiler(CompilerPhase::BinaryLibfirm {
+        CompilerCall::RawCompiler(CompilerPhase::Binary {
             // TODO: use temp dir, don't trash
             output: test.minijava.with_extension("out"),
             assembly: None,
+            backend: Backend::Libfirm,
             optimizations,
         }),
         &test.minijava,

@@ -68,6 +68,10 @@ impl Entity {
             }
         }
     }
+
+    pub fn offset(self) -> i32 {
+        unsafe { bindings::get_entity_offset(self.0) }
+    }
 }
 
 impl Hash for Entity {

@@ -5,6 +5,7 @@ use crate::{
     Entity, Graph, Mode,
 };
 use std::{
+    collections::HashSet,
     fmt,
     hash::{Hash, Hasher},
 };
@@ -17,6 +18,37 @@ impl Node {
     pub fn wrap(ir_node: *mut bindings::ir_node) -> Node {
         //NodeFactory::new().create(ir_node)
         NODE_FACTORY.create(ir_node)
+    }
+
+    pub fn is_proj_kind_argtuple_arg(n: Self) -> bool {
+        if let Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) = n {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn must_member(self) -> Member {
+        assert!(Node::is_member(self));
+        Member::new(self.internal_ir_node())
+    }
+
+    pub fn must_sel(self) -> Sel {
+        assert!(Node::is_sel(self));
+        Sel::new(self.internal_ir_node())
+    }
+
+    pub fn must_phi(self) -> Phi {
+        assert!(Node::is_phi(self));
+        Phi::new(self.internal_ir_node())
+    }
+
+    pub fn opt_phi(self) -> Option<Phi> {
+        if Node::is_phi(self) {
+            Some(Phi::new(self.internal_ir_node()))
+        } else {
+            None
+        }
     }
 }
 
@@ -110,10 +142,12 @@ pub trait NodeTrait {
     }
 
     fn out_nodes(&self) -> OutNodeIterator {
+        self.graph().assure_outs();
         OutNodeIterator::new(self.internal_ir_node())
     }
 
     fn out_nodes_ex(&self) -> OutNodeExIterator {
+        self.graph().assure_outs();
         OutNodeExIterator::new(self.internal_ir_node())
     }
 
@@ -159,6 +193,92 @@ pub trait NodeTrait {
             irg: unsafe { bindings::get_irn_irg(self.internal_ir_node()) },
         }
     }
+
+    /// libifrm irg_walk wrapper
+    ///
+    /// Walks over the ir graph, starting at the this node and going to all
+    /// predecessors, i.e., dependencies (operands) of this node.
+    /// Note that this traversal crosses block boundaries, since blocks are
+    /// also just predecessors in the Graph.
+    fn walk<F>(&self, mut walker: F)
+    where
+        F: FnMut(VisitTime, Node),
+        Self: Sized,
+    {
+        // We need the type ascription here, because otherwise rust infers `&mut F`,
+        // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
+        // `closure_handler` doesn't know the concrete `F`.
+        let mut fat_pointer: &mut dyn FnMut(VisitTime, Node) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            use std::ffi::c_void;
+            bindings::irg_walk(
+                self.internal_ir_node(),
+                Some(pre_closure_handler),
+                Some(post_closure_handler),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
+    /// Perform a DFS over all nodes within `block` starting at `self`.
+    /// As soon as a Phi node is reached, that branch of the DFS is canceled.
+    /// There is no callback for a Phi node.
+    /// The primary use case for this API is in codegen.
+    fn walk_dfs_in_block_stop_at_phi_node<Callback>(&self, block: Block, callback: &mut Callback)
+    where
+        Callback: FnMut(Node),
+        Self: Sized,
+    {
+        fn recurse<Callback>(
+            visited: &mut HashSet<Node>,
+            cur_node: Node,
+            block: Block,
+            callback: &mut Callback,
+        ) where
+            Callback: FnMut(Node),
+        {
+            if cur_node.block() == block {
+                let visit_nodes = cur_node
+                    .in_nodes()
+                    .filter(|n| !Node::is_phi(*n))
+                    .collect::<Vec<_>>();
+                log::debug!("DFS PRELOOP visit_nodes.len()={:?}", visit_nodes.len());
+                for operand in visit_nodes {
+                    // cannot filter before the loop because recurse adds to visited
+                    if visited.contains(&operand) {
+                        continue;
+                    }
+                    visited.insert(operand);
+                    recurse(visited, operand, block, callback);
+                }
+                log::debug!("DFS PRE callback for {:?}", cur_node);
+                callback(cur_node);
+                log::debug!("DFS POST callback for {:?}", cur_node);
+            }
+        }
+
+        let mut visited = HashSet::new();
+
+        let this = Node::wrap(self.internal_ir_node());
+        recurse(&mut visited, this, block, callback);
+    }
+}
+
+pub use crate::VisitTime;
+use std::{ffi::c_void, mem};
+
+unsafe extern "C" fn pre_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, Node) = mem::transmute(closure);
+    closure(VisitTime::BeforePredecessors, Node::wrap(node));
+}
+
+unsafe extern "C" fn post_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, Node) = mem::transmute(closure);
+    closure(VisitTime::AfterPredecessors, Node::wrap(node));
 }
 
 simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
@@ -316,6 +436,10 @@ impl Block {
         }
     }
 
+    pub fn all_nodes_in_block(self) -> impl Iterator<Item = Node> {
+        self.out_nodes()
+    }
+
     pub fn dom_depth(self) -> usize {
         unsafe { get_Block_dom_depth(self.internal_ir_node()) as usize }
     }
@@ -333,8 +457,17 @@ simple_node_iterator!(
 );
 
 impl Phi {
-    pub fn phi_preds(self) -> PhiPredsIterator {
+    /// `Node` is the result of the phi node when entering this phi's block via
+    /// `Block`
+    pub fn preds(self) -> impl Iterator<Item = (Block, Node)> {
+        // From libfirm docs:
+        // A phi node has 1 input for each predecessor of its block. If a
+        // block is entered from its nth predecessor all phi nodes produce
+        // their nth input as result.
+        let block = self.block();
         PhiPredsIterator::new(self.internal_ir_node())
+            .enumerate()
+            .map(move |(i, pred)| (block.cfg_preds().idx(i as i32).unwrap().block(), pred))
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::*;
-use compiler_lib::optimization;
+use optimization;
 use serde_derive::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -71,21 +71,25 @@ impl BinaryTestData {
     }
 }
 
-pub fn exec_binary_test(input: PathBuf, optimizations: optimization::Level) {
-    let binary_path = input.with_extension("out");
+pub fn exec_binary_test(input: PathBuf, optimizations: optimization::Level, backend: Backend) {
+    let binary_path = input.with_extension(format!("{}.out", backend.to_ascii_label()));
+    let assembly_file = input.with_extension(format!("{}.out.S", backend.to_ascii_label()));
+    let reference_file_path = input.with_extension("out");
+
     let setup = TestSpec {
         references: input.clone(),
-        input,
+        input: input.clone(),
         generate_tentatives: true,
     };
 
     // TODO: instead of panicing when there are no references
     // continue and generate references for the binary.
     let metadata = assert_compiler_phase::<BinaryTestData>(
-        CompilerCall::RawCompiler(CompilerPhase::BinaryLibfirm {
+        CompilerCall::RawCompiler(CompilerPhase::Binary {
             output: binary_path.clone(),
+            backend,
             optimizations,
-            assembly: None,
+            assembly: Some(assembly_file),
         }),
         &setup,
     );
@@ -125,10 +129,12 @@ pub fn exec_binary_test(input: PathBuf, optimizations: optimization::Level) {
 
     assert_output(
         &output,
-        metadata.reference.into_binary_reference_data(&binary_path),
+        metadata
+            .reference
+            .into_binary_reference_data(&reference_file_path),
         &TestSpec {
             input: binary_path.clone(),
-            references: binary_path,
+            references: reference_file_path,
             generate_tentatives: true,
         },
     );
