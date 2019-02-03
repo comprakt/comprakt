@@ -79,6 +79,10 @@
 <span id="79">79</span>
 <span id="80">80</span>
 <span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">bindings</span>,
@@ -122,6 +126,10 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
         <span class="kw">unsafe</span> { <span class="ident">Ty</span>::<span class="ident">from_ir_type</span>(<span class="ident">bindings</span>::<span class="ident">get_entity_type</span>(<span class="self">self</span>.<span class="number">0</span>)) }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">owner</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
+        <span class="kw">unsafe</span> { <span class="ident">Ty</span>::<span class="ident">from_ir_type</span>(<span class="ident">bindings</span>::<span class="ident">get_entity_owner</span>(<span class="self">self</span>.<span class="number">0</span>)) }
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">name</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">CStr</span> {

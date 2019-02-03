@@ -114,6 +114,10 @@ Functions</h2></td></tr>
 <tr class="memitem:ga6a27c4a07505fd86a0d25a689cd6703d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00147.html#ga6a27c4a07505fd86a0d25a689cd6703d">get_Block_ipostdom</a> (const <a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *block)</td></tr>
 <tr class="memdesc:ga6a27c4a07505fd86a0d25a689cd6703d"><td class="mdescLeft">&#160;</td><td class="mdescRight">return immediate postdominator of a block  <a href="#ga6a27c4a07505fd86a0d25a689cd6703d">More...</a><br/></td></tr>
 <tr class="separator:ga6a27c4a07505fd86a0d25a689cd6703d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gadf84649144b93ea1156aceb080e85f57"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00147.html#gadf84649144b93ea1156aceb080e85f57">get_Block_dom_depth</a> (const <a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *bl)</td></tr>
+<tr class="separator:gadf84649144b93ea1156aceb080e85f57"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga3fc6b31b665438203bf6eaca538baf0a"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00147.html#ga3fc6b31b665438203bf6eaca538baf0a">get_Block_postdom_depth</a> (const <a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *bl)</td></tr>
+<tr class="separator:ga3fc6b31b665438203bf6eaca538baf0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga3fdc60cb97ca6dea1ec7806d1cc83070"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00147.html#ga3fdc60cb97ca6dea1ec7806d1cc83070">block_dominates</a> (const <a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *a, const <a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *b)</td></tr>
 <tr class="memdesc:ga3fdc60cb97ca6dea1ec7806d1cc83070"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check, if a block dominates another block.  <a href="#ga3fdc60cb97ca6dea1ec7806d1cc83070">More...</a><br/></td></tr>
 <tr class="separator:ga3fdc60cb97ca6dea1ec7806d1cc83070"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -426,6 +430,23 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="gadf84649144b93ea1156aceb080e85f57"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int get_Block_dom_depth </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td>
+          <td class="paramname"><em>bl</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<dl class="section return"><dt>Returns</dt><dd>Depth of the given block in the dominator tree. </dd></dl>
+
+</div>
+</div>
 <a class="anchor" id="ga619063127cc663908b5c259797ee9d03"></a>
 <div class="memitem">
 <div class="memproto">
@@ -511,6 +532,23 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>return immediate postdominator of a block </p>
+
+</div>
+</div>
+<a class="anchor" id="ga3fc6b31b665438203bf6eaca538baf0a"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int get_Block_postdom_depth </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="a00159.html#gaa86ae27f3059fdeb9ab036ce326d37f2">ir_node</a> *&#160;</td>
+          <td class="paramname"><em>bl</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<dl class="section return"><dt>Returns</dt><dd>Depth of the given block in the postdominator tree. </dd></dl>
 
 </div>
 </div>
@@ -734,7 +772,7 @@ Functions</h2></td></tr>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Wed Jan 23 2019 15:40:09 for libFirm by
+    <li class="footer">Generated on Sun Feb 3 2019 15:36:50 for libFirm by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.6 </li>
   </ul>

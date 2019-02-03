@@ -223,7 +223,7 @@
 <span class="doccomment">/// An optimization that optimizes the whole program by examining all function</span>
 <span class="doccomment">/// graphs at once.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Interprocedural</span> {
-    <span class="kw">fn</span> <span class="ident">optimize</span>(<span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span>;
+    <span class="kw">fn</span> <span class="ident">optimize</span>(<span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span>;
 }
 
 <span class="doccomment">/// An optimization that only works on a single graph and therefore does not</span>
@@ -236,7 +236,7 @@
 <span class="kw">where</span>
     <span class="ident">T</span>: <span class="ident">Local</span>,
 {
-    <span class="kw">fn</span> <span class="ident">optimize</span>(<span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
+    <span class="kw">fn</span> <span class="ident">optimize</span>(<span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">collector</span> <span class="op">=</span> <span class="ident">OutcomeCollector</span>::<span class="ident">new</span>();
         <span class="kw">for</span> <span class="ident">method</span> <span class="kw">in</span> <span class="ident">program</span>.<span class="ident">methods</span>.<span class="ident">values</span>() {
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">graph</span>) <span class="op">=</span> <span class="ident">method</span>.<span class="ident">borrow</span>().<span class="ident">graph</span> {
@@ -265,7 +265,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Kind</span> {
-    <span class="kw">fn</span> <span class="ident">run</span>(<span class="self">self</span>, <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
+    <span class="kw">fn</span> <span class="ident">run</span>(<span class="self">self</span>, <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Kind</span>::<span class="ident">ConstantFolding</span> <span class="op">=&gt;</span> <span class="ident">ConstantFolding</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
             <span class="ident">Kind</span>::<span class="ident">Inline</span> <span class="op">=&gt;</span> <span class="ident">Inlining</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
@@ -343,7 +343,7 @@
         <span class="self">self</span>.<span class="ident">flags</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">f</span> <span class="op">==</span> <span class="ident">flag</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
+    <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
         <span class="kw">let</span> <span class="ident">outcome</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">kind</span>.<span class="ident">run</span>(<span class="ident">program</span>);
         <span class="self">self</span>.<span class="ident">apply_flags</span>(<span class="ident">program</span>);
         <span class="ident">outcome</span>
@@ -396,7 +396,7 @@
 <span class="kw">impl</span> <span class="ident">Level</span> {
     <span class="doccomment">/// run the list of optimizations defined by the optimization level</span>
     <span class="doccomment">/// on the given program</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run_all</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run_all</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) {
         <span class="macro">breakpoint</span><span class="macro">!</span>(<span class="string">&quot;before optimization sequence&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">program</span>);
         <span class="kw">let</span> <span class="ident">measurement_all</span> <span class="op">=</span> <span class="ident">Measurement</span>::<span class="ident">start</span>(<span class="string">&quot;optimization phase&quot;</span>);
 

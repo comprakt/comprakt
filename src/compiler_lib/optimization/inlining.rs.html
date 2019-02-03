@@ -282,6 +282,66 @@
 <span id="282">282</span>
 <span id="283">283</span>
 <span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">analysis</span>::<span class="ident">CallGraph</span>,
@@ -290,20 +350,31 @@
     <span class="ident">optimization</span>::{<span class="self">self</span>, <span class="ident">Outcome</span>},
     <span class="ident">ref_eq</span>::<span class="ident">RefEq</span>,
 };
-<span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">nodes</span>::<span class="kw-2">*</span>, <span class="ident">Graph</span>};
+<span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">nodes</span>::<span class="kw-2">*</span>, <span class="ident">types</span>::<span class="ident">ClassTy</span>, <span class="ident">Graph</span>};
 <span class="kw">use</span> <span class="ident">petgraph</span>::<span class="ident">algo</span>::{<span class="ident">condensation</span>, <span class="ident">toposort</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">hash_map</span>::<span class="ident">HashMap</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Inlining</span>;
 
 <span class="kw">impl</span> <span class="ident">optimization</span>::<span class="ident">Interprocedural</span> <span class="kw">for</span> <span class="ident">Inlining</span> {
-    <span class="kw">fn</span> <span class="ident">optimize</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>(<span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
+    <span class="kw">fn</span> <span class="ident">optimize</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>(<span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
         <span class="kw">let</span> <span class="ident">g</span> <span class="op">=</span> <span class="ident">CallGraph</span>::<span class="ident">new</span>(<span class="ident">program</span>).<span class="ident">construct</span>();
+        <span class="macro">breakpoint</span><span class="macro">!</span>(<span class="string">&quot;before inline: graph&quot;</span>, <span class="ident">g</span>, <span class="kw-2">&amp;</span><span class="op">|</span><span class="ident">n</span>: <span class="kw-2">&amp;</span><span class="ident">FirmMethodP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span><span class="op">|</span> {
+            <span class="ident">Label</span>::<span class="ident">from_text</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">n</span>.<span class="ident">borrow</span>().<span class="ident">entity</span>.<span class="ident">name_string</span>()))
+        });
+
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">g</span> <span class="op">=</span> <span class="ident">condensation</span>(<span class="ident">g</span>, <span class="bool-val">false</span>);
 
         <span class="ident">g</span>.<span class="ident">reverse</span>();
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">is_recursive</span> <span class="op">=</span> <span class="ident">HashSet</span>::<span class="ident">new</span>();
+
+        <span class="comment">// remove all loops after condensation</span>
         <span class="ident">g</span>.<span class="ident">retain_edges</span>(<span class="op">|</span><span class="ident">g</span>, <span class="ident">e</span><span class="op">|</span> {
             <span class="kw">let</span> (<span class="ident">n1</span>, <span class="ident">n2</span>) <span class="op">=</span> <span class="ident">g</span>.<span class="ident">edge_endpoints</span>(<span class="ident">e</span>).<span class="ident">unwrap</span>();
+            <span class="kw">if</span> <span class="ident">n1</span> <span class="op">==</span> <span class="ident">n2</span> {
+                <span class="ident">is_recursive</span>.<span class="ident">insert</span>(<span class="ident">n1</span>);
+            }
             <span class="ident">n1</span> <span class="op">!=</span> <span class="ident">n2</span>
         });
 
@@ -324,14 +395,40 @@
         });
 
         <span class="kw">for</span> <span class="ident">node</span> <span class="kw">in</span> <span class="ident">topo_sort</span> {
+            <span class="kw">if</span> <span class="ident">is_recursive</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>) {
+                <span class="comment">// TODO: skip this continue to provoke another bug.</span>
+                <span class="comment">// We should investigate this.</span>
+                <span class="kw">continue</span>;
+            }
+
             <span class="kw">if</span> <span class="ident">g</span>.<span class="ident">node_weight</span>(<span class="ident">node</span>).<span class="ident">unwrap</span>().<span class="ident">len</span>() <span class="op">!=</span> <span class="number">1</span> {
                 <span class="kw">continue</span>;
             }
 
+            <span class="kw">let</span> <span class="ident">method</span> <span class="op">=</span> <span class="ident">g</span>.<span class="ident">node_weight</span>(<span class="ident">node</span>).<span class="ident">unwrap</span>().<span class="ident">first</span>().<span class="ident">unwrap</span>();
+
             <span class="kw">for</span> <span class="ident">edge</span> <span class="kw">in</span> <span class="ident">g</span>.<span class="ident">edges_directed</span>(<span class="ident">node</span>, <span class="ident">petgraph</span>::<span class="ident">Direction</span>::<span class="ident">Outgoing</span>) {
                 <span class="ident">Inline</span>::<span class="ident">inline</span>(<span class="kw-2">*</span><span class="ident">edge</span>.<span class="ident">weight</span>()).<span class="ident">unwrap</span>();
             }
+
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">is_recursive</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>) {
+                <span class="kw">let</span> <span class="ident">method_entity</span> <span class="op">=</span> <span class="ident">method</span>.<span class="ident">borrow</span>().<span class="ident">entity</span>;
+                <span class="kw">let</span> <span class="ident">class_ty</span> <span class="op">=</span> <span class="ident">ClassTy</span>::<span class="ident">from</span>(<span class="ident">method_entity</span>.<span class="ident">owner</span>()).<span class="ident">unwrap</span>();
+                <span class="ident">class_ty</span>.<span class="ident">remove_member</span>(<span class="ident">method_entity</span>);
+                <span class="kw">if</span> <span class="op">!</span><span class="ident">method</span>.<span class="ident">borrow</span>().<span class="ident">def</span>.<span class="ident">is_main</span> {
+                    <span class="ident">program</span>.<span class="ident">methods</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">RefEq</span>(<span class="ident">method</span>.<span class="ident">borrow</span>().<span class="ident">def</span>.<span class="ident">clone</span>()));
+                }
+            }
         }
+
+        <span class="macro">breakpoint</span><span class="macro">!</span>(
+            <span class="string">&quot;after inline: graph&quot;</span>,
+            <span class="ident">CallGraph</span>::<span class="ident">new</span>(<span class="ident">program</span>).<span class="ident">construct</span>(),
+            <span class="kw-2">&amp;</span><span class="op">|</span><span class="ident">n</span>: <span class="kw-2">&amp;</span><span class="ident">FirmMethodP</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span><span class="op">|</span> <span class="ident">Label</span>::<span class="ident">from_text</span>(<span class="macro">format</span><span class="macro">!</span>(
+                <span class="string">&quot;{:?}&quot;</span>,
+                <span class="ident">n</span>.<span class="ident">borrow</span>().<span class="ident">entity</span>.<span class="ident">name_string</span>()
+            ))
+        );
 
         <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Inline finished&quot;</span>);
 
@@ -350,6 +447,7 @@
 
 <span class="kw">struct</span> <span class="ident">Inline</span> {
     <span class="ident">graph</span>: <span class="ident">Graph</span>,
+    <span class="ident">depth</span>: <span class="ident">usize</span>,
 }
 
 <span class="kw">struct</span> <span class="ident">MoveResult</span> {
@@ -361,7 +459,7 @@
         <span class="kw">let</span> <span class="ident">graph</span> <span class="op">=</span> <span class="ident">call</span>.<span class="ident">graph</span>();
         <span class="ident">graph</span>.<span class="ident">assure_outs</span>();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">Inline</span> { <span class="ident">graph</span> };
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">Inline</span> { <span class="ident">graph</span>, <span class="ident">depth</span>: <span class="number">0</span> };
         <span class="ident">i</span>.<span class="ident">inline_with_context</span>(<span class="ident">call</span>)
     }
 
@@ -522,6 +620,10 @@
         }
     }
 
+    <span class="kw">fn</span> <span class="ident">depth_str</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">String</span> {
+        <span class="string">&quot;| &quot;</span>.<span class="ident">repeat</span>(<span class="self">self</span>.<span class="ident">depth</span>)
+    }
+
     <span class="kw">fn</span> <span class="ident">copy</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">old</span>: <span class="ident">Node</span>,
@@ -529,11 +631,6 @@
         <span class="ident">call_to_inline</span>: <span class="ident">Call</span>,
         <span class="ident">start_block</span>: <span class="ident">Block</span>,
     ) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">nd</span>) <span class="op">=</span> <span class="ident">map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">old</span>) {
-            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Reused already copied {} for {:?}&quot;</span>, <span class="ident">nd</span>.<span class="ident">node_id</span>(), <span class="ident">old</span>);
-            <span class="kw">return</span> <span class="kw-2">*</span><span class="ident">nd</span>;
-        }
-
         <span class="kw">match</span> <span class="ident">old</span> {
             <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">_proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Start_TArgs_Arg</span>(<span class="ident">idx</span>, <span class="ident">_start</span>, <span class="kw">_</span>)) <span class="op">=&gt;</span> {
                 <span class="kw">return</span> <span class="ident">call_to_inline</span>.<span class="ident">args</span>().<span class="ident">idx</span>(<span class="ident">idx</span> <span class="kw">as</span> <span class="ident">i32</span>).<span class="ident">unwrap</span>();
@@ -551,9 +648,26 @@
             ),
         };
 
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">nd</span>) <span class="op">=</span> <span class="ident">map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">old</span>) {
+            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(
+                <span class="string">&quot;{} Reused already copied {} for {:?}&quot;</span>,
+                <span class="self">self</span>.<span class="ident">depth_str</span>(),
+                <span class="ident">nd</span>.<span class="ident">node_id</span>(),
+                <span class="ident">old</span>
+            );
+            <span class="kw">return</span> <span class="kw-2">*</span><span class="ident">nd</span>;
+        }
+
         <span class="kw">let</span> <span class="ident">new_node</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">copy_node_without_ins</span>(<span class="ident">old</span>, <span class="ident">target_block</span>);
-        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Copied {:?} to {}&quot;</span>, <span class="ident">old</span>, <span class="ident">new_node</span>.<span class="ident">node_id</span>());
-        <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">old</span>, <span class="ident">new_node</span>);
+        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(
+            <span class="string">&quot;{} Copied {:?} to {}&quot;</span>,
+            <span class="self">self</span>.<span class="ident">depth_str</span>(),
+            <span class="ident">old</span>,
+            <span class="ident">new_node</span>.<span class="ident">node_id</span>()
+        );
+        <span class="self">self</span>.<span class="ident">depth</span> <span class="op">+=</span> <span class="number">1</span>;
+        <span class="kw">let</span> <span class="ident">existing</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">old</span>, <span class="ident">new_node</span>);
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">existing</span>.<span class="ident">is_none</span>());
 
         <span class="kw">let</span> <span class="ident">new_in_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">old</span>
             .<span class="ident">in_nodes</span>()
@@ -562,7 +676,13 @@
 
         <span class="ident">new_node</span>.<span class="ident">set_in_nodes</span>(<span class="kw-2">&amp;</span><span class="ident">new_in_nodes</span>);
         <span class="comment">// new_in_nodes might not be finished yet</span>
-        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Completed copying from {:?} to {}&quot;</span>, <span class="ident">old</span>, <span class="ident">new_node</span>.<span class="ident">node_id</span>());
+        <span class="self">self</span>.<span class="ident">depth</span> <span class="op">-=</span> <span class="number">1</span>;
+        <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(
+            <span class="string">&quot;{} Completed copying from {:?} to {}&quot;</span>,
+            <span class="self">self</span>.<span class="ident">depth_str</span>(),
+            <span class="ident">old</span>,
+            <span class="ident">new_node</span>.<span class="ident">node_id</span>()
+        );
 
         <span class="ident">new_node</span>
     }

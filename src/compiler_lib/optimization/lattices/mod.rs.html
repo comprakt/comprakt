@@ -184,11 +184,50 @@
 <span id="184">184</span>
 <span id="185">185</span>
 <span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">mod</span> <span class="ident">heap</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">heap</span>::<span class="kw-2">*</span>;
 
-<span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">Tarval</span>, <span class="ident">TarvalKind</span>};
+<span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">Mode</span>, <span class="ident">Tarval</span>, <span class="ident">TarvalKind</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt</span>, <span class="ident">rc</span>::<span class="ident">Rc</span>};
 
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Lattice</span>: <span class="ident">Eq</span> <span class="op">+</span> <span class="ident">Clone</span> {
@@ -272,11 +311,10 @@
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Val</span> {
     <span class="ident">NoInfoYet</span>,
     <span class="ident">Tarval</span>(<span class="ident">Tarval</span>),
-    <span class="ident">ObjPointers</span>(<span class="ident">PointerSet</span>),
-    <span class="ident">ArrPointers</span>(<span class="ident">PointerSet</span>),
+    <span class="ident">Pointer</span>(<span class="ident">Pointer</span>),
     <span class="ident">Heap</span>(<span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">Heap</span><span class="op">&gt;</span>),
     <span class="ident">Tuple</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span>),
-    <span class="ident">NonConstant</span>,
+    <span class="ident">Invalid</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Val</span> {
@@ -284,9 +322,27 @@
         <span class="ident">Val</span>::<span class="ident">NoInfoYet</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_tarval</span>(<span class="ident">val</span>: <span class="ident">Tarval</span>) <span class="op">-&gt;</span> <span class="ident">Val</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">zero</span>(<span class="ident">mode</span>: <span class="ident">Mode</span>) <span class="op">-&gt;</span> <span class="ident">Val</span> {
+        <span class="kw">if</span> <span class="ident">mode</span>.<span class="ident">is_pointer</span>() {
+            <span class="ident">Val</span>::<span class="ident">Pointer</span>(<span class="ident">Pointer</span>::<span class="ident">null</span>())
+        } <span class="kw">else</span> {
+            <span class="ident">Val</span>::<span class="ident">Tarval</span>(<span class="ident">Tarval</span>::<span class="ident">zero</span>(<span class="ident">mode</span>))
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_tarval_initially</span>(<span class="ident">val</span>: <span class="ident">Tarval</span>, <span class="ident">mode</span>: <span class="ident">Mode</span>) <span class="op">-&gt;</span> <span class="ident">Val</span> {
         <span class="kw">match</span> <span class="ident">val</span>.<span class="ident">kind</span>() {
-            <span class="ident">TarvalKind</span>::<span class="ident">Bad</span> <span class="op">=&gt;</span> <span class="ident">Val</span>::<span class="ident">NonConstant</span>,
+            <span class="ident">TarvalKind</span>::<span class="ident">Bad</span> <span class="kw">if</span> <span class="ident">mode</span>.<span class="ident">is_pointer</span>() <span class="op">=&gt;</span> {
+                <span class="ident">Val</span>::<span class="ident">Pointer</span>(<span class="ident">Pointer</span>::<span class="ident">to</span>(<span class="ident">MemoryArea</span>::<span class="ident">unrestricted</span>()))
+            }
+            <span class="ident">TarvalKind</span>::<span class="ident">Unknown</span> <span class="op">=&gt;</span> <span class="ident">Val</span>::<span class="ident">NoInfoYet</span>,
+            <span class="kw">_</span> <span class="kw">if</span> <span class="ident">mode</span>.<span class="ident">is_pointer</span>() <span class="op">&amp;&amp;</span> <span class="ident">val</span>.<span class="ident">is_zero</span>() <span class="op">=&gt;</span> <span class="ident">Val</span>::<span class="ident">Pointer</span>(<span class="ident">Pointer</span>::<span class="ident">null</span>()),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">Val</span>::<span class="ident">Tarval</span>(<span class="ident">val</span>),
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_tarval_internal</span>(<span class="ident">val</span>: <span class="ident">Tarval</span>) <span class="op">-&gt;</span> <span class="ident">Val</span> {
+        <span class="kw">match</span> <span class="ident">val</span>.<span class="ident">kind</span>() {
             <span class="ident">TarvalKind</span>::<span class="ident">Unknown</span> <span class="op">=&gt;</span> <span class="ident">Val</span>::<span class="ident">NoInfoYet</span>,
             <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">Val</span>::<span class="ident">Tarval</span>(<span class="ident">val</span>),
         }
@@ -298,7 +354,6 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">tuple_1</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Val</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Val</span>::<span class="ident">NonConstant</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Val</span>::<span class="ident">NonConstant</span>,
             <span class="ident">Val</span>::<span class="ident">Tuple</span>(<span class="ident">t1</span>, <span class="ident">_t2</span>) <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">t1</span>,
             <span class="ident">Val</span>::<span class="ident">NoInfoYet</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Val</span>::<span class="ident">NoInfoYet</span>,
             <span class="ident">val</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Invalid data type {:?}&quot;</span>, <span class="ident">val</span>),
@@ -307,24 +362,40 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">tuple_2</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Val</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Val</span>::<span class="ident">NonConstant</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Val</span>::<span class="ident">NonConstant</span>,
             <span class="ident">Val</span>::<span class="ident">Tuple</span>(<span class="ident">_t1</span>, <span class="ident">t2</span>) <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">t2</span>,
             <span class="ident">Val</span>::<span class="ident">NoInfoYet</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Val</span>::<span class="ident">NoInfoYet</span>,
             <span class="ident">val</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Invalid data type {:?}&quot;</span>, <span class="ident">val</span>),
         }
     }
+
+    <span class="comment">/*pub fn update_dom_depth(self, dom_depth: usize) -&gt; Self {
+        match self {
+            //Val::Heap(heap) =&gt; heap.update_dom_depth
+            Val::NoInfoYet | Val::Tarval(_) =&gt; self,
+            Val::Heap(heap) =&gt; {
+                let mut heap = (&amp;*heap).clone();
+                heap.update_dom_depth(dom_depth);
+                Val::Heap(Rc::new(heap))
+            }
+            Val::Pointer(ptrs) =&gt; {
+                let mut ptrs = ptrs.clone();
+                ptrs.update_dom_depth(dom_depth);
+                Val::Pointer(ptrs)
+            }
+            val =&gt; panic!(&quot;{:?} is not supported.&quot;, val),
+        }
+    }*/</span>
 }
 
 <span class="kw">impl</span> <span class="ident">Lattice</span> <span class="kw">for</span> <span class="ident">Val</span> {
     <span class="kw">fn</span> <span class="ident">is_progression_of</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
         <span class="kw">use</span> <span class="self">self</span>::<span class="ident">Val</span>::<span class="kw-2">*</span>;
         <span class="kw">match</span> (<span class="self">self</span>, <span class="ident">other</span>) {
-            (<span class="ident">NonConstant</span>, <span class="kw">_</span>) <span class="op">|</span> (<span class="kw">_</span>, <span class="ident">NoInfoYet</span>) <span class="op">=&gt;</span> <span class="bool-val">true</span>,
+            <span class="comment">// todo</span>
+            <span class="comment">//(NonConst(_), _) =&gt; true,</span>
+            (<span class="kw">_</span>, <span class="ident">NoInfoYet</span>) <span class="op">=&gt;</span> <span class="bool-val">true</span>,
             (<span class="ident">Tarval</span>(<span class="ident">val1</span>), <span class="ident">Tarval</span>(<span class="ident">val2</span>)) <span class="op">=&gt;</span> <span class="ident">val1</span>.<span class="ident">lattice_eq</span>(<span class="kw-2">*</span><span class="ident">val2</span>),
-            (<span class="ident">ObjPointers</span>(<span class="ident">ps</span>), <span class="ident">Tarval</span>(<span class="ident">val</span>)) <span class="op">=&gt;</span> <span class="ident">ps</span>.<span class="ident">can_be_null</span>() <span class="op">&amp;&amp;</span> <span class="ident">val</span>.<span class="ident">is_zero</span>(),
-            (<span class="ident">ArrPointers</span>(<span class="ident">ps</span>), <span class="ident">Tarval</span>(<span class="ident">val</span>)) <span class="op">=&gt;</span> <span class="ident">ps</span>.<span class="ident">can_be_null</span>() <span class="op">&amp;&amp;</span> <span class="ident">val</span>.<span class="ident">is_zero</span>(),
-            (<span class="ident">ObjPointers</span>(<span class="ident">ps1</span>), <span class="ident">ObjPointers</span>(<span class="ident">ps2</span>)) <span class="op">=&gt;</span> <span class="ident">ps1</span>.<span class="ident">is_progression_of</span>(<span class="ident">ps2</span>),
-            (<span class="ident">ArrPointers</span>(<span class="ident">ps1</span>), <span class="ident">ArrPointers</span>(<span class="ident">ps2</span>)) <span class="op">=&gt;</span> <span class="ident">ps1</span>.<span class="ident">is_progression_of</span>(<span class="ident">ps2</span>),
+            (<span class="ident">Pointer</span>(<span class="ident">ps1</span>), <span class="ident">Pointer</span>(<span class="ident">ps2</span>)) <span class="op">=&gt;</span> <span class="ident">ps1</span>.<span class="ident">is_progression_of</span>(<span class="ident">ps2</span>),
             (<span class="ident">Heap</span>(<span class="ident">heap1</span>), <span class="ident">Heap</span>(<span class="ident">heap2</span>)) <span class="op">=&gt;</span> <span class="ident">heap1</span>.<span class="ident">is_progression_of</span>(<span class="ident">heap2</span>),
             (<span class="ident">Tuple</span>(<span class="ident">a1</span>, <span class="ident">a2</span>), <span class="ident">Tuple</span>(<span class="ident">b1</span>, <span class="ident">b2</span>)) <span class="op">=&gt;</span> <span class="ident">a1</span>.<span class="ident">is_progression_of</span>(<span class="ident">b1</span>) <span class="op">&amp;&amp;</span> <span class="ident">a2</span>.<span class="ident">is_progression_of</span>(<span class="ident">b2</span>),
             <span class="kw">_</span> <span class="op">=&gt;</span> <span class="bool-val">false</span>,
@@ -334,27 +405,33 @@
     <span class="kw">fn</span> <span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">use</span> <span class="self">self</span>::<span class="ident">Val</span>::<span class="kw-2">*</span>;
         <span class="kw">match</span> (<span class="self">self</span>, <span class="ident">other</span>) {
-            (<span class="ident">NonConstant</span>, <span class="kw">_</span>) <span class="op">|</span> (<span class="kw">_</span>, <span class="ident">NonConstant</span>) <span class="op">=&gt;</span> <span class="ident">NonConstant</span>,
+            <span class="comment">//(NonConst(ptrs1), NonConst(ptrs2)) =&gt; NonConst(ptrs1.join(ptrs2)),</span>
+            <span class="comment">//| NonConstant) =&gt; NonConstant,</span>
             (<span class="ident">NoInfoYet</span>, <span class="ident">arg2</span>) <span class="op">=&gt;</span> <span class="ident">arg2</span>.<span class="ident">clone</span>(),
             (<span class="ident">arg1</span>, <span class="ident">NoInfoYet</span>) <span class="op">=&gt;</span> <span class="ident">arg1</span>.<span class="ident">clone</span>(),
             (<span class="ident">Tarval</span>(<span class="ident">val1</span>), <span class="ident">Tarval</span>(<span class="ident">val2</span>)) <span class="op">=&gt;</span> {
-                <span class="kw">if</span> <span class="ident">val1</span>.<span class="ident">lattice_eq</span>(<span class="kw-2">*</span><span class="ident">val2</span>) {
-                    <span class="ident">Tarval</span>(<span class="kw-2">*</span><span class="ident">val1</span>)
-                } <span class="kw">else</span> {
-                    <span class="ident">NonConstant</span>
-                }
+                <span class="ident">Val</span>::<span class="ident">from_tarval_internal</span>(<span class="ident">val1</span>.<span class="ident">join</span>(<span class="kw-2">*</span><span class="ident">val2</span>))
+                <span class="comment">/*if val1.lattice_eq(*val2) {
+                    Tarval(*val1)
+                } else {
+                    NonConstant(Pointer::new_empty())
+                }*/</span>
             }
-            (<span class="ident">Tarval</span>(<span class="ident">val</span>), <span class="ident">ObjPointers</span>(<span class="ident">ps</span>)) <span class="op">|</span> (<span class="ident">ObjPointers</span>(<span class="ident">ps</span>), <span class="ident">Tarval</span>(<span class="ident">val</span>)) <span class="kw">if</span> <span class="ident">val</span>.<span class="ident">is_zero</span>() <span class="op">=&gt;</span> {
-                <span class="ident">ObjPointers</span>(<span class="ident">ps</span>.<span class="ident">with_null</span>())
-            }
-            (<span class="ident">Tarval</span>(<span class="ident">val</span>), <span class="ident">ArrPointers</span>(<span class="ident">ps</span>)) <span class="op">|</span> (<span class="ident">ArrPointers</span>(<span class="ident">ps</span>), <span class="ident">Tarval</span>(<span class="ident">val</span>)) <span class="kw">if</span> <span class="ident">val</span>.<span class="ident">is_zero</span>() <span class="op">=&gt;</span> {
-                <span class="ident">ArrPointers</span>(<span class="ident">ps</span>.<span class="ident">with_null</span>())
-            }
-            (<span class="ident">ObjPointers</span>(<span class="ident">ps1</span>), <span class="ident">ObjPointers</span>(<span class="ident">ps2</span>)) <span class="op">=&gt;</span> <span class="ident">ObjPointers</span>(<span class="ident">ps1</span>.<span class="ident">join</span>(<span class="ident">ps2</span>)),
-            (<span class="ident">ArrPointers</span>(<span class="ident">ps1</span>), <span class="ident">ArrPointers</span>(<span class="ident">ps2</span>)) <span class="op">=&gt;</span> <span class="ident">ArrPointers</span>(<span class="ident">ps1</span>.<span class="ident">join</span>(<span class="ident">ps2</span>)),
+            (<span class="ident">Pointer</span>(<span class="ident">ps1</span>), <span class="ident">Pointer</span>(<span class="ident">ps2</span>)) <span class="op">=&gt;</span> <span class="ident">Pointer</span>(<span class="ident">ps1</span>.<span class="ident">join</span>(<span class="ident">ps2</span>)),
             (<span class="ident">Heap</span>(<span class="ident">heap1</span>), <span class="ident">Heap</span>(<span class="ident">heap2</span>)) <span class="op">=&gt;</span> <span class="ident">Heap</span>(<span class="ident">Rc</span>::<span class="ident">new</span>(<span class="ident">heap1</span>.<span class="ident">join</span>(<span class="ident">heap2</span>))),
             (<span class="ident">Tuple</span>(<span class="ident">a1</span>, <span class="ident">a2</span>), <span class="ident">Tuple</span>(<span class="ident">b1</span>, <span class="ident">b2</span>)) <span class="op">=&gt;</span> <span class="ident">Val</span>::<span class="ident">tuple</span>(<span class="ident">a1</span>.<span class="ident">join</span>(<span class="ident">b1</span>), <span class="ident">a2</span>.<span class="ident">join</span>(<span class="ident">b2</span>)),
-            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Cannot join values of different types.&quot;</span>),
+            (<span class="ident">Pointer</span>(<span class="ident">ps</span>), <span class="ident">Tarval</span>(<span class="ident">tval</span>)) <span class="op">|</span> (<span class="ident">Tarval</span>(<span class="ident">tval</span>), <span class="ident">Pointer</span>(<span class="ident">ps</span>)) <span class="kw">if</span> <span class="ident">ps</span>.<span class="ident">is_null</span>() <span class="op">=&gt;</span> {
+                <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(
+                    <span class="string">&quot;Join {:?} with {:?} that should happen only when load store is disabled&quot;</span>,
+                    <span class="ident">ps</span>,
+                    <span class="ident">tval</span>
+                );
+                <span class="ident">Tarval</span>(<span class="kw-2">*</span><span class="ident">tval</span>)
+            }
+            (<span class="ident">val1</span>, <span class="ident">val2</span>) <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(
+                <span class="string">&quot;Cannot join value {:?} with {:?} - they have different types.&quot;</span>,
+                <span class="ident">val1</span>, <span class="ident">val2</span>
+            ),
         }
     }
 }
@@ -362,12 +439,13 @@
 <span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">Val</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Val</span>::<span class="ident">ObjPointers</span>(<span class="ident">ptrs</span>) <span class="op">|</span> <span class="ident">Val</span>::<span class="ident">ArrPointers</span>(<span class="ident">ptrs</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{:?}&quot;</span>, <span class="ident">ptrs</span>),
+            <span class="ident">Val</span>::<span class="ident">Pointer</span>(<span class="ident">ptrs</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{:?}&quot;</span>, <span class="ident">ptrs</span>),
             <span class="ident">Val</span>::<span class="ident">Tarval</span>(<span class="ident">val</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{:?}&quot;</span>, <span class="ident">val</span>),
-            <span class="ident">Val</span>::<span class="ident">NonConstant</span> <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Not Const&quot;</span>),
+            <span class="comment">//Val::NonConstant =&gt; write!(f, &quot;Not Const&quot;),</span>
             <span class="ident">Val</span>::<span class="ident">NoInfoYet</span> <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;No info&quot;</span>),
             <span class="ident">Val</span>::<span class="ident">Heap</span>(<span class="ident">heap</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{:?}&quot;</span>, <span class="ident">heap</span>),
             <span class="ident">Val</span>::<span class="ident">Tuple</span>(..) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Tuple&quot;</span>),
+            <span class="ident">Val</span>::<span class="ident">Invalid</span> <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Invalid&quot;</span>),
         }
     }
 }

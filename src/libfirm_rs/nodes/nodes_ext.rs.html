@@ -555,11 +555,110 @@
 <span id="555">555</span>
 <span id="556">556</span>
 <span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
+<span id="656">656</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">nodes_gen</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">bindings</span>,
-    <span class="ident">types</span>::{<span class="ident">ClassTy</span>, <span class="ident">Ty</span>},
+    <span class="ident">types</span>::{<span class="ident">ArrayTy</span>, <span class="ident">ClassTy</span>, <span class="ident">MethodTy</span>, <span class="ident">Ty</span>},
     <span class="ident">Entity</span>, <span class="ident">Graph</span>, <span class="ident">Mode</span>,
 };
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -642,6 +741,10 @@
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">NodeTrait</span> {
     <span class="kw">fn</span> <span class="ident">internal_ir_node</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>;
 
+    <span class="kw">fn</span> <span class="ident">as_node</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
+    }
+
     <span class="comment">// TODO move to graph</span>
     <span class="kw">fn</span> <span class="ident">keep_alive</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">keep_alive</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) }
@@ -652,6 +755,9 @@
     }
 
     <span class="kw">fn</span> <span class="ident">block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Block</span> {
+        <span class="kw">if</span> <span class="ident">Node</span>::<span class="ident">is_block</span>(<span class="self">self</span>.<span class="ident">as_node</span>()) {
+            <span class="kw">return</span> <span class="ident">Block</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>());
+        }
         <span class="kw">let</span> <span class="ident">block_ir_node</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_nodes_block</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) };
         <span class="ident">Block</span>::<span class="ident">new</span>(<span class="ident">block_ir_node</span>)
     }
@@ -866,6 +972,14 @@
             <span class="ident">bindings</span>::<span class="ident">add_immBlock_pred</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>(), <span class="ident">pred</span>.<span class="ident">internal_ir_node</span>());
         }
     }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dom_depth</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="kw">unsafe</span> { <span class="ident">get_Block_dom_depth</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) <span class="kw">as</span> <span class="ident">usize</span> }
+    }
+}
+
+<span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_Block_dom_depth</span>(<span class="ident">bl</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>) <span class="op">-&gt;</span> ::<span class="ident">std</span>::<span class="ident">os</span>::<span class="ident">raw</span>::<span class="ident">c_int</span>;
 }
 
 <span class="macro">simple_node_iterator</span><span class="macro">!</span>(
@@ -941,9 +1055,9 @@
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">IsNewResult</span> {
-    <span class="ident">Yes</span>(<span class="ident">ClassTy</span>),
-    <span class="ident">No</span>,
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">NewKind</span> {
+    <span class="ident">Object</span>(<span class="ident">ClassTy</span>),
+    <span class="ident">Array</span> { <span class="ident">item_ty</span>: <span class="ident">Ty</span>, <span class="ident">item_count</span>: <span class="ident">Node</span> },
 }
 
 <span class="kw">impl</span> <span class="ident">Call</span> {
@@ -951,17 +1065,60 @@
         <span class="ident">CallArgsIterator</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_new</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">IsNewResult</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">addr</span>) <span class="op">=</span> <span class="ident">Node</span>::<span class="ident">as_address</span>(<span class="self">self</span>.<span class="ident">ptr</span>()) {
-            <span class="kw">if</span> <span class="ident">addr</span>.<span class="ident">entity</span>().<span class="ident">name_string</span>() <span class="op">==</span> <span class="string">&quot;mjrt_new&quot;</span> {
-                <span class="kw">let</span> <span class="ident">first_arg</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">args</span>().<span class="ident">idx</span>(<span class="number">0</span>);
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">Node</span>::<span class="ident">Size</span>(<span class="ident">size_node</span>)) <span class="op">=</span> <span class="ident">first_arg</span> {
-                    <span class="kw">let</span> <span class="ident">class_ty</span> <span class="op">=</span> <span class="ident">ClassTy</span>::<span class="ident">from</span>(<span class="ident">size_node</span>.<span class="ident">ty</span>()).<span class="ident">unwrap</span>();
-                    <span class="kw">return</span> <span class="ident">IsNewResult</span>::<span class="ident">Yes</span>(<span class="ident">class_ty</span>);
-                }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">out_single_result</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> {
+        <span class="kw">for</span> <span class="ident">out_node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">out_nodes</span>() {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_TResult</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">out_node</span> {
+                <span class="kw">return</span> <span class="ident">proj</span>.<span class="ident">out_nodes</span>().<span class="ident">idx</span>(<span class="number">0</span>);
             }
         }
-        <span class="ident">IsNewResult</span>::<span class="ident">No</span>
+        <span class="prelude-val">None</span>
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">method_name</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">addr</span>) <span class="op">=</span> <span class="ident">Node</span>::<span class="ident">as_address</span>(<span class="self">self</span>.<span class="ident">ptr</span>()) {
+            <span class="prelude-val">Some</span>(<span class="ident">addr</span>.<span class="ident">entity</span>().<span class="ident">name_string</span>())
+        } <span class="kw">else</span> {
+            <span class="prelude-val">None</span>
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_kind</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NewKind</span><span class="op">&gt;</span> {
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">method_name</span>()<span class="question-mark">?</span> <span class="op">!=</span> <span class="string">&quot;mjrt_new&quot;</span> {
+            <span class="kw">return</span> <span class="prelude-val">None</span>;
+        }
+
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">args</span>().<span class="ident">idx</span>(<span class="number">0</span>)<span class="question-mark">?</span> {
+            <span class="ident">Node</span>::<span class="ident">Size</span>(<span class="ident">size_node</span>) <span class="op">=&gt;</span> {
+                <span class="kw">let</span> <span class="ident">class_ty</span> <span class="op">=</span> <span class="ident">ClassTy</span>::<span class="ident">from</span>(<span class="ident">size_node</span>.<span class="ident">ty</span>()).<span class="ident">unwrap</span>();
+                <span class="prelude-val">Some</span>(<span class="ident">NewKind</span>::<span class="ident">Object</span>(<span class="ident">class_ty</span>))
+            }
+            <span class="ident">Node</span>::<span class="ident">Mul</span>(<span class="ident">mul</span>) <span class="op">=&gt;</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">size_node</span>) <span class="op">=</span> <span class="ident">Node</span>::<span class="ident">as_size</span>(<span class="ident">mul</span>.<span class="ident">right</span>()) {
+                    <span class="kw">let</span> <span class="ident">item_ty</span> <span class="op">=</span> <span class="ident">size_node</span>.<span class="ident">ty</span>();
+                    <span class="kw">let</span> <span class="ident">item_count</span> <span class="op">=</span> <span class="ident">mul</span>.<span class="ident">left</span>();
+                    <span class="prelude-val">Some</span>(<span class="ident">NewKind</span>::<span class="ident">Array</span> {
+                        <span class="ident">item_ty</span>,
+                        <span class="ident">item_count</span>,
+                    })
+                } <span class="kw">else</span> {
+                    <span class="prelude-val">None</span>
+                }
+            }
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">method_ty</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">MethodTy</span> {
+        <span class="kw">unsafe</span> {
+            <span class="ident">MethodTy</span>::<span class="ident">from</span>(<span class="ident">Ty</span>::<span class="ident">from_ir_type</span>(<span class="ident">bindings</span>::<span class="ident">get_Call_type</span>(
+                <span class="self">self</span>.<span class="ident">internal_ir_node</span>(),
+            )))
+            .<span class="ident">unwrap</span>()
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">single_result_ty</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ty</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">method_ty</span>().<span class="ident">single_result_ty</span>()
     }
 }
 
@@ -970,6 +1127,13 @@
 <span class="kw">impl</span> <span class="ident">Size</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
         <span class="kw">unsafe</span> { <span class="ident">Ty</span>::<span class="ident">from_ir_type</span>(<span class="ident">bindings</span>::<span class="ident">get_Size_type</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())) }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Sel</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">element_ty</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
+        <span class="kw">let</span> <span class="ident">arr</span> <span class="op">=</span> <span class="ident">ArrayTy</span>::<span class="ident">from</span>(<span class="self">self</span>.<span class="ident">ty</span>()).<span class="ident">unwrap</span>();
+        <span class="ident">arr</span>.<span class="ident">element_type</span>()
     }
 }
 
@@ -986,27 +1150,33 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Default</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NodeDebugOpts</span> {
-    <span class="ident">short</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span> <span class="ident">short</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span> <span class="ident">new_print_class</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span> <span class="ident">print_id</span>: <span class="ident">bool</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">NodeDebugOpts</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">short</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">short</span>
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_short</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">short</span> <span class="op">=</span> <span class="ident">val</span>;
-        <span class="self">self</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">short</span>: <span class="bool-val">false</span>,
+            <span class="ident">new_print_class</span>: <span class="bool-val">true</span>,
+            <span class="ident">print_id</span>: <span class="bool-val">true</span>,
+        }
     }
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NodeDebugFmt</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">NodeDebug</span> <span class="op">+</span> <span class="ident">Sized</span> <span class="op">+</span> <span class="ident">Copy</span><span class="op">&gt;</span>(<span class="ident">T</span>, <span class="ident">NodeDebugOpts</span>);
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">NodeDebug</span> <span class="op">+</span> <span class="ident">Copy</span><span class="op">&gt;</span> <span class="ident">NodeDebugFmt</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">short</span>(<span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="ident">NodeDebugFmt</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="self">self</span>.<span class="number">1</span>.<span class="ident">with_short</span>(<span class="ident">val</span>))
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">short</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="number">1</span>.<span class="ident">short</span> <span class="op">=</span> <span class="ident">val</span>;
+        <span class="self">self</span>
+    }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_print_class</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="number">1</span>.<span class="ident">new_print_class</span> <span class="op">=</span> <span class="ident">val</span>;
+        <span class="self">self</span>
     }
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with</span>(<span class="self">self</span>, <span class="ident">opts</span>: <span class="ident">NodeDebugOpts</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">NodeDebugFmt</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">opts</span>)
@@ -1028,8 +1198,12 @@
 <span class="comment">// = Debug fmt impls =</span>
 
 <span class="kw">impl</span> <span class="ident">NodeDebug</span> <span class="kw">for</span> <span class="ident">Proj</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>, <span class="ident">_opts</span>: <span class="ident">NodeDebugOpts</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Proj {}: {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>(), <span class="self">self</span>.<span class="ident">kind</span>())
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>, <span class="ident">opts</span>: <span class="ident">NodeDebugOpts</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="kw">if</span> <span class="ident">opts</span>.<span class="ident">short</span> {
+            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Proj {}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>())
+        } <span class="kw">else</span> {
+            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Proj {}: {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>(), <span class="self">self</span>.<span class="ident">kind</span>())
+        }
     }
 }
 
@@ -1041,15 +1215,39 @@
 
 <span class="kw">impl</span> <span class="ident">NodeDebug</span> <span class="kw">for</span> <span class="ident">Call</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>, <span class="ident">opts</span>: <span class="ident">NodeDebugOpts</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="kw">if</span> <span class="ident">opts</span>.<span class="ident">short</span> {
-            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Call {}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>())
-        } <span class="kw">else</span> {
-            <span class="macro">write</span><span class="macro">!</span>(
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">new_kind</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">NewKind</span>::<span class="ident">Object</span>(<span class="ident">class_ty</span>)) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
                 <span class="ident">f</span>,
-                <span class="string">&quot;Call to {} {}&quot;</span>,
-                <span class="self">self</span>.<span class="ident">ptr</span>().<span class="ident">debug_fmt</span>().<span class="ident">short</span>(<span class="bool-val">true</span>),
+                <span class="string">&quot;New{} {}&quot;</span>,
+                <span class="kw">if</span> <span class="ident">opts</span>.<span class="ident">new_print_class</span> {
+                    <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot; {:?}&quot;</span>, <span class="ident">class_ty</span>)
+                } <span class="kw">else</span> {
+                    <span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>()
+                },
                 <span class="self">self</span>.<span class="ident">node_id</span>()
-            )
+            ),
+            <span class="prelude-val">Some</span>(<span class="ident">NewKind</span>::<span class="ident">Array</span> { <span class="ident">item_ty</span>, .. }) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
+                <span class="ident">f</span>,
+                <span class="string">&quot;New{}[] {}&quot;</span>,
+                <span class="kw">if</span> <span class="ident">opts</span>.<span class="ident">new_print_class</span> {
+                    <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot; {:?}&quot;</span>, <span class="ident">item_ty</span>)
+                } <span class="kw">else</span> {
+                    <span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>()
+                },
+                <span class="self">self</span>.<span class="ident">node_id</span>()
+            ),
+            <span class="kw">_</span> <span class="op">=&gt;</span> {
+                <span class="kw">if</span> <span class="ident">opts</span>.<span class="ident">short</span> {
+                    <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Call {}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>())
+                } <span class="kw">else</span> {
+                    <span class="macro">write</span><span class="macro">!</span>(
+                        <span class="ident">f</span>,
+                        <span class="string">&quot;Call to {} {}&quot;</span>,
+                        <span class="self">self</span>.<span class="ident">ptr</span>().<span class="ident">debug_fmt</span>().<span class="ident">short</span>(<span class="bool-val">true</span>),
+                        <span class="self">self</span>.<span class="ident">node_id</span>()
+                    )
+                }
+            }
         }
     }
 }
