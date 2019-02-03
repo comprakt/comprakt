@@ -193,11 +193,12 @@ impl Diagnostics {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum MessageLevel {
     Error,
     Warning,
     Info,
+    Allow,
 }
 
 impl MessageLevel {
@@ -209,6 +210,7 @@ impl MessageLevel {
             MessageLevel::Error => Some(Color::Red),
             MessageLevel::Warning => Some(Color::Yellow),
             MessageLevel::Info => Some(Color::Cyan),
+            MessageLevel::Allow => None,
         }
     }
 
@@ -217,6 +219,17 @@ impl MessageLevel {
             MessageLevel::Error => "error",
             MessageLevel::Warning => "warning",
             MessageLevel::Info => "info",
+            MessageLevel::Allow => "allow",
+        }
+    }
+
+    pub fn from_string(level: &str) -> Option<Self> {
+        match level {
+            "allow" => Some(MessageLevel::Allow),
+            "info" => Some(MessageLevel::Info),
+            "warning" => Some(MessageLevel::Warning),
+            "error" => Some(MessageLevel::Error),
+            _ => None,
         }
     }
 }
