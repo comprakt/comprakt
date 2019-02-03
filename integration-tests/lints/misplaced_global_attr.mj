@@ -1,0 +1,6 @@
+class Foo {
+    public static void main(String[] args) {
+    }
+}
+
+?!inline /* global attributes have to be at the beginning of a file */

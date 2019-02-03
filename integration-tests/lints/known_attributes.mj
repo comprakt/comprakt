@@ -1,0 +1,14 @@
+?!noinline
+
+?info:not_on_bool_literal
+class Foo {
+    public static void main(String[] args) {
+        boolean x = !false;
+    }
+
+    ?inline
+    public void f(int x) {
+        boolean y = !true;
+    }
+}
+
