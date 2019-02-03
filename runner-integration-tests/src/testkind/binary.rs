@@ -75,7 +75,7 @@ pub fn exec_binary_test(input: PathBuf, optimizations: optimization::Level, back
     let binary_path = input.with_extension("out");
     let setup = TestSpec {
         references: input.clone(),
-        input,
+        input: input.clone(),
         generate_tentatives: true,
     };
 
@@ -86,7 +86,7 @@ pub fn exec_binary_test(input: PathBuf, optimizations: optimization::Level, back
             output: binary_path.clone(),
             backend,
             optimizations,
-            assembly: None,
+            assembly: Some(input.with_extension("out.S")),
         }),
         &setup,
     );
