@@ -1,4 +1,4 @@
-error: expected 'public' or `}`, found 'class'
+error: expected 'public', `?` or `}`, found 'class'
    | 
  2 |     class Inner {
    |     ^^^^^
