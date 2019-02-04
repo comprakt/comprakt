@@ -1,0 +1,10 @@
+error: unused function: `f`. Consider using `_f` instead
+    | 
+ 15 |     public void f() {}
+    |     ^^^^^^^^^^^^^^^^^^
+
+error: unused function: `i`. Consider using `_i` instead
+    | 
+ 27 |     public void i() {}
+    |     ^^^^^^^^^^^^^^^^^^
+

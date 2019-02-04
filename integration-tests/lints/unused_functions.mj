@@ -1,0 +1,28 @@
+?!error:unused_functions
+
+class Foo {
+    public static void main(String[] args) {
+        (new Foo()).run();
+    }
+
+    public void run() {
+        Bar bar = new Bar();
+        g();
+        bar.f();
+        this.h();
+    }
+
+    public void f() {}
+
+    public void _f() {}
+
+    public void g() {}
+
+    public void h() {}
+}
+
+class Bar {
+    public void f() {}
+
+    public void i() {}
+}
