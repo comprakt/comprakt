@@ -1,6 +1,6 @@
 use crate::{
     analysis::CallGraph,
-    firm::{FirmMethodP, FirmProgram},
+    firm::{program_generator::Spans, FirmMethodP, FirmProgram},
     optimization::{self, Outcome},
     ref_eq::RefEq,
 };
@@ -318,6 +318,10 @@ impl Inline {
         }
 
         let new_node = self.graph.copy_node_without_ins(old, target_block);
+        if let Some(span) = Spans::lookup_span(old) {
+            Spans::add_span(new_node, span);
+        }
+
         log::debug!(
             "{} Copied {:?} to {}",
             self.depth_str(),
