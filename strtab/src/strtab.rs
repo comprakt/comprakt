@@ -8,6 +8,42 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Relation {
+    Unrelated,
+    Related { distance: usize },
+}
+
+impl Relation {
+    pub fn is_related(self) -> bool {
+        match self {
+            Relation::Unrelated => false,
+            _ => true,
+        }
+    }
+}
+
+impl std::cmp::Ord for Relation {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        use self::Relation::*;
+        match (self, other) {
+            (Unrelated, _) => std::cmp::Ordering::Greater,
+            (_, Unrelated) => std::cmp::Ordering::Less,
+            (Related { distance: d1 }, Related { distance: d2 }) => d1.cmp(d2),
+        }
+    }
+}
+
+impl std::cmp::PartialOrd for Relation {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+pub trait Relational {
+    fn relation(&self, other: &Self) -> Relation;
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialOrd, Ord)]
 pub struct Symbol<'f>(&'f str);
 
@@ -18,6 +54,17 @@ impl Symbol<'_> {
 
     pub fn as_str(&self) -> &str {
         self.0
+    }
+}
+
+impl<'f> Relational for Symbol<'f> {
+    fn relation(&self, other: &Symbol<'f>) -> Relation {
+        let distance = levenshtein::levenshtein(self.0, other.0);
+        if distance <= 2 {
+            Relation::Related { distance }
+        } else {
+            Relation::Unrelated
+        }
     }
 }
 

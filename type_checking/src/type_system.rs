@@ -137,6 +137,10 @@ impl<'src, 'ast> ClassDef<'src, 'ast> {
         Ok(())
     }
 
+    pub fn field_names(&self) -> Vec<&Symbol<'src>> {
+        self.fields.keys().collect()
+    }
+
     pub fn field(&self, name: Symbol<'src>) -> Option<Rc<ClassFieldDef<'src>>> {
         self.fields.get(&name).map(Rc::clone)
     }
