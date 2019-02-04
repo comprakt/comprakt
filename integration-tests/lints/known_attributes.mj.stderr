@@ -1,8 +1,3 @@
-warning: unused argument: `x`. Consider using `_x` instead
-    | 
- 10 |     public void f(int x) {
-    |                   ^^^^^
-
 info: inverting a bool literal. This can be simplified to `true`
    | 
  6 |         boolean x = !false;
@@ -10,6 +5,11 @@ info: inverting a bool literal. This can be simplified to `true`
 
 info: inverting a bool literal. This can be simplified to `false`
     | 
- 11 |         boolean y = !true;
+ 12 |         boolean y = !true;
     |                     ^^^^^
+
+warning: unused argument: `x`. Consider using `_x` instead
+    | 
+ 11 |     public void f(int x) {
+    |                   ^^^^^
 

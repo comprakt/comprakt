@@ -1,5 +1,6 @@
 ?!allow:unused_arguments
 ?!info:bool_literal_comparison
+?!allow:unused_functions
 
 ?info:not_on_bool_literal
 class Foo {
