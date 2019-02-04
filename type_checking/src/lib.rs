@@ -1,5 +1,4 @@
 #![feature(box_syntax)]
-#![feature(uniform_paths)]
 
 //! This module implements type checking on the AST. The type checking
 //! produces an instance of `type_system::TypeSystem`, which is later used by

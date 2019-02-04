@@ -1,4 +1,3 @@
-#![feature(duration_as_u128)]
 //! Executes all mjtests in the /exec/big folder.
 use compiler_cli::optimization_arg;
 use compiler_shared::timing::{AsciiDisp, CompilerMeasurements, SingleMeasurement};

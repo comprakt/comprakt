@@ -14,7 +14,7 @@ git clone https://github.com/comprakt/comprakt.git
 git submodule update --init --recursive
 # Install Rust using rustup and the toolchain we are using
 curl https://sh.rustup.rs -sSf | sh
-rustup toolchain install nightly-2018-12-17
+rustup toolchain install nightly-2019-02-04
 
 cd comprakt
 rustup component add clippy

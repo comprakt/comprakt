@@ -16,7 +16,6 @@
 #![feature(try_trait)]
 #![feature(weak_ptr_eq)]
 #![feature(type_ascription)]
-#![feature(duration_as_u128)]
 
 pub use asciifile;
 pub mod backend;
