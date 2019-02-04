@@ -189,7 +189,7 @@ pub struct PreBackendOptions {
     pub dump_class_layouts: bool,
 
     /// Optimization level that should be applied
-    #[structopt(long = "--optimization", short = "-O", default_value = "none")]
+    #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
     pub opt_level: optimization_arg::Arg,
 
     /// A MiniJava input file
@@ -203,7 +203,7 @@ impl PreBackendOptions {
             dump_folder: PathBuf::default(),
             dump_firm_graph: bool::default(),
             dump_class_layouts: bool::default(),
-            opt_level: optimization_arg::Arg::from_str("none").unwrap(), // checked in test
+            opt_level: optimization_arg::Arg::from_str("aggressive").unwrap(), // checked in test
             input,
         }
     }
