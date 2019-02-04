@@ -579,9 +579,9 @@ where
                                 format!(
                                     "'{}'{}",
                                     s,
-                                    if idx < related.len() - 2 {
+                                    if idx + 2 < related.len() {
                                         &", "
-                                    } else if idx < related.len() - 1 {
+                                    } else if idx + 1 < related.len() {
                                         &" or "
                                     } else {
                                         &""
