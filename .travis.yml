@@ -50,7 +50,7 @@ install: |
         pip install typing --user && \
         git clone https://git.scc.kit.edu/IPDSnelting/mjtest.git && \
         cd mjtest && \
-        git submodule update --init --remote && \
+        git submodule update --init && \
         cd -;
         ;;
       submission-system)
