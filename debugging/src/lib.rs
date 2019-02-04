@@ -18,6 +18,8 @@
 //! the current lattice value assigned to each node, you can write:
 //!
 //! ```ignore
+//! // bring debugging into scope
+//! use debugging;
 //! // assume a context similar to:
 //! // let values :HashMap<Node,Tarval> = HashMap::new();
 //! // while let Some(cur) = next_node()
@@ -79,7 +81,7 @@ use {std::sync::mpsc::Receiver, std::sync::Mutex, std::thread, std::thread::Join
 #[macro_export]
 macro_rules! breakpoint {
     ($label:expr, $prog:expr) => {{
-        use crate::dot::GraphData;
+        use ::debugging::dot::GraphData;
         crate::debugging::pause(
             crate::debugging::Breakpoint {
                 label: $label.to_string(),
@@ -91,7 +93,7 @@ macro_rules! breakpoint {
         );
     }};
     ($label:expr, $prog:expr, $labels:expr) => {{
-        use crate::dot::GraphData;
+        use ::debugging::dot::GraphData;
         crate::debugging::pause(
             crate::debugging::Breakpoint {
                 label: $label.to_string(),
@@ -152,6 +154,12 @@ pub fn pause(_breakpoint: Breakpoint, _program: HashMap<String, GraphState>) {}
 #[cfg(feature = "debugger_gui")]
 #[allow(clippy::implicit_hasher)]
 pub fn pause(breakpoint: Breakpoint, program: HashMap<String, GraphState>) {
+    if let Ok(fnname) = std::env::var("COMPRAKT_DEBUGGER_GUI_DUMP_LIR_DOT_GRAPH") {
+        if breakpoint.label.matches("LIR").count() > 0 {
+            println!("{}", program[&fnname].dot_content);
+        }
+    }
+
     let mut filters = FILTERS.lock().unwrap();
 
     if filters.is_disabled(&breakpoint, &program) {
@@ -230,7 +238,8 @@ impl BreakpointFilters {
         breakpoint: &Breakpoint,
         program: &HashMap<String, GraphState>,
     ) -> bool {
-        self.filters
+        !self
+            .filters
             .iter()
             .any(|filter| filter.matches(breakpoint, program))
     }
@@ -316,8 +325,10 @@ impl Filter {
     fn matches(&self, breakpoint: &Breakpoint, program: &HashMap<String, GraphState>) -> bool {
         match self {
             Filter::Location { file, line } => breakpoint.line == *line && breakpoint.file == *file,
-            Filter::Graph { name } => program.values().any(|graph| graph.name == *name),
-            Filter::Label { name } => breakpoint.label == *name,
+            Filter::Graph { name } => program
+                .values()
+                .any(|graph| graph.name.matches(name).count() > 0),
+            Filter::Label { name } => breakpoint.label.matches(name).count() > 0,
         }
     }
 }

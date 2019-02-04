@@ -8,7 +8,7 @@ expect:
               System.out.println(2);
             }
           }
-        
+dont_compare_asm_with_own_backend: true        
 stdout:
     is: "2\n"
 ---

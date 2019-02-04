@@ -1,0 +1,10 @@
+class Foo {
+    public int x;
+    public static void main(String[] args) {
+        Foo foo = new Foo();
+        int[] a = new int[10];
+
+        foo.x = 2;
+        a[3] = 4;
+    }
+}

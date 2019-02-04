@@ -135,9 +135,9 @@ macro_rules! empty_value_node_impl {
 
 empty_value_node_impl!(Address);
 empty_value_node_impl!(Alloc);
+empty_value_node_impl!(Free);
 empty_value_node_impl!(Bitcast);
 empty_value_node_impl!(Call);
-empty_value_node_impl!(Free);
 empty_value_node_impl!(Load);
 empty_value_node_impl!(Member);
 empty_value_node_impl!(Mulh);

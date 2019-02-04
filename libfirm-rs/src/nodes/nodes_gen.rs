@@ -1491,22 +1491,30 @@ impl Alloc {
 
     /// memory result.
     pub fn out_proj_m(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Alloc_M(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Alloc_M(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Alloc_M(_)"
+        );
+        ret
     }
 
     /// pointer to newly allocated memory.
     pub fn out_proj_res(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Alloc_Res(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Alloc_Res(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Alloc_Res(_)"
+        );
+        ret
     }
 }
 
@@ -1991,12 +1999,16 @@ impl Builtin {
 
     /// memory result.
     pub fn out_proj_m(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Builtin_M(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Builtin_M(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Builtin_M(_)"
+        );
+        ret
     }
 }
 
@@ -2107,42 +2119,58 @@ impl Call {
 
     /// memory result.
     pub fn out_proj_m(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Call_M(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Call_M(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Call_M(_)"
+        );
+        ret
     }
 
     /// tuple containing all results.
     pub fn out_proj_t_result(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Call_TResult(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Call_TResult(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Call_TResult(_)"
+        );
+        ret
     }
 
     /// control flow when no exception occurs.
     pub fn out_proj_x_regular(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Call_XRegular(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Call_XRegular(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Call_XRegular(_)"
+        );
+        ret
     }
 
     /// control flow when exception occurred.
     pub fn out_proj_x_except(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Call_XExcept(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Call_XExcept(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Call_XExcept(_)"
+        );
+        ret
     }
 }
 
@@ -2303,22 +2331,30 @@ impl Cond {
 
     /// control flow if operand is "false".
     pub fn out_proj_false(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Cond_Val(false, _)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Cond_Val(false, _)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Cond_Val(false, _)"
+        );
+        ret
     }
 
     /// control flow if operand is "true".
     pub fn out_proj_true(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Cond_Val(true, _)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Cond_Val(true, _)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Cond_Val(true, _)"
+        );
+        ret
     }
 }
 
@@ -2799,42 +2835,55 @@ impl Div {
 
     /// memory result.
     pub fn out_proj_m(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Div_M(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Div_M(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(res.count() == 0, "expect at most one of ProjKind::Div_M(_)");
+        ret
     }
 
     /// result of computation.
     pub fn out_proj_res(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Div_Res(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Div_Res(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Div_Res(_)"
+        );
+        ret
     }
 
     /// control flow when no exception occurs.
     pub fn out_proj_x_regular(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Div_XRegular(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Div_XRegular(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Div_XRegular(_)"
+        );
+        ret
     }
 
     /// control flow when exception occurred.
     pub fn out_proj_x_except(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Div_XExcept(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Div_XExcept(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Div_XExcept(_)"
+        );
+        ret
     }
 }
 
@@ -3345,42 +3394,58 @@ impl Load {
 
     /// memory result.
     pub fn out_proj_m(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Load_M(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Load_M(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Load_M(_)"
+        );
+        ret
     }
 
     /// result of load operation.
     pub fn out_proj_res(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Load_Res(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Load_Res(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Load_Res(_)"
+        );
+        ret
     }
 
     /// control flow when no exception occurs.
     pub fn out_proj_x_regular(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Load_XRegular(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Load_XRegular(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Load_XRegular(_)"
+        );
+        ret
     }
 
     /// control flow when exception occurred.
     pub fn out_proj_x_except(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Load_XExcept(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Load_XExcept(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Load_XExcept(_)"
+        );
+        ret
     }
 }
 
@@ -3622,42 +3687,55 @@ impl Mod {
 
     /// memory result.
     pub fn out_proj_m(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Mod_M(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Mod_M(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(res.count() == 0, "expect at most one of ProjKind::Mod_M(_)");
+        ret
     }
 
     /// result of computation.
     pub fn out_proj_res(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Mod_Res(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Mod_Res(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Mod_Res(_)"
+        );
+        ret
     }
 
     /// control flow when no exception occurs.
     pub fn out_proj_x_regular(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Mod_XRegular(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Mod_XRegular(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Mod_XRegular(_)"
+        );
+        ret
     }
 
     /// control flow when exception occurred.
     pub fn out_proj_x_except(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Mod_XExcept(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Mod_XExcept(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Mod_XExcept(_)"
+        );
+        ret
     }
 }
 
@@ -4318,22 +4396,30 @@ impl Raise {
 
     /// memory result.
     pub fn out_proj_m(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Raise_M(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Raise_M(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Raise_M(_)"
+        );
+        ret
     }
 
     /// control flow to exception handler.
     pub fn out_proj_x(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Raise_X(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Raise_X(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Raise_X(_)"
+        );
+        ret
     }
 }
 
@@ -4775,32 +4861,44 @@ impl Start {
 
     /// initial memory.
     pub fn out_proj_m(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Start_M(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Start_M(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Start_M(_)"
+        );
+        ret
     }
 
     /// frame base pointer.
     pub fn out_proj_p_frame_base(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Start_PFrameBase(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Start_PFrameBase(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Start_PFrameBase(_)"
+        );
+        ret
     }
 
     /// function arguments.
     pub fn out_proj_t_args(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Start_TArgs(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Start_TArgs(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Start_TArgs(_)"
+        );
+        ret
     }
 }
 
@@ -4955,32 +5053,44 @@ impl Store {
 
     /// memory result.
     pub fn out_proj_m(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Store_M(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Store_M(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Store_M(_)"
+        );
+        ret
     }
 
     /// control flow when no exception occurs.
     pub fn out_proj_x_regular(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Store_XRegular(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Store_XRegular(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Store_XRegular(_)"
+        );
+        ret
     }
 
     /// control flow when exception occurred.
     pub fn out_proj_x_except(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Store_XExcept(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Store_XExcept(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Store_XExcept(_)"
+        );
+        ret
     }
 }
 
@@ -5138,12 +5248,16 @@ impl Switch {
 
     /// control flow if no other case matches.
     pub fn out_proj_default(self) -> Option<Proj> {
-        for out_node in self.out_nodes() {
-            if let Node::Proj(proj, ProjKind::Switch_Default(_)) = out_node {
-                return Some(proj);
-            }
-        }
-        None
+        let mut res = self.out_nodes().filter_map(|out_node| match out_node {
+            Node::Proj(proj, ProjKind::Switch_Default(_)) => Some(proj),
+            _ => None,
+        });
+        let ret = res.next();
+        debug_assert!(
+            res.count() == 0,
+            "expect at most one of ProjKind::Switch_Default(_)"
+        );
+        ret
     }
 }
 

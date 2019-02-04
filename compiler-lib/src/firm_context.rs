@@ -3,12 +3,13 @@ use crate::{
         runtime::{self, Runtime},
         FirmProgram, Options, ProgramGenerator,
     },
-    optimization,
     strtab::StringTable,
     type_checking::{type_analysis::TypeAnalysis, type_system::TypeSystem},
 };
+
 use lazy_static::lazy_static;
 use libfirm_rs::{bindings, types::TyTrait};
+use optimization;
 use std::{
     ffi::{CStr, CString},
     fs,
@@ -156,8 +157,7 @@ impl<'src, 'ast> FirmContext<'src, 'ast> {
             Optimized | AsmEmitted | ExternalBackend => panic!("invalid state {:?}", self.state),
         }
 
-        // Placebo const ref here, in fact, optimizations will change the program.
-        optimizations.run_all(&self.program);
+        optimizations.run_all(&mut self.program);
     }
 
     /// Must only be called once.

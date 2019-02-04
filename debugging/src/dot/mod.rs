@@ -27,7 +27,7 @@ pub trait GraphData<TNode> {
 #[derive(Debug, Clone, Serialize)]
 pub struct GraphState {
     pub name: String,
-    dot_content: String,
+    pub dot_content: String,
 }
 
 /// Abstraction over anything that can be transformed into labels for
@@ -183,9 +183,7 @@ pub enum Shape {
     Box3D,
     Component,
     Record,
-    /* Must specify the record shape with a Label.
-     * Record
-     * MRecord */
+    MRecord,
 }
 
 impl Label {

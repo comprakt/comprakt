@@ -9,15 +9,15 @@ the generator follow the instructions below.
 Do the following once to install all dependencies for the generator:
 
 ```
-yarn global add ts-node 
 cd generator
-yarn 
+npm install
 ```
 
 To run the generator execute:
 
 ```
-ts-node ./gen.ts
+cd generator
+npm run generate
 ```
 
 You only have to run the generator if you have updated its source.  The checked

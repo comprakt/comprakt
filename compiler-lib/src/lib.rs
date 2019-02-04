@@ -2,7 +2,6 @@
 #![warn(clippy::print_stdout)]
 #![allow(clippy::unneeded_field_pattern)]
 #![feature(try_from)]
-#![feature(if_while_or_patterns)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(const_str_as_bytes)]
 #![feature(slice_patterns)]
@@ -15,14 +14,12 @@
 #![feature(result_map_or_else)]
 #![feature(proc_macro_hygiene, decl_macro)]
 #![feature(try_trait)]
+#![feature(weak_ptr_eq)]
+#![feature(type_ascription)]
 #![feature(duration_as_u128)]
-#[macro_use]
-extern crate derive_more;
 
-mod analysis;
 pub use asciifile;
 pub mod backend;
-pub mod timing;
 
 #[macro_use]
 extern crate utils;
@@ -34,18 +31,16 @@ pub use compiler_shared::context;
 
 pub use lexer;
 
+pub(crate) use debugging;
+
 #[macro_use]
 extern crate parser;
 
 pub use parser::{ast, visitor};
 
-#[macro_use]
-extern crate debugging;
-pub(crate) use debugging::dot;
-
 pub use firm_construction as firm;
-pub mod optimization;
 pub mod print;
+
 pub use self::utils::OutputSpecification;
 pub use strtab;
 pub use symtab;

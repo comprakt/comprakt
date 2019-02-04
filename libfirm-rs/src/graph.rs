@@ -1,9 +1,7 @@
 use super::{
     entity::Entity,
     mode::Mode,
-    nodes::{
-        Block, End, EndKeepAliveIterator, NoMem, Node, NodeTrait, Proj, ProjKind, Start, ValueNode,
-    },
+    nodes::{Block, End, EndKeepAliveIterator, NoMem, Node, NodeTrait, Proj, Start},
 };
 use libfirm_rs_bindings as bindings;
 use std::{
@@ -11,7 +9,7 @@ use std::{
     mem, ptr,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, From)]
 pub struct Graph {
     pub(super) irg: *mut bindings::ir_graph,
 }
@@ -116,15 +114,34 @@ impl Graph {
         unsafe { bindings::remove_bads(self.irg) }
     }
 
+    pub fn remove_critical_cf_edges(self) {
+        unsafe { bindings::remove_critical_cf_edges(self.irg) }
+    }
+
     pub fn remove_unreachable_code(self) {
         unsafe { bindings::remove_unreachable_code(self.irg) }
     }
 
-    pub fn compute_dominance_frontiers(self) {
-        unsafe { bindings::ir_compute_dominance_frontiers(self.irg) }
+    pub fn walk_topological<F>(self, mut walker: F)
+    where
+        F: FnMut(&Node),
+    {
+        // We need the type ascription here, because otherwise rust infers `&mut F`,
+        // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
+        // `closure_handler` doesn't know the concrete `F`.
+        let mut fat_pointer: &mut dyn FnMut(&Node) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            bindings::irg_walk_topological(
+                self.irg,
+                Some(closure_handler),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
     }
 
-    pub fn walk_topological2<F>(self, mut walker: F)
+    pub fn walk_blkwise_dom_top_down<F>(self, mut walker: F)
     where
         F: FnMut(&Node),
     {
@@ -215,6 +232,39 @@ impl Graph {
         }
     }
 
+    /// Walks over reachable Block nodes in the graph, starting at the
+    /// end_block.
+    ///
+    /// For each block, the walker function is called twice, once before and
+    /// once after all predecessors of the block are visited. This is indicated
+    /// by the `VisitTime` parameter to the closure.
+    ///
+    /// ## Parameters
+    ///  - `walker` walker function
+    ///
+    /// Has its own visited flag, so that it can be interleaved
+    /// with the other walker. Does not use the link
+    /// field.
+    pub fn walk_blocks<F>(self, mut walker: F)
+    where
+        F: FnMut(VisitTime, &Block),
+    {
+        // We need the type ascription here, because otherwise rust infers `&mut F`,
+        // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
+        // `closure_handler` doesn't know the concrete `F`.
+        let mut fat_pointer: &mut dyn FnMut(VisitTime, &Block) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            bindings::irg_block_walk_graph(
+                self.irg,
+                Some(pre_closure_handler),
+                Some(post_closure_handler),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
     pub fn nodes(self) -> Vec<Node> {
         let mut result = Vec::new();
         self.walk(|n| {
@@ -226,51 +276,6 @@ impl Graph {
     pub fn exchange(prev: impl NodeTrait, new: impl NodeTrait) {
         unsafe {
             bindings::exchange(prev.internal_ir_node(), new.internal_ir_node());
-        }
-    }
-
-    pub fn exchange_value(prev: impl ValueNode + Into<Node>, new: impl ValueNode + Into<Node>) {
-        let prev: Node = prev.into();
-        let new: Node = new.into();
-        use self::Node::*;
-        match prev {
-            /* IMPROVEMENT?
-            This might be more elegant, but does not do the exact same:
-            It fails if there are multiple projects to that pin!
-            Node::Div(div) => {
-                div.out_proj_res().then(|res| Graph::exchange(res, const_node))
-                div.out_proj_m().then(|mem| Graph::exchange(mem, div.mem()))
-            }
-            */
-            Div(node) => {
-                for out_node in node.out_nodes() {
-                    match out_node {
-                        Proj(res_proj, ProjKind::Div_Res(_)) => {
-                            Graph::exchange(res_proj, new);
-                        }
-                        Proj(m_proj, ProjKind::Div_M(_)) => {
-                            Graph::exchange(m_proj, node.mem());
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            Mod(node) => {
-                for out_node in node.out_nodes() {
-                    match out_node {
-                        Proj(res_proj, ProjKind::Mod_Res(_)) => {
-                            Graph::exchange(res_proj, new);
-                        }
-                        Proj(m_proj, ProjKind::Mod_M(_)) => {
-                            Graph::exchange(m_proj, node.mem());
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            node => {
-                Graph::exchange(node, new);
-            }
         }
     }
 
@@ -345,4 +350,30 @@ unsafe extern "C" fn closure_handler_walk_blocks(
     #[allow(clippy::transmute_ptr_to_ref)]
     let closure: &mut &mut FnMut(&Block) = mem::transmute(closure);
     closure(&Block::new(block))
+}
+
+unsafe extern "C" fn pre_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    // TODO: is this allow correct, Joshua?
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, &Block) = mem::transmute(closure);
+    match Node::wrap(node) {
+        Node::Block(block) => closure(VisitTime::BeforePredecessors, &block),
+        _ => unreachable!("irg_block_walk_graph only walks over blocks"),
+    }
+}
+
+unsafe extern "C" fn post_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    // TODO: is this allow correct, Joshua?
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, &Block) = mem::transmute(closure);
+    match Node::wrap(node) {
+        Node::Block(block) => closure(VisitTime::AfterPredecessors, &block),
+        _ => unreachable!("irg_block_walk_graph only walks over blocks"),
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum VisitTime {
+    BeforePredecessors,
+    AfterPredecessors,
 }

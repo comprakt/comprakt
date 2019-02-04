@@ -201,13 +201,20 @@ More commands for the bors-bot can be found in the
 ## Using the Visual Debugger
 
 The visual debugger is disabled by default. To enable it, enable the
-`gui_debugger` feature during compilation. For example, to debug the constant
+`debugger_gui` feature during compilation. For example, to debug the constant
 folding optimization run the following commands and then open
 `http://localhost:8000`.
 
 ```
-cd compiler-cli
-cargo run --features "gui_debugger" -- --emit-asm my_file.mj  -O Custom:ConstantFolding.gui
+# Once per checkout, compile the debugger gui frontend
+pushd compiler-lib/debugger-gui
+npm install
+npm run build
+popd
+# Every time you want to use the debugger_gui, run the following commands
+pushd compiler-cli
+cargo run --features "debugger_gui" -- --emit-asm my_file.mj  -O Custom:ConstantFolding.gui
+popd
 ```
 
 You should see an interface that looks similar to the screenshot below.

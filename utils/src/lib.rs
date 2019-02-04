@@ -15,18 +15,20 @@ macro_rules! matches {
 
 #[macro_export]
 macro_rules! assert_matches {
-    ($expression: expr, $( $pattern: pat )|*) => {{
+    ($expression: expr, $( $pattern: pat )|* $(if $guard:expr)?) => {{
         if cfg!(debug_assertions) {
             match $expression {
-                $( $pattern )|* => (),
-                expression => panic!(
-                    r#"assertion failed: `(if let pattern = expression), {}:{}:{}`
+                $( $pattern )|* $(if $guard)? => (),
+                ref expression => panic!(
+                    r#"assertion failed: `(expression =~ pattern, if guard ), {}:{}:{}`
 pattern: `{}`,
+guard: `{}`,
 expression: `{:?}`"#,
                     file!(),
                     line!(),
                     column!(),
                     stringify!($( $pattern )|*),
+                    stringify!($( $guard )?),
                     expression
                 ),
             }

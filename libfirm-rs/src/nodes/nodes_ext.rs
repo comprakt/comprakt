@@ -1,10 +1,11 @@
 use super::nodes_gen::*;
 use crate::{
     bindings,
-    types::{ClassTy, Ty},
+    types::{ArrayTy, ClassTy, MethodTy, Ty},
     Entity, Graph, Mode,
 };
 use std::{
+    collections::HashSet,
     fmt,
     hash::{Hash, Hasher},
 };
@@ -17,6 +18,37 @@ impl Node {
     pub fn wrap(ir_node: *mut bindings::ir_node) -> Node {
         //NodeFactory::new().create(ir_node)
         NODE_FACTORY.create(ir_node)
+    }
+
+    pub fn is_proj_kind_argtuple_arg(n: Self) -> bool {
+        if let Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) = n {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn must_member(self) -> Member {
+        assert!(Node::is_member(self));
+        Member::new(self.internal_ir_node())
+    }
+
+    pub fn must_sel(self) -> Sel {
+        assert!(Node::is_sel(self));
+        Sel::new(self.internal_ir_node())
+    }
+
+    pub fn must_phi(self) -> Phi {
+        assert!(Node::is_phi(self));
+        Phi::new(self.internal_ir_node())
+    }
+
+    pub fn opt_phi(self) -> Option<Phi> {
+        if Node::is_phi(self) {
+            Some(Phi::new(self.internal_ir_node()))
+        } else {
+            None
+        }
     }
 }
 
@@ -84,6 +116,10 @@ macro_rules! simple_node_iterator {
 pub trait NodeTrait {
     fn internal_ir_node(&self) -> *mut bindings::ir_node;
 
+    fn as_node(&self) -> Node {
+        Node::wrap(self.internal_ir_node())
+    }
+
     // TODO move to graph
     fn keep_alive(&self) {
         unsafe { bindings::keep_alive(self.internal_ir_node()) }
@@ -94,6 +130,9 @@ pub trait NodeTrait {
     }
 
     fn block(&self) -> Block {
+        if Node::is_block(self.as_node()) {
+            return Block::new(self.internal_ir_node());
+        }
         let block_ir_node = unsafe { bindings::get_nodes_block(self.internal_ir_node()) };
         Block::new(block_ir_node)
     }
@@ -103,10 +142,12 @@ pub trait NodeTrait {
     }
 
     fn out_nodes(&self) -> OutNodeIterator {
+        self.graph().assure_outs();
         OutNodeIterator::new(self.internal_ir_node())
     }
 
     fn out_nodes_ex(&self) -> OutNodeExIterator {
+        self.graph().assure_outs();
         OutNodeExIterator::new(self.internal_ir_node())
     }
 
@@ -166,6 +207,92 @@ pub trait NodeTrait {
             irg: unsafe { bindings::get_irn_irg(self.internal_ir_node()) },
         }
     }
+
+    /// libifrm irg_walk wrapper
+    ///
+    /// Walks over the ir graph, starting at the this node and going to all
+    /// predecessors, i.e., dependencies (operands) of this node.
+    /// Note that this traversal crosses block boundaries, since blocks are
+    /// also just predecessors in the Graph.
+    fn walk<F>(&self, mut walker: F)
+    where
+        F: FnMut(VisitTime, Node),
+        Self: Sized,
+    {
+        // We need the type ascription here, because otherwise rust infers `&mut F`,
+        // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
+        // `closure_handler` doesn't know the concrete `F`.
+        let mut fat_pointer: &mut dyn FnMut(VisitTime, Node) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            use std::ffi::c_void;
+            bindings::irg_walk(
+                self.internal_ir_node(),
+                Some(pre_closure_handler),
+                Some(post_closure_handler),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
+    /// Perform a DFS over all nodes within `block` starting at `self`.
+    /// As soon as a Phi node is reached, that branch of the DFS is canceled.
+    /// There is no callback for a Phi node.
+    /// The primary use case for this API is in codegen.
+    fn walk_dfs_in_block_stop_at_phi_node<Callback>(&self, block: Block, callback: &mut Callback)
+    where
+        Callback: FnMut(Node),
+        Self: Sized,
+    {
+        fn recurse<Callback>(
+            visited: &mut HashSet<Node>,
+            cur_node: Node,
+            block: Block,
+            callback: &mut Callback,
+        ) where
+            Callback: FnMut(Node),
+        {
+            if cur_node.block() == block {
+                let visit_nodes = cur_node
+                    .in_nodes()
+                    .filter(|n| !Node::is_phi(*n))
+                    .collect::<Vec<_>>();
+                log::debug!("DFS PRELOOP visit_nodes.len()={:?}", visit_nodes.len());
+                for operand in visit_nodes {
+                    // cannot filter before the loop because recurse adds to visited
+                    if visited.contains(&operand) {
+                        continue;
+                    }
+                    visited.insert(operand);
+                    recurse(visited, operand, block, callback);
+                }
+                log::debug!("DFS PRE callback for {:?}", cur_node);
+                callback(cur_node);
+                log::debug!("DFS POST callback for {:?}", cur_node);
+            }
+        }
+
+        let mut visited = HashSet::new();
+
+        let this = Node::wrap(self.internal_ir_node());
+        recurse(&mut visited, this, block, callback);
+    }
+}
+
+pub use crate::VisitTime;
+use std::{ffi::c_void, mem};
+
+unsafe extern "C" fn pre_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, Node) = mem::transmute(closure);
+    closure(VisitTime::BeforePredecessors, Node::wrap(node));
+}
+
+unsafe extern "C" fn post_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, Node) = mem::transmute(closure);
+    closure(VisitTime::AfterPredecessors, Node::wrap(node));
 }
 
 simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
@@ -361,6 +488,18 @@ impl Block {
             bindings::add_immBlock_pred(self.internal_ir_node(), pred.internal_ir_node());
         }
     }
+
+    pub fn all_nodes_in_block(self) -> impl Iterator<Item = Node> {
+        self.out_nodes()
+    }
+
+    pub fn dom_depth(self) -> usize {
+        unsafe { get_Block_dom_depth(self.internal_ir_node()) as usize }
+    }
+}
+
+extern "C" {
+    pub fn get_Block_dom_depth(bl: *const bindings::ir_node) -> ::std::os::raw::c_int;
 }
 
 simple_node_iterator!(
@@ -373,6 +512,19 @@ simple_node_iterator!(
 impl Phi {
     pub fn phi_preds(self) -> PhiPredsIterator {
         PhiPredsIterator::new(self.internal_ir_node())
+    }
+
+    /// `Node` is the result of the phi node when entering this phi's block via
+    /// `Block`
+    pub fn preds(self) -> impl Iterator<Item = (Block, Node)> {
+        // From libfirm docs:
+        // A phi node has 1 input for each predecessor of its block. If a
+        // block is entered from its nth predecessor all phi nodes produce
+        // their nth input as result.
+        let block = self.block();
+        PhiPredsIterator::new(self.internal_ir_node())
+            .enumerate()
+            .map(move |(i, pred)| (block.cfg_preds().idx(i as i32).unwrap().block(), pred))
     }
 }
 
@@ -436,9 +588,9 @@ impl Address {
 }
 
 #[derive(Debug)]
-pub enum IsNewResult {
-    Yes(ClassTy),
-    No,
+pub enum NewKind {
+    Object(ClassTy),
+    Array { item_ty: Ty, item_count: Node },
 }
 
 impl Call {
@@ -446,17 +598,60 @@ impl Call {
         CallArgsIterator::new(self.internal_ir_node())
     }
 
-    pub fn is_new(self) -> IsNewResult {
-        if let Some(addr) = Node::as_address(self.ptr()) {
-            if addr.entity().name_string() == "mjrt_new" {
-                let first_arg = self.args().idx(0);
-                if let Some(Node::Size(size_node)) = first_arg {
-                    let class_ty = ClassTy::from(size_node.ty()).unwrap();
-                    return IsNewResult::Yes(class_ty);
-                }
+    pub fn out_single_result(self) -> Option<Node> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Call_TResult(_)) = out_node {
+                return proj.out_nodes().idx(0);
             }
         }
-        IsNewResult::No
+        None
+    }
+
+    pub fn method_name(self) -> Option<String> {
+        if let Some(addr) = Node::as_address(self.ptr()) {
+            Some(addr.entity().name_string())
+        } else {
+            None
+        }
+    }
+
+    pub fn new_kind(self) -> Option<NewKind> {
+        if self.method_name()? != "mjrt_new" {
+            return None;
+        }
+
+        match self.args().idx(0)? {
+            Node::Size(size_node) => {
+                let class_ty = ClassTy::from(size_node.ty()).unwrap();
+                Some(NewKind::Object(class_ty))
+            }
+            Node::Mul(mul) => {
+                if let Some(size_node) = Node::as_size(mul.right()) {
+                    let item_ty = size_node.ty();
+                    let item_count = mul.left();
+                    Some(NewKind::Array {
+                        item_ty,
+                        item_count,
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    pub fn method_ty(self) -> MethodTy {
+        unsafe {
+            MethodTy::from(Ty::from_ir_type(bindings::get_Call_type(
+                self.internal_ir_node(),
+            )))
+            .unwrap()
+        }
+    }
+
+    pub fn single_result_ty(self) -> Option<Ty> {
+        self.method_ty().single_result_ty()
     }
 }
 
@@ -465,6 +660,13 @@ simple_node_iterator!(CallArgsIterator, get_Call_n_params, get_Call_param, i32);
 impl Size {
     pub fn ty(self) -> Ty {
         unsafe { Ty::from_ir_type(bindings::get_Size_type(self.internal_ir_node())) }
+    }
+}
+
+impl Sel {
+    pub fn element_ty(self) -> Ty {
+        let arr = ArrayTy::from(self.ty()).unwrap();
+        arr.element_type()
     }
 }
 
@@ -481,27 +683,33 @@ pub trait NodeDebug {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct NodeDebugOpts {
-    short: bool,
+    pub short: bool,
+    pub new_print_class: bool,
+    pub print_id: bool,
 }
 
 impl NodeDebugOpts {
-    pub fn short(self) -> bool {
-        self.short
-    }
-
-    pub fn with_short(mut self, val: bool) -> Self {
-        self.short = val;
-        self
+    pub fn default() -> Self {
+        Self {
+            short: false,
+            new_print_class: true,
+            print_id: true,
+        }
     }
 }
 
 #[derive(Copy, Clone)]
 pub struct NodeDebugFmt<T: NodeDebug + Sized + Copy>(T, NodeDebugOpts);
 impl<T: NodeDebug + Copy> NodeDebugFmt<T> {
-    pub fn short(self, val: bool) -> Self {
-        NodeDebugFmt(self.0, self.1.with_short(val))
+    pub fn short(mut self, val: bool) -> Self {
+        self.1.short = val;
+        self
+    }
+    pub fn new_print_class(mut self, val: bool) -> Self {
+        self.1.new_print_class = val;
+        self
     }
     pub fn with(self, opts: NodeDebugOpts) -> Self {
         NodeDebugFmt(self.0, opts)
@@ -523,8 +731,12 @@ impl<T: NodeDebug + Copy> fmt::Debug for NodeDebugFmt<T> {
 // = Debug fmt impls =
 
 impl NodeDebug for Proj {
-    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        write!(f, "Proj {}: {:?}", self.node_id(), self.kind())
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            write!(f, "Proj {}", self.node_id())
+        } else {
+            write!(f, "Proj {}: {:?}", self.node_id(), self.kind())
+        }
     }
 }
 
@@ -536,15 +748,39 @@ impl NodeDebug for Const {
 
 impl NodeDebug for Call {
     fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
-        if opts.short {
-            write!(f, "Call {}", self.node_id())
-        } else {
-            write!(
+        match self.new_kind() {
+            Some(NewKind::Object(class_ty)) => write!(
                 f,
-                "Call to {} {}",
-                self.ptr().debug_fmt().short(true),
+                "New{} {}",
+                if opts.new_print_class {
+                    format!(" {:?}", class_ty)
+                } else {
+                    "".to_string()
+                },
                 self.node_id()
-            )
+            ),
+            Some(NewKind::Array { item_ty, .. }) => write!(
+                f,
+                "New{}[] {}",
+                if opts.new_print_class {
+                    format!(" {:?}", item_ty)
+                } else {
+                    "".to_string()
+                },
+                self.node_id()
+            ),
+            _ => {
+                if opts.short {
+                    write!(f, "Call {}", self.node_id())
+                } else {
+                    write!(
+                        f,
+                        "Call to {} {}",
+                        self.ptr().debug_fmt().short(true),
+                        self.node_id()
+                    )
+                }
+            }
         }
     }
 }

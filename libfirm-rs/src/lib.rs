@@ -78,7 +78,7 @@ pub mod types;
 
 pub use self::{
     entity::Entity,
-    graph::Graph,
+    graph::{Graph, VisitTime},
     mode::Mode,
     tarval::{Tarval, TarvalKind},
 };
