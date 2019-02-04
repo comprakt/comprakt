@@ -661,14 +661,16 @@ impl CostMinimizingPlacement {
         // recompute the out indices, since edges were reordered
         self.graph.recompute_outs();
 
-        for local_node in current_node.block().out_nodes() {
+        // NOTE: the GCSE may remove nodes, therefore we have to call `collect`.
+        // removed nodes are filtered using `self.eliminated.contains`.
+        for local_node in current_node.block().out_nodes().collect::<Vec<_>>() {
             // TODO: this is fragile code. This only works since
             // we expect in nodes to be identical (address of pointers equal).
             // TODO: think about this again. Can this result in malformed graphs???
 
-            if local_node == current_node
+            if self.eliminated.contains(&local_node)
                 || local_node.is_pinned()
-                || self.eliminated.contains(&local_node)
+                || local_node == current_node
             {
                 continue;
             }
