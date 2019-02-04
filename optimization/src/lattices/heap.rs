@@ -1,4 +1,5 @@
 use super::{Lattice, Val};
+use crate::firm::program_generator::Spans;
 use libfirm_rs::{
     nodes::{Node, NodeDebug},
     types::{ClassTy, PointerTy, Ty, TyTrait},
@@ -200,11 +201,23 @@ pub struct Heap {
 
 impl fmt::Debug for Heap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (ptr, obj_info) in &self.object_infos {
-            writeln!(f, "obj {} = {:?}", ptr.debug_fmt().short(true), obj_info)?
+        for (&ptr, obj_info) in &self.object_infos {
+            writeln!(
+                f,
+                "obj {}{} = {:?}",
+                ptr.debug_fmt().short(true),
+                Spans::span_str(ptr),
+                obj_info
+            )?
         }
-        for (ptr, obj_info) in &self.array_infos {
-            writeln!(f, "arr {} = {:?}", ptr.debug_fmt().short(true), obj_info)?
+        for (&ptr, arr_info) in &self.array_infos {
+            writeln!(
+                f,
+                "arr {}{} = {:?}",
+                ptr.debug_fmt().short(true),
+                Spans::span_str(ptr),
+                arr_info
+            )?
         }
         Ok(())
     }
@@ -431,19 +444,40 @@ impl Lattice for Heap {
     }
 
     fn join(&self, other: &Self) -> Self {
-        let mut object_infos = HashMap::new();
+        let mut object_infos: HashMap<Node, Rc<ObjectInfo>> = HashMap::new();
         for (p, obj_info) in other.object_infos.iter() {
-            if let Some(other_obj_info) = self.object_infos.get(p) {
+            if let Some(other_obj_info) = object_infos.get(p) {
                 object_infos.insert(*p, Rc::new(obj_info.join(other_obj_info)));
+            } else {
+                let joined = Rc::new(obj_info.resetted(&self));
+                object_infos.insert(*p, joined);
             }
         }
 
-        let mut array_infos = HashMap::new();
-        for (p, arr_info) in other.array_infos.iter() {
-            if let Some(other_arr_info) = self.array_infos.get(p) {
-                array_infos.insert(*p, Rc::new(arr_info.join(other_arr_info)));
+        for (p, obj_info) in self.object_infos.iter() {
+            if !object_infos.contains_key(p) {
+                let joined = Rc::new(obj_info.resetted(&self));
+                object_infos.insert(*p, joined);
             }
         }
+
+        let mut array_infos: HashMap<Node, Rc<ArrayInfo>> = HashMap::new();
+        for (p, arr_info) in other.array_infos.iter() {
+            if let Some(other_arr_info) = array_infos.get(p) {
+                array_infos.insert(*p, Rc::new(arr_info.join(other_arr_info)));
+            } else {
+                let joined = Rc::new(arr_info.resetted(&self));
+                array_infos.insert(*p, joined);
+            }
+        }
+
+        for (p, arr_info) in self.array_infos.iter() {
+            if !array_infos.contains_key(p) {
+                let joined = Rc::new(arr_info.resetted(&self));
+                array_infos.insert(*p, joined);
+            }
+        }
+
         Heap {
             object_infos,
             array_infos,
