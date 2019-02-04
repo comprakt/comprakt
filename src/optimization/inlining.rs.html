@@ -346,10 +346,14 @@
 <span id="346">346</span>
 <span id="347">347</span>
 <span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">analysis</span>::<span class="ident">CallGraph</span>,
-    <span class="ident">firm</span>::{<span class="ident">FirmMethodP</span>, <span class="ident">FirmProgram</span>},
+    <span class="ident">firm</span>::{<span class="ident">program_generator</span>::<span class="ident">Spans</span>, <span class="ident">FirmMethodP</span>, <span class="ident">FirmProgram</span>},
     <span class="ident">optimization</span>::{<span class="self">self</span>, <span class="ident">Outcome</span>},
     <span class="ident">ref_eq</span>::<span class="ident">RefEq</span>,
 };
@@ -667,6 +671,10 @@
         }
 
         <span class="kw">let</span> <span class="ident">new_node</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">copy_node_without_ins</span>(<span class="ident">old</span>, <span class="ident">target_block</span>);
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">span</span>) <span class="op">=</span> <span class="ident">Spans</span>::<span class="ident">lookup_span</span>(<span class="ident">old</span>) {
+            <span class="ident">Spans</span>::<span class="ident">add_span</span>(<span class="ident">new_node</span>, <span class="ident">span</span>);
+        }
+
         <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(
             <span class="string">&quot;{} Copied {:?} to {}&quot;</span>,
             <span class="self">self</span>.<span class="ident">depth_str</span>(),
