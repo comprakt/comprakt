@@ -1,0 +1,16 @@
+class A {
+    public static void main(String[] args) {
+    	int[] a;
+
+        if(false) {
+        } 
+
+        a = new int[2];
+
+        if(false) {
+        }
+        
+        if(a == null) {
+        }
+    }
+}
