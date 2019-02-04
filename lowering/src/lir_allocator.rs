@@ -85,6 +85,58 @@ impl<T> Drop for Allocator<T> {
     }
 }
 
+impl<T> std::borrow::Borrow<T> for Ptr<T> {
+    fn borrow(&self) -> &T {
+        unsafe { &*self.0 }
+    }
+}
+
+#[derive(From)]
+pub struct HashPtr<T>(Ptr<T>);
+
+impl<T> HashPtr<T> {
+    #[allow(dead_code)]
+    pub fn as_ptr(self) -> Ptr<T> {
+        self.0
+    }
+}
+
+use std::hash;
+
+impl<T> hash::Hash for HashPtr<T> {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        ((self.0).0 as *const usize).hash(state)
+    }
+}
+
+impl<T> PartialEq for HashPtr<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Ptr::ptr_eq(self.0, other.0)
+    }
+}
+
+impl<T> Eq for HashPtr<T> {}
+
+impl<T> Deref for HashPtr<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        unsafe { &(*(self.0).0) }
+    }
+}
+
+impl<T> DerefMut for HashPtr<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        unsafe { &mut (*(self.0).0) }
+    }
+}
+
+impl<T> Clone for HashPtr<T> {
+    fn clone(&self) -> HashPtr<T> {
+        HashPtr(self.0)
+    }
+}
+impl<T> Copy for HashPtr<T> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

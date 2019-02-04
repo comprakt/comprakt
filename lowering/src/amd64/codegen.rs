@@ -1,119 +1,162 @@
 use super::{
-    function::{self, RegGraph, RegGraphMinLeftEdgeInstruction, RegToRegTransfer, SaveRegList},
-    linear_scan::{self, Location},
-    lir, live_variable_analysis,
+    function::{RegGraph, RegGraphMinLeftEdgeInstruction, RegToRegTransfer, SaveRegList},
+    linear_scan::Location,
+    lir,
     register::{Amd64Reg, Reg},
-    var_id, CallingConv, Size, VarId,
+    var_id, CallingConv, Size,
 };
+use crate::{amd64::linear_scan::LSAResult, lir_allocator::Ptr};
 use itertools::Itertools;
 use libfirm_rs::{nodes::NodeTrait, Tarval};
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeSet, HashSet},
     convert::{TryFrom, TryInto},
     fmt,
     hash::{Hash, Hasher},
     iter::FromIterator,
 };
 
-pub(super) struct Codegen {
-    var_location: HashMap<VarId, linear_scan::Location>,
+/// Fill `lir::BasicBlock::codegen_instrs` from its `lir::BasicBlock::code`.
+///
+/// Returns the state of code generation as an opaque `Codegen`.
+///
+/// A peephole optimizer can run over the individual
+/// `lir::BasicBlock::codegen_instrs`.
+///
+/// After the peephole optimizer is done, use `Codegen::to_instr_list` to
+/// produce instruction lists.
+///
+/// A subsequent peephole-optimizer may pass over the complete instruciton list.
+/// The Instructions implement `Display`, and valid GNU Assembly is emitted if
+/// the returned instruction list is printed line by line.
+pub(crate) fn begin_codegen(func: &mut lir::Function, lsa_result: LSAResult) -> Codegen {
+    let mut codegen = Codegen::new(func, lsa_result); // TODO remove hardcoded CC
+    codegen.run_initial();
+    codegen
+}
+
+pub(crate) struct Codegen<'f> {
+    func: &'f lir::Function,
+    lsa_result: LSAResult,
     cconv: CallingConv,
-    num_saved_regs: usize,
+
+    saved_regs: SaveRegList<Amd64Reg>,
 }
 
 type Code = lir::Code<Mov, Mov, Instruction, Instruction>;
 
-impl Codegen {
-    pub(super) fn new(
-        var_location: HashMap<VarId, linear_scan::Location>,
-        cconv: CallingConv,
-    ) -> Self {
+impl<'f> Codegen<'f> {
+    fn new(func: &'f lir::Function, lsa_result: LSAResult) -> Self {
+        // There are 5 callee save registers: %rbx, %r12-r15
+        // %rbp is also callee save, but we never allocate this register
+        // There are 10 caller save registers, but %rsp is reserved, so we need to save
+        // registers if more than 9 registers are required.
+        let mut saved_regs = SaveRegList::default();
+        use Amd64Reg::*;
+        match lsa_result.num_regs_required {
+            x if x < 9 => (), // Enough caller save registers available
+            9 => saved_regs.add_regs(&[B]),
+            10 => saved_regs.add_regs(&[B, R12]),
+            11 => saved_regs.add_regs(&[B, R12, R13]),
+            12 => saved_regs.add_regs(&[B, R12, R13, R14]),
+            13 => saved_regs.add_regs(&[B, R12, R13, R14, R15]),
+            _ => unreachable!("More registers required than available"),
+        }
+
         Self {
-            var_location,
-            cconv,
-            num_saved_regs: 0,
+            func,
+            lsa_result,
+            saved_regs,
+            cconv: CallingConv::X86_64, // FIXME drop this, we only support
         }
     }
 
-    pub(super) fn run(
-        &mut self,
-        function: &function::Function,
-        blocks: Vec<live_variable_analysis::Block>,
-    ) -> Vec<Instruction> {
-        use self::Instruction::*;
-        let mut instrs = vec![];
-        self.num_saved_regs = function.saved_regs.len();
+    fn run_initial(&mut self) {
+        let mut graph = self.func.graph; // copy for Ptr -,-
+        for block in graph.blocks_scheduled.as_mut().unwrap().iter_mut() {
+            let code = self.run_block(*block);
+            block.codegen_instrs = code;
+        }
+    }
 
-        self.gen_meta_comments(&mut instrs);
-
-        self.gen_function_prolog(function, &mut instrs);
-
-        let mut code_instrs = vec![];
-
-        let mut block_iter = blocks.iter().peekable();
-        while let Some(block) = block_iter.next() {
-            let mut code = Code::default();
-            code.body.push(Label {
-                label: lir::gen_label(block.firm_num),
-            });
-
-            for instr in block.code.iter_unified() {
-                use self::{lir::CodeInstruction as CI, live_variable_analysis as lva};
-                match instr {
-                    // Match over every instruction and generate amd64 instructions
-                    CI::Body(lva::Instruction::Call(call)) => {
+    fn run_block(&mut self, block: Ptr<lir::BasicBlock>) -> Vec<Instruction> {
+        let mut code = Code::default();
+        for instr in block.code.iter_unified() {
+            use self::{lir::CodeInstruction as CI, Instruction::Comment};
+            match instr {
+                // Match over every instruction and generate amd64 instructions
+                CI::Body(instr) => {
+                    if let lir::Instruction::Call(call) = &**instr {
                         code.body.push(Comment {
                             comment: "call instruction".to_string(),
                         });
                         self.gen_call(call, &mut code.body);
-                    }
-                    CI::Body(lva::Instruction::Lir(lir)) => {
-                        self.gen_lir(lir, &mut code.body);
-                    }
-                    CI::Leave(leave) => {
-                        code.leave.push(Comment {
-                            comment: "leave instruction".to_string(),
-                        });
-                        self.gen_leave(
-                            leave,
-                            block_iter.peek().map_or(-1, |block| block.firm_num),
-                            &mut code.leave,
-                        );
-                    }
-                    CI::CopyIn(lva::Mov { src, dst }) => {
-                        self.gen_mov(*src, *dst, &mut code.copy_in);
-                    }
-                    CI::CopyOut(lva::Mov { src, dst }) => {
-                        log::debug!("codegen: copy out {:?}", instr);
-                        self.gen_mov(*src, *dst, &mut code.copy_out);
+                    } else {
+                        self.gen_lir(&**instr, &mut code.body);
                     }
                 }
+                CI::Leave(leave) => {
+                    code.leave.push(Comment {
+                        comment: "leave instruction".to_string(),
+                    });
+                    self.gen_leave(leave, &mut code.leave);
+                }
+                CI::CopyIn(copy_prop) => {
+                    self.gen_mov(*copy_prop, &mut code.copy_in);
+                }
+                CI::CopyOut(copy_prop) => {
+                    self.gen_mov(*copy_prop, &mut code.copy_out);
+                }
             }
-
-            code_instrs.push(code);
         }
 
-        instrs.extend(self.resolve_copy_prop_cycles(&mut code_instrs));
+        self.resolve_copy_prop_cycles_and_convert_to_instructions(code)
+    }
 
-        self.gen_function_epilog(function, &mut instrs);
+    /// assumes `run_block` ran for each function
+    pub(crate) fn emit_function(&self) -> Vec<Instruction> {
+        let mut instrs = vec![];
+
+        macro_rules! push_raw {
+            ($($fmt:expr),+) => {
+                instrs.push(Instruction::Raw(format!($( $fmt ),+ )));
+            }
+        }
+
+        push_raw!("# -- Begin  {}", self.func.name);
+        // "\t.p2align %u,%s,%u\n", po2alignment, fill_byte, maximum_skip
+        push_raw!("\t.p2align  4,,15"); // .p2align 4,,15
+        push_raw!("\t.globl  {}", self.func.name); // .globl mj_main
+        push_raw!("\t.type\t{}, @function", self.func.name);
+        push_raw!("{}:", self.func.name);
+
+        self.gen_meta_comments(&mut instrs);
+        self.gen_function_prolog(&mut instrs);
+        for block in self.func.graph.blocks_scheduled.as_ref().unwrap() {
+            instrs.push(Instruction::Label {
+                label: self.gen_jmp_label(*block),
+            });
+            instrs.extend(block.codegen_instrs.clone());
+        }
+        self.gen_function_epilog(&mut instrs);
+
+        push_raw!("\t.size\t{}, .-{}", self.func.name, self.func.name);
+        push_raw!("# -- End {}\n", self.func.name);
 
         instrs
     }
 
-    fn resolve_copy_prop_cycles(&self, code_instrs: &mut Vec<Code>) -> Vec<Instruction> {
+    fn resolve_copy_prop_cycles_and_convert_to_instructions(&self, code: Code) -> Vec<Instruction> {
         let mut instrs = vec![];
-        for code in code_instrs {
-            let mut code_body = code.body.iter().cloned().peekable();
-            if let Some(Instruction::Label { .. }) = code_body.peek() {
-                // Push the label of the block first
-                instrs.push(code_body.next().unwrap());
-            }
-            sort_copy_prop(&code.copy_in, &mut instrs);
-            instrs.extend(code_body);
-            sort_copy_prop(&code.copy_out, &mut instrs);
-            instrs.extend(code.leave.iter().cloned());
+        let mut code_body = code.body.iter().cloned().peekable();
+        if let Some(Instruction::Label { .. }) = code_body.peek() {
+            // Push the label of the block first
+            instrs.push(code_body.next().unwrap());
         }
-
+        sort_copy_prop(&code.copy_in, &mut instrs);
+        instrs.extend(code_body);
+        sort_copy_prop(&code.copy_out, &mut instrs);
+        instrs.extend(code.leave.iter().cloned());
         instrs
     }
 
@@ -123,57 +166,45 @@ impl Codegen {
         instrs.push(Comment {
             comment: format!("Calling convention: {:?}", self.cconv),
         });
-        for (id, location) in self.var_location.iter().sorted_by_key(|(id, _)| *id) {
+        for (id, location) in self
+            .lsa_result
+            .var_location
+            .iter()
+            .sorted_by_key(|(id, _)| *id)
+        {
             instrs.push(Comment {
                 comment: format!("Var {:?} in {:?}", id, location),
             });
         }
     }
 
-    fn stack_slots_space(&mut self, function: &function::Function) -> Tarval {
-        let space = (function.num_stackslots as i64).checked_mul(8).unwrap();
+    fn stack_slots_space(&self) -> Tarval {
+        let space = (self.lsa_result.stack_vars_counter as i64)
+            .checked_mul(8)
+            .unwrap();
         Tarval::mj_int(space)
     }
 
-    fn gen_function_prolog(
-        &mut self,
-        function: &function::Function,
-        instrs: &mut Vec<Instruction>,
-    ) {
+    fn gen_function_prolog(&self, instrs: &mut Vec<Instruction>) {
         use self::Instruction::{Comment, Mov, Pushq, Sub};
 
         instrs.push(Comment {
             comment: "function prolog".to_string(),
         });
-        for instr in &function.prolog {
-            match instr {
-                function::FnInstruction::Pushq { src } => {
-                    let src = self.fn_to_src_operand(*src);
-                    instrs.push(Pushq {
-                        src: src.into_size(Size::Eight),
-                    });
-                }
-                function::FnInstruction::Movq { src, dst } => {
-                    let src = self.fn_to_src_operand(*src);
-                    let dst = self.fn_to_src_operand(*dst).try_into().unwrap();
-                    instrs.push(Mov(MovInstruction {
-                        src,
-                        dst,
-                        comment: "fn prolog".to_string(),
-                    }));
-                }
-                _ => unreachable!(),
-            }
-        }
+        instrs.push(Pushq {
+            src: Amd64Reg::Bp.into_reg(Size::Eight).into(),
+        });
+        instrs.push(Mov(MovInstruction {
+            src: Amd64Reg::Sp.into_reg(Size::Eight).into(),
+            dst: Amd64Reg::Bp.into_reg(Size::Eight).into(),
+            comment: "".to_string(),
+        }));
 
         instrs.push(Comment {
             comment: "function save regs".to_string(),
         });
-        for src in function.saved_regs.saves() {
-            let src = SrcOperand::Reg(Reg {
-                size: Size::Eight,
-                reg: src,
-            });
+        for src in self.saved_regs.saves() {
+            let src = src.into_reg(Size::Eight).into();
             instrs.push(Pushq { src });
         }
 
@@ -181,26 +212,19 @@ impl Codegen {
             comment: "function allocate stack slots".to_string(),
         });
         instrs.push(Sub {
-            subtrahend: SrcOperand::Imm(self.stack_slots_space(function)),
-            acc: DstOperand::Reg(Reg {
-                size: Size::Eight,
-                reg: Amd64Reg::Sp,
-            }),
+            subtrahend: SrcOperand::Imm(self.stack_slots_space()),
+            acc: Amd64Reg::Sp.into_reg(Size::Eight).into(),
         });
     }
 
-    fn gen_function_epilog(
-        &mut self,
-        function: &function::Function,
-        instrs: &mut Vec<Instruction>,
-    ) {
+    fn gen_function_epilog(&self, instrs: &mut Vec<Instruction>) {
         use self::Instruction::{Add, Comment, Leave, Popq, Ret};
 
         instrs.push(Comment {
             comment: "function de-allocate stack slots".to_string(),
         });
         instrs.push(Add {
-            src: SrcOperand::Imm(self.stack_slots_space(function)),
+            src: SrcOperand::Imm(self.stack_slots_space()),
             dst: DstOperand::Reg(Reg {
                 size: Size::Eight,
                 reg: Amd64Reg::Sp,
@@ -210,7 +234,7 @@ impl Codegen {
         instrs.push(Comment {
             comment: "function restore regs".to_string(),
         });
-        for dst in function.saved_regs.restores() {
+        for dst in self.saved_regs.restores() {
             let dst = DstOperand::Reg(Reg {
                 size: Size::Eight,
                 reg: dst,
@@ -221,26 +245,22 @@ impl Codegen {
         instrs.push(Comment {
             comment: "function epilog".to_string(),
         });
-        for instr in &function.epilog {
-            match instr {
-                function::FnInstruction::Leave => instrs.push(Leave),
-                function::FnInstruction::Ret => instrs.push(Ret),
-                _ => unreachable!(),
-            }
-        }
+        instrs.push(Leave);
+        instrs.push(Ret);
     }
 
-    fn gen_mov(&mut self, src: lir::CopyPropagationSrc, dst: lir::Var, instrs: &mut Vec<Mov>) {
-        let src = self.lir_to_src_operand(src.into());
+    fn gen_mov(&self, copy_prop: Ptr<lir::CopyPropagation>, instrs: &mut Vec<Mov>) {
+        let lir::CopyPropagation { src, dst } = &*copy_prop;
+        let src = self.lir_to_src_operand(src.clone());
         let dst: DstOperand = self
-            .lir_to_src_operand(lir::Operand::Var(dst))
+            .lir_to_src_operand(lir::Operand::Var(*dst))
             .try_into()
             .unwrap();
         assert_eq!(src.size(), dst.size(), "src: {:?}, dst: {:?}", src, dst);
         instrs.push(Mov { src, dst });
     }
 
-    fn gen_lir(&mut self, lir: &lir::Instruction, instrs: &mut Vec<Instruction>) {
+    fn gen_lir(&self, lir: &lir::Instruction, instrs: &mut Vec<Instruction>) {
         use self::Instruction::{Load, Mov, Store};
 
         log::debug!("Gen lir: {:?}", lir);
@@ -409,14 +429,14 @@ impl Codegen {
                 instrs.extend(spill_ctx.emit_surrounded_instrs(surrounded));
             }
             lir::Instruction::Call { .. } => unreachable!("Call already converted"),
-            lir::Instruction::Comment(_) => (),
         }
     }
 
     fn gen_load_param(&self, idx: u32, size: u32, dst: lir::Var, instrs: &mut Vec<Instruction>) {
         use self::Instruction::{Comment, Mov};
 
-        let param = &self.var_location[&var_id(lir::Operand::Var(dst))]; // FIXME confusing
+        // FIXME confusing
+        let param = &self.lsa_result.var_location[&var_id(lir::Operand::Var(dst))];
         let size = size.try_into().unwrap();
         match param {
             // Register allocation placed argument into a register.
@@ -452,7 +472,7 @@ impl Codegen {
                     src: SrcOperand::Reg(Reg { size, reg: arg_reg }),
                     dst: DstOperand::Ar(Ar {
                         size,
-                        pos: -((*i + 1 + self.num_saved_regs) as isize),
+                        pos: -((*i + 1 + self.saved_regs.len()) as isize),
                     }),
                     comment: "move param to stack".to_string(),
                 }));
@@ -474,7 +494,7 @@ impl Codegen {
     /// did not require spilling to be moved to registers (i.e. register
     /// allocation already placed them in registers).
     fn lir_address_computation_to_register_address_computation(
-        &mut self,
+        &self,
         ac: lir::AddressComputation<lir::Operand>,
         spill_ctx: &mut SpillContext,
     ) -> (lir::AddressComputation<Reg>, Vec<Amd64Reg>) {
@@ -561,7 +581,7 @@ impl Codegen {
     }
 
     fn lir_address_computation_operands_already_in_registers(
-        &mut self,
+        &self,
         ac: lir::AddressComputation<lir::Operand>,
     ) -> Vec<Amd64Reg> {
         let mut pseudo_spill = SpillContext::new(Vec::from_iter(Amd64Reg::all_but_rsp_and_rbp()));
@@ -570,14 +590,11 @@ impl Codegen {
         already_in_registers
     }
 
-    fn lir_operand_used_registers(&mut self, op: lir::Operand) -> Vec<Amd64Reg> {
+    fn lir_operand_used_registers(&self, op: lir::Operand) -> Vec<Amd64Reg> {
         self.lir_to_src_operand(op).used_regs()
     }
 
-    fn load_store_mem_occupied_regs<I: LoadOrStoreMem>(
-        &mut self,
-        load_or_store: &I,
-    ) -> Vec<Amd64Reg> {
+    fn load_store_mem_occupied_regs<I: LoadOrStoreMem>(&self, load_or_store: &I) -> Vec<Amd64Reg> {
         let mut regs = vec![];
         let ac = load_or_store.mem_address_computation();
         regs.extend(self.lir_address_computation_operands_already_in_registers(ac));
@@ -587,7 +604,7 @@ impl Codegen {
     }
 
     fn gen_binop(
-        &mut self,
+        &self,
         instrs: &mut Vec<Instruction>,
         kind: &lir::BinopKind,
         src1: &lir::Operand,
@@ -665,7 +682,7 @@ impl Codegen {
     }
 
     fn gen_unop(
-        &mut self,
+        &self,
         instrs: &mut Vec<Instruction>,
         kind: &lir::UnopKind,
         src: &lir::Operand,
@@ -711,7 +728,7 @@ impl Codegen {
     }
 
     fn gen_div<F>(
-        &mut self,
+        &self,
         src1: &lir::Operand,
         src2: &lir::Operand,
         dst: lir::Var,
@@ -903,125 +920,284 @@ impl Codegen {
         });
     }
 
-    fn gen_call(&mut self, call: &function::FunctionCall, instrs: &mut Vec<Instruction>) {
-        use self::Instruction::{Add, Call, Comment, Mov, Popq, Pushq};
+    fn gen_call(&self, call: &lir::Call, instrs: &mut Vec<Instruction>) {
+        use self::Instruction::{Mov, Popq, Pushq};
 
-        instrs.push(Comment {
-            comment: "call save args".to_string(),
-        });
-        for src in call.saved_regs.saves() {
-            let src = SrcOperand::Reg(Reg {
-                size: Size::Eight,
-                reg: src,
-            });
-            instrs.push(Pushq { src });
+        /* ###############################################################
+         General Note on this function: we only fill instrs in the end
+         and accumulate all parts of the call setup in separate local
+         variables.
+        ############################################################### */
+
+        /* ###############################################################
+         Save caller-saved registers
+        ############################################################### */
+
+        let mut caller_saves = SaveRegList::default();
+        caller_saves.add_regs_from_iter(
+            call.live_regs_after_call
+                .iter()
+                .cloned()
+                .filter(|reg| reg.is_caller_save()),
+        );
+
+        /* ###############################################################
+         Place variables (which could be assigned to either Ar or Regs
+         to those locations required by the calling convetion
+        ############################################################### */
+
+        #[derive(Clone, Copy)]
+        enum DesiredLocation<LirOrArch> {
+            Register { arg_idx: usize, arg: LirOrArch },
+            Stack { arg_idx: usize, arg: LirOrArch },
         }
-
-        instrs.push(Comment {
-            comment: "call setup".to_string(),
-        });
-        for instr in &call.setup {
-            match instr {
-                function::FnInstruction::Movq { src, dst } => {
-                    let src = self.fn_to_src_operand(*src);
-                    let dst = self.fn_to_src_operand(*dst).try_into().unwrap();
-                    instrs.push(Mov(MovInstruction {
-                        src,
-                        dst,
-                        comment: "call setup move to arg reg".to_string(),
-                    }));
+        impl<T> DesiredLocation<T> {
+            fn arg_idx(&self) -> usize {
+                match self {
+                    DesiredLocation::Stack { arg_idx, .. } => *arg_idx,
+                    DesiredLocation::Register { arg_idx, .. } => *arg_idx,
                 }
-                function::FnInstruction::Pushq { src } => {
-                    let src = self.fn_to_src_operand(*src);
-                    instrs.push(Pushq { src });
+            }
+        }
+        impl DesiredLocation<lir::Operand> {
+            fn into_arch(self, codegen: &Codegen) -> DesiredLocation<SrcOperand> {
+                use DesiredLocation::*;
+                match self {
+                    Register { arg_idx, arg } => Register {
+                        arg_idx,
+                        arg: codegen.lir_to_src_operand(arg),
+                    },
+                    Stack { arg_idx, arg } => Stack {
+                        arg_idx,
+                        arg: codegen.lir_to_src_operand(arg),
+                    },
                 }
-                function::FnInstruction::Popq { dst } => {
-                    let dst = self.fn_to_src_operand(*dst).try_into().unwrap();
-                    instrs.push(Popq { dst });
-                }
-                _ => unreachable!(),
+            }
+        }
+        impl DesiredLocation<SrcOperand> {
+            /// the register, if any, that the calling convention devises
+            /// for this argument
+            fn desired_register(self) -> Option<Amd64Reg> {
+                // TODO this should be a property of cconv, not of Amd64Reg
+                Amd64Reg::try_arg(self.arg_idx())
             }
         }
 
-        instrs.push(Call(CallInstruction {
-            label: call.label.clone(),
-        }));
+        let arg_locations = call
+            .args
+            .iter()
+            .enumerate()
+            .map(|(arg_idx, arg)| {
+                let arg = *arg;
+                if arg_idx < self.cconv.num_arg_regs() {
+                    // Fill the function argument registers
+                    DesiredLocation::Register { arg_idx, arg }
+                } else {
+                    // Push the other args on the stack
+                    DesiredLocation::Stack { arg_idx, arg }
+                }
+            })
+            .map(|al| al.into_arch(self));
 
-        if let Some(function::FnInstruction::Addq { src, dst }) = call.recover {
-            instrs.push(Comment {
-                comment: "call restore %rsp".to_string(),
-            });
-            instrs.push(Add {
-                src: SrcOperand::Imm(src),
-                dst: DstOperand::Reg(dst),
-            });
-        }
+        // at this point, `arg` contains the SrcOperand _before_ the call
+        // `DesiredLocation` encodes
+        // let's figure out what pushqs and movs we need to do to get
 
-        instrs.push(Comment {
-            comment: "call recover args".to_string(),
-        });
-        for dst in call.saved_regs.restores() {
-            assert_ne!(dst, Amd64Reg::A);
-            let dst = DstOperand::Reg(Reg {
-                size: Size::Eight,
-                reg: dst,
-            });
-            instrs.push(Popq { dst });
-        }
-
-        if let Some(function::FnInstruction::Movq { src, dst }) = call.move_res {
-            instrs.push(Comment {
-                comment: "call move from %rax".to_string(),
-            });
-            let src = self.fn_to_src_operand(src);
-            {
-                let x: DstOperand = src.try_into().unwrap();
-                assert_eq!(
-                    x.reg_unchecked(),
-                    Reg {
-                        size: Size::Eight,
-                        reg: Amd64Reg::A,
+        let mut push_stack_args = vec![];
+        let mut movs_from_nonreg = vec![];
+        let mut reg_to_reg = vec![];
+        for desired_location in arg_locations {
+            use DesiredLocation::*;
+            match desired_location {
+                Stack { arg, .. } => push_stack_args.push(arg),
+                Register { arg, .. } => {
+                    // let's abuse the used_regs function a bit here
+                    let desired_reg = desired_location.desired_register();
+                    match (arg, desired_reg) {
+                        (SrcOperand::Reg(src), Some(dst)) => reg_to_reg.push((src, dst)),
+                        (SrcOperand::Ar(_), Some(dst)) | (SrcOperand::Imm(_), Some(dst)) => {
+                            movs_from_nonreg.push(Mov(MovInstruction {
+                                src: arg,
+                                dst: dst.into_reg(Size::Eight).into(),
+                                comment: "NonRegToReg".to_string(),
+                            }))
+                        }
+                        (_, None) => push_stack_args.push(arg),
                     }
-                )
+                }
             }
-            // TODO this will always return Size::Eight ATM
-            let dst = self.fn_to_src_operand(dst).try_into().unwrap();
-            instrs.push(Mov(MovInstruction {
-                src,
-                dst,
-                comment: "call move result from %rax".to_string(),
-            }));
         }
+        let push_stack_args = push_stack_args
+            .into_iter()
+            // stack args are passed in reverse order
+            .rev()
+            .map(|src| Instruction::Pushq { src })
+            .collect::<Vec<_>>();
+        let reg_to_reg = {
+            let transfers = reg_to_reg.into_iter().map(|(src, dst)| RegToRegTransfer {
+                src: SortCopyPropEntity(src.into()),
+                dst: SortCopyPropEntity(dst.into_reg(Size::Eight).into()),
+            });
+            let reg_graph = RegGraph::new(transfers.collect());
+            reg_graph.into_instructions::<Instruction>()
+        };
+        let post_call_reset_rsp_of_pushs = Instruction::Add {
+            src: Tarval::mj_int((push_stack_args.len() * 8) as i64).into(),
+            dst: SrcOperand::Reg(Reg {
+                size: Size::Eight,
+                reg: Amd64Reg::Sp,
+            })
+            .try_into()
+            .unwrap(),
+        };
+
+        // correct
+        let move_result_to_dst = call.dst.map(|dst| {
+            MovInstruction {
+                src: Amd64Reg::A.into_reg(Size::Eight).into(),
+                dst: self.lir_to_src_operand(dst).try_into().unwrap(),
+                comment: "ResultToDst".to_string(),
+            }
+            .into()
+        });
+
+        /* ###############################################################
+         Done with calling convention stuff, now fill instrs
+        ############################################################### */
+
+        instrs.extend(caller_saves.saves().map(|reg| Pushq {
+            src: reg.into_reg(Size::Eight).into(),
+        }));
+        instrs.extend(push_stack_args);
+        instrs.extend(reg_to_reg);
+        instrs.extend(movs_from_nonreg);
+        instrs.push(
+            CallInstruction {
+                label: call.func.clone(),
+            }
+            .into(),
+        );
+        instrs.push(post_call_reset_rsp_of_pushs);
+        instrs.extend(move_result_to_dst);
+        instrs.extend(caller_saves.restores().map(|reg| Popq {
+            dst: reg.into_reg(Size::Eight).into(),
+        }));
     }
 
-    fn gen_leave(
-        &mut self,
-        leave: &lir::Leave,
-        next_block_num: i64,
-        instrs: &mut Vec<Instruction>,
-    ) {
+    // fn gen_call(&self, call: &lir::Call, instrs: &mut Vec<Instruction>) {
+    //     use self::Instruction::{Add, Call, Comment, Mov, Popq, Pushq};
+    //     instrs.push(Comment {
+    //         comment: "call save args".to_string(),
+    //     });
+    //     /// TODO filter out function arguments that are not live after call?
+    //     /// (unnecessary pushq)
+
+    //     for src in call.active_regs.saves() {
+    //         let src = SrcOperand::Reg(Reg {
+    //             size: Size::Eight,
+    //             reg: src,
+    //         });
+    //         instrs.push(Pushq { src });
+    //     }
+
+    //     instrs.push(Comment {
+    //         comment: "call setup".to_string(),
+    //     });
+    //     for instr in &call.setup {
+    //         match instr {
+    //             function::FnInstruction::Movq { src, dst } => {
+    //                 let src = self.fn_to_src_operand(*src);
+    //                 let dst = self.fn_to_src_operand(*dst).try_into().unwrap();
+    //                 instrs.push(Mov(MovInstruction {
+    //                     src,
+    //                     dst,
+    //                     comment: "call setup move to arg reg".to_string(),
+    //                 }));
+    //             }
+    //             function::FnInstruction::Pushq { src } => {
+    //                 let src = self.fn_to_src_operand(*src);
+    //                 instrs.push(Pushq { src });
+    //             }
+    //             function::FnInstruction::Popq { dst } => {
+    //                 let dst = self.fn_to_src_operand(*dst).try_into().unwrap();
+    //                 instrs.push(Popq { dst });
+    //             }
+    //             _ => unreachable!(),
+    //         }
+    //     }
+
+    //     instrs.push(Call(CallInstruction {
+    //         label: call.label.clone(),
+    //     }));
+
+    //     if let Some(function::FnInstruction::Addq { src, dst }) = call.recover {
+    //         instrs.push(Comment {
+    //             comment: "call restore %rsp".to_string(),
+    //         });
+    //         instrs.push(Add {
+    //             src: SrcOperand::Imm(src),
+    //             dst: DstOperand::Reg(dst),
+    //         });
+    //     }
+
+    //     instrs.push(Comment {
+    //         comment: "call recover args".to_string(),
+    //     });
+    //     for dst in call.saved_regs.restores() {
+    //         assert_ne!(dst, Amd64Reg::A);
+    //         let dst = DstOperand::Reg(Reg {
+    //             size: Size::Eight,
+    //             reg: dst,
+    //         });
+    //         instrs.push(Popq { dst });
+    //     }
+
+    //     if let Some(function::FnInstruction::Movq { src, dst }) = call.move_res {
+    //         instrs.push(Comment {
+    //             comment: "call move from %rax".to_string(),
+    //         });
+    //         let src = self.fn_to_src_operand(src);
+    //         {
+    //             let x: DstOperand = src.try_into().unwrap();
+    //             assert_eq!(
+    //                 x.reg_unchecked(),
+    //                 Reg {
+    //                     size: Size::Eight,
+    //                     reg: Amd64Reg::A,
+    //                 }
+    //             )
+    //         }
+    //         // TODO this will always return Size::Eight ATM
+    //         let dst = self.fn_to_src_operand(dst).try_into().unwrap();
+    //         instrs.push(Mov(MovInstruction {
+    //             src,
+    //             dst,
+    //             comment: "call move result from %rax".to_string(),
+    //         }));
+    //     }
+    // }
+
+    fn gen_jmp_label(&self, target: Ptr<lir::BasicBlock>) -> String {
+        format!(".L{}", target.firm.node_id())
+    }
+
+    fn gen_leave(&self, leave: &lir::Leave, instrs: &mut Vec<Instruction>) {
         use self::Instruction::{Cmp, Jmp, Mov};
 
         macro_rules! push_jmp {
-            ($kind:expr, $target:expr, $next_block_num:expr, fall=$fall:expr) => {{
-                let target_num = $target.firm.node_id();
-                if !$fall || target_num != $next_block_num {
-                    instrs.push(Jmp {
-                        label: lir::gen_label(target_num),
-                        kind: $kind,
-                    });
-                }
+            ($kind:expr, $target:expr, fall=$fall:expr) => {{
+                instrs.push(Jmp {
+                    label: self.gen_jmp_label($target),
+                    kind: $kind,
+                });
             }};
         }
 
         log::debug!("Gen leave: {:?}", leave);
         match leave {
-            lir::Leave::Jmp { target } => push_jmp!(
-                lir::JmpKind::Unconditional,
-                target,
-                next_block_num,
-                fall = true
-            ),
+            lir::Leave::Jmp { target } => {
+                push_jmp!(lir::JmpKind::Unconditional, *target, fall = true)
+            }
             lir::Leave::CondJmp {
                 op,
                 lhs,
@@ -1101,18 +1277,8 @@ impl Codegen {
                         op.swap()
                     }
                 };
-                push_jmp!(
-                    lir::JmpKind::Conditional(op),
-                    true_target,
-                    next_block_num,
-                    fall = false
-                );
-                push_jmp!(
-                    lir::JmpKind::Unconditional,
-                    false_target,
-                    next_block_num,
-                    fall = true
-                );
+                push_jmp!(lir::JmpKind::Conditional(op), *true_target, fall = false);
+                push_jmp!(lir::JmpKind::Unconditional, *false_target, fall = true);
             }
             lir::Leave::Return { value, end_block } => {
                 if let Some(value) = value {
@@ -1126,49 +1292,29 @@ impl Codegen {
                         comment: "return move result to %rax".to_string(),
                     }))
                 }
-                push_jmp!(
-                    lir::JmpKind::Unconditional,
-                    end_block,
-                    next_block_num,
-                    fall = true
-                );
+                push_jmp!(lir::JmpKind::Unconditional, *end_block, fall = true);
             }
         }
     }
 
-    fn lir_to_src_operand(&self, op: lir::Operand) -> SrcOperand {
+    fn lir_to_src_operand<OP: Into<lir::Operand>>(&self, op: OP) -> SrcOperand {
+        let op: lir::Operand = op.into();
         match op {
             lir::Operand::Imm(c) => SrcOperand::Imm(c),
-            lir::Operand::Var(var) => match self.var_location[&var_id(op)] {
+            lir::Operand::Var(var) => match self.lsa_result.var_location[&var_id(op)] {
                 Location::Reg(reg) => SrcOperand::Reg(Reg {
-                    size: {
-                        log::debug!("LIR_TO_SRC_OPERAND {:?}", var.firm());
-                        var.firm().mode().size_bytes().try_into().unwrap()
-                    },
+                    size: { var.firm().mode().size_bytes().try_into().unwrap() },
                     reg,
                 }),
                 Location::Ar(idx) => SrcOperand::Ar(Ar {
-                    size: {
-                        log::debug!("LIR_TO_SRC_OPERAND {:?}", var.firm());
-                        var.firm().mode().size_bytes().try_into().unwrap()
-                    },
-                    pos: -((idx + 1 + self.num_saved_regs) as isize),
+                    size: { var.firm().mode().size_bytes().try_into().unwrap() },
+                    pos: -((idx + 1 + self.saved_regs.len()) as isize),
                 }),
                 Location::ParamMem(idx) => SrcOperand::Ar(Ar {
                     size: var.firm().mode().size_bytes().try_into().unwrap(),
                     pos: (idx.checked_sub(self.cconv.num_arg_regs()).unwrap() as isize) + 2,
                 }),
             },
-        }
-    }
-
-    fn fn_to_src_operand(&self, op: function::FnOperand) -> SrcOperand {
-        match op {
-            function::FnOperand::Lir(lir) => self.lir_to_src_operand(lir),
-            function::FnOperand::Reg(reg) => SrcOperand::Reg(Reg {
-                size: Size::Eight,
-                reg,
-            }),
         }
     }
 
@@ -1190,7 +1336,7 @@ impl Codegen {
 }
 
 #[derive(Clone)]
-pub(super) enum Instruction {
+pub(crate) enum Instruction {
     Mov(MovInstruction),
     Load(LoadInstruction),
     Store(StoreInstruction),
@@ -1252,6 +1398,7 @@ pub(super) enum Instruction {
     Comment {
         comment: String,
     },
+    Raw(String),
 }
 
 impl Instruction {
@@ -1304,7 +1451,8 @@ impl Instruction {
             | Ret
             | Label { .. }
             | Cqto
-            | Comment { .. } => "",
+            | Comment { .. }
+            | Raw(_) => "",
         }
         .to_string()
     }
@@ -1347,12 +1495,25 @@ impl fmt::Display for Instruction {
             Label { label } => write!(fmt, "{}:", label),
             Cqto => write!(fmt, "\tcqto"),
             Comment { comment } => write!(fmt, "\t/* {} */", comment),
+            Raw(raw) => write!(fmt, "{}", raw),
         }
     }
 }
 
+impl From<MovInstruction> for Instruction {
+    fn from(mov: MovInstruction) -> Self {
+        Instruction::Mov(mov)
+    }
+}
+
+impl From<CallInstruction> for Instruction {
+    fn from(call: CallInstruction) -> Self {
+        Instruction::Call(call)
+    }
+}
+
 #[derive(Debug, Clone)]
-pub(super) struct CallInstruction {
+pub(crate) struct CallInstruction {
     label: String,
 }
 
@@ -1361,6 +1522,7 @@ pub(super) struct CallInstruction {
 /// (This works because we always spill quad-words (pushQ, popQ)).
 impl fmt::Display for CallInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // FIXME
         match &*self.label {
             "mjrt_system_out_println"
             | "mjrt_system_out_write"
@@ -1386,7 +1548,7 @@ impl fmt::Display for CallInstruction {
 }
 
 #[derive(Clone)]
-pub(super) struct MovInstruction {
+pub(crate) struct MovInstruction {
     src: SrcOperand,
     dst: DstOperand,
     comment: String,
@@ -1461,7 +1623,7 @@ impl fmt::Debug for MovInstruction {
 }
 
 #[derive(Clone)]
-pub(super) struct LoadInstruction {
+pub(crate) struct LoadInstruction {
     src: lir::AddressComputation<Reg>,
     dst: Reg,
 }
@@ -1484,7 +1646,7 @@ impl fmt::Display for LoadInstruction {
 }
 
 #[derive(Clone)]
-pub(super) struct StoreInstruction {
+pub(crate) struct StoreInstruction {
     src: SrcOperand,
     dst: lir::AddressComputation<Reg>,
 }
@@ -1606,16 +1768,28 @@ trait OperandTrait {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(super) enum SrcOperand {
+pub(crate) enum SrcOperand {
     Ar(Ar),
     Reg(Reg),
     Imm(Tarval),
 }
 
+impl From<Tarval> for SrcOperand {
+    fn from(tv: Tarval) -> Self {
+        SrcOperand::Imm(tv)
+    }
+}
+
+impl From<Reg> for SrcOperand {
+    fn from(reg: Reg) -> Self {
+        SrcOperand::Reg(reg)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub(super) struct Ar {
-    pub(super) pos: isize,
-    pub(super) size: Size,
+pub(crate) struct Ar {
+    pub(crate) pos: isize,
+    pub(crate) size: Size,
 }
 
 impl OperandTrait for SrcOperand {
@@ -1670,17 +1844,20 @@ impl OperandUsingRegs for SrcOperand {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(super) enum DstOperand {
+pub(crate) enum DstOperand {
     Ar(Ar),
     Reg(Reg),
 }
 
-impl DstOperand {
-    fn reg_unchecked(self) -> Reg {
-        match self {
-            DstOperand::Reg(reg) => reg,
-            x => panic!("reg_unchecked: {:?}", x),
-        }
+impl<R: Sized + Into<Reg>> From<R> for DstOperand {
+    fn from(r: R) -> Self {
+        DstOperand::Reg(r.into())
+    }
+}
+
+impl From<Ar> for DstOperand {
+    fn from(ar: Ar) -> Self {
+        DstOperand::Ar(ar)
     }
 }
 

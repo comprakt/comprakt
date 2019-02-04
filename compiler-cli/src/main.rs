@@ -11,7 +11,6 @@
 //! }
 //! ```
 #![warn(rust_2018_idioms)]
-#![warn(clippy::print_stdout)]
 #![feature(try_from)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(const_str_as_bytes)]

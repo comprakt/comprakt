@@ -1,25 +1,252 @@
 use super::{
-    function::{FnOperand, FunctionCall},
+    linear_scan,
     lir::{self, BasicBlock},
-    var_id, CallingConv, VarId,
+    var_id, VarId,
 };
-use crate::lowering::lir_allocator::Ptr;
-use libfirm_rs::nodes::NodeTrait;
+use crate::{
+    lir::Allocator,
+    lowering::lir_allocator::{HashPtr, Ptr},
+};
+use interval::{ops::Range, Interval};
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{BTreeSet, HashMap, HashSet, VecDeque},
     hash::{Hash, Hasher},
+    iter::FromIterator,
 };
 
-#[derive(Debug, Clone)]
-pub(super) enum Instruction {
-    // Clippy wants this boxed
-    Call(Box<FunctionCall>),
-    Lir(lir::Instruction),
+pub(crate) struct ScheduledInstr {
+    preds: Vec<Ptr<ScheduledInstr>>,
+    pub(crate) lir: lir::CodeInstruction<
+        Ptr<lir::CopyPropagation>,
+        Ptr<lir::CopyPropagation>,
+        Ptr<lir::Instruction>,
+        Ptr<lir::Leave>,
+    >,
+    idx: usize,
 }
 
-pub type Mov = lir::CopyPropagation;
+impl PartialEq for Ptr<ScheduledInstr> {
+    fn eq(&self, other: &Self) -> bool {
+        self.idx == other.idx
+    }
+}
 
-type Code = lir::Code<Mov, Mov, Instruction, lir::Leave>;
+impl Eq for Ptr<ScheduledInstr> {}
+
+impl PartialOrd for Ptr<ScheduledInstr> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Ptr<ScheduledInstr> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.idx.cmp(&other.idx)
+    }
+}
+
+use std::fmt;
+
+impl fmt::Debug for Ptr<ScheduledInstr> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.lir.fmt(fmt)
+    }
+}
+
+pub(crate) struct LVAResult {
+    pub(crate) scheduled_instrs: Vec<Ptr<ScheduledInstr>>,
+    pub(crate) live_ranges_by_start: BTreeSet<linear_scan::LiveRange>,
+    pub(crate) lsa_params_list: Vec<linear_scan::Param>,
+}
+
+pub(crate) fn live_variable_analysis(
+    blocks_scheduled: &[Ptr<BasicBlock>],
+    alloc: &Allocator,
+) -> LVAResult {
+    let scheduled_instrs = build_scheduled_instrs(blocks_scheduled, alloc);
+    log::debug!("{:#?}", scheduled_instrs);
+    let liveness = build_liveness(&scheduled_instrs);
+    let (live_ranges_by_start, lsa_params_list) = build_live_ranges(&scheduled_instrs, liveness);
+    LVAResult {
+        scheduled_instrs,
+        live_ranges_by_start,
+        lsa_params_list,
+    }
+}
+
+struct Counter {
+    c: usize,
+}
+
+impl Counter {
+    /// increments counter and returns the previous counter value
+    fn inc(&mut self) -> usize {
+        let prev = self.c;
+        self.c += 1;
+        prev
+    }
+}
+
+fn build_scheduled_instrs<'lir>(
+    blocks_scheduled: &'lir [Ptr<BasicBlock>],
+    alloc: &Allocator,
+) -> Vec<Ptr<ScheduledInstr>> {
+    // the basic block B we are at => the list of basic blocks that need B's last
+    // instruction in their preds member
+    let mut patchup: HashMap<HashPtr<BasicBlock>, Vec<Ptr<ScheduledInstr>>> = HashMap::new();
+    let mut leaves: HashMap<HashPtr<BasicBlock>, Ptr<ScheduledInstr>> = HashMap::new();
+    let mut out = Vec::new();
+    let mut instr_counter = Counter { c: 0 };
+    for block in blocks_scheduled.iter().cloned().map(HashPtr::from) {
+        let mut pred_in_block: Option<Ptr<ScheduledInstr>> = None;
+        for lir_instr in block.code.iter_unified() {
+            let sched_instr = ScheduledInstr {
+                preds: pred_in_block.iter().cloned().collect(),
+                lir: lir_instr.clone_ptred(),
+                idx: instr_counter.inc(),
+            };
+            let sched_instr = alloc.scheduled_instr(sched_instr);
+            out.push(sched_instr);
+            debug_assert!(instr_counter.c == out.len());
+            if pred_in_block.is_none() {
+                for pred in block.preds.iter().cloned().map(HashPtr::from) {
+                    patchup.entry(pred).or_default().push(sched_instr);
+                }
+            }
+            pred_in_block = Some(sched_instr);
+        }
+        // leave is always the last instr
+        if let Some(leave_instr) = pred_in_block {
+            leaves.insert(block, leave_instr);
+        }
+    }
+    for (cur_block, blocks_that_cur_block_is_pred_of) in patchup {
+        blocks_that_cur_block_is_pred_of
+            .into_iter()
+            .for_each(|mut i| {
+                let leave = leaves[&cur_block];
+                i.preds.push(leave);
+            });
+    }
+    out
+}
+
+/// `usize` is the `scheduled_instrs.idx`
+type Liveness = HashMap<VarId, BTreeSet<usize>>;
+
+fn build_liveness(scheduled_instrs: &[Ptr<ScheduledInstr>]) -> Liveness {
+    let mut queue = VecDeque::from_iter(scheduled_instrs.iter().cloned().rev());
+    let mut ins: HashMap<HashPtr<ScheduledInstr>, HashSet<VarId>> = HashMap::new();
+    let mut outs: HashMap<HashPtr<ScheduledInstr>, HashSet<VarId>> = HashMap::new();
+
+    while let Some(instr) = queue.pop_front() {
+        let gen = instr.lir.src_operands();
+        let kill = instr.lir.dst_operand();
+
+        let gen = gen.iter().filter_map(|op| {
+            if let lir::Operand::Var(_) = op {
+                Some(var_id(*op))
+            } else {
+                None
+            }
+        });
+        let kill = kill.map(|var| var_id(lir::Operand::Var(var)));
+
+        let cur_ins = ins.entry(instr.into()).or_default();
+        let cur_outs = outs.entry(instr.into()).or_default();
+        log::debug!("Gen: {:?}, Kill: {:?}", gen, kill);
+
+        // outs'(b) = outs(b) - kill(b) => ins(b) = gen(b)+outs'(b)
+        if let Some(var_id) = kill {
+            cur_outs.remove(&var_id);
+        }
+        // if (outs'(b)+gen(b) != ins(b)) => changed = true
+        // sitenote: outs'(b)+gen(b) >= ins(b)
+        let mut changed = false;
+        // ins(b) += outs'(b)
+        for var_id in cur_outs.iter() {
+            changed |= cur_ins.insert(*var_id);
+        }
+        // ins(b) += gen(b)
+        for var_id in gen {
+            changed |= cur_ins.insert(var_id);
+        }
+
+        if changed {
+            for pred in &instr.preds {
+                for var_id in cur_ins.iter() {
+                    outs.entry((*pred).into()).or_default().insert(*var_id);
+                }
+                queue.push_back(*pred);
+            }
+        }
+    }
+
+    let mut liveness = Liveness::new();
+    for (instr, alive_vars) in ins.into_iter() {
+        for var_id in alive_vars {
+            liveness.entry(var_id).or_default().insert(instr.idx);
+        }
+    }
+
+    liveness
+}
+
+fn build_live_ranges(
+    scheduled_instrs: &[Ptr<ScheduledInstr>],
+    liveness: Liveness,
+) -> (BTreeSet<linear_scan::LiveRange>, Vec<linear_scan::Param>) {
+    let mut defs_and_uses: HashMap<VarId, Vec<usize>> = HashMap::new();
+    for (i, instr) in scheduled_instrs.iter().enumerate() {
+        for op in instr.lir.src_operands() {
+            match op {
+                lir::Operand::Imm(_) => (),
+                lir::Operand::Var(_) => defs_and_uses.entry(var_id(op)).or_default().push(i),
+            }
+        }
+        if let Some(var_id) = instr.lir.dst_operand().map(lir::Operand::Var).map(var_id) {
+            defs_and_uses.entry(var_id).or_default().push(i);
+        }
+    }
+
+    let mut var_live = BTreeSet::new();
+    for (var_id, instr_counters) in defs_and_uses {
+        let first_instr_ctr = instr_counters[0];
+        let last_instr_ctr = *instr_counters.iter().last().unwrap();
+        // The last usage is the last position  last instr_counter or the last
+        // instruction in liveness, whichever is later.
+        let last_live_ctr = liveness
+            .get(&var_id)
+            // if none, the data flow analysis determined that the variable is not live after its
+            // definition ("write-only")
+            .map_or(last_instr_ctr, |var_uses| *var_uses.iter().last().unwrap());
+
+        log::debug!("first live instr: {:?}", scheduled_instrs[first_instr_ctr]);
+        log::debug!("last live instr: {:?}", scheduled_instrs[last_live_ctr]);
+        let interval = Interval::new(first_instr_ctr, last_live_ctr);
+
+        var_live.insert(linear_scan::LiveRange { var_id, interval });
+    }
+
+    // TODO hacky
+    let params = scheduled_instrs
+        .iter()
+        .filter_map(|instr| match instr.lir {
+            lir::CodeInstruction::Body(body) => match *body {
+                lir::Instruction::LoadParam { idx, dst, .. } => Some(linear_scan::Param {
+                    pos: idx as usize,
+                    var_id: var_id(lir::Operand::Var(dst)),
+                }),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    (var_live, params)
+}
+
+type Code = lir::Code<lir::CopyPropagation, lir::CopyPropagation, lir::Instruction, lir::Leave>;
 
 #[derive(Debug, Clone)]
 pub(super) struct Block {
@@ -46,151 +273,9 @@ impl Hash for Block {
     }
 }
 
-pub(super) struct LiveVariableAnalysis {
-    cconv: CallingConv,
-    queue: VecDeque<Ptr<lir::BasicBlock>>,
-    graph: Ptr<lir::BlockGraph>,
-
-    pub(super) liveness: HashMap<VarId, HashSet<Block>>,
-    pub(super) postorder_blocks: Vec<Block>,
-}
-
-impl LiveVariableAnalysis {
-    pub fn new(cconv: CallingConv, graph: Ptr<lir::BlockGraph>) -> Self {
-        Self {
-            cconv,
-            queue: VecDeque::new(),
-            graph,
-            liveness: HashMap::new(),
-            postorder_blocks: vec![],
-        }
-    }
-
-    pub fn run(&mut self, end_block: Ptr<lir::BasicBlock>) {
-        self.gen_queue(end_block, &mut HashSet::new());
-        let mut ins: HashMap<libfirm_rs::nodes::Block, HashSet<VarId>> = HashMap::new();
-        let mut outs: HashMap<libfirm_rs::nodes::Block, HashSet<VarId>> = HashMap::new();
-        let mut block_code_map: HashMap<libfirm_rs::nodes::Block, Block> = HashMap::new();
-
-        for (num, block) in self.graph.postorder_blocks().iter().rev().enumerate() {
-            block_code_map.insert(
-                block.firm,
-                Block {
-                    num,
-                    firm_num: block.num,
-                    code: self.gen_code(&block),
-                },
-            );
-            ins.insert(block.firm, HashSet::new());
-            outs.insert(block.firm, HashSet::new());
-        }
-
-        while let Some(block) = self.queue.pop_front() {
-            let code = &block_code_map[&block.firm].code;
-
-            // ins(b) = f_b(outs) = gen(b)+(outs(b)-kill(b))
-            let (gen, kill) = build_gen_kill(code);
-            let cur_outs = outs.get_mut(&block.firm).unwrap();
-            let cur_ins = ins.get_mut(&block.firm).unwrap();
-            log::debug!("Gen: {:?}, Kill: {:?}", gen, kill);
-
-            // outs'(b) = outs(b) - kill(b) => ins(b) = gen(b)+outs'(b)
-            for var_id in &kill {
-                cur_outs.remove(&var_id);
-            }
-            // if (outs'(b)+gen(b) != ins(b)) => changed = true
-            // sitenote: outs'(b)+gen(b) >= ins(b)
-            let mut changed = false;
-            // ins(b) += outs'(b)
-            for var_id in &outs[&block.firm] {
-                changed |= cur_ins.insert(*var_id);
-            }
-            // ins(b) += gen(b)
-            for var_id in gen {
-                changed |= cur_ins.insert(var_id);
-            }
-
-            if changed {
-                for pred in block.preds.iter().cloned() {
-                    for var_id in &ins[&block.firm] {
-                        outs.get_mut(&pred.firm).unwrap().insert(*var_id);
-                    }
-                    self.queue.push_back(pred);
-                }
-            }
-        }
-
-        self.postorder_blocks = block_code_map.values().cloned().collect();
-        self.postorder_blocks.sort_by(|a, b| a.num.cmp(&b.num));
-        for (firm_block, alive_vars) in ins.into_iter() {
-            let block = block_code_map
-                .remove(&firm_block)
-                .expect("Every block is in the code map exactly once");
-            for var_id in alive_vars {
-                self.liveness
-                    .entry(var_id)
-                    .or_default()
-                    .insert(block.clone());
-            }
-        }
-    }
-
-    fn gen_code(&self, block: &lir::BasicBlock) -> Code {
-        let lir_code = &block.code; // lir::Code
-
-        let mut code = Code::default();
-
-        code.copy_in.extend(lir_code.copy_in.iter().cloned());
-        for instr in &lir_code.body {
-            match instr {
-                lir::Instruction::Comment(_) => (), // TODO @flip1995 why ignore comments?
-                _ => code.body.push(self.gen_instr(instr)),
-            }
-        }
-        code.copy_out.extend(lir_code.copy_out.iter().cloned());
-        code.leave.extend(lir_code.leave.iter().cloned());
-
-        code
-    }
-
-    fn gen_instr(&self, instr: &lir::Instruction) -> Instruction {
-        if let lir::Instruction::Call { func, .. } = instr {
-            let cconv = match &**func {
-                "mjrt_system_out_println"
-                | "mjrt_system_out_write"
-                | "mjrt_system_out_flush"
-                | "mjrt_system_in_read"
-                | "mjrt_new" => CallingConv::X86_64,
-                "mjrt_dumpstack"
-                | "mjrt_div_by_zero"
-                | "mjrt_null_usage"
-                | "mjrt_array_out_of_bounds" => unimplemented!(),
-                _ => self.cconv,
-            };
-            Instruction::Call(box FunctionCall::new(cconv, instr))
-        } else {
-            Instruction::Lir(instr.clone())
-        }
-    }
-
-    fn gen_queue(
-        &mut self,
-        end_block: Ptr<BasicBlock>,
-        visited: &mut HashSet<libfirm_rs::nodes::Block>,
-    ) {
-        self.queue.push_back(end_block);
-
-        for pred in end_block.preds.iter().cloned() {
-            if visited.insert(pred.firm) {
-                self.gen_queue(pred, visited);
-            }
-        }
-    }
-}
-
 pub(super) trait Operands {
     fn src_operands(&self) -> Vec<lir::Operand>;
-    fn dst_operand(&self) -> Option<lir::Operand>;
+    fn dst_operand(&self) -> Option<lir::Var>;
 }
 
 use std::borrow::Borrow;
@@ -198,63 +283,46 @@ use std::borrow::Borrow;
 // note the repeated A (for Mov)
 impl<A, B, C> Operands for lir::CodeInstruction<A, A, B, C>
 where
-    A: Borrow<Mov>,
-    B: Borrow<Instruction>,
+    A: Borrow<lir::CopyPropagation>,
+    B: Borrow<lir::Instruction>,
     C: Borrow<lir::Leave>,
 {
     fn src_operands(&self) -> Vec<lir::Operand> {
         use super::lir::{CodeInstruction as CI, Instruction::*, Leave::*, LoadMem, StoreMem};
         match self {
             CI::Body(body) => match body.borrow() {
-                Instruction::Lir(lir) => match lir {
-                    LoadParam { dst, .. } => vec![lir::Operand::Var(*dst)],
-                    Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
-                        vec![*src1, *src2]
+                LoadParam { dst, .. } => vec![lir::Operand::Var(*dst)],
+                Binop { src1, src2, .. } | Div { src1, src2, .. } | Mod { src1, src2, .. } => {
+                    vec![*src1, *src2]
+                }
+                Unop { src, .. } | Conv { src, .. } => vec![*src],
+                Call(lir::Call { args, .. }) => args.clone(),
+                StoreMem(StoreMem {
+                    src,
+                    dst: lir::AddressComputation { base, index, .. },
+                    ..
+                }) => {
+                    let mut ops = vec![*src, *base];
+                    match index {
+                        lir::IndexComputation::Zero => (),
+                        lir::IndexComputation::Displacement(op, _) => ops.push(*op),
                     }
-                    Unop { src, .. } | Conv { src, .. } => vec![*src],
-                    Call { .. } => vec![], // already converted
-                    StoreMem(StoreMem {
-                        src,
-                        dst: lir::AddressComputation { base, index, .. },
-                        ..
-                    }) => {
-                        let mut ops = vec![*src, *base];
-                        match index {
-                            lir::IndexComputation::Zero => (),
-                            lir::IndexComputation::Displacement(op, _) => ops.push(*op),
-                        }
-                        ops
+                    ops
+                }
+                LoadMem(LoadMem {
+                    src: lir::AddressComputation { base, index, .. },
+                    ..
+                }) => {
+                    let mut ops = vec![*base];
+                    match index {
+                        lir::IndexComputation::Zero => (),
+                        lir::IndexComputation::Displacement(op, _) => ops.push(*op),
                     }
-                    LoadMem(LoadMem {
-                        src: lir::AddressComputation { base, index, .. },
-                        ..
-                    }) => {
-                        let mut ops = vec![*base];
-                        match index {
-                            lir::IndexComputation::Zero => (),
-                            lir::IndexComputation::Displacement(op, _) => ops.push(*op),
-                        }
-                        ops
-                    }
-                    Comment(_) => vec![],
-                },
-                Instruction::Call(call) => {
-                    // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
-                    let mut ops = vec![];
-
-                    for op in &call.reg_setup {
-                        ops.push(*op);
-                    }
-                    for op in &call.push_setup {
-                        ops.push(*op);
-                    }
-                    // src of move_res is always %rax
-                    // recover is just an Addq op with a constant and a register
                     ops
                 }
             },
             CI::CopyIn(mov) | CI::CopyOut(mov) => {
-                let Mov { src, .. } = mov.borrow();
+                let lir::CopyPropagation { src, .. } = mov.borrow();
                 vec![(*src).into()]
             }
             CI::Leave(leave) => match leave.borrow() {
@@ -267,92 +335,24 @@ where
         }
     }
 
-    fn dst_operand(&self) -> Option<lir::Operand> {
-        use super::{
-            function::FnInstruction,
-            lir::{CodeInstruction as CI, Instruction::*, LoadMem, StoreMem},
-        };
+    fn dst_operand(&self) -> Option<lir::Var> {
+        use super::lir::{CodeInstruction as CI, Instruction::*, LoadMem, StoreMem};
         match self {
             CI::Body(body) => match body.borrow() {
-                Instruction::Lir(lir) => match lir {
-                    // LoadParam::dst is a src_operand for the purposes of LVA:
-                    LoadParam { .. } => None,
-                    Binop { dst, .. } | Div { dst, .. } | Mod { dst, .. } => {
-                        Some(lir::Operand::Var(*dst))
-                    }
-                    Unop { dst, .. } | Conv { dst, .. } => Some(lir::Operand::Var(*dst)),
-                    Call { .. } => None,
-                    StoreMem(StoreMem { .. }) => None,
-                    LoadMem(LoadMem { dst, .. }) => Some(lir::Operand::Var(*dst)),
-                    Comment(_) => None,
-                },
-                Instruction::Call(call) => {
-                    // arg_save/recover only pushes/pops `Amd64Reg` on/from the stack
-
-                    // Setup just moves in registers or pushes on the stack
-
-                    if let Some(res) = call.move_res {
-                        // src of move_res is always %rax
-                        if let FnInstruction::Movq { dst, .. } = res {
-                            match dst {
-                                FnOperand::Lir(op) => return Some(op),
-                                FnOperand::Reg(_) => unreachable!(),
-                            }
-                        } else {
-                            unreachable!()
-                        }
-                    }
-
-                    // recover is just an Addq op with a constant and a register
-
-                    None
-                }
+                // LoadParam::dst is a src_operand for the purposes of LVA:
+                LoadParam { .. } => None,
+                Binop { dst, .. } | Div { dst, .. } | Mod { dst, .. } => Some(*dst),
+                Unop { dst, .. } | Conv { dst, .. } => Some(*dst),
+                StoreMem(StoreMem { .. }) => None,
+                LoadMem(LoadMem { dst, .. }) => Some(*dst),
+                Call(lir::Call { dst, .. }) => dst.to_owned(),
             },
             CI::CopyIn(mov) | CI::CopyOut(mov) => {
-                let Mov { dst, .. } = mov.borrow();
-                Some(lir::Operand::Var(*dst))
+                let lir::CopyPropagation { dst, .. } = mov.borrow();
+                Some(*dst)
             }
             // No dst for leave instructions
             CI::Leave(_) => None,
         }
     }
-}
-
-fn build_gen_kill(code: &Code) -> (Vec<VarId>, Vec<VarId>) {
-    use super::lir::Operand::*;
-
-    let mut gen = vec![];
-    let mut kill = vec![];
-
-    macro_rules! push {
-        ($vec:expr, $op:expr) => {
-            match $op {
-                Imm(_) => (),
-                Var(var) => {
-                    debug_assert!(var.firm().mode() != libfirm_rs::Mode::X());
-                    if !var.firm().mode().is_mem() {
-                        $vec.push(var_id($op))
-                    }
-                }
-            }
-        };
-    }
-
-    for instr in code.iter_unified() {
-        for op in instr.src_operands() {
-            match op {
-                lir::Operand::Imm(_) => (),
-                _ => {
-                    if !kill.contains(&var_id(op)) {
-                        push!(gen, op);
-                    }
-                }
-            }
-        }
-        if let Some(op) = instr.dst_operand() {
-            push!(kill, op);
-        }
-    }
-
-    (gen, kill)
 }

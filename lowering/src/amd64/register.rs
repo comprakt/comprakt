@@ -3,9 +3,9 @@ use crate::lowering::amd64::CallingConv;
 use std::{cmp::Ordering, collections::BTreeMap, convert::TryFrom};
 
 #[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
-pub(super) struct Reg {
-    pub(super) size: Size,
-    pub(super) reg: Amd64Reg,
+pub(crate) struct Reg {
+    pub(crate) size: Size,
+    pub(crate) reg: Amd64Reg,
 }
 
 impl std::fmt::Display for Reg {
@@ -34,7 +34,7 @@ impl std::fmt::Display for Reg {
 }
 
 #[derive(Display, Debug, Hash, PartialEq, Eq, Copy, Clone)]
-pub(super) enum Amd64Reg {
+pub(crate) enum Amd64Reg {
     #[display(fmt = "a")]
     A,
     #[display(fmt = "b")]
@@ -69,6 +69,12 @@ pub(super) enum Amd64Reg {
     R14,
     #[display(fmt = "r15")]
     R15,
+}
+
+impl Amd64Reg {
+    pub fn into_reg(self, size: Size) -> Reg {
+        Reg { size, reg: self }
+    }
 }
 
 #[rustfmt::skip]
@@ -152,20 +158,24 @@ impl Amd64Reg {
     /// - %r8
     /// - %r9
     ///
-    /// # Panics
-    ///
-    /// This function panics if `idx >= 6`, since X86_64 only reserves 6
-    /// registers for function arguments
-    pub fn arg(idx: usize) -> Self {
-        match idx {
+    /// For `idx >= 6`, this function returns `None` since X86_64 only reserves
+    /// 6 registers for function arguments
+    pub fn try_arg(idx: usize) -> Option<Self> {
+        let reg = match idx {
             0 => Amd64Reg::Di,
             1 => Amd64Reg::Si,
             2 => Amd64Reg::D,
             3 => Amd64Reg::C,
             4 => Amd64Reg::R8,
             5 => Amd64Reg::R9,
-            _ => unreachable!("This arg is on the stack"),
-        }
+            _ => return None,
+        };
+        Some(reg)
+    }
+
+    // like try_arg, but panics instead of returning `None`
+    pub fn arg(idx: usize) -> Self {
+        Self::try_arg(idx).unwrap()
     }
 
     pub(super) fn is_caller_save(self) -> bool {

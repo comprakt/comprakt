@@ -31,8 +31,6 @@ pub use compiler_shared::context;
 
 pub use lexer;
 
-pub(crate) use debugging;
-
 #[macro_use]
 extern crate parser;
 

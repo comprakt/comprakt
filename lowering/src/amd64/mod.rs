@@ -1,16 +1,18 @@
 use crate::lowering::lir;
 
-mod codegen;
-mod function;
-mod linear_scan;
-mod live_variable_analysis;
+pub(crate) mod basic_block_scheduling;
+pub(crate) mod codegen;
+// pub(crate) mod codegen_new;
+// pub(crate) use codegen_new as codegen;
+pub(crate) mod function;
+pub(crate) mod linear_scan;
+pub(crate) mod live_variable_analysis;
 mod register;
 
-pub use self::function::Function;
-use self::register::{Amd64Reg, Reg};
+pub(crate) use self::register::Amd64Reg;
 use std::convert::TryFrom;
 
-pub(super) type VarId = (usize);
+pub(crate) type VarId = (usize);
 
 /// FIXME refactor
 fn var_id(op: lir::Operand) -> VarId {
@@ -36,34 +38,8 @@ impl CallingConv {
     }
 }
 
-pub struct Program {
-    functions: Vec<Function>,
-}
-
-impl Program {
-    pub fn new(lir: &lir::LIR, cconv: CallingConv) -> Self {
-        let mut functions = vec![];
-
-        for f in &lir.functions {
-            let mut amd64_func = Function::new(f.nargs, cconv, &f.name);
-            amd64_func.gen_code(f.graph);
-            functions.push(amd64_func);
-        }
-
-        Self { functions }
-    }
-
-    pub fn emit_asm(&mut self, out: &mut impl std::io::Write) -> std::io::Result<()> {
-        writeln!(out, "\t.text")?;
-        for f in self.functions.iter() {
-            f.emit_asm(out)?;
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
-pub(self) enum Size {
+pub(crate) enum Size {
     One,
     Four,
     Eight,
