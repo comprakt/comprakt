@@ -108,14 +108,14 @@ impl optimization::Local for CodePlacement {
 struct CommonSubExpr(Node);
 
 impl CommonSubExpr {
-    fn normalize_node(node: Node, graph: &Graph) {
+    fn normalize_node(node: Node, graph: Graph) {
         // put commutative ops in an arbitrary but stable order
         // Exaustive list of commutative nodes: add, and, eor, mul, mulh, or
         if node.is_commutative() {
             let operand_right =
-                Node::wrap(unsafe { bindings::get_binop_right(node.internal_ir_node()).into() });
+                Node::wrap(unsafe { bindings::get_binop_right(node.internal_ir_node()) });
             let operand_left =
-                Node::wrap(unsafe { bindings::get_binop_left(node.internal_ir_node()).into() });
+                Node::wrap(unsafe { bindings::get_binop_left(node.internal_ir_node()) });
 
             if CommonSubExpr::cmp(operand_left, operand_right) == Ordering::Greater {
                 breakpoint!(
@@ -655,7 +655,7 @@ impl CostMinimizingPlacement {
         // normalize node order for all nodes in block, this includes
         // the current node
         for local_node in current_node.block().out_nodes() {
-            CommonSubExpr::normalize_node(local_node, &self.graph);
+            CommonSubExpr::normalize_node(local_node, self.graph);
         }
 
         // recompute the out indices, since edges were reordered
