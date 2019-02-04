@@ -1,4 +1,4 @@
-use super::{AstLintPass, LintContext, LintPass};
+use super::{AstLintPass, EarlyContext, LintContext, LintPass};
 use asciifile::Spanned;
 use diagnostics::{declare_lint, lint::LintArray, lint_array};
 use parser::ast::*;
@@ -23,8 +23,8 @@ impl LintPass for BoolPass {
     }
 }
 
-impl<'f> AstLintPass<'f> for BoolPass {
-    fn check_expr(&mut self, cx: &LintContext<'_>, expr: &Spanned<'_, Expr<'_>>) {
+impl<'a, 'f> AstLintPass<'a, 'f> for BoolPass {
+    fn check_expr(&mut self, cx: &EarlyContext<'_, '_>, expr: &Spanned<'_, Expr<'_>>) {
         match &expr.data {
             Expr::Binary(BinaryOp::Equals, lhs, rhs)
             | Expr::Binary(BinaryOp::NotEquals, lhs, rhs) => match (&lhs.data, &rhs.data) {

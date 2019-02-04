@@ -380,10 +380,10 @@ macro_rules! until_after_type_check {
         m_parser.stop();
 
         if $lint {
-            let m_linter = compiler_shared::timing::Measurement::start("frontend::linter");
+            let m_linter = compiler_shared::timing::Measurement::start("frontend::linter_ast");
 
             let mut linter = compiler_lib::linter::Linter::default();
-            if let Err(lint_err) = linter.check(&context, &ast) {
+            if let Err(lint_err) = linter.check_ast(&context, &ast) {
                 log::debug!("linter error");
                 context.diagnostics.error(&lint_err);
                 context.diagnostics.write_statistics();
@@ -403,6 +403,19 @@ macro_rules! until_after_type_check {
 
         m_typecheck.stop();
 
+        if $lint {
+            let m_linter = compiler_shared::timing::Measurement::start("frontend::linter_semantic");
+
+            let mut linter = compiler_lib::linter::Linter::default();
+            if let Err(lint_err) = linter.check_semantic(&context, &ast, &$type_analysis) {
+                log::debug!("linter error");
+                context.diagnostics.error(&lint_err);
+                context.diagnostics.write_statistics();
+                exit(1);
+            }
+
+            m_linter.stop();
+        }
     }
 }
 

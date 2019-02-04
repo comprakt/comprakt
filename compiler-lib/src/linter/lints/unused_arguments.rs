@@ -1,4 +1,4 @@
-use super::{AstLintPass, LintContext, LintPass};
+use super::{AstLintPass, EarlyContext, LintContext, LintPass};
 use asciifile::Spanned;
 use diagnostics::{declare_lint, lint::LintArray, lint_array};
 use parser::{ast::*, visitor::NodeKind};
@@ -11,18 +11,18 @@ declare_lint!(
     "unused arguments of a function"
 );
 
-pub struct UnusedArgumentPass;
+pub struct UnusedArgumentsPass;
 
-impl LintPass for UnusedArgumentPass {
+impl LintPass for UnusedArgumentsPass {
     fn get_lints(&self) -> LintArray {
         lint_array!(UNUSED_ARGUMENTS)
     }
 }
 
-impl<'f> AstLintPass<'f> for UnusedArgumentPass {
+impl<'a, 'f> AstLintPass<'a, 'f> for UnusedArgumentsPass {
     fn check_class_member(
         &mut self,
-        cx: &LintContext<'_>,
+        cx: &EarlyContext<'_, '_>,
         class_member: &Spanned<'_, ClassMember<'_>>,
     ) {
         if let ClassMemberKind::Method(_, param_list, block) = &class_member.kind {
