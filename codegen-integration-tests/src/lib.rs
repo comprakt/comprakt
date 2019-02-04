@@ -248,7 +248,7 @@ pub fn gen_ast_inspector_tests(_args: TokenStream) -> TokenStream {
 pub fn gen_lints_integration_tests(_args: TokenStream) -> TokenStream {
     gen_integration_tests("lints", "", |test_name, mj_file| {
         default_test_generator(
-            &quote! { CompilerCall::RawCompiler(CompilerPhase::Semantic) },
+            &quote! { CompilerCall::RawCompiler(CompilerPhase::Linter) },
             test_name,
             mj_file,
         )

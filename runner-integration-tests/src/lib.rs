@@ -29,6 +29,7 @@ pub enum CompilerPhase {
     Parser,
     Ast,
     Semantic,
+    Linter,
     Binary {
         backend: Backend,
         output: PathBuf,
@@ -70,6 +71,7 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
         CompilerPhase::Parser => &["--parsetest"],
         CompilerPhase::Ast => &["--print-ast"],
         CompilerPhase::Semantic => &["--check"],
+        CompilerPhase::Linter => &["--check", "--lint"],
         CompilerPhase::Binary {
             backend,
             output,
