@@ -57,6 +57,7 @@ ALIASES['itoa'] = {};
 ALIASES['language_tags'] = {};
 ALIASES['lazy_static'] = {};
 ALIASES['lazycell'] = {};
+ALIASES['levenshtein'] = {};
 ALIASES['lexer'] = {};
 ALIASES['libc'] = {};
 ALIASES['libfirm_rs'] = {};

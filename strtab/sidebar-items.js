@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["StringTable",""],["Symbol",""]]});
+initSidebarItems({"enum":[["Relation",""]],"struct":[["StringTable",""],["Symbol",""]],"trait":[["Relational",""]]});

@@ -426,6 +426,12 @@
 <span id="426">426</span>
 <span id="427">427</span>
 <span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">type_analysis</span>::<span class="ident">TypeAnalysis</span>, <span class="ident">type_system</span>::<span class="ident">TypeSystem</span>};
 <span class="kw">use</span> <span class="ident">asciifile</span>::{<span class="ident">MaybeSpanned</span>, <span class="ident">Span</span>, <span class="ident">Spanned</span>};
@@ -477,8 +483,14 @@
     <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;condition must be boolean&quot;</span>)]</span>
     <span class="ident">ConditionMustBeBoolean</span>,
 
-    <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;cannot lookup var or field &#39;{}&#39;&quot;</span>, <span class="ident">name</span>)]</span>
+    <span class="attribute">#[<span class="ident">fail</span>(<span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;cannot find var or field &#39;{}&#39;&quot;</span>, <span class="ident">name</span>)]</span>
     <span class="ident">CannotLookupVarOrField</span> { <span class="ident">name</span>: <span class="ident">String</span> },
+
+    <span class="attribute">#[<span class="ident">fail</span>(
+        <span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;Cannot find var or field &#39;{}&#39;. Did you mean {}?&quot;</span>,
+        <span class="ident">name</span>, <span class="ident">did_you_mean</span>
+    )]</span>
+    <span class="ident">CannotLookupVarOrFieldDidYouMean</span> { <span class="ident">name</span>: <span class="ident">String</span>, <span class="ident">did_you_mean</span>: <span class="ident">String</span> },
 
     <span class="attribute">#[<span class="ident">fail</span>(
         <span class="ident">display</span> <span class="op">=</span> <span class="string">&quot;cannot access non static field &#39;{}&#39; in static method&quot;</span>,

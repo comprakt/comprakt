@@ -57,6 +57,7 @@ sourcesIndex['itoa'] = {"name":"","dirs":[],"files":["lib.rs"]};
 sourcesIndex['language_tags'] = {"name":"","dirs":[],"files":["lib.rs"]};
 sourcesIndex['lazy_static'] = {"name":"","dirs":[],"files":["inline_lazy.rs","lib.rs"]};
 sourcesIndex['lazycell'] = {"name":"","dirs":[],"files":["lib.rs"]};
+sourcesIndex['levenshtein'] = {"name":"","dirs":[],"files":["lib.rs"]};
 sourcesIndex['lexer'] = {"name":"","dirs":[],"files":["lexer.rs","lextest.rs"]};
 sourcesIndex['libc'] = {"name":"","dirs":[{"name":"unix","dirs":[{"name":"notbsd","dirs":[{"name":"linux","dirs":[{"name":"other","dirs":[{"name":"b64","dirs":[],"files":["mod.rs","not_x32.rs","x86_64.rs"]}],"files":["mod.rs"]}],"files":["mod.rs"]}],"files":["mod.rs"]}],"files":["mod.rs"]}],"files":["dox.rs","lib.rs","macros.rs"]};
 sourcesIndex['libfirm_rs'] = {"name":"","dirs":[{"name":"nodes","dirs":[],"files":["mod.rs","nodes_ext.rs","nodes_gen.rs","value_nodes.rs"]}],"files":["entity.rs","graph.rs","lib.rs","mode.rs","tarval.rs","types.rs"]};
