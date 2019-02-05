@@ -96,7 +96,11 @@ class Main {
 
     }
 
-    public void assertNodesEq_obj(Obj a, Obj b) {
+    public void assertNodesAreEq_obj(Obj a, Obj b) {
+
+    }
+
+    public void assertNodesAreNotEq_obj(Obj a, Obj b) {
 
     }
 
@@ -115,7 +119,7 @@ class Main {
 
         test_cmp1_simple();
 
-        test_load_DoubleLoad1();
+        test_load_LoadEqStore1();
         test_load_DoubleLoad2();
     }
 
@@ -147,12 +151,17 @@ class Main {
         Obj a = new Obj(); /* 1n -> [1] */
         Obj b = new Obj(); /* 2n -> [2] */
         Obj c = new Obj(); /* 3n -> [3] */
+
         a.obj = b; /* 1n.obj -> [2] */
+        if (nonConstBoolFalse()) {
+            a.obj = null;
+        }
         c.x = 3;
         a.x = 1;
         b.x = 5;
         Obj b2 = a.obj; /* 4n -> [2] */
-        b2.x = 2; /* invalidates [2].x */
+        assertNodesAreNotEq_obj(b, b2);
+        b2.x = 2; /* invalidate [2].x */
 
         assertNodesAreConst1234(a.x, 2, c.x, 4);
         int bxEq2Var = b.x;
@@ -197,6 +206,35 @@ class Main {
         assertNodesAreNonConst1234(cxEq2Var - 1, cxEq2Var, cxEq2Var + 1, cxEq2Var + 2);
     }
 
+    public void test_alias_MethodCallSimple() {
+        Obj container = new Obj();
+        Obj a = new Obj();
+        container.obj = a;
+        container.x = 3;
+        a.x = 1;
+        Obj b = new Obj();
+        b.x = 2;
+
+        simpleMethod();
+        int axEq1Const = a.x;
+
+        escaped = a;
+        simpleMethod();
+        int axEq1Var = a.x;
+        int bxEq2Const = b.x;
+
+        assertNodesAreConst1234(axEq1Const, bxEq2Const, container.x, bxEq2Const + 2);
+        assertNodesAreNonConst1(axEq1Var);
+    }
+
+    public Obj escaped;
+
+    public void simpleMethod() {
+        if (escaped != null) {
+            escaped.x = 1;
+        }
+    }
+
     public void test_alias_MethodCall() {
         newTest();
 
@@ -206,16 +244,16 @@ class Main {
         b.obj = new Obj();
 
         a.obj = a;
-        changeDeep(a); /* a has no reference to b */
+        changeDeep(a); /* a has no reference to b, thus b remains unchanged */
         int axEq3Var = a.x - 1;
         int bxEq1Const = b.x;
 
         a.obj = b;
-        changeDeep(a);
+        changeDeep(a); /* a now has a reference to b */
         int bxEq4Var = b.obj.x;
         a.x = 2;
 
-        /* TODO: assertConstant(bxEq1Const, a.x, 3, 4); */
+        assertNodesAreConst1234(bxEq1Const, a.x, 3, 4);
         assertNodesAreNonConst1234(bxEq4Var - 3, bxEq4Var - 2, axEq3Var, bxEq4Var);
     }
 
@@ -312,12 +350,12 @@ class Main {
         assertNodesAreConstTrue(!(obj1 == null));
         assertNodesAreConstTrue(obj1 != null);
 
-        /* todo assertNodesAreConstTrue(!(obj1 == obj1)); */
-        /* todo assertNodesAreConstTrue(obj1 != obj1); */
+        assertNodesAreConstTrue(!(obj1 != obj1));
+        assertNodesAreConstTrue(obj1 == obj1);
 
         Obj obj2 = new Obj();
 
-        /* todo assertNodesAreConstTrue(!(obj1 == obj2)); */
+        /* assertNodesAreConstTrue(!(obj1 == obj2)); */
         assertNodesAreConstTrue(obj1 != obj2);
 
         Obj obj3 = null;
@@ -333,6 +371,10 @@ class Main {
         if (nonConstBoolFalse()) {
             obj5_or_null = new Obj();
         }
+
+        assertNodesAreConstTrue(!(obj5_or_null != obj5_or_null));
+        assertNodesAreConstTrue(obj5_or_null == obj5_or_null);
+
         assertNodesAreNonConstTrue(obj4_or_null == obj5_or_null);
     }
 
@@ -341,33 +383,75 @@ class Main {
 
     /* == Load removal == */
 
-    public void test_load_DoubleLoad1() {
+    public void test_load_LoadEqStore1() {
         newTest();
 
-        int i = 0;
-        while (i < 2) {
-            i = i + 1;
-        }
+        int i = nonConstZero() + 1;
 
         Obj o = new Obj();
         o.x = i;
-        assertNodesEq_int(o.x, i);
+        int i2 = o.x;
+        assertNodesEq_int(i2, i);
+    }
+
+    public void test_load_write_through() {
+        newTest();
+
+        Obj o = new Obj();
+
+        Obj mid = new Obj();
+        mid.obj = o;
+
+        Obj o2 = mid.obj;
+
+        o.x = 1;
+        assertNodesAreConst1(o2.x);
+    }
+
+    public void test_load_DoubleLoad1() {
+        newTest();
+
+        Obj o = getSomeObj();
+        int i = o.x;
+        int j = o.x;
+        assertNodesEq_int(i, j);
+    }
+
+    public Obj getSomeObj() {
+        Obj o = new Obj();
+        o.x = 1;
+        return o;
     }
 
     public void test_load_DoubleLoad2() {
         newTest();
 
-        Obj val = new Obj();
         Obj valMiddle = new Obj();
+
+        Obj val = new Obj();
         valMiddle.obj = val;
+
 
         Obj o = new Obj();
         o.obj = valMiddle;
 
         Obj valMiddle2 = o.obj;
-        assertNodesEq_obj(valMiddle, valMiddle2);
+        /* assertNodesAreEq_obj(valMiddle, valMiddle2); */
 
         Obj val2 = valMiddle2.obj;
-        assertNodesEq_obj(val, val2);
+        assertNodesAreEq_obj(val, val2);
+    }
+
+    public void test_cond_load() {
+        newTest();
+
+        Obj cont = new Obj();
+        if (!nonConstBoolFalse()) {
+            Obj o = new Obj();
+            cont.obj = o;
+            o.x = nonConstZero() + 1;
+        }
+
+        /* TODO print(o.x) */
     }
 }

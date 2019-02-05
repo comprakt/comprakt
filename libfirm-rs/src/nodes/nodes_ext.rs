@@ -443,6 +443,10 @@ impl Block {
     pub fn dom_depth(self) -> usize {
         unsafe { get_Block_dom_depth(self.internal_ir_node()) as usize }
     }
+
+    pub fn dominates(self, other: Block) -> bool {
+        unsafe { bindings::block_dominates(self.internal_ir_node(), other.internal_ir_node()) != 0 }
+    }
 }
 
 extern "C" {
@@ -530,7 +534,7 @@ impl Address {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum NewKind {
     Object(ClassTy),
     Array { item_ty: Ty, item_count: Node },

@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use libfirm_rs::{
-    nodes::{Node, NodeTrait},
+    nodes::{Node, NodeTrait, ProjKind},
     Graph,
 };
 use log;
@@ -42,10 +42,16 @@ impl Spans {
         }
     }
 
-    pub fn add_span(node: Node, span: Span<'_>) {
+    pub fn add_span(node: impl NodeTrait, span: Span<'_>) {
         let mut spans = HashMap::new();
-        spans.insert(node, span);
+        spans.insert(node.as_node(), span);
         SPANS.lock().unwrap().add_spans_(&spans);
+    }
+
+    pub fn copy_span(target_node: impl NodeTrait, source_node: impl NodeTrait) {
+        if let Some(span) = Spans::lookup_span(source_node) {
+            Spans::add_span(target_node, span);
+        }
     }
 
     pub fn add_spans(spans: &HashMap<Node, Span<'_>>) {
@@ -55,6 +61,7 @@ impl Spans {
     fn lookup_span_(&self, node: impl NodeTrait) -> Option<Span<'static>> {
         let map = self.spans.borrow();
         let node = match node.as_node() {
+            Node::Proj(_proj, ProjKind::Call_TResult_Arg(_idx, call, _)) => call.into(),
             Node::Proj(proj, _) => proj.pred(),
             node => node,
         };
