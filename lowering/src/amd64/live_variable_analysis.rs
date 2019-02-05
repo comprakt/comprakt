@@ -1,7 +1,6 @@
 use super::{
     function::{FnOperand, FunctionCall},
-    lir::{self, BasicBlock},
-    var_id, CallingConv, VarId,
+    lir, var_id, CallingConv, VarId,
 };
 use crate::lowering::lir_allocator::Ptr;
 use libfirm_rs::nodes::NodeTrait;
@@ -66,8 +65,8 @@ impl LiveVariableAnalysis {
         }
     }
 
-    pub fn run(&mut self, end_block: Ptr<lir::BasicBlock>) {
-        self.gen_queue(end_block, &mut HashSet::new());
+    pub fn run(&mut self, graph: Ptr<lir::BlockGraph>) {
+        self.gen_queue(graph, &mut HashSet::new());
         let mut ins: HashMap<libfirm_rs::nodes::Block, HashSet<VarId>> = HashMap::new();
         let mut outs: HashMap<libfirm_rs::nodes::Block, HashSet<VarId>> = HashMap::new();
         let mut block_code_map: HashMap<libfirm_rs::nodes::Block, Block> = HashMap::new();
@@ -175,15 +174,35 @@ impl LiveVariableAnalysis {
 
     fn gen_queue(
         &mut self,
-        end_block: Ptr<BasicBlock>,
+        graph: Ptr<lir::BlockGraph>,
         visited: &mut HashSet<libfirm_rs::nodes::Block>,
     ) {
-        self.queue.push_back(end_block);
+        if graph.end_block.preds.is_empty() {
+            // this happens when the function contains an infinite loop and does not return
+            // (FIRM end block doesn't have cfg_preds in that case)
+            // => see integration-tests/timeout/const_optimizable_while.mj
+            //
+            // NOTE: This is only the implication
+            //        graph.end_block.preds.is_empty() => does not return
+            // The reverse implication is not true, according to @hediet
+            // => do not extract this into a `fn graph.does_not_return() -> bool`
 
-        for pred in end_block.preds.iter().cloned() {
-            if visited.insert(pred.firm) {
-                self.gen_queue(pred, visited);
+            // enqueue all blocks in random order: slows the analysis but oh well
+            self.queue.extend(graph.iter_blocks());
+        } else {
+            fn gen_queue_dfs(
+                queue: &mut VecDeque<Ptr<lir::BasicBlock>>,
+                block: Ptr<lir::BasicBlock>,
+                visited: &mut HashSet<libfirm_rs::nodes::Block>,
+            ) {
+                queue.push_back(block);
+                for pred in block.preds.iter().cloned() {
+                    if visited.insert(pred.firm) {
+                        gen_queue_dfs(queue, pred, visited);
+                    }
+                }
             }
+            gen_queue_dfs(&mut self.queue, graph.end_block, visited);
         }
     }
 }

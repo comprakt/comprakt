@@ -255,7 +255,7 @@ impl Function {
 
     pub(super) fn gen_code(&mut self, graph: Ptr<lir::BlockGraph>) {
         let mut lva = LiveVariableAnalysis::new(self.cconv, graph);
-        lva.run(graph.end_block);
+        lva.run(graph);
 
         let mut lsa = self.build_lsa(&lva);
         lsa.run(&mut lva.postorder_blocks);
