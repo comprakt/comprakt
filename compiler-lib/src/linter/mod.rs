@@ -278,6 +278,7 @@ impl<'a, 'f: 'a> Linter<'a, 'f> {
     pub fn register_ast_passes(&mut self) {
         self.register_ast_lint(box bools::BoolPass);
         self.register_ast_lint(box unused_arguments::UnusedArgumentsPass);
+        self.register_ast_lint(box unused_class::UnusedClassPass::default());
     }
 
     fn register_ast_lint(&mut self, pass: Box<dyn AstLintPass<'a, 'f> + 'a>) {
