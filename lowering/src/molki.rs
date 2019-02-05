@@ -1,4 +1,4 @@
-#![allow(clippy::new_without_default_derive)]
+#![allow(clippy::new_without_default)]
 use super::lir_allocator::Ptr;
 use crate::lowering::lir;
 use libfirm_rs::Tarval;

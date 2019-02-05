@@ -252,7 +252,6 @@ impl<'f> ExpectedToken<'f> for IntegerLiteral {
 
 type SyntaxResult<'f, T> = Result<T, MaybeSpanned<'f, SyntaxError>>;
 type ParserResult<'f, T> = SyntaxResult<'f, Spanned<'f, T>>;
-type BoxedResult<'f, T> = SyntaxResult<'f, Box<Spanned<'f, T>>>;
 
 pub struct Parser<'f, I>
 where
@@ -566,7 +565,7 @@ where
                     None
                 };
 
-                If(cond, box if_arm, else_arm.map(Box::new))
+                If(box cond, box if_arm, else_arm.map(Box::new))
             } else if self.eat_optional(exactly(Keyword::While)).is_some() {
                 self.eat(exactly(Operator::LeftParen))?;
                 let cond = self.parse_expression()?;
@@ -574,10 +573,10 @@ where
 
                 let body = self.parse_statement()?;
 
-                While(cond, box body)
+                While(box cond, box body)
             } else if self.eat_optional(exactly(Keyword::Return)).is_some() {
                 let expr = if !self.tastes_like(exactly(Operator::Semicolon)) {
-                    Some(self.parse_expression()?)
+                    Some(box self.parse_expression()?)
                 } else {
                     None
                 };
@@ -600,7 +599,7 @@ where
                 let ty = self.parse_type()?;
                 let name = self.eat(Identifier)?;
                 let init = if self.eat_optional(exactly(Operator::Equal)).is_some() {
-                    Some(self.parse_expression()?)
+                    Some(box self.parse_expression()?)
                 } else {
                     None
                 };
@@ -612,12 +611,12 @@ where
                 let expr = self.parse_expression()?;
                 self.eat(exactly(Operator::Semicolon))?;
 
-                Expression(expr)
+                Expression(box expr)
             })
         })
     }
 
-    fn parse_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
+    fn parse_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
         self.parse_binary_expression()
     }
 
@@ -630,18 +629,15 @@ where
     /// [1]: https://en.wikipedia.org/wiki/Shunting-yard_algorithm
     /// [2]: https://en.wikipedia.org/wiki/Reverse_Polish_notation#Postfix_evaluation_algorithm
     /// [3]: https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
-    fn parse_binary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
+    fn parse_binary_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
         let mut operator_stack = Vec::new();
         let mut operand_stack = Vec::new();
-        fn rpn_eval<'f>(
-            operand_stack: &mut Vec<Box<Spanned<'f, ast::Expr<'f>>>>,
-            op: ast::BinaryOp,
-        ) {
+        fn rpn_eval<'f>(operand_stack: &mut Vec<Spanned<'f, ast::Expr<'f>>>, op: ast::BinaryOp) {
             assert!(operand_stack.len() >= 2); // Invariant: we only construct valid RPN
-            let rhs = operand_stack.pop().unwrap();
-            let lhs = operand_stack.pop().unwrap();
+            let rhs = box operand_stack.pop().unwrap();
+            let lhs = box operand_stack.pop().unwrap();
             let res = lhs.combine_boxed_with_boxed(rhs, |lhs, rhs| ast::Expr::Binary(op, lhs, rhs));
-            operand_stack.push(box res);
+            operand_stack.push(res);
         }
 
         operand_stack.push(self.parse_unary_expression()?);
@@ -676,7 +672,7 @@ where
         Ok(operand_stack.remove(0))
     }
 
-    fn parse_unary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
+    fn parse_unary_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
         let mut ops = Vec::new();
         while let Some(op) = self.eat_optional(UnaryOp) {
             ops.push(op);
@@ -686,7 +682,7 @@ where
             if let Some(lit) = self.eat_optional(IntegerLiteral) {
                 // Unwrap is safe, because `.map_or(false, ...`
                 let op = ops.pop().unwrap();
-                box op.combine_with(lit, |_, lit| ast::Expr::NegInt(lit))
+                op.combine_with(lit, |_, lit| ast::Expr::NegInt(lit))
             } else {
                 self.parse_postfix_expression()?
             }
@@ -695,29 +691,29 @@ where
         };
 
         for op in ops {
-            expr = box op.combine_with_boxed(expr, |op, expr| ast::Expr::Unary(op.data, expr));
+            expr = op.combine_with_boxed(box expr, |op, expr| ast::Expr::Unary(op.data, expr));
         }
 
         Ok(expr)
     }
 
-    fn parse_postfix_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
+    fn parse_postfix_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
         let mut expr = self.parse_primary_expression()?;
 
         loop {
-            expr = box if self.eat_optional(exactly(Operator::Dot)).is_some() {
+            expr = if self.eat_optional(exactly(Operator::Dot)).is_some() {
                 let adressee = self.eat(Identifier)?;
 
                 if self.tastes_like(exactly(Operator::LeftParen)) {
                     // method call: EXPR.ident(arg1, arg2, ...)
                     let args = self.parse_parameter_values()?;
 
-                    expr.combine_boxed_with(args, |expr, args| {
+                    (box expr).combine_boxed_with(args, |expr, args| {
                         ast::Expr::MethodInvocation(expr, adressee, args)
                     })
                 } else {
                     // member reference: EXPR.ident
-                    expr.combine_boxed_with(adressee, ast::Expr::FieldAccess)
+                    (box expr).combine_boxed_with(adressee, ast::Expr::FieldAccess)
                 }
             } else if self.eat_optional(exactly(Operator::LeftBracket)).is_some() {
                 // array access: EXPR[EXPR]
@@ -728,7 +724,7 @@ where
                 // index_expr
                 Spanned {
                     span: Span::combine(&expr.span, &spanned.span),
-                    data: ast::Expr::ArrayAccess(expr, index_expr),
+                    data: ast::Expr::ArrayAccess(box expr, box index_expr),
                 }
             } else {
                 break;
@@ -738,7 +734,7 @@ where
         Ok(expr)
     }
 
-    fn parse_primary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
+    fn parse_primary_expression(&mut self) -> ParserResult<'f, ast::Expr<'f>> {
         spanned!(self, {
             use self::ast::Expr::*;
 
@@ -783,7 +779,7 @@ where
                         array_depth += 1;
                     }
 
-                    NewArray(new_type, first_index_expr, array_depth)
+                    NewArray(new_type, box first_index_expr, array_depth)
                 }
             } else if self.eat_optional(exactly(Keyword::Null)).is_some() {
                 Null
@@ -798,11 +794,10 @@ where
                 Int(lit)
             })
         })
-        .map(Box::new)
     }
 
     fn parse_parameter_values(&mut self) -> ParserResult<'f, ast::ArgumentList<'f>> {
-        self.parse_parnethesized_list(|parser| Ok(*parser.parse_expression()?))
+        self.parse_parnethesized_list(|parser| Ok(parser.parse_expression()?))
     }
 
     fn parse_parnethesized_list<F, T>(&mut self, parse_element: F) -> ParserResult<'f, Vec<T>>
@@ -1134,7 +1129,7 @@ mod tests {
             (tc, res) => {
                 println!("test case: {:?}", tc);
                 println!("result:    {:?}", res);
-                assert!(false);
+                panic!();
             }
         }
     }

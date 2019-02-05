@@ -346,7 +346,7 @@ mod tests {
             (tc, res) => {
                 println!("test case: {:?}", tc);
                 println!("result:    {:?}", res);
-                assert!(false);
+                panic!();
             }
         }
     }
@@ -372,7 +372,7 @@ mod tests {
                     (exp, act) => {
                         println!("expected: {:?}", exp);
                         println!("actual:   {:?}", act);
-                        assert!(false);
+                        panic!();
                     }
                 }
             }

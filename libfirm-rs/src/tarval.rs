@@ -189,8 +189,8 @@ impl Debug for Tarval {
             let mut v = [0; 1024];
             bindings::tarval_snprintf(v.as_mut_ptr(), v.len(), self.0);
             let s = CStr::from_ptr(v.as_ptr()).to_string_lossy();
-            let s = s.trim_start_matches("<");
-            let s = s.trim_end_matches(">");
+            let s = s.trim_start_matches('<');
+            let s = s.trim_end_matches('>');
             write!(fmt, "{}:{}", self.mode().name_string(), s)
         }
     }

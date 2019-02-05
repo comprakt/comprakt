@@ -27,7 +27,6 @@ macro_rules! match_op {
     ($input:expr, $span:ident, $len:expr, $right:expr) => {{
         // Unwraps are safe, because this is only called after token of length $len,
         // is already matched and thus contained in $input
-        debug_assert!($len >= 1);
         for _ in 0..$len { $input.next().unwrap(); }
         Some(Ok(Token::new($span, TokenKind::Operator($right))))
     }};

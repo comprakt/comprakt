@@ -998,7 +998,7 @@ impl Proj {
 
 type NodeFactoryFn = fn(*mut bindings::ir_node) -> Node;
 pub struct NodeFactory(HashMap<u32, NodeFactoryFn>);
-#[allow(clippy::new_without_default_derive)]
+#[allow(clippy::new_without_default)]
 impl NodeFactory {
     pub fn new() -> Self {
         let mut map = HashMap::<u32, NodeFactoryFn>::new();

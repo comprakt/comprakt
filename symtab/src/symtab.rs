@@ -26,7 +26,7 @@ pub struct CannotLeaveRootScopeError;
 #[derive(Debug)]
 pub struct RedefinitionError;
 
-#[allow(clippy::new_without_default_derive)]
+#[allow(clippy::new_without_default)]
 impl<S, T> Scoped<S, T>
 where
     S: std::hash::Hash + Eq + Copy,
