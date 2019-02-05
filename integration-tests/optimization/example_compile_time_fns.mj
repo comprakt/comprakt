@@ -1,0 +1,25 @@
+---
+optimizations: [ConstantFolding]
+expect: change
+        
+stdout:
+    is: "9\n"
+---
+class Assert {
+    public void is_const_after(int opt_index, int expr) {}
+    public void is_const_before(int opt_index, int expr) {}
+    public void is_not_const_after(int opt_index, int expr) {}
+    public void is_not_const_before(int opt_index, int expr) {}
+}
+
+class CF_Sub {
+  public static void main(String[] args) {
+    Assert expect = new Assert();
+    int a = 14 - 5;
+
+    expect.is_not_const_before(0, a);
+    expect.is_const_after(0, a);
+
+    System.out.println(a);
+  }
+}
