@@ -1,6 +1,8 @@
 //?!allow:unused_functions
 
 class Baz {
+    public int x;
+
     public static void main(String[] args) {
 
     }
@@ -21,5 +23,9 @@ class Baz {
     }
 
     public void j(int _x) {}
+
+    public void k(Baz baz) {
+        baz.x = 5;
+    }
 }
 

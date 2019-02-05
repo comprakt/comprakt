@@ -1,10 +1,10 @@
 warning: unused argument: `x`. Consider using `_x` instead
-   | 
- 8 |     public void f(int x) {}
-   |                   ^^^^^
-
-warning: unused argument: `x`. Consider using `_x` instead
     | 
- 10 |     public void g(int x) {
+ 10 |     public void f(int x) {}
+    |                   ^^^^^
+
+warning: this argument is assigned to but never used: `x`
+    | 
+ 12 |     public void g(int x) {
     |                   ^^^^^
 

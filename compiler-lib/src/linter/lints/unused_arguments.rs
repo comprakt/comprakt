@@ -44,7 +44,7 @@ impl<'a, 'f> AstLintPass<'a, 'f> for UnusedArgumentsPass {
                                     UNUSED_ARGUMENTS,
                                     param.span,
                                     &format!(
-                                        "unused argument: `{0}`. Consider using `_{0}` instead",
+                                        "this argument is assigned to but never used: `{0}`",
                                         param.name.as_str()
                                     ),
                                 );

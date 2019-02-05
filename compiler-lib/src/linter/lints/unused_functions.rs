@@ -9,7 +9,7 @@ use type_checking::type_system::CheckedType;
 declare_lint!(
     pub UNUSED_FUNCTIONS,
     Warning,
-    "do this the right way"
+    "unused functions"
 );
 
 #[derive(Default)]

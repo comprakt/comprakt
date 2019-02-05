@@ -12,7 +12,7 @@ declare_lint!(
 declare_lint!(
     pub NOT_ON_BOOL_LITERAL,
     Warning,
-    "comparison with a bool literal"
+    "inversion of a bool literal"
 );
 
 pub struct BoolPass;
