@@ -705,6 +705,10 @@ impl ConstantFolding {
                     continue;
                 }
 
+                if Node::is_add(new_node) {
+                    continue;
+                }
+
                 log::debug!("exchange value {:?} with {:?}", node, new_node);
 
                 let mem = match node {
