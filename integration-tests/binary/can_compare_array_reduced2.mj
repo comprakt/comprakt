@@ -1,3 +1,11 @@
+---
+stderr:
+  is: ''
+stdout:
+  is: "0\n"
+exitcode:
+  is: 0
+---
 class B {
     public int a;
 }

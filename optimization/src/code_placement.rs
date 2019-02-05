@@ -75,10 +75,7 @@
 ///! http://compilers.cs.uni-saarland.de/teaching/cc/2009/slides/l10_pre.pdf
 ///! http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.92.4197&rep=rep1&type=pdf
 use super::Outcome;
-use crate::{
-    dot::*,
-    optimization::{self, Local},
-};
+use crate::{dot::*, optimization};
 use libfirm_rs::{
     bindings,
     nodes::{self, Node, NodeTrait},
@@ -302,15 +299,16 @@ impl CodePlacement {
     }
 
     fn run(&mut self) -> Outcome {
-        let earlier_placement = EarliestPlacement::optimize_function(self.graph);
+        let earlier_placement = EarliestPlacement::new(self.graph, false).run();
 
         breakpoint!("Graph in Earliest Placement", self.graph, &|node: &Node| {
             dom_info_box(node)
         });
 
-        let optimal_placement = CostMinimizingPlacement::optimize_function(self.graph);
+        let optimal_placement = CostMinimizingPlacement::new(self.graph, false).run();
 
         if earlier_placement == Outcome::Changed || optimal_placement == Outcome::Changed {
+            move_cmp_to_cond_block(self.graph);
             Outcome::Changed
         } else {
             Outcome::Unchanged
@@ -329,21 +327,23 @@ pub struct EarliestPlacement {
     worklist: VecDeque<Node>,
     visited: HashSet<Node>,
     num_changed: usize,
+    should_cleanup: bool,
 }
 
 impl optimization::Local for EarliestPlacement {
     fn optimize_function(graph: Graph) -> Outcome {
-        EarliestPlacement::new(graph).run()
+        EarliestPlacement::new(graph, true).run()
     }
 }
 
 impl EarliestPlacement {
-    fn new(graph: Graph) -> Self {
+    fn new(graph: Graph, should_cleanup: bool) -> Self {
         // TODO: do we use outs in EarliestPlacement?
         graph.assure_outs();
         graph.compute_doms();
         Self {
             graph,
+            should_cleanup,
             worklist: VecDeque::new(),
             visited: HashSet::new(),
             num_changed: 0,
@@ -359,6 +359,10 @@ impl EarliestPlacement {
         }
 
         if self.num_changed > 0 {
+            if self.should_cleanup {
+                move_cmp_to_cond_block(self.graph);
+            }
+
             Outcome::Changed
         } else {
             Outcome::Unchanged
@@ -537,20 +541,22 @@ pub struct CostMinimizingPlacement {
     /// nodes that were removed by global common subexpression elimination
     eliminated: HashSet<Node>,
     num_changed: usize,
+    should_cleanup: bool,
 }
 
 impl optimization::Local for CostMinimizingPlacement {
     fn optimize_function(graph: Graph) -> Outcome {
-        Self::new(graph).run()
+        Self::new(graph, true).run()
     }
 }
 
 impl CostMinimizingPlacement {
-    fn new(graph: Graph) -> Self {
+    fn new(graph: Graph, should_cleanup: bool) -> Self {
         graph.assure_outs();
         graph.assure_loopinfo();
         Self {
             graph,
+            should_cleanup,
             worklist: VecDeque::new(),
             visited: HashSet::new(),
             eliminated: HashSet::new(),
@@ -572,6 +578,9 @@ impl CostMinimizingPlacement {
         }
 
         if self.num_changed > 0 {
+            if self.should_cleanup {
+                move_cmp_to_cond_block(self.graph);
+            }
             Outcome::Changed
         } else {
             Outcome::Unchanged
@@ -1031,4 +1040,35 @@ pub fn escape_record_content(text: &str) -> String {
         .replace("}", "\\}")
         .replace("<", "\\<")
         .replace(">", "\\>")
+}
+
+fn move_cmp_to_cond_block(graph: Graph) -> Outcome {
+    // this is needed because our backend cannot deal with cmp and cond in
+    // different blocks (or more generally mode_b preds in different blocks)
+    let mut changed = Outcome::Unchanged;
+
+    graph.walk(|node| {
+        if let Node::Cond(cond) = node {
+            if let Node::Cmp(cmp) = cond.selector() {
+                // this is always possible as
+                // (1) our fronted does not generate cmp with multiple
+                //     outs
+                // (2) our common subexpression elimination does not
+                //     merge cmps
+                if cmp.block() != cond.block() {
+                    log::debug!(
+                        "moving {:?} from {:?} to {:?}, which contains its {:?}",
+                        cmp,
+                        cmp.block(),
+                        cond.block(),
+                        cond
+                    );
+                    cmp.set_block(cond.block());
+                    changed = Outcome::Changed;
+                }
+            }
+        }
+    });
+
+    changed
 }
