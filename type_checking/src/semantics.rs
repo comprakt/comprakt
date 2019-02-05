@@ -48,8 +48,14 @@ pub enum SemanticError {
     #[fail(display = "condition must be boolean")]
     ConditionMustBeBoolean,
 
-    #[fail(display = "cannot lookup var or field '{}'", name)]
+    #[fail(display = "cannot find var or field '{}'", name)]
     CannotLookupVarOrField { name: String },
+
+    #[fail(
+        display = "Cannot find var or field '{}'. Did you mean {}?",
+        name, did_you_mean
+    )]
+    CannotLookupVarOrFieldDidYouMean { name: String, did_you_mean: String },
 
     #[fail(
         display = "cannot access non static field '{}' in static method",

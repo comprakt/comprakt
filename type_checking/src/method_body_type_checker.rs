@@ -1,7 +1,8 @@
 use super::{checker::*, semantics::SemanticError, type_analysis::*, type_system::*};
 use asciifile::{Span, Spanned};
+use itertools::Itertools;
 use parser::ast;
-use strtab::Symbol;
+use strtab::{Relational, Symbol};
 use symtab::*;
 
 use std::rc::Rc;
@@ -547,10 +548,49 @@ where
             None => Err(CouldNotDetermineType),
         })
         .or_else(|_| {
+            let all_keys = std::iter::empty()
+                .chain(self.local_scope.visible_definitions())
+                .chain(self.current_class.field_names())
+                .chain(self.type_system.defined_classes().keys())
+                .chain(self.context.global_vars.keys());
+
+            let mut related: Vec<_> = all_keys
+                .map(|k| (k, k.relation(&var_name.data)))
+                .filter(|(_, r)| r.is_related())
+                .collect();
+            related.sort_by_key(|(_, r)| *r);
+
+            let closest = related.first().cloned();
+            related.retain(|(_, r)| closest.map(|(_, cr)| cr == *r).unwrap_or(false));
+
             self.context.report_error(
                 &var_name.span,
-                SemanticError::CannotLookupVarOrField {
-                    name: var_name.data.to_string(),
+                if related.is_empty() {
+                    SemanticError::CannotLookupVarOrField {
+                        name: var_name.data.to_string(),
+                    }
+                } else {
+                    SemanticError::CannotLookupVarOrFieldDidYouMean {
+                        name: var_name.data.to_string(),
+                        did_you_mean: related
+                            .iter()
+                            .enumerate()
+                            .map(|(idx, (s, _))| {
+                                format!(
+                                    "'{}'{}",
+                                    s,
+                                    if idx + 2 < related.len() {
+                                        &", "
+                                    } else if idx + 1 < related.len() {
+                                        &" or "
+                                    } else {
+                                        &""
+                                    }
+                                )
+                            })
+                            .join("")
+                            .to_string(),
+                    }
                 },
             );
             Err(CouldNotDetermineType)

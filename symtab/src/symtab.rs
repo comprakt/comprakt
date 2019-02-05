@@ -71,6 +71,10 @@ where
         Ok(())
     }
 
+    pub fn visible_definitions(&self) -> Vec<&S> {
+        self.visible_defs.keys().collect()
+    }
+
     pub fn visible_definition(&self, sym: S) -> Option<&T> {
         // amortized O(1) lookup to get sym's scope
         let scope = match self.visible_defs.get(&sym) {

@@ -42,12 +42,22 @@ impl Spans {
         }
     }
 
+    pub fn add_span(node: Node, span: Span<'_>) {
+        let mut spans = HashMap::new();
+        spans.insert(node, span);
+        SPANS.lock().unwrap().add_spans_(&spans);
+    }
+
     pub fn add_spans(spans: &HashMap<Node, Span<'_>>) {
         SPANS.lock().unwrap().add_spans_(spans);
     }
 
     fn lookup_span_(&self, node: impl NodeTrait) -> Option<Span<'static>> {
         let map = self.spans.borrow();
+        let node = match node.as_node() {
+            Node::Proj(proj, _) => proj.pred(),
+            node => node,
+        };
         map.get(&node.as_node()).cloned()
     }
 
