@@ -45,7 +45,7 @@ impl IntoReferenceData for Data {
     }
 }
 
-pub fn exec_timeout_test(input: PathBuf, backend: Backend) {
+pub fn exec_timeout_test(input: PathBuf, optimizations: optimization::Level, backend: Backend) {
     use wait_timeout::ChildExt;
     let binary_path = input.with_extension(format!("{}.out", backend.to_ascii_label()));
     let assembly_file = input.with_extension(format!("{}.out.S", backend.to_ascii_label()));
@@ -54,7 +54,7 @@ pub fn exec_timeout_test(input: PathBuf, backend: Backend) {
         CompilerCall::RawCompiler(CompilerPhase::Binary {
             output: binary_path.clone(),
             backend,
-            optimizations: optimization::Level::None,
+            optimizations,
             assembly: Some(assembly_file),
         }),
         &TestSpec {
