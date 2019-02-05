@@ -1,4 +1,4 @@
-error: expected 'class' or `?`, found 'void'
+error: expected 'class' or `/`, found 'void'
    | 
  1 | void #method() {}
    | ^^^^

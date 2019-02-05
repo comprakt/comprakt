@@ -1,4 +1,4 @@
-error: expected 'public', `?` or `}`, found 'private'
+error: expected 'public', `/` or `}`, found 'private'
    | 
  2 | private void method(){}
    | ^^^^^^^

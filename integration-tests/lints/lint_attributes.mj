@@ -1,20 +1,20 @@
-?!allow:unused_arguments
-?!info:bool_literal_comparison
-?!allow:unused_functions
+//?!allow:unused_arguments
+//?!info:bool_literal_comparison
+//?!allow:unused_functions
 
-?info:not_on_bool_literal
+//?info:not_on_bool_literal
 class Foo {
     public static void main(String[] args) {
         boolean x = !false;
     }
 
-    ?error:not_on_bool_literal
+    //?error:not_on_bool_literal
     public void f(int x) {
         boolean y = !true;
         boolean z = true == false;
     }
 
-    ?warning:unused_arguments
+    //?warning:unused_arguments
     public void g(int x) {}
 }
 

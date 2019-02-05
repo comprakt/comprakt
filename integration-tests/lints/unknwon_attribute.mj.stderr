@@ -1,3 +1,3 @@
-error: expected valid attribute name, found attributes_are_cool at 2:2-20
+error: expected valid attribute name, found attributes_are_cool at 2:4-22
 
 Compilation aborted due to an error

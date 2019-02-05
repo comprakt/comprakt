@@ -1,5 +1,5 @@
 /* even though this is correct, this is a unknown attribute name */
-?!attributes_are_cool
+//?!attributes_are_cool
 
 class Foo {
     public static void main(String[] args) {

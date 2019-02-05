@@ -1,4 +1,4 @@
-?!error:unused_functions
+//?!error:unused_functions
 
 class Foo {
     public static void main(String[] args) {

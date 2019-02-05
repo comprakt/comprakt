@@ -1,4 +1,4 @@
-error: expected 'class' or `?`, found 'int'
+error: expected 'class' or `/`, found 'int'
    | 
  1 | int a = 666;
    | ^^^

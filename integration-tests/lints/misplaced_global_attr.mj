@@ -3,4 +3,4 @@ class Foo {
     }
 }
 
-?!inline /* global attributes have to be at the beginning of a file */
+//?!inline /* global attributes have to be at the beginning of a file */

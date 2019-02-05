@@ -1,6 +1,6 @@
 error: expected an identifier, found `!`
    | 
- 6 | ?!inline /* global attributes have to be at the beginning of a file */
-   |  ^
+ 6 | //?!inline /* global attributes have to be at the beginning of a file */
+   |    ^
 
 Compilation aborted due to an error
