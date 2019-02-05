@@ -294,6 +294,7 @@ impl<'a, 'f: 'a> Linter<'a, 'f> {
 
     pub fn register_semantic_passes(&mut self) {
         self.register_semantic_lint(box unused_functions::UnusedFunctionsPass::default());
+        self.register_semantic_lint(box unused_fields::UnusedFieldsPass::default());
     }
 
     fn register_semantic_lint(&mut self, pass: Box<dyn SemanticLintPass<'a, 'f> + 'a>) {
