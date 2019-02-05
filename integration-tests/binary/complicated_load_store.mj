@@ -1,0 +1,11 @@
+class Obj {
+    public int length;
+
+    public static void main(String[] args) throws Exception {
+        Obj o = new Obj();
+        int expr1 = 1 + o.length;
+        o.length = expr1;
+        int[] arr = new int[10];
+        arr[expr1 + expr1] = 0;
+    }
+}
