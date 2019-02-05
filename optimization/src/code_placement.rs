@@ -1,4 +1,4 @@
-///! # Code Motion / Code Placement
+///! # Code Motion / Code Placement and Global Common Subexpression Elimination
 ///!
 ///! NOTE: the built in libfirm backend for amd64 calls `place_code` (libfirm's
 ///! own implementation of this optimization) even when optimizations are
@@ -10,27 +10,28 @@
 ///!
 ///! This reimplements the "Code Placement" Optimization in Libfirm as
 ///! a more powerful optimization than "Loop Invariant Code Motion".
-///! The algorithm has two steps, which are thoroughly explained below:
+///! The algorithm has three steps, which are thoroughly explained below:
 ///!
 ///! 1. Find earliest placement allowed by operands of each node that
 ///!    can be savely moved into another block. [ optimize on in edges ]
-///! 2. Push each movable nodes deeper into the graph trying to find an optimal
-///!    placement between earliest and latest allowed placement that minimizes
-///!    the number of times the computation is done. It may be done
-///!    too often because of loops in deepest position, and may be
-///!    unnecessarily execute without a usage afterwards in earliest
-///!    position. [ optimize on out edges and loop nesting level ]
+///! 2. Find the latest placement allowed by the consumers of each node
+///!    that can be savely move into another block. [ optimize on out edges ]
+///! 3. this gives a a range of possible basic blocks for each
+///!    movable node. Try to find an optimal placement between earliest
+///!    and latest allowed placement that minimizes the number of times
+///!    the computation is done. It may be done too often because of loops
+///!    in deepest/latest position, and may be unnecessarily execute without
+///!    a usage afterwards in earliest position. [ optimize using a heuristic,
+///!    e.g. loop nesting level ]
 ///!
-///! Things to consider:
+///! GCSE is performed during step 1 of this algorithm, since it automatically
+///! reduces the global search to a basic-block local node identity.
+///!
+///! # Notes on Key Aspects of the Algorithm
+///!
 ///! - Libfirm distingiusies between floating and pinned nodes.
-///!   - Pinned nodes should not be moved.
-///!     - Moving Code above a pinned node is not valid (I think?), e.g.
-///!       ```text
-///!       Cond[pinned] -> Something Floating
-///!       ```
-///!       => WRONG! moving above a Cond is allowed since we are in
-///!          SSA form! <3
-///!   - Some pinned nodes are:
+///! - Pinned nodes should not be moved.
+///! - Some pinned nodes are:
 ///!     - Control Flow Nodes: Jmp, Cond, Switch, IJmp, Return...
 ///!     - Start Block Nodes: NoMem, Unknown
 ///!     - Memory Nodes: Free, Alloc
@@ -41,39 +42,40 @@
 ///!       [special pin mode is "pinned = exception" instead of just
 ///!       "pinned = yes"]
 ///!     - There is also a special Pin Node
-///! - Libfirm has "code_placement.c", which subsumes CSE.
-///! - According to the Libfirm impl we should remove critical edges first.
-///!   Why?
-///! - It is dangerous that code could be move into a node not reachable from
-///!   start => remove unreachable code first!
-///! - Finding the correct block to place the common sub expression is tricky
-///!   - the earliest possible place is the dominator of both old positions
-///!     "closest to the start node"/furthest dominator
-///!   - this is however not what you necessarily want to do, since this
-///!     might unnecessarily cause the execution of the moved code. So
-///!     moving to the earliest common dominator is the position "closest
-///!     to the en node"/most control dependent
-///!   - However, this is not the best location either, since this might
-///!     be in a loop => the best location is the earliest common dominator
-///!     with the least loop nesting.
-///! - "Floating nodes form subgraphs that begin at nodes as Const, Load,
-///!   Start, Call and that end at pinned nodes as Store, Call."
-///! - "[...] we break cycles at pinned nodes which will not move anyway:
-///!   This works because in firm each cycle contains a Phi or Block node
-///!   (which are pinned)"
-///! - Moving assignments out of a if or else branch works, since there
-///!   is always just one assignment.
-///! Moves nodes into blocks where we suspect they will be executed less often.
+///! - Moving nodes out of a if or else branch (or above any other pinned
+///!   node!) works, since we are in SSA form and therefore there is always
+///!   just one assignment.
+///! - We always want to move patches of floating nodes to the earliest
+///!   position possible. This means within a patch of floating nodes,
+///!   we have to move the operands first. Therefore we perform
+///!   depth first search from the end node.
+///! - Beware that patches of floating nodes may overlap, e.g. two
+///!   patches have the same Const as an operand.
+///!   - collisions during parallelization are very unlikely. Therefore
+///!     putting a spin-lock on each node is a good choice.
+///!   - moving a node to earliest position multiple times will yield
+///!     an identical result. You only have to prevent parallelization
+///!     issues caused by reads of partially updated pointers during writes.
+///!     => synchronization primitives are not needed at all if your
+///!        architecture can set pointers atomically.
+///! - We cannot run into cycles in a patch of floating nodes, since
+///!   cycles are only allowed if
+///!   - it is a control flow cycle, which must contain at least one
+///!     block node, which is pinned
+///!   - if it is a data cycle, which must contain a phi node, which
+///!     is pinned
+///!   => this means every cycle is broken by a pinned node
+///!   => we do not have to deal with cycles in our algorithm
 ///!
-///! # How Can We Detect Movable Nodes or Subtrees?
 ///!
-///! # What Is the Correct Recursion Scheme?
-///!
-///! # Where Should Movable Nodes Be Placed?
+///! # Assumptions
+///! - In step 1 code could be move into a node not reachable from
+///!   start. You have to remove unreachable code first!
 ///!
 ///! # References
+///!
+///! Lecture slides on the algorithm:
 ///! http://compilers.cs.uni-saarland.de/teaching/cc/2009/slides/l10_pre.pdf
-///! http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.92.4197&rep=rep1&type=pdf
 use super::Outcome;
 use crate::{dot::*, optimization};
 use libfirm_rs::{
@@ -172,6 +174,8 @@ impl CommonSubExpr {
         // df79debd25b9372f92c416c4d659d2b1cf17009d/ir/opt/iropt.c#L7812
         // df79debd25b9372f92c416c4d659d2b1cf17009d/ir/opt/iropt.c#L2169
 
+        // TODO: sorting on node_id() would be enough for GCSE
+
         match (a, b) {
             (Node::Const(_), Node::Const(_)) => a.node_id().cmp(&b.node_id()),
             (Node::Const(_), _) => Ordering::Less,
@@ -192,6 +196,7 @@ impl CommonSubExpr {
 
         // self comparison, pointer to the identical node,
         // a block can only be equal to itself
+        // TODO: in the current code structure, this will never be true
         if a == b {
             return true;
         }
@@ -204,11 +209,6 @@ impl CommonSubExpr {
         {
             return false;
         }
-
-        // blocks are never the same
-        //if Node::is_block(a) {
-        //return false;
-        //}
 
         // check if the predecessors are the same
         //
@@ -264,32 +264,6 @@ impl CommonSubExpr {
                 false
             }
         }
-
-        // we now know that the local structure of the
-        // nodes is identical (same node with same predecessors).
-        // Check the global structure within the graph:
-
-        //let block_a = a.block();
-        //let block_b = b.block();
-
-        //if a.is_pinned() {
-        //assert!(b.is_pinned(), "same firm @op (same Node enum variant) => both
-        // pinned");
-
-        // pinned nodes can only be equal if they are in the same block
-        //if block_a != block_b {
-        //return false;
-        //} else {
-        // NOTE: at this point, in theory, everything qualifies
-        // for common sub expression elimination, but in general, you
-        // want to apply a heuristic that implements a trade-off between
-        // "unnecessary computations" and "control flow depth".
-        //
-        // A safe bet is to just eliminate common subexpressions
-        // if the block of one node dominates the block of the other
-        // node (rematerialization of a value).
-        //return true;
-        //}
     }
 }
 
@@ -668,13 +642,15 @@ impl CostMinimizingPlacement {
         }
 
         // recompute the out indices, since edges were reordered
+        // TODO: for some reason, assure_outs instead of recompute_outs fails to update
+        // the graph sometimes? Check again if this is really the case.
         self.graph.recompute_outs();
 
         // NOTE: the GCSE may remove nodes, therefore we have to call `collect`.
         // removed nodes are filtered using `self.eliminated.contains`.
         for local_node in current_node.block().out_nodes().collect::<Vec<_>>() {
             // TODO: this is fragile code. This only works since
-            // we expect in nodes to be identical (address of pointers equal).
+            // we expect in_nodes to be identical (address of pointers equal).
             // TODO: think about this again. Can this result in malformed graphs???
 
             if self.eliminated.contains(&local_node)
@@ -748,8 +724,7 @@ impl CostMinimizingPlacement {
             //   require them to be in the start block. Currently, the only floatable node
             //   that has to stay in the start block is Const. All other start-block-only
             //   nodes like Bad, Unknown, ... are pinned anyways.
-            // - Projections have to stay in the same block as the node they are projecting
-            //   (I think? But it would be weird otherwise), we move them separately
+            // TODO: float projs!
             if current_node.is_only_valid_in_start_block() || Node::is_proj(current_node) {
                 return Outcome::Unchanged;
             }
@@ -1051,7 +1026,7 @@ fn move_cmp_to_cond_block(graph: Graph) -> Outcome {
         if let Node::Cond(cond) = node {
             if let Node::Cmp(cmp) = cond.selector() {
                 // this is always possible as
-                // (1) our fronted does not generate cmp with multiple
+                // (1) our frontend does not generate cmp with multiple
                 //     outs
                 // (2) our common subexpression elimination does not
                 //     merge cmps
