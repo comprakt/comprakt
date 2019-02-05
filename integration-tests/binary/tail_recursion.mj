@@ -1,0 +1,11 @@
+class CF {
+    public static void main(String[] args) throws Exception {
+        CF cf = new CF();
+        System.out.println(cf.foo(23));
+    }
+
+    public int foo(int param) throws Exception {
+        if (param == 0) return 15;
+        return foo(param - 1);
+    }
+}
