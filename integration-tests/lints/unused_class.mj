@@ -1,0 +1,14 @@
+class Foo {
+    public static void main(String[] args) {
+        (new Foo()).run();
+        Bar bar = new Bar();
+    }
+
+    public void run() {}
+}
+
+class _Foo {}
+
+class Bar {}
+
+class Baz {}

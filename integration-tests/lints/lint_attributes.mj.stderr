@@ -15,12 +15,12 @@ info: comparison of differing boolean literals. Consider using `false`
 
 info: comparison with a boolean literal. Consider using `b`
     | 
- 23 |         if (b == true); /* this should be an info */
+ 24 |         if (b == true); /* this should be an info */
     |             ^^^^^^^^^
 
 warning: inverting a bool literal. This can be simplified to `true`
     | 
- 24 |         if (!false); /* This should be uneffected */
+ 25 |         if (!false); /* This should be uneffected */
     |             ^^^^^^
 
 warning: unused argument: `x`. Consider using `_x` instead

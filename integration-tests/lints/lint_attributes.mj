@@ -18,6 +18,7 @@ class Foo {
     public void g(int x) {}
 }
 
+//?allow:unused_class
 class Bar {
     public void f(boolean b) {
         if (b == true); /* this should be an info */
