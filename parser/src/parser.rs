@@ -388,16 +388,25 @@ where
         spanned!(self, {
             let mut attrs = Vec::new();
             loop {
-                if let Ok(TokenKind::Operator(Operator::QuestionMark)) =
-                    self.lexer.peek().map(|t| t.data)
+                if let Ok(TokenKind::Operator(Operator::Slash)) = self.lexer.peek().map(|t| t.data)
                 {
-                    if let Ok(TokenKind::Operator(Operator::Exclaim)) =
+                    if let Ok(TokenKind::Operator(Operator::Slash)) =
                         self.lexer.peek_nth(1).map(|t| t.data)
                     {
-                        self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
-                        self.eat(Exactly(TokenKind::Operator(Operator::Exclaim)))?;
-                        attrs.push(self.parse_attribute()?);
-                        continue;
+                        if let Ok(TokenKind::Operator(Operator::QuestionMark)) =
+                            self.lexer.peek_nth(2).map(|t| t.data)
+                        {
+                            if let Ok(TokenKind::Operator(Operator::Exclaim)) =
+                                self.lexer.peek_nth(3).map(|t| t.data)
+                            {
+                                self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                                self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                                self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
+                                self.eat(Exactly(TokenKind::Operator(Operator::Exclaim)))?;
+                                attrs.push(self.parse_attribute()?);
+                                continue;
+                            }
+                        }
                     }
                 }
 
@@ -416,9 +425,11 @@ where
         spanned!(self, {
             let mut attrs = Vec::new();
             while self
-                .eat_optional(Exactly(TokenKind::Operator(Operator::QuestionMark)))
+                .eat_optional(Exactly(TokenKind::Operator(Operator::Slash)))
                 .is_some()
             {
+                self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
                 attrs.push(self.parse_attribute()?);
             }
 
@@ -443,9 +454,11 @@ where
         spanned!(self, {
             let mut attrs = Vec::new();
             while self
-                .eat_optional(Exactly(TokenKind::Operator(Operator::QuestionMark)))
+                .eat_optional(Exactly(TokenKind::Operator(Operator::Slash)))
                 .is_some()
             {
+                self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
                 attrs.push(self.parse_attribute()?);
             }
 
