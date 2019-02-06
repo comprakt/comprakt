@@ -190,16 +190,10 @@ impl CommonSubExpr {
     /// BEWARE: this assumes nodes passed are floatable
     ///         => nodes do not have side effects, are not blocks or phis, ...
     fn is_same_expr(a: Node, b: Node) -> bool {
-        assert!(!a.is_pinned(), "GCSE only supports floatable nodes");
-        assert!(!b.is_pinned(), "GCSE only supports floatable nodes");
-        assert!(!Node::is_block(a));
-
-        // self comparison, pointer to the identical node,
-        // a block can only be equal to itself
-        // TODO: in the current code structure, this will never be true
-        if a == b {
-            return true;
-        }
+        assert!(is_movable(a), "GCSE only supports floatable nodes");
+        assert!(is_movable(b), "GCSE only supports floatable nodes");
+        assert!(!Node::is_block(a), "blocks should not be movable");
+        assert!(a != b, "identity comparisons should not happen");
 
         // test if it describes the same node variant,
         // e.g. is both a "Const Is" node?
@@ -282,7 +276,6 @@ impl CodePlacement {
         let optimal_placement = CostMinimizingPlacement::new(self.graph, false).run();
 
         if earlier_placement == Outcome::Changed || optimal_placement == Outcome::Changed {
-            move_cmp_to_cond_block(self.graph);
             Outcome::Changed
         } else {
             Outcome::Unchanged
@@ -333,9 +326,7 @@ impl EarliestPlacement {
         }
 
         if self.num_changed > 0 {
-            if self.should_cleanup {
-                move_cmp_to_cond_block(self.graph);
-            }
+            if self.should_cleanup {}
 
             Outcome::Changed
         } else {
@@ -367,7 +358,7 @@ impl EarliestPlacement {
     }
 
     fn move_to_earliest_valid_block(&mut self, current_node: Node) -> Outcome {
-        if current_node.is_pinned() {
+        if !is_movable(current_node) {
             // if we arrive at a pinned node, the movable graph chunk
             // is complete / a new movable graph chunk might begin at each
             // predecessor
@@ -390,7 +381,7 @@ impl EarliestPlacement {
 
             // # Optimize Predecessors / Operands of the Current Node
 
-            // node is pinned
+            // node is not pinned
             // => node is not a block (since blocks are pinned)
             // => node.block is safe to call
             self.visit_node(
@@ -484,10 +475,12 @@ impl EarliestPlacement {
                         label
                     }
                 );
-                current_node.set_block(block);
+                update_block(current_node, block);
                 self.num_changed += 1;
                 Outcome::Changed
             } else {
+                // node has no predecessors, the current block is
+                // the earliest block
                 Outcome::Unchanged
             }
         }
@@ -552,9 +545,7 @@ impl CostMinimizingPlacement {
         }
 
         if self.num_changed > 0 {
-            if self.should_cleanup {
-                move_cmp_to_cond_block(self.graph);
-            }
+            if self.should_cleanup {}
             Outcome::Changed
         } else {
             Outcome::Unchanged
@@ -622,11 +613,9 @@ impl CostMinimizingPlacement {
     /// - the block has to be traversed depth first
     /// - out nodes have to be current
     fn eliminate_common_subexprs(&mut self, current_node: Node) -> Outcome {
-        if current_node.is_pinned() {
+        if !is_movable(current_node) {
             return Outcome::Unchanged;
         }
-        //assert!(!current_node.is_pinned(), format!("GCSE can only handle floating
-        // nodes! got a pinned {:?}", current_node));
 
         let mut outcome = Outcome::Unchanged;
 
@@ -654,7 +643,7 @@ impl CostMinimizingPlacement {
             // TODO: think about this again. Can this result in malformed graphs???
 
             if self.eliminated.contains(&local_node)
-                || local_node.is_pinned()
+                || !is_movable(local_node)
                 || local_node == current_node
             {
                 continue;
@@ -708,7 +697,7 @@ impl CostMinimizingPlacement {
     }
 
     fn move_to_cost_minimizing_block(&mut self, current_node: Node) -> Outcome {
-        if current_node.is_pinned() {
+        if !is_movable(current_node) {
             self.worklist.extend(current_node.out_nodes());
             Outcome::Unchanged
         } else {
@@ -758,7 +747,7 @@ impl CostMinimizingPlacement {
                         )
                     );
 
-                    current_node.set_block(block);
+                    update_block(current_node, block);
                 }
             }
 
@@ -794,7 +783,7 @@ impl CostMinimizingPlacement {
                     }
                 );
 
-                current_node.set_block(loop_invariant_placement);
+                update_block(current_node, loop_invariant_placement);
             }
 
             Outcome::Unchanged
@@ -808,11 +797,7 @@ impl CostMinimizingPlacement {
         &self,
         current_node: Node,
     ) -> Option<nodes::Block> {
-        // `current_node.block()` is the correct initialization since we assume
-        // `current_node` is placed at the earliest valid position.
-        // => "shallowest common dominator"
-        // WRONG! otherwise we always get current_node.block() as a result ;)
-        let mut deepest_common_dominator = None; // current_node.block();
+        let mut deepest_common_dominator = None;
 
         for consumer in current_node.out_nodes() {
             match consumer {
@@ -823,14 +808,6 @@ impl CostMinimizingPlacement {
                     continue;
                 }
                 Node::Proj(..) => {
-                    // this check is not necessary, for correctness
-                    // but improves placement since projections are always in the same block as the
-                    // node they project (e.g. the same block as the Cond node)
-                    // so the real users can be found in the children of the
-                    // proj (I think?) TODO: but this does not seem necessary
-                    // since we visit the proj anyway? They will only be
-                    // temporarily split, right?
-
                     // "act as if Cond followed by Projs is a single node"
                     if let Some(common_dominator) =
                         self.latest_possible_placement_allowed_by_consumers(consumer)
@@ -842,10 +819,17 @@ impl CostMinimizingPlacement {
                     }
                 }
                 Node::Phi(phi) => {
-                    // TODO: think about this again, does this make sense????
-                    // act as if the Phi does not exist, since it is just proxying the
-                    // actual user
-                    // find the actual consumer correspondig to the current node
+                    // act as if the Phi does not exist, since it is just proxying the actual user.
+                    // Find the actual consumer correspondig to the current control flow path:
+                    //
+                    //  Current Node [ in Block A ]
+                    //      |
+                    //      |
+                    //      |                 Real Consumer [ in Block C, which may be A ]
+                    //      |                      |
+                    //      in=i                  in=i
+                    //      v                      v
+                    //     Phi [in Block B] <-- Block B
                     let actual_consumer_index = phi
                         .phi_preds()
                         .position(|pred| pred == current_node)
@@ -853,7 +837,6 @@ impl CostMinimizingPlacement {
                     let actual_consumer =
                         phi.block().cfg_preds().nth(actual_consumer_index).unwrap();
 
-                    //self.latest_possible_placement(actual_consumer)
                     deepest_common_dominator = Self::update_deepest_common_dominator(
                         deepest_common_dominator,
                         actual_consumer.block(),
@@ -963,7 +946,7 @@ pub fn dom_info_box(node: &Node) -> Label {
         default_label(node)
     };
 
-    if node.is_pinned() {
+    if !is_movable(*node) {
         label.add_style(Style::Bold)
     } else {
         label.add_style(Style::Dashed)
@@ -1017,33 +1000,40 @@ pub fn escape_record_content(text: &str) -> String {
         .replace(">", "\\>")
 }
 
-fn move_cmp_to_cond_block(graph: Graph) -> Outcome {
-    // this is needed because our backend cannot deal with cmp and cond in
-    // different blocks (or more generally mode_b preds in different blocks)
-    let mut changed = Outcome::Unchanged;
+// NOTE: projs are movable, but should not be moved separatly, so this
+// check should be paired with a is_proj most of the time.
+fn is_movable(node: Node) -> bool {
+    assert!(
+        !has_shared_proj(node),
+        "a projection node should not be shared."
+    );
+    !node.is_pinned() && !Node::is_cmp(node) && !Node::is_proj(node) && !has_shared_proj(node)
+}
 
-    graph.walk(|node| {
-        if let Node::Cond(cond) = node {
-            if let Node::Cmp(cmp) = cond.selector() {
-                // this is always possible as
-                // (1) our frontend does not generate cmp with multiple
-                //     outs
-                // (2) our common subexpression elimination does not
-                //     merge cmps
-                if cmp.block() != cond.block() {
-                    log::debug!(
-                        "moving {:?} from {:?} to {:?}, which contains its {:?}",
-                        cmp,
-                        cmp.block(),
-                        cond.block(),
-                        cond
-                    );
-                    cmp.set_block(cond.block());
-                    changed = Outcome::Changed;
-                }
+fn has_shared_proj(node: Node) -> bool {
+    // some fucked up optimization might merge projs, which would invalidate
+    // our approach. Irr on the safe side and just consider these shared
+    // projs as pinned.
+    for consumer in node.out_nodes() {
+        if let Node::Proj(proj, _) = consumer {
+            if proj.in_nodes().len() > 1 || has_shared_proj(consumer) {
+                return true;
             }
         }
-    });
+    }
 
-    changed
+    false
+}
+
+/// Move a node to another block, including its projs
+fn update_block(node: Node, new_block: nodes::Block) {
+    assert!(is_movable(node), "can only move nodes marked as movable");
+
+    node.set_block(new_block);
+
+    for consumer in node.out_nodes() {
+        if let Node::Proj(_, _) = consumer {
+            update_block(consumer, new_block)
+        }
+    }
 }
