@@ -71,14 +71,15 @@ fn big_tests() -> Vec<BigTest> {
 fn profile_compiler(
     test: &BigTest,
     optimizations: optimization::Level,
+    backend: Backend,
 ) -> Option<(PathBuf, CompilerMeasurements)> {
     let outpath = test.minijava.with_extension("benchmark.out");
     let mut cmd = compiler_call(
         CompilerCall::RawCompiler(CompilerPhase::Binary {
+            backend,
             // TODO: use temp dir, don't trash
             output: outpath.clone(),
             assembly: None,
-            backend: Backend::Libfirm,
             optimizations,
         }),
         &test.minijava,
@@ -130,6 +131,8 @@ pub struct Opts {
     /// Optimization level that should be applied
     #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
     opt_level: optimization_arg::Arg,
+    #[structopt(long = "--backend", short = "-b")]
+    backend: Backend,
 }
 
 #[derive(serde_derive::Serialize, serde_derive::Deserialize)]
@@ -168,7 +171,7 @@ fn main() {
 
         for _ in 0..opts.samples {
             if let Some((outbinary, timings)) =
-                profile_compiler(big_test, opts.opt_level.clone().into())
+                profile_compiler(big_test, opts.opt_level.clone().into(), opts.backend)
             {
                 bench.add(&timings);
                 out = Some(outbinary);
