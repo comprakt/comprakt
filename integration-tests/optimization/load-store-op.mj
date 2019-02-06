@@ -454,4 +454,74 @@ class Main {
 
         /* TODO print(o.x) */
     }
+
+    public void unnecessary_store() {
+        Obj o = new Obj();
+        o.x = 2;
+        o.x = 3;
+        int i = o.x;
+    }
+
+    public int[][][][][][][] randomIntArray_large(){
+        int j = 1;
+        int n = 10;
+        int[][][][][][][] arr = new int[n][][][][][][];
+        int[] indezes = new int[7];
+        while (indezes[0] < n) {
+          arr[indezes[0]] = new int[n][][][][][];
+          while (indezes[1] < n) {
+            arr[indezes[0]][indezes[1]] = new int[n][][][][];
+            while (indezes[2] < n) {
+              arr[indezes[0]][indezes[1]][indezes[2]] = new int[n][][][];
+              while (indezes[3] < n) {
+                arr[indezes[0]][indezes[1]][indezes[2]][indezes[3]] = new int[n][][];
+                while (indezes[4] < n) {
+                  arr[indezes[0]][indezes[1]][indezes[2]][indezes[3]][indezes[4]] = new int[n][];
+                  while (indezes[5] < n) {
+                    arr[indezes[0]][indezes[1]][indezes[2]][indezes[3]][indezes[4]][indezes[5]] = new int[n];
+
+                    while (indezes[6] < n) {
+                        j = j + 1;
+                      arr[indezes[0]][indezes[1]][indezes[2]][indezes[3]][indezes[4]][indezes[5]][indezes[6]] = j;
+                      indezes[6] = indezes[6] + 1;
+                    }
+
+                    indezes[6] = 0;
+                    indezes[5] = indezes[5] + 1;
+                  }
+                  indezes[5] = 0;
+                  indezes[4] = indezes[4] + 1;
+                }
+                indezes[4] = 0;
+                indezes[3] = indezes[3] + 1;
+              }
+              indezes[3] = 0;
+              indezes[2] = indezes[2] + 1;
+            }
+            indezes[2] = 0;
+            indezes[1] = indezes[1] + 1;
+          }
+          indezes[1] = 0;
+          indezes[0] = indezes[0] + 1;
+        }
+        /* removes at least 56 loads */
+        return arr;
+      }
+
+    public void randomIntArray(){
+        int n = 10;
+        int[][][] arr = new int[n][][];
+        int[] indezes = new int[7];
+        while (indezes[0] < n) {
+            int[][] arr2 = new int[n][];
+            arr[indezes[0]] = arr2;
+            while (indezes[1] < n) {
+                int[][] arr2_ = arr[indezes[0]];
+                arr2_[indezes[1]] = new int[n];
+
+                indezes[1] = indezes[1] + 1;
+            }
+            indezes[0] = indezes[0] + 1;
+        }
+    }
 }

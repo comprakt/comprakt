@@ -204,8 +204,8 @@ impl fmt::Debug for Pointer {
 
 #[derive(Debug, Copy, Clone)]
 pub enum Idx {
-    Node(Node),
-    Const(usize),
+    Dynamic(Node),
+    Const(usize, Node),
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -565,9 +565,53 @@ impl Lattice for Heap {
 
 // == ArrayInfo ==
 
+#[derive(Clone, PartialEq, Eq)]
+struct CellInfo {
+    idx_source: Option<Node>,
+    val: Val,
+}
+
+impl fmt::Debug for CellInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}{:?}",
+            if let Some(node) = self.idx_source {
+                format!("= [{:?}]: ", node)
+            } else {
+                "".to_owned()
+            },
+            self.val
+        )
+    }
+}
+
+impl CellInfo {
+    fn new(idx_source: Option<Node>, val: Val) -> Self {
+        Self { idx_source, val }
+    }
+
+    pub fn join(&self, other: &Self) -> Self {
+        CellInfo {
+            idx_source: match (self.idx_source, other.idx_source) {
+                (Some(a), Some(b)) if a == b => Some(a),
+                _ => None,
+            },
+            val: self.val.join(&other.val),
+        }
+    }
+
+    pub fn join_val(&self, other: &Val) -> Self {
+        CellInfo {
+            idx_source: None,
+            val: self.val.join(other),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 enum ArrayInfoState {
-    Const(HashMap<usize, Val>),
+    Const(HashMap<usize, CellInfo>),
     Dynamic(Node, Val),
 }
 
@@ -642,7 +686,7 @@ impl ArrayInfo {
         match &self.state {
             ArrayInfoState::Const(cells) => {
                 for cell_val in cells.values() {
-                    val = val.join(cell_val);
+                    val = val.join(&cell_val.val);
                 }
             }
             ArrayInfoState::Dynamic(_, cell_val) => {
@@ -657,7 +701,7 @@ impl ArrayInfo {
         match &self.state {
             ArrayInfoState::Const(cells) => {
                 for item_val in cells.values() {
-                    mem.join_mut(&item_val.points_to());
+                    mem.join_mut(&item_val.val.points_to());
                 }
             }
             ArrayInfoState::Dynamic(_node, val) => {
@@ -670,28 +714,28 @@ impl ArrayInfo {
 
     pub fn update_cell(&mut self, idx: Idx, val: Val) {
         match (idx, &mut self.state) {
-            (Idx::Const(idx), ArrayInfoState::Const(ref mut cells)) => {
-                // [1: a, 3: b, default][1] := x => [1: x, 3: b, default]
-                // [1: a, 3: b, default][2] := x => [1: a, 2: x, 3: b, default]
-                cells.insert(idx, val);
+            (Idx::Const(idx, idx_source), ArrayInfoState::Const(ref mut cells)) => {
+                // [ 1: a, 3: b, [*]: def ][1] := x => [ 1: x, 3: b, [*]: def ]
+                // [ 1: a, 3: b, [*]: def ][2] := x => [ 1: a, 2: x, 3: b, [*]: def ]
+                cells.insert(idx, CellInfo::new(Some(idx_source), val));
             }
-            (Idx::Node(node), ArrayInfoState::Const(_cells)) => {
-                // [1: a, 2: b, default][i] := x => [ [node]: val, join(default, a, b, val)]
+            (Idx::Dynamic(node), ArrayInfoState::Const(_cells)) => {
+                // [ 1: a, 2: b, [*]: def ][i] := x => [ [node]: val, [*]: def & a & b & val) ]
                 self.default_val = self.any_item().join(&val);
                 self.state = ArrayInfoState::Dynamic(node, val);
             }
-            (Idx::Const(idx), ArrayInfoState::Dynamic(_node, old_val)) => {
-                // [ [node]: val, default ][1] := x => [ 1: val, join(default, val)]
+            (Idx::Const(idx, idx_source), ArrayInfoState::Dynamic(_node, old_val)) => {
+                // [ [node]: val, [*]: def ][1] := x => [ 1: val, [*]: def & val ]
                 let mut cells = HashMap::new();
-                cells.insert(idx, val);
+                cells.insert(idx, CellInfo::new(Some(idx_source), val));
                 self.default_val = self.default_val.join(old_val);
                 self.state = ArrayInfoState::Const(cells);
             }
-            (Idx::Node(node), ArrayInfoState::Dynamic(last_node, old_val)) => {
+            (Idx::Dynamic(node), ArrayInfoState::Dynamic(last_node, old_val)) => {
                 if node == *last_node {
-                    // [ [last_node]: old, default ][node] := x => [ [last_node]: val, default ]
+                    // [ [last_node]: old, [*]: def ][node] := x => [ [node]: val, [*]: def ]
                 } else {
-                    // [ [last_node]: old, def ][node] := x => [ [node]: val, join(old, def)]
+                    // [ [last_node]: old, [*]: def ][node] := x => [ [node]: val, [*]: old & def ]
                     self.default_val = self.default_val.join(old_val);
                 }
                 self.state = ArrayInfoState::Dynamic(node, val);
@@ -701,23 +745,40 @@ impl ArrayInfo {
 
     pub fn lookup_cell(&self, idx: Idx) -> Val {
         match (idx, &self.state) {
-            (Idx::Const(idx), ArrayInfoState::Const(cells)) => {
-                // [1: a, 3: b, default][1] = a
-                // [1: a, 3: b, default][2] = default
-                cells.get(&idx).unwrap_or(&self.default_val).clone()
+            (Idx::Const(idx, _), ArrayInfoState::Const(cells)) => {
+                // [ 1: a, 3: b, [*]: def ][1] = a
+                // [ 1: a, 3: b, [*]: def ][2] = def
+                cells
+                    .get(&idx)
+                    .map(|v| &v.val)
+                    .unwrap_or(&self.default_val)
+                    .clone()
             }
-            (Idx::Node(_), ArrayInfoState::Const(_))
-            | (Idx::Const(_), ArrayInfoState::Dynamic(_, _)) => {
-                // [1: a, 2: b, default][i] = join(a, b, default)
-                // [ [node]: val, default ][1] = join(val, default)
-                self.any_item()
+            (Idx::Dynamic(idx_node), ArrayInfoState::Const(cells)) => {
+                if let Some(cell) = cells.values().find(|v| v.idx_source == Some(idx_node)) {
+                    // [ 1@idx_node: a, 2: b, [*]: def ][idx_node] = a
+                    cell.val.clone()
+                } else {
+                    // [ 1: a, 2: b, [*]: def ][idx_node] = a & b & def
+                    self.any_item()
+                }
             }
-            (Idx::Node(last_node), ArrayInfoState::Dynamic(node, val)) => {
-                if last_node == *node {
-                    // [ [last_node]: val, default ][last_node] = val
+            (Idx::Const(_idx_val, idx_node), ArrayInfoState::Dynamic(node, val)) => {
+                if idx_node == *node {
+                    // [ [node]: val, [*]: def ][1@idx_node] = val
                     val.clone()
                 } else {
-                    // [ [last_node]: val, default ][node] = join(val, default)
+                    // [ [node]: val, [*]: def ][1] = val & def
+                    // we cannot use `_idx_val` for anything useful here
+                    self.any_item()
+                }
+            }
+            (Idx::Dynamic(idx_node), ArrayInfoState::Dynamic(node, val)) => {
+                if idx_node == *node {
+                    // [ [node]: val, [*]: def ][idx_node] = val
+                    val.clone()
+                } else {
+                    // [ [node]: val, [*]: def ][idx_node] = val & def
                     val.join(&self.default_val)
                 }
             }
@@ -753,12 +814,12 @@ impl Lattice for ArrayInfo {
                     if let Some(val2) = cells2.get(idx) {
                         cells.insert(*idx, val1.join(val2));
                     } else {
-                        cells.insert(*idx, val1.join(&other.default_val));
+                        cells.insert(*idx, val1.join_val(&other.default_val));
                     }
                 }
                 for (idx, val2) in cells2 {
                     if !cells1.contains_key(&idx) {
-                        cells.insert(*idx, val2.join(&self.default_val));
+                        cells.insert(*idx, val2.join_val(&self.default_val));
                     }
                 }
 
@@ -774,12 +835,28 @@ impl Lattice for ArrayInfo {
                     Const(HashMap::new())
                 }
             }
-            (Dynamic(_, _), Const(_)) | (Const(_), Dynamic(_, _)) => {
-                // [ 1: a, 3: b, default1 ] & [ [node]: c, default2 ]
-                // = [ join(a, b, default1, c, default2) ]
-                // we lose all information :(
-                default_val = self.any_item().join(&other.any_item());
-                Const(HashMap::new())
+            (Dynamic(idx_source, val), Const(cells)) | (Const(cells), Dynamic(idx_source, val)) => {
+                if let Some((idx, cell)) = cells
+                    .iter()
+                    .find(|(_idx, v)| v.idx_source == Some(*idx_source))
+                {
+                    // [ 1@idx_source: a, 3: b, [*]: def1 ] & [ [idx_source]: c, [*]: def2 ]
+                    // = [ [node]: a & c, [*]: b & def1 & def2) ]
+
+                    // IMPROVEMENT: `any_item` except cell!
+                    default_val = self.any_item().join(&other.any_item());
+                    let mut cells = HashMap::new();
+                    cells.insert(*idx, CellInfo::new(Some(*idx_source), cell.val.join(val)));
+                    Const(cells)
+                } else {
+                    // [ 1: a, 3: b, [*]: def1 ] & [ [node]: c, [*]: def2 ]
+                    // = [ [*]: a & b & def1 & c & def2) ]
+
+                    // we lose all information :(
+
+                    default_val = self.any_item().join(&other.any_item());
+                    Const(HashMap::new())
+                }
             }
         };
 

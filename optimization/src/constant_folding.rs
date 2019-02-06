@@ -51,7 +51,7 @@ impl optimization::Local for ConstantFolding {
     fn optimize_function(graph: Graph) -> Outcome {
         if let Ok(filter) = std::env::var("FILTER_CONSTANT_FOLDING_METHOD") {
             // for debugging
-            if graph.entity().name_string().contains(&filter) {
+            if !graph.entity().name_string().contains(&filter) {
                 return Outcome::Unchanged;
             }
         }
@@ -227,11 +227,14 @@ impl ConstantFolding {
             };
         }
 
+        let mut deps = Vec::new();
+
         while let Some((cur_node, _priority)) = self.queue.pop() {
             self.cur_node = Some(cur_node);
             self.node_update_count += 1;
             let cur_lattice = self.lookup(cur_node);
-            let (updated_lattice, deps) = self.update_node(cur_node, cur_lattice);
+            deps.clear();
+            let updated_lattice = self.update_node(cur_node, cur_lattice, &mut deps);
             if &updated_lattice != cur_lattice {
                 if let Some(deps) = self.deps.get(&cur_node) {
                     for out_node in deps.iter() {
@@ -264,13 +267,15 @@ impl ConstantFolding {
                 self.update(cur_node, updated_lattice);
             }
 
-            for dep in deps {
-                self.deps
-                    .entry(dep)
-                    .and_modify(|e| {
-                        e.insert(cur_node);
-                    })
-                    .or_insert_with(|| vec![cur_node].into_iter().collect());
+            if !deps.is_empty() {
+                for dep in &deps {
+                    self.deps
+                        .entry(*dep)
+                        .and_modify(|e| {
+                            e.insert(cur_node);
+                        })
+                        .or_insert_with(|| vec![cur_node].into_iter().collect());
+                }
             }
         }
 
@@ -325,8 +330,8 @@ impl ConstantFolding {
         &self,
         cur_node: Node,
         cur_lattice: &'_ ConstantFoldingLattice,
-        // TODO maybe Option<Vec<Node>> might improve perf
-    ) -> (ConstantFoldingLattice, Vec<Node>) {
+        deps: &mut Vec<Node>,
+    ) -> ConstantFoldingLattice {
         self.breakpoint(cur_node);
 
         let mut reachable = cur_lattice.reachable()
@@ -338,8 +343,6 @@ impl ConstantFolding {
             } else {
                 self.lookup(cur_node.block().into()).reachable()
             };
-
-        let mut deps = vec![];
 
         use self::{Node::*, ProjKind::*};
         let value = match cur_node {
@@ -426,14 +429,18 @@ impl ConstantFolding {
                     Sel(sel) => (
                         sel.ptr(),
                         TK::ArrItem(
-                            match &self.lookup_val(sel.index()) {
-                                Val::NodeValue(NodeValue::Tarval(val), _) if val.is_constant() => {
-                                    Idx::Const(val.get_long() as usize)
+                            match &self.lookup_val(sel.index()).expect_node_value_or_no_info() {
+                                Some((NodeValue::Tarval(idx_val), idx_source)) => {
+                                    let idx_source = (*idx_source).unwrap_or_else(|| sel.index());
+                                    if idx_val.is_constant() {
+                                        Idx::Const(idx_val.get_long() as usize, idx_source)
+                                    } else {
+                                        Idx::Dynamic(idx_source)
+                                    }
                                 }
-                                Val::NodeValue(_, Some(source_idx_node)) => {
-                                    Idx::Node(*source_idx_node)
-                                }
-                                _ => Idx::Node(sel.index()),
+                                Some(_) => panic!("unreach"),
+                                // maybe return here no info?
+                                None => Idx::Dynamic(sel.index()),
                             },
                             sel.element_ty(),
                         ),
@@ -658,7 +665,7 @@ impl ConstantFolding {
             }
         };
 
-        (ConstantFoldingLattice::new(reachable, value), deps)
+        ConstantFoldingLattice::new(reachable, value)
     }
 
     fn apply(&mut self) -> Outcome {
@@ -706,10 +713,17 @@ impl ConstantFolding {
                 }
 
                 if Node::is_add(new_node) {
+                    log::warn!("Skip add {:?}", new_node);
                     continue;
                 }
 
-                log::debug!("exchange value {:?} with {:?}", node, new_node);
+                log::debug!(
+                    "exchange value {:?}{} with {:?}{}",
+                    node,
+                    Spans::span_str(node),
+                    new_node,
+                    Spans::span_str(new_node)
+                );
 
                 let mem = match node {
                     Node::Div(div) => Some((div.mem(), div.out_proj_m())),
