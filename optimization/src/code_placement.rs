@@ -3,7 +3,7 @@
 ///! NOTE: the built in libfirm backend for amd64 calls `place_code` (libfirm's
 ///! own implementation of this optimization) even when optimizations are
 ///! disabled. You have to either use our backend or comment out
-///! line 3337 in file <ir/be/amd64/amd64_transform.c> to use this
+///! line 3337 in file <ir/be/amd64/amd64_transform.c> to debug this
 ///! optimization.
 ///!
 ///! ---
@@ -160,28 +160,10 @@ impl CommonSubExpr {
     }
 
     fn cmp(a: Node, b: Node) -> Ordering {
-        // we try to compute any stable order of children for
-        // the purpose of normalization.
-        //
-        // We sort by two criteria:
-        // 1.) split set into const and variable nodes, put const nodes first
-        // 2.) within each set, order the nodes by their libfirm node id
-        //
-        // Libfirm also handles a third class of "constlike" nodes, which consists
-        // of [Unknown, Const, Dummy, ...], but this is not necessary at all for
-        // our use case.
-        //
+        // Libfirm sorts by multiple critera:
         // df79debd25b9372f92c416c4d659d2b1cf17009d/ir/opt/iropt.c#L7812
         // df79debd25b9372f92c416c4d659d2b1cf17009d/ir/opt/iropt.c#L2169
-
-        // TODO: sorting on node_id() would be enough for GCSE
-
-        match (a, b) {
-            (Node::Const(_), Node::Const(_)) => a.node_id().cmp(&b.node_id()),
-            (Node::Const(_), _) => Ordering::Less,
-            (_, Node::Const(_)) => Ordering::Greater,
-            (_, _) => a.node_id().cmp(&b.node_id()),
-        }
+        a.node_id().cmp(&b.node_id())
     }
 
     /// Check if two nodes represent the same computation
@@ -190,10 +172,10 @@ impl CommonSubExpr {
     /// BEWARE: this assumes nodes passed are floatable
     ///         => nodes do not have side effects, are not blocks or phis, ...
     fn is_same_expr(a: Node, b: Node) -> bool {
-        assert!(is_movable(a), "GCSE only supports floatable nodes");
-        assert!(is_movable(b), "GCSE only supports floatable nodes");
-        assert!(!Node::is_block(a), "blocks should not be movable");
-        assert!(a != b, "identity comparisons should not happen");
+        debug_assert!(is_movable(a), "GCSE only supports floatable nodes");
+        debug_assert!(is_movable(b), "GCSE only supports floatable nodes");
+        debug_assert!(!Node::is_block(a), "blocks should not be movable");
+        debug_assert!(a != b, "identity comparisons should not happen");
 
         // test if it describes the same node variant,
         // e.g. is both a "Const Is" node?
@@ -267,13 +249,13 @@ impl CodePlacement {
     }
 
     fn run(&mut self) -> Outcome {
-        let earlier_placement = EarliestPlacement::new(self.graph, false).run();
+        let earlier_placement = EarliestPlacement::optimize_function(self.graph);
 
         breakpoint!("Graph in Earliest Placement", self.graph, &|node: &Node| {
             dom_info_box(node)
         });
 
-        let optimal_placement = CostMinimizingPlacement::new(self.graph, false).run();
+        let optimal_placement = CostMinimizingPlacement::optimize_function(self.graph);
 
         if earlier_placement == Outcome::Changed || optimal_placement == Outcome::Changed {
             Outcome::Changed
@@ -294,7 +276,6 @@ pub struct EarliestPlacement {
     worklist: VecDeque<Node>,
     visited: HashSet<Node>,
     num_changed: usize,
-    should_cleanup: bool,
 }
 
 impl optimization::Local for EarliestPlacement {
@@ -304,13 +285,12 @@ impl optimization::Local for EarliestPlacement {
 }
 
 impl EarliestPlacement {
-    fn new(graph: Graph, should_cleanup: bool) -> Self {
+    fn new(graph: Graph) -> Self {
         // TODO: do we use outs in EarliestPlacement?
         graph.assure_outs();
         graph.compute_doms();
         Self {
             graph,
-            should_cleanup,
             worklist: VecDeque::new(),
             visited: HashSet::new(),
             num_changed: 0,
@@ -326,8 +306,6 @@ impl EarliestPlacement {
         }
 
         if self.num_changed > 0 {
-            if self.should_cleanup {}
-
             Outcome::Changed
         } else {
             Outcome::Unchanged
@@ -508,7 +486,6 @@ pub struct CostMinimizingPlacement {
     /// nodes that were removed by global common subexpression elimination
     eliminated: HashSet<Node>,
     num_changed: usize,
-    should_cleanup: bool,
 }
 
 impl optimization::Local for CostMinimizingPlacement {
@@ -518,12 +495,11 @@ impl optimization::Local for CostMinimizingPlacement {
 }
 
 impl CostMinimizingPlacement {
-    fn new(graph: Graph, should_cleanup: bool) -> Self {
+    fn new(graph: Graph) -> Self {
         graph.assure_outs();
         graph.assure_loopinfo();
         Self {
             graph,
-            should_cleanup,
             worklist: VecDeque::new(),
             visited: HashSet::new(),
             eliminated: HashSet::new(),
@@ -545,7 +521,6 @@ impl CostMinimizingPlacement {
         }
 
         if self.num_changed > 0 {
-            if self.should_cleanup {}
             Outcome::Changed
         } else {
             Outcome::Unchanged
@@ -631,9 +606,7 @@ impl CostMinimizingPlacement {
         }
 
         // recompute the out indices, since edges were reordered
-        // TODO: for some reason, assure_outs instead of recompute_outs fails to update
-        // the graph sometimes? Check again if this is really the case.
-        self.graph.recompute_outs();
+        self.graph.assure_outs();
 
         // NOTE: the GCSE may remove nodes, therefore we have to call `collect`.
         // removed nodes are filtered using `self.eliminated.contains`.
@@ -686,12 +659,11 @@ impl CostMinimizingPlacement {
             }
         }
 
-        // TODO: too expensive
-        self.graph.assure_outs();
         // TODO: this is too expensive, I think running it once after
         // the whole optimization sequence is sufficient for correctness
         self.graph.remove_unreachable_code();
         self.graph.remove_bads();
+        self.graph.assure_outs();
 
         outcome
     }
@@ -1003,11 +975,11 @@ pub fn escape_record_content(text: &str) -> String {
 // NOTE: projs are movable, but should not be moved separatly, so this
 // check should be paired with a is_proj most of the time.
 fn is_movable(node: Node) -> bool {
-    assert!(
+    debug_assert!(
         !has_shared_proj(node),
         "a projection node should not be shared."
     );
-    !node.is_pinned() && !Node::is_cmp(node) && !Node::is_proj(node) && !has_shared_proj(node)
+    !node.is_pinned() && !Node::is_cmp(node) && !Node::is_proj(node)
 }
 
 fn has_shared_proj(node: Node) -> bool {
@@ -1027,12 +999,12 @@ fn has_shared_proj(node: Node) -> bool {
 
 /// Move a node to another block, including its projs
 fn update_block(node: Node, new_block: nodes::Block) {
-    assert!(is_movable(node), "can only move nodes marked as movable");
+    debug_assert!(is_movable(node), "can only move nodes marked as movable");
 
     node.set_block(new_block);
 
     for consumer in node.out_nodes() {
-        if let Node::Proj(_, _) = consumer {
+        if Node::is_proj(consumer) {
             update_block(consumer, new_block)
         }
     }
