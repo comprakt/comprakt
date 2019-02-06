@@ -356,11 +356,29 @@
 <span id="356">356</span>
 <span id="357">357</span>
 <span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">function</span>::{<span class="ident">FnOperand</span>, <span class="ident">FunctionCall</span>},
-    <span class="ident">lir</span>::{<span class="self">self</span>, <span class="ident">BasicBlock</span>},
-    <span class="ident">var_id</span>, <span class="ident">CallingConv</span>, <span class="ident">VarId</span>,
+    <span class="ident">lir</span>, <span class="ident">var_id</span>, <span class="ident">CallingConv</span>, <span class="ident">VarId</span>,
 };
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">lowering</span>::<span class="ident">lir_allocator</span>::<span class="ident">Ptr</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::<span class="ident">nodes</span>::<span class="ident">NodeTrait</span>;
@@ -425,8 +443,8 @@
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">end_block</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">lir</span>::<span class="ident">BasicBlock</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">gen_queue</span>(<span class="ident">end_block</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HashSet</span>::<span class="ident">new</span>());
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">graph</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">lir</span>::<span class="ident">BlockGraph</span><span class="op">&gt;</span>) {
+        <span class="self">self</span>.<span class="ident">gen_queue</span>(<span class="ident">graph</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HashSet</span>::<span class="ident">new</span>());
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ins</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">libfirm_rs</span>::<span class="ident">nodes</span>::<span class="ident">Block</span>, <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">VarId</span><span class="op">&gt;&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">outs</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">libfirm_rs</span>::<span class="ident">nodes</span>::<span class="ident">Block</span>, <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">VarId</span><span class="op">&gt;&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">block_code_map</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">libfirm_rs</span>::<span class="ident">nodes</span>::<span class="ident">Block</span>, <span class="ident">Block</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
@@ -534,15 +552,35 @@
 
     <span class="kw">fn</span> <span class="ident">gen_queue</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">end_block</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;</span>,
+        <span class="ident">graph</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">lir</span>::<span class="ident">BlockGraph</span><span class="op">&gt;</span>,
         <span class="ident">visited</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">libfirm_rs</span>::<span class="ident">nodes</span>::<span class="ident">Block</span><span class="op">&gt;</span>,
     ) {
-        <span class="self">self</span>.<span class="ident">queue</span>.<span class="ident">push_back</span>(<span class="ident">end_block</span>);
+        <span class="kw">if</span> <span class="ident">graph</span>.<span class="ident">end_block</span>.<span class="ident">preds</span>.<span class="ident">is_empty</span>() {
+            <span class="comment">// this happens when the function contains an infinite loop and does not return</span>
+            <span class="comment">// (FIRM end block doesn&#39;t have cfg_preds in that case)</span>
+            <span class="comment">// =&gt; see integration-tests/timeout/const_optimizable_while.mj</span>
+            <span class="comment">//</span>
+            <span class="comment">// NOTE: This is only the implication</span>
+            <span class="comment">//        graph.end_block.preds.is_empty() =&gt; does not return</span>
+            <span class="comment">// The reverse implication is not true, according to @hediet</span>
+            <span class="comment">// =&gt; do not extract this into a `fn graph.does_not_return() -&gt; bool`</span>
 
-        <span class="kw">for</span> <span class="ident">pred</span> <span class="kw">in</span> <span class="ident">end_block</span>.<span class="ident">preds</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>() {
-            <span class="kw">if</span> <span class="ident">visited</span>.<span class="ident">insert</span>(<span class="ident">pred</span>.<span class="ident">firm</span>) {
-                <span class="self">self</span>.<span class="ident">gen_queue</span>(<span class="ident">pred</span>, <span class="ident">visited</span>);
+            <span class="comment">// enqueue all blocks in random order: slows the analysis but oh well</span>
+            <span class="self">self</span>.<span class="ident">queue</span>.<span class="ident">extend</span>(<span class="ident">graph</span>.<span class="ident">iter_blocks</span>());
+        } <span class="kw">else</span> {
+            <span class="kw">fn</span> <span class="ident">gen_queue_dfs</span>(
+                <span class="ident">queue</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">lir</span>::<span class="ident">BasicBlock</span><span class="op">&gt;&gt;</span>,
+                <span class="ident">block</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">lir</span>::<span class="ident">BasicBlock</span><span class="op">&gt;</span>,
+                <span class="ident">visited</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">libfirm_rs</span>::<span class="ident">nodes</span>::<span class="ident">Block</span><span class="op">&gt;</span>,
+            ) {
+                <span class="ident">queue</span>.<span class="ident">push_back</span>(<span class="ident">block</span>);
+                <span class="kw">for</span> <span class="ident">pred</span> <span class="kw">in</span> <span class="ident">block</span>.<span class="ident">preds</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>() {
+                    <span class="kw">if</span> <span class="ident">visited</span>.<span class="ident">insert</span>(<span class="ident">pred</span>.<span class="ident">firm</span>) {
+                        <span class="ident">gen_queue_dfs</span>(<span class="ident">queue</span>, <span class="ident">pred</span>, <span class="ident">visited</span>);
+                    }
+                }
             }
+            <span class="ident">gen_queue_dfs</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">queue</span>, <span class="ident">graph</span>.<span class="ident">end_block</span>, <span class="ident">visited</span>);
         }
     }
 }

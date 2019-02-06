@@ -427,100 +427,32 @@
 <span id="427">427</span>
 <span id="428">428</span>
 <span id="429">429</span>
-<span id="430">430</span>
-<span id="431">431</span>
-<span id="432">432</span>
-<span id="433">433</span>
-<span id="434">434</span>
-<span id="435">435</span>
-<span id="436">436</span>
-<span id="437">437</span>
-<span id="438">438</span>
-<span id="439">439</span>
-<span id="440">440</span>
-<span id="441">441</span>
-<span id="442">442</span>
-<span id="443">443</span>
-<span id="444">444</span>
-<span id="445">445</span>
-<span id="446">446</span>
-<span id="447">447</span>
-<span id="448">448</span>
-<span id="449">449</span>
-<span id="450">450</span>
-<span id="451">451</span>
-<span id="452">452</span>
-<span id="453">453</span>
-<span id="454">454</span>
-<span id="455">455</span>
-<span id="456">456</span>
-<span id="457">457</span>
-<span id="458">458</span>
-<span id="459">459</span>
-<span id="460">460</span>
-<span id="461">461</span>
-<span id="462">462</span>
-<span id="463">463</span>
-<span id="464">464</span>
-<span id="465">465</span>
-<span id="466">466</span>
-<span id="467">467</span>
-<span id="468">468</span>
-<span id="469">469</span>
-<span id="470">470</span>
-<span id="471">471</span>
-<span id="472">472</span>
-<span id="473">473</span>
-<span id="474">474</span>
-<span id="475">475</span>
-<span id="476">476</span>
-<span id="477">477</span>
-<span id="478">478</span>
-<span id="479">479</span>
-<span id="480">480</span>
-<span id="481">481</span>
-<span id="482">482</span>
-<span id="483">483</span>
-<span id="484">484</span>
-<span id="485">485</span>
-<span id="486">486</span>
-<span id="487">487</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">lir</span>::<span class="kw-2">*</span>, <span class="ident">lir_allocator</span>::<span class="ident">Ptr</span>};
+<span class="kw">use</span> <span class="kw">super</span>::{
+    <span class="ident">lir</span>::{<span class="self">self</span>, <span class="kw-2">*</span>},
+    <span class="ident">lir_allocator</span>::<span class="ident">Ptr</span>,
+};
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{
     <span class="ident">nodes</span>::{<span class="ident">Node</span>, <span class="ident">NodeTrait</span>, <span class="ident">ProjKind</span>},
     <span class="ident">types</span>::{<span class="ident">Ty</span>, <span class="ident">TyTrait</span>},
     <span class="ident">Entity</span>,
 };
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">convert</span>::<span class="ident">TryInto</span>};
-<span class="kw">use</span> <span class="ident">strum_macros</span>::<span class="kw-2">*</span>;
-
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">EnumDiscriminants</span>)]</span>
-<span class="comment">// TODO naming</span>
-<span class="doccomment">/// This enum describes how a FIRM node has been converted to instructions,</span>
-<span class="doccomment">/// whether that instruction produced a result and in which var that result is</span>
-<span class="doccomment">/// stored.</span>
-<span class="kw">enum</span> <span class="ident">Computed</span> {
-    <span class="doccomment">/// Instructions for this FIRM node have been emitted in this block, but the</span>
-    <span class="doccomment">/// instructions do not produce a result.</span>
-    <span class="ident">Void</span>,
-    <span class="doccomment">/// Instructions for this value have been emitted in this block and the</span>
-    <span class="doccomment">/// result was written to Var.</span>
-    <span class="ident">Value</span>(<span class="ident">Var</span>),
-}
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections</span>::<span class="ident">HashSet</span>, <span class="ident">convert</span>::<span class="ident">TryInto</span>};
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">GenInstrBlock</span> {
+    <span class="ident">visisted</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span>,
+    <span class="ident">graph</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BlockGraph</span><span class="op">&gt;</span>,
     <span class="ident">body</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Instruction</span><span class="op">&gt;</span>,
     <span class="ident">leave</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Leave</span><span class="op">&gt;</span>,
-    <span class="ident">computed</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">Computed</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">GenInstrBlock</span> {
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">fill_instrs</span>(<span class="ident">graph</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BlockGraph</span><span class="op">&gt;</span>, <span class="kw-2">mut</span> <span class="ident">block</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;</span>) {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">b</span> <span class="op">=</span> <span class="ident">GenInstrBlock</span> {
+            <span class="ident">graph</span>,
+            <span class="ident">visisted</span>: <span class="ident">HashSet</span>::<span class="ident">new</span>(),
             <span class="ident">body</span>: <span class="macro">vec</span><span class="macro">!</span>[],
             <span class="ident">leave</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-            <span class="ident">computed</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
         };
         <span class="ident">b</span>.<span class="ident">gen</span>(<span class="ident">graph</span>, <span class="ident">block</span>);
         <span class="kw">let</span> <span class="ident">GenInstrBlock</span> { <span class="ident">body</span>, <span class="ident">leave</span>, .. } <span class="op">=</span> <span class="ident">b</span>;
@@ -533,12 +465,6 @@
     <span class="kw">fn</span> <span class="ident">gen</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">graph</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BlockGraph</span><span class="op">&gt;</span>, <span class="ident">block</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;</span>) {
         <span class="kw">for</span> <span class="ident">ValueReq</span> { <span class="ident">firm</span>, .. } <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">block</span>.<span class="ident">value_requirements</span> {
             <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;REQ {:?}&quot;</span>, <span class="ident">firm</span>);
-            <span class="kw">let</span> <span class="ident">computed</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">graph</span>.<span class="ident">can_be_var</span>(<span class="kw-2">*</span><span class="ident">firm</span>) {
-                <span class="ident">Computed</span>::<span class="ident">Value</span>(<span class="ident">graph</span>.<span class="ident">var</span>(<span class="kw-2">*</span><span class="ident">firm</span>))
-            } <span class="kw">else</span> {
-                <span class="ident">Computed</span>::<span class="ident">Void</span>
-            };
-            <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="kw-2">*</span><span class="ident">firm</span>, <span class="ident">computed</span>);
         }
         <span class="kw">for</span> <span class="ident">node</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">block</span>.<span class="ident">values_to_compute</span> {
             <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;TO COMPUTE: {:?}&quot;</span>, <span class="ident">node</span>);
@@ -550,46 +476,27 @@
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">is_computed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">computed</span>.<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">must_computed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Computed</span> {
-        <span class="self">self</span>.<span class="ident">computed</span>
-            .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>)
-            .<span class="ident">unwrap_or_else</span>(<span class="op">||</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;must have computed value for node {:?}&quot;</span>, <span class="ident">node</span>))
-    }
-
-    <span class="kw">fn</span> <span class="ident">mark_computed</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>, <span class="ident">computed</span>: <span class="ident">Computed</span>) {
-        <span class="kw">let</span> <span class="ident">did_overwrite</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">computed</span>.<span class="ident">insert</span>(<span class="ident">node</span>, <span class="ident">computed</span>);
-        <span class="macro">debug_assert</span><span class="macro">!</span>(
-            <span class="ident">did_overwrite</span>.<span class="ident">is_none</span>(),
-            <span class="string">&quot;duplicate computed for {:?}: {:?}&quot;</span>,
-            <span class="ident">node</span>,
-            <span class="ident">did_overwrite</span>
-        );
-    }
-
     <span class="kw">fn</span> <span class="ident">gen_value</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">graph</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BlockGraph</span><span class="op">&gt;</span>, <span class="ident">block</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;</span>, <span class="ident">out_value</span>: <span class="ident">Node</span>) {
         <span class="ident">out_value</span>.<span class="ident">walk_dfs_in_block_stop_at_phi_node</span>(<span class="ident">block</span>.<span class="ident">firm</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="op">|</span><span class="ident">n</span><span class="op">|</span> {
             <span class="self">self</span>.<span class="ident">gen_value_walk_callback</span>(<span class="ident">graph</span>, <span class="ident">block</span>, <span class="ident">n</span>)
         });
     }
 
-    <span class="kw">fn</span> <span class="ident">gen_dst_var</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">block</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-&gt;</span> <span class="ident">Var</span> {
-        <span class="kw">let</span> <span class="ident">var</span> <span class="op">=</span> <span class="ident">block</span>.<span class="ident">graph</span>.<span class="ident">var</span>(<span class="ident">node</span>);
-        <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">node</span>, <span class="ident">Computed</span>::<span class="ident">Value</span>(<span class="ident">var</span>));
-        <span class="ident">var</span>
+    <span class="doccomment">/// Always use this method to get the lir::Var for a Node in the context of</span>
+    <span class="doccomment">/// LIR construction: It retrieves the global Var from the BlockGraph,</span>
+    <span class="doccomment">/// and inserts it into the `visited` set.</span>
+    <span class="kw">fn</span> <span class="ident">gen_dst_var</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-&gt;</span> <span class="ident">Var</span> {
+        <span class="kw">let</span> <span class="ident">dst_var</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">var</span>(<span class="ident">node</span>);
+        <span class="comment">// yes, this also visits</span>
+        <span class="self">self</span>.<span class="ident">visisted</span>.<span class="ident">insert</span>(<span class="ident">node</span>);
+        <span class="ident">dst_var</span>
     }
 
-    <span class="kw">fn</span> <span class="ident">gen_operand_jit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-&gt;</span> <span class="ident">Operand</span> {
+    <span class="kw">fn</span> <span class="ident">gen_operand_jit</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-&gt;</span> <span class="ident">Operand</span> {
         <span class="kw">match</span> <span class="ident">node</span> {
             <span class="ident">Node</span>::<span class="ident">Const</span>(<span class="ident">c</span>) <span class="op">=&gt;</span> <span class="ident">Operand</span>::<span class="ident">Imm</span>(<span class="ident">c</span>.<span class="ident">tarval</span>()),
             <span class="ident">Node</span>::<span class="ident">Size</span>(<span class="ident">s</span>) <span class="op">=&gt;</span> <span class="ident">Operand</span>::<span class="ident">Imm</span>(<span class="ident">libfirm_rs</span>::<span class="ident">Tarval</span>::<span class="ident">mj_int</span>(<span class="ident">i64</span>::<span class="ident">from</span>(<span class="ident">s</span>.<span class="ident">ty</span>().<span class="ident">size</span>()))),
-            <span class="ident">n</span> <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">must_computed</span>(<span class="ident">n</span>) {
-                <span class="ident">Computed</span>::<span class="ident">Value</span>(<span class="ident">ms</span>) <span class="op">=&gt;</span> <span class="ident">Operand</span>::<span class="ident">Var</span>(<span class="kw-2">*</span><span class="ident">ms</span>),
-                <span class="ident">Computed</span>::<span class="ident">Void</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;expecting computed operand for {:?}, got Void&quot;</span>, <span class="ident">n</span>),
-            },
+            <span class="ident">n</span> <span class="op">=&gt;</span> <span class="ident">Operand</span>::<span class="ident">Var</span>(<span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="ident">n</span>)),
         }
     }
 
@@ -633,10 +540,11 @@
         <span class="ident">node</span>: <span class="ident">Node</span>,
     ) {
         <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;visit node={:?}&quot;</span>, <span class="ident">node</span>);
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_computed</span>(<span class="ident">node</span>) {
-            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;\tnode is already computed&quot;</span>);
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">visisted</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>) {
+            <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;\tnode has already been&quot;</span>);
             <span class="kw">return</span>;
         }
+        <span class="self">self</span>.<span class="ident">visisted</span>.<span class="ident">insert</span>(<span class="ident">node</span>);
 
         <span class="kw">use</span> <span class="self">self</span>::{<span class="ident">BinopKind</span>::<span class="kw-2">*</span>, <span class="ident">UnopKind</span>::<span class="kw-2">*</span>};
         <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">op_operand</span> {
@@ -658,13 +566,12 @@
             (@<span class="ident">INTERNAL</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">block</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">node</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="macro">op_operand</span><span class="macro">!</span>(<span class="ident">left</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>);
                 <span class="kw">let</span> <span class="ident">src2</span> <span class="op">=</span> <span class="macro">op_operand</span><span class="macro">!</span>(<span class="ident">right</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>);
-                <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">block</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">node</span>);
+                <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">node</span>);
                 (<span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>)
             }};
 
             <span class="comment">// DIV is special, see function-level comment</span>
             (@<span class="ident">DIV</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">block</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">div_node</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
-                <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">Node</span>::<span class="ident">from</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">div_node</span>), <span class="ident">Computed</span>::<span class="ident">Void</span>);
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">res_proj</span>) <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">div_node</span>.<span class="ident">out_proj_res</span>() {
                     <span class="kw">let</span> (<span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) <span class="op">=</span>
                         <span class="macro">gen_binop</span><span class="macro">!</span>(@<span class="ident">INTERNAL</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">block</span>, <span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">res_proj</span>));
@@ -677,7 +584,6 @@
             }};
             <span class="comment">// MOD is special, see function-level comment</span>
             (@<span class="ident">MOD</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">block</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">mod_node</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
-                <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">Node</span>::<span class="ident">from</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">mod_node</span>), <span class="ident">Computed</span>::<span class="ident">Void</span>);
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">res_proj</span>) <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">mod_node</span>.<span class="ident">out_proj_res</span>() {
                     <span class="kw">let</span> (<span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) <span class="op">=</span>
                         <span class="macro">gen_binop</span><span class="macro">!</span>(@<span class="ident">INTERNAL</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">block</span>, <span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">res_proj</span>));
@@ -693,7 +599,7 @@
         <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">gen_unop</span> {
             (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">kind</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">block</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">node</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="macro">op_operand</span><span class="macro">!</span>(<span class="ident">op</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>);
-                <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">block</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">node</span>);
+                <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">node</span>);
                 <span class="self">self</span>.<span class="ident">body</span>.<span class="ident">push</span>(<span class="ident">Instruction</span>::<span class="ident">Unop</span> {
                     <span class="ident">kind</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">kind</span>,
                     <span class="ident">src</span>,
@@ -703,31 +609,26 @@
         }
         <span class="kw">match</span> <span class="ident">node</span> {
             <span class="comment">// Start node is always ready</span>
-            <span class="ident">Node</span>::<span class="ident">Start</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {
-                <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">node</span>, <span class="ident">Computed</span>::<span class="ident">Void</span>);
-            }
+            <span class="ident">Node</span>::<span class="ident">Start</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {}
 
             <span class="comment">// The following group of nodes doesn&#39;t need code gen as</span>
             <span class="comment">// we know their result at compile time.</span>
-            <span class="comment">// They are only used as operands and constructed in gen_operand_jit</span>
-            <span class="ident">Node</span>::<span class="ident">Const</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Node</span>::<span class="ident">Address</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Node</span>::<span class="ident">Member</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Node</span>::<span class="ident">Sel</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Node</span>::<span class="ident">Size</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {}
+            <span class="ident">x</span> <span class="kw">if</span> <span class="ident">lir</span>::<span class="ident">is_jit_operand</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {}
 
             <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="kw">_</span>, <span class="ident">ProjKind</span>::<span class="ident">Start_TArgs_Arg</span>(..)) <span class="op">=&gt;</span> {
-                <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">node</span>, <span class="ident">Computed</span>::<span class="ident">Value</span>(<span class="ident">graph</span>.<span class="ident">existing_var</span>(<span class="ident">node</span>)))
+                <span class="ident">graph</span>.<span class="ident">existing_var</span>(<span class="ident">node</span>);
             }
 
             <span class="ident">Node</span>::<span class="ident">Phi</span>(<span class="ident">phi</span>) <span class="op">=&gt;</span> {
                 <span class="kw">if</span> <span class="ident">phi</span>.<span class="ident">mode</span>().<span class="ident">is_data</span>() {
-                    <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="ident">block</span>, <span class="ident">node</span>);
-                } <span class="kw">else</span> {
-                    <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">node</span>, <span class="ident">Computed</span>::<span class="ident">Void</span>);
+                    <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="ident">node</span>);
                 }
             }
 
             <span class="ident">Node</span>::<span class="ident">Conv</span>(<span class="ident">conv</span>) <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">pred</span> <span class="op">=</span> <span class="ident">conv</span>.<span class="ident">op</span>();
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_operand_jit</span>(<span class="ident">pred</span>);
-                <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="ident">block</span>, <span class="ident">node</span>);
+                <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="ident">node</span>);
                 <span class="self">self</span>.<span class="ident">body</span>.<span class="ident">push</span>(<span class="ident">Instruction</span>::<span class="ident">Conv</span> { <span class="ident">src</span>, <span class="ident">dst</span> });
             }
 
@@ -800,7 +701,6 @@
                     <span class="ident">true_target</span>,
                     <span class="ident">false_target</span>,
                 });
-                <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">node</span>, <span class="ident">Computed</span>::<span class="ident">Void</span>);
             }
 
             <span class="comment">// Only Call&#39;s result projection (if there is any) produces a value.</span>
@@ -836,20 +736,9 @@
                     });
 
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">elem0</span>) <span class="op">=</span> <span class="ident">result_tuple_0</span> {
-                        <span class="comment">// (gen_dst_var has implicit mark_computed)</span>
-                        <span class="kw">let</span> <span class="ident">var</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="ident">block</span>, <span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">elem0</span>));
-                        <span class="comment">// but other nodes will require Call to be computed</span>
-                        <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">call</span>), <span class="ident">Computed</span>::<span class="ident">Value</span>(<span class="ident">var</span>));
-                        <span class="comment">// and for completeness, do the same for the resul_tuple</span>
-                        <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">result_tuple</span>.<span class="ident">unwrap</span>()), <span class="ident">Computed</span>::<span class="ident">Value</span>(<span class="ident">var</span>));
+                        <span class="kw">let</span> <span class="ident">var</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">elem0</span>));
                         <span class="prelude-val">Some</span>(<span class="ident">var</span>)
                     } <span class="kw">else</span> {
-                        <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">call</span>), <span class="ident">Computed</span>::<span class="ident">Void</span>);
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">rt</span>) <span class="op">=</span> <span class="ident">result_tuple</span> {
-                            <span class="comment">// can this even happen? would be a dangling tuple</span>
-                            <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">rt</span>), <span class="ident">Computed</span>::<span class="ident">Void</span>);
-                        }
-                        <span class="comment">// result_tuple_0 is None, so nothing to mark as computed</span>
                         <span class="prelude-val">None</span>
                     }
                 };
@@ -876,19 +765,14 @@
             <span class="ident">Node</span>::<span class="ident">Unknown</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {
                 <span class="comment">// TODO ??? this happens in the runtime function wrapper&#39;s</span>
                 <span class="comment">// arguments</span>
-                <span class="comment">//</span>
-                <span class="comment">// write somehting to computed for now</span>
-                <span class="comment">//</span>
-                <span class="kw">let</span> <span class="ident">var</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="ident">block</span>, <span class="ident">node</span>);
-                <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">node</span>, <span class="ident">Computed</span>::<span class="ident">Value</span>(<span class="ident">var</span>));
+                <span class="comment">// self.gen_dst_var(node);</span>
             }
 
             <span class="comment">// Load itself does not create a computed value, only its result projection does.</span>
             <span class="ident">Node</span>::<span class="ident">Load</span>(<span class="ident">load</span>) <span class="op">=&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">src</span>, <span class="ident">size</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_address_computation</span>(<span class="ident">load</span>.<span class="ident">ptr</span>());
-                <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">node</span>, <span class="ident">Computed</span>::<span class="ident">Void</span>);
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">res_proj</span>) <span class="op">=</span> <span class="ident">load</span>.<span class="ident">out_proj_res</span>() {
-                    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="ident">block</span>, <span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">res_proj</span>));
+                    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_dst_var</span>(<span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">res_proj</span>));
                     <span class="self">self</span>.<span class="ident">body</span>
                         .<span class="ident">push</span>(<span class="ident">Instruction</span>::<span class="ident">LoadMem</span>(<span class="ident">LoadMem</span> { <span class="ident">src</span>, <span class="ident">dst</span>, <span class="ident">size</span> }));
                 }
@@ -901,24 +785,24 @@
                 <span class="kw">let</span> (<span class="ident">dst</span>, <span class="ident">size</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_address_computation</span>(<span class="ident">store</span>.<span class="ident">ptr</span>());
                 <span class="self">self</span>.<span class="ident">body</span>
                     .<span class="ident">push</span>(<span class="ident">Instruction</span>::<span class="ident">StoreMem</span>(<span class="ident">StoreMem</span> { <span class="ident">src</span>, <span class="ident">dst</span>, <span class="ident">size</span> }));
-                <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">node</span>, <span class="ident">Computed</span>::<span class="ident">Void</span>);
             }
 
             <span class="comment">// The default case for proj is that its predecessor must have been visited before and</span>
             <span class="comment">// must have been marked as computed (i.e. produced a value).</span>
             <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="ident">proj</span>, <span class="ident">kind</span>) <span class="op">=&gt;</span> {
                 <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;proj={:?} kind={:?}&quot;</span>, <span class="ident">proj</span>, <span class="ident">kind</span>);
-                <span class="comment">// copy the value produced by predecessor</span>
-                <span class="kw">let</span> <span class="ident">pred</span> <span class="op">=</span> <span class="ident">proj</span>.<span class="ident">pred</span>();
-                <span class="kw">let</span> <span class="ident">pred_computed</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">must_computed</span>(<span class="ident">pred</span>).<span class="ident">clone</span>();
-                <span class="self">self</span>.<span class="ident">mark_computed</span>(<span class="ident">node</span>, <span class="ident">pred_computed</span>);
+                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">graph</span>.<span class="ident">can_be_var</span>(<span class="ident">node</span>) {
+                    <span class="comment">// assert the variable exists</span>
+                    <span class="kw">let</span> <span class="ident">pred</span> <span class="op">=</span> <span class="ident">proj</span>.<span class="ident">pred</span>();
+                    <span class="ident">graph</span>.<span class="ident">existing_var</span>(<span class="ident">pred</span>);
+                }
             }
 
             <span class="ident">x</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;unimplemented: {:?}&quot;</span>, <span class="ident">x</span>),
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">gen_address_computation</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-&gt;</span> (<span class="ident">AddressComputation</span><span class="op">&lt;</span><span class="ident">Operand</span><span class="op">&gt;</span>, <span class="ident">u32</span>) {
+    <span class="kw">fn</span> <span class="ident">gen_address_computation</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>) <span class="op">-&gt;</span> (<span class="ident">AddressComputation</span><span class="op">&lt;</span><span class="ident">Operand</span><span class="op">&gt;</span>, <span class="ident">u32</span>) {
         <span class="kw">match</span> <span class="ident">node</span> {
             <span class="ident">Node</span>::<span class="ident">Member</span>(<span class="ident">member</span>) <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_operand_jit</span>(<span class="ident">member</span>.<span class="ident">ptr</span>());
