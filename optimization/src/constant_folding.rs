@@ -673,7 +673,9 @@ impl ConstantFolding {
         values.sort_by_key(|(l, _)| l.node_id());
 
         let mut to_be_marked_as_bad: Vec<Block> = Vec::new();
-        let mut outcome = Outcome::Unchanged;
+        let mut folded_constants = 0;
+        let mut optimized_loads = 0;
+        let mut optimized_conds = 0;
 
         for (&node, lattice) in values {
             if Node::is_const(node) {
@@ -717,6 +719,12 @@ impl ConstantFolding {
                     continue;
                 }
 
+                if let Node::Proj(_, ProjKind::Load_Res(_)) = node {
+                    optimized_loads += 1;
+                } else {
+                    folded_constants += 1;
+                }
+
                 log::debug!(
                     "exchange value {:?}{} with {:?}{}",
                     node,
@@ -757,6 +765,7 @@ impl ConstantFolding {
 
                 let jmp = cond.block().new_jmp();
 
+                optimized_conds += 1;
                 log::debug!(
                     "Replace {:?} with {:?} to {:?}",
                     always_taken_path,
@@ -771,8 +780,6 @@ impl ConstantFolding {
 
                 target_block.keep_alive();
             }
-
-            outcome = Outcome::Changed;
         }
 
         for block in &to_be_marked_as_bad {
@@ -787,6 +794,21 @@ impl ConstantFolding {
         self.graph.remove_unreachable_code();
         self.graph.remove_bads();
 
-        outcome
+        log::info!(
+            "Optimized {:>3} constants, {:>3} loads and {:>3} conds \
+             with {:>4} node updates and {:>4} total nodes in graph {}",
+            folded_constants,
+            optimized_loads,
+            optimized_conds,
+            self.node_update_count,
+            self.node_topo_idx.len(),
+            self.graph.entity().name_string(),
+        );
+
+        if folded_constants + optimized_loads + optimized_conds > 0 {
+            Outcome::Changed
+        } else {
+            Outcome::Unchanged
+        }
     }
 }
