@@ -668,6 +668,7 @@ impl ConstantFolding {
         ConstantFoldingLattice::new(reachable, value)
     }
 
+    #[allow(clippy::cyclomatic_complexity)]
     fn apply(&mut self) -> Outcome {
         let mut values = self.values.iter().collect::<Vec<_>>();
         values.sort_by_key(|(l, _)| l.node_id());
