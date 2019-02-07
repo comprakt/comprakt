@@ -1,4 +1,6 @@
-use super::super::lir;
+//! Basic block scheduling heuristic.
+
+use crate::lir;
 
 pub fn basic_block_scheduling(func: &mut lir::Function) {
     // reverse postorder

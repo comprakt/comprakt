@@ -454,13 +454,7 @@ fn cmd_compile(options: &CompileOptions) -> Result<(), Error> {
     compile_command_common!( let (firm_ctx, bingen) =
                              (&options.pre_backend_options, &options.backend_options, rtlib));
 
-    let mut backend: Box<dyn backend::AsmBackend> = {
-        // TODO make this configurable via CLI options
-        let opts = backend::amd64::Options {
-            cconv: backend::amd64::CallingConv::X86_64,
-        };
-        box backend::amd64::Backend { firm_ctx, opts }
-    };
+    let mut backend: Box<dyn backend::AsmBackend> = box backend::amd64::Backend { firm_ctx };
 
     let dump_asm = options
         .backend_options

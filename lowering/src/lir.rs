@@ -1,15 +1,21 @@
-//! Low level intermediate representation
+//! Instruction-list based representation of the program.
+//! All other modules transform the LIR.
 
-use super::{
-    gen_instr::GenInstrBlock,
-    lir_allocator::{self, Ptr},
+pub(crate) mod debugging;
+mod gen_instr;
+
+use self::gen_instr::GenInstrBlock;
+use crate::{
+    allocator::{self, Ptr},
+    derive_ptr_debug, firm,
+    type_checking::type_system::CheckedType,
 };
-use crate::{derive_ptr_debug, firm, type_checking::type_system::CheckedType};
 use itertools::Itertools;
 
 use crate::{
-    amd64::{codegen, Amd64Reg},
+    codegen,
     optimization::{Local, RemoveCriticalEdges},
+    Amd64Reg,
 };
 use libfirm_rs::{
     bindings,
@@ -25,13 +31,12 @@ use std::{
 
 #[derive(Debug, Default)]
 pub struct Allocator {
-    graphs: lir_allocator::Allocator<BlockGraph>,
-    blocks: lir_allocator::Allocator<BasicBlock>,
-    instrs: lir_allocator::Allocator<Instruction>,
-    leaves: lir_allocator::Allocator<Leave>,
-    copyprops: lir_allocator::Allocator<CopyPropagation>,
-    scheduled_instrs:
-        lir_allocator::Allocator<crate::amd64::live_variable_analysis::ScheduledInstr>,
+    graphs: allocator::Allocator<BlockGraph>,
+    blocks: allocator::Allocator<BasicBlock>,
+    instrs: allocator::Allocator<Instruction>,
+    leaves: allocator::Allocator<Leave>,
+    copyprops: allocator::Allocator<CopyPropagation>,
+    scheduled_instrs: allocator::Allocator<crate::live_variable_analysis::ScheduledInstr>,
 }
 
 macro_rules! allocation_method {
@@ -50,7 +55,7 @@ impl Allocator {
     allocation_method!(copyprop, CopyPropagation, copyprops);
     allocation_method!(
         scheduled_instr,
-        crate::amd64::live_variable_analysis::ScheduledInstr,
+        crate::live_variable_analysis::ScheduledInstr,
         scheduled_instrs
     );
 }

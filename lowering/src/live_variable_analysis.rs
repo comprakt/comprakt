@@ -1,11 +1,13 @@
+//! Live-variable analysis used by linear-scan.
+
 use super::{
     linear_scan,
     lir::{self, BasicBlock},
     var_id, VarId,
 };
 use crate::{
+    allocator::{HashPtr, Ptr},
     lir::Allocator,
-    lowering::lir_allocator::{HashPtr, Ptr},
 };
 use interval::{ops::Range, Interval};
 use std::{

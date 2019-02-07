@@ -13,21 +13,20 @@ extern crate derive_more;
 extern crate debugging;
 extern crate utils;
 
-pub mod amd64;
-pub(crate) mod gen_instr;
 pub(crate) mod lir;
 #[macro_use]
-pub(crate) mod lir_allocator;
-// FIXME users should use re-export lir::debugging
-pub(crate) mod lir_debugging;
+pub(crate) mod allocator;
 
-// Compat uses (old imports)
-pub(crate) mod lowering {
-    pub(crate) use super::{amd64, lir, lir_allocator};
-}
 pub(crate) use firm_construction as firm;
 pub(crate) use optimization;
 pub(crate) use type_checking;
+
+pub(crate) mod basic_block_scheduling;
+pub(crate) mod codegen;
+pub(crate) mod cycle_removal;
+pub(crate) mod linear_scan;
+pub(crate) mod live_variable_analysis;
+pub(crate) mod register;
 
 use firm::FirmProgram;
 use lir::LIR;
@@ -38,22 +37,22 @@ pub fn run_backend(
 ) -> std::io::Result<()> {
     let mut lir = LIR::from(firm_program);
     crate::debugging::breakpoint!("LIR stage 1", lir, &|block: &lir::BasicBlock| {
-        self::lir_debugging::default_lir_label(block)
+        lir::debugging::default_lir_label(block)
     });
 
     writeln!(out, "\t.text")?;
 
     // TODO predictable order
     for f in &mut lir.functions {
-        crate::amd64::basic_block_scheduling::basic_block_scheduling(f);
-        let lva_result = crate::amd64::live_variable_analysis::live_variable_analysis(
+        crate::basic_block_scheduling::basic_block_scheduling(f);
+        let lva_result = crate::live_variable_analysis::live_variable_analysis(
             &f.graph.blocks_scheduled.as_ref().unwrap(),
             &lir.allocator,
         );
 
-        let lsa_result = crate::amd64::linear_scan::register_allocation(f, lva_result);
+        let lsa_result = crate::linear_scan::register_allocation(f, lva_result);
 
-        let codegen = amd64::codegen::begin_codegen(f, lsa_result);
+        let codegen = crate::codegen::begin_codegen(f, lsa_result);
 
         // TODO local peepholer
 
@@ -67,4 +66,51 @@ pub fn run_backend(
     }
 
     Ok(())
+}
+
+pub(crate) use crate::register::Amd64Reg;
+use std::convert::TryFrom;
+
+pub(crate) type VarId = (usize);
+
+/// FIXME refactor
+fn var_id(op: lir::Operand) -> VarId {
+    use crate::lir::Operand::*;
+    match op {
+        Var(var) => (var.num()),
+        Imm(_) => unreachable!(),
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub(crate) enum CallingConv {
+    X86_64,
+}
+
+impl CallingConv {
+    pub(self) fn num_arg_regs(self) -> usize {
+        match self {
+            CallingConv::X86_64 => 6,
+        }
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
+pub(crate) enum Size {
+    One,
+    Four,
+    Eight,
+}
+
+impl TryFrom<u32> for Size {
+    type Error = String;
+
+    fn try_from(size: u32) -> Result<Self, Self::Error> {
+        match size {
+            1 => Ok(Size::One),
+            4 => Ok(Size::Four),
+            8 => Ok(Size::Eight),
+            x => Err(format!("only sizes 1,4 and 8 are supported, got {:?}", x)),
+        }
+    }
 }

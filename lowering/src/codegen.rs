@@ -1,11 +1,13 @@
-use super::{
-    function::{RegGraph, RegGraphMinLeftEdgeInstruction, RegToRegTransfer, SaveRegList},
-    linear_scan::Location,
+//! Use linear scan results to convert LIR-instructions to x86 instructions.
+
+use crate::{
+    allocator::Ptr,
+    cycle_removal::{RegGraph, RegGraphMinLeftEdgeInstruction, RegToRegTransfer},
+    linear_scan::{LSAResult, Location},
     lir,
     register::{Amd64Reg, Reg},
     var_id, CallingConv, Size,
 };
-use crate::{amd64::linear_scan::LSAResult, lir_allocator::Ptr};
 use itertools::Itertools;
 use libfirm_rs::{nodes::NodeTrait, Tarval};
 use std::{
@@ -2082,5 +2084,46 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
             },
             _ => unreachable!(),
         }
+    }
+}
+
+/// SaveRegList stores a list of registers to be saved before
+/// and restored after a function call.
+#[derive(Debug, Clone)]
+struct SaveRegList<Reg> {
+    saved_regs: Vec<Reg>,
+}
+
+impl<Reg: Clone> SaveRegList<Reg> {
+    pub fn len(&self) -> usize {
+        self.saved_regs.len()
+    }
+
+    pub fn add_regs(&mut self, regs: &[Reg]) {
+        self.saved_regs.extend_from_slice(regs)
+    }
+
+    pub fn add_regs_from_iter<Regs>(&mut self, regs: Regs)
+    where
+        Regs: IntoIterator<Item = Reg>,
+    {
+        self.saved_regs.extend(regs);
+    }
+    /// Iterate over registers in the order they were added.
+    /// Used to emit `pushq` instructions.
+    pub fn saves(&self) -> impl Iterator<Item = Reg> + '_ {
+        self.saved_regs.iter().cloned()
+    }
+    /// Iterate over registers in the **reverse order** in which they were
+    /// added. Used to emit `popq` instructions corresponding to `pushq`
+    /// instructions.
+    pub fn restores(&self) -> impl Iterator<Item = Reg> + '_ {
+        self.saved_regs.iter().rev().cloned()
+    }
+}
+
+impl<T> Default for SaveRegList<T> {
+    fn default() -> Self {
+        SaveRegList { saved_regs: vec![] }
     }
 }

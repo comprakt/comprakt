@@ -1,48 +1,9 @@
+//! Cycle-removal for copy-propagation (swap problem) & function call arguments.
+
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     ops::{Deref, DerefMut},
 };
-
-/// SaveRegList stores a list of registers to be saved before
-/// and restored after a function call.
-#[derive(Debug, Clone)]
-pub struct SaveRegList<Reg> {
-    saved_regs: Vec<Reg>,
-}
-
-impl<Reg: Clone> SaveRegList<Reg> {
-    pub fn len(&self) -> usize {
-        self.saved_regs.len()
-    }
-
-    pub fn add_regs(&mut self, regs: &[Reg]) {
-        self.saved_regs.extend_from_slice(regs)
-    }
-
-    pub fn add_regs_from_iter<Regs>(&mut self, regs: Regs)
-    where
-        Regs: IntoIterator<Item = Reg>,
-    {
-        self.saved_regs.extend(regs);
-    }
-    /// Iterate over registers in the order they were added.
-    /// Used to emit `pushq` instructions.
-    pub fn saves(&self) -> impl Iterator<Item = Reg> + '_ {
-        self.saved_regs.iter().cloned()
-    }
-    /// Iterate over registers in the **reverse order** in which they were
-    /// added. Used to emit `popq` instructions corresponding to `pushq`
-    /// instructions.
-    pub fn restores(&self) -> impl Iterator<Item = Reg> + '_ {
-        self.saved_regs.iter().rev().cloned()
-    }
-}
-
-impl<T> Default for SaveRegList<T> {
-    fn default() -> Self {
-        SaveRegList { saved_regs: vec![] }
-    }
-}
 
 #[derive(Clone)]
 pub struct Node<R> {

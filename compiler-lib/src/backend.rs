@@ -11,16 +11,9 @@ pub mod amd64 {
     use crate::firm_context::FirmContext;
     use lowering;
 
-    pub use lowering::amd64::CallingConv;
-
-    pub struct Options {
-        pub cconv: CallingConv,
-    }
-
     pub struct Backend<'src, 'ast> {
         // member lir holds raw pointers to data stored in firm_ctx
         pub firm_ctx: FirmContext<'src, 'ast>,
-        pub opts: Options,
     }
 
     use super::{AsmBackend, AsmOut};

@@ -1,5 +1,4 @@
-use super::Size;
-use crate::lowering::amd64::CallingConv;
+use crate::{CallingConv, Size};
 use std::{cmp::Ordering, collections::BTreeMap, convert::TryFrom};
 
 #[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
@@ -296,7 +295,6 @@ impl RegisterAllocator {
     pub(super) fn arg_in_reg(&self, idx: usize) -> Option<Amd64Reg> {
         if idx < self.cconv.num_arg_regs() {
             match self.cconv {
-                CallingConv::Stack => None,
                 CallingConv::X86_64 => Some(Amd64Reg::arg(idx)),
             }
         } else {

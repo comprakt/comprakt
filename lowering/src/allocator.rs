@@ -1,3 +1,5 @@
+//! Arena-allocator for the LIR.
+
 use std::{
     cell::RefCell,
     ops::{Deref, DerefMut},

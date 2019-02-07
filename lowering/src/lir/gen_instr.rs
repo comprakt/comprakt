@@ -1,7 +1,4 @@
-use super::{
-    lir::{Allocator, *},
-    lir_allocator::Ptr,
-};
+use super::*;
 use libfirm_rs::{
     nodes::{Node, NodeTrait, ProjKind},
     types::{Ty, TyTrait},

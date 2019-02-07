@@ -1,4 +1,5 @@
-use super::lir::{self, BasicBlock};
+use super::BasicBlock;
+use crate::lir;
 use debugging::dot::{
     dot_string, escape_record_content, Dot, GraphData, GraphState, Label, LabelMaker, Shape, Style,
     X11Color,
