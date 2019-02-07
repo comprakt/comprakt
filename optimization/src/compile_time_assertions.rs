@@ -127,7 +127,12 @@ fn assert_const(call: nodes::Call, phase: &Phase) {
             assert!(
                 Node::is_const(node),
                 build_assert_msg(
-                    format!("expected {:?} to be a constant {}", node, phase),
+                    format!(
+                        "expected {:?} ({}) to be a constant {}",
+                        node,
+                        Spans::span_str(node),
+                        phase
+                    ),
                     call
                 )
             );
@@ -141,7 +146,12 @@ fn assert_not_const(call: nodes::Call, phase: &Phase) {
             assert!(
                 !Node::is_const(node),
                 build_assert_msg(
-                    format!("expected {:?} to NOT be a constant {}", node, phase),
+                    format!(
+                        "expected {:?} ({}) to NOT be a constant {}",
+                        node,
+                        Spans::span_str(node),
+                        phase
+                    ),
                     call
                 )
             );
