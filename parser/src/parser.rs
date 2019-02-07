@@ -387,30 +387,33 @@ where
     fn parse_program(&mut self) -> ParserResult<'f, ast::Program<'f>> {
         spanned!(self, {
             let mut attrs = Vec::new();
-            loop {
-                if let Ok(TokenKind::Operator(Operator::Slash)) = self.lexer.peek().map(|t| t.data)
-                {
+            if std::env::var("VANILLA").is_err() {
+                loop {
                     if let Ok(TokenKind::Operator(Operator::Slash)) =
-                        self.lexer.peek_nth(1).map(|t| t.data)
+                        self.lexer.peek().map(|t| t.data)
                     {
-                        if let Ok(TokenKind::Operator(Operator::QuestionMark)) =
-                            self.lexer.peek_nth(2).map(|t| t.data)
+                        if let Ok(TokenKind::Operator(Operator::Slash)) =
+                            self.lexer.peek_nth(1).map(|t| t.data)
                         {
-                            if let Ok(TokenKind::Operator(Operator::Exclaim)) =
-                                self.lexer.peek_nth(3).map(|t| t.data)
+                            if let Ok(TokenKind::Operator(Operator::QuestionMark)) =
+                                self.lexer.peek_nth(2).map(|t| t.data)
                             {
-                                self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
-                                self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
-                                self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
-                                self.eat(Exactly(TokenKind::Operator(Operator::Exclaim)))?;
-                                attrs.push(self.parse_attribute()?);
-                                continue;
+                                if let Ok(TokenKind::Operator(Operator::Exclaim)) =
+                                    self.lexer.peek_nth(3).map(|t| t.data)
+                                {
+                                    self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                                    self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                                    self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
+                                    self.eat(Exactly(TokenKind::Operator(Operator::Exclaim)))?;
+                                    attrs.push(self.parse_attribute()?);
+                                    continue;
+                                }
                             }
                         }
                     }
-                }
 
-                break;
+                    break;
+                }
             }
             let mut classes = Vec::new();
             while !self.lexer.eof() {
@@ -424,13 +427,15 @@ where
     fn parse_class_declaration(&mut self) -> ParserResult<'f, ast::ClassDeclaration<'f>> {
         spanned!(self, {
             let mut attrs = Vec::new();
-            while self
-                .eat_optional(Exactly(TokenKind::Operator(Operator::Slash)))
-                .is_some()
-            {
-                self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
-                self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
-                attrs.push(self.parse_attribute()?);
+            if std::env::var("VANILLA").is_err() {
+                while self
+                    .eat_optional(Exactly(TokenKind::Operator(Operator::Slash)))
+                    .is_some()
+                {
+                    self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                    self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
+                    attrs.push(self.parse_attribute()?);
+                }
             }
 
             self.eat(exactly(Keyword::Class))?;
@@ -453,13 +458,15 @@ where
     fn parse_class_member(&mut self) -> ParserResult<'f, ast::ClassMember<'f>> {
         spanned!(self, {
             let mut attrs = Vec::new();
-            while self
-                .eat_optional(Exactly(TokenKind::Operator(Operator::Slash)))
-                .is_some()
-            {
-                self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
-                self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
-                attrs.push(self.parse_attribute()?);
+            if std::env::var("VANILLA").is_err() {
+                while self
+                    .eat_optional(Exactly(TokenKind::Operator(Operator::Slash)))
+                    .is_some()
+                {
+                    self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                    self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
+                    attrs.push(self.parse_attribute()?);
+                }
             }
 
             self.eat(exactly(Keyword::Public))?;

@@ -15,4 +15,6 @@ popd  > /dev/null
 
 TARGET="${TARGET:-release}"
 
-exec "$SCRIPT_PATH/target/$TARGET/compiler-cli" "$@"
+# The VANILLA flag disables all additional features of our compiler that
+# violate the MiniJava language specification
+VANILLA=true exec "$SCRIPT_PATH/target/$TARGET/compiler-cli" "$@"
