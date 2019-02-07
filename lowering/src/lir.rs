@@ -15,7 +15,7 @@ use itertools::Itertools;
 use crate::{
     codegen,
     optimization::{Local, RemoveCriticalEdges},
-    Amd64Reg,
+    register::Amd64Reg,
 };
 use libfirm_rs::{
     bindings,

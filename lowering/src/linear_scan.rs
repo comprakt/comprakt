@@ -50,7 +50,7 @@ pub(crate) fn register_allocation(func: &mut lir::Function, lva_result: LVAResul
     let var_live = live_ranges_by_start; // fixme
 
     // FIXME stack calling convention dropped
-    let reg_alloc = RegisterAllocator::new(func.nargs, crate::CallingConv::X86_64);
+    let reg_alloc = RegisterAllocator::new(func.nargs, crate::register::CallingConv);
     let mut linear_scan = LinearScanAllocator::new(reg_alloc, var_live, &lsa_params_list);
     linear_scan.run(&scheduled_instrs);
     linear_scan.into()

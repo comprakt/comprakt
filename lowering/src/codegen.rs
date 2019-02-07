@@ -5,8 +5,8 @@ use crate::{
     cycle_removal::{RegGraph, RegGraphMinLeftEdgeInstruction, RegToRegTransfer},
     linear_scan::{LSAResult, Location},
     lir,
-    register::{Amd64Reg, Reg},
-    var_id, CallingConv, Size,
+    register::{Amd64Reg, CallingConv, Reg, Size},
+    var_id,
 };
 use itertools::Itertools;
 use libfirm_rs::{nodes::NodeTrait, Tarval};
@@ -69,7 +69,7 @@ impl<'f> Codegen<'f> {
             func,
             lsa_result,
             saved_regs,
-            cconv: CallingConv::X86_64, // FIXME drop this, we only support
+            cconv: CallingConv,
         }
     }
 
@@ -1558,7 +1558,7 @@ pub(crate) struct MovInstruction {
 
 impl fmt::Display for MovInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use super::Size::*;
+        use self::Size::*;
         let (mov_suffix, src, dst) = match (self.src.size(), self.dst.size()) {
             (One, One) => ("b", self.src, self.dst),
             (One, Four) => ("sbl", self.src, self.dst),
