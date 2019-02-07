@@ -1,6 +1,7 @@
 //! Injects the class 'Assert' into the mini java runtime, which
 //! contains functions that are evaluated at compile-time.
 use crate::{firm::FirmProgram, optimization};
+use firm_construction::program_generator::Spans;
 use libfirm_rs::{
     nodes::{self, Node},
     Graph,
@@ -102,7 +103,10 @@ fn assert_const(call: nodes::Call, phase: &Phase) {
     if phase.is_match(&phase_filter) {
         assert!(
             Node::is_const(node),
-            format!("expected {:?} to be a constant {}", node, phase)
+            build_assert_msg(
+                format!("expected {:?} to be a constant {}", node, phase),
+                node
+            )
         );
     }
 }
@@ -120,7 +124,22 @@ fn assert_not_const(call: nodes::Call, phase: &Phase) {
     if phase.is_match(&phase_filter) {
         assert!(
             !Node::is_const(node),
-            format!("expected {:?} to NOT be a constant {}", node, phase)
+            build_assert_msg(
+                format!("expected {:?} to NOT be a constant {}", node, phase),
+                node
+            )
         );
     }
+}
+
+fn build_assert_msg(msg: String, node: Node) -> String {
+    format!(
+        "{}{}",
+        if let Some(pos) = Spans::lookup_span(node) {
+            format!("{}: ", pos)
+        } else {
+            "".to_string()
+        },
+        msg
+    )
 }
