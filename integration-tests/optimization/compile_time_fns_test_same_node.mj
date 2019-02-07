@@ -15,6 +15,7 @@ class Assert {
     public void is_same_node_before(int opt_index, int expr, int expr2) {}
     public void is_different_node_after(int opt_index, int expr, int expr2) {}
     public void is_different_node_before(int opt_index, int expr, int expr2) {}
+    public void is_different_node_3_before(int opt_index, int expr, int expr2, int expr3) {}
 }
 
 class CF_Sub {
@@ -23,11 +24,13 @@ class CF_Sub {
     int a = 9;
     int b = a;
     int c = 4;
+    int d = 2;
 
     expect.is_same_node_before(0, a, b);
     expect.is_same_node_after(0, a, b);
     expect.is_different_node_after(0, a, c);
     expect.is_different_node_before(0, a, c);
+    expect.is_different_node_3_before(0, a, c, d);
 
     System.out.println(a);
     System.out.println(b);

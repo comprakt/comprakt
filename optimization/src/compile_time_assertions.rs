@@ -178,30 +178,31 @@ fn assert_node_equality(call: nodes::Call, phase: &Phase, expect_same: bool) {
             )
         );
 
-        let first = nodes[0];
-        for node in &nodes[1..] {
-            assert!(
-                if expect_same {
-                    first == *node
-                } else {
-                    first != *node
-                },
-                build_assert_msg(
-                    format!(
-                        "expected {:?} ({}) and {:?} ({}) to be the same node {}",
-                        first,
-                        Spans::lookup_span(first)
-                            .map(|span| span.as_str())
-                            .unwrap_or(""),
-                        node,
-                        Spans::lookup_span(*node)
-                            .map(|span| span.as_str())
-                            .unwrap_or(""),
-                        phase
-                    ),
-                    call,
-                )
-            );
+        for (idx, curr_node) in nodes.iter().enumerate() {
+            for other in &nodes[(idx + 1)..] {
+                assert!(
+                    if expect_same {
+                        other == curr_node
+                    } else {
+                        other != curr_node
+                    },
+                    build_assert_msg(
+                        format!(
+                            "expected {:?} ({}) and {:?} ({}) to be the same node {}",
+                            curr_node,
+                            Spans::lookup_span(*curr_node)
+                                .map(|span| span.as_str())
+                                .unwrap_or(""),
+                            other,
+                            Spans::lookup_span(*other)
+                                .map(|span| span.as_str())
+                                .unwrap_or(""),
+                            phase
+                        ),
+                        call,
+                    )
+                );
+            }
         }
     }
 }
