@@ -1,0 +1,37 @@
+---
+optimizations: [ConstantFolding]
+expect: change
+        
+stdout:
+    is: "9\n"
+---
+
+class ConstantFoldingAfter {
+    public void is_const(int expr) {}
+}
+
+class ConstantFoldingBefore {
+    public void is_not_const(int expr) {}
+}
+
+class Opt1After {
+    public void is_const(int expr) {}
+    public void is_not_const(int expr) {}
+}
+
+class CF_Sub {
+  public static void main(String[] args) {
+    ConstantFoldingAfter expect_after = new ConstantFoldingAfter();
+    ConstantFoldingBefore expect_before = new ConstantFoldingBefore();
+
+    int a = 14 - 5;
+
+    expect_before.is_not_const(a);
+    expect_after.is_const(a);
+    /* should not be evaluated since the class name is a mismatch */
+    (new Opt1After()).is_const(a);
+    (new Opt1After()).is_not_const(a);
+
+    System.out.println(a);
+  }
+}

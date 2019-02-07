@@ -30,5 +30,7 @@ gen_optimized_binary_integration_tests!(Backend::Own);
 gen_optimized_binary_integration_tests!(Backend::Libfirm);
 gen_timeout_integration_tests!(Backend::Own);
 gen_timeout_integration_tests!(Backend::Libfirm);
+gen_optimized_timeout_integration_tests!(Backend::Own);
+gen_optimized_timeout_integration_tests!(Backend::Libfirm);
 gen_optimization_integration_tests!(Backend::Own);
 gen_optimization_integration_tests!(Backend::Libfirm);

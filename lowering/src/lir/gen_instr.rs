@@ -4,27 +4,13 @@ use libfirm_rs::{
     types::{Ty, TyTrait},
     Entity,
 };
-use std::{collections::HashMap, convert::TryInto};
-use strum_macros::*;
-
-#[derive(Debug, Clone, EnumDiscriminants)]
-// TODO naming
-/// This enum describes how a FIRM node has been converted to instructions,
-/// whether that instruction produced a result and in which var that result is
-/// stored.
-enum Computed {
-    /// Instructions for this FIRM node have been emitted in this block, but the
-    /// instructions do not produce a result.
-    Void,
-    /// Instructions for this value have been emitted in this block and the
-    /// result was written to Var.
-    Value(Var),
-}
+use std::{collections::HashSet, convert::TryInto};
 
 pub struct GenInstrBlock {
+    visisted: HashSet<Node>,
+    graph: Ptr<BlockGraph>,
     body: Vec<Instruction>,
     leave: Vec<Leave>,
-    computed: HashMap<Node, Computed>,
 }
 
 impl GenInstrBlock {
@@ -34,9 +20,10 @@ impl GenInstrBlock {
         alloc: &Allocator,
     ) {
         let mut b = GenInstrBlock {
+            graph,
+            visisted: HashSet::new(),
             body: vec![],
             leave: vec![],
-            computed: HashMap::new(),
         };
         b.gen(graph, block);
         let GenInstrBlock { body, leave, .. } = b;
@@ -55,12 +42,6 @@ impl GenInstrBlock {
     fn gen(&mut self, graph: Ptr<BlockGraph>, block: Ptr<BasicBlock>) {
         for ValueReq { firm, .. } in &block.value_requirements {
             log::debug!("REQ {:?}", firm);
-            let computed = if graph.can_be_var(*firm) {
-                Computed::Value(graph.var(*firm))
-            } else {
-                Computed::Void
-            };
-            self.mark_computed(*firm, computed);
         }
         for node in &block.values_to_compute {
             log::debug!("TO COMPUTE: {:?}", node);
@@ -72,46 +53,27 @@ impl GenInstrBlock {
         }
     }
 
-    fn is_computed(&self, node: Node) -> bool {
-        self.computed.contains_key(&node)
-    }
-
-    fn must_computed(&self, node: Node) -> &Computed {
-        self.computed
-            .get(&node)
-            .unwrap_or_else(|| panic!("must have computed value for node {:?}", node))
-    }
-
-    fn mark_computed(&mut self, node: Node, computed: Computed) {
-        let did_overwrite = self.computed.insert(node, computed);
-        debug_assert!(
-            did_overwrite.is_none(),
-            "duplicate computed for {:?}: {:?}",
-            node,
-            did_overwrite
-        );
-    }
-
     fn gen_value(&mut self, graph: Ptr<BlockGraph>, block: Ptr<BasicBlock>, out_value: Node) {
         out_value.walk_dfs_in_block_stop_at_phi_node(block.firm, &mut |n| {
             self.gen_value_walk_callback(graph, block, n)
         });
     }
 
-    fn gen_dst_var(&mut self, block: Ptr<BasicBlock>, node: Node) -> Var {
-        let var = block.graph.var(node);
-        self.mark_computed(node, Computed::Value(var));
-        var
+    /// Always use this method to get the lir::Var for a Node in the context of
+    /// LIR construction: It retrieves the global Var from the BlockGraph,
+    /// and inserts it into the `visited` set.
+    fn gen_dst_var(&mut self, node: Node) -> Var {
+        let dst_var = self.graph.var(node);
+        // yes, this also visits
+        self.visisted.insert(node);
+        dst_var
     }
 
-    fn gen_operand_jit(&self, node: Node) -> Operand {
+    fn gen_operand_jit(&mut self, node: Node) -> Operand {
         match node {
             Node::Const(c) => Operand::Imm(c.tarval()),
             Node::Size(s) => Operand::Imm(libfirm_rs::Tarval::mj_int(i64::from(s.ty().size()))),
-            n => match self.must_computed(n) {
-                Computed::Value(ms) => Operand::Var(*ms),
-                Computed::Void => panic!("expecting computed operand for {:?}, got Void", n),
-            },
+            n => Operand::Var(self.gen_dst_var(n)),
         }
     }
 
@@ -155,10 +117,11 @@ impl GenInstrBlock {
         node: Node,
     ) {
         log::debug!("visit node={:?}", node);
-        if self.is_computed(node) {
-            log::debug!("\tnode is already computed");
+        if self.visisted.contains(&node) {
+            log::debug!("\tnode has already been");
             return;
         }
+        self.visisted.insert(node);
 
         use self::{BinopKind::*, UnopKind::*};
         macro_rules! op_operand {
@@ -180,13 +143,12 @@ impl GenInstrBlock {
             (@INTERNAL, $op:expr, $block:expr, $node:expr) => {{
                 let src1 = op_operand!(left, $op);
                 let src2 = op_operand!(right, $op);
-                let dst = self.gen_dst_var($block, $node);
+                let dst = self.gen_dst_var($node);
                 (src1, src2, dst)
             }};
 
             // DIV is special, see function-level comment
             (@DIV, $op:expr, $block:expr, $div_node:expr) => {{
-                self.mark_computed(Node::from($div_node), Computed::Void);
                 if let Some(res_proj) = $div_node.out_proj_res() {
                     let (src1, src2, dst) =
                         gen_binop!(@INTERNAL, $op, $block, Node::from(res_proj));
@@ -199,7 +161,6 @@ impl GenInstrBlock {
             }};
             // MOD is special, see function-level comment
             (@MOD, $op:expr, $block:expr, $mod_node:expr) => {{
-                self.mark_computed(Node::from($mod_node), Computed::Void);
                 if let Some(res_proj) = $mod_node.out_proj_res() {
                     let (src1, src2, dst) =
                         gen_binop!(@INTERNAL, $op, $block, Node::from(res_proj));
@@ -215,7 +176,7 @@ impl GenInstrBlock {
         macro_rules! gen_unop {
             ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
                 let src = op_operand!(op, $op);
-                let dst = self.gen_dst_var($block, $node);
+                let dst = self.gen_dst_var($node);
                 self.body.push(Instruction::Unop {
                     kind: $kind,
                     src,
@@ -225,31 +186,26 @@ impl GenInstrBlock {
         }
         match node {
             // Start node is always ready
-            Node::Start(_) => {
-                self.mark_computed(node, Computed::Void);
-            }
+            Node::Start(_) => {}
 
             // The following group of nodes doesn't need code gen as
             // we know their result at compile time.
-            // They are only used as operands and constructed in gen_operand_jit
-            Node::Const(_) | Node::Address(_) | Node::Member(_) | Node::Sel(_) | Node::Size(_) => {}
+            x if super::is_jit_operand(x) => {}
 
             Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) => {
-                self.mark_computed(node, Computed::Value(graph.existing_var(node)))
+                graph.existing_var(node);
             }
 
             Node::Phi(phi) => {
                 if phi.mode().is_data() {
-                    self.gen_dst_var(block, node);
-                } else {
-                    self.mark_computed(node, Computed::Void);
+                    self.gen_dst_var(node);
                 }
             }
 
             Node::Conv(conv) => {
                 let pred = conv.op();
                 let src = self.gen_operand_jit(pred);
-                let dst = self.gen_dst_var(block, node);
+                let dst = self.gen_dst_var(node);
                 self.body.push(Instruction::Conv { src, dst });
             }
 
@@ -322,7 +278,6 @@ impl GenInstrBlock {
                     true_target,
                     false_target,
                 });
-                self.mark_computed(node, Computed::Void);
             }
 
             // Only Call's result projection (if there is any) produces a value.
@@ -358,20 +313,9 @@ impl GenInstrBlock {
                     });
 
                     if let Some(elem0) = result_tuple_0 {
-                        // (gen_dst_var has implicit mark_computed)
-                        let var = self.gen_dst_var(block, Node::from(elem0));
-                        // but other nodes will require Call to be computed
-                        self.mark_computed(Node::from(call), Computed::Value(var));
-                        // and for completeness, do the same for the resul_tuple
-                        self.mark_computed(Node::from(result_tuple.unwrap()), Computed::Value(var));
+                        let var = self.gen_dst_var(Node::from(elem0));
                         Some(var)
                     } else {
-                        self.mark_computed(Node::from(call), Computed::Void);
-                        if let Some(rt) = result_tuple {
-                            // can this even happen? would be a dangling tuple
-                            self.mark_computed(Node::from(rt), Computed::Void);
-                        }
-                        // result_tuple_0 is None, so nothing to mark as computed
                         None
                     }
                 };
@@ -399,19 +343,14 @@ impl GenInstrBlock {
             Node::Unknown(_) => {
                 // TODO ??? this happens in the runtime function wrapper's
                 // arguments
-                //
-                // write somehting to computed for now
-                //
-                let var = self.gen_dst_var(block, node);
-                self.mark_computed(node, Computed::Value(var));
+                // self.gen_dst_var(node);
             }
 
             // Load itself does not create a computed value, only its result projection does.
             Node::Load(load) => {
                 let (src, size) = self.gen_address_computation(load.ptr());
-                self.mark_computed(node, Computed::Void);
                 if let Some(res_proj) = load.out_proj_res() {
-                    let dst = self.gen_dst_var(block, Node::from(res_proj));
+                    let dst = self.gen_dst_var(Node::from(res_proj));
                     self.body
                         .push(Instruction::LoadMem(LoadMem { src, dst, size }));
                 }
@@ -424,24 +363,24 @@ impl GenInstrBlock {
                 let (dst, size) = self.gen_address_computation(store.ptr());
                 self.body
                     .push(Instruction::StoreMem(StoreMem { src, dst, size }));
-                self.mark_computed(node, Computed::Void);
             }
 
             // The default case for proj is that its predecessor must have been visited before and
             // must have been marked as computed (i.e. produced a value).
             Node::Proj(proj, kind) => {
                 log::debug!("proj={:?} kind={:?}", proj, kind);
-                // copy the value produced by predecessor
-                let pred = proj.pred();
-                let pred_computed = self.must_computed(pred).clone();
-                self.mark_computed(node, pred_computed);
+                if self.graph.can_be_var(node) {
+                    // assert the variable exists
+                    let pred = proj.pred();
+                    graph.existing_var(pred);
+                }
             }
 
             x => panic!("unimplemented: {:?}", x),
         }
     }
 
-    fn gen_address_computation(&self, node: Node) -> (AddressComputation<Operand>, u32) {
+    fn gen_address_computation(&mut self, node: Node) -> (AddressComputation<Operand>, u32) {
         match node {
             Node::Member(member) => {
                 let base = self.gen_operand_jit(member.ptr());

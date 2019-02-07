@@ -28,7 +28,9 @@ mod control_flow;
 use self::control_flow::ControlFlow;
 mod remove_critical_edges;
 pub use self::remove_critical_edges::RemoveCriticalEdges;
+pub mod compile_time_assertions;
 mod lattices;
+pub use self::compile_time_assertions::{CompileTimeAssertions, Phase};
 
 /// An optimization that optimizes the whole program by examining all function
 /// graphs at once.
@@ -209,12 +211,29 @@ impl Level {
     pub fn run_all(&self, program: &mut FirmProgram<'_, '_>) {
         breakpoint!("before optimization sequence".to_string(), program);
         let measurement_all = Measurement::start("optimization phase");
+        let compile_time_assertions = CompileTimeAssertions::new();
 
         for (i, optimization) in self.sequence().iter().enumerate() {
             log::info!("Running optimization #{}: {:?}", i, optimization);
+            compile_time_assertions.check_program(
+                program,
+                Phase {
+                    opt_idx: i,
+                    opt_kind: optimization.kind,
+                    is_already_applied: false,
+                },
+            );
             let measurement = Measurement::start(&format!("opt #{}: {}", i, optimization.kind));
             optimization.run(program);
             measurement.stop();
+            compile_time_assertions.check_program(
+                program,
+                Phase {
+                    opt_idx: i,
+                    opt_kind: optimization.kind,
+                    is_already_applied: true,
+                },
+            );
             log::debug!("Finished optimization #{}: {:?}", i, optimization.kind);
         }
 

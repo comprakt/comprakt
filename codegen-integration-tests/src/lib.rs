@@ -72,7 +72,30 @@ pub fn gen_timeout_integration_tests(args: TokenStream) -> TokenStream {
             #[test]
             fn #function_name() {
                 let input = PathBuf::from(#path_str);
-                exec_timeout_test(input, #backend);
+                exec_timeout_test(input, ::optimization::Level::None, #backend);
+            }
+        }
+    })
+}
+
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
+pub fn gen_optimized_timeout_integration_tests(args: TokenStream) -> TokenStream {
+    let backend = proc_macro2::TokenStream::from(args);
+    let backend_label = backend
+        .to_string()
+        .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
+    let backend_label = format!("_optimized_{}", backend_label);
+
+    gen_integration_tests("timeout", &backend_label, |test_name, mj_file| {
+        let function_name = Ident::new(&test_name, Span::call_site());
+        let path_str = mj_file.to_str().unwrap();
+
+        quote! {
+            #[test]
+            fn #function_name() {
+                let input = PathBuf::from(#path_str);
+                exec_timeout_test(input, ::optimization::Level::Aggressive, #backend);
             }
         }
     })

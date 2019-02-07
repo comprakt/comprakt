@@ -622,6 +622,13 @@ impl fmt::Debug for CopyPropagation {
     }
 }
 
+pub fn is_jit_operand(node: Node) -> bool {
+    match node {
+        Node::Const(_) | Node::Address(_) | Node::Member(_) | Node::Sel(_) | Node::Size(_) => true,
+        _ => false,
+    }
+}
+
 #[derive(Clone, Copy)]
 pub enum Operand {
     Var(Var),
@@ -801,6 +808,7 @@ impl Ptr<BlockGraph> {
                             // Nodes that are constant (tarvals known at compile time)
                             // are converted to `SrcOperand::Imm` by gen_instr.rs
                             .filter(|value| self.convert_to_tarval(*value).is_none())
+                            .filter(|value| !is_jit_operand(*value))
                     })
                     // above doesn't give us control flow, thus also depend on the X nodes
                     // via cfg_preds
@@ -900,7 +908,7 @@ impl Ptr<BlockGraph> {
     }
 
     pub(super) fn can_be_var(self, firm: Node) -> bool {
-        firm.mode().is_data() && !Node::is_const(firm)
+        firm.mode().is_data() && !is_jit_operand(firm)
     }
 
     // TODO move this to libfirm_rs
