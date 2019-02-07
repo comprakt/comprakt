@@ -1,7 +1,7 @@
-use super::{Lattice, NodeValue, Val};
+use super::{Lattice, NodeValue};
 use crate::firm::program_generator::Spans;
 use libfirm_rs::{
-    nodes::{Node, NodeDebug},
+    nodes::{Node, NodeDebug, ProjKind},
     types::{ClassTy, PointerTy, Ty, TyTrait},
     Entity, Tarval,
 };
@@ -246,7 +246,7 @@ impl Heap {
         }
     }
 
-    pub fn non_const_val(&self, ty: Ty) -> Val {
+    pub fn non_const_val(&self, ty: Ty) -> NodeValue {
         if ty.mode().is_pointer() {
             let ty = PointerTy::from(ty).unwrap_or_else(|| panic!("{:?} to be pointer type", ty));
             let mut mem = MemoryArea::unrestricted();
@@ -269,9 +269,9 @@ impl Heap {
                 }
                 other_ty => panic!("unexpected type {:?}", other_ty),
             }
-            Val::NodeValue(NodeValue::Pointer(Pointer::to_null_and(mem)), None)
+            NodeValue::value(Pointer::to_null_and(mem).into())
         } else {
-            Val::from_tarval_internal(Tarval::bad(), None)
+            NodeValue::value(Tarval::bad().into())
         }
     }
 
@@ -348,7 +348,18 @@ impl Heap {
         Pointer::to(mem)
     }
 
-    pub fn update_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity, val: &Val) {
+    pub fn check_ptr_node(&self, node: Node) {
+        match node {
+            Node::Proj(_, ProjKind::Load_Res(..))
+            | Node::Proj(_, ProjKind::Start_TArgs_Arg(..))
+            | Node::Proj(_, ProjKind::Call_TResult_Arg(..))
+            | Node::Phi(_) => {}
+            node => panic!("Unexpected node {:?}", node),
+        }
+    }
+
+    pub fn update_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity, val: &NodeValue) {
+        self.check_ptr_node(ptr_node);
         let class_ty = ClassTy::from(field.owner()).unwrap();
 
         for (_node, intersect_obj) in self.object_infos.iter_mut() {
@@ -363,7 +374,8 @@ impl Heap {
         self.enhance_field(ptr_node, ptr, field, val);
     }
 
-    pub fn enhance_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity, val: &Val) {
+    pub fn enhance_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity, val: &NodeValue) {
+        self.check_ptr_node(ptr_node);
         let class_ty = ClassTy::from(field.owner()).unwrap();
 
         let obj_info = self.object_infos.get(&ptr_node);
@@ -378,9 +390,10 @@ impl Heap {
         self.object_infos.insert(ptr_node, Rc::new(obj_info));
     }
 
-    pub fn lookup_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity) -> Val {
+    pub fn lookup_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity) -> NodeValue {
+        self.check_ptr_node(ptr_node);
         if ptr.is_null_or_empty() {
-            return Val::zero(field.ty().mode(), None);
+            return NodeValue::zero(field.ty().mode());
         }
 
         let class_ty = ClassTy::from(field.owner()).unwrap();
@@ -392,7 +405,7 @@ impl Heap {
                 return self.non_const_val(field.ty());
             }
 
-            let mut val: Option<Val> = None;
+            let mut val: Option<NodeValue> = None;
             for (_node, intersect_obj) in self.object_infos.iter_mut() {
                 if intersect_obj.ty == class_ty && intersect_obj.mem.intersects(&ptr.target) {
                     val = match val {
@@ -406,7 +419,7 @@ impl Heap {
                 Some(val) => val,
                 None => {
                     // maybe implement later when we don't delete objects:
-                    // assert_ne!(val, Val::NoInfoYet);
+                    // assert_ne!(val, NodeValue::NoInfoYet);
                     self.non_const_val(field.ty())
                 }
             }
@@ -420,7 +433,15 @@ impl Heap {
         Pointer::to(mem)
     }
 
-    pub fn update_cell(&mut self, ptr_node: Node, ptr: &Pointer, idx: Idx, val: &Val, item_ty: Ty) {
+    pub fn update_cell(
+        &mut self,
+        ptr_node: Node,
+        ptr: &Pointer,
+        idx: Idx,
+        val: &NodeValue,
+        item_ty: Ty,
+    ) {
+        self.check_ptr_node(ptr_node);
         for (_node, intersect_arr) in self.array_infos.iter_mut() {
             if intersect_arr.item_ty == item_ty && intersect_arr.mem.intersects(&ptr.target) {
                 let mut arr = (**intersect_arr).clone();
@@ -437,9 +458,10 @@ impl Heap {
         ptr_node: Node,
         ptr: &Pointer,
         idx: Idx,
-        val: &Val,
+        val: &NodeValue,
         item_ty: Ty,
     ) {
+        self.check_ptr_node(ptr_node);
         let arr_info = self.array_infos.get(&ptr_node);
         let mut arr_info = if let Some(arr_info) = arr_info {
             (&**arr_info).clone()
@@ -460,9 +482,16 @@ impl Heap {
         self.array_infos.insert(ptr_node, Rc::new(arr_info));
     }
 
-    pub fn lookup_cell(&mut self, ptr_node: Node, ptr: &Pointer, idx: Idx, item_ty: Ty) -> Val {
+    pub fn lookup_cell(
+        &mut self,
+        ptr_node: Node,
+        ptr: &Pointer,
+        idx: Idx,
+        item_ty: Ty,
+    ) -> NodeValue {
+        self.check_ptr_node(ptr_node);
         if ptr.is_null_or_empty() {
-            return Val::zero(item_ty.mode(), None);
+            return NodeValue::zero(item_ty.mode());
         }
 
         if let Some(arr_info) = self.array_infos.get(&ptr_node) {
@@ -472,7 +501,7 @@ impl Heap {
                 return self.non_const_val(item_ty);
             }
 
-            let mut val: Option<Val> = None;
+            let mut val: Option<NodeValue> = None;
             for (_node, intersect_arr) in self.array_infos.iter_mut() {
                 if intersect_arr.item_ty == item_ty && intersect_arr.mem.intersects(&ptr.target) {
                     val = match val {
@@ -536,15 +565,13 @@ impl Lattice for Heap {
             if let Some(other_obj_info) = other.object_infos.get(p) {
                 object_infos.insert(*p, Rc::new(self_obj_info.join(other_obj_info)));
             } else {
-                let joined = Rc::new(self_obj_info.resetted(&self));
-                object_infos.insert(*p, joined);
+                object_infos.insert(*p, self_obj_info.clone());
             }
         }
 
         for (p, other_obj_info) in other.object_infos.iter() {
             if !self.object_infos.contains_key(p) {
-                let joined = Rc::new(other_obj_info.resetted(&self));
-                object_infos.insert(*p, joined);
+                object_infos.insert(*p, other_obj_info.clone());
             }
         }
 
@@ -553,15 +580,13 @@ impl Lattice for Heap {
             if let Some(other_arr_info) = other.array_infos.get(p) {
                 array_infos.insert(*p, Rc::new(self_arr_info.join(other_arr_info)));
             } else {
-                let joined = Rc::new(self_arr_info.resetted(&self));
-                array_infos.insert(*p, joined);
+                array_infos.insert(*p, self_arr_info.clone());
             }
         }
 
         for (p, other_arr_info) in other.array_infos.iter() {
             if !self.array_infos.contains_key(p) {
-                let joined = Rc::new(other_arr_info.resetted(&self));
-                array_infos.insert(*p, joined);
+                array_infos.insert(*p, other_arr_info.clone());
             }
         }
 
@@ -577,7 +602,7 @@ impl Lattice for Heap {
 #[derive(Clone, PartialEq, Eq)]
 struct CellInfo {
     idx_source: Option<Node>,
-    val: Val,
+    val: NodeValue,
 }
 
 impl fmt::Debug for CellInfo {
@@ -596,7 +621,7 @@ impl fmt::Debug for CellInfo {
 }
 
 impl CellInfo {
-    fn new(idx_source: Option<Node>, val: Val) -> Self {
+    fn new(idx_source: Option<Node>, val: NodeValue) -> Self {
         Self { idx_source, val }
     }
 
@@ -610,7 +635,7 @@ impl CellInfo {
         }
     }
 
-    pub fn join_val(&self, other: &Val) -> Self {
+    pub fn join_val(&self, other: &NodeValue) -> Self {
         CellInfo {
             idx_source: None,
             val: self.val.join(other),
@@ -621,14 +646,14 @@ impl CellInfo {
 #[derive(Clone, PartialEq, Eq, Debug)]
 enum ArrayInfoState {
     Const(HashMap<usize, CellInfo>),
-    Dynamic(Node, Val),
+    Dynamic(Node, NodeValue),
 }
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct ArrayInfo {
     item_ty: Ty,
     mem: MemoryArea,
-    default_val: Val,
+    default_val: NodeValue,
     state: ArrayInfoState,
     //size: usize,
 }
@@ -667,7 +692,7 @@ impl ArrayInfo {
         Self {
             item_ty,
             mem,
-            default_val: Val::zero(mode, None),
+            default_val: NodeValue::zero(mode),
             state: ArrayInfoState::Const(HashMap::new()),
         }
     }
@@ -685,12 +710,12 @@ impl ArrayInfo {
         }
     }
 
-    pub fn join_cell(&mut self, idx: Idx, val: &Val) {
+    pub fn join_cell(&mut self, idx: Idx, val: &NodeValue) {
         let existing_val = self.lookup_cell(idx);
         self.update_cell(idx, existing_val.join(val));
     }
 
-    fn any_item(&self) -> Val {
+    fn any_item(&self) -> NodeValue {
         let mut val = self.default_val.clone();
         match &self.state {
             ArrayInfoState::Const(cells) => {
@@ -721,7 +746,7 @@ impl ArrayInfo {
         mem
     }
 
-    pub fn update_cell(&mut self, idx: Idx, val: Val) {
+    pub fn update_cell(&mut self, idx: Idx, val: NodeValue) {
         match (idx, &mut self.state) {
             (Idx::Const(idx, idx_source), ArrayInfoState::Const(ref mut cells)) => {
                 // [ 1: a, 3: b, [*]: def ][1] := x => [ 1: x, 3: b, [*]: def ]
@@ -752,7 +777,7 @@ impl ArrayInfo {
         }
     }
 
-    pub fn lookup_cell(&self, idx: Idx) -> Val {
+    pub fn lookup_cell(&self, idx: Idx) -> NodeValue {
         match (idx, &self.state) {
             (Idx::Const(idx, _), ArrayInfoState::Const(cells)) => {
                 // [ 1: a, 3: b, [*]: def ][1] = a
@@ -885,7 +910,7 @@ pub struct ObjectInfo {
     ty: ClassTy,
     mem: MemoryArea,
     // stores a value for each field
-    fields: Vec<Val>,
+    fields: Vec<NodeValue>,
 }
 
 impl fmt::Debug for ObjectInfo {
@@ -912,7 +937,7 @@ impl ObjectInfo {
             mem,
             fields: ty
                 .fields()
-                .map(|field| Val::zero(field.ty().mode(), None))
+                .map(|field| NodeValue::zero(field.ty().mode()))
                 .collect(),
         }
     }
@@ -940,17 +965,17 @@ impl ObjectInfo {
         }
     }
 
-    pub fn join_field(&mut self, field: Entity, val: &Val) {
+    pub fn join_field(&mut self, field: Entity, val: &NodeValue) {
         let field_idx = self.ty.idx_of_field(field);
         self.fields[field_idx] = val.join(&self.fields[field_idx]);
     }
 
-    pub fn update_field(&mut self, field: Entity, val: &Val) {
+    pub fn update_field(&mut self, field: Entity, val: &NodeValue) {
         let field_idx = self.ty.idx_of_field(field);
         self.fields[field_idx] = val.clone();
     }
 
-    pub fn lookup_field(&self, field: Entity) -> &Val {
+    pub fn lookup_field(&self, field: Entity) -> &NodeValue {
         let idx = self.ty.idx_of_field(field);
         &self.fields[idx]
     }
