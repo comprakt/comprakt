@@ -5,20 +5,32 @@ expect: change
 stdout:
     is: "9\n"
 ---
-class Assert {
-    public void is_const_after(int opt_index, int expr) {}
-    public void is_const_before(int opt_index, int expr) {}
-    public void is_not_const_after(int opt_index, int expr) {}
-    public void is_not_const_before(int opt_index, int expr) {}
+
+class ConstantFoldingAfter {
+    public void is_const(int expr) {}
+}
+
+class ConstantFoldingBefore {
+    public void is_not_const(int expr) {}
+}
+
+class Opt1After {
+    public void is_const(int expr) {}
+    public void is_not_const(int expr) {}
 }
 
 class CF_Sub {
   public static void main(String[] args) {
-    Assert expect = new Assert();
+    ConstantFoldingAfter expect_after = new ConstantFoldingAfter();
+    ConstantFoldingBefore expect_before = new ConstantFoldingBefore();
+
     int a = 14 - 5;
 
-    expect.is_not_const_before(0, a);
-    expect.is_const_after(0, a);
+    expect_before.is_not_const(a);
+    expect_after.is_const(a);
+    /* should not be evaluated since the class name is a mismatch */
+    (new Opt1After()).is_const(a);
+    (new Opt1After()).is_not_const(a);
 
     System.out.println(a);
   }

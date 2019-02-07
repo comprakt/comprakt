@@ -41,20 +41,6 @@ impl fmt::Display for Phase {
     }
 }
 
-impl Phase {
-    fn is_match(&self, filter: &str) -> bool {
-        if self.opt_kind.to_string() == filter {
-            return true;
-        }
-
-        if let Ok(num) = filter.parse::<usize>() {
-            return self.opt_idx == num;
-        }
-
-        return false;
-    }
-}
-
 impl CompileTimeAssertions {
     pub fn new() -> Self {
         Self {}
@@ -78,10 +64,16 @@ impl CompileTimeAssertions {
         }
     }
 
-    /// Check if a call is a match for the given test, this allows for
-    /// method overloading by adding a suffix, e.g. a `check_call("is_const",
-    /// assert_const, call, phase)` will match method
-    /// `Assert$M$is_const_int_after`, `Assert$M$is_const_4_before`, ...
+    /// Check if a call is a match for the given test
+    ///
+    /// This allows for method overloading by adding a suffix, e.g.
+    /// a `check_call("is_const", assert_const, call, phase)` before and after
+    /// the first optimization `ConstantFolding` will match:
+    ///
+    /// - `Opt0Before$M$is_const`,
+    /// - `Opt0After$M$is_const_4`,
+    /// - `ConstantFoldingBefore$M$is_const`
+    /// - ...
     pub fn check_call<T: Fn(nodes::Call, &Phase)>(
         &self,
         basename: &str,
@@ -90,15 +82,17 @@ impl CompileTimeAssertions {
         phase: &Phase,
     ) {
         if let Some(method_name) = call.method_name() {
-            let prefix = format!("Assert$M${}", basename);
-            let is_before = method_name.ends_with("_before");
-            let is_after = method_name.ends_with("_after");
-            if method_name.starts_with(&prefix) {
-                if (is_before && !phase.is_already_applied)
-                    || (is_after && phase.is_already_applied)
-                {
-                    checker(call, phase);
-                }
+            let optidx_class_name = format!("Opt{}", phase.opt_idx);
+            let optkind_class_name = format!("{}", phase.opt_kind);
+            let is_before = method_name
+                .starts_with(&format!("{}Before$M${}", optidx_class_name, basename))
+                || method_name.starts_with(&format!("{}Before$M${}", optkind_class_name, basename));
+            let is_after = method_name
+                .starts_with(&format!("{}After$M${}", optidx_class_name, basename))
+                || method_name.starts_with(&format!("{}After$M${}", optkind_class_name, basename));
+
+            if (is_before && !phase.is_already_applied) || (is_after && phase.is_already_applied) {
+                checker(call, phase);
             }
         }
     }
@@ -122,40 +116,36 @@ impl CompileTimeAssertions {
 }
 
 fn assert_const(call: nodes::Call, phase: &Phase) {
-    if let Some(nodes) = check_phase_filter(call, phase) {
-        for node in nodes {
-            assert!(
-                Node::is_const(node),
-                build_assert_msg(
-                    format!(
-                        "expected {:?} ({}) to be a constant {}",
-                        node,
-                        Spans::span_str(node),
-                        phase
-                    ),
-                    call
-                )
-            );
-        }
+    for node in get_args(call) {
+        assert!(
+            Node::is_const(node),
+            build_assert_msg(
+                format!(
+                    "expected {:?} ({}) to be a constant {}",
+                    node,
+                    Spans::span_str(node),
+                    phase
+                ),
+                call
+            )
+        );
     }
 }
 
 fn assert_not_const(call: nodes::Call, phase: &Phase) {
-    if let Some(nodes) = check_phase_filter(call, phase) {
-        for node in nodes {
-            assert!(
-                !Node::is_const(node),
-                build_assert_msg(
-                    format!(
-                        "expected {:?} ({}) to NOT be a constant {}",
-                        node,
-                        Spans::span_str(node),
-                        phase
-                    ),
-                    call
-                )
-            );
-        }
+    for node in get_args(call) {
+        assert!(
+            !Node::is_const(node),
+            build_assert_msg(
+                format!(
+                    "expected {:?} ({}) to NOT be a constant {}",
+                    node,
+                    Spans::span_str(node),
+                    phase
+                ),
+                call
+            )
+        );
     }
 }
 
@@ -166,64 +156,51 @@ fn assert_different_node(call: nodes::Call, phase: &Phase) {
     assert_node_equality(call, phase, false)
 }
 fn assert_node_equality(call: nodes::Call, phase: &Phase, expect_same: bool) {
-    if let Some(nodes) = check_phase_filter(call, phase) {
-        assert!(
-            nodes.len() >= 2,
-            build_assert_msg(
-                format!(
-                    "same node checks need at least 2 nodes, {} given.",
-                    nodes.len()
-                ),
-                call
-            )
-        );
+    let nodes = get_args(call);
+    assert!(
+        nodes.len() >= 2,
+        build_assert_msg(
+            format!(
+                "same node checks need at least 2 nodes, {} given.",
+                nodes.len()
+            ),
+            call
+        )
+    );
 
-        for (idx, curr_node) in nodes.iter().enumerate() {
-            for other in &nodes[(idx + 1)..] {
-                assert!(
-                    if expect_same {
-                        other == curr_node
-                    } else {
-                        other != curr_node
-                    },
-                    build_assert_msg(
-                        format!(
-                            "expected {:?} ({}) and {:?} ({}) to be the same node {}",
-                            curr_node,
-                            Spans::lookup_span(*curr_node)
-                                .map(|span| span.as_str())
-                                .unwrap_or(""),
-                            other,
-                            Spans::lookup_span(*other)
-                                .map(|span| span.as_str())
-                                .unwrap_or(""),
-                            phase
-                        ),
-                        call,
-                    )
-                );
-            }
+    for (idx, curr_node) in nodes.iter().enumerate() {
+        for other in &nodes[(idx + 1)..] {
+            assert!(
+                if expect_same {
+                    other == curr_node
+                } else {
+                    other != curr_node
+                },
+                build_assert_msg(
+                    format!(
+                        "expected {:?} ({}) and {:?} ({}) to be the same node {}",
+                        curr_node,
+                        Spans::lookup_span(*curr_node)
+                            .map(|span| span.as_str())
+                            .unwrap_or(""),
+                        other,
+                        Spans::lookup_span(*other)
+                            .map(|span| span.as_str())
+                            .unwrap_or(""),
+                        phase
+                    ),
+                    call,
+                )
+            );
         }
     }
 }
 
 /// Returns `None` if the assertion should not be run, returns
 /// `Some(node)`, if the assertion should be run on `node`.
-fn check_phase_filter(call: nodes::Call, phase: &Phase) -> Option<Vec<Node>> {
-    let phase_filter_node = call.args().nth(1).unwrap();
-    let phase_filter = Node::as_const(phase_filter_node)
-        .unwrap()
-        .tarval()
-        .get_long()
-        .to_string();
-
-    if phase.is_match(&phase_filter) {
-        // skip phase filter and `this` argument.
-        let nodes = call.args().skip(2).collect();
-        Some(nodes)
-    } else {
-        None
-    }
+fn get_args(call: nodes::Call) -> Vec<Node> {
+    // skip `this` argument.
+    call.args().skip(1).collect()
 }
 
 fn build_assert_msg(msg: String, node: nodes::Call) -> String {

@@ -6,31 +6,36 @@ stdout:
     is: "9\n9\n4\n"
 ---
 
-class Assert {
-    public void is_const_after(int opt_index, int expr) {}
-    public void is_const_before(int opt_index, int expr) {}
-    public void is_not_const_after(int opt_index, int expr) {}
-    public void is_not_const_before(int opt_index, int expr) {}
-    public void is_same_node_after(int opt_index, int expr, int expr2) {}
-    public void is_same_node_before(int opt_index, int expr, int expr2) {}
-    public void is_different_node_after(int opt_index, int expr, int expr2) {}
-    public void is_different_node_before(int opt_index, int expr, int expr2) {}
-    public void is_different_node_3_before(int opt_index, int expr, int expr2, int expr3) {}
+class ConstantFoldingAfter {
+    public void is_const(int expr) {}
+    public void is_not_const(int expr) {}
+    public void is_same_node(int expr, int expr2) {}
+    public void is_different_node(int expr, int expr2) {}
+    public void is_different_node_3(int expr, int expr2, int expr3) {}
+}
+
+class ConstantFoldingBefore {
+    public void is_const(int expr) {}
+    public void is_not_const(int expr) {}
+    public void is_same_node(int expr, int expr2) {}
+    public void is_different_node(int expr, int expr2) {}
+    public void is_different_node_3(int expr, int expr2, int expr3) {}
 }
 
 class CF_Sub {
   public static void main(String[] args) {
-    Assert expect = new Assert();
+    ConstantFoldingAfter expect_after = new ConstantFoldingAfter();
+    ConstantFoldingBefore expect_before = new ConstantFoldingBefore();
     int a = 9;
     int b = a;
     int c = 4;
     int d = 2;
 
-    expect.is_same_node_before(0, a, b);
-    expect.is_same_node_after(0, a, b);
-    expect.is_different_node_after(0, a, c);
-    expect.is_different_node_before(0, a, c);
-    expect.is_different_node_3_before(0, a, c, d);
+    expect_before.is_same_node(a, b);
+    expect_after.is_same_node(a, b);
+    expect_after.is_different_node(a, c);
+    expect_before.is_different_node(a, c);
+    expect_before.is_different_node_3(a, c, d);
 
     System.out.println(a);
     System.out.println(b);
