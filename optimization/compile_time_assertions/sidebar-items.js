@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["ENV_VAR_NAME","Set this environment variable to enable these special functions"]],"struct":[["CompileTimeAssertions",""],["Phase",""]]});

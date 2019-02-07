@@ -494,6 +494,7 @@
 <span id="494">494</span>
 <span id="495">495</span>
 <span id="496">496</span>
+<span id="497">497</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">nll</span>)]</span>
 
@@ -504,7 +505,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::{<span class="ident">lookup</span>::<span class="kw-2">*</span>, <span class="ident">testkind</span>::<span class="kw-2">*</span>};
 <span class="kw">use</span> <span class="ident">difference</span>::<span class="ident">Changeset</span>;
 <span class="kw">use</span> <span class="ident">failure</span>::<span class="ident">Fail</span>;
-<span class="kw">use</span> <span class="ident">optimization</span>::<span class="ident">Level</span>;
+<span class="kw">use</span> <span class="ident">optimization</span>::{<span class="ident">compile_time_assertions</span>, <span class="ident">Level</span>};
 <span class="kw">use</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>;
 <span class="kw">use</span> <span class="ident">serde_derive</span>::<span class="ident">Deserialize</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -629,6 +630,7 @@
                 });
 
             <span class="ident">cmd</span>.<span class="ident">env</span>(<span class="string">&quot;TERM&quot;</span>, <span class="string">&quot;dumb&quot;</span>); <span class="comment">// disable color output</span>
+            <span class="ident">cmd</span>.<span class="ident">env</span>(<span class="ident">compile_time_assertions</span>::<span class="ident">ENV_VAR_NAME</span>, <span class="string">&quot;enabled&quot;</span>);
 
             <span class="ident">cmd</span>.<span class="ident">args</span>(<span class="ident">compiler_args</span>(<span class="ident">phase</span>));
             <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="ident">filepath</span>.<span class="ident">as_os_str</span>());

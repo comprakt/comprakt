@@ -223,6 +223,25 @@
 <span id="223">223</span>
 <span id="224">224</span>
 <span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">try_trait</span>)]</span>
 
@@ -254,7 +273,9 @@
 <span class="kw">use</span> <span class="self">self</span>::<span class="ident">control_flow</span>::<span class="ident">ControlFlow</span>;
 <span class="kw">mod</span> <span class="ident">remove_critical_edges</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">remove_critical_edges</span>::<span class="ident">RemoveCriticalEdges</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">compile_time_assertions</span>;
 <span class="kw">mod</span> <span class="ident">lattices</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">compile_time_assertions</span>::{<span class="ident">CompileTimeAssertions</span>, <span class="ident">Phase</span>};
 
 <span class="doccomment">/// An optimization that optimizes the whole program by examining all function</span>
 <span class="doccomment">/// graphs at once.</span>
@@ -435,12 +456,29 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run_all</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) {
         <span class="macro">breakpoint</span><span class="macro">!</span>(<span class="string">&quot;before optimization sequence&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">program</span>);
         <span class="kw">let</span> <span class="ident">measurement_all</span> <span class="op">=</span> <span class="ident">Measurement</span>::<span class="ident">start</span>(<span class="string">&quot;optimization phase&quot;</span>);
+        <span class="kw">let</span> <span class="ident">compile_time_assertions</span> <span class="op">=</span> <span class="ident">CompileTimeAssertions</span>::<span class="ident">new</span>();
 
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">optimization</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">sequence</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="ident">log</span>::<span class="macro">info</span><span class="macro">!</span>(<span class="string">&quot;Running optimization #{}: {:?}&quot;</span>, <span class="ident">i</span>, <span class="ident">optimization</span>);
+            <span class="ident">compile_time_assertions</span>.<span class="ident">check_program</span>(
+                <span class="ident">program</span>,
+                <span class="ident">Phase</span> {
+                    <span class="ident">opt_idx</span>: <span class="ident">i</span>,
+                    <span class="ident">opt_kind</span>: <span class="ident">optimization</span>.<span class="ident">kind</span>,
+                    <span class="ident">is_already_applied</span>: <span class="bool-val">false</span>,
+                },
+            );
             <span class="kw">let</span> <span class="ident">measurement</span> <span class="op">=</span> <span class="ident">Measurement</span>::<span class="ident">start</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;opt #{}: {}&quot;</span>, <span class="ident">i</span>, <span class="ident">optimization</span>.<span class="ident">kind</span>));
             <span class="ident">optimization</span>.<span class="ident">run</span>(<span class="ident">program</span>);
             <span class="ident">measurement</span>.<span class="ident">stop</span>();
+            <span class="ident">compile_time_assertions</span>.<span class="ident">check_program</span>(
+                <span class="ident">program</span>,
+                <span class="ident">Phase</span> {
+                    <span class="ident">opt_idx</span>: <span class="ident">i</span>,
+                    <span class="ident">opt_kind</span>: <span class="ident">optimization</span>.<span class="ident">kind</span>,
+                    <span class="ident">is_already_applied</span>: <span class="bool-val">true</span>,
+                },
+            );
             <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Finished optimization #{}: {:?}&quot;</span>, <span class="ident">i</span>, <span class="ident">optimization</span>.<span class="ident">kind</span>);
         }
 
