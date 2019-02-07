@@ -9,7 +9,7 @@ use libfirm_rs::{
 use std::fmt;
 
 /// Set this environment variable to enable these special functions
-pub const ENV_VAR_NAME: &'static str = "COMPRAKT_COMPILE_TIME_MJ_ASSERTS";
+pub const ENV_VAR_NAME: &str = "COMPRAKT_COMPILE_TIME_MJ_ASSERTS";
 
 lazy_static::lazy_static! {
     static ref ENABLED: bool = std::env::var(ENV_VAR_NAME).is_ok();
