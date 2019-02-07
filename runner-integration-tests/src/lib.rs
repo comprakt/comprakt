@@ -132,7 +132,7 @@ pub fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command
                 });
 
             cmd.env("TERM", "dumb"); // disable color output
-            cmd.env(compile_time_assertions::ENV_VAR, "enabled");
+            cmd.env(compile_time_assertions::ENV_VAR_NAME, "enabled");
 
             cmd.args(compiler_args(phase));
             cmd.arg(filepath.as_os_str());
