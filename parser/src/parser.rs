@@ -533,10 +533,13 @@ where
                 match attr.as_str() {
                     "inline" => Ok(ast::Attribute::Inline(true)),
                     "noinline" => Ok(ast::Attribute::Inline(false)),
-                    _ => Err(MaybeSpanned::WithoutSpan(SyntaxError::UnexpectedToken {
-                        expected: "valid attribute name".to_string(),
-                        actual: attr.to_string(),
-                    })),
+                    _ => Err(MaybeSpanned::WithSpan(Spanned::new(
+                        attr.span,
+                        SyntaxError::UnexpectedToken {
+                            expected: "valid attribute name".to_string(),
+                            actual: format!("`{}`", attr.data),
+                        },
+                    ))),
                 }
             }
         })
