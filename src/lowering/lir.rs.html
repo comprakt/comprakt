@@ -1107,38 +1107,99 @@
 <span id="1107">1107</span>
 <span id="1108">1108</span>
 <span id="1109">1109</span>
+<span id="1110">1110</span>
+<span id="1111">1111</span>
+<span id="1112">1112</span>
+<span id="1113">1113</span>
+<span id="1114">1114</span>
+<span id="1115">1115</span>
+<span id="1116">1116</span>
+<span id="1117">1117</span>
+<span id="1118">1118</span>
+<span id="1119">1119</span>
+<span id="1120">1120</span>
+<span id="1121">1121</span>
+<span id="1122">1122</span>
+<span id="1123">1123</span>
+<span id="1124">1124</span>
+<span id="1125">1125</span>
+<span id="1126">1126</span>
+<span id="1127">1127</span>
+<span id="1128">1128</span>
+<span id="1129">1129</span>
+<span id="1130">1130</span>
+<span id="1131">1131</span>
+<span id="1132">1132</span>
+<span id="1133">1133</span>
+<span id="1134">1134</span>
+<span id="1135">1135</span>
+<span id="1136">1136</span>
+<span id="1137">1137</span>
+<span id="1138">1138</span>
+<span id="1139">1139</span>
+<span id="1140">1140</span>
+<span id="1141">1141</span>
+<span id="1142">1142</span>
+<span id="1143">1143</span>
+<span id="1144">1144</span>
+<span id="1145">1145</span>
+<span id="1146">1146</span>
+<span id="1147">1147</span>
+<span id="1148">1148</span>
+<span id="1149">1149</span>
+<span id="1150">1150</span>
+<span id="1151">1151</span>
+<span id="1152">1152</span>
+<span id="1153">1153</span>
+<span id="1154">1154</span>
+<span id="1155">1155</span>
+<span id="1156">1156</span>
+<span id="1157">1157</span>
+<span id="1158">1158</span>
+<span id="1159">1159</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="doccomment">//! Low level intermediate representation</span>
+<span class="doccomment">//! Instruction-list based representation of the program.</span>
+<span class="doccomment">//! All other modules transform the LIR.</span>
 
-<span class="kw">use</span> <span class="kw">super</span>::{
-    <span class="ident">gen_instr</span>::<span class="ident">GenInstrBlock</span>,
-    <span class="ident">lir_allocator</span>::{<span class="self">self</span>, <span class="ident">Ptr</span>},
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">debugging</span>;
+<span class="kw">mod</span> <span class="ident">gen_instr</span>;
+
+<span class="kw">use</span> <span class="self">self</span>::<span class="ident">gen_instr</span>::<span class="ident">GenInstrBlock</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">allocator</span>::{<span class="self">self</span>, <span class="ident">Ptr</span>},
+    <span class="ident">codegen</span>, <span class="ident">derive_ptr_debug</span>,
+    <span class="ident">firm_construction</span>::<span class="ident">type_checking</span>::<span class="ident">type_system</span>::<span class="ident">CheckedType</span>,
+    <span class="ident">register</span>::<span class="ident">Amd64Reg</span>,
 };
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">derive_ptr_debug</span>, <span class="ident">firm</span>, <span class="ident">type_checking</span>::<span class="ident">type_system</span>::<span class="ident">CheckedType</span>};
+<span class="kw">use</span> <span class="ident">firm_construction</span> <span class="kw">as</span> <span class="ident">firm</span>;
 <span class="kw">use</span> <span class="ident">itertools</span>::<span class="ident">Itertools</span>;
-
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">optimization</span>::{<span class="ident">Local</span>, <span class="ident">RemoveCriticalEdges</span>};
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{
     <span class="ident">bindings</span>,
     <span class="ident">nodes</span>::{<span class="ident">Node</span>, <span class="ident">NodeTrait</span>},
     <span class="ident">Tarval</span>, <span class="ident">VisitTime</span>,
 };
+<span class="kw">use</span> <span class="ident">optimization</span>::{<span class="ident">Local</span>, <span class="ident">RemoveCriticalEdges</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>, <span class="ident">VecDeque</span>},
     <span class="ident">convert</span>::<span class="ident">TryFrom</span>,
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>},
+    <span class="ident">hash</span>::{<span class="ident">Hash</span>, <span class="ident">Hasher</span>},
     <span class="ident">marker</span>::<span class="ident">PhantomData</span>,
 };
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct</span> <span class="ident">Allocator</span> {
-    <span class="ident">graphs</span>: <span class="ident">lir_allocator</span>::<span class="ident">Allocator</span><span class="op">&lt;</span><span class="ident">BlockGraph</span><span class="op">&gt;</span>,
-    <span class="ident">blocks</span>: <span class="ident">lir_allocator</span>::<span class="ident">Allocator</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;</span>,
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Allocator</span> {
+    <span class="ident">graphs</span>: <span class="ident">allocator</span>::<span class="ident">Allocator</span><span class="op">&lt;</span><span class="ident">BlockGraph</span><span class="op">&gt;</span>,
+    <span class="ident">blocks</span>: <span class="ident">allocator</span>::<span class="ident">Allocator</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;</span>,
+    <span class="ident">instrs</span>: <span class="ident">allocator</span>::<span class="ident">Allocator</span><span class="op">&lt;</span><span class="ident">Instruction</span><span class="op">&gt;</span>,
+    <span class="ident">leaves</span>: <span class="ident">allocator</span>::<span class="ident">Allocator</span><span class="op">&lt;</span><span class="ident">Leave</span><span class="op">&gt;</span>,
+    <span class="ident">copyprops</span>: <span class="ident">allocator</span>::<span class="ident">Allocator</span><span class="op">&lt;</span><span class="ident">CopyPropagation</span><span class="op">&gt;</span>,
+    <span class="ident">scheduled_instrs</span>: <span class="ident">allocator</span>::<span class="ident">Allocator</span><span class="op">&lt;</span><span class="kw">crate</span>::<span class="ident">live_variable_analysis</span>::<span class="ident">ScheduledInstr</span><span class="op">&gt;</span>,
 }
 
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">allocation_method</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">member</span>:<span class="ident">ident</span>) <span class="op">=&gt;</span> {
-        <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">elem</span>: <span class="macro-nonterminal">$</span><span class="kw">type</span>) <span class="op">-&gt;</span> <span class="macro-nonterminal">Ptr</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="kw">type</span><span class="op">&gt;</span> {
+        <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">elem</span>: <span class="macro-nonterminal">$</span><span class="kw">type</span>) <span class="op">-&gt;</span> <span class="macro-nonterminal">Ptr</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="kw">type</span><span class="op">&gt;</span> {
             <span class="self">self</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">member</span>.<span class="ident">alloc</span>(<span class="ident">elem</span>)
         }
     }
@@ -1147,6 +1208,14 @@
 <span class="kw">impl</span> <span class="ident">Allocator</span> {
     <span class="macro">allocation_method</span><span class="macro">!</span>(<span class="ident">graph</span>, <span class="ident">BlockGraph</span>, <span class="ident">graphs</span>);
     <span class="macro">allocation_method</span><span class="macro">!</span>(<span class="ident">block</span>, <span class="ident">BasicBlock</span>, <span class="ident">blocks</span>);
+    <span class="macro">allocation_method</span><span class="macro">!</span>(<span class="ident">instr</span>, <span class="ident">Instruction</span>, <span class="ident">instrs</span>);
+    <span class="macro">allocation_method</span><span class="macro">!</span>(<span class="ident">leave</span>, <span class="ident">Leave</span>, <span class="ident">leaves</span>);
+    <span class="macro">allocation_method</span><span class="macro">!</span>(<span class="ident">copyprop</span>, <span class="ident">CopyPropagation</span>, <span class="ident">copyprops</span>);
+    <span class="macro">allocation_method</span><span class="macro">!</span>(
+        <span class="ident">scheduled_instr</span>,
+        <span class="kw">crate</span>::<span class="ident">live_variable_analysis</span>::<span class="ident">ScheduledInstr</span>,
+        <span class="ident">scheduled_instrs</span>
+    );
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
@@ -1201,7 +1270,7 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Var</span> {
     <span class="ident">firm</span>: <span class="ident">Node</span>,
     <span class="ident">num</span>: <span class="ident">usize</span>,
@@ -1229,6 +1298,26 @@
     }
 }
 
+<span class="doccomment">/// a variable is only identified by its number</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// intended for use in live_variable_analysis</span>
+<span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">Var</span> {
+    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">num</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">num</span>
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">Var</span> {}
+
+<span class="doccomment">/// a variable is only identified by its number</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// intended for use in live_variable_analysis</span>
+<span class="kw">impl</span> <span class="ident">Hash</span> <span class="kw">for</span> <span class="ident">Var</span> {
+    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">h</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">H</span>) {
+        <span class="self">self</span>.<span class="ident">num</span>.<span class="ident">hash</span>(<span class="ident">h</span>)
+    }
+}
+
 <span class="doccomment">/// A graph of basic blocks.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BlockGraph</span> {
     <span class="kw">pub</span> <span class="ident">firm</span>: <span class="ident">libfirm_rs</span>::<span class="ident">Graph</span>,
@@ -1239,6 +1328,11 @@
 
     <span class="kw">pub</span> <span class="ident">start_block</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">end_block</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;</span>,
+
+    <span class="comment">// basic_block_scheduling</span>
+    <span class="kw">pub</span> <span class="ident">blocks_scheduled</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
+    <span class="comment">/* live variable analysis + linear scan
+     * pub linear_scan: Option&lt;BlockGraphLinearScanInfo&gt;, */</span>
 }
 <span class="macro">derive_ptr_debug</span><span class="macro">!</span>(<span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BlockGraph</span><span class="op">&gt;</span>);
 
@@ -1262,6 +1356,7 @@
 }
 
 <span class="doccomment">/// A unifying enum over the different operations contained in Code.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CodeInstruction</span><span class="op">&lt;</span><span class="ident">CopyInInstr</span>, <span class="ident">CopyOutInstr</span>, <span class="ident">BodyInstr</span>, <span class="ident">LeaveInstr</span><span class="op">&gt;</span> {
     <span class="ident">CopyIn</span>(<span class="ident">CopyInInstr</span>),
     <span class="ident">Body</span>(<span class="ident">BodyInstr</span>),
@@ -1270,19 +1365,34 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">A</span>: <span class="ident">fmt</span>::<span class="ident">Debug</span>, <span class="ident">B</span>: <span class="ident">fmt</span>::<span class="ident">Debug</span>, <span class="ident">C</span>: <span class="ident">fmt</span>::<span class="ident">Debug</span>, <span class="ident">D</span>: <span class="ident">fmt</span>::<span class="ident">Debug</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Debug</span>
-    <span class="kw">for</span> <span class="ident">CodeInstruction</span><span class="op">&lt;</span><span class="ident">A</span>, <span class="ident">B</span>, <span class="ident">C</span>, <span class="ident">D</span><span class="op">&gt;</span>
+    <span class="kw">for</span> <span class="ident">CodeInstruction</span><span class="op">&lt;</span><span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">A</span><span class="op">&gt;</span>, <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span>, <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>, <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span>
 {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">fmt</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
         <span class="kw">use</span> <span class="self">self</span>::<span class="ident">CodeInstruction</span>::<span class="kw-2">*</span>;
         <span class="kw">let</span> <span class="ident">debug</span>: <span class="kw-2">&amp;</span><span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">CopyIn</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">x</span>,
-            <span class="ident">Body</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">x</span>,
-            <span class="ident">CopyOut</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">x</span>,
-            <span class="ident">Leave</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">x</span>,
+            <span class="ident">CopyIn</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">x</span>,
+            <span class="ident">Body</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">x</span>,
+            <span class="ident">CopyOut</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">x</span>,
+            <span class="ident">Leave</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">x</span>,
         };
         <span class="ident">debug</span>.<span class="ident">fmt</span>(<span class="ident">fmt</span>)
     }
 }
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">A</span>, <span class="ident">B</span>, <span class="ident">C</span>, <span class="ident">D</span><span class="op">&gt;</span> <span class="ident">CodeInstruction</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">A</span><span class="op">&gt;</span>, <span class="kw-2">&amp;</span><span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span>, <span class="kw-2">&amp;</span><span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>, <span class="kw-2">&amp;</span><span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clone_ptred</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">CodeInstruction</span><span class="op">&lt;</span><span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">A</span><span class="op">&gt;</span>, <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span>, <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>, <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span> {
+        <span class="kw">use</span> <span class="self">self</span>::<span class="ident">CodeInstruction</span>::<span class="kw-2">*</span>;
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">CopyIn</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">CodeInstruction</span>::<span class="ident">CopyIn</span>(<span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">x</span>),
+            <span class="ident">Body</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">CodeInstruction</span>::<span class="ident">Body</span>(<span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">x</span>),
+            <span class="ident">CopyOut</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">CodeInstruction</span>::<span class="ident">CopyOut</span>(<span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">x</span>),
+            <span class="ident">Leave</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">CodeInstruction</span>::<span class="ident">Leave</span>(<span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">x</span>),
+        }
+    }
+}
+
+<span class="comment">// impl&lt;A, B, C, D&gt; Copy for CodeInstruction&lt;&amp;Ptr&lt;A&gt;, &amp;Ptr&lt;B&gt;, &amp;Ptr&lt;C&gt;, &amp;Ptr&lt;D&gt;&gt;</span>
+<span class="comment">// {}</span>
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">A</span>, <span class="ident">B</span>, <span class="ident">C</span>, <span class="ident">D</span><span class="op">&gt;</span> <span class="ident">Code</span><span class="op">&lt;</span><span class="ident">A</span>, <span class="ident">B</span>, <span class="ident">C</span>, <span class="ident">D</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Iterate over the members of code in the following order:</span>
@@ -1296,17 +1406,6 @@
         <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="kw">box</span> <span class="self">self</span>.<span class="ident">body</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="ident">CodeInstruction</span>::<span class="ident">Body</span>);
         <span class="kw">let</span> <span class="ident">copy_out</span> <span class="op">=</span> <span class="kw">box</span> <span class="self">self</span>.<span class="ident">copy_out</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="ident">CodeInstruction</span>::<span class="ident">CopyOut</span>);
         <span class="kw">let</span> <span class="ident">leave</span> <span class="op">=</span> <span class="kw">box</span> <span class="self">self</span>.<span class="ident">leave</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="ident">CodeInstruction</span>::<span class="ident">Leave</span>);
-        <span class="ident">copy_in</span>.<span class="ident">chain</span>(<span class="ident">body</span>).<span class="ident">chain</span>(<span class="ident">copy_out</span>).<span class="ident">chain</span>(<span class="ident">leave</span>)
-    }
-
-    <span class="doccomment">/// Like iter_unified, but iterate with mutable references.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">iter_unified_mut</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-    ) <span class="op">-&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">CodeInstruction</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">A</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">B</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">C</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">D</span><span class="op">&gt;&gt;</span> {
-        <span class="kw">let</span> <span class="ident">copy_in</span> <span class="op">=</span> <span class="kw">box</span> <span class="self">self</span>.<span class="ident">copy_in</span>.<span class="ident">iter_mut</span>().<span class="ident">map</span>(<span class="ident">CodeInstruction</span>::<span class="ident">CopyIn</span>);
-        <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="kw">box</span> <span class="self">self</span>.<span class="ident">body</span>.<span class="ident">iter_mut</span>().<span class="ident">map</span>(<span class="ident">CodeInstruction</span>::<span class="ident">Body</span>);
-        <span class="kw">let</span> <span class="ident">copy_out</span> <span class="op">=</span> <span class="kw">box</span> <span class="self">self</span>.<span class="ident">copy_out</span>.<span class="ident">iter_mut</span>().<span class="ident">map</span>(<span class="ident">CodeInstruction</span>::<span class="ident">CopyOut</span>);
-        <span class="kw">let</span> <span class="ident">leave</span> <span class="op">=</span> <span class="kw">box</span> <span class="self">self</span>.<span class="ident">leave</span>.<span class="ident">iter_mut</span>().<span class="ident">map</span>(<span class="ident">CodeInstruction</span>::<span class="ident">Leave</span>);
         <span class="ident">copy_in</span>.<span class="ident">chain</span>(<span class="ident">body</span>).<span class="ident">chain</span>(<span class="ident">copy_out</span>).<span class="ident">chain</span>(<span class="ident">leave</span>)
     }
 }
@@ -1385,7 +1484,7 @@
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">values_to_compute</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// The instructions (using arbitrarily many registers) of the block</span>
-    <span class="kw">pub</span> <span class="ident">code</span>: <span class="ident">Code</span><span class="op">&lt;</span><span class="ident">CopyPropagation</span>, <span class="ident">CopyPropagation</span>, <span class="ident">Instruction</span>, <span class="ident">Leave</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">code</span>: <span class="ident">Code</span><span class="op">&lt;</span><span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">CopyPropagation</span><span class="op">&gt;</span>, <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">CopyPropagation</span><span class="op">&gt;</span>, <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">Instruction</span><span class="op">&gt;</span>, <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">Leave</span><span class="op">&gt;&gt;</span>,
     <span class="doccomment">/// Control flow-transfers *to* this block.</span>
     <span class="doccomment">/// Usually at most 2</span>
     <span class="kw">pub</span> <span class="ident">preds</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;&gt;</span>,
@@ -1397,6 +1496,9 @@
     <span class="kw">pub</span> <span class="ident">firm</span>: <span class="ident">libfirm_rs</span>::<span class="ident">nodes</span>::<span class="ident">Block</span>,
 
     <span class="kw">pub</span> <span class="ident">graph</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BlockGraph</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// filled by `codegen::fill_blocks`</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">codegen_instrs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">codegen</span>::<span class="ident">Instruction</span><span class="op">&gt;</span>,
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
@@ -1439,16 +1541,9 @@
         <span class="ident">src</span>: <span class="ident">Operand</span>,
         <span class="ident">dst</span>: <span class="ident">Var</span>,
     },
-    <span class="doccomment">/// If dst is None, result is in register r0, which cannot be accessed</span>
-    <span class="doccomment">/// using molki register names.</span>
-    <span class="ident">Call</span> {
-        <span class="ident">func</span>: <span class="ident">String</span>,
-        <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Operand</span><span class="op">&gt;</span>,
-        <span class="ident">dst</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Var</span><span class="op">&gt;</span>,
-    },
+    <span class="ident">Call</span>(<span class="ident">Call</span>),
     <span class="ident">StoreMem</span>(<span class="ident">StoreMem</span>),
     <span class="ident">LoadMem</span>(<span class="ident">LoadMem</span>),
-    <span class="ident">Comment</span>(<span class="ident">String</span>),
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
@@ -1463,6 +1558,17 @@
     <span class="kw">pub</span> <span class="ident">src</span>: <span class="ident">Operand</span>,
     <span class="kw">pub</span> <span class="ident">dst</span>: <span class="ident">AddressComputation</span><span class="op">&lt;</span><span class="ident">Operand</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">size</span>: <span class="ident">u32</span>,
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Call</span> {
+    <span class="kw">pub</span> <span class="ident">func</span>: <span class="ident">String</span>,
+    <span class="kw">pub</span> <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Operand</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">dst</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Var</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// List of active registers after the call instruction.</span>
+    <span class="doccomment">/// Filled by register allocator.</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">live_regs_after_call</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Amd64Reg</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">Instruction</span> {
@@ -1481,7 +1587,9 @@
             <span class="ident">Mod</span> { <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span> } <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;mod {:?} {:?} =&gt; {:?}&quot;</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>),
             <span class="ident">Unop</span> { <span class="ident">kind</span>, <span class="ident">src</span>, <span class="ident">dst</span> } <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;{:?} {:?} =&gt; {:?}&quot;</span>, <span class="ident">kind</span>, <span class="ident">src</span>, <span class="ident">dst</span>),
             <span class="ident">Conv</span> { <span class="ident">src</span>, <span class="ident">dst</span> } <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;conv {:?} =&gt; {:?}&quot;</span>, <span class="ident">src</span>, <span class="ident">dst</span>),
-            <span class="ident">Call</span> { <span class="ident">func</span>, <span class="ident">args</span>, <span class="ident">dst</span> } <span class="op">=&gt;</span> {
+            <span class="ident">Call</span>(<span class="self">self</span>::<span class="ident">Call</span> {
+                <span class="ident">func</span>, <span class="ident">args</span>, <span class="ident">dst</span>, ..
+            }) <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">args</span>
                     .<span class="ident">iter</span>()
                     .<span class="ident">map</span>(<span class="op">|</span><span class="ident">o</span><span class="op">|</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">o</span>))
@@ -1491,12 +1599,6 @@
             }
             <span class="ident">StoreMem</span>(<span class="ident">StoreMem</span> { <span class="ident">src</span>, <span class="ident">dst</span>, .. }) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;storemem {:?} =&gt; {:?}&quot;</span>, <span class="ident">src</span>, <span class="ident">dst</span>),
             <span class="ident">LoadMem</span>(<span class="ident">LoadMem</span> { <span class="ident">src</span>, <span class="ident">dst</span>, .. }) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;loadmem {:?} =&gt; {:?}&quot;</span>, <span class="ident">src</span>, <span class="ident">dst</span>),
-            <span class="ident">Comment</span>(<span class="ident">comment</span>) <span class="op">=&gt;</span> {
-                <span class="kw">for</span> <span class="ident">line</span> <span class="kw">in</span> <span class="ident">comment</span>.<span class="ident">lines</span>() {
-                    <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;// {}&quot;</span>, <span class="ident">line</span>)<span class="question-mark">?</span>;
-                }
-                <span class="prelude-val">Ok</span>(())
-            }
         }
     }
 }
@@ -1536,21 +1638,6 @@
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">IndexComputation</span><span class="op">&lt;</span><span class="ident">Op</span>: <span class="ident">Display</span> <span class="op">+</span> <span class="ident">Copy</span><span class="op">&gt;</span> {
     <span class="ident">Displacement</span>(<span class="ident">Op</span>, <span class="ident">Stride</span>),
     <span class="ident">Zero</span>,
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Op</span>: <span class="ident">Display</span> <span class="op">+</span> <span class="ident">Copy</span><span class="op">&gt;</span> <span class="ident">IndexComputation</span><span class="op">&lt;</span><span class="ident">Op</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_zero</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">IndexComputation</span>::<span class="ident">Zero</span> <span class="op">=&gt;</span> <span class="bool-val">true</span>,
-            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="bool-val">false</span>,
-        }
-    }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">displacement_op</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Op</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">IndexComputation</span>::<span class="ident">Displacement</span>(<span class="ident">op</span>, <span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">op</span>),
-            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
-        }
-    }
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Display</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Hash</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
@@ -1736,6 +1823,12 @@
     }
 }
 
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Var</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Operand</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">var</span>: <span class="ident">Var</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="ident">Operand</span>::<span class="ident">Var</span>(<span class="ident">var</span>)
+    }
+}
+
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Display</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">BinopKind</span> {
     <span class="ident">Add</span>,
@@ -1773,9 +1866,9 @@
         <span class="ident">firm_graph</span>.<span class="ident">assure_outs</span>();
         <span class="kw">let</span> <span class="ident">graph</span> <span class="op">=</span> <span class="ident">BlockGraph</span>::<span class="ident">build_skeleton</span>(<span class="ident">firm_graph</span>, <span class="ident">alloc</span>);
         <span class="ident">graph</span>.<span class="ident">ssa_with_requirements</span>();
-        <span class="ident">graph</span>.<span class="ident">fill_instrs</span>();
-        <span class="ident">graph</span>.<span class="ident">ssa_deconstruction</span>();
-        <span class="ident">graph</span>.<span class="ident">cleanup</span>();
+        <span class="ident">graph</span>.<span class="ident">fill_instrs</span>(<span class="ident">alloc</span>);
+        <span class="ident">graph</span>.<span class="ident">ssa_deconstruction</span>(<span class="ident">alloc</span>);
+        <span class="ident">graph</span>.<span class="ident">cleanup</span>(<span class="ident">alloc</span>);
         <span class="ident">graph</span>
     }
 }
@@ -1846,6 +1939,7 @@
             <span class="ident">blocks</span>,
             <span class="ident">start_block</span>,
             <span class="ident">end_block</span>,
+            <span class="ident">blocks_scheduled</span>: <span class="prelude-val">None</span>,
         });
 
         <span class="comment">// patch up the weak-ref in each block&#39;s graph member</span>
@@ -1905,7 +1999,7 @@
     }
 
     <span class="doccomment">/// SSA deconstruction by copy propagation</span>
-    <span class="kw">fn</span> <span class="ident">ssa_deconstruction</span>(<span class="self">self</span>) {
+    <span class="kw">fn</span> <span class="ident">ssa_deconstruction</span>(<span class="self">self</span>, <span class="ident">alloc</span>: <span class="kw-2">&amp;</span><span class="ident">Allocator</span>) {
         <span class="kw">for</span> <span class="ident">block</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">iter_blocks</span>() {
             <span class="macro">debug_assert</span><span class="macro">!</span>({
                 <span class="ident">block</span>
@@ -1925,24 +2019,30 @@
 
                 <span class="kw">for</span> (<span class="kw-2">mut</span> <span class="ident">orig_block</span>, <span class="ident">in_value</span>) <span class="kw">in</span> <span class="ident">from</span>.<span class="ident">iter</span>() {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">in_var</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">vars</span>.<span class="ident">get</span>(<span class="ident">in_value</span>) {
-                        <span class="ident">orig_block</span>.<span class="ident">code</span>.<span class="ident">copy_out</span>.<span class="ident">push</span>(<span class="ident">CopyPropagation</span> {
-                            <span class="ident">src</span>: <span class="ident">CopyPropagationSrc</span>::<span class="ident">Var</span>(<span class="kw-2">*</span><span class="ident">in_var</span>),
-                            <span class="ident">dst</span>: <span class="self">self</span>.<span class="ident">var</span>(<span class="kw-2">*</span><span class="ident">firm</span>),
-                        });
+                        <span class="ident">orig_block</span>
+                            .<span class="ident">code</span>
+                            .<span class="ident">copy_out</span>
+                            .<span class="ident">push</span>(<span class="ident">alloc</span>.<span class="ident">copyprop</span>(<span class="ident">CopyPropagation</span> {
+                                <span class="ident">src</span>: <span class="ident">CopyPropagationSrc</span>::<span class="ident">Var</span>(<span class="kw-2">*</span><span class="ident">in_var</span>),
+                                <span class="ident">dst</span>: <span class="self">self</span>.<span class="ident">var</span>(<span class="kw-2">*</span><span class="ident">firm</span>),
+                            }));
                     } <span class="kw">else</span> {
                         <span class="comment">// must be one of the constants that satisfy can_be_var</span>
                         <span class="kw">let</span> <span class="ident">tv</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">must_convertible_to_tarval</span>(<span class="kw-2">*</span><span class="ident">in_value</span>);
-                        <span class="ident">orig_block</span>.<span class="ident">code</span>.<span class="ident">copy_out</span>.<span class="ident">push</span>(<span class="ident">CopyPropagation</span> {
-                            <span class="ident">src</span>: <span class="ident">CopyPropagationSrc</span>::<span class="ident">Imm</span>(<span class="ident">tv</span>),
-                            <span class="ident">dst</span>: <span class="self">self</span>.<span class="ident">var</span>(<span class="kw-2">*</span><span class="ident">firm</span>),
-                        })
+                        <span class="ident">orig_block</span>
+                            .<span class="ident">code</span>
+                            .<span class="ident">copy_out</span>
+                            .<span class="ident">push</span>(<span class="ident">alloc</span>.<span class="ident">copyprop</span>(<span class="ident">CopyPropagation</span> {
+                                <span class="ident">src</span>: <span class="ident">CopyPropagationSrc</span>::<span class="ident">Imm</span>(<span class="ident">tv</span>),
+                                <span class="ident">dst</span>: <span class="self">self</span>.<span class="ident">var</span>(<span class="kw-2">*</span><span class="ident">firm</span>),
+                            }))
                     }
                 }
             }
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">cleanup</span>(<span class="self">self</span>) {
+    <span class="kw">fn</span> <span class="ident">cleanup</span>(<span class="self">self</span>, <span class="ident">alloc</span>: <span class="kw-2">&amp;</span><span class="ident">Allocator</span>) {
         <span class="kw">for</span> <span class="kw-2">mut</span> <span class="ident">block</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">iter_blocks</span>() {
             <span class="comment">// sanitize copy_outs</span>
             <span class="comment">// tarval doesn&#39;t implement hash, so we&#39;ll sort then dedup</span>
@@ -1951,16 +2051,17 @@
                 .<span class="ident">code</span>
                 .<span class="ident">copy_out</span>
                 .<span class="ident">iter</span>()
+                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">i</span>)
                 .<span class="ident">map</span>(<span class="op">|</span><span class="ident">CopyPropagation</span> { <span class="ident">src</span>, <span class="ident">dst</span> }<span class="op">|</span> (<span class="ident">src</span>.<span class="ident">into</span>(), <span class="ident">HomogenizedOperand</span>::<span class="ident">Var</span>(<span class="kw-2">*</span><span class="ident">dst</span>)))
                 .<span class="ident">sorted</span>()
                 .<span class="ident">dedup</span>()
                 .<span class="ident">filter</span>(<span class="op">|</span>(<span class="ident">src</span>, <span class="ident">dst</span>)<span class="op">|</span> <span class="ident">src</span> <span class="op">!=</span> <span class="ident">dst</span>)
-                .<span class="ident">map</span>(
-                    <span class="op">|</span>(<span class="ident">src</span>, <span class="ident">dst</span>): (<span class="ident">HomogenizedOperand</span>, <span class="ident">HomogenizedOperand</span>)<span class="op">|</span> <span class="ident">CopyPropagation</span> {
+                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">src</span>, <span class="ident">dst</span>): (<span class="ident">HomogenizedOperand</span>, <span class="ident">HomogenizedOperand</span>)<span class="op">|</span> {
+                    <span class="ident">alloc</span>.<span class="ident">copyprop</span>(<span class="ident">CopyPropagation</span> {
                         <span class="ident">src</span>: <span class="ident">src</span>.<span class="ident">into</span>(),
                         <span class="ident">dst</span>: <span class="ident">dst</span>.<span class="ident">var</span>().<span class="ident">unwrap</span>(),
-                    },
-                )
+                    })
+                })
                 .<span class="ident">collect</span>();
             <span class="ident">block</span>.<span class="ident">code</span>.<span class="ident">copy_out</span> <span class="op">=</span> <span class="ident">new_copy_out</span>;
         }
@@ -2020,7 +2121,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BlockGraph</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fill_instrs</span>(<span class="kw-2">mut</span> <span class="self">self</span>) {
+    <span class="kw">fn</span> <span class="ident">fill_instrs</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">alloc</span>: <span class="kw-2">&amp;</span><span class="ident">Allocator</span>) {
         <span class="comment">// make all arguments live in the start block</span>
         <span class="kw">let</span> <span class="ident">argument_tuple_elements</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">firm</span>
@@ -2040,16 +2141,19 @@
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
         <span class="kw">for</span> (<span class="ident">tuple_element</span>, <span class="ident">idx</span>) <span class="kw">in</span> <span class="ident">argument_tuple_elements</span> {
             <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">var</span>(<span class="ident">Node</span>::<span class="ident">from</span>(<span class="ident">tuple_element</span>));
-            <span class="self">self</span>.<span class="ident">start_block</span>.<span class="ident">code</span>.<span class="ident">body</span>.<span class="ident">push</span>(<span class="ident">Instruction</span>::<span class="ident">LoadParam</span> {
-                <span class="ident">idx</span>,
-                <span class="ident">size</span>: <span class="ident">tuple_element</span>.<span class="ident">mode</span>().<span class="ident">size_bytes</span>(),
-                <span class="ident">dst</span>,
-            });
+            <span class="self">self</span>.<span class="ident">start_block</span>
+                .<span class="ident">code</span>
+                .<span class="ident">body</span>
+                .<span class="ident">push</span>(<span class="ident">alloc</span>.<span class="ident">instr</span>(<span class="ident">Instruction</span>::<span class="ident">LoadParam</span> {
+                    <span class="ident">idx</span>,
+                    <span class="ident">size</span>: <span class="ident">tuple_element</span>.<span class="ident">mode</span>().<span class="ident">size_bytes</span>(),
+                    <span class="ident">dst</span>,
+                }));
         }
 
         <span class="kw">for</span> <span class="ident">block</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">iter_blocks</span>() {
             <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;FILL_INSTRS for block {:?}&quot;</span>, <span class="ident">block</span>.<span class="ident">firm</span>);
-            <span class="ident">GenInstrBlock</span>::<span class="ident">fill_instrs</span>(<span class="self">self</span>, <span class="ident">block</span>)
+            <span class="ident">GenInstrBlock</span>::<span class="ident">fill_instrs</span>(<span class="self">self</span>, <span class="ident">block</span>, <span class="ident">alloc</span>)
         }
     }
 }
@@ -2110,14 +2214,10 @@
                 <span class="ident">succs</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
                 <span class="ident">firm</span>,
                 <span class="ident">graph</span>: <span class="ident">Ptr</span>::<span class="ident">null</span>(), <span class="comment">// will be patched up by caller</span>
+                <span class="ident">codegen_instrs</span>: <span class="macro">vec</span><span class="macro">!</span>[],
             })
         })
     }
-}
-
-<span class="attribute">#[<span class="ident">inline</span>]</span>
-<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">gen_label</span>(<span class="ident">block_num</span>: <span class="ident">i64</span>) <span class="op">-&gt;</span> <span class="ident">String</span> {
-    <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;.L{}&quot;</span>, <span class="ident">block_num</span>)
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>

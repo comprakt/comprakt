@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["amd64",""],["molki",""]],"trait":[["AsmBackend",""],["AsmOut",""]]});
+initSidebarItems({"mod":[["amd64",""]],"trait":[["AsmBackend",""],["AsmOut",""]]});

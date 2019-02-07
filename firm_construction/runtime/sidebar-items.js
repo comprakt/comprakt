@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["RuntimeFunction",""],["RuntimeFunctionDiscriminants","Auto-generated discriminant enum variants"]],"struct":[["Mjrt","The runtime library implemented by this compiler in crate mjrt-impl."],["Molki","The runtime library provided implemented by molki."],["Runtime",""]],"trait":[["RTLib",""]]});
+initSidebarItems({"enum":[["RuntimeFunction",""],["RuntimeFunctionDiscriminants","Auto-generated discriminant enum variants"]],"struct":[["Mjrt","The runtime library implemented by this compiler in crate mjrt-impl."],["Runtime",""]],"trait":[["RTLib",""]]});

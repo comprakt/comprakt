@@ -148,28 +148,6 @@
 <span id="148">148</span>
 <span id="149">149</span>
 <span id="150">150</span>
-<span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
-<span id="157">157</span>
-<span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
-<span id="164">164</span>
-<span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
-<span id="168">168</span>
-<span id="169">169</span>
-<span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">types</span>::<span class="kw-2">*</span>, <span class="ident">Entity</span>};
 <span class="kw">use</span> <span class="ident">strum_macros</span>::<span class="ident">EnumDiscriminants</span>;
@@ -226,28 +204,6 @@
     }
     <span class="kw">fn</span> <span class="ident">mj_main_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
         <span class="string">&quot;mj_main&quot;</span>
-    }
-}
-
-<span class="doccomment">/// The runtime library provided implemented by molki.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Molki</span>;
-
-<span class="kw">impl</span> <span class="ident">RTLib</span> <span class="kw">for</span> <span class="ident">Molki</span> {
-    <span class="kw">fn</span> <span class="ident">ld_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rtf</span>: <span class="ident">RuntimeFunction</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
-        <span class="kw">match</span> <span class="ident">rtf</span> {
-            <span class="ident">RuntimeFunction</span>::<span class="ident">SystemOutPrintln</span> <span class="op">=&gt;</span> <span class="string">&quot;__stdlib_println&quot;</span>,
-            <span class="ident">RuntimeFunction</span>::<span class="ident">SystemOutWrite</span> <span class="op">=&gt;</span> <span class="string">&quot;__stdlib_write&quot;</span>,
-            <span class="ident">RuntimeFunction</span>::<span class="ident">SystemOutFlush</span> <span class="op">=&gt;</span> <span class="string">&quot;__stdlib_flush&quot;</span>,
-            <span class="ident">RuntimeFunction</span>::<span class="ident">SystemInRead</span> <span class="op">=&gt;</span> <span class="string">&quot;__stdlib_read&quot;</span>,
-            <span class="ident">RuntimeFunction</span>::<span class="ident">New</span> <span class="op">=&gt;</span> <span class="string">&quot;__stdlib_malloc&quot;</span>,
-            <span class="ident">RuntimeFunction</span>::<span class="ident">Dumpstack</span> <span class="op">=&gt;</span> <span class="string">&quot;__stdlib_not_implemented_dumpstack&quot;</span>,
-            <span class="ident">RuntimeFunction</span>::<span class="ident">DivByZero</span> <span class="op">=&gt;</span> <span class="string">&quot;__stdlib_not_implemented_div_by_zero&quot;</span>,
-            <span class="ident">RuntimeFunction</span>::<span class="ident">NullUsage</span> <span class="op">=&gt;</span> <span class="string">&quot;__stdlib_not_implemented_null_usage&quot;</span>,
-            <span class="ident">RuntimeFunction</span>::<span class="ident">ArrayOutOfBounds</span> <span class="op">=&gt;</span> <span class="string">&quot;__stdlib_not_implemented_array_oob&quot;</span>,
-        }
-    }
-    <span class="kw">fn</span> <span class="ident">mj_main_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
-        <span class="string">&quot;minijava_main&quot;</span>
     }
 }
 
