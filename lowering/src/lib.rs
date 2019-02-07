@@ -3,25 +3,63 @@
 #![feature(never_type)]
 #![feature(core_intrinsics)]
 #![feature(try_from)]
+#![feature(uniform_paths)]
+#![warn(clippy::print_stdout)]
+#![warn(clippy::all)]
 
 #[macro_use]
 extern crate derive_more;
 
-extern crate debugging;
-extern crate utils;
+extern crate firm_construction;
 
-pub mod amd64;
-pub mod gen_instr;
-pub mod lir;
-#[macro_use]
-pub mod lir_allocator;
-// FIXME users should use re-export lir::debugging
-pub mod lir_debugging;
+pub(crate) mod allocator;
+pub(crate) mod basic_block_scheduling;
+pub(crate) mod codegen;
+pub(crate) mod cycle_removal;
+pub(crate) mod linear_scan;
+pub(crate) mod lir;
+pub(crate) mod live_variable_analysis;
+pub(crate) mod register;
 
-// Compat uses (old imports)
-pub(crate) mod lowering {
-    pub(crate) use super::{amd64, lir, lir_allocator};
+use debugging;
+use firm_construction::FirmProgram;
+use lir::LIR;
+
+pub fn run_backend(
+    firm_program: &FirmProgram<'_, '_>,
+    out: &mut impl std::io::Write,
+) -> std::io::Result<()> {
+    let mut lir = LIR::from(firm_program);
+    debugging::breakpoint!("LIR stage 1", lir, &|block: &lir::BasicBlock| {
+        lir::debugging::default_lir_label(block)
+    });
+
+    writeln!(out, "\t.text")?;
+
+    // TODO predictable order
+    for f in &mut lir.functions {
+        basic_block_scheduling::basic_block_scheduling(f);
+        let lva_result = live_variable_analysis::live_variable_analysis(
+            &f.graph.blocks_scheduled.as_ref().unwrap(),
+            &lir.allocator,
+        );
+
+        let lsa_result = linear_scan::register_allocation(f, lva_result);
+
+        // TOOD debugging breakpoint with live ranges + register allocation
+
+        let codegen = codegen::begin_codegen(f, lsa_result);
+
+        // TODO local peepholer
+
+        let function_asm = codegen.emit_function();
+
+        // TODO global peepholer
+
+        for instr in function_asm {
+            writeln!(out, "{}", instr)?;
+        }
+    }
+
+    Ok(())
 }
-pub(crate) use firm_construction as firm;
-pub(crate) use optimization;
-pub(crate) use type_checking;

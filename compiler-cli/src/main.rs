@@ -11,7 +11,6 @@
 //! }
 //! ```
 #![warn(rust_2018_idioms)]
-#![warn(clippy::print_stdout)]
 #![feature(try_from)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(const_str_as_bytes)]
@@ -121,33 +120,13 @@ pub enum CliCommand {
     #[structopt(name = "--compile-firm")]
     CompileFirm(CompileFirmOptions),
 
-    /// Compile to an ELF executable or molki assembly using the comprakt
-    /// backend. Defaults to 'a.out' in the current working directory.
+    /// Compile to an ELF executable using the comprakt backend.
+    /// Defaults to 'a.out' in the current working directory.
     #[structopt(name = "--compile")]
     Compile(CompileOptions),
 }
 
-/// Backends supported by the [`CliCommand::Compile`] (`--compile`) command.
-#[derive(StructOpt, Debug, Clone)]
-pub enum CompileBackend {
-    #[structopt(name = "amd64")]
-    Amd64,
-    #[structopt(name = "molki")]
-    Molki,
-}
-
 use std::str::FromStr;
-
-impl FromStr for CompileBackend {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "molki" => CompileBackend::Molki,
-            "amd64" => CompileBackend::Amd64,
-            x => return Err(format!("{:?} is not a valid backend", x)),
-        })
-    }
-}
 
 /// Command-line options for the [`CliCommand::CompileFirm`] (`--compile-firm`)
 /// call.
@@ -164,8 +143,6 @@ pub struct CompileFirmOptions {
 /// Command-line options for the [`CliCommand::Compile`] (`--compile`) call.
 #[derive(StructOpt, Debug, Clone)]
 pub struct CompileOptions {
-    #[structopt(long = "--backend", default_value = "amd64")]
-    backend: CompileBackend,
     #[structopt(flatten)]
     pre_backend_options: PreBackendOptions,
     #[structopt(flatten)]
@@ -244,7 +221,6 @@ fn main() {
         log::debug!("no-arg mode detected: {:?}", input);
         let input = PathBuf::from(input);
         let opts = CompileOptions {
-            backend: CompileBackend::Amd64,
             pre_backend_options: PreBackendOptions::default_with_input(input),
             backend_options: BackendOptions::default(),
         };
@@ -473,26 +449,12 @@ fn cmd_compile_firm(options: &CompileFirmOptions) -> Result<(), Error> {
 }
 
 fn cmd_compile(options: &CompileOptions) -> Result<(), Error> {
-    // TODO make this configurable, as, in theory, it is perceivable that someone
-    // wants to just produce asm and choose their lib externally. (low prio)
-    let rtlib: Box<dyn RTLib> = match options.backend {
-        CompileBackend::Amd64 => box runtime::Mjrt,
-        CompileBackend::Molki => box runtime::Molki,
-    };
+    let rtlib: Box<dyn RTLib> = box runtime::Mjrt;
 
     compile_command_common!( let (firm_ctx, bingen) =
                              (&options.pre_backend_options, &options.backend_options, rtlib));
 
-    let mut backend: Box<dyn backend::AsmBackend> = match options.backend {
-        CompileBackend::Amd64 => {
-            // TODO make this configurable via CLI options
-            let opts = backend::amd64::Options {
-                cconv: backend::amd64::CallingConv::X86_64,
-            };
-            box backend::amd64::Backend { firm_ctx, opts }
-        }
-        CompileBackend::Molki => unimplemented!(),
-    };
+    let mut backend: Box<dyn backend::AsmBackend> = box backend::amd64::Backend { firm_ctx };
 
     let dump_asm = options
         .backend_options

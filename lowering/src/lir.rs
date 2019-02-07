@@ -1,34 +1,45 @@
-//! Low level intermediate representation
+//! Instruction-list based representation of the program.
+//! All other modules transform the LIR.
 
-use super::{
-    gen_instr::GenInstrBlock,
-    lir_allocator::{self, Ptr},
+pub(crate) mod debugging;
+mod gen_instr;
+
+use self::gen_instr::GenInstrBlock;
+use crate::{
+    allocator::{self, Ptr},
+    codegen, derive_ptr_debug,
+    firm_construction::type_checking::type_system::CheckedType,
+    register::Amd64Reg,
 };
-use crate::{derive_ptr_debug, firm, type_checking::type_system::CheckedType};
+use firm_construction as firm;
 use itertools::Itertools;
-
-use crate::optimization::{Local, RemoveCriticalEdges};
 use libfirm_rs::{
     bindings,
     nodes::{Node, NodeTrait},
     Tarval, VisitTime,
 };
+use optimization::{Local, RemoveCriticalEdges};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     convert::TryFrom,
     fmt::{self, Display},
+    hash::{Hash, Hasher},
     marker::PhantomData,
 };
 
 #[derive(Debug, Default)]
-pub(super) struct Allocator {
-    graphs: lir_allocator::Allocator<BlockGraph>,
-    blocks: lir_allocator::Allocator<BasicBlock>,
+pub struct Allocator {
+    graphs: allocator::Allocator<BlockGraph>,
+    blocks: allocator::Allocator<BasicBlock>,
+    instrs: allocator::Allocator<Instruction>,
+    leaves: allocator::Allocator<Leave>,
+    copyprops: allocator::Allocator<CopyPropagation>,
+    scheduled_instrs: allocator::Allocator<crate::live_variable_analysis::ScheduledInstr>,
 }
 
 macro_rules! allocation_method {
     ($name:ident, $type:ty, $member:ident) => {
-        pub(super) fn $name(&self, elem: $type) -> Ptr<$type> {
+        pub(crate) fn $name(&self, elem: $type) -> Ptr<$type> {
             self.$member.alloc(elem)
         }
     }
@@ -37,6 +48,14 @@ macro_rules! allocation_method {
 impl Allocator {
     allocation_method!(graph, BlockGraph, graphs);
     allocation_method!(block, BasicBlock, blocks);
+    allocation_method!(instr, Instruction, instrs);
+    allocation_method!(leave, Leave, leaves);
+    allocation_method!(copyprop, CopyPropagation, copyprops);
+    allocation_method!(
+        scheduled_instr,
+        crate::live_variable_analysis::ScheduledInstr,
+        scheduled_instrs
+    );
 }
 
 #[derive(Debug)]
@@ -91,7 +110,7 @@ impl Function {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Var {
     firm: Node,
     num: usize,
@@ -119,6 +138,26 @@ impl fmt::Display for Var {
     }
 }
 
+/// a variable is only identified by its number
+///
+/// intended for use in live_variable_analysis
+impl PartialEq for Var {
+    fn eq(&self, other: &Self) -> bool {
+        self.num == other.num
+    }
+}
+
+impl Eq for Var {}
+
+/// a variable is only identified by its number
+///
+/// intended for use in live_variable_analysis
+impl Hash for Var {
+    fn hash<H: Hasher>(&self, h: &mut H) {
+        self.num.hash(h)
+    }
+}
+
 /// A graph of basic blocks.
 pub struct BlockGraph {
     pub firm: libfirm_rs::Graph,
@@ -129,6 +168,11 @@ pub struct BlockGraph {
 
     pub start_block: Ptr<BasicBlock>,
     pub end_block: Ptr<BasicBlock>,
+
+    // basic_block_scheduling
+    pub blocks_scheduled: Option<Vec<Ptr<BasicBlock>>>,
+    /* live variable analysis + linear scan
+     * pub linear_scan: Option<BlockGraphLinearScanInfo>, */
 }
 derive_ptr_debug!(Ptr<BlockGraph>);
 
@@ -152,6 +196,7 @@ impl<A, B, C, D> Default for Code<A, B, C, D> {
 }
 
 /// A unifying enum over the different operations contained in Code.
+#[derive(Clone, Copy)]
 pub enum CodeInstruction<CopyInInstr, CopyOutInstr, BodyInstr, LeaveInstr> {
     CopyIn(CopyInInstr),
     Body(BodyInstr),
@@ -160,19 +205,34 @@ pub enum CodeInstruction<CopyInInstr, CopyOutInstr, BodyInstr, LeaveInstr> {
 }
 
 impl<A: fmt::Debug, B: fmt::Debug, C: fmt::Debug, D: fmt::Debug> fmt::Debug
-    for CodeInstruction<A, B, C, D>
+    for CodeInstruction<Ptr<A>, Ptr<B>, Ptr<C>, Ptr<D>>
 {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::CodeInstruction::*;
         let debug: &fmt::Debug = match self {
-            CopyIn(x) => x,
-            Body(x) => x,
-            CopyOut(x) => x,
-            Leave(x) => x,
+            CopyIn(x) => &**x,
+            Body(x) => &**x,
+            CopyOut(x) => &**x,
+            Leave(x) => &**x,
         };
         debug.fmt(fmt)
     }
 }
+
+impl<A, B, C, D> CodeInstruction<&Ptr<A>, &Ptr<B>, &Ptr<C>, &Ptr<D>> {
+    pub fn clone_ptred(&self) -> CodeInstruction<Ptr<A>, Ptr<B>, Ptr<C>, Ptr<D>> {
+        use self::CodeInstruction::*;
+        match self {
+            CopyIn(x) => CodeInstruction::CopyIn(**x),
+            Body(x) => CodeInstruction::Body(**x),
+            CopyOut(x) => CodeInstruction::CopyOut(**x),
+            Leave(x) => CodeInstruction::Leave(**x),
+        }
+    }
+}
+
+// impl<A, B, C, D> Copy for CodeInstruction<&Ptr<A>, &Ptr<B>, &Ptr<C>, &Ptr<D>>
+// {}
 
 impl<A, B, C, D> Code<A, B, C, D> {
     /// Iterate over the members of code in the following order:
@@ -186,17 +246,6 @@ impl<A, B, C, D> Code<A, B, C, D> {
         let body = box self.body.iter().map(CodeInstruction::Body);
         let copy_out = box self.copy_out.iter().map(CodeInstruction::CopyOut);
         let leave = box self.leave.iter().map(CodeInstruction::Leave);
-        copy_in.chain(body).chain(copy_out).chain(leave)
-    }
-
-    /// Like iter_unified, but iterate with mutable references.
-    pub fn iter_unified_mut(
-        &mut self,
-    ) -> impl Iterator<Item = CodeInstruction<&mut A, &mut B, &mut C, &mut D>> {
-        let copy_in = box self.copy_in.iter_mut().map(CodeInstruction::CopyIn);
-        let body = box self.body.iter_mut().map(CodeInstruction::Body);
-        let copy_out = box self.copy_out.iter_mut().map(CodeInstruction::CopyOut);
-        let leave = box self.leave.iter_mut().map(CodeInstruction::Leave);
         copy_in.chain(body).chain(copy_out).chain(leave)
     }
 }
@@ -275,7 +324,7 @@ pub struct BasicBlock {
     pub(super) values_to_compute: Vec<Node>,
 
     /// The instructions (using arbitrarily many registers) of the block
-    pub code: Code<CopyPropagation, CopyPropagation, Instruction, Leave>,
+    pub code: Code<Ptr<CopyPropagation>, Ptr<CopyPropagation>, Ptr<Instruction>, Ptr<Leave>>,
     /// Control flow-transfers *to* this block.
     /// Usually at most 2
     pub preds: Vec<Ptr<BasicBlock>>,
@@ -287,6 +336,9 @@ pub struct BasicBlock {
     pub firm: libfirm_rs::nodes::Block,
 
     pub graph: Ptr<BlockGraph>,
+
+    /// filled by `codegen::fill_blocks`
+    pub(crate) codegen_instrs: Vec<codegen::Instruction>,
 }
 
 #[derive(Clone)]
@@ -329,16 +381,9 @@ pub enum Instruction {
         src: Operand,
         dst: Var,
     },
-    /// If dst is None, result is in register r0, which cannot be accessed
-    /// using molki register names.
-    Call {
-        func: String,
-        args: Vec<Operand>,
-        dst: Option<Var>,
-    },
+    Call(Call),
     StoreMem(StoreMem),
     LoadMem(LoadMem),
-    Comment(String),
 }
 
 #[derive(Clone)]
@@ -353,6 +398,17 @@ pub struct StoreMem {
     pub src: Operand,
     pub dst: AddressComputation<Operand>,
     pub size: u32,
+}
+
+#[derive(Clone)]
+pub struct Call {
+    pub func: String,
+    pub args: Vec<Operand>,
+    pub dst: Option<Var>,
+
+    /// List of active registers after the call instruction.
+    /// Filled by register allocator.
+    pub(crate) live_regs_after_call: Vec<Amd64Reg>,
 }
 
 impl fmt::Debug for Instruction {
@@ -371,7 +427,9 @@ impl fmt::Debug for Instruction {
             Mod { src1, src2, dst } => write!(fmt, "mod {:?} {:?} => {:?}", src1, src2, dst),
             Unop { kind, src, dst } => write!(fmt, "{:?} {:?} => {:?}", kind, src, dst),
             Conv { src, dst } => write!(fmt, "conv {:?} => {:?}", src, dst),
-            Call { func, args, dst } => {
+            Call(self::Call {
+                func, args, dst, ..
+            }) => {
                 let args = args
                     .iter()
                     .map(|o| format!("{:?}", o))
@@ -381,12 +439,6 @@ impl fmt::Debug for Instruction {
             }
             StoreMem(StoreMem { src, dst, .. }) => write!(fmt, "storemem {:?} => {:?}", src, dst),
             LoadMem(LoadMem { src, dst, .. }) => write!(fmt, "loadmem {:?} => {:?}", src, dst),
-            Comment(comment) => {
-                for line in comment.lines() {
-                    write!(fmt, "// {}", line)?;
-                }
-                Ok(())
-            }
         }
     }
 }
@@ -426,21 +478,6 @@ impl<Op: Display + Copy> std::fmt::Display for AddressComputation<Op> {
 pub enum IndexComputation<Op: Display + Copy> {
     Displacement(Op, Stride),
     Zero,
-}
-
-impl<Op: Display + Copy> IndexComputation<Op> {
-    pub fn is_zero(&self) -> bool {
-        match self {
-            IndexComputation::Zero => true,
-            _ => false,
-        }
-    }
-    pub fn displacement_op(&self) -> Option<&Op> {
-        match self {
-            IndexComputation::Displacement(op, _) => Some(op),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Debug, Display, Copy, Clone, Hash, Eq, PartialEq)]
@@ -626,6 +663,12 @@ impl From<CopyPropagationSrc> for Operand {
     }
 }
 
+impl From<Var> for Operand {
+    fn from(var: Var) -> Self {
+        Operand::Var(var)
+    }
+}
+
 #[derive(Debug, Display, Clone)]
 pub enum BinopKind {
     Add,
@@ -663,9 +706,9 @@ impl BlockGraph {
         firm_graph.assure_outs();
         let graph = BlockGraph::build_skeleton(firm_graph, alloc);
         graph.ssa_with_requirements();
-        graph.fill_instrs();
-        graph.ssa_deconstruction();
-        graph.cleanup();
+        graph.fill_instrs(alloc);
+        graph.ssa_deconstruction(alloc);
+        graph.cleanup(alloc);
         graph
     }
 }
@@ -736,6 +779,7 @@ impl BlockGraph {
             blocks,
             start_block,
             end_block,
+            blocks_scheduled: None,
         });
 
         // patch up the weak-ref in each block's graph member
@@ -795,7 +839,7 @@ impl Ptr<BlockGraph> {
     }
 
     /// SSA deconstruction by copy propagation
-    fn ssa_deconstruction(self) {
+    fn ssa_deconstruction(self, alloc: &Allocator) {
         for block in self.iter_blocks() {
             debug_assert!({
                 block
@@ -815,24 +859,30 @@ impl Ptr<BlockGraph> {
 
                 for (mut orig_block, in_value) in from.iter() {
                     if let Some(in_var) = self.vars.get(in_value) {
-                        orig_block.code.copy_out.push(CopyPropagation {
-                            src: CopyPropagationSrc::Var(*in_var),
-                            dst: self.var(*firm),
-                        });
+                        orig_block
+                            .code
+                            .copy_out
+                            .push(alloc.copyprop(CopyPropagation {
+                                src: CopyPropagationSrc::Var(*in_var),
+                                dst: self.var(*firm),
+                            }));
                     } else {
                         // must be one of the constants that satisfy can_be_var
                         let tv = self.must_convertible_to_tarval(*in_value);
-                        orig_block.code.copy_out.push(CopyPropagation {
-                            src: CopyPropagationSrc::Imm(tv),
-                            dst: self.var(*firm),
-                        })
+                        orig_block
+                            .code
+                            .copy_out
+                            .push(alloc.copyprop(CopyPropagation {
+                                src: CopyPropagationSrc::Imm(tv),
+                                dst: self.var(*firm),
+                            }))
                     }
                 }
             }
         }
     }
 
-    fn cleanup(self) {
+    fn cleanup(self, alloc: &Allocator) {
         for mut block in self.iter_blocks() {
             // sanitize copy_outs
             // tarval doesn't implement hash, so we'll sort then dedup
@@ -841,16 +891,17 @@ impl Ptr<BlockGraph> {
                 .code
                 .copy_out
                 .iter()
+                .map(|i| &**i)
                 .map(|CopyPropagation { src, dst }| (src.into(), HomogenizedOperand::Var(*dst)))
                 .sorted()
                 .dedup()
                 .filter(|(src, dst)| src != dst)
-                .map(
-                    |(src, dst): (HomogenizedOperand, HomogenizedOperand)| CopyPropagation {
+                .map(|(src, dst): (HomogenizedOperand, HomogenizedOperand)| {
+                    alloc.copyprop(CopyPropagation {
                         src: src.into(),
                         dst: dst.var().unwrap(),
-                    },
-                )
+                    })
+                })
                 .collect();
             block.code.copy_out = new_copy_out;
         }
@@ -910,7 +961,7 @@ impl BlockGraph {
 }
 
 impl Ptr<BlockGraph> {
-    fn fill_instrs(mut self) {
+    fn fill_instrs(mut self, alloc: &Allocator) {
         // make all arguments live in the start block
         let argument_tuple_elements = self
             .firm
@@ -930,16 +981,19 @@ impl Ptr<BlockGraph> {
             .collect::<Vec<_>>();
         for (tuple_element, idx) in argument_tuple_elements {
             let dst = self.var(Node::from(tuple_element));
-            self.start_block.code.body.push(Instruction::LoadParam {
-                idx,
-                size: tuple_element.mode().size_bytes(),
-                dst,
-            });
+            self.start_block
+                .code
+                .body
+                .push(alloc.instr(Instruction::LoadParam {
+                    idx,
+                    size: tuple_element.mode().size_bytes(),
+                    dst,
+                }));
         }
 
         for block in self.iter_blocks() {
             log::debug!("FILL_INSTRS for block {:?}", block.firm);
-            GenInstrBlock::fill_instrs(self, block)
+            GenInstrBlock::fill_instrs(self, block, alloc)
         }
     }
 }
@@ -1000,14 +1054,10 @@ impl BasicBlock {
                 succs: Vec::new(),
                 firm,
                 graph: Ptr::null(), // will be patched up by caller
+                codegen_instrs: vec![],
             })
         })
     }
-}
-
-#[inline]
-pub(super) fn gen_label(block_num: i64) -> String {
-    format!(".L{}", block_num)
 }
 
 #[cfg(test)]

@@ -128,6 +128,12 @@ fn main() {
     println!("libfirm_src={:?}", libfirm_src);
     println!("libfirm_install_dir={:?}", libfirm_install_dir);
 
+    let libfirm_build_profile = match env::var("PROFILE").unwrap().as_str() {
+        "debug" => "debug",
+        "release" => "optimize",
+        x => panic!("unknown cargo build profile {:?}", x),
+    };
+
     let exit_code = Command::new("make")
         .current_dir(libfirm_src.as_path())
         .arg("install")
@@ -136,6 +142,7 @@ fn main() {
             env::var("NUM_JOBS").expect("env var NUM_JOBS not set")
         ))
         .arg(format!("PREFIX={}", libfirm_install_dir.display()))
+        .arg(format!("variant={}", libfirm_build_profile))
         .status()
         .expect("Failed to run make")
         .code()

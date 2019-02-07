@@ -1,7 +1,4 @@
-use super::{
-    lir::{self, *},
-    lir_allocator::Ptr,
-};
+use super::*;
 use libfirm_rs::{
     nodes::{Node, NodeTrait, ProjKind},
     types::{Ty, TyTrait},
@@ -17,7 +14,11 @@ pub struct GenInstrBlock {
 }
 
 impl GenInstrBlock {
-    pub(super) fn fill_instrs(graph: Ptr<BlockGraph>, mut block: Ptr<BasicBlock>) {
+    pub(super) fn fill_instrs(
+        graph: Ptr<BlockGraph>,
+        mut block: Ptr<BasicBlock>,
+        alloc: &Allocator,
+    ) {
         let mut b = GenInstrBlock {
             graph,
             visisted: HashSet::new(),
@@ -28,8 +29,14 @@ impl GenInstrBlock {
         let GenInstrBlock { body, leave, .. } = b;
         // do not overwrite block.code because it already contains instrs from
         // construction / LoadParam
-        block.code.body.extend(body);
-        block.code.leave.extend(leave);
+        block
+            .code
+            .body
+            .extend(body.into_iter().map(|i| alloc.instr(i)));
+        block
+            .code
+            .leave
+            .extend(leave.into_iter().map(|i| alloc.leave(i)));
     }
 
     fn gen(&mut self, graph: Ptr<BlockGraph>, block: Ptr<BasicBlock>) {
@@ -183,7 +190,7 @@ impl GenInstrBlock {
 
             // The following group of nodes doesn't need code gen as
             // we know their result at compile time.
-            x if lir::is_jit_operand(x) => {}
+            x if super::is_jit_operand(x) => {}
 
             Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) => {
                 graph.existing_var(node);
@@ -322,11 +329,12 @@ impl GenInstrBlock {
                     .collect();
 
                 let func_name = func.ld_name().to_str().unwrap().to_owned();
-                self.body.push(Instruction::Call {
+                self.body.push(Instruction::Call(Call {
                     func: func_name,
                     args,
                     dst,
-                });
+                    live_regs_after_call: vec![],
+                }));
             }
             // Call_TResult and Call_TResult_Arg are handled in Node::Call match arm
             Node::Proj(_, ProjKind::Call_TResult(_))

@@ -1,4 +1,5 @@
-use super::lir::{self, BasicBlock};
+use super::BasicBlock;
+use crate::lir;
 use debugging::dot::{
     dot_string, escape_record_content, Dot, GraphData, GraphState, Label, LabelMaker, Shape, Style,
     X11Color,
@@ -11,22 +12,22 @@ pub fn default_lir_label(block: &BasicBlock) -> Label {
 
     write!(&mut s, "\\lCOPY IN\\l").unwrap();
     for instr in block.code.copy_in.iter() {
-        write!(&mut s, "{:?}\\l", instr).unwrap();
+        write!(&mut s, "{:?}\\l", &**instr).unwrap();
     }
 
     write!(&mut s, "\\lBODY\\l").unwrap();
     for instr in block.code.body.iter() {
-        write!(&mut s, "{:?}\\l", instr).unwrap();
+        write!(&mut s, "{:?}\\l", &**instr).unwrap();
     }
 
     write!(&mut s, "\\lCOPY OUT\\l").unwrap();
     for instr in block.code.copy_out.iter() {
-        write!(&mut s, "{:?}\\l", instr).unwrap();
+        write!(&mut s, "{:?}\\l", &**instr).unwrap();
     }
 
     write!(&mut s, "\\lLEAVE\\l").unwrap();
     for instr in block.code.leave.iter() {
-        write!(&mut s, "{:?}\\l", instr).unwrap();
+        write!(&mut s, "{:?}\\l", &**instr).unwrap();
     }
 
     lir_box(block, &format!("{}\\l", String::from_utf8(s).unwrap()))
