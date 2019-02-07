@@ -7,21 +7,18 @@ mod gen_instr;
 use self::gen_instr::GenInstrBlock;
 use crate::{
     allocator::{self, Ptr},
-    derive_ptr_debug, firm,
-    type_checking::type_system::CheckedType,
-};
-use itertools::Itertools;
-
-use crate::{
-    codegen,
-    optimization::{Local, RemoveCriticalEdges},
+    codegen, derive_ptr_debug,
+    firm_construction::type_checking::type_system::CheckedType,
     register::Amd64Reg,
 };
+use firm_construction as firm;
+use itertools::Itertools;
 use libfirm_rs::{
     bindings,
     nodes::{Node, NodeTrait},
     Tarval, VisitTime,
 };
+use optimization::{Local, RemoveCriticalEdges};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     convert::TryFrom,
