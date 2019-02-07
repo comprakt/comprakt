@@ -76,18 +76,19 @@
 ///!
 ///! Lecture slides on the algorithm:
 ///! http://compilers.cs.uni-saarland.de/teaching/cc/2009/slides/l10_pre.pdf
-use super::Outcome;
-use crate::{dot::*, optimization};
+use super::{CommonSubExpr, Outcome};
+use crate::{
+    dot::*,
+    optimization::{self, Local},
+};
 use libfirm_rs::{
     bindings,
     nodes::{self, Node, NodeTrait},
     Graph,
 };
 
-use std::{
-    cmp::Ordering,
-    collections::{HashSet, VecDeque},
-};
+use std::collections::{HashSet, VecDeque};
+
 pub struct CodePlacement {
     graph: Graph,
 }
@@ -95,151 +96,6 @@ pub struct CodePlacement {
 impl optimization::Local for CodePlacement {
     fn optimize_function(graph: Graph) -> Outcome {
         CodePlacement::new(graph).run()
-    }
-}
-
-/// Performs global common subexpression elimination.
-///
-/// Keep in mind that common subexpression elimination is a trade-off.  It's not
-/// always better to merge common subexpressions. This is especially true if you
-/// merge two common subexpression A and B, where neither A dominates B, nor B
-/// dominates A.
-struct CommonSubExpr(Node);
-
-impl CommonSubExpr {
-    fn normalize_node(node: Node, graph: Graph) {
-        // put commutative ops in an arbitrary but stable order
-        // Exaustive list of commutative nodes: add, and, eor, mul, mulh, or
-        if node.is_commutative() {
-            let operand_right =
-                Node::wrap(unsafe { bindings::get_binop_right(node.internal_ir_node()) });
-            let operand_left =
-                Node::wrap(unsafe { bindings::get_binop_left(node.internal_ir_node()) });
-
-            if CommonSubExpr::cmp(operand_left, operand_right) == Ordering::Greater {
-                breakpoint!(
-                    &format!(
-                        "GCSE: normalizing order of commutative operands {:?} and {:?} of {:?}",
-                        operand_left, operand_right, node
-                    ),
-                    graph,
-                    &|rendered: &Node| {
-                        let mut label = dom_info_box(rendered);
-
-                        if *rendered == node {
-                            label = label
-                                .add_style(Style::Filled)
-                                .fillcolor(X11Color::Blue)
-                                .fontcolor(X11Color::White);
-                        }
-
-                        if *rendered == operand_right || *rendered == operand_left {
-                            label = label
-                                .add_style(Style::Filled)
-                                .fillcolor(X11Color::Green)
-                                .fontcolor(X11Color::White);
-                        }
-                        label
-                    }
-                );
-
-                unsafe {
-                    bindings::set_binop_right(
-                        node.internal_ir_node(),
-                        operand_left.internal_ir_node(),
-                    )
-                };
-                unsafe {
-                    bindings::set_binop_left(
-                        node.internal_ir_node(),
-                        operand_right.internal_ir_node(),
-                    )
-                };
-            }
-        }
-    }
-
-    fn cmp(a: Node, b: Node) -> Ordering {
-        // Libfirm sorts by multiple critera:
-        // df79debd25b9372f92c416c4d659d2b1cf17009d/ir/opt/iropt.c#L7812
-        // df79debd25b9372f92c416c4d659d2b1cf17009d/ir/opt/iropt.c#L2169
-        a.node_id().cmp(&b.node_id())
-    }
-
-    /// Check if two nodes represent the same computation
-    ///
-    /// BEWARE: this may alter the order of out nodes of `a` and `b`!
-    /// BEWARE: this assumes nodes passed are floatable
-    ///         => nodes do not have side effects, are not blocks or phis, ...
-    fn is_same_expr(a: Node, b: Node) -> bool {
-        debug_assert!(is_movable(a), "GCSE only supports floatable nodes");
-        debug_assert!(is_movable(b), "GCSE only supports floatable nodes");
-        debug_assert!(!Node::is_block(a), "blocks should not be movable");
-        debug_assert!(a != b, "identity comparisons should not happen");
-
-        // test if it describes the same node variant,
-        // e.g. is both a "Const Is" node?
-        if (unsafe {
-            bindings::get_irn_op(a.internal_ir_node()) != bindings::get_irn_op(b.internal_ir_node())
-        }) || a.mode() != b.mode()
-        {
-            return false;
-        }
-
-        // check if the predecessors are the same
-        //
-        // Speed up the common case of iterators with unequal
-        // length. (Iterator::eq does not optimize this case)
-        let in_nodes_a = a.in_nodes();
-        let in_nodes_b = b.in_nodes();
-
-        if in_nodes_a.len() != in_nodes_b.len() {
-            return false;
-        }
-
-        if !Iterator::eq(in_nodes_a, in_nodes_b) {
-            return false;
-        }
-
-        // Some nodes have attributes that have to be identical, e.g.
-        // - Const nodes have their tarval as attribute
-        // - ASM nodes have the assembly as their attributes
-        //
-        // Internally, the equivalence of node attributes can be checked using
-        // `node->op->ops.attrs_equal(a,b)`, but this is not part of the public API.
-        //
-        // Since libfirm does not expose shit regarding this API, we employ a whitelist.
-        // In case you want to compare this to the actual implementation:
-        //
-        // - Nodes default to no attributes, therefore they are by default 'always
-        //   equal'
-        // - A list of overrides for middle end nodes can be found in:
-        //   83e6f63dba4f83f743b7f5d383af08454f95e90d/ir/ir/irop.c#L580
-        // - Backend specific nodes for the amd64 target default to 'always unequal' by
-        //   default
-        // - Overrides for backend nodes are implemented in:
-        //   fa4fea6c01a13e4cb7bfbffb018b9407f531f80b/ir/be/benode.c#L652
-
-        // performing GCSE on const like nodes, e.g. Const and Address, that do not
-        // result in instructions is still desired as we expect predecessors to
-        // be indentical (pointer equality)
-        match (a, b) {
-            (Node::Const(a), Node::Const(b)) => {
-                // TODO: add asserts for unknown and bad tarval
-                a.tarval() == b.tarval()
-            }
-            (Node::Or(_), Node::Or(_))
-            | (Node::Add(_), Node::Add(_))
-            | (Node::Sub(_), Node::Sub(_))
-            | (Node::Mul(_), Node::Mul(_))
-            | (Node::And(_), Node::And(_))
-            | (Node::Not(_), Node::Not(_))
-            | (Node::Minus(_), Node::Minus(_)) => true,
-            unknown => {
-                log::debug!("missing attribute equality for {:?}", unknown);
-                false
-            }
-        }
     }
 }
 
@@ -255,9 +111,24 @@ impl CodePlacement {
             dom_info_box(node)
         });
 
+        let common_subexpr = CommonSubExpr::optimize_function(self.graph);
+
+        breakpoint!("Graph after GCSE", self.graph, &|node: &Node| dom_info_box(
+            node
+        ));
+
         let optimal_placement = CostMinimizingPlacement::optimize_function(self.graph);
 
-        if earlier_placement == Outcome::Changed || optimal_placement == Outcome::Changed {
+        breakpoint!(
+            "Graph after Cost Minimizing Placement",
+            self.graph,
+            &|node: &Node| dom_info_box(node)
+        );
+
+        if earlier_placement == Outcome::Changed
+            || optimal_placement == Outcome::Changed
+            || common_subexpr == Outcome::Changed
+        {
             Outcome::Changed
         } else {
             Outcome::Unchanged
@@ -280,14 +151,12 @@ pub struct EarliestPlacement {
 
 impl optimization::Local for EarliestPlacement {
     fn optimize_function(graph: Graph) -> Outcome {
-        EarliestPlacement::new(graph, true).run()
+        EarliestPlacement::new(graph).run()
     }
 }
 
 impl EarliestPlacement {
     fn new(graph: Graph) -> Self {
-        // TODO: do we use outs in EarliestPlacement?
-        graph.assure_outs();
         graph.compute_doms();
         Self {
             graph,
@@ -324,6 +193,7 @@ impl EarliestPlacement {
             );
             return Outcome::Unchanged;
         }
+
         self.visited.insert(current_node);
 
         breakpoint!(
@@ -484,13 +354,12 @@ pub struct CostMinimizingPlacement {
     worklist: VecDeque<Node>,
     visited: HashSet<Node>,
     /// nodes that were removed by global common subexpression elimination
-    eliminated: HashSet<Node>,
     num_changed: usize,
 }
 
 impl optimization::Local for CostMinimizingPlacement {
     fn optimize_function(graph: Graph) -> Outcome {
-        Self::new(graph, true).run()
+        Self::new(graph).run()
     }
 }
 
@@ -502,7 +371,6 @@ impl CostMinimizingPlacement {
             graph,
             worklist: VecDeque::new(),
             visited: HashSet::new(),
-            eliminated: HashSet::new(),
             num_changed: 0,
         }
     }
@@ -540,20 +408,6 @@ impl CostMinimizingPlacement {
             return Outcome::Unchanged;
         }
 
-        if self.eliminated.contains(&current_node) {
-            breakpoint!(
-                &format!(
-                    "MinCost Placement: ignoring {:?} eliminated by GCSE",
-                    current_node
-                ),
-                self.graph,
-                &|node: &Node| label_with_dom_info(self.graph, node, &current_node)
-            );
-            return Outcome::Unchanged;
-        }
-
-        let has_change_by_elimination = self.eliminate_common_subexprs(current_node);
-
         self.visited.insert(current_node);
 
         breakpoint!(
@@ -562,110 +416,7 @@ impl CostMinimizingPlacement {
             &|node: &Node| label_with_dom_info(self.graph, node, &current_node)
         );
 
-        let change_by_movement = self.move_to_cost_minimizing_block(current_node);
-
-        if change_by_movement == Outcome::Changed || has_change_by_elimination == Outcome::Changed {
-            Outcome::Changed
-        } else {
-            Outcome::Unchanged
-        }
-    }
-
-    /// Performs global common subexpression elimination for floatable nodes.
-    ///
-    /// This will remove all nodes that are structural and semantically
-    /// equal to the given `current_node`. The `current_node` is kept as sole
-    /// representant of the expression, as a result the number of out nodes
-    /// of `current_node` may change!
-    ///
-    ///
-    /// NOTE: this is based on our assumption that nodes that can be eliminated
-    /// by GCSE share the same earliest block. As a result GCSE can be
-    /// implemented as a simple __local__ common sub-expression elimination.
-    ///
-    /// BEWARE: this function has fragile semantics! You must ensure that
-    /// - you only pass a floatable node
-    /// - the block has to be traversed depth first
-    /// - out nodes have to be current
-    fn eliminate_common_subexprs(&mut self, current_node: Node) -> Outcome {
-        if !is_movable(current_node) {
-            return Outcome::Unchanged;
-        }
-
-        let mut outcome = Outcome::Unchanged;
-
-        // TODO: ensure that out nodes are always current
-        // TODO: is the order of elimination important? I think we have to do this depth
-        // first! TODO: replace this with a explicit list instead of recomputing
-        // out nodes all the time
-
-        // normalize node order for all nodes in block, this includes
-        // the current node
-        for local_node in current_node.block().out_nodes() {
-            CommonSubExpr::normalize_node(local_node, self.graph);
-        }
-
-        // recompute the out indices, since edges were reordered
-        self.graph.assure_outs();
-
-        // NOTE: the GCSE may remove nodes, therefore we have to call `collect`.
-        // removed nodes are filtered using `self.eliminated.contains`.
-        for local_node in current_node.block().out_nodes().collect::<Vec<_>>() {
-            // TODO: this is fragile code. This only works since
-            // we expect in_nodes to be identical (address of pointers equal).
-            // TODO: think about this again. Can this result in malformed graphs???
-
-            if self.eliminated.contains(&local_node)
-                || !is_movable(local_node)
-                || local_node == current_node
-            {
-                continue;
-            }
-
-            if CommonSubExpr::is_same_expr(current_node, local_node) {
-                // TODO: this may result in trivial phi nodes
-                // which reference the same input multiple times.
-                breakpoint!(
-                    &format!(
-                        "GCSE: {:?} and {:?} are congruent",
-                        current_node, local_node
-                    ),
-                    self.graph,
-                    &|node: &Node| {
-                        let mut label = dom_info_box(node);
-
-                        if local_node == *node || current_node == *node {
-                            label = label
-                                .add_style(Style::Filled)
-                                .fillcolor(X11Color::Green)
-                                .fontcolor(X11Color::White);
-                        }
-
-                        label
-                    }
-                );
-
-                // remove the local node from the graph
-
-                for (consumer, idx) in local_node.out_nodes_ex() {
-                    consumer.set_input_at(idx, current_node);
-                }
-
-                local_node.set_in_nodes(&[]);
-
-                self.eliminated.insert(local_node);
-
-                outcome = Outcome::Changed;
-            }
-        }
-
-        // TODO: this is too expensive, I think running it once after
-        // the whole optimization sequence is sufficient for correctness
-        self.graph.remove_unreachable_code();
-        self.graph.remove_bads();
-        self.graph.assure_outs();
-
-        outcome
+        self.move_to_cost_minimizing_block(current_node)
     }
 
     fn move_to_cost_minimizing_block(&mut self, current_node: Node) -> Outcome {
@@ -685,7 +436,8 @@ impl CostMinimizingPlacement {
             //   require them to be in the start block. Currently, the only floatable node
             //   that has to stay in the start block is Const. All other start-block-only
             //   nodes like Bad, Unknown, ... are pinned anyways.
-            // TODO: float projs!
+            // - Projs are always moved with the node they project, see `update_block` and
+            //   do not need to be place separately => return early.
             if current_node.is_only_valid_in_start_block() || Node::is_proj(current_node) {
                 return Outcome::Unchanged;
             }
