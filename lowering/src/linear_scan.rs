@@ -1,8 +1,8 @@
 //! Linear-scan register allocation.
 
 use super::{
-    lir,
-    live_variable_analysis::{self, LiveRange, VarId},
+    lir::{self, Var},
+    live_variable_analysis::{self, LiveRange},
     register::{Amd64Reg, RegisterAllocator},
 };
 use crate::allocator::Ptr;
@@ -18,9 +18,9 @@ use std::{
 pub(crate) struct LSAResult {
     /// Counter of how many memory slots will be needed for spilling
     pub(crate) stack_vars_counter: usize,
-    /// Mapping for `VarId`s to their location, determined by the linear scan
+    /// Mapping for `Var`s to their location, determined by the linear scan
     /// algorithm
-    pub(crate) var_location: HashMap<VarId, Location>,
+    pub(crate) var_location: HashMap<Var, Location>,
     /// Number of regs that is required after the register allocation
     pub(crate) num_regs_required: usize,
 }
@@ -67,7 +67,7 @@ impl Ord for Active {
     fn cmp(&self, other: &Active) -> Ordering {
         match self.interval.upper().cmp(&other.interval.upper()) {
             // If the upper bound is the same take the var that was allocated earlier
-            Ordering::Equal => self.var_id.cmp(&other.var_id),
+            Ordering::Equal => self.var.num().cmp(&other.var.num()),
             ord => ord,
         }
     }
@@ -123,13 +123,14 @@ pub(super) struct LinearScanAllocator {
     /// Map from currently assigned registers to live ranges
     reg_lr_map: HashMap<Amd64Reg, LiveRange>,
 
-    params: HashMap<VarId, Param>,
+    params: HashMap<Var, Param>,
 
+    // FIXME refactor: the following vars are LSAResult
     /// Counter of how many memory slots will be needed for spilling
     pub(super) stack_vars_counter: usize,
-    /// Mapping for `VarId`s to their location, determined by the linear scan
+    /// Mapping for `Var`s to their location, determined by the linear scan
     /// algorithm
-    pub(super) var_location: HashMap<VarId, Location>,
+    pub(super) var_location: HashMap<Var, Location>,
     /// Number of regs that is required after the register allocation
     pub(super) num_regs_required: usize,
 }
@@ -137,7 +138,7 @@ pub(super) struct LinearScanAllocator {
 #[derive(Clone, Copy, Debug)]
 pub struct Param {
     pub pos: usize,
-    pub var_id: VarId,
+    pub var: Var,
 }
 
 impl LinearScanAllocator {
@@ -155,13 +156,13 @@ impl LinearScanAllocator {
         for param in params {
             let live_range = var_live
                 .iter()
-                .find(|live_range| live_range.var_id == param.var_id)
+                .find(|live_range| live_range.var == param.var)
                 .expect("lva mut produce a live range for a used parameter");
 
             if let Some(reg) = reg_alloc.arg_in_reg(param.pos) {
                 log::debug!("param {:?} in reg {:?}", param, reg);
                 active.insert(Active(*live_range));
-                var_location.insert(live_range.var_id, Location::Reg(reg));
+                var_location.insert(live_range.var, Location::Reg(reg));
                 reg_lr_map.insert(reg, *live_range);
             } else {
                 log::debug!("param {:?} on stack", param);
@@ -171,7 +172,7 @@ impl LinearScanAllocator {
         let num_regs_required = active.len();
 
         use std::iter::FromIterator;
-        let params = HashMap::from_iter(params.iter().map(|param| (param.var_id, *param)));
+        let params = HashMap::from_iter(params.iter().map(|param| (param.var, *param)));
         log::debug!("PARAMS {:#?}", params);
 
         Self {
@@ -229,8 +230,7 @@ impl LinearScanAllocator {
 
                     if let Some(reg) = self.reg_alloc.alloc_reg() {
                         self.active.insert(Active(**live_range));
-                        self.var_location
-                            .insert(live_range.var_id, Location::Reg(reg));
+                        self.var_location.insert(live_range.var, Location::Reg(reg));
                         self.reg_lr_map.insert(reg, **live_range);
                         self.num_regs_required =
                             std::cmp::max(self.active.len(), self.num_regs_required);
@@ -256,7 +256,7 @@ impl LinearScanAllocator {
             for live_range in &self.active {
                 let reg = self
                     .var_location
-                    .get(&live_range.var_id)
+                    .get(&live_range.var)
                     .expect("a register needs to be assigned to vars in the active list")
                     .reg_unchecked();
                 self.reg_alloc.free_reg(reg);
@@ -272,7 +272,7 @@ impl LinearScanAllocator {
     }
 
     fn new_stack_location(&mut self, range: LiveRange) -> Location {
-        let stack_param = self.params.get(&range.var_id).and_then(|param| {
+        let stack_param = self.params.get(&range.var).and_then(|param| {
             if self.reg_alloc.arg_in_reg(param.pos).is_none() {
                 Some(param)
             } else {
@@ -296,10 +296,10 @@ impl LinearScanAllocator {
             let location = self.new_stack_location(spill.0);
             let spill_reg = self
                 .var_location
-                .insert(spill.var_id, location)
+                .insert(spill.var, location)
                 .expect("a register needs to be assigned to vars in the active list");
 
-            self.var_location.insert(live_range.var_id, spill_reg);
+            self.var_location.insert(live_range.var, spill_reg);
             self.reg_lr_map
                 .insert(spill_reg.reg_unchecked(), live_range)
                 .expect("reg needs to be overwritten");
@@ -310,7 +310,7 @@ impl LinearScanAllocator {
             // live_range lives longer than spill
             // => live_range gets assigned an AR location
             let location = self.new_stack_location(live_range);
-            self.var_location.insert(live_range.var_id, location);
+            self.var_location.insert(live_range.var, location);
         }
     }
 }

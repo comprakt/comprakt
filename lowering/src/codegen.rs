@@ -5,7 +5,6 @@ use crate::{
     cycle_removal::{RegGraph, RegGraphMinLeftEdgeInstruction, RegToRegTransfer},
     linear_scan::{LSAResult, Location},
     lir,
-    live_variable_analysis::var_id,
     register::{Amd64Reg, CallingConv, Reg, Size},
 };
 use itertools::Itertools;
@@ -168,14 +167,14 @@ impl<'f> Codegen<'f> {
         instrs.push(Comment {
             comment: format!("Calling convention: {:?}", self.cconv),
         });
-        for (id, location) in self
+        for (var, location) in self
             .lsa_result
             .var_location
             .iter()
-            .sorted_by_key(|(id, _)| *id)
+            .sorted_by_key(|(var, _)| var.num())
         {
             instrs.push(Comment {
-                comment: format!("Var {:?} in {:?}", id, location),
+                comment: format!("Var {:?} in {:?}", var.num(), location),
             });
         }
     }
@@ -438,7 +437,7 @@ impl<'f> Codegen<'f> {
         use self::Instruction::{Comment, Mov};
 
         // FIXME confusing
-        let param = &self.lsa_result.var_location[&var_id(lir::Operand::Var(dst))];
+        let param = &self.lsa_result.var_location[&dst];
         let size = size.try_into().unwrap();
         match param {
             // Register allocation placed argument into a register.
@@ -1303,7 +1302,7 @@ impl<'f> Codegen<'f> {
         let op: lir::Operand = op.into();
         match op {
             lir::Operand::Imm(c) => SrcOperand::Imm(c),
-            lir::Operand::Var(var) => match self.lsa_result.var_location[&var_id(op)] {
+            lir::Operand::Var(var) => match self.lsa_result.var_location[&var] {
                 Location::Reg(reg) => SrcOperand::Reg(Reg {
                     size: { var.firm().mode().size_bytes().try_into().unwrap() },
                     reg,

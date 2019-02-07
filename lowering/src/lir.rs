@@ -23,6 +23,7 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     convert::TryFrom,
     fmt::{self, Display},
+    hash::{Hash, Hasher},
     marker::PhantomData,
 };
 
@@ -109,7 +110,7 @@ impl Function {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Var {
     firm: Node,
     num: usize,
@@ -134,6 +135,26 @@ impl fmt::Debug for Var {
 impl fmt::Display for Var {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, fmt)
+    }
+}
+
+/// a variable is only identified by its number
+///
+/// intended for use in live_variable_analysis
+impl PartialEq for Var {
+    fn eq(&self, other: &Self) -> bool {
+        self.num == other.num
+    }
+}
+
+impl Eq for Var {}
+
+/// a variable is only identified by its number
+///
+/// intended for use in live_variable_analysis
+impl Hash for Var {
+    fn hash<H: Hasher>(&self, h: &mut H) {
+        self.num.hash(h)
     }
 }
 

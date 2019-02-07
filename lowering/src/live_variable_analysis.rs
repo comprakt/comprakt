@@ -2,7 +2,7 @@
 
 use super::{
     linear_scan,
-    lir::{self, BasicBlock},
+    lir::{self, BasicBlock, Var},
 };
 use crate::{
     allocator::{HashPtr, Ptr},
@@ -56,35 +56,24 @@ impl fmt::Debug for Ptr<ScheduledInstr> {
     }
 }
 
-pub(crate) type VarId = (usize);
-
-/// FIXME refactor
-pub(crate) fn var_id(op: lir::Operand) -> VarId {
-    use crate::lir::Operand::*;
-    match op {
-        Var(var) => (var.num()),
-        Imm(_) => unreachable!(),
-    }
-}
-
 pub(crate) struct LVAResult {
     pub(crate) scheduled_instrs: Vec<Ptr<ScheduledInstr>>,
     pub(crate) live_ranges_by_start: BTreeSet<LiveRange>,
     pub(crate) lsa_params_list: Vec<linear_scan::Param>,
 }
 
-/// `LiveRange` holds for every `VarId` the liveness interval. This implements
+/// `LiveRange` holds the liveness interval for every `Var`. This implements
 /// Ord, so that `LiveRange`s are sorted by the lower bound of their interval.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub(crate) struct LiveRange {
-    pub(crate) var_id: VarId,
+    pub(crate) var: Var,
     pub(crate) interval: Interval<usize>,
 }
 
 impl Ord for LiveRange {
     fn cmp(&self, other: &LiveRange) -> Ordering {
         match self.interval.lower().cmp(&other.interval.lower()) {
-            Ordering::Equal => self.var_id.cmp(&other.var_id),
+            Ordering::Equal => self.var.num().cmp(&other.var.num()),
             ord => ord,
         }
     }
@@ -169,50 +158,49 @@ fn build_scheduled_instrs<'lir>(
 }
 
 /// `usize` is the `scheduled_instrs.idx`
-type Liveness = HashMap<VarId, BTreeSet<usize>>;
+type Liveness = HashMap<Var, BTreeSet<usize>>;
 
 fn build_liveness(scheduled_instrs: &[Ptr<ScheduledInstr>]) -> Liveness {
     let mut queue = VecDeque::from_iter(scheduled_instrs.iter().cloned().rev());
-    let mut ins: HashMap<HashPtr<ScheduledInstr>, HashSet<VarId>> = HashMap::new();
-    let mut outs: HashMap<HashPtr<ScheduledInstr>, HashSet<VarId>> = HashMap::new();
+    let mut ins: HashMap<HashPtr<ScheduledInstr>, HashSet<Var>> = HashMap::new();
+    let mut outs: HashMap<HashPtr<ScheduledInstr>, HashSet<Var>> = HashMap::new();
 
     while let Some(instr) = queue.pop_front() {
         let gen = instr.lir.src_operands();
         let kill = instr.lir.dst_operand();
 
         let gen = gen.iter().filter_map(|op| {
-            if let lir::Operand::Var(_) = op {
-                Some(var_id(*op))
+            if let lir::Operand::Var(var) = op {
+                Some(var)
             } else {
                 None
             }
         });
-        let kill = kill.map(|var| var_id(lir::Operand::Var(var)));
 
         let cur_ins = ins.entry(instr.into()).or_default();
         let cur_outs = outs.entry(instr.into()).or_default();
         log::debug!("Gen: {:?}, Kill: {:?}", gen, kill);
 
         // outs'(b) = outs(b) - kill(b) => ins(b) = gen(b)+outs'(b)
-        if let Some(var_id) = kill {
-            cur_outs.remove(&var_id);
+        if let Some(var) = kill {
+            cur_outs.remove(&var);
         }
         // if (outs'(b)+gen(b) != ins(b)) => changed = true
         // sitenote: outs'(b)+gen(b) >= ins(b)
         let mut changed = false;
         // ins(b) += outs'(b)
-        for var_id in cur_outs.iter() {
-            changed |= cur_ins.insert(*var_id);
+        for var in cur_outs.iter() {
+            changed |= cur_ins.insert(*var);
         }
         // ins(b) += gen(b)
-        for var_id in gen {
-            changed |= cur_ins.insert(var_id);
+        for var in gen {
+            changed |= cur_ins.insert(*var);
         }
 
         if changed {
             for pred in &instr.preds {
-                for var_id in cur_ins.iter() {
-                    outs.entry((*pred).into()).or_default().insert(*var_id);
+                for var in cur_ins.iter() {
+                    outs.entry((*pred).into()).or_default().insert(*var);
                 }
                 queue.push_back(*pred);
             }
@@ -221,8 +209,8 @@ fn build_liveness(scheduled_instrs: &[Ptr<ScheduledInstr>]) -> Liveness {
 
     let mut liveness = Liveness::new();
     for (instr, alive_vars) in ins.into_iter() {
-        for var_id in alive_vars {
-            liveness.entry(var_id).or_default().insert(instr.idx);
+        for var in alive_vars {
+            liveness.entry(var).or_default().insert(instr.idx);
         }
     }
 
@@ -233,27 +221,27 @@ fn build_live_ranges(
     scheduled_instrs: &[Ptr<ScheduledInstr>],
     liveness: Liveness,
 ) -> (BTreeSet<LiveRange>, Vec<linear_scan::Param>) {
-    let mut defs_and_uses: HashMap<VarId, Vec<usize>> = HashMap::new();
+    let mut defs_and_uses: HashMap<Var, Vec<usize>> = HashMap::new();
     for (i, instr) in scheduled_instrs.iter().enumerate() {
         for op in instr.lir.src_operands() {
             match op {
                 lir::Operand::Imm(_) => (),
-                lir::Operand::Var(_) => defs_and_uses.entry(var_id(op)).or_default().push(i),
+                lir::Operand::Var(var) => defs_and_uses.entry(var).or_default().push(i),
             }
         }
-        if let Some(var_id) = instr.lir.dst_operand().map(lir::Operand::Var).map(var_id) {
-            defs_and_uses.entry(var_id).or_default().push(i);
+        if let Some(var) = instr.lir.dst_operand() {
+            defs_and_uses.entry(var).or_default().push(i);
         }
     }
 
     let mut var_live = BTreeSet::new();
-    for (var_id, instr_counters) in defs_and_uses {
+    for (var, instr_counters) in defs_and_uses {
         let first_instr_ctr = instr_counters[0];
         let last_instr_ctr = *instr_counters.iter().last().unwrap();
         // The last usage is the last position  last instr_counter or the last
         // instruction in liveness, whichever is later.
         let last_live_ctr = liveness
-            .get(&var_id)
+            .get(&var)
             // if none, the data flow analysis determined that the variable is not live after its
             // definition ("write-only")
             .map_or(last_instr_ctr, |var_uses| *var_uses.iter().last().unwrap());
@@ -262,7 +250,7 @@ fn build_live_ranges(
         log::debug!("last live instr: {:?}", scheduled_instrs[last_live_ctr]);
         let interval = Interval::new(first_instr_ctr, last_live_ctr);
 
-        var_live.insert(LiveRange { var_id, interval });
+        var_live.insert(LiveRange { var, interval });
     }
 
     // TODO hacky
@@ -272,7 +260,7 @@ fn build_live_ranges(
             lir::CodeInstruction::Body(body) => match *body {
                 lir::Instruction::LoadParam { idx, dst, .. } => Some(linear_scan::Param {
                     pos: idx as usize,
-                    var_id: var_id(lir::Operand::Var(dst)),
+                    var: dst,
                 }),
                 _ => None,
             },
