@@ -323,11 +323,16 @@ fn strip_comments(s: &str) -> String {
 }
 
 fn remove_labels(s: &str) -> String {
-    let regex = regex::RegexBuilder::new(r"(^\.L[0-9]+:\n| L[0-9]+)")
+    let regex = regex::RegexBuilder::new(r"^\.L[0-9]+:\n")
         .multi_line(true)
         .build()
         .unwrap();
-    regex.replace_all(s, "").to_string()
+    let s = regex.replace_all(s, "").to_string();
+    let regex = regex::RegexBuilder::new(r"^.*j(mp|lt|gt|e|ne|ge|le) \.L[0-9]+\n")
+        .multi_line(true)
+        .build()
+        .unwrap();
+    regex.replace_all(&s, "").to_string()
 }
 
 // TODO: not sure if this is actually necessary
