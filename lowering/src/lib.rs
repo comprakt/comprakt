@@ -63,14 +63,3 @@ pub fn run_backend(
 
     Ok(())
 }
-
-pub(crate) type VarId = (usize);
-
-/// FIXME refactor
-fn var_id(op: lir::Operand) -> VarId {
-    use crate::lir::Operand::*;
-    match op {
-        Var(var) => (var.num()),
-        Imm(_) => unreachable!(),
-    }
-}

@@ -1,9 +1,9 @@
 //! Linear-scan register allocation.
 
 use super::{
-    lir, live_variable_analysis,
+    lir,
+    live_variable_analysis::{self, LiveRange, VarId},
     register::{Amd64Reg, RegisterAllocator},
-    VarId,
 };
 use crate::allocator::Ptr;
 use gcollections::ops::bounded::Bounded;
@@ -54,29 +54,6 @@ pub(crate) fn register_allocation(func: &mut lir::Function, lva_result: LVAResul
     let mut linear_scan = LinearScanAllocator::new(reg_alloc, var_live, &lsa_params_list);
     linear_scan.run(&scheduled_instrs);
     linear_scan.into()
-}
-
-/// `LiveRange` holds for every `VarId` the liveness interval. This implements
-/// Ord, so that `LiveRange`s are sorted by the lower bound of their interval.
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub(crate) struct LiveRange {
-    pub(crate) var_id: VarId,
-    pub(crate) interval: Interval<usize>,
-}
-
-impl Ord for LiveRange {
-    fn cmp(&self, other: &LiveRange) -> Ordering {
-        match self.interval.lower().cmp(&other.interval.lower()) {
-            Ordering::Equal => self.var_id.cmp(&other.var_id),
-            ord => ord,
-        }
-    }
-}
-
-impl PartialOrd for LiveRange {
-    fn partial_cmp(&self, other: &LiveRange) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
 }
 
 /// This is a wrapper struct for `LiveRange`s. `LiveRange`s need to be sorted by

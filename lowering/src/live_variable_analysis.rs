@@ -3,14 +3,15 @@
 use super::{
     linear_scan,
     lir::{self, BasicBlock},
-    var_id, VarId,
 };
 use crate::{
     allocator::{HashPtr, Ptr},
     lir::Allocator,
 };
+use gcollections::ops::bounded::Bounded;
 use interval::{ops::Range, Interval};
 use std::{
+    cmp::Ordering,
     collections::{BTreeSet, HashMap, HashSet, VecDeque},
     hash::{Hash, Hasher},
     iter::FromIterator,
@@ -55,10 +56,44 @@ impl fmt::Debug for Ptr<ScheduledInstr> {
     }
 }
 
+pub(crate) type VarId = (usize);
+
+/// FIXME refactor
+pub(crate) fn var_id(op: lir::Operand) -> VarId {
+    use crate::lir::Operand::*;
+    match op {
+        Var(var) => (var.num()),
+        Imm(_) => unreachable!(),
+    }
+}
+
 pub(crate) struct LVAResult {
     pub(crate) scheduled_instrs: Vec<Ptr<ScheduledInstr>>,
-    pub(crate) live_ranges_by_start: BTreeSet<linear_scan::LiveRange>,
+    pub(crate) live_ranges_by_start: BTreeSet<LiveRange>,
     pub(crate) lsa_params_list: Vec<linear_scan::Param>,
+}
+
+/// `LiveRange` holds for every `VarId` the liveness interval. This implements
+/// Ord, so that `LiveRange`s are sorted by the lower bound of their interval.
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub(crate) struct LiveRange {
+    pub(crate) var_id: VarId,
+    pub(crate) interval: Interval<usize>,
+}
+
+impl Ord for LiveRange {
+    fn cmp(&self, other: &LiveRange) -> Ordering {
+        match self.interval.lower().cmp(&other.interval.lower()) {
+            Ordering::Equal => self.var_id.cmp(&other.var_id),
+            ord => ord,
+        }
+    }
+}
+
+impl PartialOrd for LiveRange {
+    fn partial_cmp(&self, other: &LiveRange) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 pub(crate) fn live_variable_analysis(
@@ -197,7 +232,7 @@ fn build_liveness(scheduled_instrs: &[Ptr<ScheduledInstr>]) -> Liveness {
 fn build_live_ranges(
     scheduled_instrs: &[Ptr<ScheduledInstr>],
     liveness: Liveness,
-) -> (BTreeSet<linear_scan::LiveRange>, Vec<linear_scan::Param>) {
+) -> (BTreeSet<LiveRange>, Vec<linear_scan::Param>) {
     let mut defs_and_uses: HashMap<VarId, Vec<usize>> = HashMap::new();
     for (i, instr) in scheduled_instrs.iter().enumerate() {
         for op in instr.lir.src_operands() {
@@ -227,7 +262,7 @@ fn build_live_ranges(
         log::debug!("last live instr: {:?}", scheduled_instrs[last_live_ctr]);
         let interval = Interval::new(first_instr_ctr, last_live_ctr);
 
-        var_live.insert(linear_scan::LiveRange { var_id, interval });
+        var_live.insert(LiveRange { var_id, interval });
     }
 
     // TODO hacky

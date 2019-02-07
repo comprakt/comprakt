@@ -5,8 +5,8 @@ use crate::{
     cycle_removal::{RegGraph, RegGraphMinLeftEdgeInstruction, RegToRegTransfer},
     linear_scan::{LSAResult, Location},
     lir,
+    live_variable_analysis::var_id,
     register::{Amd64Reg, CallingConv, Reg, Size},
-    var_id,
 };
 use itertools::Itertools;
 use libfirm_rs::{nodes::NodeTrait, Tarval};
