@@ -8,6 +8,9 @@ use libfirm_rs::{
 };
 use std::fmt;
 
+/// Set this environment variable to enable these special functions
+pub const ENV_VAR: &'static str = "COMPRAKT_COMPILE_TIME_MJ_ASSERTS";
+
 #[derive(Default, Clone, Debug)]
 pub struct CompileTimeAssertions {}
 
@@ -53,7 +56,15 @@ impl CompileTimeAssertions {
         Self {}
     }
 
+    fn disabled() -> bool {
+        !std::env::var(ENV_VAR).is_ok()
+    }
+
     pub fn check_program(&self, program: &FirmProgram<'_, '_>, phase: Phase) {
+        if CompileTimeAssertions::disabled() {
+            return;
+        }
+
         log::debug!("checking assertions for phase {:?}", phase);
 
         for method in program.methods.values() {
@@ -66,6 +77,10 @@ impl CompileTimeAssertions {
     // check all assertions, panic if the an assertion is
     // wrong.
     pub fn check_graph(&self, graph: Graph, phase: Phase) {
+        if CompileTimeAssertions::disabled() {
+            return;
+        }
+
         graph.walk(|node| {
             if let Some(call) = Node::as_call(*node) {
                 if let Some(method_name) = call.method_name() {

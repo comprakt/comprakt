@@ -28,7 +28,7 @@ mod control_flow;
 use self::control_flow::ControlFlow;
 mod remove_critical_edges;
 pub use self::remove_critical_edges::RemoveCriticalEdges;
-mod compile_time_assertions;
+pub mod compile_time_assertions;
 mod lattices;
 pub use self::compile_time_assertions::{CompileTimeAssertions, Phase};
 
