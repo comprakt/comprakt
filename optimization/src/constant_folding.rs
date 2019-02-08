@@ -57,8 +57,9 @@ impl optimization::Local for ConstantFolding {
         constant_folding.run();
         let result = constant_folding.apply();
 
-        // TODO only do this in tests
-        check_asserts(graph);
+        if cfg!(test) {
+            check_asserts(graph);
+        }
 
         result
     }

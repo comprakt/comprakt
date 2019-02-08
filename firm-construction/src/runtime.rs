@@ -56,28 +56,6 @@ impl RTLib for Mjrt {
     }
 }
 
-/// The runtime library provided implemented by molki.
-pub struct Molki;
-
-impl RTLib for Molki {
-    fn ld_name(&self, rtf: RuntimeFunction) -> &'static str {
-        match rtf {
-            RuntimeFunction::SystemOutPrintln => "__stdlib_println",
-            RuntimeFunction::SystemOutWrite => "__stdlib_write",
-            RuntimeFunction::SystemOutFlush => "__stdlib_flush",
-            RuntimeFunction::SystemInRead => "__stdlib_read",
-            RuntimeFunction::New => "__stdlib_malloc",
-            RuntimeFunction::Dumpstack => "__stdlib_not_implemented_dumpstack",
-            RuntimeFunction::DivByZero => "__stdlib_not_implemented_div_by_zero",
-            RuntimeFunction::NullUsage => "__stdlib_not_implemented_null_usage",
-            RuntimeFunction::ArrayOutOfBounds => "__stdlib_not_implemented_array_oob",
-        }
-    }
-    fn mj_main_name(&self) -> &'static str {
-        "minijava_main"
-    }
-}
-
 pub struct Runtime {
     pub lib: Box<dyn RTLib>,
 

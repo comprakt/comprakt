@@ -7,7 +7,7 @@ pub mod yaml;
 pub use self::{lookup::*, testkind::*};
 use difference::Changeset;
 use failure::Fail;
-use optimization::Level;
+use optimization::{compile_time_assertions, Level};
 use serde::de::DeserializeOwned;
 use serde_derive::Deserialize;
 use std::{
@@ -132,6 +132,7 @@ pub fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command
                 });
 
             cmd.env("TERM", "dumb"); // disable color output
+            cmd.env(compile_time_assertions::ENV_VAR_NAME, "enabled");
 
             cmd.args(compiler_args(phase));
             cmd.arg(filepath.as_os_str());
