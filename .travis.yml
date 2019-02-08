@@ -51,6 +51,7 @@ install: |
         git clone https://git.scc.kit.edu/IPDSnelting/mjtest.git && \
         cd mjtest && \
         git submodule update --init --remote && \
+        rm tests/exec/big/bench_binarytrees.* && \
         cd -;
         ;;
       submission-system)
