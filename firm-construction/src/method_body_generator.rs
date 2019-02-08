@@ -851,7 +851,10 @@ impl<'src> LValue<'src> {
 
         let ptr = match sel_or_mem {
             Node::Member(mem) => mem.ptr(),
-            Node::Sel(sel) => sel.ptr(),
+            Node::Sel(sel) => match sel.ptr() {
+                Node::Member(mem) => mem.ptr(),
+                sel_ptr => sel_ptr,
+            },
             _ => unreachable!(),
         };
 
