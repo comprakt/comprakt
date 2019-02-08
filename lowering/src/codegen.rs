@@ -1079,10 +1079,10 @@ impl<'f> Codegen<'f> {
             .into(),
         );
         instrs.push(post_call_reset_rsp_of_pushs);
-        instrs.extend(move_result_to_dst);
         instrs.extend(caller_saves.restores().map(|reg| Popq {
             dst: reg.into_reg(Size::Eight).into(),
         }));
+        instrs.extend(move_result_to_dst);
     }
 
     fn gen_jmp_label(&self, target: Ptr<lir::BasicBlock>) -> String {
