@@ -911,13 +911,16 @@ impl<'src> LValue<'src> {
                 member,
                 target_ty,
                 span,
-            } => self.load_array_or_field(
-                span_storage,
-                Node::Member(member),
-                target_ty,
-                span,
-                act_block,
-            ),
+            } => {
+                let act_block = self.gen_null_ptr_check(member.ptr(), span_storage, act_block);
+                self.load_array_or_field(
+                    span_storage,
+                    Node::Member(member),
+                    target_ty,
+                    span,
+                    act_block,
+                )
+            }
         }
     }
 
@@ -929,7 +932,6 @@ impl<'src> LValue<'src> {
         span: Span<'src>,
         act_block: Block,
     ) -> (Block, Node) {
-        let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
         let load = span_storage.with_span(
             span,
             act_block.new_load(
@@ -973,14 +975,17 @@ impl<'src> LValue<'src> {
 
             Field {
                 member, target_ty, ..
-            } => self.store_array_or_field(
-                span_storage,
-                Node::Member(member),
-                target_ty,
-                value,
-                span,
-                act_block,
-            ),
+            } => {
+                let act_block = self.gen_null_ptr_check(member.ptr(), span_storage, act_block);
+                self.store_array_or_field(
+                    span_storage,
+                    Node::Member(member),
+                    target_ty,
+                    value,
+                    span,
+                    act_block,
+                )
+            }
         }
     }
 
@@ -993,7 +998,6 @@ impl<'src> LValue<'src> {
         span: Span<'src>,
         act_block: Block,
     ) -> (Block, Node) {
-        let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
         let store = span_storage.with_span(
             span,
             act_block.new_store(
@@ -1021,6 +1025,12 @@ impl<'src> LValue<'src> {
                 span: _,
                 ..
             } => {
+                let act_block = if let Node::Member(target) = target {
+                    self.gen_null_ptr_check(target.ptr(), span_storage, act_block)
+                } else {
+                    self.gen_null_ptr_check(*target, span_storage, act_block)
+                };
+
                 let (len_entity, data_entity) = if let Ty::Pointer(array_ty) = array_ty {
                     if let Ty::Struct(array_ty) = array_ty.points_to() {
                         let mut fields = array_ty.fields();
@@ -1053,22 +1063,13 @@ impl<'src> LValue<'src> {
 
     fn gen_null_ptr_check(
         &self,
-        sel_or_mem: Node,
+        ptr: Node,
         method_body: &mut MethodBodyGenerator<'_, 'src, '_>,
         act_block: Block,
     ) -> Block {
         if !method_body.safety_flags.contains(&safety::Flag::CheckNull) {
             return act_block;
         }
-
-        let ptr = match sel_or_mem {
-            Node::Member(mem) => mem.ptr(),
-            Node::Sel(sel) => match sel.ptr() {
-                Node::Member(mem) => mem.ptr(),
-                sel_ptr => sel_ptr,
-            },
-            _ => unreachable!(),
-        };
 
         let cmp_with_null = act_block.new_cmp(
             ptr,
