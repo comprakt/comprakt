@@ -63,6 +63,26 @@ impl Spans {
         let node = match node.as_node() {
             Node::Proj(_proj, ProjKind::Call_TResult_Arg(_idx, call, _)) => call.into(),
             Node::Proj(proj, _) => proj.pred(),
+            Node::Phi(phi) if !map.contains_key(&node.as_node()) => {
+                let mut best: Option<Span<'static>> = None;
+                for in_node in phi.in_nodes() {
+                    if Node::is_phi(in_node) {
+                        continue;
+                    }
+                    if let Some(span) = self.lookup_span_(in_node) {
+                        if let Some(best_span) = best {
+                            if span.start_position().line_number()
+                                > best_span.end_position().line_number()
+                            {
+                                best = Some(span);
+                            }
+                        } else {
+                            best = Some(span);
+                        }
+                    }
+                }
+                return best;
+            }
             node => node,
         };
         map.get(&node.as_node()).cloned()
