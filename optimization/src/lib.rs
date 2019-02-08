@@ -34,6 +34,8 @@ mod common_subexpr_elim;
 pub use self::common_subexpr_elim::CommonSubExpr;
 pub mod compile_time_assertions;
 pub use self::compile_time_assertions::{CompileTimeAssertions, Phase};
+mod node_local;
+pub use self::node_local::NodeLocal;
 mod lattices;
 
 /// An optimization that optimizes the whole program by examining all function
@@ -82,6 +84,7 @@ pub enum Kind {
     CostMinimizingPlacement,
     CodePlacement,
     CommonSubExprElim,
+    NodeLocal,
 }
 
 impl Kind {
@@ -95,6 +98,7 @@ impl Kind {
             Kind::CostMinimizingPlacement => CostMinimizingPlacement::optimize(program),
             Kind::CodePlacement => CodePlacement::optimize(program),
             Kind::CommonSubExprElim => CommonSubExpr::optimize(program),
+            Kind::NodeLocal => NodeLocal::optimize(program),
         }
     }
 }
