@@ -460,16 +460,21 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let item_ty = &self.type_analysis.expr_info(expr).ty;
                 let item_ty = ty_from_checked_type(item_ty, self.type_system, self.program)
                     .expect("not void");
-                let arr_ty = item_ty.array().into();
+                let array_ty = &self.type_analysis.expr_info(target).ty;
+                let array_ty = ty_from_checked_type(array_ty, self.type_system, self.program)
+                    .expect("not void");
+
                 let (act_block, target) = self.gen_value(act_block, target);
-                let (act_block, idx_node) = self.gen_value(act_block, idx_expr);
-                let sel = self.with_spanned(expr, act_block.new_sel(target, idx_node, arr_ty));
+                let (act_block, idx) = self.gen_value(act_block, idx_expr);
+
                 Assignable(
                     act_block,
                     LValue::Array {
-                        span: expr.span,
-                        sel: sel.into(),
+                        target,
+                        idx,
+                        array_ty,
                         item_ty,
+                        span: expr.span,
                     },
                 )
             }
@@ -502,18 +507,34 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 )
             }
             NewArray(_, num_expr, _) => {
-                let checked_elem_ty = &self
-                    .type_analysis
-                    .expr_info(expr)
-                    .ty
+                let checked_array_ty = &self.type_analysis.expr_info(expr).ty;
+                let checked_elem_ty = checked_array_ty
                     .inner_type()
                     .expect("type of array must have inner type");
+
+                let array_ty =
+                    ty_from_checked_type(checked_array_ty, self.type_system, self.program)
+                        .expect("To be a valid type");
                 let elem_ty = ty_from_checked_type(checked_elem_ty, self.type_system, self.program)
                     .expect("To be a valid type");
+
+                let len_entity = if let Ty::Pointer(array_ty) = array_ty {
+                    if let Ty::Struct(array_ty) = array_ty.points_to() {
+                        array_ty.fields().next().unwrap()
+                    } else {
+                        unreachable!("Array type should be pointer to struct");
+                    }
+                } else {
+                    unreachable!("Array type should be pointer");
+                };
+
                 let (act_block, num_elts) = self.gen_value(act_block, num_expr);
                 let elt_size = self.graph.new_size(Mode::Is(), elem_ty);
 
-                let alloc_size = act_block.new_mul(num_elts, elt_size);
+                let alloc_size = act_block.new_add(
+                    act_block.new_mul(num_elts, elt_size),
+                    self.graph.new_size(Mode::Is(), len_entity.ty()),
+                );
                 let call = act_block.new_call(
                     act_block.cur_store(),
                     self.graph.new_address(self.runtime.new),
@@ -522,10 +543,22 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 );
                 let call = self.with_spanned(expr, call);
                 act_block.set_store(call.new_proj_m());
-                Value(
-                    act_block,
-                    call.new_proj_t_result().new_proj(0, Mode::P()).into(),
-                )
+                let array = call.new_proj_t_result().new_proj(0, Mode::P());
+
+                let len_member = act_block.new_member(array, len_entity);
+                let store = self.with_spanned(
+                    expr,
+                    act_block.new_store(
+                        act_block.cur_store(),
+                        len_member,
+                        num_elts,
+                        len_entity.ty(),
+                        bindings::ir_cons_flags::None,
+                    ),
+                );
+                act_block.set_store(store.new_proj_m());
+
+                Value(act_block, array.into())
             }
         }
     }
@@ -826,7 +859,9 @@ enum LValue<'src> {
     },
     // Array acccess
     Array {
-        sel: Sel,
+        target: Node,
+        idx: Node,
+        array_ty: Ty,
         item_ty: Ty,
         span: Span<'src>,
     },
@@ -885,6 +920,104 @@ impl<'src> LValue<'src> {
         method_body.graph.new_block(&[is_not_null])
     }
 
+    fn gen_array_bounds_check(
+        &self,
+        target: Node,
+        idx: Node,
+        len_entity: Entity,
+        method_body: &mut MethodBodyGenerator<'_, 'src, '_>,
+        act_block: Block,
+    ) -> Block {
+        if !method_body
+            .safety_flags
+            .contains(&safety::Flag::CheckArrayBounds)
+        {
+            return act_block;
+        }
+
+        let len = act_block.new_member(target, len_entity);
+        let load = act_block.new_load(
+            act_block.cur_store(),
+            len,
+            len_entity.ty().mode(),
+            len_entity.ty(),
+            bindings::ir_cons_flags::None,
+        );
+        act_block.set_store(load.new_proj_m());
+        let len = load.new_proj_res(len_entity.ty().mode());
+
+        let cmp_with_upper_bound = act_block.new_cmp(idx, len, bindings::ir_relation::Less);
+        let CondProjection {
+            tr: below_upper_bound,
+            fls: above_upper_bound,
+        } = CondProjection::new(act_block.new_cond(cmp_with_upper_bound));
+
+        let upper_bound_holds = method_body.graph.new_block(&[below_upper_bound]);
+
+        let cmp_with_lower_bound = upper_bound_holds.new_cmp(
+            idx,
+            method_body.graph.new_const(Tarval::zero(Mode::Is())),
+            bindings::ir_relation::GreaterEqual,
+        );
+        let CondProjection {
+            tr: within_bounds,
+            fls: below_lower_bound,
+        } = CondProjection::new(upper_bound_holds.new_cond(cmp_with_lower_bound));
+
+        let err_block = method_body
+            .graph
+            .new_block(&[above_upper_bound, below_lower_bound]);
+        let err_fn = method_body.runtime.array_out_of_bounds;
+        let err_call = err_block.new_call(
+            err_block.cur_store(),
+            method_body.graph.new_address(err_fn),
+            &[],
+            err_fn.ty(),
+        );
+        err_block.set_store(err_call.new_proj_m());
+        err_block.keep_alive();
+        err_call.keep_alive();
+        err_block.mature();
+
+        method_body.graph.new_block(&[within_bounds])
+    }
+
+    fn gen_array_sel(
+        &self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        act_block: Block,
+    ) -> (Block, Sel) {
+        match self {
+            LValue::Array {
+                target,
+                idx,
+                array_ty,
+                span: _,
+                ..
+            } => {
+                let (len_entity, data_entity) = if let Ty::Pointer(array_ty) = array_ty {
+                    if let Ty::Struct(array_ty) = array_ty.points_to() {
+                        let mut fields = array_ty.fields();
+                        (fields.next().unwrap(), fields.next().unwrap())
+                    } else {
+                        unreachable!("Array type should be pointer to struct");
+                    }
+                } else {
+                    unreachable!("Array type should be pointer");
+                };
+
+                let data = act_block.new_member(*target, data_entity);
+                let sel = act_block.new_sel(data, *idx, data_entity.ty());
+
+                let act_block =
+                    self.gen_array_bounds_check(*target, *idx, len_entity, span_storage, act_block);
+
+                (act_block, sel)
+            }
+            _ => panic!("This function should only be called for arrays"),
+        }
+    }
+
     fn load_array_or_field(
         &self,
         span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
@@ -927,8 +1060,9 @@ impl<'src> LValue<'src> {
                 }
                 (act_block, val)
             }
-            Array { sel, item_ty, span } => {
-                //let act_block = self.check_array_bounds(sel, item_ty, act_block);
+            Array { item_ty, span, .. } => {
+                let (act_block, sel) = self.gen_array_sel(span_storage, act_block);
+
                 self.load_array_or_field(span_storage, Node::Sel(sel), item_ty, span, act_block)
             }
 
@@ -985,14 +1119,17 @@ impl<'src> LValue<'src> {
                 (act_block, value)
             }
 
-            Array { sel, item_ty, .. } => self.store_array_or_field(
-                span_storage,
-                Node::Sel(sel),
-                item_ty,
-                value,
-                span,
-                act_block,
-            ),
+            Array { item_ty, .. } => {
+                let (act_block, sel) = self.gen_array_sel(span_storage, act_block);
+                self.store_array_or_field(
+                    span_storage,
+                    Node::Sel(sel),
+                    item_ty,
+                    value,
+                    span,
+                    act_block,
+                )
+            }
 
             Field {
                 member, target_ty, ..
