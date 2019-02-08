@@ -17,4 +17,8 @@ TARGET="${TARGET:-release}"
 
 # The VANILLA flag disables all additional features of our compiler that
 # violate the MiniJava language specification
-VANILLA=true exec "$SCRIPT_PATH/target/$TARGET/compiler-cli" "$@"
+if [[ -z $CHOCOLATE ]]; then
+    VANILLA=1 exec "$SCRIPT_PATH/target/$TARGET/compiler-cli" "$@"
+else
+    exec "$SCRIPT_PATH/target/$TARGET/compiler-cli" "$@"
+fi
