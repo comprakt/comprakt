@@ -109,7 +109,7 @@ impl Runtime {
 
         let new = {
             let loc = PrimitiveTy::ptr();
-            let size = PrimitiveTy::i32();
+            let size = PrimitiveTy::i64();
             let mut t = MethodTyBuilder::new();
 
             t.add_param(size.into());
