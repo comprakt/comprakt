@@ -144,10 +144,6 @@ impl NodeLattice {
 
 impl Lattice for NodeLattice {
     fn is_progression_of(&self, other: &Self) -> bool {
-        fn is_option_progression_of(option: &Option<Node>, base: &Option<Node>) -> bool {
-            option == base || base == &None
-        }
-
         use self::NodeLattice::*;
         match (self, other) {
             (_, NoInfoYet) => true,
@@ -159,14 +155,6 @@ impl Lattice for NodeLattice {
     }
 
     fn join(&self, other: &Self) -> Self {
-        fn join_option(n1: &Option<Node>, n2: &Option<Node>) -> Option<Node> {
-            if n1 == n2 {
-                *n1
-            } else {
-                None
-            }
-        }
-
         use self::NodeLattice::*;
         match (self, other) {
             (NoInfoYet, arg2) => arg2.clone(),
@@ -230,7 +218,7 @@ impl fmt::Debug for AbstractValue {
 }
 
 impl Lattice for AbstractValue {
-    fn is_progression_of(&self, other: &Self) -> bool {
+    fn is_progression_of(&self, _other: &Self) -> bool {
         // todo
         /*
                 (
@@ -285,7 +273,11 @@ impl NodeValue {
                 (AbstractValue::Tarval(tv), node) => {
                     !tv.is_unknown()
                         && tv.mode() != Mode::P()
-                        && (tv.is_bad() || node.map(|n| n.mode() == tv.mode()).unwrap_or(true))
+                        && (tv.is_bad()
+                            || node
+                                // for `div` and `mod`, mode `T`uples is used.
+                                .map(|n| n.mode() == tv.mode() || n.mode() == Mode::T())
+                                .unwrap_or(true))
                 }
             },
             "{:?} {:?}",
@@ -335,7 +327,7 @@ impl NodeValue {
                 )
             }
         } else {
-            NodeValue::new(val.into(), source).into()
+            NodeValue::new(val.into(), source)
         }
     }
 
@@ -362,7 +354,7 @@ impl NodeValue {
         match &self.value {
             AbstractValue::Tarval(tv) => *tv,
             AbstractValue::Pointer(ptr) if ptr.is_null() => Tarval::zero(Mode::P()),
-            AbstractValue::Pointer(ptr) => Tarval::bad(),
+            AbstractValue::Pointer(_ptr) => Tarval::bad(),
         }
     }
 
@@ -394,14 +386,6 @@ impl NodeValue {
         }
     }
 
-    pub fn source_or(&self, or_source: Option<Node>) -> Option<Node> {
-        if let Some(src) = &self.source {
-            Some(*src)
-        } else {
-            or_source
-        }
-    }
-
     pub fn source_or_some(&self, or_source: Node) -> Node {
         self.source.unwrap_or(or_source)
     }
@@ -418,7 +402,7 @@ impl fmt::Debug for NodeValue {
 }
 
 impl Lattice for NodeValue {
-    fn is_progression_of(&self, other: &Self) -> bool {
+    fn is_progression_of(&self, _other: &Self) -> bool {
         // todo
         true
     }

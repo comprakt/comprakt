@@ -210,8 +210,8 @@ pub enum Idx {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Heap {
-    object_infos: HashMap<Node, Rc<ObjectInfo>>,
-    array_infos: HashMap<Node, Rc<ArrayInfo>>,
+    pub object_infos: HashMap<Node, Rc<ObjectInfo>>,
+    pub array_infos: HashMap<Node, Rc<ArrayInfo>>,
 }
 
 impl fmt::Debug for Heap {
@@ -442,8 +442,11 @@ impl Heap {
         item_ty: Ty,
     ) {
         self.check_ptr_node(ptr_node);
-        for (_node, intersect_arr) in self.array_infos.iter_mut() {
-            if intersect_arr.item_ty == item_ty && intersect_arr.mem.intersects(&ptr.target) {
+        for (node, intersect_arr) in self.array_infos.iter_mut() {
+            if *node != ptr_node
+                && intersect_arr.item_ty == item_ty
+                && intersect_arr.mem.intersects(&ptr.target)
+            {
                 let mut arr = (**intersect_arr).clone();
                 arr.join_cell(idx, val);
                 *intersect_arr = Rc::new(arr);
@@ -565,6 +568,48 @@ impl Lattice for Heap {
             if let Some(other_obj_info) = other.object_infos.get(p) {
                 object_infos.insert(*p, Rc::new(self_obj_info.join(other_obj_info)));
             } else {
+                let joined = Rc::new(self_obj_info.resetted(&self));
+                object_infos.insert(*p, joined);
+            }
+        }
+
+        for (p, other_obj_info) in other.object_infos.iter() {
+            if !self.object_infos.contains_key(p) {
+                let joined = Rc::new(other_obj_info.resetted(&self));
+                object_infos.insert(*p, joined);
+            }
+        }
+
+        let mut array_infos: HashMap<Node, Rc<ArrayInfo>> = HashMap::new();
+        for (p, self_arr_info) in self.array_infos.iter() {
+            if let Some(other_arr_info) = other.array_infos.get(p) {
+                array_infos.insert(*p, Rc::new(self_arr_info.join(other_arr_info)));
+            } else {
+                let joined = Rc::new(self_arr_info.resetted(&self));
+                array_infos.insert(*p, joined);
+            }
+        }
+
+        for (p, other_arr_info) in other.array_infos.iter() {
+            if !self.array_infos.contains_key(p) {
+                let joined = Rc::new(other_arr_info.resetted(&self));
+                array_infos.insert(*p, joined);
+            }
+        }
+
+        Heap {
+            object_infos,
+            array_infos,
+        }
+    }
+
+    /*fn join(&self, other: &Self) -> Self {
+        let mut object_infos: HashMap<Node, Rc<ObjectInfo>> = HashMap::new();
+
+        for (p, self_obj_info) in self.object_infos.iter() {
+            if let Some(other_obj_info) = other.object_infos.get(p) {
+                object_infos.insert(*p, Rc::new(self_obj_info.join(other_obj_info)));
+            } else {
                 object_infos.insert(*p, self_obj_info.clone());
             }
         }
@@ -594,7 +639,7 @@ impl Lattice for Heap {
             object_infos,
             array_infos,
         }
-    }
+    }*/
 }
 
 // == ArrayInfo ==
