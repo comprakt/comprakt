@@ -860,6 +860,14 @@ impl ConstantFolding {
                 } else {
                     Graph::exchange(node, new_node);
                 }
+
+                if let Node::Proj(_, ProjKind::Load_Res(load)) = node {
+                    let prev_mem = load.mem();
+                    if let Some(next_mem) = load.out_proj_m() {
+                        log::debug!("Remove load from memory flow",);
+                        Graph::exchange(next_mem, prev_mem);
+                    }
+                }
             } else if let (Node::Cond(cond), TarvalKind::Bool(val)) = (node, value.kind()) {
                 // delete unnecessary branching
 
