@@ -1032,7 +1032,9 @@ impl<'f> Codegen<'f> {
             .into_iter()
             // stack args are passed in reverse order
             .rev()
-            .map(|src| Instruction::Pushq { src })
+            .map(|src| Instruction::Pushq {
+                src: src.into_size(Size::Eight),
+            })
             .collect::<Vec<_>>();
         let reg_to_reg = {
             let transfers = reg_to_reg.into_iter().map(|(src, dst)| RegToRegTransfer {
