@@ -33,7 +33,12 @@ macro_rules! mjrt_runtimeexception {
 mjrt_runtimeexception!(mjrt_dumpstack, "dumpstack");
 mjrt_runtimeexception!(mjrt_div_by_zero, "division by zero");
 mjrt_runtimeexception!(mjrt_null_usage, "reference is null");
-mjrt_runtimeexception!(mjrt_array_out_of_bounds, "array access out of bounds");
+mjrt_runtimeexception!(
+    mjrt_array_out_of_bounds,
+    "array access out of bounds: [{}] (len = {})",
+    idx: i32,
+    len: i32
+);
 mjrt_runtimeexception!(
     mjrt_negative_allocation,
     "cannot allocate negative amount of bytes: {}",

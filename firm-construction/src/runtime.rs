@@ -130,8 +130,17 @@ impl Runtime {
         };
 
         let array_out_of_bounds = {
-            let t = MethodTyBuilder::new().build_no_this_call();
-            Entity::new_global(lib.ld_name(RuntimeFunction::ArrayOutOfBounds), t.into())
+            let idx = PrimitiveTy::i32();
+            let len = PrimitiveTy::i32();
+            let mut t = MethodTyBuilder::new();
+
+            t.add_param(idx.into());
+            t.add_param(len.into());
+
+            Entity::new_global(
+                lib.ld_name(RuntimeFunction::ArrayOutOfBounds),
+                t.build_no_this_call().into(),
+            )
         };
 
         Runtime {

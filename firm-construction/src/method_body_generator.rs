@@ -1146,7 +1146,7 @@ impl<'src> LValue<'src> {
         method_body.gen_err_block(
             &[above_upper_bound, below_lower_bound],
             method_body.runtime.array_out_of_bounds,
-            &[],
+            &[idx, len.into()],
         );
 
         method_body.graph.new_block(&[within_bounds])
