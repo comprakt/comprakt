@@ -419,7 +419,7 @@ macro_rules! compile_command_common {
             if pre_be_opts.safety.contains(&SafetyFlag::None) {
                 &[]
             } else if pre_be_opts.safety.contains(&SafetyFlag::All) {
-                &[SafetyFlag::CheckNull]
+                &[SafetyFlag::CheckNull, SafetyFlag::CheckArrayBounds]
             } else {
                 &pre_be_opts.safety
             },

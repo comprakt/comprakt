@@ -9,6 +9,8 @@ pub enum Flag {
     All,
     // Always check for null before dereferencing (loading) a pointer
     CheckNull,
+    // Always check if index is within array bounds before accessing array elt
+    CheckArrayBounds,
 }
 
 #[derive(Debug, Display)]
@@ -23,6 +25,7 @@ impl FromStr for Flag {
             "none" | "" => Ok(Flag::None),
             "all" => Ok(Flag::All),
             "check-null" | "null" => Ok(Flag::CheckNull),
+            "check-array-bounds" | "array-bounds" => Ok(Flag::CheckArrayBounds),
             _ => Err(UnknownSafetyFlag(s.to_string())),
         }
     }
