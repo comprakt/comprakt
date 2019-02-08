@@ -19,6 +19,7 @@ pub(crate) mod cycle_removal;
 pub(crate) mod linear_scan;
 pub(crate) mod lir;
 pub(crate) mod live_variable_analysis;
+pub(crate) mod peephole;
 pub(crate) mod register;
 
 use debugging;
@@ -52,9 +53,9 @@ pub fn run_backend(
 
         // TODO local peepholer
 
-        let function_asm = codegen.emit_function();
+        let mut function_asm = codegen.emit_function();
 
-        // TODO global peepholer
+        peephole::global_peephole(&mut function_asm);
 
         for instr in function_asm {
             writeln!(out, "{}", instr)?;

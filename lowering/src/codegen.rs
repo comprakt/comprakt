@@ -1309,6 +1309,8 @@ pub(crate) enum Instruction {
         comment: String,
     },
     Raw(String),
+    /// instruction that was removed by peephole optimizer
+    PeepholedOut,
 }
 
 impl Instruction {
@@ -1362,6 +1364,7 @@ impl Instruction {
             | Label { .. }
             | Cqto
             | Comment { .. }
+            | PeepholedOut
             | Raw(_) => "",
         }
         .to_string()
@@ -1406,6 +1409,7 @@ impl fmt::Display for Instruction {
             Cqto => write!(fmt, "\tcqto"),
             Comment { comment } => write!(fmt, "\t/* {} */", comment),
             Raw(raw) => write!(fmt, "{}", raw),
+            PeepholedOut => write!(fmt, "\t/* peepholed out */"),
         }
     }
 }
@@ -1459,9 +1463,9 @@ impl fmt::Display for CallInstruction {
 
 #[derive(Clone)]
 pub(crate) struct MovInstruction {
-    src: SrcOperand,
-    dst: DstOperand,
-    comment: String,
+    pub(crate) src: SrcOperand,
+    pub(crate) dst: DstOperand,
+    pub(crate) comment: String,
 }
 
 impl fmt::Display for MovInstruction {
