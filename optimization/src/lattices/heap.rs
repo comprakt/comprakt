@@ -472,14 +472,19 @@ impl Heap {
             ArrayInfo::new_non_const(item_ty, ptr.target.clone(), &self)
         };
 
-        if let ArrayInfoState::Const(cells) = &arr_info.state {
-            if let Idx::Dynamic(_idx) = idx {
-                if cells.len() >= 2 {
-                    // enhance would lose more information than gained
-                    return;
+        /*
+        TODO benchmark.
+        if optional {
+            if let ArrayInfoState::Const(cells) = &arr_info.state {
+                if let Idx::Dynamic(_idx) = idx {
+                    if cells.len() >= 2 {
+                        // enhance would lose more information than gained
+                        return;
+                    }
                 }
             }
         }
+        */
 
         arr_info.update_cell(idx, val.clone());
         self.array_infos.insert(ptr_node, Rc::new(arr_info));
