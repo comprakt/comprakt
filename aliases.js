@@ -129,6 +129,7 @@ ALIASES['serde'] = {};
 ALIASES['serde_derive'] = {};
 ALIASES['serde_json'] = {};
 ALIASES['serde_yaml'] = {};
+ALIASES['shell_words'] = {};
 ALIASES['slab'] = {};
 ALIASES['smallvec'] = {};
 ALIASES['stable_deref_trait'] = {};

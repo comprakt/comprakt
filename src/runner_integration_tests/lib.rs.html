@@ -495,6 +495,8 @@
 <span id="495">495</span>
 <span id="496">496</span>
 <span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">nll</span>)]</span>
 
@@ -535,7 +537,7 @@
     },
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">strum_macros</span>::<span class="ident">EnumString</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Backend</span> {
     <span class="ident">Own</span>,
     <span class="ident">Libfirm</span>,
@@ -954,6 +956,8 @@
         <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-p&quot;</span>);
         <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="ident">workspace_crate</span>);
     }
+
+    <span class="ident">log</span>::<span class="macro">error</span><span class="macro">!</span>(<span class="string">&quot;cmd for compiler-cli compilation: {:?}&quot;</span>, <span class="ident">cmd</span>);
 
     <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">cmd</span>.<span class="ident">output</span>().<span class="ident">expect</span>(<span class="string">&quot;failed to invoke cargo&quot;</span>);
 
