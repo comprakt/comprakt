@@ -699,6 +699,20 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         }
     }
 
+    fn gen_err_block(&self, preds: &[Node], err_fn: Entity, args: &[Node]) {
+        let err_block = self.graph.new_block(preds);
+        let err_call = err_block.new_call(
+            err_block.cur_store(),
+            self.graph.new_address(err_fn),
+            args,
+            err_fn.ty(),
+        );
+        err_block.set_store(err_call.new_proj_m());
+        err_block.keep_alive();
+        err_call.keep_alive();
+        err_block.mature();
+    }
+
     /// Allocate a new local variable in the next free slot
     fn new_local_var(&mut self, name: Symbol<'src>, mode: Mode) -> usize {
         let slot = self.num_vars;
@@ -1082,19 +1096,7 @@ impl<'src> LValue<'src> {
             fls: is_not_null,
         } = CondProjection::new(act_block.new_cond(cmp_with_null));
 
-        let err_block = method_body.graph.new_block(&[is_null]);
-        let err_fn = method_body.runtime.null_usage;
-        let err_call = err_block.new_call(
-            err_block.cur_store(),
-            method_body.graph.new_address(err_fn),
-            &[],
-            err_fn.ty(),
-        );
-        err_block.set_store(err_call.new_proj_m());
-        err_block.keep_alive();
-        err_call.keep_alive();
-        err_block.mature();
-
+        method_body.gen_err_block(&[is_null], method_body.runtime.null_usage, &[]);
         method_body.graph.new_block(&[is_not_null])
     }
 
@@ -1141,20 +1143,11 @@ impl<'src> LValue<'src> {
             fls: below_lower_bound,
         } = CondProjection::new(upper_bound_holds.new_cond(cmp_with_lower_bound));
 
-        let err_block = method_body
-            .graph
-            .new_block(&[above_upper_bound, below_lower_bound]);
-        let err_fn = method_body.runtime.array_out_of_bounds;
-        let err_call = err_block.new_call(
-            err_block.cur_store(),
-            method_body.graph.new_address(err_fn),
+        method_body.gen_err_block(
+            &[above_upper_bound, below_lower_bound],
+            method_body.runtime.array_out_of_bounds,
             &[],
-            err_fn.ty(),
         );
-        err_block.set_store(err_call.new_proj_m());
-        err_block.keep_alive();
-        err_call.keep_alive();
-        err_block.mature();
 
         method_body.graph.new_block(&[within_bounds])
     }
