@@ -14,25 +14,28 @@ import itertools
 import os
 import stat
 
-def write_eval_custom_opt_env(fmt, file):
-    write_eval_opt_env("Custom:{}".format(fmt), file)
+def eval_custom_opt_env(fmt):
+    return eval_opt_env("Custom:{}".format(fmt))
 
-def write_eval_opt_env(fmt, file):
-    file.write("eval COMPRAKT_OPT={};".format(fmt).ljust(64) + "$MJT_INVOCATION || failure\n")
+def eval_opt_env(fmt):
+    return ("eval COMPRAKT_OPT={}".format(fmt), "$MJT_INVOCATION || failure\n")
 
-# opts_str = """[ConstantFolding],[Inline],[ControlFlow],[LoadStore],[EarliestPlacement,CostMinimizingPlacement,CodePlacement]"""
 """
 The opts_str will be parsed by the python script below.
 
-Every optimization has to be written in brackets. If there is more then one
-variant of an optimization this can be represented by
-[Variant1,Variant2,..]
+Every optimization has to be written in brackets.
+
+If there is more then one variant of an optimization this can be represented by
+`[Variant1|Variant2|..]`
+
+If there are optimizations that should be run consecutively this can be expressed by
+`[Opt1,Opt2,..]`
 """
-opts_str = """[ConstantFolding],[Inline],[ControlFlow]"""
+opts_str = """[ConstantFolding],[Inline],[ControlFlow],[EarliestPlacement,CommonSubExprElim,CostMinimizingPlacement|CommonSubExprElim]"""
 
-opts = re.compile("\[([\w,]*)\]")
+opts = re.compile("\[([\w,|]*)\]")
 
-variants = re.compile("\w+")
+variants = re.compile("[\w,]+")
 
 opts_res = opts.findall(opts_str)
 
@@ -66,9 +69,7 @@ for tup in combinations:
 res_combinations = list(set(res_combinations))
 res_combinations.sort(key=len)
 
-with open("test.sh", 'w') as script:
-    script.write(
-"""#!/bin/sh
+script_start = """#!/bin/sh
 
 rm -rf mjtest
 git clone https://git.scc.kit.edu/IPDSnelting/mjtest.git
@@ -95,29 +96,38 @@ failure() {
 }
 
 """
-    )
 
-    write_eval_opt_env("none", script)
-    write_eval_opt_env("aggressive", script)
-    for tup in res_combinations:
-        if len(tup) == 1:
-            write_eval_custom_opt_env(tup[0], script)
-        if len(tup) == len(opts_res):
-            write_eval_custom_opt_env(",".join([elem for elem in tup]), script)
+opts_combs = []
+opts_combs.append(eval_opt_env("none"))
+opts_combs.append(eval_opt_env("aggressive"))
+for tup in res_combinations:
+    if len(tup) == 1:
+        opts_combs.append(eval_custom_opt_env(tup[0]))
+    if len(tup) == len(opts_res):
+        opts_combs.append(eval_custom_opt_env(",".join([elem for elem in tup])))
 
-    for tup in res_combinations:
-        if len(tup) != 1 and len(tup) != len(opts_res):
-            write_eval_custom_opt_env(",".join([elem for elem in tup]), script)
+for tup in res_combinations:
+    if len(tup) != 1 and len(tup) != len(opts_res):
+        opts_combs.append(eval_custom_opt_env(",".join([elem for elem in tup])))
 
-    script.write(
-"""
+max_len = max([len(x[0]) for x in opts_combs])
+
+pad = max_len + (max_len % 4)
+
+opts_combs = [x[0].ljust(pad + 1) + x[1] for x in opts_combs]
+
+script_end = """
 if grep "failure" ./jenkins_had_failure_during_mjtests; then
   cat ./jenkins_had_failure_during_mjtests
   exit 1
 fi
 """
-    )
+
+with open("test.sh", 'w') as script:
+    script.write(script_start)
+    for comb in opts_combs:
+        script.write(comb)
+    script.write(script_end)
 
     st = os.stat(script.fileno())
     os.chmod(script.fileno(), st.st_mode | 0b111)
-
