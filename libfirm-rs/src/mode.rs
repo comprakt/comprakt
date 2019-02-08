@@ -1,7 +1,7 @@
 use libfirm_rs_bindings as bindings;
 use std::ffi::CStr;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Mode(bindings::mode::Type);
 
 macro_rules! mode {

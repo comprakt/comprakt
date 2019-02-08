@@ -12,7 +12,7 @@ impl Into<*const bindings::ir_tarval> for Tarval {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TarvalKind {
     Bool(bool),
     Unknown,

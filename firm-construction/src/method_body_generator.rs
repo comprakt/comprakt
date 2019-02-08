@@ -21,36 +21,10 @@ use libfirm_rs::{
     types::*,
     Entity, Graph, Mode, Tarval,
 };
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    hash::{Hash, Hasher},
-    rc::Rc,
-};
+use std::{collections::HashMap, rc::Rc};
 use strum_macros::EnumDiscriminants;
 
-#[derive(Debug, Clone, Copy)]
-struct ConstCacheKey(Tarval);
-
-impl Hash for ConstCacheKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.kind().hash(state);
-        self.0.mode().hash(state);
-        self.0.get_long().hash(state);
-    }
-}
-
-impl PartialEq for ConstCacheKey {
-    fn eq(&self, other: &ConstCacheKey) -> bool {
-        self.0.kind() == other.0.kind()
-            && self.0.mode() == other.0.mode()
-            && self.0.get_long() == other.0.get_long()
-    }
-}
-impl Eq for ConstCacheKey {}
-
 pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
-    consts: RefCell<HashMap<ConstCacheKey, Const>>,
     program: &'ir FirmProgram<'src, 'ast>,
     graph: Graph,
     method_def: Rc<ClassMethodDef<'src, 'ast>>,
@@ -79,7 +53,6 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         strtab: &'ir StringTable<'src>,
     ) -> Self {
         Self {
-            consts: RefCell::new(HashMap::new()),
             graph,
             program,
             local_vars: HashMap::new(),
@@ -91,24 +64,6 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             strtab,
             spans: HashMap::new(),
         }
-    }
-
-    fn gen_const(&self, val: Tarval) -> Const {
-        if self.consts.borrow().contains_key(&ConstCacheKey(val)) {
-            return *self.consts.borrow().get(&ConstCacheKey(val)).unwrap();
-        }
-
-        let constructed = self.graph.new_const(val);
-
-        self.consts
-            .borrow_mut()
-            .insert(ConstCacheKey(val), constructed);
-
-        constructed
-    }
-
-    fn gen_const_bool(&mut self, val: bool) -> Const {
-        self.gen_const(Tarval::val(if val { 1 } else { 0 }, Mode::Bu()))
     }
 
     fn with_spanned<T: NodeTrait + Into<Node> + Copy, TAst>(
@@ -123,6 +78,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
     fn with_span<T: NodeTrait + Into<Node> + Copy>(&mut self, span: Span<'src>, node: T) -> T {
         self.spans.insert(node.into(), span);
         node
+    }
+
+    pub fn get_const_bool(&mut self, val: bool) {
+        self.graph
+            .new_const(Tarval::mj_int(if val { 1 } else { 0 }));
     }
 
     pub fn gen_method(&mut self, body: &'ast Spanned<'src, ast::Block<'src>>) {
@@ -217,7 +177,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let (act_block, initial_val) = if let Some(init_expr) = init_expr {
             self.gen_value(act_block, init_expr)
         } else {
-            (act_block, self.gen_const(Tarval::zero(mode)).into())
+            (act_block, self.graph.new_const(Tarval::zero(mode)).into())
         };
 
         act_block.set_value(var_slot, initial_val);
@@ -361,7 +321,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let tarval = Tarval::mj_int(val);
                 Value(
                     act_block,
-                    self.with_spanned(expr, self.gen_const(tarval).into()),
+                    self.with_spanned(expr, self.graph.new_const(tarval).into()),
                 )
             }
             NegInt(literal) => {
@@ -371,14 +331,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let tarval = Tarval::mj_int(i64::from(val));
                 Value(
                     act_block,
-                    self.with_spanned(expr, self.gen_const(tarval)).into(),
+                    self.with_spanned(expr, self.graph.new_const(tarval)).into(),
                 )
             }
-            Boolean(value) => Value(act_block, self.gen_const_bool(*value).into()),
+            Boolean(value) => Value(act_block, gen_const_bool(*value, self.graph)),
             This => Value(act_block, self.this(act_block)),
             Null => Value(
                 act_block,
-                self.with_spanned(expr, self.gen_const(Tarval::zero(Mode::P())))
+                self.with_spanned(expr, self.graph.new_const(Tarval::zero(Mode::P())))
                     .into(),
             ),
             Var(name) => {
@@ -418,23 +378,21 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             Unary(ast::UnaryOp::Not, expr) => {
                 let expr = self.gen_expr(act_block, expr);
                 use self::ExprResult::*;
-                // TODO: this might construct an unused bool true
-                let bool_const_true = Node::Const(self.gen_const_bool(true));
-
+                let graph = self.graph;
                 let inverse_val = |(act_block, val): (Block, Node)| {
                     // booleans are mode::Bu, hence XOR does the job.
                     // could also use mode::Bi and -1 for true:
                     // => could use Neg / Not, but would rely on 2's complement
                     assert_eq!(val.mode(), Mode::Bu());
-                    Value(act_block, act_block.new_eor(val, bool_const_true).into())
+                    Value(
+                        act_block,
+                        act_block.new_eor(val, gen_const_bool(true, graph)).into(),
+                    )
                 };
 
                 match expr {
                     Void(_) => panic!("type system should not allow !void"),
-                    Assignable(act_block, lvalue) => {
-                        let curr = lvalue.gen_eval(self, act_block);
-                        inverse_val(curr)
-                    }
+                    Assignable(act_block, lvalue) => inverse_val(lvalue.gen_eval(self, act_block)),
                     Value(act_block, val) => inverse_val((act_block, val)),
                     Cond(proj) => Cond(proj.flip()),
                 }
@@ -766,6 +724,12 @@ impl CondProjection {
     }
 }
 
+fn gen_const_bool(val: bool, graph: Graph) -> Node {
+    graph
+        .new_const(Tarval::val(if val { 1 } else { 0 }, Mode::Bu()))
+        .into()
+}
+
 impl<'src> ExprResult<'src> {
     fn value_tuple(tuple: (Block, Node)) -> ExprResult<'static> {
         ExprResult::Value(tuple.0, tuple.1)
@@ -793,7 +757,7 @@ impl<'src> ExprResult<'src> {
             Value(act_block, node) => {
                 let cond = act_block.new_cond(act_block.new_cmp(
                     node,
-                    Node::Const(span_storage.gen_const_bool(true)),
+                    gen_const_bool(true, graph),
                     bindings::ir_relation::Equal,
                 ));
 
@@ -822,8 +786,8 @@ impl<'src> ExprResult<'src> {
             Cond(cp) => {
                 let CondProjection { tr, fls } = cp;
 
-                let false_ = span_storage.gen_const_bool(false).into();
-                let true_ = span_storage.gen_const_bool(true).into();
+                let false_ = gen_const_bool(false, graph);
+                let true_ = gen_const_bool(true, graph);
 
                 let phi_block = graph.new_block(&[fls, tr]);
                 let phi = phi_block.new_phi(&[false_, true_], false_.mode());
