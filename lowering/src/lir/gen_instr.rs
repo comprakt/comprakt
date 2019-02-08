@@ -72,7 +72,7 @@ impl GenInstrBlock {
     fn gen_operand_jit(&mut self, node: Node) -> Operand {
         match node {
             Node::Const(c) => Operand::Imm(c.tarval()),
-            Node::Size(s) => Operand::Imm(libfirm_rs::Tarval::mj_int(i64::from(s.ty().size()))),
+            Node::Size(s) => Operand::Imm(libfirm_rs::Tarval::mj_size(i64::from(s.ty().size()))),
             n => Operand::Var(self.gen_dst_var(n)),
         }
     }

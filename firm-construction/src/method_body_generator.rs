@@ -486,7 +486,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     act_block.new_call(
                         act_block.cur_store(),
                         self.graph.new_address(self.runtime.new),
-                        &[self.graph.new_size(Mode::Is(), class_ty).into()],
+                        // TODO: Mode::Ls corresponds to PrimitiveTy::i64 required for mjrt_new
+                        &[self.graph.new_size(Mode::Ls(), class_ty).into()],
                         self.runtime.new.ty(),
                     ),
                 );
@@ -507,9 +508,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let elem_ty = ty_from_checked_type(checked_elem_ty, self.type_system, self.program)
                     .expect("To be a valid type");
                 let (act_block, num_elts) = self.gen_value(act_block, num_expr);
-                let elt_size = self.graph.new_size(Mode::Is(), elem_ty);
+                // TODO refactor: Mode::Ls corresponds to PrimitiveTy::i64 required for mjrt_new
+                let num_elts = act_block.new_conv(num_elts, Mode::Ls());
+                let elt_size = self.graph.new_size(Mode::Ls(), elem_ty);
 
-                let alloc_size = act_block.new_mul(num_elts, elt_size);
+                let alloc_size = act_block.new_mul(num_elts, elt_size); // Is Mode::Ls()?
                 let call = act_block.new_call(
                     act_block.cur_store(),
                     self.graph.new_address(self.runtime.new),
