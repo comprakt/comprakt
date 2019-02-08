@@ -882,6 +882,175 @@ enum LValue<'src> {
 }
 
 impl<'src> LValue<'src> {
+    /// Evaluate the lvalue just as if it were handled as a normal expression
+    pub fn gen_eval(
+        self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        act_block: Block,
+    ) -> (Block, Node) {
+        use self::LValue::*;
+        match self {
+            Var {
+                slot_idx,
+                mode,
+                span,
+            } => {
+                let mut val = act_block.value(slot_idx, mode);
+                if Node::is_phi(val) {
+                    val = span_storage.with_span(span, val);
+                }
+                (act_block, val)
+            }
+            Array { item_ty, span, .. } => {
+                let (act_block, sel) = self.gen_array_sel(span_storage, act_block);
+
+                self.load_array_or_field(span_storage, Node::Sel(sel), item_ty, span, act_block)
+            }
+
+            Field {
+                member,
+                target_ty,
+                span,
+            } => self.load_array_or_field(
+                span_storage,
+                Node::Member(member),
+                target_ty,
+                span,
+                act_block,
+            ),
+        }
+    }
+
+    fn load_array_or_field(
+        &self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        sel_or_mem: Node,
+        item_ty: Ty,
+        span: Span<'src>,
+        act_block: Block,
+    ) -> (Block, Node) {
+        let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
+        let load = span_storage.with_span(
+            span,
+            act_block.new_load(
+                act_block.cur_store(),
+                sel_or_mem,
+                item_ty.mode(),
+                item_ty,
+                bindings::ir_cons_flags::None,
+            ),
+        );
+        act_block.set_store(load.new_proj_m());
+        (act_block, load.new_proj_res(item_ty.mode()).into())
+    }
+
+    /// Store the given value at the location described by this lvalue
+    pub fn gen_assign(
+        self,
+        span: Span<'src>,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        act_block: Block,
+        value: Node,
+    ) -> (Block, Node) {
+        use self::LValue::*;
+        match self {
+            Var { slot_idx, .. } => {
+                act_block.set_value(slot_idx, value);
+                (act_block, value)
+            }
+
+            Array { item_ty, .. } => {
+                let (act_block, sel) = self.gen_array_sel(span_storage, act_block);
+                self.store_array_or_field(
+                    span_storage,
+                    Node::Sel(sel),
+                    item_ty,
+                    value,
+                    span,
+                    act_block,
+                )
+            }
+
+            Field {
+                member, target_ty, ..
+            } => self.store_array_or_field(
+                span_storage,
+                Node::Member(member),
+                target_ty,
+                value,
+                span,
+                act_block,
+            ),
+        }
+    }
+
+    fn store_array_or_field(
+        &self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        sel_or_mem: Node,
+        item_ty: Ty,
+        value: Node,
+        span: Span<'src>,
+        act_block: Block,
+    ) -> (Block, Node) {
+        let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
+        let store = span_storage.with_span(
+            span,
+            act_block.new_store(
+                act_block.cur_store(),
+                sel_or_mem,
+                value,
+                item_ty,
+                bindings::ir_cons_flags::None,
+            ),
+        );
+        act_block.set_store(store.new_proj_m());
+        (act_block, value)
+    }
+
+    fn gen_array_sel(
+        &self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        act_block: Block,
+    ) -> (Block, Sel) {
+        match self {
+            LValue::Array {
+                target,
+                idx,
+                array_ty,
+                span: _,
+                ..
+            } => {
+                let (len_entity, data_entity) = if let Ty::Pointer(array_ty) = array_ty {
+                    if let Ty::Struct(array_ty) = array_ty.points_to() {
+                        let mut fields = array_ty.fields();
+                        if span_storage
+                            .safety_flags
+                            .contains(&safety::Flag::CheckArrayBounds)
+                        {
+                            (Some(fields.next().unwrap()), fields.next().unwrap())
+                        } else {
+                            (None, fields.next().unwrap())
+                        }
+                    } else {
+                        unreachable!("Array type should be pointer to struct");
+                    }
+                } else {
+                    unreachable!("Array type should be pointer");
+                };
+
+                let data = act_block.new_member(*target, data_entity);
+                let sel = act_block.new_sel(data, *idx, data_entity.ty());
+
+                let act_block =
+                    self.gen_array_bounds_check(*target, *idx, len_entity, span_storage, act_block);
+
+                (act_block, sel)
+            }
+            _ => panic!("This function should only be called for arrays"),
+        }
+    }
+
     fn gen_null_ptr_check(
         &self,
         sel_or_mem: Node,
@@ -987,174 +1156,5 @@ impl<'src> LValue<'src> {
         err_block.mature();
 
         method_body.graph.new_block(&[within_bounds])
-    }
-
-    fn gen_array_sel(
-        &self,
-        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
-        act_block: Block,
-    ) -> (Block, Sel) {
-        match self {
-            LValue::Array {
-                target,
-                idx,
-                array_ty,
-                span: _,
-                ..
-            } => {
-                let (len_entity, data_entity) = if let Ty::Pointer(array_ty) = array_ty {
-                    if let Ty::Struct(array_ty) = array_ty.points_to() {
-                        let mut fields = array_ty.fields();
-                        if span_storage
-                            .safety_flags
-                            .contains(&safety::Flag::CheckArrayBounds)
-                        {
-                            (Some(fields.next().unwrap()), fields.next().unwrap())
-                        } else {
-                            (None, fields.next().unwrap())
-                        }
-                    } else {
-                        unreachable!("Array type should be pointer to struct");
-                    }
-                } else {
-                    unreachable!("Array type should be pointer");
-                };
-
-                let data = act_block.new_member(*target, data_entity);
-                let sel = act_block.new_sel(data, *idx, data_entity.ty());
-
-                let act_block =
-                    self.gen_array_bounds_check(*target, *idx, len_entity, span_storage, act_block);
-
-                (act_block, sel)
-            }
-            _ => panic!("This function should only be called for arrays"),
-        }
-    }
-
-    fn load_array_or_field(
-        &self,
-        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
-        sel_or_mem: Node,
-        item_ty: Ty,
-        span: Span<'src>,
-        act_block: Block,
-    ) -> (Block, Node) {
-        let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
-        let load = span_storage.with_span(
-            span,
-            act_block.new_load(
-                act_block.cur_store(),
-                sel_or_mem,
-                item_ty.mode(),
-                item_ty,
-                bindings::ir_cons_flags::None,
-            ),
-        );
-        act_block.set_store(load.new_proj_m());
-        (act_block, load.new_proj_res(item_ty.mode()).into())
-    }
-
-    /// Evaluate the lvalue just as if it were handled as a normal expression
-    fn gen_eval(
-        self,
-        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
-        act_block: Block,
-    ) -> (Block, Node) {
-        use self::LValue::*;
-        match self {
-            Var {
-                slot_idx,
-                mode,
-                span,
-            } => {
-                let mut val = act_block.value(slot_idx, mode);
-                if Node::is_phi(val) {
-                    val = span_storage.with_span(span, val);
-                }
-                (act_block, val)
-            }
-            Array { item_ty, span, .. } => {
-                let (act_block, sel) = self.gen_array_sel(span_storage, act_block);
-
-                self.load_array_or_field(span_storage, Node::Sel(sel), item_ty, span, act_block)
-            }
-
-            Field {
-                member,
-                target_ty,
-                span,
-            } => self.load_array_or_field(
-                span_storage,
-                Node::Member(member),
-                target_ty,
-                span,
-                act_block,
-            ),
-        }
-    }
-
-    fn store_array_or_field(
-        &self,
-        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
-        sel_or_mem: Node,
-        item_ty: Ty,
-        value: Node,
-        span: Span<'src>,
-        act_block: Block,
-    ) -> (Block, Node) {
-        let act_block = self.gen_null_ptr_check(sel_or_mem, span_storage, act_block);
-        let store = span_storage.with_span(
-            span,
-            act_block.new_store(
-                act_block.cur_store(),
-                sel_or_mem,
-                value,
-                item_ty,
-                bindings::ir_cons_flags::None,
-            ),
-        );
-        act_block.set_store(store.new_proj_m());
-        (act_block, value)
-    }
-
-    /// Store the given value at the location described by this lvalue
-    fn gen_assign(
-        self,
-        span: Span<'src>,
-        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
-        act_block: Block,
-        value: Node,
-    ) -> (Block, Node) {
-        use self::LValue::*;
-        match self {
-            Var { slot_idx, .. } => {
-                act_block.set_value(slot_idx, value);
-                (act_block, value)
-            }
-
-            Array { item_ty, .. } => {
-                let (act_block, sel) = self.gen_array_sel(span_storage, act_block);
-                self.store_array_or_field(
-                    span_storage,
-                    Node::Sel(sel),
-                    item_ty,
-                    value,
-                    span,
-                    act_block,
-                )
-            }
-
-            Field {
-                member, target_ty, ..
-            } => self.store_array_or_field(
-                span_storage,
-                Node::Member(member),
-                target_ty,
-                value,
-                span,
-                act_block,
-            ),
-        }
     }
 }
