@@ -640,6 +640,10 @@ impl<'f> Codegen<'f> {
                         subtrahend: $src,
                         acc: $dst,
                     }),
+                    lir::BinopKind::Shr => instrs.push(Shr {
+                        val: $dst,
+                        by: $src,
+                    }),
                 }
             }};
         }
@@ -1272,6 +1276,10 @@ pub(crate) enum Instruction {
         src: SrcOperand,
         dst: DstOperand,
     },
+    Shr {
+        by: SrcOperand,
+        val: DstOperand,
+    },
     Divq {
         src: DstOperand,
     },
@@ -1322,6 +1330,7 @@ impl Instruction {
             | And { src, dst }
             | Or { src, dst }
             | Xor { src, dst }
+            | Shr { by: src, val: dst }
             | Cmp {
                 subtrahend: src,
                 minuend: dst,
@@ -1378,6 +1387,7 @@ impl fmt::Display for Instruction {
             And { src, dst } => write!(fmt, "\tand{} {}, {}", self.instr_suffix(), src, dst),
             Or { src, dst } => write!(fmt, "\tor{} {}, {}", self.instr_suffix(), src, dst),
             Xor { src, dst } => write!(fmt, "\txor{} {}, {}", self.instr_suffix(), src, dst),
+            Shr { by, val } => write!(fmt, "\tshr{} {}, {}", self.instr_suffix(), by, val),
             Cmp {
                 subtrahend,
                 minuend,

@@ -209,6 +209,7 @@ impl GenInstrBlock {
                 self.body.push(Instruction::Conv { src, dst });
             }
 
+            Node::Shr(shr) => gen_binop!(Shr, shr, block, node),
             Node::Add(add) => gen_binop!(Add, add, block, node),
             Node::Sub(sub) => gen_binop!(Sub, sub, block, node),
             Node::Mul(mul) => gen_binop!(Mul, mul, block, node),

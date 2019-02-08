@@ -679,6 +679,7 @@ pub enum BinopKind {
     And,
     Or,
     Xor,
+    Shr,
 }
 
 #[derive(Debug, Display, Clone)]
