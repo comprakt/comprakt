@@ -32,6 +32,7 @@ impl NodeLocal {
         // which just does random shit in libfirm.
         log::debug!("Div2Shift: visiting {:?}", current_node);
 
+        #[allow(clippy::single_match)]
         match current_node {
             Node::Div(div) => {
                 log::debug!(
@@ -46,9 +47,11 @@ impl NodeLocal {
                         log::debug!("Div2Shift: divisor {:?}!", divisor);
                         if let TarvalKind::Long(divisor_value) = divisor.tarval().kind() {
                             log::debug!("Div2Shift: divisor value {:?}!", divisor_value);
-                            if is_power_of_two(divisor_value) {
+                            if is_abs_power_of_two(divisor_value) {
+                                let has_minus = divisor_value < 0;
+
                                 log::debug!("Div2Shift: is power of two!");
-                                let shift_amount = (divisor_value as f64).log2() as i64;
+                                let shift_amount = (divisor_value.abs() as f64).log2() as i64;
                                 let shift_amount_node =
                                     self.graph.new_const(Tarval::val(shift_amount, Mode::Iu()));
 
@@ -72,6 +75,12 @@ impl NodeLocal {
                                 let real_left = div.left().in_nodes().nth(0).unwrap();
 
                                 let shr = div.block().new_shr(real_left, shift_amount_node);
+
+                                let shr_end = if has_minus {
+                                    Node::Minus(div.block().new_minus(shr))
+                                } else {
+                                    Node::Shr(shr)
+                                };
 
                                 log::debug!(
                                     "Div2Shift: memory edge through div {:?} is {:?} -> {:?}",
@@ -97,7 +106,7 @@ impl NodeLocal {
                                     shift_amount
                                 );
 
-                                Graph::exchange(div_end, shr);
+                                Graph::exchange(div_end, shr_end);
 
                                 self.changed = Outcome::Changed;
                             }
@@ -128,9 +137,23 @@ impl NodeLocal {
     }
 }
 
-fn is_power_of_two(x: i64) -> bool {
-    // TODO: signed x!!!
-    // popcount
-    x.count_ones() == 1
-    //return (x & (x - 1)) == 0;
+fn is_abs_power_of_two(x: i64) -> bool {
+    // this is just a wrapper around the popcount intrinsic
+    x.count_ones() == 1 || (-x).count_ones() == 1
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn power_of_two() {
+        assert_eq!((2 as i64).count_ones(), 1);
+        assert_eq!((-0 as i64).count_ones(), 0);
+        assert_eq!((-2 as i64).count_ones(), 63);
+
+        assert!(is_abs_power_of_two(2));
+        assert!(is_abs_power_of_two(-2));
+        assert!(!is_abs_power_of_two(0));
+    }
 }
