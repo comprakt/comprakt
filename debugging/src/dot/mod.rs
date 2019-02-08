@@ -205,6 +205,17 @@ impl Label {
         self
     }
 
+    pub fn add_style(self, val: Style) -> Self {
+        match self.style {
+            Some(ref style) => {
+                let mut new_style = style.clone();
+                new_style.push(val);
+                self.styles(new_style)
+            }
+            None => self.style(val),
+        }
+    }
+
     pub fn shape(mut self, shape: Shape) -> Self {
         self.shape = Some(shape);
         self

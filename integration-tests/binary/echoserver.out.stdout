@@ -1,0 +1,4 @@
+HTTP/1.0 200
+Content-Length: 27
+
+You made a GET request to /

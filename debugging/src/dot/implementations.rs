@@ -1,8 +1,9 @@
 use super::{
-    dot_string, Color, Dot, GraphData, GraphState, Label, LabelMaker, Named, Shape, X11Color,
+    dot_string, Color, Dot, GraphData, GraphState, Label, LabelMaker, Named, Shape, Style, X11Color,
 };
 use crate::firm::{program_generator::Spans, FirmProgram};
 use libfirm_rs::{
+    bindings,
     nodes::{Node, NodeTrait},
     Graph,
 };
@@ -48,12 +49,41 @@ impl<'a, 'b> GraphData<Node> for FirmProgram<'a, 'b> {
                 let class_name = class.borrow().def.name.to_string();
                 let method_name = method.borrow().def.name.to_string();
                 dot_files.insert(
-                    internal_name.clone(),
+                    format!("{}-PDG", internal_name.clone()),
                     GraphState {
-                        name: format!("{}.{}", class_name, method_name),
+                        name: format!("{}.{}[PDG]", class_name, method_name),
                         dot_content: graph.into_dot_format_string(&internal_name, label_maker),
                     },
                 );
+                // TODO: this should be implemented on Graph directly, the
+                // information is available without the firm program context
+                {
+                    let mut dot_dom_tree: Vec<u8> = Vec::new();
+                    let graph_name = format!("{}-Dominance-Tree", internal_name.clone());
+                    dominance_tree_in_dot_format(&mut dot_dom_tree, &graph_name, graph);
+
+                    dot_files.insert(
+                        graph_name.clone(),
+                        GraphState {
+                            name: format!("{}.{}[Dominance Tree]", class_name, method_name),
+                            dot_content: String::from_utf8_lossy(&dot_dom_tree).to_string(),
+                        },
+                    );
+                }
+
+                {
+                    let mut dot_dom_tree: Vec<u8> = Vec::new();
+                    let graph_name = format!("{}-Post-Dominance-Tree", internal_name.clone());
+                    post_dominance_tree_in_dot_format(&mut dot_dom_tree, &graph_name, graph);
+
+                    dot_files.insert(
+                        graph_name.clone(),
+                        GraphState {
+                            name: format!("{}.{}[Post Dominance Tree]", class_name, method_name),
+                            dot_content: String::from_utf8_lossy(&dot_dom_tree).to_string(),
+                        },
+                    );
+                }
             }
         }
 
@@ -179,18 +209,94 @@ pub fn default_label(node: &Node) -> Label {
     label
 }
 
-pub fn escape_record_content(text: &str) -> String {
-    text.replace("|", "\\|")
-        .replace("{", "\\{")
-        .replace("}", "\\}")
-        .replace("<", "\\<")
-        .replace(">", "\\>")
-}
-
 impl<S: BuildHasher> LabelMaker<Node> for HashMap<Node, Label, S> {
     fn label_for_node(&self, node: &Node) -> Label {
         self.get(&node)
             .cloned()
             .unwrap_or_else(|| Label::from_text("".to_string()))
     }
+}
+
+fn dominance_tree_in_dot_format(writer: &mut dyn Write, graph_name: &str, graph: Graph) {
+    // TODO: onyl render if dominators are computed. Side effects in
+    // debugging code is a bad idea
+    graph.compute_doms();
+    graph.assure_loopinfo();
+
+    let mut list = Vec::new();
+    graph.walk_dom_tree_postorder(|block| {
+        list.push(*block);
+    });
+
+    writeln!(writer, "digraph {} {{", dot_string(graph_name)).unwrap();
+    for block in list.iter() {
+        let label = dom_info_box(&Node::Block(*block));
+        label.write_dot_format(block.node_id(), writer);
+
+        if let Some(idom) = block.immediate_dominator() {
+            writeln!(
+                writer,
+                "{:?} -> {:?} [color=blue];",
+                idom.node_id(),
+                block.node_id()
+            )
+            .unwrap();
+        }
+    }
+    writeln!(writer, "}}").unwrap();
+}
+
+fn post_dominance_tree_in_dot_format(writer: &mut dyn Write, graph_name: &str, graph: Graph) {
+    // TODO: onyl render if post dominators are computed. Side effects in
+    // debugging code is a bad idea
+    // TODO: deduplicate with dominance_tree_in_dot_format
+    graph.compute_postdoms();
+    graph.assure_loopinfo();
+
+    let mut list = Vec::new();
+    graph.walk_postdom_tree_postorder(|block| {
+        list.push(*block);
+    });
+
+    writeln!(writer, "digraph {} {{", dot_string(graph_name)).unwrap();
+    for block in list.iter() {
+        let label = dom_info_box(&Node::Block(*block));
+        label.write_dot_format(block.node_id(), writer);
+
+        if let Some(idom) = block.immediate_post_dominator() {
+            writeln!(
+                writer,
+                "{:?} -> {:?} [color=red];",
+                idom.node_id(),
+                block.node_id()
+            )
+            .unwrap();
+        }
+    }
+    writeln!(writer, "}}").unwrap();
+}
+
+pub fn dom_info_box(node: &Node) -> Label {
+    if let Node::Block(block) = node {
+        let dom_depth = unsafe { bindings::get_Block_dom_depth(node.internal_ir_node()) };
+        Label::from_text(format!(
+            r#"{{{body}|{{Dom Depth|{dom_depth}}}|{{Loop Depth|{loop_depth}}}}}"#,
+            dom_depth = dom_depth,
+            loop_depth = block.loop_depth(),
+            body = escape_record_content(&format!("{:?}", block)),
+        ))
+        .shape(Shape::Record)
+        .styles(vec![Style::Rounded, Style::Filled])
+    } else {
+        default_label(node)
+    }
+}
+
+// TODO: deduplicate after 172 is merged
+pub fn escape_record_content(text: &str) -> String {
+    text.replace("|", "\\|")
+        .replace("{", "\\{")
+        .replace("}", "\\}")
+        .replace("<", "\\<")
+        .replace(">", "\\>")
 }

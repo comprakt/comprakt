@@ -26,11 +26,15 @@ mod constant_folding;
 use self::constant_folding::ConstantFolding;
 mod control_flow;
 use self::control_flow::ControlFlow;
+mod code_placement;
+use self::code_placement::{CodePlacement, CostMinimizingPlacement, EarliestPlacement};
 mod remove_critical_edges;
 pub use self::remove_critical_edges::RemoveCriticalEdges;
+mod common_subexpr_elim;
+pub use self::common_subexpr_elim::CommonSubExpr;
 pub mod compile_time_assertions;
-mod lattices;
 pub use self::compile_time_assertions::{CompileTimeAssertions, Phase};
+mod lattices;
 
 /// An optimization that optimizes the whole program by examining all function
 /// graphs at once.
@@ -74,6 +78,10 @@ pub enum Kind {
     Inline,
     ControlFlow,
     RemoveCriticalEdges,
+    EarliestPlacement,
+    CostMinimizingPlacement,
+    CodePlacement,
+    CommonSubExprElim,
 }
 
 impl Kind {
@@ -83,6 +91,10 @@ impl Kind {
             Kind::Inline => Inlining::optimize(program),
             Kind::ControlFlow => ControlFlow::optimize(program),
             Kind::RemoveCriticalEdges => RemoveCriticalEdges::optimize(program),
+            Kind::EarliestPlacement => EarliestPlacement::optimize(program),
+            Kind::CostMinimizingPlacement => CostMinimizingPlacement::optimize(program),
+            Kind::CodePlacement => CodePlacement::optimize(program),
+            Kind::CommonSubExprElim => CommonSubExpr::optimize(program),
         }
     }
 }
@@ -116,11 +128,20 @@ impl Level {
             Level::Moderate => vec![
                 Optimization::new(Kind::ConstantFolding),
                 Optimization::new(Kind::ControlFlow),
+                // block-local common subexpression elimination
+                Optimization::new(Kind::CommonSubExprElim),
             ],
             Level::Aggressive => vec![
+                // TODO: code placement in combination with inlining can be
+                // very expensive
                 Optimization::new(Kind::Inline),
                 Optimization::new(Kind::ConstantFolding),
                 Optimization::new(Kind::ControlFlow),
+                // this sequence results in global common subexpression elimination
+                // and loop invariant code motion
+                Optimization::new(Kind::EarliestPlacement),
+                Optimization::new(Kind::CommonSubExprElim),
+                Optimization::new(Kind::CostMinimizingPlacement),
             ],
             Level::Custom(list) => list.clone(),
         }

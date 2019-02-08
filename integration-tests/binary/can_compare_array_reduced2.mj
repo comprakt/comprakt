@@ -1,0 +1,24 @@
+---
+stderr:
+  is: ''
+stdout:
+  is: "0\n"
+exitcode:
+  is: 0
+---
+class B {
+    public int a;
+}
+class A {
+    public static void main(String[] args) {
+        while(false) {
+        } 
+
+        B a = new B();
+
+        while(false) {
+        }
+
+        System.out.println(a.a);
+    }
+}

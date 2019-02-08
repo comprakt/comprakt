@@ -37,7 +37,7 @@ pub enum CompilerPhase {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(strum_macros::EnumString, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Backend {
     Own,
     Libfirm,
@@ -456,6 +456,8 @@ fn project_binary(subproject: Option<&'static str>) -> PathBuf {
         cmd.arg("-p");
         cmd.arg(workspace_crate);
     }
+
+    log::error!("cmd for compiler-cli compilation: {:?}", cmd);
 
     let output = cmd.output().expect("failed to invoke cargo");
 
