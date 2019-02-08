@@ -1,0 +1,17 @@
+---
+optimizations: [NodeLocal]
+expect: change
+
+stdout:
+    file: "div2shift2.out.stdout"
+---
+
+class Simple {
+  public static void main(String[] args) {
+    int i = 0;
+    while (i < 257) {
+        System.out.println(i / 32);
+        i = i + 1;
+    }
+  }
+}
