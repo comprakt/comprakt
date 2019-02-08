@@ -875,10 +875,8 @@ impl<'src> LValue<'src> {
             err_fn.ty(),
         );
         err_block.set_store(err_call.new_proj_m());
-        method_body
-            .graph
-            .end_block()
-            .imm_add_pred(err_block.new_return(err_block.cur_store(), &[]));
+        err_block.keep_alive();
+        err_call.keep_alive();
         err_block.mature();
 
         method_body.graph.new_block(&[is_not_null])
