@@ -183,8 +183,8 @@ class Main {
         int axEq1 = a.x;
         c.x = 4;
         b.x = 2;
-        assertNodesAreConst1234(axEq1, b.x, 3, c.x);
         int axEq1Var = a.x;
+        assertNodesAreConst1234(axEq1, b.x, 3, c.x);
         assertNodesAreNonConst1234(axEq1Var, axEq1Var + 1, axEq1Var + 2, axEq1Var + 3);
     }
 
@@ -455,6 +455,52 @@ class Main {
         /* TODO print(o.x) */
     }
 
+
+    public void test_dont_join_heap_for_uninitialized_args() {
+        newTest();
+        Obj obj = new Obj();
+        dont_join_heap_for_uninitialized_nodes1(obj);
+    }
+
+    public void dont_join_heap_for_uninitialized_nodes1(Obj obj) {
+        if (!nonConstBoolFalse()) {
+            obj.x = 1;
+        }
+        assertNodesAreNonConst1(obj.x);
+    }
+
+    public void test_dont_join_heap_for_uninitialized_nodes2() {
+        newTest();
+        int i = 0;
+        Obj phiObj = null;
+        while (i < 10) {
+            i = i + 1;
+            Obj obj = new Obj();
+            phiObj = obj;
+        }
+        /* obj@obj = { x: 0 } */
+
+        if (nonConstBoolFalse()) {
+            phiObj.x = 2;
+            /*
+                obj@obj = { x: 0|2, y: 0 }
+                phiObj@obj = { x: 2, y: 0 }
+            */
+        }
+        /* falsch:
+            obj@obj = { x: 0|2, y: 0 }
+            phiObj@obj = { x: 2, y: 0 }
+        */
+
+        /* richtig:
+            obj@obj = { x: 0|2 }
+            phiObj@obj = { x: 0|2 }
+        */
+
+        assertNodesAreNonConst1(phiObj.x);
+    }
+
+
     public void unnecessary_store() {
         Obj o = new Obj();
         o.x = 2;
@@ -509,19 +555,144 @@ class Main {
       }
 
     public void randomIntArray(){
+        /* after 203 updates, it joins
+            { [Proj1998]: {Proj2013} <- Proj2013, [*]: {Proj2013, null} } (Proj1971)
+            with
+            { [0$Proj1998]: {Proj2013} <- Proj2013, [*]: {null} } (Proj1971)
+        */
         int n = 10;
         int[][][] arr = new int[n][][];
         int[] indezes = new int[7];
-        while (indezes[0] < n) {
+        Obj o = new Obj();
+        while (n >
+            indezes[0]
+            ) {
             int[][] arr2 = new int[n][];
-            arr[indezes[0]] = arr2;
-            while (indezes[1] < n) {
-                int[][] arr2_ = arr[indezes[0]];
-                arr2_[indezes[1]] = new int[n];
+            arr[
+                indezes[0]
+                ] = arr2;
+            while (n >
+                indezes[1]
+                ) {
+                int[][] arr2_ = arr[
+                    indezes[0]
+                    ];
+                arr2_[
+                    indezes[1]
+                    ] = new int[n];
 
-                indezes[1] = indezes[1] + 1;
+                indezes[1] =
+                    indezes[1]
+                        + 1;
             }
+            indezes[0] =
+                1 +
+                    indezes[0]
+                    ;
+            o.x = 10;
+        }
+    }
+
+/*
+
+    public void randomIntArray2(){
+        int n = 10;
+        int[][][] arr = new int[n][][]; // => arr = [ [*]: null ]
+        int[] indezes = new int[7]; // => indezes = [ [*]: 0 ]
+        while (
+            indezes[0] // load1: 0
+                < n
+        ) {
+            int[][] arr2 = new int[n][]; // arr2 = [ [*]: null ]
+            arr[
+                indezes[0] // load2: 0
+            ] = arr2; // store1 => arr = [ 0$load2: @arr2$arr2, [*]: null ]
+
+            // arr = [ 0$load2: @arr2$arr2, [*]: null ]
+            // indezes = [ [*]: 0 ]
+            // arr2 = [ [*]: null ]
+            while (
+                indezes[1] // load3: 0
+                    < n
+            ) {
+                int[][] arr2_ = arr[
+                    indezes[0] // load4: 0
+                ]; // load5: @arr2$arr2
+
+                int[] arr3 = new int[n]; // arr3 = [ [*]: 0 ]
+                arr2_[
+                    indezes[1] // load6: 0
+                ] = // store2 => arr2 = [ 0: @arr3$arr3, [*]: null ]
+                arr3;
+
+                indezes[1] = // store3 => indezes = [ 1: 1$add, [*]: 0 ]
+                    indezes[1] // load7: 0
+                        + 1;
+
+                // arr = [ 0$load2: @arr2$arr2, [*]: null ]
+                // indezes = [ 1: 1$add, [*]: 0 ]
+                // arr2 = [ 0: @arr3$arr3, [*]: null ]
+                // arr3 = [ [*]: 0 ]
+            }
+            // arr = [ 0$load2: @arr2$arr2, [*]: null ]
+            // indezes = [ 1: bad $phi(0, add1), [*]: 0 ]
+            // arr2 = [ 0: @arr3|null$$phi(null, arr3), [*]: null ]
+            // arr3 = [ [*]: 0 ]
+
+            // continue here
+
             indezes[0] = indezes[0] + 1;
         }
     }
+
+    public void randomIntArray3(){
+        int n = 10;
+        int[][][] arr = new int[n][][]; // => arr = [ [*]: null ]
+        int[] indezes = new int[7]; // => indezes = [ [*]: 0 ]
+        while (
+            indezes[0] // load1: 0
+                < n
+        ) {
+            int[][] arr2 = new int[n][]; // arr2 = [ [*]: null ]
+            arr[
+                indezes[0] // load2: 0
+            ] = arr2; // store1 => arr = [ 0$load2: @arr2$arr2, [*]: null ]
+
+            // arr = [ 0$load2: @arr2$arr2, [*]: null ]
+            // indezes = [ 1: bad$phi1(0, add1), [*]: 0 ]
+            // arr2 = [ 0: @arr3|null$phi(null, arr3), [*]: null ]
+            // arr3 = [ [*]: 0 ]
+            while (
+                indezes[1] // load3: bad$phi(0, add1)
+                    < n
+            ) {
+                int[][] arr2_ = arr[
+                    indezes[0] // load4: 0
+                ]; // load5: @arr2$arr2
+
+                int[] arr3 = new int[n]; // arr3 = [ [*]: 0 ]
+                arr2_[
+                    indezes[1] // load6: bad$phi1
+                ] = // store2 => arr2 = [ bad$phi1: @arr3$arr3, [*]: null|@arr3 ]
+                arr3;
+
+                indezes[1] = // store3 => indezes = [ 1: 1$add, [*]: 0 ]
+                    indezes[1] // load7: 0
+                        + 1;
+
+                // arr = [ 0$load2: @arr2$arr2, [*]: null ]
+                // indezes = [ 1: 1$add1, [*]: 0 ]
+                // arr2 = [ 0: @arr3$arr3, [*]: null ]
+                // arr3 = [ [*]: 0 ]
+            }
+            // arr = [ 0$load2: @arr2$arr2, [*]: null ]
+            // indezes = [ 1: bad $phi(0, add1), [*]: 0 ]
+            // arr2 = [ 0: @arr3|null$$phi1(null, arr3), [*]: null ]
+            // arr3 = [ [*]: 0 ]
+
+
+            indezes[0] = indezes[0] + 1;
+        }
+    }
+    */
 }
