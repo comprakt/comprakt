@@ -57,6 +57,10 @@ const BINARY_OPERATORS: &[(Operator, ast::BinaryOp, Precedence, Assoc)] = &[
 
 ];
 
+lazy_static::lazy_static! {
+    static ref VANILLA_MODE: bool = std::env::var("VANILLA").is_ok();
+}
+
 #[rustfmt::skip]
 #[derive(Debug, Clone, Fail)]
 pub enum SyntaxError {
@@ -387,7 +391,7 @@ where
     fn parse_program(&mut self) -> ParserResult<'f, ast::Program<'f>> {
         spanned!(self, {
             let mut attrs = Vec::new();
-            if std::env::var("VANILLA").is_err() {
+            if !*VANILLA_MODE {
                 loop {
                     if let Ok(TokenKind::Operator(Operator::Slash)) =
                         self.lexer.peek().map(|t| t.data)
@@ -427,7 +431,7 @@ where
     fn parse_class_declaration(&mut self) -> ParserResult<'f, ast::ClassDeclaration<'f>> {
         spanned!(self, {
             let mut attrs = Vec::new();
-            if std::env::var("VANILLA").is_err() {
+            if !*VANILLA_MODE {
                 while self
                     .eat_optional(Exactly(TokenKind::Operator(Operator::Slash)))
                     .is_some()
@@ -458,7 +462,7 @@ where
     fn parse_class_member(&mut self) -> ParserResult<'f, ast::ClassMember<'f>> {
         spanned!(self, {
             let mut attrs = Vec::new();
-            if std::env::var("VANILLA").is_err() {
+            if !*VANILLA_MODE {
                 while self
                     .eat_optional(Exactly(TokenKind::Operator(Operator::Slash)))
                     .is_some()
