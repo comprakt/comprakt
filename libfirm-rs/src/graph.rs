@@ -93,6 +93,23 @@ impl Graph {
         unsafe { bindings::compute_irg_outs(self.irg) }
     }
 
+    pub fn assure_loopinfo(self) {
+        unsafe { bindings::assure_loopinfo(self.irg) }
+    }
+
+    pub fn compute_doms(self) {
+        unsafe { bindings::compute_doms(self.irg) }
+    }
+
+    /// Compute all post dominator information in the graph
+    ///
+    /// NOTE: Also constructs out information
+    /// NOTE: calling this function multiple times without changing
+    ///       the graph will not recompute information and is cheap.
+    pub fn compute_postdoms(self) {
+        unsafe { bindings::compute_postdoms(self.irg) }
+    }
+
     pub fn remove_bads(self) {
         unsafe { bindings::remove_bads(self.irg) }
     }
@@ -103,10 +120,6 @@ impl Graph {
 
     pub fn remove_unreachable_code(self) {
         unsafe { bindings::remove_unreachable_code(self.irg) }
-    }
-
-    pub fn compute_doms(self) {
-        unsafe { bindings::compute_doms(self.irg) }
     }
 
     pub fn walk_topological<F>(self, mut walker: F)
@@ -177,6 +190,40 @@ impl Graph {
 
         unsafe {
             bindings::irg_block_walk_graph(
+                self.irg,
+                None,
+                Some(closure_handler_walk_blocks),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
+    pub fn walk_dom_tree_postorder<F>(self, mut walker: F)
+    where
+        F: FnMut(&Block),
+    {
+        let mut fat_pointer: &mut dyn FnMut(&Block) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            bindings::dom_tree_walk_irg(
+                self.irg,
+                None,
+                Some(closure_handler_walk_blocks),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
+    pub fn walk_postdom_tree_postorder<F>(self, mut walker: F)
+    where
+        F: FnMut(&Block),
+    {
+        let mut fat_pointer: &mut dyn FnMut(&Block) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            bindings::postdom_tree_walk_irg(
                 self.irg,
                 None,
                 Some(closure_handler_walk_blocks),

@@ -110,12 +110,12 @@ macro_rules! breakpoint {
 #[macro_export]
 macro_rules! breakpoint {
     ($label:expr, $prog:expr) => {{
+        log::debug!("{}", $label);
         let _ = &$label;
         let _ = &$prog;
     }};
     ($label:expr, $prog:expr, $labels:expr) => {{
-        // TODO: there has to be a better way
-        let _ = &$label;
+        log::debug!("{}", $label);
         let _ = &$prog;
         let _ = &$labels;
     }};

@@ -188,6 +188,20 @@ pub trait NodeTrait {
         unsafe { bindings::get_irn_node_nr(self.internal_ir_node()) }
     }
 
+    fn is_pinned(&self) -> bool {
+        unsafe { bindings::get_irn_pinned(self.internal_ir_node()) > 0 }
+    }
+
+    fn is_commutative(&self) -> bool {
+        let op = unsafe { bindings::get_irn_op(self.internal_ir_node()) };
+        let flags = unsafe { bindings::get_op_flags(op) };
+        (flags & bindings::irop_flags::Commutative) > 0
+    }
+
+    fn is_only_valid_in_start_block(&self) -> bool {
+        unsafe { bindings::is_irn_start_block_placed(self.internal_ir_node()) > 0 }
+    }
+
     fn graph(&self) -> Graph {
         Graph {
             irg: unsafe { bindings::get_irn_irg(self.internal_ir_node()) },
@@ -357,6 +371,40 @@ linked_list_iterator!(
 );
 
 impl Block {
+    pub fn deepest_common_dominator(a: Block, b: Block) -> Block {
+        let cdom = unsafe {
+            bindings::ir_deepest_common_dominator(a.internal_ir_node(), b.internal_ir_node())
+        };
+
+        Block::new(cdom)
+    }
+
+    pub fn immediate_dominator(self) -> Option<Block> {
+        // TODO: check if dominators are computed
+        let idom = unsafe { bindings::get_Block_idom(self.internal_ir_node()) };
+        if idom.is_null() {
+            None
+        } else {
+            Some(Block::new(idom))
+        }
+    }
+
+    pub fn loop_depth(self) -> u32 {
+        // TODO: check if loop info is computed
+        let loop_ref = unsafe { bindings::get_irn_loop(self.internal_ir_node()) };
+        unsafe { bindings::get_loop_depth(loop_ref) }
+    }
+
+    pub fn immediate_post_dominator(self) -> Option<Block> {
+        // TODO: check if post dominators are computed
+        let ipostdom = unsafe { bindings::get_Block_ipostdom(self.internal_ir_node()) };
+        if ipostdom.is_null() {
+            None
+        } else {
+            Some(Block::new(ipostdom))
+        }
+    }
+
     pub fn cfg_preds(self) -> CfgPredsIterator {
         CfgPredsIterator::new(self.internal_ir_node())
     }
@@ -461,6 +509,10 @@ simple_node_iterator!(
 );
 
 impl Phi {
+    pub fn phi_preds(self) -> PhiPredsIterator {
+        PhiPredsIterator::new(self.internal_ir_node())
+    }
+
     /// `Node` is the result of the phi node when entering this phi's block via
     /// `Block`
     pub fn preds(self) -> impl Iterator<Item = (Block, Node)> {
