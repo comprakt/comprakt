@@ -520,7 +520,11 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
                 let len_entity = if let Ty::Pointer(array_ty) = array_ty {
                     if let Ty::Struct(array_ty) = array_ty.points_to() {
-                        array_ty.fields().next().unwrap()
+                        if self.safety_flags.contains(&safety::Flag::CheckArrayBounds) {
+                            Some(array_ty.fields().next().unwrap())
+                        } else {
+                            None
+                        }
                     } else {
                         unreachable!("Array type should be pointer to struct");
                     }
@@ -531,32 +535,36 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let (act_block, num_elts) = self.gen_value(act_block, num_expr);
                 let elt_size = self.graph.new_size(Mode::Is(), elem_ty);
 
-                let alloc_size = act_block.new_add(
-                    act_block.new_mul(num_elts, elt_size),
-                    self.graph.new_size(Mode::Is(), len_entity.ty()),
-                );
+                let mut alloc_size = act_block.new_mul(num_elts, elt_size).into();
+                if let Some(len_entity) = len_entity {
+                    alloc_size = act_block
+                        .new_add(alloc_size, self.graph.new_size(Mode::Is(), len_entity.ty()))
+                        .into();
+                }
                 let call = act_block.new_call(
                     act_block.cur_store(),
                     self.graph.new_address(self.runtime.new),
-                    &[alloc_size.into()],
+                    &[alloc_size],
                     self.runtime.new.ty(),
                 );
                 let call = self.with_spanned(expr, call);
                 act_block.set_store(call.new_proj_m());
                 let array = call.new_proj_t_result().new_proj(0, Mode::P());
 
-                let len_member = act_block.new_member(array, len_entity);
-                let store = self.with_spanned(
-                    expr,
-                    act_block.new_store(
-                        act_block.cur_store(),
-                        len_member,
-                        num_elts,
-                        len_entity.ty(),
-                        bindings::ir_cons_flags::None,
-                    ),
-                );
-                act_block.set_store(store.new_proj_m());
+                if let Some(len_entity) = len_entity {
+                    let len_member = act_block.new_member(array, len_entity);
+                    let store = self.with_spanned(
+                        expr,
+                        act_block.new_store(
+                            act_block.cur_store(),
+                            len_member,
+                            num_elts,
+                            len_entity.ty(),
+                            bindings::ir_cons_flags::None,
+                        ),
+                    );
+                    act_block.set_store(store.new_proj_m());
+                }
 
                 Value(act_block, array.into())
             }
@@ -924,16 +932,15 @@ impl<'src> LValue<'src> {
         &self,
         target: Node,
         idx: Node,
-        len_entity: Entity,
+        len_entity: Option<Entity>,
         method_body: &mut MethodBodyGenerator<'_, 'src, '_>,
         act_block: Block,
     ) -> Block {
-        if !method_body
-            .safety_flags
-            .contains(&safety::Flag::CheckArrayBounds)
-        {
+        let len_entity = if let Some(len_entity) = len_entity {
+            len_entity
+        } else {
             return act_block;
-        }
+        };
 
         let len = act_block.new_member(target, len_entity);
         let load = act_block.new_load(
@@ -998,7 +1005,14 @@ impl<'src> LValue<'src> {
                 let (len_entity, data_entity) = if let Ty::Pointer(array_ty) = array_ty {
                     if let Ty::Struct(array_ty) = array_ty.points_to() {
                         let mut fields = array_ty.fields();
-                        (fields.next().unwrap(), fields.next().unwrap())
+                        if span_storage
+                            .safety_flags
+                            .contains(&safety::Flag::CheckArrayBounds)
+                        {
+                            (Some(fields.next().unwrap()), fields.next().unwrap())
+                        } else {
+                            (None, fields.next().unwrap())
+                        }
                     } else {
                         unreachable!("Array type should be pointer to struct");
                     }

@@ -1,4 +1,4 @@
-use super::FirmProgram;
+use super::{safety, FirmProgram};
 use crate::type_checking::type_system::{CheckedType, TypeSystem};
 use libfirm_rs::{
     types::{PrimitiveTy, StructTy, Ty, TyTrait},
@@ -41,7 +41,12 @@ pub fn ty_from_checked_type<'src, 'ast>(
             // TODO This is a shitty "generic" array, in theory we need only a unique type
             // definition inner type
             let safe_array = StructTy::new_anon("$Array");
-            safe_array.new_subentity("len", PrimitiveTy::i32());
+            if program
+                .safety_flags
+                .contains(&safety::Flag::CheckArrayBounds)
+            {
+                safe_array.new_subentity("len", PrimitiveTy::i32());
+            }
             safe_array.new_subentity("data", array_data);
 
             safe_array.default_layout();
