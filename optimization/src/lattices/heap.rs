@@ -1,204 +1,16 @@
-use super::{Lattice, NodeValue};
+use super::*;
 use crate::firm::program_generator::Spans;
 use libfirm_rs::{
     nodes::{Node, NodeDebug, ProjKind},
     types::{ClassTy, PointerTy, Ty, TyTrait},
-    Entity, Tarval,
+    Entity,
 };
 use std::{
     collections::{HashMap, HashSet},
     fmt,
+    hash::Hash,
     rc::Rc,
 };
-
-// == MemoryArea ==
-
-#[derive(Clone, PartialEq, Eq)]
-pub struct MemoryArea {
-    allocators: HashSet<Node>,
-    unrestricted: bool,
-    arbitrary: bool,
-}
-
-impl MemoryArea {
-    pub fn empty() -> Self {
-        Self {
-            allocators: HashSet::new(),
-            unrestricted: false,
-            arbitrary: false,
-        }
-    }
-
-    pub fn single(allocator: Node) -> Self {
-        let mut allocators = HashSet::new();
-        allocators.insert(allocator);
-        Self {
-            allocators,
-            unrestricted: false,
-            arbitrary: false,
-        }
-    }
-
-    pub fn unrestricted() -> Self {
-        Self {
-            allocators: HashSet::new(),
-            unrestricted: true,
-            arbitrary: false,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn arbitrary() -> Self {
-        Self {
-            allocators: HashSet::new(),
-            unrestricted: true,
-            arbitrary: true,
-        }
-    }
-
-    pub fn intersects(&self, other: &Self) -> bool {
-        self.arbitrary
-            || other.arbitrary
-            || (self.unrestricted && other.unrestricted)
-            || !self.allocators.is_disjoint(&other.allocators)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.allocators.is_empty() && !self.unrestricted && !self.arbitrary
-    }
-
-    pub fn join_mut(&mut self, other: &Self) -> bool /* changed */ {
-        let old = (self.allocators.len(), self.unrestricted, self.arbitrary);
-        self.allocators.extend(&other.allocators);
-        self.unrestricted |= other.unrestricted;
-        self.arbitrary |= other.arbitrary;
-        old != (self.allocators.len(), self.unrestricted, self.arbitrary)
-    }
-}
-
-impl Lattice for MemoryArea {
-    fn is_progression_of(&self, other: &Self) -> bool {
-        self.allocators.is_superset(&other.allocators) && (!other.unrestricted || self.unrestricted)
-    }
-
-    fn join(&self, other: &Self) -> Self {
-        Self {
-            allocators: &self.allocators | &other.allocators,
-            unrestricted: self.unrestricted || other.unrestricted,
-            arbitrary: self.arbitrary || other.arbitrary,
-        }
-    }
-}
-
-impl fmt::Debug for MemoryArea {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.allocators
-                .iter()
-                .map(|allocator| format!("{}", allocator.debug_fmt().short(true)))
-                .chain(if self.unrestricted {
-                    vec!["*".to_owned()]
-                } else {
-                    vec![]
-                })
-                .chain(if self.arbitrary {
-                    vec!["!".to_owned()]
-                } else {
-                    vec![]
-                })
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    }
-}
-
-// == Pointer ==
-
-#[derive(Clone, PartialEq, Eq)]
-pub struct Pointer {
-    pub target: MemoryArea,
-    pub can_be_null: bool,
-}
-
-impl Pointer {
-    pub fn to(target: MemoryArea) -> Self {
-        Self {
-            target,
-            can_be_null: false,
-        }
-    }
-
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_null_and(target: MemoryArea) -> Self {
-        Self {
-            target,
-            can_be_null: true,
-        }
-    }
-
-    pub fn null() -> Self {
-        Self {
-            target: MemoryArea::empty(),
-            can_be_null: true,
-        }
-    }
-
-    pub fn is_null(&self) -> bool {
-        self.can_be_null && self.target.is_empty()
-    }
-
-    pub fn is_null_or_empty(&self) -> bool {
-        self.target.is_empty()
-    }
-
-    pub fn eq(&self, other: &Self) -> Option<bool> {
-        if self.is_null() && other.is_null() {
-            return Some(true);
-        }
-
-        if !(self.can_be_null && other.can_be_null || self.target.intersects(&other.target)) {
-            // mems are disjoint and one of them cannot be null.
-            return Some(false);
-        }
-
-        None
-    }
-}
-
-impl Lattice for Pointer {
-    fn is_progression_of(&self, other: &Self) -> bool {
-        self.target.is_progression_of(&other.target) && (!other.can_be_null || self.can_be_null)
-    }
-
-    fn join(&self, other: &Self) -> Self {
-        Self {
-            target: self.target.join(&other.target),
-            can_be_null: self.can_be_null || other.can_be_null,
-        }
-    }
-}
-
-impl fmt::Debug for Pointer {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let target_str = format!("{:?}", self.target);
-        write!(
-            f,
-            "{{{}{}}}",
-            target_str,
-            if self.can_be_null {
-                if target_str.is_empty() {
-                    &"null"
-                } else {
-                    &", null"
-                }
-            } else {
-                &""
-            }
-        )
-    }
-}
 
 // == HeapVal ==
 
@@ -216,40 +28,60 @@ pub struct Heap {
 
 impl fmt::Debug for Heap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (&ptr, obj_info) in &self.object_infos {
+        for (&ptr, info) in &self.object_infos {
             writeln!(
                 f,
                 "obj {}{} = {:?}",
                 ptr.debug_fmt().short(true),
                 Spans::span_str(ptr),
-                obj_info
+                info
             )?
         }
-        for (&ptr, arr_info) in &self.array_infos {
+        for (&ptr, info) in &self.array_infos {
             writeln!(
                 f,
                 "arr {}{} = {:?}",
                 ptr.debug_fmt().short(true),
                 Spans::span_str(ptr),
-                arr_info
+                info
             )?
         }
         Ok(())
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InfoKind {
+    Allocator,
+    Cache,
+}
+
+impl InfoKind {
+    pub fn is_allocator(self) -> bool {
+        match self {
+            Allocator => true,
+            _ => false,
+        }
+    }
+}
+
+use self::InfoKind::*;
+
 impl Heap {
+    /* some test a external_args: &[Node] */
     pub fn start() -> Self {
+        // TODO
         Self {
             object_infos: HashMap::new(),
             array_infos: HashMap::new(),
         }
     }
 
+    // TODO remove
     pub fn non_const_val(&self, ty: Ty) -> NodeValue {
         if ty.mode().is_pointer() {
             let ty = PointerTy::from(ty).unwrap_or_else(|| panic!("{:?} to be pointer type", ty));
-            let mut mem = MemoryArea::unrestricted();
+            let mut mem = MemoryArea::external();
 
             match ty.points_to() {
                 Ty::Class(ty) => {
@@ -275,34 +107,44 @@ impl Heap {
         }
     }
 
+    pub fn mem_reachable_from(&self, mem: MemoryArea) -> MemoryArea {
+        let mut mem = mem;
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for info in self.object_infos.values() {
+                if info.mem.intersects(&mem) {
+                    changed |= mem.join_mut(&info.mem_pointed_to_by_fields());
+                }
+            }
+            for info in self.array_infos.values() {
+                if info.mem.intersects(&mem) {
+                    changed |= mem.join_mut(&info.mem_pointed_to_by_fields());
+                }
+            }
+        }
+        mem
+    }
+
     pub fn reset_heap_accessed_by(&self, mem: MemoryArea, _nodes: HashSet<Node>) -> Heap {
         if mem.is_empty() {
             self.clone()
         } else {
-            let mut mem = mem;
-            let mut changed = true;
-            while changed {
-                changed = false;
-                for obj_info in self.object_infos.values() {
-                    if obj_info.mem.intersects(&mem) {
-                        changed |= mem.join_mut(&obj_info.mem_pointed_to_by_fields());
-                    }
-                }
-                for arr_info in self.array_infos.values() {
-                    if arr_info.mem.intersects(&mem) {
-                        changed |= mem.join_mut(&arr_info.mem_pointed_to_by_fields());
-                    }
-                }
-            }
+            let mem = self.mem_reachable_from(mem);
 
             let object_infos = self
                 .object_infos
                 .iter()
-                .map(|(ptr, obj_info)| {
-                    if obj_info.mem.intersects(&mem) {
-                        (*ptr, Rc::new(obj_info.resetted(&self)))
+                .filter_map(|(ptr, info)| {
+                    if info.mem.intersects(&mem) {
+                        match info.kind {
+                            Allocator => {
+                                Some((*ptr, Rc::new(self.join_heap_obj(info.ty, &info.mem))))
+                            }
+                            Cache => None,
+                        }
                     } else {
-                        (*ptr, Rc::clone(obj_info))
+                        Some((*ptr, Rc::clone(info)))
                     }
                 })
                 .collect();
@@ -310,11 +152,16 @@ impl Heap {
             let array_infos = self
                 .array_infos
                 .iter()
-                .map(|(ptr, arr_info)| {
-                    if arr_info.mem.intersects(&mem) {
-                        (*ptr, Rc::new(arr_info.resetted(&self)))
+                .filter_map(|(ptr, info)| {
+                    if info.mem.intersects(&mem) {
+                        match info.kind {
+                            Allocator => {
+                                Some((*ptr, Rc::new(self.join_heap_arr(info.item_ty, &info.mem))))
+                            }
+                            Cache => None,
+                        }
                     } else {
-                        (*ptr, Rc::clone(arr_info))
+                        Some((*ptr, Rc::clone(info)))
                     }
                 })
                 .collect();
@@ -324,28 +171,6 @@ impl Heap {
                 object_infos,
             }
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn reset(&mut self) {
-        self.object_infos = self
-            .object_infos
-            .iter()
-            .map(|(ptr, obj_info)| (*ptr, Rc::new(obj_info.resetted(&self))))
-            .collect();
-
-        self.array_infos = self
-            .array_infos
-            .iter()
-            .map(|(ptr, arr_info)| (*ptr, Rc::new(arr_info.resetted(&self))))
-            .collect();
-    }
-
-    pub fn new_obj(&mut self, new_node: Node, obj_ty: ClassTy) -> Pointer {
-        let mem = MemoryArea::single(new_node);
-        let obj_info = Rc::new(ObjectInfo::new(mem.clone(), obj_ty));
-        self.object_infos.insert(new_node, obj_info);
-        Pointer::to(mem)
     }
 
     pub fn check_ptr_node(&self, node: Node) {
@@ -358,79 +183,34 @@ impl Heap {
         }
     }
 
+    pub fn new_obj(&mut self, new_node: Node, obj_ty: ClassTy) -> Pointer {
+        let info = Rc::new(ObjectInfo::allocator(new_node, obj_ty));
+        let mem = info.mem.clone();
+        self.object_infos.insert(new_node, info);
+        Pointer::to(mem)
+    }
+
+    pub fn new_arr(&mut self, new_node: Node, item_ty: Ty) -> Pointer {
+        let info = Rc::new(ArrayInfo::allocator(new_node, item_ty));
+        let mem = info.mem.clone();
+        self.array_infos.insert(new_node, info);
+        Pointer::to(mem)
+    }
+
     pub fn update_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity, val: &NodeValue) {
         self.check_ptr_node(ptr_node);
         let class_ty = ClassTy::from(field.owner()).unwrap();
 
-        for (_node, intersect_obj) in self.object_infos.iter_mut() {
-            if intersect_obj.ty == class_ty && intersect_obj.mem.intersects(&ptr.target) {
-                let mut obj = (**intersect_obj).clone();
-                // downgrade information as we don't know whether ptr_node points to obj.
-                obj.join_field(field, val);
-                *intersect_obj = Rc::new(obj);
+        for (_node, intersecting) in self.object_infos.iter_mut() {
+            if intersecting.ty == class_ty && intersecting.mem.intersects(&ptr.target) {
+                let mut item = (**intersecting).clone();
+                // join, as we don't know whether `ptr_node` points to `intersecting`.
+                item.join_field(field, val);
+                *intersecting = Rc::new(item);
             }
         }
 
         self.enhance_field(ptr_node, ptr, field, val);
-    }
-
-    pub fn enhance_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity, val: &NodeValue) {
-        self.check_ptr_node(ptr_node);
-        let class_ty = ClassTy::from(field.owner()).unwrap();
-
-        let obj_info = self.object_infos.get(&ptr_node);
-        let mut obj_info = if let Some(obj_info) = obj_info {
-            (&**obj_info).clone()
-        } else {
-            // we could be more precise here
-            ObjectInfo::new_non_const(class_ty, ptr.target.clone(), &self)
-        };
-
-        obj_info.update_field(field, val);
-        self.object_infos.insert(ptr_node, Rc::new(obj_info));
-    }
-
-    pub fn lookup_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity) -> NodeValue {
-        self.check_ptr_node(ptr_node);
-        if ptr.is_null_or_empty() {
-            return NodeValue::zero(field.ty().mode());
-        }
-
-        let class_ty = ClassTy::from(field.owner()).unwrap();
-
-        if let Some(obj_info) = self.object_infos.get(&ptr_node) {
-            obj_info.lookup_field(field).clone()
-        } else {
-            if ptr.target.unrestricted {
-                return self.non_const_val(field.ty());
-            }
-
-            let mut val: Option<NodeValue> = None;
-            for (_node, intersect_obj) in self.object_infos.iter_mut() {
-                if intersect_obj.ty == class_ty && intersect_obj.mem.intersects(&ptr.target) {
-                    val = match val {
-                        Some(val) => Some(val.join(&intersect_obj.lookup_field(field))),
-                        None => Some(intersect_obj.lookup_field(field).clone()),
-                    };
-                }
-            }
-
-            match val {
-                Some(val) => val,
-                None => {
-                    // maybe implement later when we don't delete objects:
-                    // assert_ne!(val, NodeValue::NoInfoYet);
-                    self.non_const_val(field.ty())
-                }
-            }
-        }
-    }
-
-    pub fn new_arr(&mut self, new_node: Node, item_ty: Ty) -> Pointer {
-        let mem = MemoryArea::single(new_node);
-        let arr_info = Rc::new(ArrayInfo::new(mem.clone(), item_ty));
-        self.array_infos.insert(new_node, arr_info);
-        Pointer::to(mem)
     }
 
     pub fn update_cell(
@@ -442,18 +222,32 @@ impl Heap {
         item_ty: Ty,
     ) {
         self.check_ptr_node(ptr_node);
-        for (node, intersect_arr) in self.array_infos.iter_mut() {
-            if *node != ptr_node
-                && intersect_arr.item_ty == item_ty
-                && intersect_arr.mem.intersects(&ptr.target)
-            {
-                let mut arr = (**intersect_arr).clone();
-                arr.join_cell(idx, val);
-                *intersect_arr = Rc::new(arr);
+
+        for (_node, intersecting) in self.array_infos.iter_mut() {
+            if intersecting.item_ty == item_ty && intersecting.mem.intersects(&ptr.target) {
+                let mut item = (**intersecting).clone();
+                // join, as we don't know whether `ptr_node` points to `intersecting`.
+                item.join_cell(idx, val);
+                *intersecting = Rc::new(item);
             }
         }
 
         self.enhance_cell(ptr_node, ptr, idx, val, item_ty);
+    }
+
+    pub fn enhance_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity, val: &NodeValue) {
+        self.check_ptr_node(ptr_node);
+        let class_ty = ClassTy::from(field.owner()).unwrap();
+
+        let info = self.object_infos.get(&ptr_node);
+        let mut info = if let Some(info) = info {
+            (&**info).clone()
+        } else {
+            self.join_heap_obj(class_ty, &ptr.target)
+        };
+
+        info.update_field(field, val);
+        self.object_infos.insert(ptr_node, Rc::new(info));
     }
 
     pub fn enhance_cell(
@@ -465,29 +259,84 @@ impl Heap {
         item_ty: Ty,
     ) {
         self.check_ptr_node(ptr_node);
-        let arr_info = self.array_infos.get(&ptr_node);
-        let mut arr_info = if let Some(arr_info) = arr_info {
-            (&**arr_info).clone()
+        let info = self.array_infos.get(&ptr_node);
+        let mut info = if let Some(info) = info {
+            (&**info).clone()
         } else {
-            ArrayInfo::new_non_const(item_ty, ptr.target.clone(), &self)
+            self.join_heap_arr(item_ty, &ptr.target)
         };
 
-        /*
-        TODO benchmark.
-        if optional {
-            if let ArrayInfoState::Const(cells) = &arr_info.state {
-                if let Idx::Dynamic(_idx) = idx {
-                    if cells.len() >= 2 {
-                        // enhance would lose more information than gained
-                        return;
-                    }
-                }
+        info.update_cell(idx, val.clone());
+        self.array_infos.insert(ptr_node, Rc::new(info));
+    }
+
+    pub fn join_heap_obj(&self, class_ty: ClassTy, mem: &MemoryArea) -> ObjectInfo {
+        // TODO add allocators of external
+        // types!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        let mut result = None;
+        for info in self.object_infos.values() {
+            // We need to check for type as there is `external` memory where objects with
+            // different class types can live.
+            // Allocators are enough since caches always also write to their allocators.
+            if info.kind.is_allocator() && info.mem.intersects(mem) && info.ty == class_ty {
+                result = match result {
+                    None => Some((**info).clone()),
+                    Some(last) => Some(last.join(info, Cache)),
+                };
             }
         }
-        */
+        result.unwrap_or_else(|| panic!("Allocator of {:?} to exist", mem))
+    }
 
-        arr_info.update_cell(idx, val.clone());
-        self.array_infos.insert(ptr_node, Rc::new(arr_info));
+    pub fn join_heap_arr(&self, item_ty: Ty, mem: &MemoryArea) -> ArrayInfo {
+        let mut result = None;
+        for info in self.array_infos.values() {
+            if info.kind.is_allocator() && info.mem.intersects(mem) && info.item_ty == item_ty {
+                result = match result {
+                    None => Some((**info).clone()),
+                    Some(last) => Some(last.join(info, Cache)),
+                };
+            }
+        }
+        result.unwrap_or_else(|| panic!("Allocator of {:?} to exist", mem))
+    }
+
+    pub fn lookup_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity) -> NodeValue {
+        self.check_ptr_node(ptr_node);
+        if ptr.is_null_or_empty() {
+            // this crashes anyways.
+            log::error!("Found null deref");
+            return NodeValue::zero(field.ty().mode());
+        }
+
+        let class_ty = ClassTy::from(field.owner()).unwrap();
+
+        if let Some(info) = self.object_infos.get(&ptr_node) {
+            info.lookup_field(field).clone()
+        } else {
+            // todo remove
+            if ptr.target.is_external() {
+                return self.non_const_val(field.ty());
+            }
+
+            let mut val: Option<NodeValue> = None;
+            for (_node, intersecting) in self.object_infos.iter_mut() {
+                // it is sufficient to only check allocators
+                // as any chached info items always invalidate the corresponding allocators.
+                if intersecting.kind.is_allocator()
+                    && intersecting.ty == class_ty
+                    && intersecting.mem.intersects(&ptr.target)
+                {
+                    val = match val {
+                        Some(val) => Some(val.join(&intersecting.lookup_field(field))),
+                        None => Some(intersecting.lookup_field(field).clone()),
+                    };
+                }
+            }
+
+            val.unwrap_or_else(|| panic!("Allocator of {:?} to exist", ptr))
+        }
     }
 
     pub fn lookup_cell(
@@ -499,153 +348,139 @@ impl Heap {
     ) -> NodeValue {
         self.check_ptr_node(ptr_node);
         if ptr.is_null_or_empty() {
+            log::error!("Found null deref");
             return NodeValue::zero(item_ty.mode());
         }
 
-        if let Some(arr_info) = self.array_infos.get(&ptr_node) {
-            arr_info.lookup_cell(idx).clone()
+        if let Some(info) = self.array_infos.get(&ptr_node) {
+            info.lookup_cell(idx).clone()
         } else {
-            if ptr.target.unrestricted {
+            // todo remove
+            if ptr.target.is_external() {
                 return self.non_const_val(item_ty);
             }
 
             let mut val: Option<NodeValue> = None;
-            for (_node, intersect_arr) in self.array_infos.iter_mut() {
-                if intersect_arr.item_ty == item_ty && intersect_arr.mem.intersects(&ptr.target) {
+            for (_node, intersecting) in self.array_infos.iter_mut() {
+                if intersecting.kind.is_allocator()
+                    && intersecting.item_ty == item_ty
+                    && intersecting.mem.intersects(&ptr.target)
+                {
                     val = match val {
-                        Some(val) => Some(val.join(&intersect_arr.lookup_cell(idx))),
-                        None => Some(intersect_arr.lookup_cell(idx)),
+                        Some(val) => Some(val.join(&intersecting.lookup_cell(idx))),
+                        None => Some(intersecting.lookup_cell(idx)),
                     };
                 }
             }
 
-            match val {
-                Some(val) => val,
-                None => {
-                    self.non_const_val(item_ty)
-                    /*
-                    TODO implement later when use dom depth information
+            val.unwrap_or_else(|| panic!("Allocator of {:?} to exist", ptr))
+        }
+    }
+}
 
-                    log::error!("check why error occured:");
-                    for (_node, intersect_arr) in self.array_infos.iter_mut() {
-                        log::debug!(
-                            "check for item ty '{:?}' with '{:?}' => {:?}",
-                            item_ty,
-                            intersect_arr.item_ty,
-                            item_ty == intersect_arr.item_ty
-                        );
-                        log::debug!(
-                            "check for intersection '{:?}' with '{:?}' => {:?}",
-                            &ptr.target,
-                            intersect_arr.mem,
-                            intersect_arr.mem.intersects(&ptr.target)
-                        );
-                        if intersect_arr.item_ty == item_ty
-                            && intersect_arr.mem.intersects(&ptr.target)
-                        {
-                            val = val.join(&intersect_arr.lookup_cell(idx));
-                        }
-                    }
-                    panic!("see log");
-                    */
-                }
-            }
+enum IntersectionType<'v, V> {
+    Both(&'v V, &'v V),
+    Only1(&'v V),
+    Only2(&'v V),
+}
+
+fn intersect<'v, K, V, F>(map1: &'v HashMap<K, V>, map2: &'v HashMap<K, V>, mut f: F)
+where
+    K: Eq + Clone + Hash,
+    F: FnMut(&'v K, IntersectionType<'v, V>),
+{
+    for (key, val1) in map1 {
+        if let Some(val2) = map2.get(key) {
+            f(key, IntersectionType::Both(val1, val2));
+        } else {
+            f(key, IntersectionType::Only1(val1));
+        }
+    }
+
+    for (key, val2) in map2 {
+        if map1.get(key).is_none() {
+            f(key, IntersectionType::Only2(val2));
         }
     }
 }
 
 impl Lattice for Heap {
-    fn is_progression_of(&self, other: &Self) -> bool {
-        for (p, obj_info) in &self.object_infos {
-            if let Some(other_obj_info) = other.object_infos.get(&p) {
-                if !obj_info.is_progression_of(other_obj_info) {
+    fn is_progression_of(&self, _other: &Self) -> bool {
+        /*for (p, info) in &self.object_infos {
+            if let Some(other_info) = other.object_infos.get(&p) {
+                if !info.is_progression_of(other_info) {
                     return false;
                 }
             }
-        }
+        }*/
         true
     }
 
     fn join(&self, other: &Self) -> Self {
+        use self::IntersectionType::*;
+
         let mut object_infos: HashMap<Node, Rc<ObjectInfo>> = HashMap::new();
-
-        for (p, self_obj_info) in self.object_infos.iter() {
-            if let Some(other_obj_info) = other.object_infos.get(p) {
-                object_infos.insert(*p, Rc::new(self_obj_info.join(other_obj_info)));
-            } else {
-                let joined = Rc::new(self_obj_info.resetted(&self));
-                object_infos.insert(*p, joined);
-            }
-        }
-
-        for (p, other_obj_info) in other.object_infos.iter() {
-            if !self.object_infos.contains_key(p) {
-                let joined = Rc::new(other_obj_info.resetted(&self));
-                object_infos.insert(*p, joined);
-            }
-        }
+        intersect(
+            &self.object_infos,
+            &other.object_infos,
+            |ptr_source, kind| match kind {
+                Both(info1, info2) => {
+                    object_infos.insert(
+                        *ptr_source,
+                        if info1 == info2 {
+                            Rc::clone(info1)
+                        } else {
+                            assert_eq!(info1.kind, info2.kind);
+                            Rc::new(info1.join(info2, info1.kind))
+                        },
+                    );
+                }
+                Only1(info) | Only2(info) => {
+                    if info.kind.is_allocator() {
+                        object_infos.insert(*ptr_source, Rc::clone(info));
+                    }
+                }
+            },
+        );
 
         let mut array_infos: HashMap<Node, Rc<ArrayInfo>> = HashMap::new();
-        for (p, self_arr_info) in self.array_infos.iter() {
-            if let Some(other_arr_info) = other.array_infos.get(p) {
-                array_infos.insert(*p, Rc::new(self_arr_info.join(other_arr_info)));
-            } else {
-                let joined = Rc::new(self_arr_info.resetted(&self));
-                array_infos.insert(*p, joined);
-            }
-        }
-
-        for (p, other_arr_info) in other.array_infos.iter() {
-            if !self.array_infos.contains_key(p) {
-                let joined = Rc::new(other_arr_info.resetted(&self));
-                array_infos.insert(*p, joined);
-            }
-        }
+        intersect(
+            &self.array_infos,
+            &other.array_infos,
+            |ptr_source, kind| match kind {
+                Both(info1, info2) => {
+                    array_infos.insert(
+                        *ptr_source,
+                        if info1 == info2 {
+                            Rc::clone(info1)
+                        } else {
+                            assert_eq!(info1.kind, info2.kind);
+                            Rc::new(info1.join(info2, info1.kind))
+                        },
+                    );
+                }
+                Only1(info) | Only2(info) => {
+                    if info.kind.is_allocator() {
+                        array_infos.insert(*ptr_source, Rc::clone(info));
+                    }
+                }
+            },
+        );
 
         Heap {
             object_infos,
             array_infos,
         }
     }
-
-    /*fn join(&self, other: &Self) -> Self {
-        let mut object_infos: HashMap<Node, Rc<ObjectInfo>> = HashMap::new();
-
-        for (p, self_obj_info) in self.object_infos.iter() {
-            if let Some(other_obj_info) = other.object_infos.get(p) {
-                object_infos.insert(*p, Rc::new(self_obj_info.join(other_obj_info)));
-            } else {
-                object_infos.insert(*p, self_obj_info.clone());
-            }
-        }
-
-        for (p, other_obj_info) in other.object_infos.iter() {
-            if !self.object_infos.contains_key(p) {
-                object_infos.insert(*p, other_obj_info.clone());
-            }
-        }
-
-        let mut array_infos: HashMap<Node, Rc<ArrayInfo>> = HashMap::new();
-        for (p, self_arr_info) in self.array_infos.iter() {
-            if let Some(other_arr_info) = other.array_infos.get(p) {
-                array_infos.insert(*p, Rc::new(self_arr_info.join(other_arr_info)));
-            } else {
-                array_infos.insert(*p, self_arr_info.clone());
-            }
-        }
-
-        for (p, other_arr_info) in other.array_infos.iter() {
-            if !self.array_infos.contains_key(p) {
-                array_infos.insert(*p, other_arr_info.clone());
-            }
-        }
-
-        Heap {
-            object_infos,
-            array_infos,
-        }
-    }*/
 }
+
+/*
+trait ItemInfo {
+    fn mem(&self) -> MemoryArea;
+    fn mem_pointed_to_by_fields(&self) -> MemoryArea;
+    fn mem_reachable_from(&self) -> MemoryArea;
+    fn resetted(&self, mem: &MemoryArea) -> Self;
+}*/
 
 // == ArrayInfo ==
 
@@ -701,6 +536,7 @@ enum ArrayInfoState {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct ArrayInfo {
+    kind: InfoKind,
     item_ty: Ty,
     mem: MemoryArea,
     default_val: NodeValue,
@@ -737,9 +573,11 @@ impl fmt::Debug for ArrayInfo {
 }
 
 impl ArrayInfo {
-    pub fn new(mem: MemoryArea, item_ty: Ty) -> Self {
+    pub fn allocator(allocator: Node, item_ty: Ty) -> Self {
         let mode = item_ty.mode();
+        let mem = MemoryArea::single(allocator);
         Self {
+            kind: Allocator,
             item_ty,
             mem,
             default_val: NodeValue::zero(mode),
@@ -747,18 +585,20 @@ impl ArrayInfo {
         }
     }
 
-    pub fn resetted(&self, heap: &Heap) -> Self {
-        Self::new_non_const(self.item_ty, self.mem.clone(), heap)
-    }
-
-    pub fn new_non_const(item_ty: Ty, mem: MemoryArea, heap: &Heap) -> Self {
-        Self {
-            item_ty,
-            mem,
-            default_val: heap.non_const_val(item_ty),
-            state: ArrayInfoState::Const(HashMap::new()),
+    /*
+        pub fn resetted(&self, heap: &Heap) -> Self {
+            Self::new_non_const(self.item_ty, self.mem.clone(), heap)
         }
-    }
+
+        pub fn new_non_const(item_ty: Ty, mem: MemoryArea, heap: &Heap) -> Self {
+            Self {
+                item_ty,
+                mem,
+                default_val: heap.non_const_val(item_ty),
+                state: ArrayInfoState::Const(HashMap::new()),
+            }
+        }
+    */
 
     pub fn join_cell(&mut self, idx: Idx, val: &NodeValue) {
         let existing_val = self.lookup_cell(idx);
@@ -868,23 +708,8 @@ impl ArrayInfo {
             }
         }
     }
-}
 
-impl Lattice for ArrayInfo {
-    fn is_progression_of(&self, other: &Self) -> bool {
-        assert!(self.item_ty == other.item_ty);
-
-        /*
-        TODO
-        for (idx, val) in self.vals.iter().enumerate() {
-            if !field_val.is_progression_of(&other.fields[field_idx]) {
-                return false;
-            }
-        }*/
-        true
-    }
-
-    fn join(&self, other: &Self) -> Self {
+    fn join(&self, other: &Self, kind: InfoKind) -> Self {
         assert!(self.item_ty == other.item_ty);
 
         let mut default_val = self.default_val.join(&other.default_val);
@@ -949,14 +774,34 @@ impl Lattice for ArrayInfo {
             mem: self.mem.join(&other.mem),
             default_val,
             state,
+            kind,
         }
     }
 }
+
+/*
+impl Lattice for ArrayInfo {
+    fn is_progression_of(&self, other: &Self) -> bool {
+        assert!(self.item_ty == other.item_ty);
+
+        / *
+        TODO
+        for (idx, val) in self.vals.iter().enumerate() {
+            if !field_val.is_progression_of(&other.fields[field_idx]) {
+                return false;
+            }
+        }* /
+true
+}
+
+}
+*/
 
 // == ObjectInfo ==
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct ObjectInfo {
+    kind: InfoKind,
     ty: ClassTy,
     mem: MemoryArea,
     // stores a value for each field
@@ -981,8 +826,10 @@ impl fmt::Debug for ObjectInfo {
 }
 
 impl ObjectInfo {
-    pub fn new(mem: MemoryArea, ty: ClassTy) -> Self {
+    pub fn allocator(allocator: Node, ty: ClassTy) -> Self {
+        let mem = MemoryArea::single(allocator);
         Self {
+            kind: Allocator,
             ty,
             mem,
             fields: ty
@@ -1000,6 +847,7 @@ impl ObjectInfo {
         mem
     }
 
+    /*
     pub fn resetted(&self, heap: &Heap) -> Self {
         Self::new_non_const(self.ty, self.mem.clone(), heap)
     }
@@ -1014,6 +862,7 @@ impl ObjectInfo {
                 .collect(),
         }
     }
+    */
 
     pub fn join_field(&mut self, field: Entity, val: &NodeValue) {
         let field_idx = self.ty.idx_of_field(field);
@@ -1029,8 +878,23 @@ impl ObjectInfo {
         let idx = self.ty.idx_of_field(field);
         &self.fields[idx]
     }
-}
 
+    fn join(&self, other: &Self, kind: InfoKind) -> Self {
+        assert!(self.ty == other.ty);
+
+        let mut updated_fields = Vec::with_capacity(self.fields.len());
+        for (field_idx, field_val) in self.fields.iter().enumerate() {
+            updated_fields.push(field_val.join(&other.fields[field_idx]));
+        }
+        Self {
+            ty: self.ty,
+            mem: self.mem.join(&other.mem),
+            fields: updated_fields,
+            kind,
+        }
+    }
+}
+/*
 impl Lattice for ObjectInfo {
     fn is_progression_of(&self, other: &Self) -> bool {
         assert!(self.ty == other.ty);
@@ -1057,3 +921,4 @@ impl Lattice for ObjectInfo {
         }
     }
 }
+*/

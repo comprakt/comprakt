@@ -1,5 +1,6 @@
 mod heap;
-pub use self::heap::*;
+mod mem;
+pub use self::{heap::*, mem::*};
 use libfirm_rs::{
     nodes::{Node, NodeDebug, NodeTrait},
     Mode, Tarval, TarvalKind,
@@ -317,7 +318,7 @@ impl NodeValue {
         if mode.is_pointer() {
             if val.is_bad() {
                 // still cannot point to created objects in the current method
-                NodeValue::new(Pointer::to(MemoryArea::unrestricted()).into(), source)
+                NodeValue::new(Pointer::to(MemoryArea::external()).into(), source)
             } else if val.is_zero() {
                 NodeValue::new(Pointer::null().into(), source)
             } else {

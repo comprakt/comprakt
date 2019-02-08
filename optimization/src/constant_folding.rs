@@ -3,14 +3,13 @@ use crate::{dot::*, optimization};
 use firm_construction::program_generator::Spans;
 use libfirm_rs::{
     bindings,
-    nodes::{try_as_value_node, Block, NewKind, Node, NodeDebug, NodeTrait, ProjKind},
+    nodes::{try_as_value_node, Block, NewKind, Node, NodeTrait, ProjKind},
     types::Ty,
     Entity, Graph, Mode, Tarval, TarvalKind,
 };
 use priority_queue::PriorityQueue;
 use std::{
     collections::{HashMap, HashSet},
-    fmt::Write,
     rc::Rc,
 };
 
@@ -219,81 +218,82 @@ impl ConstantFolding {
         }
     }
 
-    // used for debugging
-    #[allow(clippy::single_match)]
-    fn debug_data(&self) -> String {
-        if let Some(node) = self.cur_node {
-            if let Some(span) = Spans::lookup_span(node) {
-                let mut result = String::new();
-                write!(
-                    &mut result,
-                    "highlight-line:{},{},{},{}",
-                    span.start_position().line_number(),
-                    span.start_position().column() + 1,
-                    span.end_position().line_number(),
-                    span.end_position().column() + 1,
-                )
-                .unwrap();
+    /*
+        // used for debugging
+        #[allow(clippy::single_match)]
+        fn debug_data(&self) -> String {
+            if let Some(node) = self.cur_node {
+                if let Some(span) = Spans::lookup_span(node) {
+                    let mut result = String::new();
+                    write!(
+                        &mut result,
+                        "highlight-line:{},{},{},{}",
+                        span.start_position().line_number(),
+                        span.start_position().column() + 1,
+                        span.end_position().line_number(),
+                        span.end_position().column() + 1,
+                    )
+                    .unwrap();
 
-                let mem = match node {
-                    Node::Load(load) => load.mem(),
-                    Node::Store(store) => store.mem(),
-                    Node::Call(call) => call.mem(),
+                    let mem = match node {
+                        Node::Load(load) => load.mem(),
+                        Node::Store(store) => store.mem(),
+                        Node::Call(call) => call.mem(),
 
-                    Node::Proj(proj, ProjKind::Store_M(_))
-                    | Node::Proj(proj, ProjKind::Load_M(_))
-                    | Node::Proj(proj, ProjKind::Call_M(_)) => proj.pred(),
-                    _ => node,
-                };
+                        Node::Proj(proj, ProjKind::Store_M(_))
+                        | Node::Proj(proj, ProjKind::Load_M(_))
+                        | Node::Proj(proj, ProjKind::Call_M(_)) => proj.pred(),
+                        _ => node,
+                    };
 
-                let val = self.lookup_lat(mem);
-                let val = match val {
-                    NodeLattice::Tuple(_a, b) => &b,
-                    val => val,
-                };
+                    let val = self.lookup_lat(mem);
+                    let val = match val {
+                        NodeLattice::Tuple(_a, b) => &b,
+                        val => val,
+                    };
 
-                let mut text = HashMap::new();
-                match val {
-                    NodeLattice::Heap(heap) => {
-                        for (node, info) in &heap.array_infos {
-                            text.insert(*node, format!("{:?}", info));
-                        }
-                        for (node, info) in &heap.object_infos {
-                            text.insert(*node, format!("{:?}", info));
-                        }
-                    }
-                    _ => {}
-                }
-
-                for (n, val) in &self.values {
-                    match val.value() {
-                        NodeLattice::Value(val) if !Node::is_const(*n) => {
-                            if let Some(span) = Spans::lookup_span(*n) {
-                                write!(
-                                    &mut result,
-                                    "\n{}:{}: {:?}{}",
-                                    span.start_position().line_number(),
-                                    (*n).debug_fmt().short(true),
-                                    val,
-                                    if let Some(t) = text.get(n) {
-                                        " |  ".to_owned() + t
-                                    } else {
-                                        "".to_owned()
-                                    }
-                                )
-                                .unwrap();
+                    let mut text = HashMap::new();
+                    match val {
+                        NodeLattice::Heap(heap) => {
+                            for (node, info) in &heap.array_infos {
+                                text.insert(*node, format!("{:?}", info));
+                            }
+                            for (node, info) in &heap.object_infos {
+                                text.insert(*node, format!("{:?}", info));
                             }
                         }
                         _ => {}
                     }
+
+                    for (n, val) in &self.values {
+                        match val.value() {
+                            NodeLattice::Value(val) if !Node::is_const(*n) => {
+                                if let Some(span) = Spans::lookup_span(*n) {
+                                    write!(
+                                        &mut result,
+                                        "\n{}:{}: {:?}{}",
+                                        span.start_position().line_number(),
+                                        (*n).debug_fmt().short(true),
+                                        val,
+                                        if let Some(t) = text.get(n) {
+                                            " |  ".to_owned() + t
+                                        } else {
+                                            "".to_owned()
+                                        }
+                                    )
+                                    .unwrap();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    return result;
                 }
-
-                return result;
             }
+            "None".to_owned()
         }
-        "None".to_owned()
-    }
-
+    */
     fn lookup(&self, node: Node) -> &ConstantFoldingLattice {
         &self.values[&node]
     }
@@ -311,7 +311,7 @@ impl ConstantFolding {
     }
 
     fn run(&mut self) {
-        self.debug_data();
+        //self.debug_data();
         macro_rules! invalidate {
             ($node: expr) => {
                 let prio = *self
