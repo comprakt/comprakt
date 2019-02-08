@@ -40,11 +40,8 @@ impl Hash for SubExprNode {
         }
 
         // hash attributes of each node
-        match self.0 {
-            Node::Const(c) => c.tarval().kind().hash(state),
-            _ => {
-                // has no attributes
-            }
+        if let Node::Const(c) = self.0 {
+            c.tarval().kind().hash(state);
         }
     }
 }
