@@ -298,6 +298,12 @@
 <span id="298">298</span>
 <span id="299">299</span>
 <span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">mode</span>::<span class="ident">Mode</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
@@ -348,6 +354,12 @@
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mj_int</span>(<span class="ident">val</span>: <span class="ident">i64</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
         <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_tarval_from_long</span>(<span class="ident">val</span>, <span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Is</span>) }.<span class="ident">into</span>()
+    }
+
+    <span class="doccomment">/// used for mjrt_new</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mj_size</span>(<span class="ident">val</span>: <span class="ident">i64</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
+        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_tarval_from_long</span>(<span class="ident">val</span>, <span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Ls</span>) }.<span class="ident">into</span>()
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>

@@ -2033,6 +2033,8 @@
 <span id="2033">2033</span>
 <span id="2034">2034</span>
 <span id="2035">2035</span>
+<span id="2036">2036</span>
+<span id="2037">2037</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Use linear scan results to convert LIR-instructions to x86 instructions.</span>
 
@@ -3068,7 +3070,9 @@
             .<span class="ident">into_iter</span>()
             <span class="comment">// stack args are passed in reverse order</span>
             .<span class="ident">rev</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">src</span><span class="op">|</span> <span class="ident">Instruction</span>::<span class="ident">Pushq</span> { <span class="ident">src</span> })
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">src</span><span class="op">|</span> <span class="ident">Instruction</span>::<span class="ident">Pushq</span> {
+                <span class="ident">src</span>: <span class="ident">src</span>.<span class="ident">into_size</span>(<span class="ident">Size</span>::<span class="ident">Eight</span>),
+            })
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
         <span class="kw">let</span> <span class="ident">reg_to_reg</span> <span class="op">=</span> {
             <span class="kw">let</span> <span class="ident">transfers</span> <span class="op">=</span> <span class="ident">reg_to_reg</span>.<span class="ident">into_iter</span>().<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">src</span>, <span class="ident">dst</span>)<span class="op">|</span> <span class="ident">RegToRegTransfer</span> {
@@ -3115,10 +3119,10 @@
             .<span class="ident">into</span>(),
         );
         <span class="ident">instrs</span>.<span class="ident">push</span>(<span class="ident">post_call_reset_rsp_of_pushs</span>);
-        <span class="ident">instrs</span>.<span class="ident">extend</span>(<span class="ident">move_result_to_dst</span>);
         <span class="ident">instrs</span>.<span class="ident">extend</span>(<span class="ident">caller_saves</span>.<span class="ident">restores</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">reg</span><span class="op">|</span> <span class="ident">Popq</span> {
             <span class="ident">dst</span>: <span class="ident">reg</span>.<span class="ident">into_reg</span>(<span class="ident">Size</span>::<span class="ident">Eight</span>).<span class="ident">into</span>(),
         }));
+        <span class="ident">instrs</span>.<span class="ident">extend</span>(<span class="ident">move_result_to_dst</span>);
     }
 
     <span class="kw">fn</span> <span class="ident">gen_jmp_label</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">target</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">lir</span>::<span class="ident">BasicBlock</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">String</span> {
