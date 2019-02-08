@@ -1,4 +1,4 @@
-use super::type_translation::*;
+use super::{safety, type_translation::*};
 use crate::{
     ref_eq::RefEq,
     runtime::Runtime,
@@ -39,6 +39,7 @@ pub struct FirmProgram<'src, 'ast> {
     pub methods: HashMap<RefEq<Rc<ClassMethodDef<'src, 'ast>>>, FirmMethodP<'src, 'ast>>,
     pub entities: HashMap<Entity, FirmEntity<'src, 'ast>>,
     pub runtime: Rc<Runtime>,
+    pub safety_flags: &'src [safety::Flag],
 }
 
 pub type FirmClassP<'src, 'ast> = Rc<RefCell<FirmClass<'src, 'ast>>>;
@@ -67,6 +68,7 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
     pub fn new(
         type_system: &'src TypeSystem<'src, 'ast>,
         runtime: Rc<Runtime>,
+        safety_flags: &'src [safety::Flag],
     ) -> FirmProgram<'src, 'ast> {
         let mut program = FirmProgram {
             classes: HashMap::new(),
@@ -74,6 +76,7 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
             methods: HashMap::new(),
             entities: HashMap::new(),
             runtime,
+            safety_flags,
         };
         program.add_type_system(type_system);
         program

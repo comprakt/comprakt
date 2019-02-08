@@ -97,7 +97,11 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
     }
 
     pub fn generate(mut self) -> FirmProgram<'src, 'ast> {
-        let program = FirmProgram::new(self.type_system, Rc::clone(&self.runtime));
+        let program = FirmProgram::new(
+            self.type_system,
+            Rc::clone(&self.runtime),
+            self.safety_flags,
+        );
 
         for method in program.methods.values() {
             log::debug!("generate method body for {:?}", method.borrow().def.name);
