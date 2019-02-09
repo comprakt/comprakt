@@ -1396,8 +1396,8 @@ impl fmt::Display for Instruction {
             And { src, dst } => write!(fmt, "\tand{} {}, {}", self.instr_suffix(), src, dst),
             Or { src, dst } => write!(fmt, "\tor{} {}, {}", self.instr_suffix(), src, dst),
             Xor { src, dst } => write!(fmt, "\txor{} {}, {}", self.instr_suffix(), src, dst),
-            Shr { by, val } => write!(fmt, "\tshr{} {}, {}", self.instr_suffix(), by, val),
-            Shl { by, val } => write!(fmt, "\tshl{} {}, {}", self.instr_suffix(), by, val),
+            Shr { by, val } => write!(fmt, "\tsar{} {}, {}", self.instr_suffix(), by, val),
+            Shl { by, val } => write!(fmt, "\tsal{} {}, {}", self.instr_suffix(), by, val),
             Cmp {
                 subtrahend,
                 minuend,
