@@ -38,57 +38,55 @@ impl NodeLocal {
                 let left = add.left();
                 let right = add.right();
 
-                // checking for equality of const nodes is unnecessary since const additions were already folded
+                // checking for equality of const nodes is unnecessary since const additions
+                // were already folded
                 if left == right {
                     // convert (a + a) to (a << 2)
                     log::debug!(
-                        "Div2Shift: self addition {:?} [left:{:?},right:{:?}] replaced by '{:?} << 2'",
+                        "Div2Shift: self addition {:?} [left:{:?},right:{:?}] \
+                         replaced by '{:?} << 2'",
                         add,
                         left,
                         right,
                         left
                     );
 
-                    let tarval_1 = self
-                        .graph
-                        .new_const(Tarval::val(1, Mode::Iu()));
+                    let tarval_1 = self.graph.new_const(Tarval::val(1, Mode::Iu()));
 
                     let shl = add.block().new_shl(left, tarval_1);
 
                     Graph::exchange(add, shl);
                 }
-            },
+            }
             Node::Mul(mul) => {
                 let left = mul.left();
                 let right = mul.right();
 
                 let (other, power) = {
-                        if let Node::Const(op1) = left {
-                            // power of two * a
-                            if let TarvalKind::Long(val) = op1.tarval().kind() {
-                                (right, val)
-                            } else {
-                                return;
-                            }
-                        } else if let Node::Const(op2) = right {
-                            // a * power of two
-                            if let TarvalKind::Long(val) = op2.tarval().kind() {
-                                (left, val)
-                            } else {
-                                return;
-                            }
+                    if let Node::Const(op1) = left {
+                        // power of two * a
+                        if let TarvalKind::Long(val) = op1.tarval().kind() {
+                            (right, val)
                         } else {
                             return;
                         }
+                    } else if let Node::Const(op2) = right {
+                        // a * power of two
+                        if let TarvalKind::Long(val) = op2.tarval().kind() {
+                            (left, val)
+                        } else {
+                            return;
+                        }
+                    } else {
+                        return;
+                    }
                 };
 
                 let abs_power = power.abs() as u64;
                 let has_minus = power < 0;
 
                 if abs_power.is_power_of_two() {
-
                     let shift_amount = 64 - 1 - abs_power.leading_zeros();
-
 
                     let shift_amount_node = self
                         .graph
@@ -101,12 +99,18 @@ impl NodeLocal {
                         Node::Shl(shl)
                     };
 
-                    log::debug!("Div2Shift: {:?} [left:{:?},right:{:?}] replaced by '{:?} << {}'", mul, left, right, shl, shift_amount
+                    log::debug!(
+                        "Div2Shift: {:?} [left:{:?},right:{:?}] replaced by '{:?} << {}'",
+                        mul,
+                        left,
+                        right,
+                        shl,
+                        shift_amount
                     );
 
                     Graph::exchange(mul, shl_end);
                 }
-            },
+            }
             Node::Div(div) => {
                 log::debug!(
                     "Div2Shift: {:?}[left:{:?},right:{:?}] ",
