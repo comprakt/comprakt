@@ -432,7 +432,7 @@ impl ConstantFolding {
 
         if !reachable {
             // we don't need to update non-reachable nodes
-            return ConstantFoldingLattice::new(false, NodeLattice::NoInfoYet);
+            return cur_lattice.clone();
         }
 
         use self::{Node::*, ProjKind::*};
@@ -544,12 +544,7 @@ impl ConstantFolding {
                                         }
                                     }
                                     Some(_) => panic!("unreach"),
-                                    None => {
-                                        return ConstantFoldingLattice::new(
-                                            reachable,
-                                            NodeLattice::NoInfoYet,
-                                        );
-                                    }
+                                    None => return cur_lattice.clone(),
                                 },
                                 sel.element_ty(),
                             ),
@@ -567,16 +562,17 @@ impl ConstantFolding {
                     (NodeLattice::Heap(heap), Some(ptr_val)) if ptr_val.is_pointer() => {
                         let o = ptr_val.source_or_some(ptr_node);
                         let ptr = ptr_val.as_pointer().unwrap();
+                        if ptr.is_null_or_empty() {
+                            // we would crash on such a `ptr` anyways, so wait for more info.
+                            return cur_lattice.clone();
+                        }
                         let mut heap = (**heap).clone();
 
                         match cur_node {
                             Store(store) => {
                                 let val = self.lookup_val(store.value());
                                 if val.is_none() {
-                                    return ConstantFoldingLattice::new(
-                                        reachable,
-                                        NodeLattice::NoInfoYet,
-                                    );
+                                    return cur_lattice.clone();
                                 }
                                 let val = val.unwrap();
 
@@ -595,10 +591,7 @@ impl ConstantFolding {
                                 let val = if let Some(val) = val {
                                     val
                                 } else {
-                                    return ConstantFoldingLattice::new(
-                                        reachable,
-                                        NodeLattice::NoInfoYet,
-                                    );
+                                    return cur_lattice.clone();
                                 };
                                 let val = match load.out_proj_res() {
                                     Some(res) if val.source.is_none() => {

@@ -341,13 +341,8 @@ impl Heap {
     ) -> Option<NodeValue> {
         self.check_ptr_node(ptr_node);
         if ptr.is_null_or_empty() {
-            // this crashes anyways.
-            log::error!(
-                "Found null deref at {:?}, accessing {}",
-                ptr_node,
-                field.name_string()
-            );
-            return Some(NodeValue::zero(field.ty().mode()));
+            // We might need to wait for phi to collect more values.
+            return None;
         }
 
         let class_ty = ClassTy::from(field.owner()).unwrap();
