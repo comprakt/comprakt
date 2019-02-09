@@ -246,8 +246,23 @@
 <span id="246">246</span>
 <span id="247">247</span>
 <span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">asciifile</span>::<span class="ident">Spanned</span>;
+<span class="kw">use</span> <span class="ident">diagnostics</span>::<span class="ident">MessageLevel</span>;
 <span class="kw">use</span> <span class="ident">lexer</span>::<span class="ident">IntLit</span>;
 <span class="kw">use</span> <span class="ident">strtab</span>::<span class="ident">Symbol</span>;
 <span class="kw">use</span> <span class="ident">strum_macros</span>::<span class="ident">EnumDiscriminants</span>;
@@ -264,6 +279,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Program</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="ident">classes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span>, <span class="ident">ClassDeclaration</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">attrs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span>, <span class="ident">Attribute</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// This AST node stores the Class declaration, which consists of a name and</span>
@@ -272,6 +288,7 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ClassDeclaration</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="ident">name</span>: <span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span>, <span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;&gt;</span>,
     <span class="kw">pub</span> <span class="ident">members</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span>, <span class="ident">ClassMember</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">attrs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span>, <span class="ident">Attribute</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// This AST node describes a class member. Variants of class members are</span>
@@ -280,6 +297,7 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ClassMember</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="ident">kind</span>: <span class="ident">ClassMemberKind</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">name</span>: <span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">attrs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span>, <span class="ident">Attribute</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">ParameterList</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span>, <span class="ident">Parameter</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>;
@@ -484,16 +502,26 @@
     }
 }
 
-<span class="comment">// impl std::cmp::PartialOrd for ClassMember&lt;&#39;_&gt; {</span>
-<span class="comment">//     fn partial_cmp(&amp;self, rhs: &amp;Self) -&gt; Option&lt;std::cmp::Ordering&gt; {</span>
-<span class="comment">//         Some(crate::print::pretty::compare_class_member(self, rhs))</span>
-<span class="comment">//     }</span>
-<span class="comment">// }</span>
-
-<span class="comment">// impl std::cmp::Ord for ClassMember&lt;&#39;_&gt; {</span>
-<span class="comment">//     fn cmp(&amp;self, rhs: &amp;Self) -&gt; std::cmp::Ordering {</span>
-<span class="comment">//         crate::print::pretty::compare_class_member(self, rhs)</span>
-<span class="comment">//     }</span>
-<span class="comment">// }</span>
+<span class="doccomment">/// Attributes can be given to a program with</span>
+<span class="doccomment">/// ```ignore</span>
+<span class="doccomment">/// #!attribute_name</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">/// at the start of the file.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// For classes, methods and fields use the syntax</span>
+<span class="doccomment">/// ```ignore</span>
+<span class="doccomment">/// #attribute_name</span>
+<span class="doccomment">/// public void f() {}</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Available attributes are:</span>
+<span class="doccomment">/// - Lint level: `?!level:lint_name` level can be one of `allow`, `info`,</span>
+<span class="doccomment">///   `warning` or `error` e.g `?allow:unused_argument`</span>
+<span class="doccomment">/// - Inline: `?!inline`, `?!noinline`</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Attribute</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;</span> {
+    <span class="ident">LintLevel</span>(<span class="ident">MessageLevel</span>, <span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span>, <span class="ident">Symbol</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;&gt;</span>),
+    <span class="ident">Inline</span>(<span class="ident">bool</span>),
+}
 </pre></div>
 </section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "parser";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-files.js"></script><script src="../../source-script.js"></script><script defer src="../../search-index.js"></script></body></html>

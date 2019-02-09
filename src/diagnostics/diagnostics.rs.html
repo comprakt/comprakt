@@ -459,6 +459,21 @@
 <span id="459">459</span>
 <span id="460">460</span>
 <span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The diagnostics object controls the output of warnings and errors generated</span>
 <span class="doccomment">//! by the compiler during the lexing, parsing and semantic analysis phases.</span>
@@ -471,6 +486,8 @@
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">ascii</span>::<span class="ident">escape_default</span>, <span class="ident">cell</span>::<span class="ident">RefCell</span>, <span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">fmt</span>::<span class="ident">Display</span>};
 <span class="kw">use</span> <span class="ident">termcolor</span>::{<span class="ident">Color</span>, <span class="ident">WriteColor</span>};
 <span class="kw">use</span> <span class="ident">utils</span>::<span class="ident">color</span>::<span class="ident">ColorOutput</span>;
+
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">lint</span>;
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">u8_to_printable_representation</span>(<span class="ident">byte</span>: <span class="ident">u8</span>) <span class="op">-&gt;</span> <span class="ident">String</span> {
     <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">escape_default</span>(<span class="ident">byte</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span>();
@@ -649,11 +666,12 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">MessageLevel</span> {
     <span class="ident">Error</span>,
     <span class="ident">Warning</span>,
     <span class="ident">Info</span>,
+    <span class="ident">Allow</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">MessageLevel</span> {
@@ -665,6 +683,7 @@
             <span class="ident">MessageLevel</span>::<span class="ident">Error</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Color</span>::<span class="ident">Red</span>),
             <span class="ident">MessageLevel</span>::<span class="ident">Warning</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Color</span>::<span class="ident">Yellow</span>),
             <span class="ident">MessageLevel</span>::<span class="ident">Info</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Color</span>::<span class="ident">Cyan</span>),
+            <span class="ident">MessageLevel</span>::<span class="ident">Allow</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
         }
     }
 
@@ -673,6 +692,17 @@
             <span class="ident">MessageLevel</span>::<span class="ident">Error</span> <span class="op">=&gt;</span> <span class="string">&quot;error&quot;</span>,
             <span class="ident">MessageLevel</span>::<span class="ident">Warning</span> <span class="op">=&gt;</span> <span class="string">&quot;warning&quot;</span>,
             <span class="ident">MessageLevel</span>::<span class="ident">Info</span> <span class="op">=&gt;</span> <span class="string">&quot;info&quot;</span>,
+            <span class="ident">MessageLevel</span>::<span class="ident">Allow</span> <span class="op">=&gt;</span> <span class="string">&quot;allow&quot;</span>,
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_string</span>(<span class="ident">level</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="ident">level</span> {
+            <span class="string">&quot;allow&quot;</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">MessageLevel</span>::<span class="ident">Allow</span>),
+            <span class="string">&quot;info&quot;</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">MessageLevel</span>::<span class="ident">Info</span>),
+            <span class="string">&quot;warning&quot;</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">MessageLevel</span>::<span class="ident">Warning</span>),
+            <span class="string">&quot;error&quot;</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">MessageLevel</span>::<span class="ident">Error</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
         }
     }
 }

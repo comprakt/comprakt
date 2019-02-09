@@ -312,6 +312,18 @@
 <span id="312">312</span>
 <span id="313">313</span>
 <span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! A macro that generates a test case for each test available during</span>
 <span class="doccomment">//! compilation. We do this to make them show up as single tests in the output</span>
@@ -555,6 +567,18 @@
                 <span class="ident">exec_ast_inspector_test</span>(<span class="ident">input</span>);
             }
         }
+    })
+}
+
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">needless_pass_by_value</span>)]</span> <span class="comment">// rust-clippy/issues/3067</span>
+<span class="attribute">#[<span class="ident">proc_macro</span>]</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_lints_integration_tests</span>(<span class="ident">_args</span>: <span class="ident">TokenStream</span>) <span class="op">-&gt;</span> <span class="ident">TokenStream</span> {
+    <span class="ident">gen_integration_tests</span>(<span class="string">&quot;lints&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="op">|</span><span class="ident">test_name</span>, <span class="ident">mj_file</span><span class="op">|</span> {
+        <span class="ident">default_test_generator</span>(
+            <span class="kw-2">&amp;</span><span class="macro">quote</span><span class="macro">!</span> { <span class="ident">CompilerCall</span>::<span class="ident">RawCompiler</span>(<span class="ident">CompilerPhase</span>::<span class="ident">Linter</span>) },
+            <span class="ident">test_name</span>,
+            <span class="ident">mj_file</span>,
+        )
     })
 }
 
