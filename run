@@ -26,11 +26,11 @@ if [[ $BENCH == "1" ]]; then
     exec $COMPILER_CLI "$@"
 else
     if [[ $# == 1 ]] ; then
-        exec $COMPILER_CLI "--compile" "-O" "moderate" "$1"
+        exec $COMPILER_CLI "--compile" "-O" "moderate" "--no-peep" "$1"
     elif [[ $# == 2 ]] && [[ $1 == "--compile" ]]; then
-        exec $COMPILER_CLI "--compile" "-O" "moderate" "$2"
+        exec $COMPILER_CLI "--compile" "-O" "moderate" "--no-peep" "$2"
     elif [[ $# == 2 ]] && [[ $1 == "--compile-firm" ]]; then
-        exec $COMPILER_CLI "--compile-firm" "-O" "moderate" "$2"
+        exec $COMPILER_CLI "--compile-firm" "-O" "moderate" "--no-peep" "$2"
     else
         exec $COMPILER_CLI "$@"
     fi

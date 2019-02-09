@@ -1293,6 +1293,10 @@ pub(crate) enum Instruction {
         subtrahend: SrcOperand,
         minuend: DstOperand,
     },
+    Test {
+        src1: SrcOperand,
+        src2: DstOperand,
+    },
     Jmp {
         label: String,
         kind: lir::JmpKind,
@@ -1309,6 +1313,8 @@ pub(crate) enum Instruction {
         comment: String,
     },
     Raw(String),
+    /// instruction that was removed by peephole optimizer
+    PeepholedOut,
 }
 
 impl Instruction {
@@ -1327,6 +1333,10 @@ impl Instruction {
             | Cmp {
                 subtrahend: src,
                 minuend: dst,
+            }
+            | Test {
+                src1: src,
+                src2: dst,
             } => {
                 let relevant_size = match (src, dst) {
                     (SrcOperand::Imm(_), _) => dst.size(),
@@ -1362,9 +1372,42 @@ impl Instruction {
             | Label { .. }
             | Cqto
             | Comment { .. }
+            | PeepholedOut
             | Raw(_) => "",
         }
         .to_string()
+    }
+
+    pub(crate) fn binop_operands(&self) -> Option<(SrcOperand, DstOperand)> {
+        use self::Instruction::*;
+        match self {
+            Add { src, dst }
+            | Sub {
+                subtrahend: src,
+                acc: dst,
+            }
+            | Mul { src, dst }
+            | And { src, dst }
+            | Or { src, dst }
+            | Xor { src, dst } => Some((*src, *dst)),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn binop_with_dst(&self, dst: DstOperand) -> Option<Self> {
+        use self::Instruction::*;
+        match self {
+            Add { src, .. } => Some(Add { src: *src, dst }),
+            Sub { subtrahend, .. } => Some(Sub {
+                subtrahend: *subtrahend,
+                acc: dst,
+            }),
+            Mul { src, .. } => Some(Mul { src: *src, dst }),
+            And { src, .. } => Some(And { src: *src, dst }),
+            Or { src, .. } => Some(Or { src: *src, dst }),
+            Xor { src, .. } => Some(Xor { src: *src, dst }),
+            _ => None,
+        }
     }
 }
 
@@ -1390,6 +1433,7 @@ impl fmt::Display for Instruction {
                 subtrahend,
                 minuend
             ),
+            Test { src1, src2 } => write!(fmt, "\ttest{} {}, {}", self.instr_suffix(), src1, src2),
             Not { src } => write!(fmt, "\tnot{} {}", self.instr_suffix(), src),
             Neg { src } => write!(fmt, "\tneg{} {}", self.instr_suffix(), src),
             Mov(mov) => write!(fmt, "\t{}", mov),
@@ -1406,6 +1450,7 @@ impl fmt::Display for Instruction {
             Cqto => write!(fmt, "\tcqto"),
             Comment { comment } => write!(fmt, "\t/* {} */", comment),
             Raw(raw) => write!(fmt, "{}", raw),
+            PeepholedOut => write!(fmt, "\t/* peepholed out */"),
         }
     }
 }
@@ -1459,9 +1504,9 @@ impl fmt::Display for CallInstruction {
 
 #[derive(Clone)]
 pub(crate) struct MovInstruction {
-    src: SrcOperand,
-    dst: DstOperand,
-    comment: String,
+    pub(crate) src: SrcOperand,
+    pub(crate) dst: DstOperand,
+    pub(crate) comment: String,
 }
 
 impl fmt::Display for MovInstruction {
@@ -1509,18 +1554,11 @@ impl fmt::Display for MovInstruction {
                 "mov{} {}, {}\t\t/* {} */",
                 mov_suffix, src, dst, self.comment
             ),
-            (SrcOperand::Reg(src_reg), DstOperand::Reg(dst_reg)) => {
-                // FIXME: handling this in the Display impl is wrong. Do this right!
-                if src_reg == dst_reg {
-                    write!(fmt, "/* mov %r, %r */\t\t/* {} */", self.comment)
-                } else {
-                    write!(
-                        fmt,
-                        "mov{} {}, {}\t\t/* {} */",
-                        mov_suffix, src, dst, self.comment
-                    )
-                }
-            }
+            (SrcOperand::Reg(_), DstOperand::Reg(_)) => write!(
+                fmt,
+                "mov{} {}, {}\t\t/* {} */",
+                mov_suffix, src, dst, self.comment
+            ),
             (SrcOperand::Ar(_), DstOperand::Ar(_)) => unreachable!(),
         }
     }
@@ -1672,9 +1710,10 @@ impl OperandUsingRegs for lir::AddressComputation<Amd64Reg> {
     }
 }
 
-trait OperandTrait {
+pub(crate) trait OperandTrait {
     fn size(self) -> Size;
     fn into_size(self, size: Size) -> Self;
+    fn eq_ignore_size(self, other: Self) -> bool;
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -1717,6 +1756,14 @@ impl OperandTrait for SrcOperand {
             SrcOperand::Imm(_) => self,
         }
     }
+    fn eq_ignore_size(self, other: Self) -> bool {
+        match (self, other) {
+            (SrcOperand::Ar(ar1), SrcOperand::Ar(ar2)) => ar1.eq_ignore_size(ar2),
+            (SrcOperand::Reg(reg1), SrcOperand::Reg(reg2)) => reg1.eq_ignore_size(reg2),
+            (SrcOperand::Imm(tv1), SrcOperand::Imm(tv2)) => tv1 == tv2,
+            _ => false,
+        }
+    }
 }
 
 impl OperandTrait for Reg {
@@ -1729,6 +1776,9 @@ impl OperandTrait for Reg {
             reg: self.reg,
         }
     }
+    fn eq_ignore_size(self, other: Self) -> bool {
+        self.reg == other.reg
+    }
 }
 
 impl OperandTrait for Ar {
@@ -1740,6 +1790,9 @@ impl OperandTrait for Ar {
             size,
             pos: self.pos,
         }
+    }
+    fn eq_ignore_size(self, other: Self) -> bool {
+        self.pos == other.pos
     }
 }
 
@@ -1782,6 +1835,13 @@ impl OperandTrait for DstOperand {
         match self {
             DstOperand::Ar(ar) => DstOperand::Ar(ar.into_size(size)),
             DstOperand::Reg(reg) => DstOperand::Reg(reg.into_size(size)),
+        }
+    }
+    fn eq_ignore_size(self, other: Self) -> bool {
+        match (self, other) {
+            (DstOperand::Ar(ar1), DstOperand::Ar(ar2)) => ar1.eq_ignore_size(ar2),
+            (DstOperand::Reg(reg1), DstOperand::Reg(reg2)) => reg1.eq_ignore_size(reg2),
+            _ => false,
         }
     }
 }
