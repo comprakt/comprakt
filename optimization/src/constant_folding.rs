@@ -219,7 +219,6 @@ impl ConstantFolding {
         });
     }
 
-    #[allow(clippy::cyclomatic_complexity)]
     fn update_node(
         &self,
         cur_node: Node,

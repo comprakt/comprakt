@@ -324,22 +324,20 @@ impl Heap {
         result.unwrap_or_else(|| panic!("Allocator of {:?} to exist", mem))
     }
 
-    /**
-     ** Returning `none` means NoValueYet.
-     ** Consider this code:
-     ** ```
-     ** Obj o = null;
-     ** while (cond) {
-     **    phi@o(null, new1)
-     **    if (cond) {
-     **       // `o` might already point to new1
-     **       // event though memory is not updated yet.
-     **       int i = o.x;
-     **    }
-     **    o = new1@new Obj();
-     ** }
-     ** ```
-     **/
+    /// Returning `none` means NoValueYet.
+    /// Consider this code:
+    /// ```ignore
+    /// Obj o = null;
+    /// while (cond) {
+    ///    phi@o(null, new1)
+    ///    if (cond) {
+    ///       // `o` might already point to new1
+    ///       // event though memory is not updated yet.
+    ///       int i = o.x;
+    ///    }
+    ///    o = new1@new Obj();
+    /// }
+    /// ```
     pub fn lookup_field(
         &mut self,
         ptr_node: Node,
