@@ -1,0 +1,12 @@
+class Bar {
+    public static void main(String[] args) {
+        boolean x = true == false;
+        if (true == true) {}
+
+        boolean y = x == false;
+        if (!true) {}
+
+        if (!!false) {}
+    }
+}
+

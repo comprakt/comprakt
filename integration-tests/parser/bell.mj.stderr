@@ -1,4 +1,4 @@
-error: expected 'class', found identifier `ring`
+error: expected 'class' or `/`, found identifier `ring`
    | 
  1 | ring ring ring {\x07} who's there? 
    | ^^^^

@@ -1,0 +1,20 @@
+class Foo {
+    public int x;
+    public int _x;
+    public int y;
+    public int z;
+    public int a;
+
+    public static void main(String[] args) {
+        (new Foo()).run();
+    }
+
+    public void run() {
+        y = this.z;
+        f(42);
+    }
+
+    public void f(int a) {
+        System.out.println(a);
+    }
+}

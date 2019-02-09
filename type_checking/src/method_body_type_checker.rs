@@ -244,7 +244,7 @@ where
             }
             ThisMethodInvocation(name, args) => {
                 // e.g. "name(arg1, arg2);"
-                if self.current_method.is_static {
+                if self.current_method.is_static && name.as_str() != "main" {
                     self.context.report_error(
                         &name.span,
                         SemanticError::ThisMethodInvocationInStaticMethod {
