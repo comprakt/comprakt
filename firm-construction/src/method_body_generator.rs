@@ -45,6 +45,7 @@ enum ActiveBlock {
 }
 
 impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         graph: Graph,
         program: &'ir FirmProgram<'src, 'ast>,
@@ -583,7 +584,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let member = self.with_span(span, act_block.new_member(target, field_entity));
         let lvalue = LValue::Field {
             span,
-            member: member.into(),
+            member,
             target_ty: field_entity.ty(),
         };
         ExprResult::Assignable(act_block, lvalue)
@@ -1036,7 +1037,6 @@ impl<'src> LValue<'src> {
                 target,
                 idx,
                 array_ty,
-                span: _,
                 ..
             } => {
                 let act_block = if let Node::Member(target) = target {
