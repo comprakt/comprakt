@@ -173,7 +173,7 @@ pub struct PreBackendOptions {
     pub opt_level: optimization_arg::Arg,
 
     /// List of safety features to enable. Possible values are: `check-null'
-    #[structopt(long = "safety", default_value = "all")]
+    #[structopt(long = "safety", default_value = "none")]
     pub safety: Vec<SafetyFlag>,
 
     /// A MiniJava input file
@@ -189,7 +189,7 @@ impl PreBackendOptions {
             dump_class_layouts: bool::default(),
             opt_level: optimization_arg::Arg::from_str("aggressive").unwrap(), // checked in test
             input,
-            safety: vec![SafetyFlag::All],
+            safety: vec![SafetyFlag::None],
         }
     }
 }
