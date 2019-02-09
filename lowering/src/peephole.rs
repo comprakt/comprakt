@@ -4,6 +4,8 @@ pub(crate) fn global_peephole(function_asm: &mut Vec<Instruction>) {
     let peepholers: Vec<Box<dyn GlobalPeepholeOptimization>> = vec![
         box jmp_targets::CondJmpSwapTargets,
         box jmp_targets::Fallthrough,
+        box binop::BinOpScratch,
+        box binop::BinOpIdentity,
         box mov::MovSame,
     ];
     peepholers.into_iter().for_each(|mut peepholer| {
@@ -17,6 +19,7 @@ trait GlobalPeepholeOptimization {
     fn run(&mut self, asm: &mut Vec<Instruction>);
 }
 
+mod binop;
 mod jmp_targets;
 mod mov;
 
