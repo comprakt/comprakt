@@ -262,6 +262,10 @@
 <span id="262">262</span>
 <span id="263">263</span>
 <span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">try_trait</span>)]</span>
 
@@ -287,6 +291,8 @@
 
 <span class="kw">mod</span> <span class="ident">inlining</span>;
 <span class="kw">use</span> <span class="self">self</span>::<span class="ident">inlining</span>::<span class="ident">Inlining</span>;
+<span class="kw">mod</span> <span class="ident">constant_folding_load_store</span>;
+<span class="kw">use</span> <span class="self">self</span>::<span class="ident">constant_folding_load_store</span>::<span class="ident">ConstantFoldingWithLoadStore</span>;
 <span class="kw">mod</span> <span class="ident">constant_folding</span>;
 <span class="kw">use</span> <span class="self">self</span>::<span class="ident">constant_folding</span>::<span class="ident">ConstantFolding</span>;
 <span class="kw">mod</span> <span class="ident">control_flow</span>;
@@ -340,6 +346,7 @@
 )]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Kind</span> {
     <span class="ident">ConstantFolding</span>,
+    <span class="ident">ConstantFoldingWithLoadStore</span>,
     <span class="ident">Inline</span>,
     <span class="ident">ControlFlow</span>,
     <span class="ident">RemoveCriticalEdges</span>,
@@ -353,6 +360,7 @@
     <span class="kw">fn</span> <span class="ident">run</span>(<span class="self">self</span>, <span class="ident">program</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Kind</span>::<span class="ident">ConstantFolding</span> <span class="op">=&gt;</span> <span class="ident">ConstantFolding</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
+            <span class="ident">Kind</span>::<span class="ident">ConstantFoldingWithLoadStore</span> <span class="op">=&gt;</span> <span class="ident">ConstantFoldingWithLoadStore</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
             <span class="ident">Kind</span>::<span class="ident">Inline</span> <span class="op">=&gt;</span> <span class="ident">Inlining</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
             <span class="ident">Kind</span>::<span class="ident">ControlFlow</span> <span class="op">=&gt;</span> <span class="ident">ControlFlow</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
             <span class="ident">Kind</span>::<span class="ident">RemoveCriticalEdges</span> <span class="op">=&gt;</span> <span class="ident">RemoveCriticalEdges</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),

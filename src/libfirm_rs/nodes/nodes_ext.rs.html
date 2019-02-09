@@ -844,6 +844,15 @@
 <span id="844">844</span>
 <span id="845">845</span>
 <span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">nodes_gen</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -1226,11 +1235,6 @@
         <span class="ident">Block</span>::<span class="ident">new</span>(<span class="ident">cdom</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dominates</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="ident">Block</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="comment">// TODO: check if dominators are computed</span>
-        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">block_dominates</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>(), <span class="ident">other</span>.<span class="ident">internal_ir_node</span>()) <span class="op">&gt;</span> <span class="number">0</span> }
-    }
-
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">immediate_dominator</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Block</span><span class="op">&gt;</span> {
         <span class="comment">// TODO: check if dominators are computed</span>
         <span class="kw">let</span> <span class="ident">idom</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Block_idom</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) };
@@ -1343,6 +1347,10 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dom_depth</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
         <span class="kw">unsafe</span> { <span class="ident">get_Block_dom_depth</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) <span class="kw">as</span> <span class="ident">usize</span> }
     }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dominates</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="ident">Block</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">block_dominates</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>(), <span class="ident">other</span>.<span class="ident">internal_ir_node</span>()) <span class="op">!=</span> <span class="number">0</span> }
+    }
 }
 
 <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
@@ -1434,7 +1442,7 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">NewKind</span> {
     <span class="ident">Object</span>(<span class="ident">ClassTy</span>),
     <span class="ident">Array</span> { <span class="ident">item_ty</span>: <span class="ident">Ty</span>, <span class="ident">item_count</span>: <span class="ident">Node</span> },
@@ -1580,9 +1588,19 @@
 <span class="kw">impl</span> <span class="ident">NodeDebug</span> <span class="kw">for</span> <span class="ident">Proj</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>, <span class="ident">opts</span>: <span class="ident">NodeDebugOpts</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
         <span class="kw">if</span> <span class="ident">opts</span>.<span class="ident">short</span> {
-            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Proj {}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>())
+            <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">pred</span>() {
+                <span class="ident">Node</span>::<span class="ident">Call</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="string">&quot;Call&quot;</span>.<span class="ident">to_owned</span>(),
+                <span class="ident">Node</span>::<span class="ident">Load</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="string">&quot;Load&quot;</span>.<span class="ident">to_owned</span>(),
+                <span class="ident">Node</span>::<span class="ident">Store</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="string">&quot;Store&quot;</span>.<span class="ident">to_owned</span>(),
+                <span class="kw">_</span> <span class="op">=&gt;</span> <span class="string">&quot;&quot;</span>.<span class="ident">to_owned</span>(),
+            };
+            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Prj{}{}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>(), <span class="ident">info</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ProjKind</span>::<span class="ident">Call_TResult_Arg</span>(<span class="ident">idx</span>, <span class="ident">call</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">kind</span>() {
+            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Proj{}.{}@{:?}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>(), <span class="ident">idx</span>, <span class="ident">call</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ProjKind</span>::<span class="ident">Start_TArgs_Arg</span>(<span class="ident">idx</span>, <span class="ident">start</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">kind</span>() {
+            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Proj{}.{}@{:?}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>(), <span class="ident">idx</span>, <span class="ident">start</span>)
         } <span class="kw">else</span> {
-            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Proj {}: {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>(), <span class="self">self</span>.<span class="ident">kind</span>())
+            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Proj{}: {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">node_id</span>(), <span class="self">self</span>.<span class="ident">kind</span>())
         }
     }
 }
