@@ -90,7 +90,7 @@ impl NodeLocal {
 
                     let shift_amount_node = self
                         .graph
-                        .new_const(Tarval::val(shift_amount as i64, Mode::Iu()));
+                        .new_const(Tarval::val(i64::from(shift_amount), Mode::Iu()));
 
                     let shl = mul.block().new_shl(other, shift_amount_node);
                     let shl_end = if has_minus {
@@ -134,7 +134,7 @@ impl NodeLocal {
                                 let shift_amount = 64 - 1 - abs_divisor_value.leading_zeros();
                                 let shift_amount_node = self
                                     .graph
-                                    .new_const(Tarval::val(shift_amount as i64, Mode::Iu()));
+                                    .new_const(Tarval::val(i64::from(shift_amount), Mode::Iu()));
 
                                 let div_proj_res = if let Some(res) = div.out_proj_res() {
                                     res
