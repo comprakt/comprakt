@@ -192,6 +192,13 @@ pub trait TyTrait: Sized {
     }
 }
 
+use std::hash::{Hash, Hasher};
+impl Hash for Ty {
+    fn hash<H: Hasher>(&self, _state: &mut H) {
+        // IMPROVEMENT Better hash function for increased performance
+    }
+}
+
 impl PointerTy {
     pub fn points_to(self) -> Ty {
         Ty::from_ir_type(unsafe { bindings::get_pointer_points_to_type(self.ir_type()) })
@@ -248,6 +255,9 @@ impl PrimitiveTy {
     }
     pub fn i32() -> PrimitiveTy {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::Is) })
+    }
+    pub fn i64() -> PrimitiveTy {
+        Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::Ls) })
     }
     /// Not part of MiniJava, but useful for malloc RT-function
     pub fn u32() -> PrimitiveTy {
@@ -330,6 +340,12 @@ impl ClassTy {
         unsafe {
             bindings::remove_compound_member(self.ir_type(), member.ir_entity());
         }
+    }
+}
+
+impl Hash for ClassTy {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.ir_type().hash(state);
     }
 }
 

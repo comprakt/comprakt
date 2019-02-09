@@ -230,7 +230,7 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
                 // definition inner type
                 let safe_array = ClassTy::new_anon("$Array");
                 if self.safety_flags.contains(&safety::Flag::CheckArrayBounds) {
-                    safe_array.new_subentity("len", PrimitiveTy::i32());
+                    safe_array.new_subentity("len", PrimitiveTy::i64());
                 }
                 safe_array.new_subentity("data", array_data);
 

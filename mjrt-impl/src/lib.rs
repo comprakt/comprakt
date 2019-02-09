@@ -36,17 +36,17 @@ mjrt_runtimeexception!(mjrt_null_usage, "reference is null");
 mjrt_runtimeexception!(
     mjrt_array_out_of_bounds,
     "array access out of bounds: [{}] (len = {})",
-    idx: i32,
-    len: i32
+    idx: i64,
+    len: i64
 );
 mjrt_runtimeexception!(
     mjrt_negative_allocation,
     "cannot allocate negative amount of bytes: {}",
-    num_bytes: i32
+    num_bytes: i64
 );
 
 #[no_mangle]
-pub extern "C" fn mjrt_new(size: i32) -> *mut c_void {
+pub extern "C" fn mjrt_new(size: i64) -> *mut c_void {
     if size < 0 {
         mjrt_negative_allocation(size)
     }
@@ -70,11 +70,6 @@ pub extern "C" fn mjrt_new(size: i32) -> *mut c_void {
         }
         ptr
     }
-}
-
-#[no_mangle]
-pub extern "C" fn mjrt_new_array(size: i32) -> *mut c_void {
-    mjrt_new(size)
 }
 
 #[no_mangle]

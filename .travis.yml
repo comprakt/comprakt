@@ -51,6 +51,7 @@ install: |
         git clone https://git.scc.kit.edu/IPDSnelting/mjtest.git && \
         cd mjtest && \
         git submodule update --init --remote && \
+        rm tests/exec/big/bench_binarytrees.* && \
         cd -;
         ;;
       submission-system)
@@ -82,8 +83,8 @@ script: |
         MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py lexer && \
         MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py syntax && \
         MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py semantic && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py compile-firm && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py compile;
+        MJ_TIMEOUT=0 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py compile-firm --all_exec_tests && \
+        MJ_TIMEOUT=0 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py compile --all_exec_tests ;
         ;;
       submission-system)
         ./build && \

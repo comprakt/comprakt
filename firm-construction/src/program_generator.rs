@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use libfirm_rs::{
-    nodes::{Node, NodeTrait},
+    nodes::{Node, NodeTrait, ProjKind},
     Graph,
 };
 use log;
@@ -42,10 +42,16 @@ impl Spans {
         }
     }
 
-    pub fn add_span(node: Node, span: Span<'_>) {
+    pub fn add_span(node: impl NodeTrait, span: Span<'_>) {
         let mut spans = HashMap::new();
-        spans.insert(node, span);
+        spans.insert(node.as_node(), span);
         SPANS.lock().unwrap().add_spans_(&spans);
+    }
+
+    pub fn copy_span(target_node: impl NodeTrait, source_node: impl NodeTrait) {
+        if let Some(span) = Spans::lookup_span(source_node) {
+            Spans::add_span(target_node, span);
+        }
     }
 
     pub fn add_spans(spans: &HashMap<Node, Span<'_>>) {
@@ -55,7 +61,28 @@ impl Spans {
     fn lookup_span_(&self, node: impl NodeTrait) -> Option<Span<'static>> {
         let map = self.spans.borrow();
         let node = match node.as_node() {
+            Node::Proj(_proj, ProjKind::Call_TResult_Arg(_idx, call, _)) => call.into(),
             Node::Proj(proj, _) => proj.pred(),
+            Node::Phi(phi) if !map.contains_key(&node.as_node()) => {
+                let mut best: Option<Span<'static>> = None;
+                for in_node in phi.in_nodes() {
+                    if Node::is_phi(in_node) {
+                        continue;
+                    }
+                    if let Some(span) = self.lookup_span_(in_node) {
+                        if let Some(best_span) = best {
+                            if span.start_position().line_number()
+                                > best_span.end_position().line_number()
+                            {
+                                best = Some(span);
+                            }
+                        } else {
+                            best = Some(span);
+                        }
+                    }
+                }
+                return best;
+            }
             node => node,
         };
         map.get(&node.as_node()).cloned()

@@ -1,0 +1,15 @@
+warning: unused field: `x`. Consider using `_x` instead
+   | 
+ 2 |     public int x;
+   |     ^^^^^^^^^^^^^
+
+warning: this field is assigned to but never used: `y`
+   | 
+ 4 |     public int y;
+   |     ^^^^^^^^^^^^^
+
+warning: unused field: `a`. Consider using `_a` instead
+   | 
+ 6 |     public int a;
+   |     ^^^^^^^^^^^^^
+

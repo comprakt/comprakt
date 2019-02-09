@@ -112,7 +112,7 @@ impl Runtime {
 
         let new = {
             let loc = PrimitiveTy::ptr();
-            let size = PrimitiveTy::i32();
+            let size = PrimitiveTy::i64();
             let mut t = MethodTyBuilder::new();
 
             t.add_param(size.into());
@@ -133,8 +133,8 @@ impl Runtime {
         };
 
         let array_out_of_bounds = {
-            let idx = PrimitiveTy::i32();
-            let len = PrimitiveTy::i32();
+            let idx = PrimitiveTy::i64();
+            let len = PrimitiveTy::i64();
             let mut t = MethodTyBuilder::new();
 
             t.add_param(idx.into());
@@ -161,7 +161,7 @@ impl Runtime {
     }
 
     pub fn generic_new_ty(&self, array_ty: Ty) -> Ty {
-        let size = PrimitiveTy::i32();
+        let size = PrimitiveTy::i64();
         let mut t = MethodTyBuilder::new();
 
         t.add_param(size.into());

@@ -1,0 +1,25 @@
+warning: comparison of differing boolean literals. Consider using `false`
+   | 
+ 3 |         boolean x = true == false;
+   |                     ^^^^^^^^^^^^^
+
+warning: comparison of identical boolean literals. Consider using `true`
+   | 
+ 4 |         if (true == true) {}
+   |             ^^^^^^^^^^^^
+
+warning: comparison with a boolean literal. Consider using `!x`
+   | 
+ 6 |         boolean y = x == false;
+   |                     ^^^^^^^^^^
+
+warning: inverting a bool literal. This can be simplified to `false`
+   | 
+ 7 |         if (!true) {}
+   |             ^^^^^
+
+warning: inverting a bool literal. This can be simplified to `false`
+   | 
+ 9 |         if (!!false) {}
+   |             ^^^^^^^
+

@@ -495,7 +495,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     act_block.new_call(
                         act_block.cur_store(),
                         self.graph.new_address(self.runtime.new),
-                        &[self.graph.new_size(Mode::Is(), class_ty).into()],
+                        // TODO: Mode::Ls corresponds to PrimitiveTy::i64 required for mjrt_new
+                        &[self.graph.new_size(Mode::Ls(), class_ty).into()],
                         self.runtime.new.ty(),
                     ),
                 );
@@ -538,12 +539,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 };
 
                 let (act_block, num_elts) = self.gen_value(act_block, num_expr);
-                let elt_size = self.graph.new_size(Mode::Is(), elem_ty);
+                // TODO refactor: Mode::Ls corresponds to PrimitiveTy::i64 required for mjrt_new
+                let num_elts = act_block.new_conv(num_elts, Mode::Ls());
+                let elt_size = self.graph.new_size(Mode::Ls(), elem_ty);
 
                 let mut alloc_size = act_block.new_mul(num_elts, elt_size).into();
                 if let Some(len_entity) = len_entity {
                     alloc_size = act_block
-                        .new_add(alloc_size, self.graph.new_size(Mode::Is(), len_entity.ty()))
+                        .new_add(alloc_size, self.graph.new_size(Mode::Ls(), len_entity.ty()))
                         .into();
                 }
                 let call_ent = self.runtime.new;
@@ -1131,6 +1134,7 @@ impl<'src> LValue<'src> {
         act_block.set_store(load.new_proj_m());
         let len = load.new_proj_res(len_entity.ty().mode());
 
+        let idx = act_block.new_conv(idx, Mode::Ls());
         let cmp_with_upper_bound = act_block.new_cmp(idx, len, bindings::ir_relation::Less);
         let CondProjection {
             tr: below_upper_bound,
@@ -1141,7 +1145,7 @@ impl<'src> LValue<'src> {
 
         let cmp_with_lower_bound = upper_bound_holds.new_cmp(
             idx,
-            method_body.graph.new_const(Tarval::zero(Mode::Is())),
+            method_body.graph.new_const(Tarval::zero(Mode::Ls())),
             bindings::ir_relation::GreaterEqual,
         );
         let CondProjection {
@@ -1152,7 +1156,7 @@ impl<'src> LValue<'src> {
         method_body.gen_err_block(
             &[above_upper_bound, below_lower_bound],
             method_body.runtime.array_out_of_bounds,
-            &[idx, len.into()],
+            &[Node::Conv(idx), len.into()],
         );
 
         method_body.graph.new_block(&[within_bounds])
