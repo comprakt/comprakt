@@ -288,17 +288,6 @@ impl NodeValue {
         Self { value, source }
     }
 
-    /*pub fn zero_from(mode: Mode, from: Node) -> Self {
-        NodeLattice::Value(
-            if mode.is_pointer() {
-                Pointer::null().into()
-            } else {
-                Tarval::zero(mode).into()
-            },
-            from,
-        )
-    }*/
-
     pub fn value(value: AbstractValue) -> Self {
         Self::new(value, None)
     }
@@ -336,14 +325,14 @@ impl NodeValue {
         Self::from_known_tarval(Tarval::bad(), source.mode(), Some(source))
     }
 
-    /*
-        pub fn from_tarval_internal(val: Tarval, from: Option<Node>) -> NodeLattice {
-            match val.kind() {
-                TarvalKind::Unknown => NodeLattice::NoInfoYet,
-                _ => NodeLattice::Value(val.into(), from),
-            }
+    pub fn non_const_val(mode: Mode, mem: MemoryArea) -> NodeValue {
+        if mode.is_pointer() {
+            Self::value(Pointer::to(mem).into())
+        } else {
+            Self::value(Tarval::bad().into())
         }
-    */
+    }
+
     pub fn points_to(&self) -> MemoryArea {
         match &self.value {
             AbstractValue::Pointer(ptr) => ptr.target.clone(),

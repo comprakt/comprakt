@@ -66,7 +66,7 @@ impl MemoryArea {
         old != (self.allocators.len(), self.external, self.arbitrary)
     }
 
-    pub fn is_external(&self) -> bool {
+    pub fn has_external(&self) -> bool {
         self.external
     }
 }
@@ -122,14 +122,6 @@ impl Pointer {
         Self {
             target,
             can_be_null: false,
-        }
-    }
-
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_null_and(target: MemoryArea) -> Self {
-        Self {
-            target,
-            can_be_null: true,
         }
     }
 

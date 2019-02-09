@@ -20,31 +20,41 @@ pub enum Idx {
     Const(usize, Node),
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub enum InfoIdx {
+    Node(Node),
+    ExternalArr(Ty),
+    ExternalClass(ClassTy),
+}
+
+impl fmt::Debug for InfoIdx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InfoIdx::Node(node) => writeln!(
+                f,
+                "{}{}",
+                node.debug_fmt().short(true),
+                Spans::span_str(*node)
+            ),
+            InfoIdx::ExternalArr(ty) => writeln!(f, "extArr:{:?}", ty),
+            InfoIdx::ExternalClass(ty) => writeln!(f, "extObj:{:?}", ty),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct Heap {
-    pub object_infos: HashMap<Node, Rc<ObjectInfo>>,
-    pub array_infos: HashMap<Node, Rc<ArrayInfo>>,
+    pub object_infos: HashMap<InfoIdx, Rc<ObjectInfo>>,
+    pub array_infos: HashMap<InfoIdx, Rc<ArrayInfo>>,
 }
 
 impl fmt::Debug for Heap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (&ptr, info) in &self.object_infos {
-            writeln!(
-                f,
-                "obj {}{} = {:?}",
-                ptr.debug_fmt().short(true),
-                Spans::span_str(ptr),
-                info
-            )?
+            writeln!(f, "obj {:?} = {:?}", ptr, info)?
         }
         for (&ptr, info) in &self.array_infos {
-            writeln!(
-                f,
-                "arr {}{} = {:?}",
-                ptr.debug_fmt().short(true),
-                Spans::span_str(ptr),
-                info
-            )?
+            writeln!(f, "arr {:?} = {:?}", ptr, info)?
         }
         Ok(())
     }
@@ -77,38 +87,8 @@ impl Heap {
         }
     }
 
-    // TODO remove
-    pub fn non_const_val(&self, ty: Ty) -> NodeValue {
-        if ty.mode().is_pointer() {
-            let ty = PointerTy::from(ty).unwrap_or_else(|| panic!("{:?} to be pointer type", ty));
-            let mut mem = MemoryArea::external();
-
-            match ty.points_to() {
-                Ty::Class(ty) => {
-                    for info in self.object_infos.values() {
-                        if info.ty == ty {
-                            mem.join_mut(&info.mem);
-                        }
-                    }
-                }
-                Ty::Array(ty) => {
-                    let item_ty = ty.element_type();
-                    for info in self.array_infos.values() {
-                        if info.item_ty == item_ty {
-                            mem.join_mut(&info.mem);
-                        }
-                    }
-                }
-                other_ty => panic!("unexpected type {:?}", other_ty),
-            }
-            NodeValue::value(Pointer::to_null_and(mem).into())
-        } else {
-            NodeValue::value(Tarval::bad().into())
-        }
-    }
-
-    pub fn mem_reachable_from(&self, mem: MemoryArea) -> MemoryArea {
-        let mut mem = mem;
+    pub fn mem_reachable_from(&self, orig_mem: MemoryArea) -> MemoryArea {
+        let mut mem = orig_mem.clone();
         let mut changed = true;
         while changed {
             changed = false;
@@ -123,15 +103,19 @@ impl Heap {
                 }
             }
         }
+        log::debug!("{:?} is reachable from {:?}", mem, orig_mem);
         mem
     }
 
-    pub fn reset_heap_accessed_by(&self, mem: MemoryArea, _nodes: HashSet<Node>) -> Heap {
+    pub fn reset_heap_accessed_by(
+        &self,
+        mem: MemoryArea,
+        _nodes: HashSet<Node>,
+    ) -> (Heap, MemoryArea) {
         if mem.is_empty() {
-            self.clone()
+            (self.clone(), mem)
         } else {
             let mem = self.mem_reachable_from(mem);
-
             let object_infos = self
                 .object_infos
                 .iter()
@@ -139,7 +123,9 @@ impl Heap {
                     if info.mem.intersects(&mem) {
                         match info.kind {
                             Allocator => {
-                                Some((*ptr, Rc::new(self.join_heap_obj(info.ty, &info.mem))))
+                                let info =
+                                    ObjectInfo::unknown_allocator(info.mem.clone(), info.ty, &mem);
+                                Some((*ptr, Rc::new(info)))
                             }
                             Cache => None,
                         }
@@ -156,7 +142,12 @@ impl Heap {
                     if info.mem.intersects(&mem) {
                         match info.kind {
                             Allocator => {
-                                Some((*ptr, Rc::new(self.join_heap_arr(info.item_ty, &info.mem))))
+                                let info = ArrayInfo::unknown_allocator(
+                                    info.mem.clone(),
+                                    info.item_ty,
+                                    &mem,
+                                );
+                                Some((*ptr, Rc::new(info)))
                             }
                             Cache => None,
                         }
@@ -166,10 +157,13 @@ impl Heap {
                 })
                 .collect();
 
-            Heap {
-                array_infos,
-                object_infos,
-            }
+            (
+                Heap {
+                    array_infos,
+                    object_infos,
+                },
+                mem,
+            )
         }
     }
 
@@ -183,23 +177,42 @@ impl Heap {
         }
     }
 
-    pub fn new_obj(&mut self, new_node: Node, obj_ty: ClassTy) -> Pointer {
-        let info = Rc::new(ObjectInfo::allocator(new_node, obj_ty));
+    pub fn ensure_external_obj_exists(&mut self, mem: &MemoryArea, class_ty: ClassTy) {
+        if mem.has_external() {
+            self.object_infos
+                .entry(InfoIdx::ExternalClass(class_ty))
+                .or_insert_with(|| Rc::new(ObjectInfo::external(class_ty)));
+        }
+    }
+
+    pub fn ensure_external_arr_exists(&mut self, mem: &MemoryArea, item_ty: Ty) {
+        if mem.has_external() {
+            self.array_infos
+                .entry(InfoIdx::ExternalArr(item_ty))
+                .or_insert_with(|| Rc::new(ArrayInfo::external(item_ty)));
+        }
+    }
+
+    pub fn new_obj(&mut self, new_node: Node, ty: ClassTy) -> Pointer {
+        let info = Rc::new(ObjectInfo::allocator(new_node, ty));
         let mem = info.mem.clone();
-        self.object_infos.insert(new_node, info);
+        self.object_infos.insert(InfoIdx::Node(new_node), info);
+        self.ensure_external_obj_exists(&MemoryArea::external(), ty);
         Pointer::to(mem)
     }
 
     pub fn new_arr(&mut self, new_node: Node, item_ty: Ty) -> Pointer {
         let info = Rc::new(ArrayInfo::allocator(new_node, item_ty));
         let mem = info.mem.clone();
-        self.array_infos.insert(new_node, info);
+        self.array_infos.insert(InfoIdx::Node(new_node), info);
+        self.ensure_external_arr_exists(&MemoryArea::external(), item_ty);
         Pointer::to(mem)
     }
 
     pub fn update_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity, val: &NodeValue) {
         self.check_ptr_node(ptr_node);
         let class_ty = ClassTy::from(field.owner()).unwrap();
+        self.ensure_external_obj_exists(&ptr.target, class_ty);
 
         for (_node, intersecting) in self.object_infos.iter_mut() {
             if intersecting.ty == class_ty && intersecting.mem.intersects(&ptr.target) {
@@ -222,6 +235,7 @@ impl Heap {
         item_ty: Ty,
     ) {
         self.check_ptr_node(ptr_node);
+        self.ensure_external_arr_exists(&ptr.target, item_ty);
 
         for (_node, intersecting) in self.array_infos.iter_mut() {
             if intersecting.item_ty == item_ty && intersecting.mem.intersects(&ptr.target) {
@@ -239,15 +253,17 @@ impl Heap {
         self.check_ptr_node(ptr_node);
         let class_ty = ClassTy::from(field.owner()).unwrap();
 
-        let info = self.object_infos.get(&ptr_node);
+        let info = self.object_infos.get(&InfoIdx::Node(ptr_node));
         let mut info = if let Some(info) = info {
             (&**info).clone()
         } else {
+            self.ensure_external_obj_exists(&ptr.target, class_ty);
             self.join_heap_obj(class_ty, &ptr.target)
         };
 
         info.update_field(field, val);
-        self.object_infos.insert(ptr_node, Rc::new(info));
+        self.object_infos
+            .insert(InfoIdx::Node(ptr_node), Rc::new(info));
     }
 
     pub fn enhance_cell(
@@ -259,21 +275,20 @@ impl Heap {
         item_ty: Ty,
     ) {
         self.check_ptr_node(ptr_node);
-        let info = self.array_infos.get(&ptr_node);
+        let info = self.array_infos.get(&InfoIdx::Node(ptr_node));
         let mut info = if let Some(info) = info {
             (&**info).clone()
         } else {
+            self.ensure_external_arr_exists(&ptr.target, item_ty);
             self.join_heap_arr(item_ty, &ptr.target)
         };
 
         info.update_cell(idx, val.clone());
-        self.array_infos.insert(ptr_node, Rc::new(info));
+        self.array_infos
+            .insert(InfoIdx::Node(ptr_node), Rc::new(info));
     }
 
     pub fn join_heap_obj(&self, class_ty: ClassTy, mem: &MemoryArea) -> ObjectInfo {
-        // TODO add allocators of external
-        // types!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
         let mut result = None;
         for info in self.object_infos.values() {
             // We need to check for type as there is `external` memory where objects with
@@ -281,7 +296,7 @@ impl Heap {
             // Allocators are enough since caches always also write to their allocators.
             if info.kind.is_allocator() && info.mem.intersects(mem) && info.ty == class_ty {
                 result = match result {
-                    None => Some((**info).clone()),
+                    None => Some((**info).make_cached()),
                     Some(last) => Some(last.join(info, Cache)),
                 };
             }
@@ -294,7 +309,7 @@ impl Heap {
         for info in self.array_infos.values() {
             if info.kind.is_allocator() && info.mem.intersects(mem) && info.item_ty == item_ty {
                 result = match result {
-                    None => Some((**info).clone()),
+                    None => Some((**info).make_cached()),
                     Some(last) => Some(last.join(info, Cache)),
                 };
             }
@@ -302,24 +317,45 @@ impl Heap {
         result.unwrap_or_else(|| panic!("Allocator of {:?} to exist", mem))
     }
 
-    pub fn lookup_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity) -> NodeValue {
+    /**
+     ** Returning `none` means NoValueYet.
+     ** Consider this code:
+     ** ```
+     ** Obj o = null;
+     ** while (cond) {
+     **    phi@o(null, new1)
+     **    if (cond) {
+     **       // `o` might already point to new1
+     **       // event though memory is not updated yet.
+     **       int i = o.x;
+     **    }
+     **    o = new1@new Obj();
+     ** }
+     ** ```
+     **/
+    pub fn lookup_field(
+        &mut self,
+        ptr_node: Node,
+        ptr: &Pointer,
+        field: Entity,
+    ) -> Option<NodeValue> {
         self.check_ptr_node(ptr_node);
         if ptr.is_null_or_empty() {
             // this crashes anyways.
-            log::error!("Found null deref");
-            return NodeValue::zero(field.ty().mode());
+            log::error!(
+                "Found null deref at {:?}, accessing {}",
+                ptr_node,
+                field.name_string()
+            );
+            return Some(NodeValue::zero(field.ty().mode()));
         }
 
         let class_ty = ClassTy::from(field.owner()).unwrap();
 
-        if let Some(info) = self.object_infos.get(&ptr_node) {
-            info.lookup_field(field).clone()
+        if let Some(info) = self.object_infos.get(&InfoIdx::Node(ptr_node)) {
+            Some(info.lookup_field(field).clone())
         } else {
-            // todo remove
-            if ptr.target.is_external() {
-                return self.non_const_val(field.ty());
-            }
-
+            self.ensure_external_obj_exists(&ptr.target, class_ty);
             let mut val: Option<NodeValue> = None;
             for (_node, intersecting) in self.object_infos.iter_mut() {
                 // it is sufficient to only check allocators
@@ -335,7 +371,7 @@ impl Heap {
                 }
             }
 
-            val.unwrap_or_else(|| panic!("Allocator of {:?} to exist", ptr))
+            val //.unwrap_or_else(|| panic!("Allocator of {:?} to exist", ptr))
         }
     }
 
@@ -345,21 +381,17 @@ impl Heap {
         ptr: &Pointer,
         idx: Idx,
         item_ty: Ty,
-    ) -> NodeValue {
+    ) -> Option<NodeValue> {
         self.check_ptr_node(ptr_node);
         if ptr.is_null_or_empty() {
             log::error!("Found null deref");
-            return NodeValue::zero(item_ty.mode());
+            return Some(NodeValue::zero(item_ty.mode()));
         }
 
-        if let Some(info) = self.array_infos.get(&ptr_node) {
-            info.lookup_cell(idx).clone()
+        if let Some(info) = self.array_infos.get(&InfoIdx::Node(ptr_node)) {
+            Some(info.lookup_cell(idx).clone())
         } else {
-            // todo remove
-            if ptr.target.is_external() {
-                return self.non_const_val(item_ty);
-            }
-
+            self.ensure_external_arr_exists(&ptr.target, item_ty);
             let mut val: Option<NodeValue> = None;
             for (_node, intersecting) in self.array_infos.iter_mut() {
                 if intersecting.kind.is_allocator()
@@ -373,9 +405,14 @@ impl Heap {
                 }
             }
 
-            val.unwrap_or_else(|| panic!("Allocator of {:?} to exist", ptr))
+            val //.unwrap_or_else(|| panic!("Allocator of {:?} to exist", ptr))
         }
     }
+}
+
+pub fn external_val(ty: Ty) -> NodeValue {
+    assert!(!ty.mode().is_pointer() || PointerTy::from(ty).is_some());
+    NodeValue::non_const_val(ty.mode(), MemoryArea::external())
 }
 
 enum IntersectionType<'v, V> {
@@ -419,7 +456,7 @@ impl Lattice for Heap {
     fn join(&self, other: &Self) -> Self {
         use self::IntersectionType::*;
 
-        let mut object_infos: HashMap<Node, Rc<ObjectInfo>> = HashMap::new();
+        let mut object_infos: HashMap<_, Rc<ObjectInfo>> = HashMap::new();
         intersect(
             &self.object_infos,
             &other.object_infos,
@@ -443,7 +480,7 @@ impl Lattice for Heap {
             },
         );
 
-        let mut array_infos: HashMap<Node, Rc<ArrayInfo>> = HashMap::new();
+        let mut array_infos: HashMap<_, Rc<ArrayInfo>> = HashMap::new();
         intersect(
             &self.array_infos,
             &other.array_infos,
@@ -585,20 +622,31 @@ impl ArrayInfo {
         }
     }
 
-    /*
-        pub fn resetted(&self, heap: &Heap) -> Self {
-            Self::new_non_const(self.item_ty, self.mem.clone(), heap)
+    pub fn external(item_ty: Ty) -> Self {
+        Self {
+            kind: Allocator,
+            item_ty,
+            mem: MemoryArea::external(),
+            default_val: external_val(item_ty),
+            state: ArrayInfoState::Const(HashMap::new()),
         }
+    }
 
-        pub fn new_non_const(item_ty: Ty, mem: MemoryArea, heap: &Heap) -> Self {
-            Self {
-                item_ty,
-                mem,
-                default_val: heap.non_const_val(item_ty),
-                state: ArrayInfoState::Const(HashMap::new()),
-            }
+    pub fn unknown_allocator(mem: MemoryArea, item_ty: Ty, cell_mem: &MemoryArea) -> Self {
+        Self {
+            kind: Allocator,
+            item_ty,
+            mem,
+            default_val: NodeValue::non_const_val(item_ty.mode(), cell_mem.clone()),
+            state: ArrayInfoState::Const(HashMap::new()),
         }
-    */
+    }
+
+    pub fn make_cached(&self) -> Self {
+        let mut s = self.clone();
+        s.kind = Cache;
+        s
+    }
 
     pub fn join_cell(&mut self, idx: Idx, val: &NodeValue) {
         let existing_val = self.lookup_cell(idx);
@@ -839,6 +887,33 @@ impl ObjectInfo {
         }
     }
 
+    pub fn external(ty: ClassTy) -> Self {
+        Self {
+            kind: Allocator,
+            ty,
+            mem: MemoryArea::external(),
+            fields: ty.fields().map(|field| external_val(field.ty())).collect(),
+        }
+    }
+
+    pub fn unknown_allocator(mem: MemoryArea, ty: ClassTy, field_mem: &MemoryArea) -> Self {
+        Self {
+            kind: Allocator,
+            ty,
+            mem,
+            fields: ty
+                .fields()
+                .map(|field| NodeValue::non_const_val(field.ty().mode(), field_mem.clone()))
+                .collect(),
+        }
+    }
+
+    pub fn make_cached(&self) -> Self {
+        let mut s = self.clone();
+        s.kind = Cache;
+        s
+    }
+
     pub fn mem_pointed_to_by_fields(&self) -> MemoryArea {
         let mut mem = MemoryArea::empty();
         for field_val in &self.fields {
@@ -846,23 +921,6 @@ impl ObjectInfo {
         }
         mem
     }
-
-    /*
-    pub fn resetted(&self, heap: &Heap) -> Self {
-        Self::new_non_const(self.ty, self.mem.clone(), heap)
-    }
-
-    pub fn new_non_const(ty: ClassTy, mem: MemoryArea, heap: &Heap) -> Self {
-        Self {
-            ty,
-            mem,
-            fields: ty
-                .fields()
-                .map(|field| heap.non_const_val(field.ty()))
-                .collect(),
-        }
-    }
-    */
 
     pub fn join_field(&mut self, field: Entity, val: &NodeValue) {
         let field_idx = self.ty.idx_of_field(field);

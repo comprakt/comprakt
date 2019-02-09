@@ -3,13 +3,14 @@ use crate::{dot::*, optimization};
 use firm_construction::program_generator::Spans;
 use libfirm_rs::{
     bindings,
-    nodes::{try_as_value_node, Block, NewKind, Node, NodeTrait, ProjKind},
-    types::Ty,
+    nodes::{try_as_value_node, Block, NewKind, Node, NodeDebug, NodeTrait, ProjKind},
+    types::{Ty, TyTrait},
     Entity, Graph, Mode, Tarval, TarvalKind,
 };
 use priority_queue::PriorityQueue;
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Write,
     rc::Rc,
 };
 
@@ -89,8 +90,8 @@ enum AssertNodesAre {
 
 fn check_asserts(graph: Graph) {
     log::debug!("Checking {}", graph.entity().name_string());
-    breakpoint!("Graph", graph, &|node: &Node| default_label(node)
-        .append(Spans::span_str(*node)));
+    /*breakpoint!("Graph", graph, &|node: &Node| default_label(node)
+    .append(Spans::span_str(*node)));*/
 
     graph.walk(|node| {
         let _res = (|| -> Result<(), std::option::NoneError> {
@@ -218,82 +219,85 @@ impl ConstantFolding {
         }
     }
 
-    /*
-        // used for debugging
-        #[allow(clippy::single_match)]
-        fn debug_data(&self) -> String {
-            if let Some(node) = self.cur_node {
-                if let Some(span) = Spans::lookup_span(node) {
-                    let mut result = String::new();
-                    write!(
-                        &mut result,
-                        "highlight-line:{},{},{},{}",
-                        span.start_position().line_number(),
-                        span.start_position().column() + 1,
-                        span.end_position().line_number(),
-                        span.end_position().column() + 1,
-                    )
-                    .unwrap();
+    // used for debugging
+    #[allow(clippy::single_match)]
+    fn debug_data(&self) -> String {
+        if let Some(node) = self.cur_node {
+            if let Some(span) = Spans::lookup_span(node) {
+                let mut result = String::new();
+                write!(
+                    &mut result,
+                    "highlight-line:{},{},{},{}",
+                    span.start_position().line_number(),
+                    span.start_position().column() + 1,
+                    span.end_position().line_number(),
+                    span.end_position().column() + 1,
+                )
+                .unwrap();
 
-                    let mem = match node {
-                        Node::Load(load) => load.mem(),
-                        Node::Store(store) => store.mem(),
-                        Node::Call(call) => call.mem(),
+                let mem = match node {
+                    Node::Load(load) => load.mem(),
+                    Node::Store(store) => store.mem(),
+                    Node::Call(call) => call.mem(),
 
-                        Node::Proj(proj, ProjKind::Store_M(_))
-                        | Node::Proj(proj, ProjKind::Load_M(_))
-                        | Node::Proj(proj, ProjKind::Call_M(_)) => proj.pred(),
-                        _ => node,
-                    };
+                    Node::Proj(proj, ProjKind::Store_M(_))
+                    | Node::Proj(proj, ProjKind::Load_M(_))
+                    | Node::Proj(proj, ProjKind::Call_M(_)) => proj.pred(),
+                    _ => node,
+                };
 
-                    let val = self.lookup_lat(mem);
-                    let val = match val {
-                        NodeLattice::Tuple(_a, b) => &b,
-                        val => val,
-                    };
+                let val = self.lookup_lat(mem);
+                let val = match val {
+                    NodeLattice::Tuple(_a, b) => &b,
+                    val => val,
+                };
 
-                    let mut text = HashMap::new();
-                    match val {
-                        NodeLattice::Heap(heap) => {
-                            for (node, info) in &heap.array_infos {
+                let mut text = HashMap::new();
+                match val {
+                    NodeLattice::Heap(heap) => {
+                        for (node, info) in &heap.array_infos {
+                            if let InfoIdx::Node(node) = node {
                                 text.insert(*node, format!("{:?}", info));
                             }
-                            for (node, info) in &heap.object_infos {
+                        }
+                        for (node, info) in &heap.object_infos {
+                            if let InfoIdx::Node(node) = node {
                                 text.insert(*node, format!("{:?}", info));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+
+                for (n, val) in &self.values {
+                    match val.value() {
+                        NodeLattice::Value(val) if !Node::is_const(*n) => {
+                            if let Some(span) = Spans::lookup_span(*n) {
+                                write!(
+                                    &mut result,
+                                    "\n{}:{}: {:?}{}",
+                                    span.start_position().line_number(),
+                                    (*n).debug_fmt().short(true),
+                                    val,
+                                    if let Some(t) = text.get(n) {
+                                        " |  ".to_owned() + t
+                                    } else {
+                                        "".to_owned()
+                                    }
+                                )
+                                .unwrap();
                             }
                         }
                         _ => {}
                     }
-
-                    for (n, val) in &self.values {
-                        match val.value() {
-                            NodeLattice::Value(val) if !Node::is_const(*n) => {
-                                if let Some(span) = Spans::lookup_span(*n) {
-                                    write!(
-                                        &mut result,
-                                        "\n{}:{}: {:?}{}",
-                                        span.start_position().line_number(),
-                                        (*n).debug_fmt().short(true),
-                                        val,
-                                        if let Some(t) = text.get(n) {
-                                            " |  ".to_owned() + t
-                                        } else {
-                                            "".to_owned()
-                                        }
-                                    )
-                                    .unwrap();
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-
-                    return result;
                 }
+
+                return result;
             }
-            "None".to_owned()
         }
-    */
+        "None".to_owned()
+    }
+
     fn lookup(&self, node: Node) -> &ConstantFoldingLattice {
         &self.values[&node]
     }
@@ -311,7 +315,12 @@ impl ConstantFolding {
     }
 
     fn run(&mut self) {
-        //self.debug_data();
+        log::info!(
+            "Run constant folding on {}",
+            self.graph.entity().name_string()
+        );
+
+        self.debug_data();
         macro_rules! invalidate {
             ($node: expr) => {
                 let prio = *self
@@ -477,11 +486,15 @@ impl ConstantFolding {
                             used_mem,
                             used_nodes
                         );
-                        let heap = heap.reset_heap_accessed_by(used_mem, used_nodes);
+                        let (heap, possibly_returned_mem) =
+                            heap.reset_heap_accessed_by(used_mem, used_nodes);
 
                         NodeLattice::tuple(
                             call.single_result_ty()
-                                .map(|ty| heap.non_const_val(ty).into())
+                                .map(|ty| {
+                                    NodeValue::non_const_val(ty.mode(), possibly_returned_mem)
+                                        .into()
+                                })
                                 .unwrap_or(NodeLattice::Invalid),
                             NodeLattice::Heap(Rc::new(heap)),
                         )
@@ -579,6 +592,14 @@ impl ConstantFolding {
                                     TK::ArrItem(idx, ty) => heap.lookup_cell(o, ptr, idx, ty),
                                     TK::ObjField(entity) => heap.lookup_field(o, ptr, entity),
                                 };
+                                let val = if let Some(val) = val {
+                                    val
+                                } else {
+                                    return ConstantFoldingLattice::new(
+                                        reachable,
+                                        NodeLattice::NoInfoYet,
+                                    );
+                                };
                                 let val = match load.out_proj_res() {
                                     Some(res) if val.source.is_none() => {
                                         let val = val.into_updated_source(res.into());
@@ -675,7 +696,11 @@ impl ConstantFolding {
                                 }
                             }
                             (AbstractValue::Tarval(t1), AbstractValue::Tarval(t2), _) => {
-                                CmpResult::Tarval(t1.lattice_cmp(cmp.relation(), *t2))
+                                if t1.is_bad() || t2.is_bad() {
+                                    CmpResult::Tarval(Tarval::bad())
+                                } else {
+                                    CmpResult::Tarval(t1.lattice_cmp(cmp.relation(), *t2))
+                                }
                             }
                             (v1, v2, _) => panic!(
                                 "Cannot compare values with invalid types: {:?}, {:?}",
