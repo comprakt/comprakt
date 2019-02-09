@@ -46,7 +46,7 @@ impl NodeLattice {
 
     pub fn reachable(&self) -> bool {
         match self {
-            NotReachableYet => false,
+            NodeLattice::NotReachableYet => false,
             _ => true,
         }
     }
@@ -126,7 +126,7 @@ impl Lattice for NodeLattice {
 impl fmt::Debug for NodeLattice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NodeLattice::NotReachableYet => write!(f, "No info"),
+            NodeLattice::NotReachableYet => write!(f, "🛇"),
             NodeLattice::Value(val) => write!(f, "{:?}", val),
             NodeLattice::Heap(heap) => write!(f, "{:?}", heap),
             NodeLattice::Tuple(..) => write!(f, "Tuple"),

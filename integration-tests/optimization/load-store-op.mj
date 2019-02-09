@@ -168,6 +168,8 @@ class Main {
         assertNodesAreNonConst1234(bxEq2Var - 1, bxEq2Var, bxEq2Var + 1, bxEq2Var + 2);
     }
 
+    /* == Escape analysis == */
+
     public void test_alias_ArgAccess1() {
         newTest();
 
@@ -207,6 +209,8 @@ class Main {
     }
 
     public void test_alias_MethodCallSimple() {
+        newTest();
+
         Obj container = new Obj();
         Obj a = new Obj();
         container.obj = a;
@@ -235,6 +239,43 @@ class Main {
         }
     }
 
+    public Obj escapes(Obj o) {
+        Obj prev = escaped;
+        escaped = o;
+        return prev;
+    }
+
+    public void test_escape() {
+        newTest();
+
+        Obj child = new Obj();
+        child.x = 4;
+
+        Obj a = new Obj();
+        this.escapes(a);
+        a.obj = child;
+        int childXConstEq4 = child.x;
+
+        Obj b = new Obj();
+        b.x = 3;
+
+        Obj c = this.escapes(null);
+        int childXVarEq4 = child.x;
+        a.x = 2;
+        c.x = 1; /* could modify a, but not b */
+
+        int axNonConst1 = a.x;
+        int bxConstEq1 = b.x - 2;
+
+        a.x = 2;
+        this.escapes(null);
+        /* since a escaped to `this`, any method could modify it */
+        int axVarEq1 = a.x;
+
+        assertNodesAreConst1234(bxConstEq1, 2, 3, childXConstEq4);
+        assertNodesAreNonConst1234(axNonConst1, axVarEq1, axVarEq1 + 1, childXVarEq4);
+    }
+
     public void test_alias_MethodCall() {
         newTest();
 
@@ -260,6 +301,8 @@ class Main {
     public void changeDeep(Obj o) {
         o.obj.obj.x = 4;
     }
+
+    /* == Simple Array tests == */
 
     public void test_alias_ArrayDirectWrite() {
         newTest();
@@ -315,12 +358,16 @@ class Main {
         assertNodesAreNonConst1234(arr[0].x, arr[1].x - 1, arr[2].x, arr[2].x + 1);
     }
 
+    /* == Phi tests == */
+
     public int test_alias_Phi1_y;
     public int test_alias_Phi1_x;
     public void test_alias_Phi1() {
         newTest();
 
-        if (test_alias_Phi1_y == 2) test_alias_Phi1_x = 1;
+        if (test_alias_Phi1_y == 2) {
+            test_alias_Phi1_x = 1;
+        }
 
         assertNodesAreNonConst1(test_alias_Phi1_x + 1);
     }
@@ -330,16 +377,40 @@ class Main {
 
         Obj o = null;
         int i = 0;
+        boolean reach = false;
         while (i < 3) {
             if (i > 0) {
-                assertNodesAreNonConst1(o.x);
+                /* o@{new1, null} */
+                assertNodesAreConst1(o.x);
+                reach = true;
             }
-            o = new Obj();
+            o = new Obj(); /* new1 */
             o.x = 1;
             i = i + 1;
         }
+
+        assertNodesAreNonConstTrue(reach);
     }
 
+    public void test_alias_Phi3() {
+        newTest();
+
+        Obj o = new Obj(); /* new1 */
+        int i = 0;
+        boolean reach = false;
+        while (i < 3) {
+            if (i > 0) {
+                /* o@{new1, new2} */
+                assertNodesAreNonConst1(o.x);
+                reach = true;
+            }
+            o = new Obj(); /* new2 */
+            o.x = 1;
+            i = i + 1;
+        }
+
+        assertNodesAreNonConstTrue(reach);
+    }
 
     /* == Cmp == */
 
@@ -456,10 +527,31 @@ class Main {
     }
 
 
+
+
+    public void test_null_deref_unreachable() {
+        newTest();
+        Obj o = null;
+        Obj obj = new Obj();
+        obj.x = 1;
+        if (nonConstBoolFalse()) {
+            int x = o.x; /* crash here */
+            obj.x = 2;
+        }
+
+        assertNodesAreConst1(obj.x);
+    }
+
+
     public void test_dont_join_heap_for_uninitialized_args() {
         newTest();
         Obj obj = new Obj();
         dont_join_heap_for_uninitialized_nodes1(obj);
+
+        obj.obj = obj;
+        dont_join_heap_for_uninitialized_nodes2(obj);
+
+        dont_join_heap_for_uninitialized_nodes3(obj);
     }
 
     public void dont_join_heap_for_uninitialized_nodes1(Obj obj) {
@@ -469,7 +561,27 @@ class Main {
         assertNodesAreNonConst1(obj.x);
     }
 
-    public void test_dont_join_heap_for_uninitialized_nodes2() {
+    public void dont_join_heap_for_uninitialized_nodes2(Obj obj) {
+        if (!nonConstBoolFalse()) {
+            obj.obj.obj.x = 1;
+        }
+        assertNodesAreNonConst1(obj.x);
+        assertNodesAreNonConst1(obj.obj.obj.x);
+    }
+
+    public void dont_join_heap_for_uninitialized_nodes3(Obj obj) {
+        obj.obj.x = 2; /* writes to cache, invalidates the allocator */
+        int constEq2 = obj.obj.x; /* loads from cache */
+        obj.x = 1; /* this must invalidate obj.obj.x */
+        int constEq1 = obj.x;
+        int nonConstEq1 = obj.obj.x;
+
+        assertNodesAreConst1234(constEq1, constEq2, 3, 4);
+        assertNodesAreNonConst1(nonConstEq1);
+    }
+
+
+    public void test_dont_join_heap_for_uninitialized_nodes() {
         newTest();
         int i = 0;
         Obj phiObj = null;
@@ -479,9 +591,22 @@ class Main {
             phiObj = obj;
         }
         /* obj@obj = { x: 0 } */
+        /* phiObj -> obj */
 
         if (nonConstBoolFalse()) {
-            phiObj.x = 2;
+            int j = 0;
+            Obj phiObj2 = phiObj;
+            while (j < 10) {
+                j = j + 1;
+                Obj obj2 = new Obj();
+                phiObj2 = obj2;
+            }
+
+            /*
+                obj2@obj2 = { x: 0, y: 0 }
+                phiObj2 -> obj|obj2
+            */
+            phiObj2.x = 2;
             /*
                 obj@obj = { x: 0|2, y: 0 }
                 phiObj@obj = { x: 2, y: 0 }
@@ -500,15 +625,52 @@ class Main {
         assertNodesAreNonConst1(phiObj.x);
     }
 
+    /* == Stores removal == */
 
-    public void unnecessary_store() {
+    public void test_removes_unnecessary_store1() {
         Obj o = new Obj();
-        o.x = 2;
-        o.x = 3;
-        int i = o.x;
+        o.x = nonConstZero() + 1;
+        int j = 0;
+        if (nonConstBoolFalse()) {
+            /* o.x = j; */
+        } else {
+            o.x = j + 1;
+        }
+
+        while (true) {
+            int i = o.x;
+            o.x = 2;
+            o.x = 3; /* this store is necessary */
+        }
     }
 
-    public int[][][][][][][] randomIntArray_large(){
+    public void test_remove_unnecessary_store2() {
+        Obj[] arr = new Obj[4];
+        int i = 0;
+        while (i < 4) {
+            i = i + 1;
+        }
+
+        arr[i] = new Obj();
+        arr[i].x = 2;
+
+        assertNodesAreConst1(arr[i].x);
+    }
+
+    public void cur_test_remove_unnecessary_store3() {
+        Obj[] arr = new Obj[4];
+        int i = 0;
+        while (i < 4) {
+            i = i + 1;
+            arr[i] = new Obj();
+            arr[i].x = 2;
+        }
+
+        assertNodesAreConst1234(arr[i].x, arr[i + 1].x + 1, arr[0].x + 2, 4);
+    }
+
+
+    public int[][][][][][][] test_randomIntArray_large(){
         int j = 1;
         int n = 10;
         int[][][][][][][] arr = new int[n][][][][][][];
@@ -554,7 +716,7 @@ class Main {
         return arr;
       }
 
-    public void randomIntArray(){
+    public void test_randomIntArray(){
         /* after 203 updates, it joins
             { [Proj1998]: {Proj2013} <- Proj2013, [*]: {Proj2013, null} } (Proj1971)
             with
@@ -593,106 +755,16 @@ class Main {
         }
     }
 
-/*
+    public void test_most_complex_example() {
+        newTest();
 
-    public void randomIntArray2(){
         int n = 10;
-        int[][][] arr = new int[n][][]; // => arr = [ [*]: null ]
-        int[] indezes = new int[7]; // => indezes = [ [*]: 0 ]
-        while (
-            indezes[0] // load1: 0
-                < n
-        ) {
-            int[][] arr2 = new int[n][]; // arr2 = [ [*]: null ]
-            arr[
-                indezes[0] // load2: 0
-            ] = arr2; // store1 => arr = [ 0$load2: @arr2$arr2, [*]: null ]
-
-            // arr = [ 0$load2: @arr2$arr2, [*]: null ]
-            // indezes = [ [*]: 0 ]
-            // arr2 = [ [*]: null ]
-            while (
-                indezes[1] // load3: 0
-                    < n
-            ) {
-                int[][] arr2_ = arr[
-                    indezes[0] // load4: 0
-                ]; // load5: @arr2$arr2
-
-                int[] arr3 = new int[n]; // arr3 = [ [*]: 0 ]
-                arr2_[
-                    indezes[1] // load6: 0
-                ] = // store2 => arr2 = [ 0: @arr3$arr3, [*]: null ]
-                arr3;
-
-                indezes[1] = // store3 => indezes = [ 1: 1$add, [*]: 0 ]
-                    indezes[1] // load7: 0
-                        + 1;
-
-                // arr = [ 0$load2: @arr2$arr2, [*]: null ]
-                // indezes = [ 1: 1$add, [*]: 0 ]
-                // arr2 = [ 0: @arr3$arr3, [*]: null ]
-                // arr3 = [ [*]: 0 ]
+        int[] idx = new int[2];
+        while (idx[0] + idx[1] < n) {
+            if (idx[0] == n) {
+                idx[0] = 0;
+                idx[1] = idx[1] + 1;
             }
-            // arr = [ 0$load2: @arr2$arr2, [*]: null ]
-            // indezes = [ 1: bad $phi(0, add1), [*]: 0 ]
-            // arr2 = [ 0: @arr3|null$$phi(null, arr3), [*]: null ]
-            // arr3 = [ [*]: 0 ]
-
-            // continue here
-
-            indezes[0] = indezes[0] + 1;
         }
     }
-
-    public void randomIntArray3(){
-        int n = 10;
-        int[][][] arr = new int[n][][]; // => arr = [ [*]: null ]
-        int[] indezes = new int[7]; // => indezes = [ [*]: 0 ]
-        while (
-            indezes[0] // load1: 0
-                < n
-        ) {
-            int[][] arr2 = new int[n][]; // arr2 = [ [*]: null ]
-            arr[
-                indezes[0] // load2: 0
-            ] = arr2; // store1 => arr = [ 0$load2: @arr2$arr2, [*]: null ]
-
-            // arr = [ 0$load2: @arr2$arr2, [*]: null ]
-            // indezes = [ 1: bad$phi1(0, add1), [*]: 0 ]
-            // arr2 = [ 0: @arr3|null$phi(null, arr3), [*]: null ]
-            // arr3 = [ [*]: 0 ]
-            while (
-                indezes[1] // load3: bad$phi(0, add1)
-                    < n
-            ) {
-                int[][] arr2_ = arr[
-                    indezes[0] // load4: 0
-                ]; // load5: @arr2$arr2
-
-                int[] arr3 = new int[n]; // arr3 = [ [*]: 0 ]
-                arr2_[
-                    indezes[1] // load6: bad$phi1
-                ] = // store2 => arr2 = [ bad$phi1: @arr3$arr3, [*]: null|@arr3 ]
-                arr3;
-
-                indezes[1] = // store3 => indezes = [ 1: 1$add, [*]: 0 ]
-                    indezes[1] // load7: 0
-                        + 1;
-
-                // arr = [ 0$load2: @arr2$arr2, [*]: null ]
-                // indezes = [ 1: 1$add1, [*]: 0 ]
-                // arr2 = [ 0: @arr3$arr3, [*]: null ]
-                // arr3 = [ [*]: 0 ]
-            }
-            // arr = [ 0$load2: @arr2$arr2, [*]: null ]
-            // indezes = [ 1: bad $phi(0, add1), [*]: 0 ]
-            // arr2 = [ 0: @arr3|null$$phi1(null, arr3), [*]: null ]
-            // arr3 = [ [*]: 0 ]
-
-
-            indezes[0] = indezes[0] + 1;
-        }
-    }
-    */
 }
