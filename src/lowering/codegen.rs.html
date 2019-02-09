@@ -2035,6 +2035,66 @@
 <span id="2035">2035</span>
 <span id="2036">2036</span>
 <span id="2037">2037</span>
+<span id="2038">2038</span>
+<span id="2039">2039</span>
+<span id="2040">2040</span>
+<span id="2041">2041</span>
+<span id="2042">2042</span>
+<span id="2043">2043</span>
+<span id="2044">2044</span>
+<span id="2045">2045</span>
+<span id="2046">2046</span>
+<span id="2047">2047</span>
+<span id="2048">2048</span>
+<span id="2049">2049</span>
+<span id="2050">2050</span>
+<span id="2051">2051</span>
+<span id="2052">2052</span>
+<span id="2053">2053</span>
+<span id="2054">2054</span>
+<span id="2055">2055</span>
+<span id="2056">2056</span>
+<span id="2057">2057</span>
+<span id="2058">2058</span>
+<span id="2059">2059</span>
+<span id="2060">2060</span>
+<span id="2061">2061</span>
+<span id="2062">2062</span>
+<span id="2063">2063</span>
+<span id="2064">2064</span>
+<span id="2065">2065</span>
+<span id="2066">2066</span>
+<span id="2067">2067</span>
+<span id="2068">2068</span>
+<span id="2069">2069</span>
+<span id="2070">2070</span>
+<span id="2071">2071</span>
+<span id="2072">2072</span>
+<span id="2073">2073</span>
+<span id="2074">2074</span>
+<span id="2075">2075</span>
+<span id="2076">2076</span>
+<span id="2077">2077</span>
+<span id="2078">2078</span>
+<span id="2079">2079</span>
+<span id="2080">2080</span>
+<span id="2081">2081</span>
+<span id="2082">2082</span>
+<span id="2083">2083</span>
+<span id="2084">2084</span>
+<span id="2085">2085</span>
+<span id="2086">2086</span>
+<span id="2087">2087</span>
+<span id="2088">2088</span>
+<span id="2089">2089</span>
+<span id="2090">2090</span>
+<span id="2091">2091</span>
+<span id="2092">2092</span>
+<span id="2093">2093</span>
+<span id="2094">2094</span>
+<span id="2095">2095</span>
+<span id="2096">2096</span>
+<span id="2097">2097</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Use linear scan results to convert LIR-instructions to x86 instructions.</span>
 
@@ -3331,6 +3391,10 @@
         <span class="ident">subtrahend</span>: <span class="ident">SrcOperand</span>,
         <span class="ident">minuend</span>: <span class="ident">DstOperand</span>,
     },
+    <span class="ident">Test</span> {
+        <span class="ident">src1</span>: <span class="ident">SrcOperand</span>,
+        <span class="ident">src2</span>: <span class="ident">DstOperand</span>,
+    },
     <span class="ident">Jmp</span> {
         <span class="ident">label</span>: <span class="ident">String</span>,
         <span class="ident">kind</span>: <span class="ident">lir</span>::<span class="ident">JmpKind</span>,
@@ -3347,6 +3411,8 @@
         <span class="ident">comment</span>: <span class="ident">String</span>,
     },
     <span class="ident">Raw</span>(<span class="ident">String</span>),
+    <span class="doccomment">/// instruction that was removed by peephole optimizer</span>
+    <span class="ident">PeepholedOut</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Instruction</span> {
@@ -3365,6 +3431,10 @@
             <span class="op">|</span> <span class="ident">Cmp</span> {
                 <span class="ident">subtrahend</span>: <span class="ident">src</span>,
                 <span class="ident">minuend</span>: <span class="ident">dst</span>,
+            }
+            <span class="op">|</span> <span class="ident">Test</span> {
+                <span class="ident">src1</span>: <span class="ident">src</span>,
+                <span class="ident">src2</span>: <span class="ident">dst</span>,
             } <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">relevant_size</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">src</span>, <span class="ident">dst</span>) {
                     (<span class="ident">SrcOperand</span>::<span class="ident">Imm</span>(<span class="kw">_</span>), <span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">dst</span>.<span class="ident">size</span>(),
@@ -3400,9 +3470,42 @@
             <span class="op">|</span> <span class="ident">Label</span> { .. }
             <span class="op">|</span> <span class="ident">Cqto</span>
             <span class="op">|</span> <span class="ident">Comment</span> { .. }
+            <span class="op">|</span> <span class="ident">PeepholedOut</span>
             <span class="op">|</span> <span class="ident">Raw</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="string">&quot;&quot;</span>,
         }
         .<span class="ident">to_string</span>()
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">binop_operands</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">SrcOperand</span>, <span class="ident">DstOperand</span>)<span class="op">&gt;</span> {
+        <span class="kw">use</span> <span class="self">self</span>::<span class="ident">Instruction</span>::<span class="kw-2">*</span>;
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">Add</span> { <span class="ident">src</span>, <span class="ident">dst</span> }
+            <span class="op">|</span> <span class="ident">Sub</span> {
+                <span class="ident">subtrahend</span>: <span class="ident">src</span>,
+                <span class="ident">acc</span>: <span class="ident">dst</span>,
+            }
+            <span class="op">|</span> <span class="ident">Mul</span> { <span class="ident">src</span>, <span class="ident">dst</span> }
+            <span class="op">|</span> <span class="ident">And</span> { <span class="ident">src</span>, <span class="ident">dst</span> }
+            <span class="op">|</span> <span class="ident">Or</span> { <span class="ident">src</span>, <span class="ident">dst</span> }
+            <span class="op">|</span> <span class="ident">Xor</span> { <span class="ident">src</span>, <span class="ident">dst</span> } <span class="op">=&gt;</span> <span class="prelude-val">Some</span>((<span class="kw-2">*</span><span class="ident">src</span>, <span class="kw-2">*</span><span class="ident">dst</span>)),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">binop_with_dst</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">dst</span>: <span class="ident">DstOperand</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">use</span> <span class="self">self</span>::<span class="ident">Instruction</span>::<span class="kw-2">*</span>;
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">Add</span> { <span class="ident">src</span>, .. } <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Add</span> { <span class="ident">src</span>: <span class="kw-2">*</span><span class="ident">src</span>, <span class="ident">dst</span> }),
+            <span class="ident">Sub</span> { <span class="ident">subtrahend</span>, .. } <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Sub</span> {
+                <span class="ident">subtrahend</span>: <span class="kw-2">*</span><span class="ident">subtrahend</span>,
+                <span class="ident">acc</span>: <span class="ident">dst</span>,
+            }),
+            <span class="ident">Mul</span> { <span class="ident">src</span>, .. } <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Mul</span> { <span class="ident">src</span>: <span class="kw-2">*</span><span class="ident">src</span>, <span class="ident">dst</span> }),
+            <span class="ident">And</span> { <span class="ident">src</span>, .. } <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">And</span> { <span class="ident">src</span>: <span class="kw-2">*</span><span class="ident">src</span>, <span class="ident">dst</span> }),
+            <span class="ident">Or</span> { <span class="ident">src</span>, .. } <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Or</span> { <span class="ident">src</span>: <span class="kw-2">*</span><span class="ident">src</span>, <span class="ident">dst</span> }),
+            <span class="ident">Xor</span> { <span class="ident">src</span>, .. } <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Xor</span> { <span class="ident">src</span>: <span class="kw-2">*</span><span class="ident">src</span>, <span class="ident">dst</span> }),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+        }
     }
 }
 
@@ -3428,6 +3531,7 @@
                 <span class="ident">subtrahend</span>,
                 <span class="ident">minuend</span>
             ),
+            <span class="ident">Test</span> { <span class="ident">src1</span>, <span class="ident">src2</span> } <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\ttest{} {}, {}&quot;</span>, <span class="self">self</span>.<span class="ident">instr_suffix</span>(), <span class="ident">src1</span>, <span class="ident">src2</span>),
             <span class="ident">Not</span> { <span class="ident">src</span> } <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\tnot{} {}&quot;</span>, <span class="self">self</span>.<span class="ident">instr_suffix</span>(), <span class="ident">src</span>),
             <span class="ident">Neg</span> { <span class="ident">src</span> } <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\tneg{} {}&quot;</span>, <span class="self">self</span>.<span class="ident">instr_suffix</span>(), <span class="ident">src</span>),
             <span class="ident">Mov</span>(<span class="ident">mov</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\t{}&quot;</span>, <span class="ident">mov</span>),
@@ -3444,6 +3548,7 @@
             <span class="ident">Cqto</span> <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\tcqto&quot;</span>),
             <span class="ident">Comment</span> { <span class="ident">comment</span> } <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\t/* {} */&quot;</span>, <span class="ident">comment</span>),
             <span class="ident">Raw</span>(<span class="ident">raw</span>) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">raw</span>),
+            <span class="ident">PeepholedOut</span> <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\t/* peepholed out */&quot;</span>),
         }
     }
 }
@@ -3497,9 +3602,9 @@
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">MovInstruction</span> {
-    <span class="ident">src</span>: <span class="ident">SrcOperand</span>,
-    <span class="ident">dst</span>: <span class="ident">DstOperand</span>,
-    <span class="ident">comment</span>: <span class="ident">String</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">src</span>: <span class="ident">SrcOperand</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">dst</span>: <span class="ident">DstOperand</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">comment</span>: <span class="ident">String</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">MovInstruction</span> {
@@ -3547,18 +3652,11 @@
                 <span class="string">&quot;mov{} {}, {}\t\t/* {} */&quot;</span>,
                 <span class="ident">mov_suffix</span>, <span class="ident">src</span>, <span class="ident">dst</span>, <span class="self">self</span>.<span class="ident">comment</span>
             ),
-            (<span class="ident">SrcOperand</span>::<span class="ident">Reg</span>(<span class="ident">src_reg</span>), <span class="ident">DstOperand</span>::<span class="ident">Reg</span>(<span class="ident">dst_reg</span>)) <span class="op">=&gt;</span> {
-                <span class="comment">// FIXME: handling this in the Display impl is wrong. Do this right!</span>
-                <span class="kw">if</span> <span class="ident">src_reg</span> <span class="op">==</span> <span class="ident">dst_reg</span> {
-                    <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;/* mov %r, %r */\t\t/* {} */&quot;</span>, <span class="self">self</span>.<span class="ident">comment</span>)
-                } <span class="kw">else</span> {
-                    <span class="macro">write</span><span class="macro">!</span>(
-                        <span class="ident">fmt</span>,
-                        <span class="string">&quot;mov{} {}, {}\t\t/* {} */&quot;</span>,
-                        <span class="ident">mov_suffix</span>, <span class="ident">src</span>, <span class="ident">dst</span>, <span class="self">self</span>.<span class="ident">comment</span>
-                    )
-                }
-            }
+            (<span class="ident">SrcOperand</span>::<span class="ident">Reg</span>(<span class="kw">_</span>), <span class="ident">DstOperand</span>::<span class="ident">Reg</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
+                <span class="ident">fmt</span>,
+                <span class="string">&quot;mov{} {}, {}\t\t/* {} */&quot;</span>,
+                <span class="ident">mov_suffix</span>, <span class="ident">src</span>, <span class="ident">dst</span>, <span class="self">self</span>.<span class="ident">comment</span>
+            ),
             (<span class="ident">SrcOperand</span>::<span class="ident">Ar</span>(<span class="kw">_</span>), <span class="ident">DstOperand</span>::<span class="ident">Ar</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
         }
     }
@@ -3710,9 +3808,10 @@
     }
 }
 
-<span class="kw">trait</span> <span class="ident">OperandTrait</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait</span> <span class="ident">OperandTrait</span> {
     <span class="kw">fn</span> <span class="ident">size</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Size</span>;
     <span class="kw">fn</span> <span class="ident">into_size</span>(<span class="self">self</span>, <span class="ident">size</span>: <span class="ident">Size</span>) <span class="op">-&gt;</span> <span class="self">Self</span>;
+    <span class="kw">fn</span> <span class="ident">eq_ignore_size</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="self">Self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span>;
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
@@ -3755,6 +3854,14 @@
             <span class="ident">SrcOperand</span>::<span class="ident">Imm</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="self">self</span>,
         }
     }
+    <span class="kw">fn</span> <span class="ident">eq_ignore_size</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="self">Self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">match</span> (<span class="self">self</span>, <span class="ident">other</span>) {
+            (<span class="ident">SrcOperand</span>::<span class="ident">Ar</span>(<span class="ident">ar1</span>), <span class="ident">SrcOperand</span>::<span class="ident">Ar</span>(<span class="ident">ar2</span>)) <span class="op">=&gt;</span> <span class="ident">ar1</span>.<span class="ident">eq_ignore_size</span>(<span class="ident">ar2</span>),
+            (<span class="ident">SrcOperand</span>::<span class="ident">Reg</span>(<span class="ident">reg1</span>), <span class="ident">SrcOperand</span>::<span class="ident">Reg</span>(<span class="ident">reg2</span>)) <span class="op">=&gt;</span> <span class="ident">reg1</span>.<span class="ident">eq_ignore_size</span>(<span class="ident">reg2</span>),
+            (<span class="ident">SrcOperand</span>::<span class="ident">Imm</span>(<span class="ident">tv1</span>), <span class="ident">SrcOperand</span>::<span class="ident">Imm</span>(<span class="ident">tv2</span>)) <span class="op">=&gt;</span> <span class="ident">tv1</span> <span class="op">==</span> <span class="ident">tv2</span>,
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="bool-val">false</span>,
+        }
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">OperandTrait</span> <span class="kw">for</span> <span class="ident">Reg</span> {
@@ -3767,6 +3874,9 @@
             <span class="ident">reg</span>: <span class="self">self</span>.<span class="ident">reg</span>,
         }
     }
+    <span class="kw">fn</span> <span class="ident">eq_ignore_size</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="self">Self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">reg</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">reg</span>
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">OperandTrait</span> <span class="kw">for</span> <span class="ident">Ar</span> {
@@ -3778,6 +3888,9 @@
             <span class="ident">size</span>,
             <span class="ident">pos</span>: <span class="self">self</span>.<span class="ident">pos</span>,
         }
+    }
+    <span class="kw">fn</span> <span class="ident">eq_ignore_size</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="self">Self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">pos</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">pos</span>
     }
 }
 
@@ -3820,6 +3933,13 @@
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">DstOperand</span>::<span class="ident">Ar</span>(<span class="ident">ar</span>) <span class="op">=&gt;</span> <span class="ident">DstOperand</span>::<span class="ident">Ar</span>(<span class="ident">ar</span>.<span class="ident">into_size</span>(<span class="ident">size</span>)),
             <span class="ident">DstOperand</span>::<span class="ident">Reg</span>(<span class="ident">reg</span>) <span class="op">=&gt;</span> <span class="ident">DstOperand</span>::<span class="ident">Reg</span>(<span class="ident">reg</span>.<span class="ident">into_size</span>(<span class="ident">size</span>)),
+        }
+    }
+    <span class="kw">fn</span> <span class="ident">eq_ignore_size</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="self">Self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">match</span> (<span class="self">self</span>, <span class="ident">other</span>) {
+            (<span class="ident">DstOperand</span>::<span class="ident">Ar</span>(<span class="ident">ar1</span>), <span class="ident">DstOperand</span>::<span class="ident">Ar</span>(<span class="ident">ar2</span>)) <span class="op">=&gt;</span> <span class="ident">ar1</span>.<span class="ident">eq_ignore_size</span>(<span class="ident">ar2</span>),
+            (<span class="ident">DstOperand</span>::<span class="ident">Reg</span>(<span class="ident">reg1</span>), <span class="ident">DstOperand</span>::<span class="ident">Reg</span>(<span class="ident">reg2</span>)) <span class="op">=&gt;</span> <span class="ident">reg1</span>.<span class="ident">eq_ignore_size</span>(<span class="ident">reg2</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="bool-val">false</span>,
         }
     }
 }
