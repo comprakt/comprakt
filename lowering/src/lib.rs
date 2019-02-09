@@ -29,6 +29,7 @@ use lir::LIR;
 pub fn run_backend(
     firm_program: &FirmProgram<'_, '_>,
     out: &mut impl std::io::Write,
+    no_peep: bool,
 ) -> std::io::Result<()> {
     let mut lir = LIR::from(firm_program);
     debugging::breakpoint!("LIR stage 1", lir, &|block: &lir::BasicBlock| {
@@ -55,7 +56,9 @@ pub fn run_backend(
 
         let mut function_asm = codegen.emit_function();
 
-        peephole::global_peephole(&mut function_asm);
+        if !no_peep {
+            peephole::global_peephole(&mut function_asm);
+        }
 
         for instr in function_asm {
             writeln!(out, "{}", instr)?;

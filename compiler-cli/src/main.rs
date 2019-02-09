@@ -145,6 +145,8 @@ pub struct CompileFirmOptions {
 /// Command-line options for the [`CliCommand::Compile`] (`--compile`) call.
 #[derive(StructOpt, Debug, Clone)]
 pub struct CompileOptions {
+    #[structopt(long = "no-peep")]
+    no_peep: bool,
     #[structopt(flatten)]
     pre_backend_options: PreBackendOptions,
     #[structopt(flatten)]
@@ -223,6 +225,7 @@ fn main() {
         log::debug!("no-arg mode detected: {:?}", input);
         let input = PathBuf::from(input);
         let opts = CompileOptions {
+            no_peep: false,
             pre_backend_options: PreBackendOptions::default_with_input(input),
             backend_options: BackendOptions::default(),
         };
@@ -486,7 +489,10 @@ fn cmd_compile(options: &CompileOptions) -> Result<(), Error> {
     compile_command_common!( let (firm_ctx, bingen) =
                              (&options.pre_backend_options, &options.backend_options, rtlib));
 
-    let mut backend: Box<dyn backend::AsmBackend> = box backend::amd64::Backend { firm_ctx };
+    let mut backend: Box<dyn backend::AsmBackend> = box backend::amd64::Backend {
+        firm_ctx,
+        no_peep: options.no_peep,
+    };
 
     let dump_asm = options
         .backend_options
