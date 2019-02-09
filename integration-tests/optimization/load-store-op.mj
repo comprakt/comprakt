@@ -2,8 +2,7 @@
 optimizations: [ConstantFolding]
 expect: change
 stdout:
-    is: "1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n1\n2\n3\n4\n"
-
+    file: ./load-store-op.optimized.out.stdout
 ---
 class Obj {
     public Obj obj;
@@ -15,44 +14,317 @@ class Main {
         new Main().test();
     }
 
-    public void assertConstant(int a, int b, int c, int d) {
-        System.out.println(a);
-        System.out.println(b);
-        System.out.println(c);
-        System.out.println(d);
+    public int nonConstZero() {
+        int i = 5;
+        while (i > 0) {
+            i = i - 1;
+        }
+        if (i == 1) {
+            /* to prevent inlining, just in case */
+            nonConstZero();
+        }
+        return i;
     }
-    public void assertVariable(int a, int b, int c, int d) {
-        System.out.println(a);
-        System.out.println(b);
-        System.out.println(c);
-        System.out.println(d);
+
+    public boolean nonConstBoolFalse() {
+        return nonConstZero() == 1;
     }
+
+    public void printTuple1234(int a, int b, int c, int d) {
+        int offset = 48;
+        System.out.write(offset + a);
+        System.out.write(offset + b);
+        System.out.write(offset + c);
+        System.out.write(offset + d);
+        System.out.write(32);
+    }
+
+    public void newTest() {
+        System.out.write(10);
+    }
+
+    public void check1234(int a, int b, int c, int d) {
+        printTuple1234(a, b, c, d);
+    }
+
+    public void assertNodesAreConst1234(int a, int b, int c, int d) {
+        if (nonConstBoolFalse()) {
+            assertNodesAreConst1234(1, 2, 3, 4);
+        }
+
+        printTuple1234(a, b, c, d);
+    }
+
+    public void assertNodesAreConst1(int a) {
+        if (nonConstBoolFalse()) {
+            assertNodesAreConst1(1);
+        }
+
+        printTuple1234(a, a + 1, a + 2, a + 3);
+    }
+
+    public void assertNodesAreNonConst1234(int a, int b, int c, int d) {
+        if (nonConstBoolFalse()) {
+            assertNodesAreNonConst1234(a, b, c, d);
+        }
+
+        printTuple1234(a, b, c, d);
+    }
+
+    public void assertNodesAreNonConst1(int a) {
+        assertNodesAreNonConst1234(a, a + 1, a + 2, a + 3);
+    }
+
+    public void assertNodesAreConstTrue(boolean a) {
+        if (a) {
+            printTuple1234(1, 2, 3, 4);
+        } else {
+            printTuple1234(-1, -1, -1, -1);
+        }
+    }
+
+    public void assertNodesAreNonConstTrue(boolean a) {
+        if (a) {
+            printTuple1234(1, 2, 3, 4);
+        } else {
+            printTuple1234(-1, -1, -1, -1);
+        }
+    }
+
+
+    public void assertNodesEq_int(int a, int b) {
+
+    }
+
+    public void assertNodesAreEq_obj(Obj a, Obj b) {
+
+    }
+
+    public void assertNodesAreNotEq_obj(Obj a, Obj b) {
+
+    }
+
+    /* == Tests == */
 
     public void test() {
-        testDirectWrite();
-        testRefWriteClear();
-        testArgAccess1();
-        testArgAccess2();
-        testMethodCall();
-        testArrayDirectWrite();
-        testArrayIndirectWrite();
-        testPhi();
+        test_alias_DirectWrite();
+        test_alias_RefWriteClear();
+        test_alias_ArgAccess1();
+        test_alias_ArgAccess2();
+        test_alias_MethodCall();
+        test_alias_ArrayDirectWrite();
+        test_alias_ArrayIndirectWrite();
+        test_alias_Phi1();
+        test_alias_Phi2();
+
+        test_cmp1_simple();
+
+        test_load_LoadEqStore1();
+        test_load_DoubleLoad2();
     }
 
-    public int y;
-    public int x;
-    public void testPhi() {
-        if (y == 2) x = 1;
+    public void test_basic() {
+        newTest();
 
-        assertVariable(x + 1, x + 2, x + 3, x + 4);
+        assertNodesAreConst1(1);
+        assertNodesAreNonConst1(nonConstZero());
     }
 
-    public void testArrayIndirectWrite() {
+    /* == Alias analysis == */
+
+    public void test_alias_DirectWrite() {
+        newTest();
+
+        Obj a = new Obj();
+        Obj b = new Obj();
+        a.x = 3;
+        b.x = 4;
+        a.x = 1;
+        b.x = 2;
+
+        assertNodesAreConst1234(a.x, b.x, 3, 4);
+    }
+
+    public void test_alias_RefWriteClear() {
+        newTest();
+
+        Obj a = new Obj(); /* 1n -> [1] */
+        Obj b = new Obj(); /* 2n -> [2] */
+        Obj c = new Obj(); /* 3n -> [3] */
+
+        a.obj = b; /* 1n.obj -> [2] */
+        if (nonConstBoolFalse()) {
+            a.obj = null;
+        }
+        c.x = 3;
+        a.x = 1;
+        b.x = 5;
+        Obj b2 = a.obj; /* 4n -> [2] */
+        assertNodesAreNotEq_obj(b, b2);
+        b2.x = 2; /* invalidate [2].x */
+
+        assertNodesAreConst1234(a.x, 2, c.x, 4);
+        int bxEq2Var = b.x;
+        assertNodesAreNonConst1234(bxEq2Var - 1, bxEq2Var, bxEq2Var + 1, bxEq2Var + 2);
+    }
+
+    /* == Escape analysis == */
+
+    public void test_alias_ArgAccess1() {
+        newTest();
+
+        Obj a = new Obj();
+        Obj b = new Obj();
+        argAccess1Func(a, b);
+    }
+
+    public void argAccess1Func(Obj a, Obj b) {
+        Obj c = new Obj();
+        a.x = 1;
+        c.x = 3;
+        int axEq1 = a.x;
+        c.x = 4;
+        b.x = 2;
+        int axEq1Var = a.x;
+        assertNodesAreConst1234(axEq1, b.x, 3, c.x);
+        assertNodesAreNonConst1234(axEq1Var, axEq1Var + 1, axEq1Var + 2, axEq1Var + 3);
+    }
+
+    public void test_alias_ArgAccess2() {
+        newTest();
+
+        Obj a = new Obj();
+        argAccess2Func(a, a);
+    }
+
+    public void argAccess2Func(Obj a, Obj b) {
+        Obj c = new Obj();
+        a.obj = c;
+
+        c.x = 1;
+        b.obj.x = 2;
+
+        int cxEq2Var = c.x;
+        assertNodesAreNonConst1234(cxEq2Var - 1, cxEq2Var, cxEq2Var + 1, cxEq2Var + 2);
+    }
+
+    public void test_alias_MethodCallSimple() {
+        newTest();
+
+        Obj container = new Obj();
+        Obj a = new Obj();
+        container.obj = a;
+        container.x = 3;
+        a.x = 1;
+        Obj b = new Obj();
+        b.x = 2;
+
+        simpleMethod();
+        int axEq1Const = a.x;
+
+        escaped = a;
+        simpleMethod();
+        int axEq1Var = a.x;
+        int bxEq2Const = b.x;
+
+        assertNodesAreConst1234(axEq1Const, bxEq2Const, container.x, bxEq2Const + 2);
+        assertNodesAreNonConst1(axEq1Var);
+    }
+
+    public Obj escaped;
+
+    public void simpleMethod() {
+        if (escaped != null) {
+            escaped.x = 1;
+        }
+    }
+
+    public Obj escapes(Obj o) {
+        Obj prev = escaped;
+        escaped = o;
+        return prev;
+    }
+
+    public void test_escape() {
+        newTest();
+
+        Obj child = new Obj();
+        child.x = 4;
+
+        Obj a = new Obj();
+        this.escapes(a);
+        a.obj = child;
+        int childXConstEq4 = child.x;
+
+        Obj b = new Obj();
+        b.x = 3;
+
+        Obj c = this.escapes(null);
+        int childXVarEq4 = child.x;
+        a.x = 2;
+        c.x = 1; /* could modify a, but not b */
+
+        int axNonConst1 = a.x;
+        int bxConstEq1 = b.x - 2;
+
+        a.x = 2;
+        this.escapes(null);
+        /* since a escaped to `this`, any method could modify it */
+        int axVarEq1 = a.x;
+
+        assertNodesAreConst1234(bxConstEq1, 2, 3, childXConstEq4);
+        assertNodesAreNonConst1234(axNonConst1, axVarEq1, axVarEq1 + 1, childXVarEq4);
+    }
+
+    public void test_alias_MethodCall() {
+        newTest();
+
+        Obj a = new Obj();
+        Obj b = new Obj();
+        b.x = 1;
+        b.obj = new Obj();
+
+        a.obj = a;
+        changeDeep(a); /* a has no reference to b, thus b remains unchanged */
+        int axEq3Var = a.x - 1;
+        int bxEq1Const = b.x;
+
+        a.obj = b;
+        changeDeep(a); /* a now has a reference to b */
+        int bxEq4Var = b.obj.x;
+        a.x = 2;
+
+        assertNodesAreConst1234(bxEq1Const, a.x, 3, 4);
+        assertNodesAreNonConst1234(bxEq4Var - 3, bxEq4Var - 2, axEq3Var, bxEq4Var);
+    }
+
+    public void changeDeep(Obj o) {
+        o.obj.obj.x = 4;
+    }
+
+    /* == Simple Array tests == */
+
+    public void test_alias_ArrayDirectWrite() {
+        newTest();
+
+        int[] arr = new int[3];
+        arr[0] = 1;
+        arr[1] = 3;
+        arr[1] = 2;
+
+        assertNodesAreConst1234(arr[0], arr[1], arr[2] + 3, 4);
+    }
+
+    public void test_alias_ArrayIndirectWrite() {
+        newTest();
+
         arrayIndirectWrite1(1, 1);
         arrayIndirectWrite2(1, 1);
     }
 
     public void arrayIndirectWrite1(int idx1, int idx2) {
+        newTest();
+
         int[] arr = new int[4];
         arr[0] = 1;
         int vEq1Const = arr[0];
@@ -60,11 +332,13 @@ class Main {
         int vEq2Const = arr[idx1];
         arr[idx2] = 3;
 
-        assertConstant(vEq1Const, vEq2Const, arr[idx2], 4);
-        assertVariable(arr[0], arr[0] + 1, arr[idx1], arr[3] + 4);
+        assertNodesAreConst1234(vEq1Const, vEq2Const, arr[idx2], 4);
+        assertNodesAreNonConst1234(arr[0], arr[0] + 1, arr[idx1], arr[3] + 4);
     }
 
     public void arrayIndirectWrite2(int idx1, int idx2) {
+        newTest();
+
         Obj[] arr = new Obj[4];
         Obj a = new Obj();
         a.x = 1;
@@ -80,101 +354,417 @@ class Main {
         arr[2] = c;
         arr[idx2] = c;
 
-        assertConstant(1, 2, arr[idx2].x, 4);
-        assertVariable(arr[0].x, arr[1].x - 1, arr[2].x, arr[2].x + 1);
+        assertNodesAreConst1234(1, 2, arr[idx2].x, 4);
+        assertNodesAreNonConst1234(arr[0].x, arr[1].x - 1, arr[2].x, arr[2].x + 1);
     }
 
-    public void testArrayDirectWrite() {
-        int[] arr = new int[3];
-        arr[0] = 1;
-        arr[1] = 3;
-        arr[1] = 2;
+    /* == Phi tests == */
 
-        assertConstant(arr[0], arr[1], arr[2] + 3, 4);
+    public int test_alias_Phi1_y;
+    public int test_alias_Phi1_x;
+    public void test_alias_Phi1() {
+        newTest();
+
+        if (test_alias_Phi1_y == 2) {
+            test_alias_Phi1_x = 1;
+        }
+
+        assertNodesAreNonConst1(test_alias_Phi1_x + 1);
     }
 
-    public void testMethodCall() {
-        Obj a = new Obj();
-        Obj b = new Obj();
-        b.x = 1;
-        b.obj = new Obj();
+    public void test_alias_Phi2() {
+        newTest();
 
-        a.obj = a;
-        changeDeep(a); /* a has no reference to b */
-        int axEq3Var = a.x - 1;
-        int bxEq1Const = b.x;
+        Obj o = null;
+        int i = 0;
+        boolean reach = false;
+        while (i < 3) {
+            if (i > 0) {
+                /* o@{new1, null} */
+                assertNodesAreConst1(o.x);
+                reach = true;
+            }
+            o = new Obj(); /* new1 */
+            o.x = 1;
+            i = i + 1;
+        }
 
-        a.obj = b;
-        changeDeep(a);
-        int bxEq4Var = b.obj.x;
-        a.x = 2;
-
-        /* TODO: assertConstant(bxEq1Const, a.x, 3, 4); */
-        assertVariable(bxEq4Var - 3, bxEq4Var - 2, axEq3Var, bxEq4Var);
+        assertNodesAreNonConstTrue(reach);
     }
 
-    public void changeDeep(Obj o) {
-        o.obj.obj.x = 4;
+    public void test_alias_Phi3() {
+        newTest();
+
+        Obj o = new Obj(); /* new1 */
+        int i = 0;
+        boolean reach = false;
+        while (i < 3) {
+            if (i > 0) {
+                /* o@{new1, new2} */
+                assertNodesAreNonConst1(o.x);
+                reach = true;
+            }
+            o = new Obj(); /* new2 */
+            o.x = 1;
+            i = i + 1;
+        }
+
+        assertNodesAreNonConstTrue(reach);
     }
 
-    public void testArgAccess2() {
-        Obj a = new Obj();
-        argAccess2Func(a, a);
+    /* == Cmp == */
+
+    public void test_cmp1_simple() {
+        newTest();
+
+        Obj obj1 = new Obj();
+        assertNodesAreConstTrue(!(obj1 == null));
+        assertNodesAreConstTrue(obj1 != null);
+
+        assertNodesAreConstTrue(!(obj1 != obj1));
+        assertNodesAreConstTrue(obj1 == obj1);
+
+        Obj obj2 = new Obj();
+
+        /* assertNodesAreConstTrue(!(obj1 == obj2)); */
+        assertNodesAreConstTrue(obj1 != obj2);
+
+        Obj obj3 = null;
+        assertNodesAreConstTrue(obj3 == null);
+        assertNodesAreConstTrue(!(obj3 != null));
+
+
+        Obj obj4_or_null = null;
+        if (nonConstBoolFalse()) {
+            obj4_or_null = new Obj();
+        }
+        Obj obj5_or_null = null;
+        if (nonConstBoolFalse()) {
+            obj5_or_null = new Obj();
+        }
+
+        assertNodesAreConstTrue(!(obj5_or_null != obj5_or_null));
+        assertNodesAreConstTrue(obj5_or_null == obj5_or_null);
+
+        assertNodesAreNonConstTrue(obj4_or_null == obj5_or_null);
     }
 
-    public void argAccess2Func(Obj a, Obj b) {
-        Obj c = new Obj();
-        a.obj = c;
 
-        c.x = 1;
-        b.obj.x = 2;
 
-        int cxEq2Var = c.x;
-        assertVariable(cxEq2Var - 1, cxEq2Var, cxEq2Var + 1, cxEq2Var + 2);
+
+    /* == Load removal == */
+
+    public void test_load_LoadEqStore1() {
+        newTest();
+
+        int i = nonConstZero() + 1;
+
+        Obj o = new Obj();
+        o.x = i;
+        int i2 = o.x;
+        assertNodesEq_int(i2, i);
     }
 
-    public void testArgAccess1() {
-        Obj a = new Obj();
-        Obj b = new Obj();
-        argAccess1Func(a, b);
+    public void test_load_write_through() {
+        newTest();
+
+        Obj o = new Obj();
+
+        Obj mid = new Obj();
+        mid.obj = o;
+
+        Obj o2 = mid.obj;
+
+        o.x = 1;
+        assertNodesAreConst1(o2.x);
     }
 
-    public void argAccess1Func(Obj a, Obj b) {
-        Obj c = new Obj();
-        a.x = 1;
-        c.x = 3;
-        int axEq1 = a.x;
-        c.x = 4;
-        b.x = 2;
-        assertConstant(axEq1, b.x, 3, c.x);
-        int axEq1Var = a.x;
-        assertVariable(axEq1Var, axEq1Var + 1, axEq1Var + 2, axEq1Var + 3);
+    public void test_load_DoubleLoad1() {
+        newTest();
+
+        Obj o = getSomeObj();
+        int i = o.x;
+        int j = o.x;
+        assertNodesEq_int(i, j);
     }
 
-    public void testRefWriteClear() {
-        Obj a = new Obj(); /* 1n -> [1] */
-        Obj b = new Obj(); /* 2n -> [2] */
-        Obj c = new Obj(); /* 3n -> [3] */
-        a.obj = b; /* 1n.obj -> [2] */
-        c.x = 3;
-        a.x = 1;
-        b.x = 5;
-        Obj b2 = a.obj; /* 4n -> [2] */
-        b2.x = 2; /* invalidates [2].x */
-
-        assertConstant(a.x, 2, c.x, 4);
-        int bxEq2Var = b.x;
-        assertVariable(bxEq2Var - 1, bxEq2Var, bxEq2Var + 1, bxEq2Var + 2);
+    public Obj getSomeObj() {
+        Obj o = new Obj();
+        o.x = 1;
+        return o;
     }
 
-    public void testDirectWrite() {
-        Obj a = new Obj();
-        Obj b = new Obj();
-        a.x = 3;
-        b.x = 4;
-        a.x = 1;
-        b.x = 2;
+    public void test_load_DoubleLoad2() {
+        newTest();
 
-        assertConstant(a.x, b.x, 3, 4);
+        Obj valMiddle = new Obj();
+
+        Obj val = new Obj();
+        valMiddle.obj = val;
+
+
+        Obj o = new Obj();
+        o.obj = valMiddle;
+
+        Obj valMiddle2 = o.obj;
+        /* assertNodesAreEq_obj(valMiddle, valMiddle2); */
+
+        Obj val2 = valMiddle2.obj;
+        assertNodesAreEq_obj(val, val2);
+    }
+
+    public void test_cond_load() {
+        newTest();
+
+        Obj cont = new Obj();
+        if (!nonConstBoolFalse()) {
+            Obj o = new Obj();
+            cont.obj = o;
+            o.x = nonConstZero() + 1;
+        }
+
+        /* TODO print(o.x) */
+    }
+
+
+
+
+    public void test_null_deref_unreachable() {
+        newTest();
+        Obj o = null;
+        Obj obj = new Obj();
+        obj.x = 1;
+        if (nonConstBoolFalse()) {
+            int x = o.x; /* crash here */
+            obj.x = 2;
+        }
+
+        assertNodesAreConst1(obj.x);
+    }
+
+
+    public void test_dont_join_heap_for_uninitialized_args() {
+        newTest();
+        Obj obj = new Obj();
+        dont_join_heap_for_uninitialized_nodes1(obj);
+
+        obj.obj = obj;
+        dont_join_heap_for_uninitialized_nodes2(obj);
+
+        dont_join_heap_for_uninitialized_nodes3(obj);
+    }
+
+    public void dont_join_heap_for_uninitialized_nodes1(Obj obj) {
+        if (!nonConstBoolFalse()) {
+            obj.x = 1;
+        }
+        assertNodesAreNonConst1(obj.x);
+    }
+
+    public void dont_join_heap_for_uninitialized_nodes2(Obj obj) {
+        if (!nonConstBoolFalse()) {
+            obj.obj.obj.x = 1;
+        }
+        assertNodesAreNonConst1(obj.x);
+        assertNodesAreNonConst1(obj.obj.obj.x);
+    }
+
+    public void dont_join_heap_for_uninitialized_nodes3(Obj obj) {
+        obj.obj.x = 2; /* writes to cache, invalidates the allocator */
+        int constEq2 = obj.obj.x; /* loads from cache */
+        obj.x = 1; /* this must invalidate obj.obj.x */
+        int constEq1 = obj.x;
+        int nonConstEq1 = obj.obj.x;
+
+        assertNodesAreConst1234(constEq1, constEq2, 3, 4);
+        assertNodesAreNonConst1(nonConstEq1);
+    }
+
+
+    public void test_dont_join_heap_for_uninitialized_nodes() {
+        newTest();
+        int i = 0;
+        Obj phiObj = null;
+        while (i < 10) {
+            i = i + 1;
+            Obj obj = new Obj();
+            phiObj = obj;
+        }
+        /* obj@obj = { x: 0 } */
+        /* phiObj -> obj */
+
+        if (nonConstBoolFalse()) {
+            int j = 0;
+            Obj phiObj2 = phiObj;
+            while (j < 10) {
+                j = j + 1;
+                Obj obj2 = new Obj();
+                phiObj2 = obj2;
+            }
+
+            /*
+                obj2@obj2 = { x: 0, y: 0 }
+                phiObj2 -> obj|obj2
+            */
+            phiObj2.x = 2;
+            /*
+                obj@obj = { x: 0|2, y: 0 }
+                phiObj@obj = { x: 2, y: 0 }
+            */
+        }
+        /* falsch:
+            obj@obj = { x: 0|2, y: 0 }
+            phiObj@obj = { x: 2, y: 0 }
+        */
+
+        /* richtig:
+            obj@obj = { x: 0|2 }
+            phiObj@obj = { x: 0|2 }
+        */
+
+        assertNodesAreNonConst1(phiObj.x);
+    }
+
+    /* == Stores removal == */
+
+    public void test_removes_unnecessary_store1() {
+        Obj o = new Obj();
+        o.x = nonConstZero() + 1;
+        int j = 0;
+        if (nonConstBoolFalse()) {
+            /* o.x = j; */
+        } else {
+            o.x = j + 1;
+        }
+
+        while (true) {
+            int i = o.x;
+            o.x = 2;
+            o.x = 3; /* this store is necessary */
+        }
+    }
+
+    public void test_remove_unnecessary_store2() {
+        Obj[] arr = new Obj[4];
+        int i = 0;
+        while (i < 4) {
+            i = i + 1;
+        }
+
+        arr[i] = new Obj();
+        arr[i].x = 2;
+
+        assertNodesAreConst1(arr[i].x);
+    }
+
+    public void cur_test_remove_unnecessary_store3() {
+        Obj[] arr = new Obj[4];
+        int i = 0;
+        while (i < 4) {
+            i = i + 1;
+            arr[i] = new Obj();
+            arr[i].x = 2;
+        }
+
+        assertNodesAreConst1234(arr[i].x, arr[i + 1].x + 1, arr[0].x + 2, 4);
+    }
+
+
+    public int[][][][][][][] test_randomIntArray_large(){
+        int j = 1;
+        int n = 10;
+        int[][][][][][][] arr = new int[n][][][][][][];
+        int[] indezes = new int[7];
+        while (indezes[0] < n) {
+          arr[indezes[0]] = new int[n][][][][][];
+          while (indezes[1] < n) {
+            arr[indezes[0]][indezes[1]] = new int[n][][][][];
+            while (indezes[2] < n) {
+              arr[indezes[0]][indezes[1]][indezes[2]] = new int[n][][][];
+              while (indezes[3] < n) {
+                arr[indezes[0]][indezes[1]][indezes[2]][indezes[3]] = new int[n][][];
+                while (indezes[4] < n) {
+                  arr[indezes[0]][indezes[1]][indezes[2]][indezes[3]][indezes[4]] = new int[n][];
+                  while (indezes[5] < n) {
+                    arr[indezes[0]][indezes[1]][indezes[2]][indezes[3]][indezes[4]][indezes[5]] = new int[n];
+
+                    while (indezes[6] < n) {
+                        j = j + 1;
+                      arr[indezes[0]][indezes[1]][indezes[2]][indezes[3]][indezes[4]][indezes[5]][indezes[6]] = j;
+                      indezes[6] = indezes[6] + 1;
+                    }
+
+                    indezes[6] = 0;
+                    indezes[5] = indezes[5] + 1;
+                  }
+                  indezes[5] = 0;
+                  indezes[4] = indezes[4] + 1;
+                }
+                indezes[4] = 0;
+                indezes[3] = indezes[3] + 1;
+              }
+              indezes[3] = 0;
+              indezes[2] = indezes[2] + 1;
+            }
+            indezes[2] = 0;
+            indezes[1] = indezes[1] + 1;
+          }
+          indezes[1] = 0;
+          indezes[0] = indezes[0] + 1;
+        }
+        /* removes at least 56 loads */
+        return arr;
+      }
+
+    public void test_randomIntArray(){
+        /* after 203 updates, it joins
+            { [Proj1998]: {Proj2013} <- Proj2013, [*]: {Proj2013, null} } (Proj1971)
+            with
+            { [0$Proj1998]: {Proj2013} <- Proj2013, [*]: {null} } (Proj1971)
+        */
+        int n = 10;
+        int[][][] arr = new int[n][][];
+        int[] indezes = new int[7];
+        Obj o = new Obj();
+        while (n >
+            indezes[0]
+            ) {
+            int[][] arr2 = new int[n][];
+            arr[
+                indezes[0]
+                ] = arr2;
+            while (n >
+                indezes[1]
+                ) {
+                int[][] arr2_ = arr[
+                    indezes[0]
+                    ];
+                arr2_[
+                    indezes[1]
+                    ] = new int[n];
+
+                indezes[1] =
+                    indezes[1]
+                        + 1;
+            }
+            indezes[0] =
+                1 +
+                    indezes[0]
+                    ;
+            o.x = 10;
+        }
+    }
+
+    public void test_most_complex_example() {
+        newTest();
+
+        int n = 10;
+        int[] idx = new int[2];
+        while (idx[0] + idx[1] < n) {
+            if (idx[0] == n) {
+                idx[0] = 0;
+                idx[1] = idx[1] + 1;
+            }
+        }
     }
 }
