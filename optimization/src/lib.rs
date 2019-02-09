@@ -127,33 +127,27 @@ impl Default for Level {
 
 impl Level {
     fn sequence(&self) -> Vec<Optimization> {
-        if Ok("1".to_string()) == std::env::var("BENCH").map(|x| x.trim().to_string()) {
-            match self {
-                Level::None => vec![],
-                Level::Moderate => vec![
-                    Optimization::new(Kind::ConstantFolding),
-                    Optimization::new(Kind::ControlFlow),
-                ],
-                Level::Aggressive => vec![
-                    // TODO: code placement in combination with inlining can be
-                    // very expensive
-                    Optimization::new(Kind::Inline),
-                    Optimization::new(Kind::ConstantFolding),
-                    Optimization::new(Kind::ControlFlow),
-                    // this sequence results in global common subexpression elimination
-                    // and loop invariant code motion
-                    Optimization::new(Kind::EarliestPlacement),
-                    Optimization::new(Kind::CommonSubExprElim),
-                    Optimization::new(Kind::CostMinimizingPlacement),
-                ],
-                Level::Custom(list) => list.clone(),
-            }
-        } else {
-            vec![
+        match self {
+            Level::None => vec![],
+            Level::Moderate => vec![
+                Optimization::new(Kind::ConstantFolding),
+                Optimization::new(Kind::ControlFlow),
+                // block-local common subexpression elimination
+                Optimization::new(Kind::CommonSubExprElim),
+            ],
+            Level::Aggressive => vec![
+                // TODO: code placement in combination with inlining can be
+                // very expensive
                 Optimization::new(Kind::Inline),
                 Optimization::new(Kind::ConstantFolding),
                 Optimization::new(Kind::ControlFlow),
-            ]
+                // this sequence results in global common subexpression elimination
+                // and loop invariant code motion
+                Optimization::new(Kind::EarliestPlacement),
+                Optimization::new(Kind::CommonSubExprElim),
+                Optimization::new(Kind::CostMinimizingPlacement),
+            ],
+            Level::Custom(list) => list.clone(),
         }
     }
 }
