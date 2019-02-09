@@ -76,7 +76,7 @@ impl<'src, 'ast> TypeSystem<'src, 'ast> {
 /// Having an instance of this struct ensures that
 /// the type system that issued this instance can
 /// provide the definition of that class.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Hash, Eq)]
 pub struct ClassDefId<'src> {
     id: Symbol<'src>,
 }
@@ -234,7 +234,7 @@ pub struct ClassFieldDef<'src> {
 }
 
 // FIXME Clone or not? => Store types in hashmap
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum CheckedType<'src> {
     Int,
     Boolean,

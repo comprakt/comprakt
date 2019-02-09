@@ -1,13 +1,13 @@
-use super::{safety, type_translation::*};
+use super::safety;
 use crate::{
     ref_eq::RefEq,
     runtime::Runtime,
     type_checking::type_system::{
-        ClassDef, ClassFieldDef, ClassMethodBody, ClassMethodDef, TypeSystem,
+        CheckedType, ClassDef, ClassFieldDef, ClassMethodBody, ClassMethodDef, TypeSystem,
     },
 };
 use libfirm_rs::{
-    types::{ClassTy, MethodTyBuilder, PrimitiveTy},
+    types::{ClassTy, MethodTyBuilder, PrimitiveTy, Ty, TyTrait},
     Entity, Graph,
 };
 use std::{
@@ -40,6 +40,8 @@ pub struct FirmProgram<'src, 'ast> {
     pub entities: HashMap<Entity, FirmEntity<'src, 'ast>>,
     pub runtime: Rc<Runtime>,
     pub safety_flags: &'src [safety::Flag],
+    pub known_types: RefCell<HashMap<CheckedType<'src>, Ty>>,
+    pub type_system: &'src TypeSystem<'src, 'ast>,
 }
 
 pub type FirmClassP<'src, 'ast> = Rc<RefCell<FirmClass<'src, 'ast>>>;
@@ -75,6 +77,8 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
             fields: HashMap::new(),
             methods: HashMap::new(),
             entities: HashMap::new(),
+            known_types: RefCell::new(HashMap::new()),
+            type_system,
             runtime,
             safety_flags,
         };
@@ -107,12 +111,12 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
             let class_type = ClassTy::from(firm_class.borrow().entity.ty()).unwrap();
 
             for field in class.iter_fields() {
-                self.add_field(class_type, Rc::clone(&firm_class), field, type_system);
+                self.add_field(class_type, Rc::clone(&firm_class), field);
             }
 
             for method in class.iter_methods() {
                 if let ClassMethodBody::AST(_) = method.body {
-                    self.add_method(class_type, Rc::clone(&firm_class), method, type_system);
+                    self.add_method(class_type, Rc::clone(&firm_class), method);
                 }
             }
 
@@ -125,9 +129,9 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
         class_type: ClassTy,
         class: Rc<RefCell<FirmClass<'src, 'ast>>>,
         field: Rc<ClassFieldDef<'src>>,
-        type_system: &'src TypeSystem<'src, 'ast>,
     ) {
-        let field_type = ty_from_checked_type(&field.ty, type_system, self)
+        let field_type = self
+            .ty_from_checked_type(&field.ty)
             .expect("field type must be convertible to a Firm type");
 
         let field_entity = Entity::new_entity(
@@ -151,7 +155,6 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
         class_type: ClassTy,
         class: FirmClassP<'src, 'ast>,
         method: Rc<ClassMethodDef<'src, 'ast>>,
-        type_system: &'src TypeSystem<'src, 'ast>,
     ) {
         assert!(!method.is_static || (method.is_static && method.is_main));
         let mut method_ty_builder = MethodTyBuilder::new();
@@ -162,11 +165,12 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
         }
 
         for param in &method.params {
-            let param_type = ty_from_checked_type(&param.ty, type_system, self)
+            let param_type = self
+                .ty_from_checked_type(&param.ty)
                 .expect("parameter must be convertible to a Firm type");
             method_ty_builder.add_param(param_type);
         }
-        if let Some(return_ty) = ty_from_checked_type(&method.return_ty, type_system, self) {
+        if let Some(return_ty) = self.ty_from_checked_type(&method.return_ty) {
             method_ty_builder.set_res(return_ty);
         }
         let method_type = method_ty_builder.build(!method.is_main);
@@ -192,6 +196,56 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
 
         self.entities
             .insert(method_entity, FirmEntity::Method(firm_method));
+    }
+
+    pub fn ty_from_checked_type(&self, ct: &CheckedType<'src>) -> Option<Ty> {
+        if let CheckedType::Void = ct {
+            return None;
+        }
+
+        if let Some(ty) = self.known_types.borrow().get(ct) {
+            return Some(*ty);
+        }
+
+        let ty = match ct {
+            CheckedType::Int => PrimitiveTy::i32().into(),
+            CheckedType::Void => unreachable!(),
+            CheckedType::TypeRef(class_def_id) => {
+                let def = self.type_system.class(*class_def_id);
+                let class = self.class(def).unwrap();
+                let ty = class.borrow().entity.ty();
+                ty.pointer().into()
+                // If, for some unforeseen reason, the line above does not work,
+                // return this instead: `PrimitiveTy::ptr().into()`.
+                // However, this looses the class type we are pointing at.
+                // We need this information in optimizations.
+            }
+            CheckedType::Array(checked_type) => {
+                let array_data = self
+                    .ty_from_checked_type(checked_type)
+                    .expect("Arrays are never of type `void`")
+                    .array();
+
+                // TODO This is a shitty "generic" array, in theory we need only a unique type
+                // definition inner type
+                let safe_array = ClassTy::new_anon("$Array");
+                if self.safety_flags.contains(&safety::Flag::CheckArrayBounds) {
+                    safe_array.new_subentity("len", PrimitiveTy::i32());
+                }
+                safe_array.new_subentity("data", array_data);
+
+                safe_array.default_layout();
+
+                safe_array.pointer().into()
+            }
+            CheckedType::Boolean => PrimitiveTy::bool().into(),
+            CheckedType::Null => unreachable!(),
+            CheckedType::UnknownType(_) => unreachable!(),
+        };
+
+        self.known_types.borrow_mut().insert(ct.clone(), ty);
+
+        self.known_types.borrow().get(ct).cloned()
     }
 
     pub fn field(&self, field_def: Rc<ClassFieldDef<'src>>) -> Result<FirmFieldP<'src, 'ast>, ()> {

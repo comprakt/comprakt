@@ -1,9 +1,4 @@
-use super::{
-    firm_program::FirmProgram,
-    safety,
-    type_translation::{get_firm_mode, ty_from_checked_type},
-    Runtime,
-};
+use super::{firm_program::FirmProgram, safety, type_translation::get_firm_mode, Runtime};
 use crate::{
     asciifile::{Span, Spanned},
     ast::{self, BinaryOp},
@@ -459,10 +454,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             }
             ArrayAccess(target, idx_expr) => {
                 let item_ty = &self.type_analysis.expr_info(expr).ty;
-                let item_ty = ty_from_checked_type(item_ty, self.type_system, self.program)
+                let item_ty = self
+                    .program
+                    .ty_from_checked_type(item_ty)
                     .expect("not void");
                 let array_ty = &self.type_analysis.expr_info(target).ty;
-                let array_ty = ty_from_checked_type(array_ty, self.type_system, self.program)
+                let array_ty = self
+                    .program
+                    .ty_from_checked_type(array_ty)
                     .expect("not void");
 
                 let (act_block, target) = self.gen_value(act_block, target);
@@ -514,10 +513,13 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .inner_type()
                     .expect("type of array must have inner type");
 
-                let array_ty =
-                    ty_from_checked_type(checked_array_ty, self.type_system, self.program)
-                        .expect("To be a valid type");
-                let elem_ty = ty_from_checked_type(checked_elem_ty, self.type_system, self.program)
+                let array_ty = self
+                    .program
+                    .ty_from_checked_type(checked_array_ty)
+                    .expect("To be a valid type");
+                let elem_ty = self
+                    .program
+                    .ty_from_checked_type(checked_elem_ty)
                     .expect("To be a valid type");
 
                 let len_entity = if let Ty::Pointer(array_ty) = array_ty {
