@@ -111,10 +111,12 @@ impl NodeLocal {
                 }
             }
             Node::Mod(modulo) => {
-                // TODO: deduplicate with Div
                 // this substitutes a % b to a - (a/b) * b, which is how modulo is defined in
                 // the java standard the division (a/b) is replaced by ((a + ((a
                 // >> 31) & ((1 << b) - 1))) >> shift)
+
+                // TODO: deduplicate with Div Node conversion. This is nearly identical, we just
+                // don't emit a Minus Node for a negative dividend.
                 log::debug!(
                     "LO: Mod2Shift: {:?}[left:{:?},right:{:?}] ",
                     modulo,
@@ -156,7 +158,6 @@ impl NodeLocal {
 
                     // cannot crash since min_val is not a power of two
                     let abs_divisor_value = divisor_value.abs() as u64;
-                    let has_minus = divisor_value < 0;
 
                     if abs_divisor_value.is_power_of_two() {
                         log::debug!("Mod2Shift: is power of two!");
@@ -197,24 +198,10 @@ impl NodeLocal {
                         let add_binary_and = block.new_add(real_left, binary_and);
                         let shift_to_result = block.new_shrs(add_binary_and, shift_amount_node);
 
-                        let inner_div_end = if has_minus {
-                            Node::Minus(block.new_minus(shift_to_result))
-                        } else {
-                            Node::Shrs(shift_to_result)
-                        };
+                        let mul_result_by_divisor =
+                            block.new_shl(shift_to_result, shift_amount_node);
 
-                        // TODO: substitute this mul by a with shift since divisor_amount_node is a
-                        // power of two (or a negative power of two)
-                        //let mul_result_by_divisor =
-                        //block.new_mul(inner_div_end, divisor_amount_node);
-                        let mul_result_by_divisor = block.new_shl(inner_div_end, shift_amount_node);
-                        let mul_result_by_divisor_end = if has_minus {
-                            Node::Minus(block.new_minus(mul_result_by_divisor))
-                        } else {
-                            Node::Shl(mul_result_by_divisor)
-                        };
-
-                        let modulo_subst_end = block.new_sub(real_left, mul_result_by_divisor_end);
+                        let modulo_subst_end = block.new_sub(real_left, mul_result_by_divisor);
 
                         log::debug!(
                             "LO: Mod2Shift: memory edge through modulo {:?} is {:?} -> {:?}",
