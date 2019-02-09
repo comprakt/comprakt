@@ -499,7 +499,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                         self.runtime.new.ty(),
                     ),
                 );
-                call.set_ty(self.runtime.generic_new_ty(class_ty));
+                // TODO This seems right, but for some reason it breaks the libfirm backend:
+                // call.set_ty(self.runtime.generic_new_ty(class_ty));
                 act_block.set_store(call.new_proj_m());
 
                 Value(
