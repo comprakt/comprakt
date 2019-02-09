@@ -1,0 +1,57 @@
+---
+stdout:
+  is: |
+        666666666
+        32
+exitcode:
+  is: 0
+stderr:
+  is: ""
+---
+class CompraktBenchmarkArithmetics {
+
+    public void foldthis(int[] x, int c) {
+        if (x[c] / 1024 >= 1) {
+            x[c] = 1024;
+        }
+        if (x[c] / 512 >= 1) {
+            x[c] = 512;
+        }
+        if (x[c] / 256 >= 1) {
+            x[c] = 256;
+        }
+        if (x[c] / 128 >= 1) {
+            x[c] = 128;
+        }
+        if (x[c] / 64 >= 1) {
+            x[c] = 64;
+        }
+        if (x[c] / 32 >= 1) {
+            x[c] = 32;
+        }
+    }
+
+    public static void main(String[] args) {
+
+        CompraktBenchmarkArithmetics bench = new CompraktBenchmarkArithmetics();
+
+        int numInts = 1024 * 1024 * 6;
+        int[] x = new int[numInts];
+
+        {
+            int c = 0;
+            while (c < numInts) {
+                x[c] = c;
+                c = c + 1;
+            }
+        }
+        {
+            System.out.println(666666666);
+            bench.foldthis(x, 1024);
+            System.out.println(x[1024]);
+        }
+
+    }
+
+}
+
