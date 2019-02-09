@@ -520,7 +520,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     .expect("To be a valid type");
 
                 let len_entity = if let Ty::Pointer(array_ty) = array_ty {
-                    if let Ty::Struct(array_ty) = array_ty.points_to() {
+                    if let Ty::Class(array_ty) = array_ty.points_to() {
                         if self.safety_flags.contains(&safety::Flag::CheckArrayBounds) {
                             Some(array_ty.fields().next().unwrap())
                         } else {
@@ -1046,7 +1046,7 @@ impl<'src> LValue<'src> {
                 };
 
                 let (len_entity, data_entity) = if let Ty::Pointer(array_ty) = array_ty {
-                    if let Ty::Struct(array_ty) = array_ty.points_to() {
+                    if let Ty::Class(array_ty) = array_ty.points_to() {
                         let mut fields = array_ty.fields();
                         if span_storage
                             .safety_flags

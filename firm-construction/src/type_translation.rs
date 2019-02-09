@@ -1,7 +1,7 @@
 use super::{safety, FirmProgram};
 use crate::type_checking::type_system::{CheckedType, TypeSystem};
 use libfirm_rs::{
-    types::{PrimitiveTy, StructTy, Ty, TyTrait},
+    types::{ClassTy, PrimitiveTy, Ty, TyTrait},
     Mode,
 };
 
@@ -40,7 +40,7 @@ pub fn ty_from_checked_type<'src, 'ast>(
 
             // TODO This is a shitty "generic" array, in theory we need only a unique type
             // definition inner type
-            let safe_array = StructTy::new_anon("$Array");
+            let safe_array = ClassTy::new_anon("$Array");
             if program
                 .safety_flags
                 .contains(&safety::Flag::CheckArrayBounds)

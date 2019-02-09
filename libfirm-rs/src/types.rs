@@ -274,36 +274,6 @@ impl PartialEq for PrimitiveTy {
     }
 }
 
-impl StructTy {
-    pub fn new_anon(tag: &str) -> StructTy {
-        StructTy::from(Ty::from_ir_type(unsafe {
-            let tag_c = CString::new(tag).unwrap();
-            let name_id = bindings::id_unique(tag_c.as_ptr());
-            bindings::new_type_struct(name_id)
-        }))
-        .expect("Expected struct type")
-    }
-
-    pub fn new_subentity(self, name: &str, sub_ty: impl Into<Ty>) -> Entity {
-        Entity::from(unsafe {
-            let name_c = CString::new(name).unwrap();
-            let name_id = bindings::new_id_from_str(name_c.as_ptr());
-            bindings::new_entity(self.ir_type(), name_id, sub_ty.into().ir_type())
-        })
-    }
-
-    pub fn default_layout(self) {
-        unsafe {
-            bindings::default_layout_compound_type(self.0);
-        }
-    }
-
-    pub fn fields(self) -> impl Iterator<Item = Entity> {
-        StructMemberIterator::new(self.ir_type())
-            .filter(|entity| MethodTy::from(entity.ty()).is_none())
-    }
-}
-
 impl ClassTy {
     pub fn new(name: &str) -> ClassTy {
         ClassTy::from(Ty::from_ir_type(unsafe {
@@ -312,6 +282,23 @@ impl ClassTy {
             bindings::new_type_class(name_id)
         }))
         .expect("Expected class type")
+    }
+
+    pub fn new_anon(tag: &str) -> ClassTy {
+        ClassTy::from(Ty::from_ir_type(unsafe {
+            let tag_c = CString::new(tag).unwrap();
+            let name_id = bindings::id_unique(tag_c.as_ptr());
+            bindings::new_type_class(name_id)
+        }))
+        .expect("Expected class type")
+    }
+
+    pub fn new_subentity(self, name: &str, sub_ty: impl Into<Ty>) -> Entity {
+        Entity::from(unsafe {
+            let name_c = CString::new(name).unwrap();
+            let name_id = bindings::new_id_from_str(name_c.as_ptr());
+            bindings::new_entity(self.ir_type(), name_id, sub_ty.into().ir_type())
+        })
     }
 
     pub fn default_layout(self) {
@@ -380,17 +367,6 @@ generate_iterator!(
     idx,
     usize,
     unsafe { Entity::new(bindings::get_class_member(ty, idx)) },
-    Entity,
-);
-
-generate_iterator!(
-    StructMemberIterator,
-    *mut bindings::ir_type,
-    get_struct_n_members,
-    ty,
-    idx,
-    usize,
-    unsafe { Entity::new(bindings::get_struct_member(ty, idx)) },
     Entity,
 );
 
