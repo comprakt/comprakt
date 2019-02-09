@@ -16,7 +16,11 @@ popd  > /dev/null
 TARGET="${TARGET:-release}"
 COMPILER_CLI="$SCRIPT_PATH/target/$TARGET/compiler-cli"
 
-export VANILLA=1
+# The VANILLA flag disables all additional features of our compiler that
+# violate the MiniJava language specification
+if [[ -z $CHOCOLATE ]]; then
+    export VANILLA=1
+fi
 
 if [[ $BENCH == "1" ]]; then
     exec $COMPILER_CLI "$@"

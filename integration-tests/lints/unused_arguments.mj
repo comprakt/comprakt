@@ -1,0 +1,31 @@
+//?!allow:unused_functions
+
+class Baz {
+    public int x;
+
+    public static void main(String[] args) {
+
+    }
+
+    public void f(int x) {}
+
+    public void g(int x) {
+        x = 10;
+    }
+
+    public int h(int x) {
+        return x;
+    }
+
+    public int i(int x) {
+        x = 10;
+        return x;
+    }
+
+    public void j(int _x) {}
+
+    public void k(Baz baz) {
+        baz.x = 5;
+    }
+}
+

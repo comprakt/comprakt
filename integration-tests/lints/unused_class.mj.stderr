@@ -1,0 +1,5 @@
+warning: This class is never constructed: `Baz`. Consider using `_Baz` instead
+    | 
+ 14 | class Baz {}
+    | ^^^^^^^^^^^^
+
