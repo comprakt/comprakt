@@ -732,9 +732,19 @@ impl<T: NodeDebug + Copy> fmt::Debug for NodeDebugFmt<T> {
 impl NodeDebug for Proj {
     fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
         if opts.short {
-            write!(f, "Proj {}", self.node_id())
+            let info = match self.pred() {
+                Node::Call(_) => "Call".to_owned(),
+                Node::Load(_) => "Load".to_owned(),
+                Node::Store(_) => "Store".to_owned(),
+                _ => "".to_owned(),
+            };
+            write!(f, "Prj{}{}", self.node_id(), info)
+        } else if let ProjKind::Call_TResult_Arg(idx, call, _) = self.kind() {
+            write!(f, "Proj{}.{}@{:?}", self.node_id(), idx, call)
+        } else if let ProjKind::Start_TArgs_Arg(idx, start, _) = self.kind() {
+            write!(f, "Proj{}.{}@{:?}", self.node_id(), idx, start)
         } else {
-            write!(f, "Proj {}: {:?}", self.node_id(), self.kind())
+            write!(f, "Proj{}: {:?}", self.node_id(), self.kind())
         }
     }
 }
