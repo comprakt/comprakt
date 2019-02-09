@@ -38,7 +38,7 @@ impl PartialOrd for Priority {
 
 pub struct ConstantFolding {
     // lattice per each node
-    values: HashMap<Node, ConstantFoldingLattice>,
+    values: HashMap<Node, NodeLattice>,
     // global lattice, tracks which stores cannot be removed
     required_stores: HashSet<Store>,
     // worklist queue
@@ -193,7 +193,7 @@ impl ConstantFolding {
                 },
             );
 
-            values.insert(*node, ConstantFoldingLattice::start());
+            values.insert(*node, NodeLattice::start());
         });
 
         let start_block = graph.start().block().into();
@@ -246,7 +246,7 @@ impl ConstantFolding {
                     _ => node,
                 };
 
-                let val = self.lookup_lat(mem);
+                let val = self.lookup(mem);
                 let val = match val {
                     NodeLattice::Tuple(_a, b) => &b,
                     val => val,
@@ -270,7 +270,7 @@ impl ConstantFolding {
                 }
 
                 for (n, val) in &self.values {
-                    match val.value() {
+                    match val {
                         NodeLattice::Value(val) if !Node::is_const(*n) => {
                             if let Some(span) = Spans::lookup_span(*n) {
                                 write!(
@@ -298,19 +298,15 @@ impl ConstantFolding {
         "None".to_owned()
     }
 
-    fn lookup(&self, node: Node) -> &ConstantFoldingLattice {
+    fn lookup(&self, node: Node) -> &NodeLattice {
         &self.values[&node]
     }
 
-    fn lookup_lat(&self, node: Node) -> &NodeLattice {
-        self.lookup(node).value()
-    }
-
     fn lookup_val(&self, node: Node) -> Option<&NodeValue> {
-        self.lookup(node).value().expect_value_or_no_info()
+        self.lookup(node).expect_value_or_no_info()
     }
 
-    fn update(&mut self, node: Node, new: ConstantFoldingLattice) {
+    fn update(&mut self, node: Node, new: NodeLattice) {
         self.values.insert(node, new).unwrap();
     }
 
@@ -391,7 +387,7 @@ impl ConstantFolding {
                     label = label.append(format!(
                         "\nfrom {} use {:?}{}",
                         pred.node_id(),
-                        self.lookup_lat(arg),
+                        self.lookup(arg),
                         if self.lookup(pred).reachable() {
                             ""
                         } else {
@@ -419,10 +415,10 @@ impl ConstantFolding {
     fn update_node(
         &self,
         cur_node: Node,
-        cur_lattice: &'_ ConstantFoldingLattice,
+        cur_lattice: &'_ NodeLattice,
         deps: &mut Vec<Node>,
         required_stores: &mut HashSet<Store>,
-    ) -> ConstantFoldingLattice {
+    ) -> NodeLattice {
         self.breakpoint(cur_node);
 
         // TODO implement for returns!
@@ -438,7 +434,7 @@ impl ConstantFolding {
             required_stores.extend(stores);
         };
 
-        let mut reachable = cur_lattice.reachable()
+        let reachable = cur_lattice.reachable()
             || if Node::is_block(cur_node) {
                 cur_node
                     .in_nodes()
@@ -450,18 +446,18 @@ impl ConstantFolding {
 
         if !reachable {
             // we don't need to update non-reachable nodes
-            return cur_lattice.clone();
+            return NodeLattice::NotReachableYet;
         }
 
         use self::{Node::*, ProjKind::*};
-        let value = match cur_node {
+        match cur_node {
             // == Load-Store optimizations ==
             Proj(_, Start_M(_)) => NodeLattice::Heap(Rc::new(Heap::start())),
 
             Call(call) => {
-                let mem_val = self.lookup_lat(call.mem());
+                let mem_val = self.lookup(call.mem());
                 match (mem_val, call.new_kind(), call.out_single_result()) {
-                    (NodeLattice::NoInfoYet, _, _) => NodeLattice::NoInfoYet,
+                    (NodeLattice::NotReachableYet, _, _) => return NodeLattice::NotReachableYet,
                     (mem_val, Some(_new_kind), None) => {
                         NodeLattice::tuple(NodeLattice::Invalid, mem_val.clone())
                     }
@@ -495,6 +491,9 @@ impl ConstantFolding {
                                     used_mem.join_mut(&ptr.target);
                                     used_nodes.insert(arg);
                                 }
+                            } else {
+                                // don't continue if one of the args has no info yet
+                                return NodeLattice::NotReachableYet;
                             }
                         }
 
@@ -527,12 +526,12 @@ impl ConstantFolding {
                 // we have to wrap the result in a tuple, as modeT nodes cannot have a pointer
                 // as value
                 NodeLattice::tuple(
-                    self.lookup_lat(node.into()).tuple_1().clone(),
+                    self.lookup(node.into()).tuple_1().clone(),
                     NodeLattice::Invalid,
                 )
             }
-            Proj(_, Call_TResult_Arg(_, _, node)) => self.lookup_lat(node.into()).tuple_1().clone(),
-            Proj(_, Call_M(node)) => self.lookup_lat(node.into()).tuple_2().clone(),
+            Proj(_, Call_TResult_Arg(_, _, node)) => self.lookup(node.into()).tuple_1().clone(),
+            Proj(_, Call_M(node)) => self.lookup(node.into()).tuple_2().clone(),
 
             cur_node @ Store(_) | cur_node @ Load(_) => {
                 enum TK {
@@ -565,7 +564,7 @@ impl ConstantFolding {
                                         }
                                     }
                                     Some(_) => panic!("unreach"),
-                                    None => return cur_lattice.clone(),
+                                    None => return NodeLattice::NotReachableYet,
                                 },
                                 sel.element_ty(),
                             ),
@@ -577,15 +576,15 @@ impl ConstantFolding {
                 // as ptr_node is not a direct predecessor, we need to put it on deps
                 deps.push(ptr_node);
 
-                match (self.lookup_lat(mem), self.lookup_val(ptr_node)) {
-                    (NodeLattice::NoInfoYet, _) => NodeLattice::NoInfoYet,
-                    (_, None) => NodeLattice::NoInfoYet,
+                match (self.lookup(mem), self.lookup_val(ptr_node)) {
+                    (NodeLattice::NotReachableYet, _) => return NodeLattice::NotReachableYet,
+                    (_, None) => return NodeLattice::NotReachableYet,
                     (NodeLattice::Heap(heap), Some(ptr_val)) if ptr_val.is_pointer() => {
                         let o = ptr_val.source_or_some(ptr_node);
                         let ptr = ptr_val.as_pointer().unwrap();
                         if ptr.is_null_or_empty() {
                             // we would crash on such a `ptr` anyways, so wait for more info.
-                            return cur_lattice.clone();
+                            return NodeLattice::NotReachableYet;
                         }
                         let mut heap = (**heap).clone();
 
@@ -593,7 +592,7 @@ impl ConstantFolding {
                             Store(store) => {
                                 let val = self.lookup_val(store.value());
                                 if val.is_none() {
-                                    return cur_lattice.clone();
+                                    return NodeLattice::NotReachableYet;
                                 }
                                 let val =
                                     ValWithStoreInfo::single_store(val.unwrap().clone(), store);
@@ -613,7 +612,7 @@ impl ConstantFolding {
                                 let ValWithStoreInfo { val, stores } = if let Some(val) = val {
                                     val
                                 } else {
-                                    return cur_lattice.clone();
+                                    return NodeLattice::NotReachableYet;
                                 };
 
                                 if val.source.is_none() && val.tarval().is_bad() {
@@ -646,18 +645,18 @@ impl ConstantFolding {
                 }
             }
 
-            Proj(_, Store_M(store)) => self.lookup_lat(store.into()).clone(),
+            Proj(_, Store_M(store)) => self.lookup(store.into()).clone(),
 
-            Proj(_, Load_Res(node)) => self.lookup_lat(node.into()).tuple_1().clone(),
-            Proj(_, Load_M(node)) => self.lookup_lat(node.into()).tuple_2().clone(),
+            Proj(_, Load_Res(node)) => self.lookup(node.into()).tuple_1().clone(),
+            Proj(_, Load_M(node)) => self.lookup(node.into()).tuple_2().clone(),
 
             Proj(_, Div_M(node)) => {
                 deps.push(node.mem());
-                self.lookup_lat(node.mem()).clone()
+                self.lookup(node.mem()).clone()
             }
             Proj(_, Mod_M(node)) => {
                 deps.push(node.mem());
-                self.lookup_lat(node.mem()).clone()
+                self.lookup(node.mem()).clone()
             }
 
             // == Conditionals ==
@@ -679,7 +678,7 @@ impl ConstantFolding {
 
                 enum CmpResult {
                     Bool(bool),
-                    NoInfoYet,
+                    NotReachableYet,
                     Bad,
                     Tarval(Tarval),
                 }
@@ -688,8 +687,8 @@ impl ConstantFolding {
                 let right_val = self.lookup_val(cmp.right());
 
                 let result = match (left_val, right_val) {
-                    (None, _) => CmpResult::NoInfoYet,
-                    (_, None) => CmpResult::NoInfoYet,
+                    (None, _) => CmpResult::NotReachableYet,
+                    (_, None) => CmpResult::NotReachableYet,
                     (Some(val1), Some(val2)) => {
                         match (&val1.value, &val2.value, as_simple_relation(cmp.relation())) {
                             (_, _, Some(simple_rel))
@@ -735,20 +734,17 @@ impl ConstantFolding {
                     CmpResult::Tarval(val) => val,
                     CmpResult::Bool(val) => Tarval::bool_val(val),
                     CmpResult::Bad => Tarval::bad(),
-                    CmpResult::NoInfoYet => Tarval::unknown(),
+                    CmpResult::NotReachableYet => return NodeLattice::NotReachableYet,
                 };
                 NodeLattice::from_tarval(tarval, Mode::b())
             }
-            Cond(cond) => self.lookup_lat(cond.selector()).clone(),
-            Proj(_, Cond_Val(is_true_branch, cond)) => {
-                reachable = reachable
-                    && if let Some(val) = &self.lookup_val(cond.into()) {
-                        val.tarval().is_bool_val(is_true_branch) || val.tarval().is_bad()
-                    } else {
-                        false // no info for cond yet
-                    };
-                NodeLattice::Invalid
-            }
+            Cond(cond) => self.lookup(cond.selector()).clone(),
+            Proj(_, Cond_Val(is_true_branch, cond)) => match &self.lookup_val(cond.into()) {
+                Some(val) if val.tarval().is_bool_val(is_true_branch) || val.tarval().is_bad() => {
+                    NodeLattice::Invalid
+                }
+                _ => NodeLattice::NotReachableYet,
+            },
 
             // == Phi ==
             Phi(phi) => {
@@ -756,7 +752,7 @@ impl ConstantFolding {
                     log::warn!("phi pred count: {}", phi.in_nodes().len());
                 }
                 phi.in_nodes().zip(phi.block().in_nodes()).fold(
-                    NodeLattice::NoInfoYet,
+                    NodeLattice::NotReachableYet,
                     |val, (pred, block)| {
                         // only consider reachable blocks for phi inputs
                         if !self.lookup(block).reachable() {
@@ -769,7 +765,7 @@ impl ConstantFolding {
                             );
                             val
                         } else {
-                            let pred_lat = &self.lookup_lat(pred);
+                            let pred_lat = &self.lookup(pred);
                             let new_lat = val.join(pred_lat);
                             log::debug!(
                                 "for {:?}; pred_val: {:?} -> val: {:?}",
@@ -819,7 +815,7 @@ impl ConstantFolding {
                     if non_constant {
                         NodeValue::non_const_node(cur_node).into()
                     } else if no_info {
-                        NodeLattice::NoInfoYet
+                        return NodeLattice::NotReachableYet;
                     } else {
                         let tarval = value_node.compute(tarval_args);
                         NodeLattice::from_tarval_node(tarval, cur_node)
@@ -828,9 +824,7 @@ impl ConstantFolding {
                     NodeLattice::Invalid
                 }
             }
-        };
-
-        ConstantFoldingLattice::new(reachable, value)
+        }
     }
 
     #[allow(clippy::cyclomatic_complexity)]
@@ -848,7 +842,7 @@ impl ConstantFolding {
                 continue;
             }
 
-            let (value, source_node) = if let NodeLattice::Value(val) = lattice.value() {
+            let (value, source_node) = if let NodeLattice::Value(val) = lattice {
                 (val.tarval(), val.source)
             } else {
                 continue;

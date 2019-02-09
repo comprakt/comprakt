@@ -28,66 +28,11 @@ pub trait Lattice: Eq + Clone {
     }
 }
 
-// == ConstantFoldingLattice ==
-
-// The lattice used for constant folding.
-// TODO get rid of it and rename no_info_yet to unreachable
-#[derive(Clone, PartialEq, Eq)]
-pub struct ConstantFoldingLattice {
-    reachable: bool,
-    value: NodeLattice,
-}
-
-impl ConstantFoldingLattice {
-    pub fn new(reachable: bool, value: NodeLattice) -> Self {
-        Self { reachable, value }
-    }
-
-    pub fn start() -> Self {
-        Self {
-            reachable: false,
-            value: NodeLattice::start(),
-        }
-    }
-
-    pub fn value(&self) -> &NodeLattice {
-        &self.value
-    }
-
-    pub fn reachable(&self) -> bool {
-        self.reachable
-    }
-}
-
-impl Lattice for ConstantFoldingLattice {
-    fn is_progression_of(&self, other: &Self) -> bool {
-        self.value.is_progression_of(&other.value) && (self.reachable || !other.reachable)
-    }
-
-    fn join(&self, other: &Self) -> Self {
-        Self {
-            value: self.value.join(&other.value),
-            reachable: self.reachable,
-        }
-    }
-}
-
-impl fmt::Debug for ConstantFoldingLattice {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} {:?}",
-            if self.reachable { "⮑" } else { "🛇" },
-            self.value,
-        )
-    }
-}
-
 // == NodeLattice ==
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum NodeLattice {
-    NoInfoYet,
+    NotReachableYet,
     Value(NodeValue),
     Heap(Rc<Heap>),
     Tuple(Box<NodeLattice>, Box<NodeLattice>),
@@ -96,7 +41,14 @@ pub enum NodeLattice {
 
 impl NodeLattice {
     pub fn start() -> NodeLattice {
-        NodeLattice::NoInfoYet
+        NodeLattice::NotReachableYet
+    }
+
+    pub fn reachable(&self) -> bool {
+        match self {
+            NotReachableYet => false,
+            _ => true,
+        }
     }
 
     pub fn tuple(val1: NodeLattice, val2: NodeLattice) -> NodeLattice {
@@ -106,7 +58,7 @@ impl NodeLattice {
     pub fn tuple_1(&self) -> &NodeLattice {
         match self {
             NodeLattice::Tuple(t1, _t2) => &t1,
-            NodeLattice::NoInfoYet => &NodeLattice::NoInfoYet,
+            NodeLattice::NotReachableYet => &NodeLattice::NotReachableYet,
             val => panic!("Invalid data type {:?}", val),
         }
     }
@@ -114,7 +66,7 @@ impl NodeLattice {
     pub fn tuple_2(&self) -> &NodeLattice {
         match self {
             NodeLattice::Tuple(_t1, t2) => &t2,
-            NodeLattice::NoInfoYet => &NodeLattice::NoInfoYet,
+            NodeLattice::NotReachableYet => &NodeLattice::NotReachableYet,
             val => panic!("Invalid data type {:?}", val),
         }
     }
@@ -122,14 +74,14 @@ impl NodeLattice {
     pub fn expect_value_or_no_info(&self) -> Option<&NodeValue> {
         match self {
             NodeLattice::Value(val) => Some(val),
-            NodeLattice::NoInfoYet => None,
+            NodeLattice::NotReachableYet => None,
             _ => panic!("Expected NodeValue, but got: {:?}", self),
         }
     }
 
     fn from_tarval_optional_node(val: Tarval, mode: Mode, source: Option<Node>) -> Self {
         match val.kind() {
-            TarvalKind::Unknown => NodeLattice::NoInfoYet,
+            TarvalKind::Unknown => NodeLattice::NotReachableYet,
             _ => NodeValue::from_known_tarval(val, mode, source).into(),
         }
     }
@@ -147,7 +99,7 @@ impl Lattice for NodeLattice {
     fn is_progression_of(&self, other: &Self) -> bool {
         use self::NodeLattice::*;
         match (self, other) {
-            (_, NoInfoYet) => true,
+            (_, NotReachableYet) => true,
             (Value(v1), Value(v2)) => v1.is_progression_of(v2),
             (Heap(heap1), Heap(heap2)) => heap1.is_progression_of(heap2),
             (Tuple(a1, a2), Tuple(b1, b2)) => a1.is_progression_of(b1) && a2.is_progression_of(b2),
@@ -158,8 +110,8 @@ impl Lattice for NodeLattice {
     fn join(&self, other: &Self) -> Self {
         use self::NodeLattice::*;
         match (self, other) {
-            (NoInfoYet, arg2) => arg2.clone(),
-            (arg1, NoInfoYet) => arg1.clone(),
+            (NotReachableYet, arg2) => arg2.clone(),
+            (arg1, NotReachableYet) => arg1.clone(),
             (Value(val1), Value(val2)) => Value(val1.join(val2)),
             (Heap(heap1), Heap(heap2)) => Heap(Rc::new(heap1.join(heap2))),
             (Tuple(a1, a2), Tuple(b1, b2)) => NodeLattice::tuple(a1.join(b1), a2.join(b2)),
@@ -174,7 +126,7 @@ impl Lattice for NodeLattice {
 impl fmt::Debug for NodeLattice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NodeLattice::NoInfoYet => write!(f, "No info"),
+            NodeLattice::NotReachableYet => write!(f, "No info"),
             NodeLattice::Value(val) => write!(f, "{:?}", val),
             NodeLattice::Heap(heap) => write!(f, "{:?}", heap),
             NodeLattice::Tuple(..) => write!(f, "Tuple"),
