@@ -1,6 +1,11 @@
 ---
 optimizations: [NodeLocal]
 expect: change
+
+# the libfirm backend always runs this optimization
+# only test our own backend
+backend: [Own]
+
 # the a-character is 97 in the ascii table
 stdin:
     is: "a"
