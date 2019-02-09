@@ -1,0 +1,14 @@
+//?!allow:unused_arguments
+//?!allow:unused_functions
+
+class Main {
+
+    public static void main(String[] args) throws Exception {
+
+    }
+
+    //?error:too_many_arguments
+    public void f(int _1, int _2, int _3, int _4, int _5, int _6, int _7) {}
+
+    public void g(int _1, int _2, int _3, int _4, int _5, int _6) {}
+}
