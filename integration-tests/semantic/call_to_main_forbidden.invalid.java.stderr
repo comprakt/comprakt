@@ -1,11 +1,6 @@
-error: non-static method 'main' cannot be referenced from a static context
-   | 
- 3 |         main(null);
-   |         ^^^^
-
 error: cannot call static method 'main'
    | 
  3 |         main(null);
    |         ^^^^
 
-Compilation aborted due to 2 errors
+Compilation aborted due to an error

@@ -14,6 +14,7 @@ use asciifile::{
     MaybeSpanned::{self, *},
     Span, Spanned,
 };
+use diagnostics::MessageLevel;
 use lexer::{IntLit, Keyword, Operator, Token, TokenKind};
 use strtab::Symbol;
 
@@ -55,6 +56,10 @@ const BINARY_OPERATORS: &[(Operator, ast::BinaryOp, Precedence, Assoc)] = &[
     (Operator::Equal,             ast::BinaryOp::Assign,       10, Assoc::Right),
 
 ];
+
+lazy_static::lazy_static! {
+    static ref VANILLA_MODE: bool = std::env::var("VANILLA").is_ok();
+}
 
 #[rustfmt::skip]
 #[derive(Debug, Clone, Fail)]
@@ -385,17 +390,58 @@ where
 
     fn parse_program(&mut self) -> ParserResult<'f, ast::Program<'f>> {
         spanned!(self, {
+            let mut attrs = Vec::new();
+            if !*VANILLA_MODE {
+                loop {
+                    if let Ok(TokenKind::Operator(Operator::Slash)) =
+                        self.lexer.peek().map(|t| t.data)
+                    {
+                        if let Ok(TokenKind::Operator(Operator::Slash)) =
+                            self.lexer.peek_nth(1).map(|t| t.data)
+                        {
+                            if let Ok(TokenKind::Operator(Operator::QuestionMark)) =
+                                self.lexer.peek_nth(2).map(|t| t.data)
+                            {
+                                if let Ok(TokenKind::Operator(Operator::Exclaim)) =
+                                    self.lexer.peek_nth(3).map(|t| t.data)
+                                {
+                                    self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                                    self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                                    self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
+                                    self.eat(Exactly(TokenKind::Operator(Operator::Exclaim)))?;
+                                    attrs.push(self.parse_attribute()?);
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+
+                    break;
+                }
+            }
             let mut classes = Vec::new();
             while !self.lexer.eof() {
                 classes.push(self.parse_class_declaration()?);
             }
 
-            Ok(ast::Program { classes })
+            Ok(ast::Program { classes, attrs })
         })
     }
 
     fn parse_class_declaration(&mut self) -> ParserResult<'f, ast::ClassDeclaration<'f>> {
         spanned!(self, {
+            let mut attrs = Vec::new();
+            if !*VANILLA_MODE {
+                while self
+                    .eat_optional(Exactly(TokenKind::Operator(Operator::Slash)))
+                    .is_some()
+                {
+                    self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                    self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
+                    attrs.push(self.parse_attribute()?);
+                }
+            }
+
             self.eat(exactly(Keyword::Class))?;
             let name = self.eat(Identifier)?;
 
@@ -405,12 +451,28 @@ where
                 members.push(self.parse_class_member()?);
             }
 
-            Ok(ast::ClassDeclaration { name, members })
+            Ok(ast::ClassDeclaration {
+                name,
+                members,
+                attrs,
+            })
         })
     }
 
     fn parse_class_member(&mut self) -> ParserResult<'f, ast::ClassMember<'f>> {
         spanned!(self, {
+            let mut attrs = Vec::new();
+            if !*VANILLA_MODE {
+                while self
+                    .eat_optional(Exactly(TokenKind::Operator(Operator::Slash)))
+                    .is_some()
+                {
+                    self.eat(Exactly(TokenKind::Operator(Operator::Slash)))?;
+                    self.eat(Exactly(TokenKind::Operator(Operator::QuestionMark)))?;
+                    attrs.push(self.parse_attribute()?);
+                }
+            }
+
             self.eat(exactly(Keyword::Public))?;
             let is_static = self.eat_optional(exactly(Keyword::Static)).is_some();
 
@@ -448,7 +510,7 @@ where
                 let body = self.parse_block()?;
 
                 let kind = ast::ClassMemberKind::MainMethod(params, body);
-                ast::ClassMember { kind, name }
+                ast::ClassMember { kind, name, attrs }
             } else {
                 let ty = self.parse_type()?;
                 let name = self.eat(Identifier)?.data;
@@ -466,8 +528,31 @@ where
                     ast::ClassMemberKind::Field(ty)
                 };
 
-                ast::ClassMember { kind, name }
+                ast::ClassMember { kind, name, attrs }
             })
+        })
+    }
+
+    fn parse_attribute(&mut self) -> ParserResult<'f, ast::Attribute<'f>> {
+        spanned!(self, {
+            let attr = self.eat(Identifier)?;
+            if let Some(lvl) = MessageLevel::from_string(attr.as_str()) {
+                self.eat(Exactly(TokenKind::Operator(Operator::Colon)))?;
+                let name = self.eat(Identifier)?;
+                Ok(ast::Attribute::LintLevel(lvl, name))
+            } else {
+                match attr.as_str() {
+                    "inline" => Ok(ast::Attribute::Inline(true)),
+                    "noinline" => Ok(ast::Attribute::Inline(false)),
+                    _ => Err(MaybeSpanned::WithSpan(Spanned::new(
+                        attr.span,
+                        SyntaxError::UnexpectedToken {
+                            expected: "valid attribute name".to_string(),
+                            actual: format!("`{}`", attr.data),
+                        },
+                    ))),
+                }
+            }
         })
     }
 

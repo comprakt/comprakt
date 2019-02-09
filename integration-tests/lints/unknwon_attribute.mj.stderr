@@ -1,0 +1,6 @@
+error: expected valid attribute name, found `attributes_are_cool`
+   | 
+ 2 | //?!attributes_are_cool
+   |     ^^^^^^^^^^^^^^^^^^^
+
+Compilation aborted due to an error

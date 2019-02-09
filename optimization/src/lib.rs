@@ -22,6 +22,8 @@ pub(crate) mod analysis;
 
 mod inlining;
 use self::inlining::Inlining;
+mod constant_folding_load_store;
+use self::constant_folding_load_store::ConstantFoldingWithLoadStore;
 mod constant_folding;
 use self::constant_folding::ConstantFolding;
 mod control_flow;
@@ -75,6 +77,7 @@ where
 )]
 pub enum Kind {
     ConstantFolding,
+    ConstantFoldingWithLoadStore,
     Inline,
     ControlFlow,
     RemoveCriticalEdges,
@@ -88,6 +91,7 @@ impl Kind {
     fn run(self, program: &mut FirmProgram<'_, '_>) -> Outcome {
         match self {
             Kind::ConstantFolding => ConstantFolding::optimize(program),
+            Kind::ConstantFoldingWithLoadStore => ConstantFoldingWithLoadStore::optimize(program),
             Kind::Inline => Inlining::optimize(program),
             Kind::ControlFlow => ControlFlow::optimize(program),
             Kind::RemoveCriticalEdges => RemoveCriticalEdges::optimize(program),
@@ -126,10 +130,9 @@ impl Level {
         match self {
             Level::None => vec![],
             Level::Moderate => vec![
+                Optimization::new(Kind::Inline),
                 Optimization::new(Kind::ConstantFolding),
                 Optimization::new(Kind::ControlFlow),
-                // block-local common subexpression elimination
-                Optimization::new(Kind::CommonSubExprElim),
             ],
             Level::Aggressive => vec![
                 // TODO: code placement in combination with inlining can be

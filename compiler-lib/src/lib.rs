@@ -20,6 +20,7 @@
 
 pub use asciifile;
 pub mod backend;
+pub mod linter;
 
 #[macro_use]
 extern crate utils;
