@@ -49,6 +49,12 @@ impl Tarval {
         unsafe { bindings::new_tarval_from_long(val, bindings::mode::Is) }.into()
     }
 
+    /// used for mjrt_new
+    #[inline]
+    pub fn mj_size(val: i64) -> Tarval {
+        unsafe { bindings::new_tarval_from_long(val, bindings::mode::Ls) }.into()
+    }
+
     #[inline]
     pub fn zero(mode: Mode) -> Tarval {
         unsafe { bindings::new_tarval_from_long(0, mode.libfirm_mode()) }.into()

@@ -1032,7 +1032,9 @@ impl<'f> Codegen<'f> {
             .into_iter()
             // stack args are passed in reverse order
             .rev()
-            .map(|src| Instruction::Pushq { src })
+            .map(|src| Instruction::Pushq {
+                src: src.into_size(Size::Eight),
+            })
             .collect::<Vec<_>>();
         let reg_to_reg = {
             let transfers = reg_to_reg.into_iter().map(|(src, dst)| RegToRegTransfer {
@@ -1079,10 +1081,10 @@ impl<'f> Codegen<'f> {
             .into(),
         );
         instrs.push(post_call_reset_rsp_of_pushs);
-        instrs.extend(move_result_to_dst);
         instrs.extend(caller_saves.restores().map(|reg| Popq {
             dst: reg.into_reg(Size::Eight).into(),
         }));
+        instrs.extend(move_result_to_dst);
     }
 
     fn gen_jmp_label(&self, target: Ptr<lir::BasicBlock>) -> String {

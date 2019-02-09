@@ -256,6 +256,9 @@ impl PrimitiveTy {
     pub fn i32() -> PrimitiveTy {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::Is) })
     }
+    pub fn i64() -> PrimitiveTy {
+        Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::Ls) })
+    }
     /// Not part of MiniJava, but useful for malloc RT-function
     pub fn u32() -> PrimitiveTy {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::Iu) })
