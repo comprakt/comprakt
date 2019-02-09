@@ -24,5 +24,7 @@ else
         VANILLA=1 exec "$SCRIPT_PATH/target/$TARGET/compiler-cli" "--compile" "-O" "moderate" "$2"
     elif [[ $# == 2 ]] && [[ $1 == "--compile-firm" ]]; then
         VANILLA=1 exec "$SCRIPT_PATH/target/$TARGET/compiler-cli" "--compile-firm" "-O" "moderate" "$2"
+    else
+        VANILLA=1 exec "$SCRIPT_PATH/target/$TARGET/compiler-cli" "$@"
     fi
 fi
