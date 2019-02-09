@@ -3,7 +3,9 @@ use crate::{dot::*, optimization};
 use firm_construction::program_generator::Spans;
 use libfirm_rs::{
     bindings,
-    nodes::{try_as_value_node, Block, NewKind, Node, NodeDebug, NodeTrait, ProjKind, Store},
+    nodes::{
+        try_as_value_node, Block, NewKind, Node, NodeDebug, NodeTrait, Phi, Proj, ProjKind, Store,
+    },
     types::{Ty, TyTrait},
     Entity, Graph, Mode, Tarval, TarvalKind,
 };
@@ -421,7 +423,6 @@ impl ConstantFoldingWithLoadStore {
     ) -> NodeLattice {
         self.breakpoint(cur_node);
 
-        // TODO implement for returns!
         let mut mark_stores_as_required = |stores: &HashSet<self::Store>| {
             log::debug!(
                 "Mark stores as required: {:?}",
@@ -452,6 +453,25 @@ impl ConstantFoldingWithLoadStore {
         use self::{Node::*, ProjKind::*};
         match cur_node {
             // == Load-Store optimizations ==
+            Return(ret) => match self.lookup(ret.mem()) {
+                NodeLattice::NotReachableYet => NodeLattice::NotReachableYet,
+                NodeLattice::Heap(heap) => {
+                    let mut mem = MemoryArea::external();
+                    for res in ret.return_res() {
+                        match self.lookup(res) {
+                            NodeLattice::NotReachableYet => return NodeLattice::NotReachableYet,
+                            NodeLattice::Value(val) => {
+                                mem.join_mut(&heap.mem_reachable_from(val.points_to()));
+                            }
+                            val => panic!("Unexpected val {:?} for arg {:?}", val, res),
+                        }
+                    }
+                    mark_stores_as_required(&heap.last_stores_into(&mem));
+                    NodeLattice::Invalid
+                }
+                val => panic!("Unexpected val {:?} for heap", val),
+            },
+
             Proj(_, Start_M(_)) => NodeLattice::Heap(Rc::new(Heap::start())),
 
             Call(call) => {
@@ -505,8 +525,7 @@ impl ConstantFoldingWithLoadStore {
                         );
                         let accessible_mem = heap.mem_reachable_from(used_mem);
 
-                        let stores = &heap.last_stores_into(&accessible_mem);
-                        mark_stores_as_required(&stores);
+                        mark_stores_as_required(&heap.last_stores_into(&accessible_mem));
 
                         let heap = heap.reset_mem(&accessible_mem);
 
@@ -556,7 +575,7 @@ impl ConstantFoldingWithLoadStore {
                                 match &self.lookup_val(sel.index()) {
                                     Some(val) if val.is_tarval() => {
                                         let idx_val = val.tarval();
-                                        let idx_source = val.source_or_some(sel.index());
+                                        let idx_source = val.source_or_some_ex(sel.index());
                                         if idx_val.is_constant() {
                                             Idx::Const(idx_val.get_long() as usize, idx_source)
                                         } else {
@@ -580,7 +599,7 @@ impl ConstantFoldingWithLoadStore {
                     (NodeLattice::NotReachableYet, _) => NodeLattice::NotReachableYet,
                     (_, None) => NodeLattice::NotReachableYet,
                     (NodeLattice::Heap(heap), Some(ptr_val)) if ptr_val.is_pointer() => {
-                        let o = ptr_val.source_or_some(ptr_node);
+                        let o = ptr_val.source_or_some_ex(ptr_node);
                         let ptr = ptr_val.as_pointer().unwrap();
                         if ptr.is_null_or_empty() {
                             // we would crash on such a `ptr` anyways, so wait for more info.
@@ -615,13 +634,14 @@ impl ConstantFoldingWithLoadStore {
                                     return NodeLattice::NotReachableYet;
                                 };
 
-                                if val.source.is_none() && val.tarval().is_bad() {
+                                // TODO check whether source is usable here!!!!!!!!!!!
+                                if val.source.is_unknown() && val.tarval().is_bad() {
                                     mark_stores_as_required(&stores);
                                 }
 
                                 let val = match load.out_proj_res() {
-                                    Some(res) if val.source.is_none() => {
-                                        let val = val.into_updated_source(res.into());
+                                    Some(res) if val.source.is_unknown() => {
+                                        let val = val.into_updated_source_ex(res.into());
                                         let val = ValWithStoreInfo { val, stores };
                                         match target_kind {
                                             TK::ArrItem(idx, ty) => {
@@ -690,9 +710,14 @@ impl ConstantFoldingWithLoadStore {
                     (None, _) => CmpResult::NotReachableYet,
                     (_, None) => CmpResult::NotReachableYet,
                     (Some(val1), Some(val2)) => {
-                        match (&val1.value, &val2.value, as_simple_relation(cmp.relation())) {
-                            (_, _, Some(simple_rel))
-                                if val1.source.is_some() && val1.source == val2.source =>
+                        match (
+                            &val1.value,
+                            &val2.value,
+                            as_simple_relation(cmp.relation()),
+                            &val1.source,
+                        ) {
+                            (_, _, Some(simple_rel), NodeValueSource::Node(_))
+                                if val1.source == val2.source =>
                             {
                                 // we have `node == node` or `node != node`
                                 match simple_rel {
@@ -700,7 +725,12 @@ impl ConstantFoldingWithLoadStore {
                                     SimpleRelation::NotEqual => CmpResult::Bool(false),
                                 }
                             }
-                            (AbstractValue::Pointer(ptr1), AbstractValue::Pointer(ptr2), rel) => {
+                            (
+                                AbstractValue::Pointer(ptr1),
+                                AbstractValue::Pointer(ptr2),
+                                rel,
+                                _,
+                            ) => {
                                 match (rel, ptr1.eq(ptr2)) {
                                     (Some(SimpleRelation::Equal), Some(res)) => {
                                         // e.g. p1 == p2
@@ -715,14 +745,14 @@ impl ConstantFoldingWithLoadStore {
                                     _ => CmpResult::Bad,
                                 }
                             }
-                            (AbstractValue::Tarval(t1), AbstractValue::Tarval(t2), _) => {
+                            (AbstractValue::Tarval(t1), AbstractValue::Tarval(t2), _, _) => {
                                 if t1.is_bad() || t2.is_bad() {
                                     CmpResult::Tarval(Tarval::bad())
                                 } else {
                                     CmpResult::Tarval(t1.lattice_cmp(cmp.relation(), *t2))
                                 }
                             }
-                            (v1, v2, _) => panic!(
+                            (v1, v2, _, _) => panic!(
                                 "Cannot compare values with invalid types: {:?}, {:?}",
                                 v1, v2,
                             ),
@@ -748,12 +778,10 @@ impl ConstantFoldingWithLoadStore {
 
             // == Phi ==
             Phi(phi) => {
-                if phi.in_nodes().len() != 2 {
-                    log::warn!("phi pred count: {}", phi.in_nodes().len());
-                }
-                phi.in_nodes().zip(phi.block().in_nodes()).fold(
-                    NodeLattice::NotReachableYet,
-                    |val, (pred, block)| {
+                let last_idx = -1;
+                let result = phi.in_nodes().zip(phi.block().in_nodes()).enumerate().fold(
+                    None,
+                    |acc, (idx, (pred, block))| {
                         // only consider reachable blocks for phi inputs
                         if !self.lookup(block).reachable() {
                             // we must get informed when that block gets reachable
@@ -763,25 +791,39 @@ impl ConstantFoldingWithLoadStore {
                                 block,
                                 pred
                             );
-                            val
+                            acc.or(Some(NodeLattice::NotReachableYet))
                         } else {
-                            let pred_lat = &self.lookup(pred);
-                            let new_lat = val.join(pred_lat);
-                            log::debug!(
+                            let pred_lat = self.lookup(pred);
+                            match acc {
+                                None => Some(pred_lat.clone()),
+                                Some(acc) => {
+                                    let join_context = JoinContext::Phi {
+                                        phi,
+                                        is_self_initial: last_idx == 1,
+                                        other_pred_idx: idx,
+                                    };
+
+                                    let new_lat = acc.join(pred_lat, &join_context);
+                                    match new_lat {
+                                        NodeLattice::Value(val) => {
+                                            Some(val.into_updated_source_ex(phi.as_node()).into())
+                                        }
+                                        lat => Some(lat),
+                                    }
+                                }
+                            }
+
+                            /*log::debug!(
                                 "for {:?}; pred_val: {:?} -> val: {:?}",
                                 pred,
                                 pred_lat,
                                 new_lat
-                            );
-                            match new_lat {
-                                NodeLattice::Value(val) => {
-                                    val.into_updated_source(phi.as_node()).into()
-                                }
-                                lat => lat,
-                            }
+                            );*/
                         }
                     },
-                )
+                );
+
+                result.unwrap_or(NodeLattice::NotReachableYet)
             }
 
             // == Value nodes ==
@@ -827,7 +869,7 @@ impl ConstantFoldingWithLoadStore {
         }
     }
 
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cyclomatic_complexity, clippy::single_match)]
     fn apply(&mut self) -> Outcome {
         let mut values = self.values.iter().collect::<Vec<_>>();
         values.sort_by_key(|(l, _)| l.node_id());
@@ -836,14 +878,17 @@ impl ConstantFoldingWithLoadStore {
         let mut folded_constants = 0;
         let mut optimized_loads = 0;
         let mut optimized_conds = 0;
+        let mut optimized_stores = 0;
 
-        for (&node, lattice) in values {
+        let mut created_phis = HashMap::new();
+
+        for (&node, lattice) in &values {
             if Node::is_const(node) {
                 continue;
             }
 
             let (value, source_node) = if let NodeLattice::Value(val) = lattice {
-                (val.tarval(), val.source)
+                (val.tarval(), val.source.clone())
             } else {
                 continue;
             };
@@ -853,14 +898,37 @@ impl ConstantFoldingWithLoadStore {
                     let const_node = self.graph.new_const(value);
                     Spans::copy_span(const_node, node);
                     const_node.into()
-                } else if let Some(source_node) = source_node {
-                    if source_node.block().dominates(node.block()) {
-                        source_node
+                } else {
+                    fn get_or_create_node(
+                        created_phis: &mut HashMap<NodeValueSource, Phi>,
+                        source: &NodeValueSource,
+                    ) -> Option<Node> {
+                        match source {
+                            NodeValueSource::Unknown => None,
+                            NodeValueSource::Node(node) => Some(*node),
+                            NodeValueSource::Phi(mem_phi, preds) => {
+                                if let Some(node) = created_phis.get(source) {
+                                    Some(node.as_node())
+                                } else {
+                                    let node_preds: Vec<_> = preds
+                                        .iter()
+                                        .map(|p| get_or_create_node(created_phis, p).unwrap())
+                                        .collect();
+                                    let phi_node = mem_phi
+                                        .block()
+                                        .new_phi(&node_preds, source.mode().unwrap());
+                                    created_phis.insert(source.clone(), phi_node);
+                                    Some(phi_node.into())
+                                }
+                            }
+                        }
+                    };
+
+                    if let Some(node) = get_or_create_node(&mut created_phis, &source_node) {
+                        node
                     } else {
                         continue;
                     }
-                } else {
-                    continue;
                 };
 
                 if new_node == node {
@@ -868,6 +936,7 @@ impl ConstantFoldingWithLoadStore {
                 }
 
                 if Node::is_add(new_node) {
+                    // libfirm fix
                     log::warn!("Skip add {:?}", new_node);
                     continue;
                 }
@@ -886,28 +955,13 @@ impl ConstantFoldingWithLoadStore {
                     Spans::span_str(new_node)
                 );
 
-                let mem = match node {
-                    Node::Div(div) => Some((div.mem(), div.out_proj_m())),
-                    Node::Mod(m) => Some((m.mem(), m.out_proj_m())),
-                    _ => None,
+                match node {
+                    // only replace their proj, not the node itself.
+                    // divs, mods and loads are handled later.
+                    Node::Div(_div) => {}
+                    Node::Mod(_mod) => {}
+                    _ => Graph::exchange(node, new_node),
                 };
-                if let Some((prev_mem, next_mem)) = mem {
-                    // only remove this node from memory flow.
-                    // Its value is handled in its res-proj.
-                    if let Some(next_mem) = next_mem {
-                        Graph::exchange(next_mem, prev_mem);
-                    }
-                } else {
-                    Graph::exchange(node, new_node);
-                }
-
-                if let Node::Proj(_, ProjKind::Load_Res(load)) = node {
-                    let prev_mem = load.mem();
-                    if let Some(next_mem) = load.out_proj_m() {
-                        log::debug!("Remove load from memory flow",);
-                        Graph::exchange(next_mem, prev_mem);
-                    }
-                }
             } else if let (Node::Cond(cond), TarvalKind::Bool(val)) = (node, value.kind()) {
                 // delete unnecessary branching
 
@@ -943,6 +997,42 @@ impl ConstantFoldingWithLoadStore {
             }
         }
 
+        let mut removed_news = 0;
+
+        let mut patch =
+            |mem_before: Node, mem_after: Option<Proj>, res: Option<Proj>, node: Node| {
+                if res.is_none() {
+                    if let Some(mem_after) = mem_after {
+                        log::debug!(
+                            "Remove {:?}{} from memory flow",
+                            node,
+                            Spans::span_str(node)
+                        );
+                        Graph::exchange(mem_after, mem_before);
+                        match node {
+                            Node::Store(_n) => optimized_stores += 1,
+                            Node::Call(_n) => removed_news += 1,
+                            Node::Load(_n) => {}
+                            Node::Div(_n) => {}
+                            Node::Mod(_n) => {}
+                            _ => {}
+                        }
+                    }
+                }
+            };
+
+        for (&node, _lattice) in &values {
+            match node {
+                Node::Store(n) if !self.required_stores.contains(&n) => {
+                    patch(n.mem(), n.out_proj_m(), None, n.as_node())
+                }
+                Node::Load(n) => patch(n.mem(), n.out_proj_m(), n.out_proj_res(), n.as_node()),
+                Node::Div(n) => patch(n.mem(), n.out_proj_m(), n.out_proj_res(), n.as_node()),
+                Node::Mod(n) => patch(n.mem(), n.out_proj_m(), n.out_proj_res(), n.as_node()),
+                _ => {}
+            };
+        }
+
         for block in &to_be_marked_as_bad {
             for child in block.out_nodes() {
                 log::debug!("Mark block child {:?} as bad", child);
@@ -955,11 +1045,31 @@ impl ConstantFoldingWithLoadStore {
         self.graph.remove_unreachable_code();
         self.graph.remove_bads();
 
+        self.graph.assure_outs();
+
+        for node in self.graph.nodes() {
+            match node {
+                Node::Call(call) => {
+                    if call.new_kind().is_some() {
+                        let res = call
+                            .out_proj_t_result()
+                            .and_then(|p| p.out_nodes().next().and_then(Node::as_proj));
+                        patch(call.mem(), call.out_proj_m(), res, call.as_node());
+                    }
+                }
+                _ => {}
+            }
+        }
+
         log::info!(
-            "Optimized {:>3} constants, {:>3} loads and {:>3} conds \
+            "Optimized {:>3} constants, {:>3} loads, {:>3} stores, \
+             {:>2} news, {:>2} phis and {:>2} conds \
              with {:>4} node updates and {:>4} total nodes in graph {}",
             folded_constants,
             optimized_loads,
+            optimized_stores,
+            removed_news,
+            created_phis.len(),
             optimized_conds,
             self.node_update_count,
             self.node_topo_idx.len(),

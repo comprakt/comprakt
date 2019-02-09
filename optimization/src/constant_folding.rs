@@ -273,7 +273,7 @@ impl ConstantFolding {
                             val
                         } else {
                             let pred_lat = &self.lookup(pred);
-                            let new_lat = val.join(pred_lat);
+                            let new_lat = val.join(pred_lat, &JoinContext::None);
                             log::debug!(
                                 "for {:?}; pred_val: {:?} -> val: {:?}",
                                 pred,
