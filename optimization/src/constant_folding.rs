@@ -3,7 +3,7 @@ use crate::{dot::*, optimization};
 use firm_construction::program_generator::Spans;
 use libfirm_rs::{
     bindings,
-    nodes::{try_as_value_node, Block, NewKind, Node, NodeDebug, NodeTrait, ProjKind},
+    nodes::{try_as_value_node, Block, NewKind, Node, NodeDebug, NodeTrait, ProjKind, Store},
     types::{Ty, TyTrait},
     Entity, Graph, Mode, Tarval, TarvalKind,
 };
@@ -40,7 +40,7 @@ pub struct ConstantFolding {
     // lattice per each node
     values: HashMap<Node, ConstantFoldingLattice>,
     // global lattice, tracks which stores cannot be removed
-    // TODO required_stores: HashSet<Store>,
+    required_stores: HashSet<Store>,
     // worklist queue
     queue: PriorityQueue<Node, Priority>,
     // Tracks additional update dependencys between nodes.
@@ -215,7 +215,7 @@ impl ConstantFolding {
             cur_node: None,
             deps: HashMap::new(),
             node_update_count: 0,
-            //required_stores: HashSet::new(),
+            required_stores: HashSet::new(),
         }
     }
 
@@ -331,13 +331,16 @@ impl ConstantFolding {
             };
         }
 
+        let mut required_stores = HashSet::new();
+
         let mut deps = Vec::new();
 
         while let Some((cur_node, _priority)) = self.queue.pop() {
             self.cur_node = Some(cur_node);
             self.node_update_count += 1;
             let cur_lattice = self.lookup(cur_node);
-            let updated_lattice = self.update_node(cur_node, cur_lattice, &mut deps);
+            let updated_lattice =
+                self.update_node(cur_node, cur_lattice, &mut deps, &mut required_stores);
             if &updated_lattice != cur_lattice {
                 if let Some(deps) = self.deps.get(&cur_node) {
                     for out_node in deps.iter() {
@@ -365,6 +368,7 @@ impl ConstantFolding {
             }
         }
 
+        self.required_stores = required_stores;
         self.cur_node = None;
     }
 
@@ -417,8 +421,22 @@ impl ConstantFolding {
         cur_node: Node,
         cur_lattice: &'_ ConstantFoldingLattice,
         deps: &mut Vec<Node>,
+        required_stores: &mut HashSet<Store>,
     ) -> ConstantFoldingLattice {
         self.breakpoint(cur_node);
+
+        // TODO implement for returns!
+        let mut mark_stores_as_required = |stores: &HashSet<self::Store>| {
+            log::debug!(
+                "Mark stores as required: {:?}",
+                stores
+                    .iter()
+                    .map(|s| format!("{:?}{}", s, Spans::span_str(*s)))
+                    .collect::<Vec<_>>()
+                    .join(","),
+            );
+            required_stores.extend(stores);
+        };
 
         let mut reachable = cur_lattice.reachable()
             || if Node::is_block(cur_node) {
@@ -486,14 +504,17 @@ impl ConstantFolding {
                             used_mem,
                             used_nodes
                         );
-                        let (heap, possibly_returned_mem) =
-                            heap.reset_heap_accessed_by(used_mem, used_nodes);
+                        let accessible_mem = heap.mem_reachable_from(used_mem);
+
+                        let stores = &heap.last_stores_into(&accessible_mem);
+                        mark_stores_as_required(&stores);
+
+                        let heap = heap.reset_mem(&accessible_mem);
 
                         NodeLattice::tuple(
                             call.single_result_ty()
                                 .map(|ty| {
-                                    NodeValue::non_const_val(ty.mode(), possibly_returned_mem)
-                                        .into()
+                                    NodeValue::non_const_val(ty.mode(), accessible_mem).into()
                                 })
                                 .unwrap_or(NodeLattice::Invalid),
                             NodeLattice::Heap(Rc::new(heap)),
@@ -574,11 +595,12 @@ impl ConstantFolding {
                                 if val.is_none() {
                                     return cur_lattice.clone();
                                 }
-                                let val = val.unwrap();
+                                let val =
+                                    ValWithStoreInfo::single_store(val.unwrap().clone(), store);
 
                                 match target_kind {
-                                    TK::ArrItem(idx, ty) => heap.update_cell(o, ptr, idx, val, ty),
-                                    TK::ObjField(entity) => heap.update_field(o, ptr, entity, val),
+                                    TK::ArrItem(idx, ty) => heap.update_cell(o, ptr, idx, &val, ty),
+                                    TK::ObjField(entity) => heap.update_field(o, ptr, entity, &val),
                                 }
 
                                 NodeLattice::Heap(Rc::new(heap))
@@ -588,14 +610,20 @@ impl ConstantFolding {
                                     TK::ArrItem(idx, ty) => heap.lookup_cell(o, ptr, idx, ty),
                                     TK::ObjField(entity) => heap.lookup_field(o, ptr, entity),
                                 };
-                                let val = if let Some(val) = val {
+                                let ValWithStoreInfo { val, stores } = if let Some(val) = val {
                                     val
                                 } else {
                                     return cur_lattice.clone();
                                 };
+
+                                if val.source.is_none() && val.tarval().is_bad() {
+                                    mark_stores_as_required(&stores);
+                                }
+
                                 let val = match load.out_proj_res() {
                                     Some(res) if val.source.is_none() => {
                                         let val = val.into_updated_source(res.into());
+                                        let val = ValWithStoreInfo { val, stores };
                                         match target_kind {
                                             TK::ArrItem(idx, ty) => {
                                                 heap.enhance_cell(o, ptr, idx, &val, ty)
@@ -604,7 +632,7 @@ impl ConstantFolding {
                                                 heap.enhance_field(o, ptr, entity, &val)
                                             }
                                         }
-                                        val
+                                        val.val
                                     }
                                     _ => val,
                                 };

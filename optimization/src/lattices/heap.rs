@@ -1,7 +1,7 @@
 use super::*;
 use crate::firm::program_generator::Spans;
 use libfirm_rs::{
-    nodes::{Node, NodeDebug, ProjKind},
+    nodes::{Node, NodeDebug, ProjKind, Store},
     types::{ClassTy, PointerTy, Ty, TyTrait},
     Entity,
 };
@@ -78,16 +78,22 @@ impl InfoKind {
 use self::InfoKind::*;
 
 impl Heap {
-    /* some test a external_args: &[Node] */
     pub fn start() -> Self {
-        // TODO
         Self {
             object_infos: HashMap::new(),
             array_infos: HashMap::new(),
         }
     }
 
+    pub fn last_stores_into(&self, mem: &MemoryArea) -> HashSet<Store> {
+        HashSet::new()
+    }
+
     pub fn mem_reachable_from(&self, orig_mem: MemoryArea) -> MemoryArea {
+        if orig_mem.is_empty() {
+            return orig_mem;
+        }
+
         let mut mem = orig_mem.clone();
         let mut changed = true;
         while changed {
@@ -107,63 +113,52 @@ impl Heap {
         mem
     }
 
-    pub fn reset_heap_accessed_by(
-        &self,
-        mem: MemoryArea,
-        _nodes: HashSet<Node>,
-    ) -> (Heap, MemoryArea) {
+    pub fn reset_mem(&self, mem: &MemoryArea) -> Heap {
         if mem.is_empty() {
-            (self.clone(), mem)
-        } else {
-            let mem = self.mem_reachable_from(mem);
-            let object_infos = self
-                .object_infos
-                .iter()
-                .filter_map(|(ptr, info)| {
-                    if info.mem.intersects(&mem) {
-                        match info.kind {
-                            Allocator => {
-                                let info =
-                                    ObjectInfo::unknown_allocator(info.mem.clone(), info.ty, &mem);
-                                Some((*ptr, Rc::new(info)))
-                            }
-                            Cache => None,
-                        }
-                    } else {
-                        Some((*ptr, Rc::clone(info)))
-                    }
-                })
-                .collect();
+            return self.clone();
+        }
 
-            let array_infos = self
-                .array_infos
-                .iter()
-                .filter_map(|(ptr, info)| {
-                    if info.mem.intersects(&mem) {
-                        match info.kind {
-                            Allocator => {
-                                let info = ArrayInfo::unknown_allocator(
-                                    info.mem.clone(),
-                                    info.item_ty,
-                                    &mem,
-                                );
-                                Some((*ptr, Rc::new(info)))
-                            }
-                            Cache => None,
+        let object_infos = self
+            .object_infos
+            .iter()
+            .filter_map(|(ptr, info)| {
+                if info.mem.intersects(&mem) {
+                    match info.kind {
+                        Allocator => {
+                            let info =
+                                ObjectInfo::unknown_allocator(info.mem.clone(), info.ty, &mem);
+                            Some((*ptr, Rc::new(info)))
                         }
-                    } else {
-                        Some((*ptr, Rc::clone(info)))
+                        Cache => None,
                     }
-                })
-                .collect();
+                } else {
+                    Some((*ptr, Rc::clone(info)))
+                }
+            })
+            .collect();
 
-            (
-                Heap {
-                    array_infos,
-                    object_infos,
-                },
-                mem,
-            )
+        let array_infos = self
+            .array_infos
+            .iter()
+            .filter_map(|(ptr, info)| {
+                if info.mem.intersects(&mem) {
+                    match info.kind {
+                        Allocator => {
+                            let info =
+                                ArrayInfo::unknown_allocator(info.mem.clone(), info.item_ty, &mem);
+                            Some((*ptr, Rc::new(info)))
+                        }
+                        Cache => None,
+                    }
+                } else {
+                    Some((*ptr, Rc::clone(info)))
+                }
+            })
+            .collect();
+
+        Heap {
+            array_infos,
+            object_infos,
         }
     }
 
@@ -209,7 +204,13 @@ impl Heap {
         Pointer::to(mem)
     }
 
-    pub fn update_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity, val: &NodeValue) {
+    pub fn update_field(
+        &mut self,
+        ptr_node: Node,
+        ptr: &Pointer,
+        field: Entity,
+        val: &ValWithStoreInfo,
+    ) {
         self.check_ptr_node(ptr_node);
         let class_ty = ClassTy::from(field.owner()).unwrap();
         self.ensure_external_obj_exists(&ptr.target, class_ty);
@@ -231,7 +232,7 @@ impl Heap {
         ptr_node: Node,
         ptr: &Pointer,
         idx: Idx,
-        val: &NodeValue,
+        val: &ValWithStoreInfo,
         item_ty: Ty,
     ) {
         self.check_ptr_node(ptr_node);
@@ -249,7 +250,13 @@ impl Heap {
         self.enhance_cell(ptr_node, ptr, idx, val, item_ty);
     }
 
-    pub fn enhance_field(&mut self, ptr_node: Node, ptr: &Pointer, field: Entity, val: &NodeValue) {
+    pub fn enhance_field(
+        &mut self,
+        ptr_node: Node,
+        ptr: &Pointer,
+        field: Entity,
+        val: &ValWithStoreInfo,
+    ) {
         self.check_ptr_node(ptr_node);
         let class_ty = ClassTy::from(field.owner()).unwrap();
 
@@ -271,7 +278,7 @@ impl Heap {
         ptr_node: Node,
         ptr: &Pointer,
         idx: Idx,
-        val: &NodeValue,
+        val: &ValWithStoreInfo,
         item_ty: Ty,
     ) {
         self.check_ptr_node(ptr_node);
@@ -338,7 +345,7 @@ impl Heap {
         ptr_node: Node,
         ptr: &Pointer,
         field: Entity,
-    ) -> Option<NodeValue> {
+    ) -> Option<ValWithStoreInfo> {
         self.check_ptr_node(ptr_node);
         if ptr.is_null_or_empty() {
             // We might need to wait for phi to collect more values.
@@ -351,7 +358,7 @@ impl Heap {
             Some(info.lookup_field(field).clone())
         } else {
             self.ensure_external_obj_exists(&ptr.target, class_ty);
-            let mut val: Option<NodeValue> = None;
+            let mut val: Option<ValWithStoreInfo> = None;
             for (_node, intersecting) in self.object_infos.iter_mut() {
                 // it is sufficient to only check allocators
                 // as any chached info items always invalidate the corresponding allocators.
@@ -376,18 +383,18 @@ impl Heap {
         ptr: &Pointer,
         idx: Idx,
         item_ty: Ty,
-    ) -> Option<NodeValue> {
+    ) -> Option<ValWithStoreInfo> {
         self.check_ptr_node(ptr_node);
         if ptr.is_null_or_empty() {
             log::error!("Found null deref");
-            return Some(NodeValue::zero(item_ty.mode()));
+            return Some(NodeValue::zero(item_ty.mode()).into());
         }
 
         if let Some(info) = self.array_infos.get(&InfoIdx::Node(ptr_node)) {
             Some(info.lookup_cell(idx).clone())
         } else {
             self.ensure_external_arr_exists(&ptr.target, item_ty);
-            let mut val: Option<NodeValue> = None;
+            let mut val: Option<ValWithStoreInfo> = None;
             for (_node, intersecting) in self.array_infos.iter_mut() {
                 if intersecting.kind.is_allocator()
                     && intersecting.item_ty == item_ty
@@ -506,20 +513,68 @@ impl Lattice for Heap {
     }
 }
 
-/*
-trait ItemInfo {
-    fn mem(&self) -> MemoryArea;
-    fn mem_pointed_to_by_fields(&self) -> MemoryArea;
-    fn mem_reachable_from(&self) -> MemoryArea;
-    fn resetted(&self, mem: &MemoryArea) -> Self;
-}*/
+#[derive(Clone, PartialEq, Eq)]
+pub struct ValWithStoreInfo {
+    pub val: NodeValue,
+    // stores that contributed to the value of `val`
+    pub stores: HashSet<Store>,
+}
+
+impl ValWithStoreInfo {
+    pub fn single_store(val: NodeValue, store: Store) -> ValWithStoreInfo {
+        let mut stores = HashSet::new();
+        stores.insert(store);
+        ValWithStoreInfo { val, stores }
+    }
+
+    pub fn points_to(&self) -> MemoryArea {
+        self.val.points_to()
+    }
+}
+
+impl fmt::Debug for ValWithStoreInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?} stored by {}",
+            self.val,
+            self.stores
+                .iter()
+                .map(|store| format!("{}", store.debug_fmt().short(true)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+impl From<NodeValue> for ValWithStoreInfo {
+    fn from(val: NodeValue) -> Self {
+        ValWithStoreInfo {
+            val,
+            stores: HashSet::new(),
+        }
+    }
+}
+
+impl Lattice for ValWithStoreInfo {
+    fn is_progression_of(&self, _other: &Self) -> bool {
+        true
+    }
+
+    fn join(&self, other: &Self) -> Self {
+        ValWithStoreInfo {
+            val: self.val.join(&other.val),
+            stores: &self.stores | &other.stores,
+        }
+    }
+}
 
 // == ArrayInfo ==
 
 #[derive(Clone, PartialEq, Eq)]
 struct CellInfo {
     idx_source: Option<Node>,
-    val: NodeValue,
+    val: ValWithStoreInfo,
 }
 
 impl fmt::Debug for CellInfo {
@@ -538,7 +593,7 @@ impl fmt::Debug for CellInfo {
 }
 
 impl CellInfo {
-    fn new(idx_source: Option<Node>, val: NodeValue) -> Self {
+    fn new(idx_source: Option<Node>, val: ValWithStoreInfo) -> Self {
         Self { idx_source, val }
     }
 
@@ -552,7 +607,7 @@ impl CellInfo {
         }
     }
 
-    pub fn join_val(&self, other: &NodeValue) -> Self {
+    pub fn join_val(&self, other: &ValWithStoreInfo) -> Self {
         CellInfo {
             idx_source: None,
             val: self.val.join(other),
@@ -563,7 +618,7 @@ impl CellInfo {
 #[derive(Clone, PartialEq, Eq, Debug)]
 enum ArrayInfoState {
     Const(HashMap<usize, CellInfo>),
-    Dynamic(Node, NodeValue),
+    Dynamic(Node, ValWithStoreInfo),
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -571,7 +626,7 @@ pub struct ArrayInfo {
     kind: InfoKind,
     item_ty: Ty,
     mem: MemoryArea,
-    default_val: NodeValue,
+    default_val: ValWithStoreInfo,
     state: ArrayInfoState,
     //size: usize,
 }
@@ -612,7 +667,7 @@ impl ArrayInfo {
             kind: Allocator,
             item_ty,
             mem,
-            default_val: NodeValue::zero(mode),
+            default_val: NodeValue::zero(mode).into(),
             state: ArrayInfoState::Const(HashMap::new()),
         }
     }
@@ -622,7 +677,7 @@ impl ArrayInfo {
             kind: Allocator,
             item_ty,
             mem: MemoryArea::external(),
-            default_val: external_val(item_ty),
+            default_val: external_val(item_ty).into(),
             state: ArrayInfoState::Const(HashMap::new()),
         }
     }
@@ -632,7 +687,7 @@ impl ArrayInfo {
             kind: Allocator,
             item_ty,
             mem,
-            default_val: NodeValue::non_const_val(item_ty.mode(), cell_mem.clone()),
+            default_val: NodeValue::non_const_val(item_ty.mode(), cell_mem.clone()).into(),
             state: ArrayInfoState::Const(HashMap::new()),
         }
     }
@@ -643,12 +698,12 @@ impl ArrayInfo {
         s
     }
 
-    pub fn join_cell(&mut self, idx: Idx, val: &NodeValue) {
+    pub fn join_cell(&mut self, idx: Idx, val: &ValWithStoreInfo) {
         let existing_val = self.lookup_cell(idx);
         self.update_cell(idx, existing_val.join(val));
     }
 
-    fn any_item(&self) -> NodeValue {
+    fn any_item(&self) -> ValWithStoreInfo {
         let mut val = self.default_val.clone();
         match &self.state {
             ArrayInfoState::Const(cells) => {
@@ -679,7 +734,7 @@ impl ArrayInfo {
         mem
     }
 
-    pub fn update_cell(&mut self, idx: Idx, val: NodeValue) {
+    pub fn update_cell(&mut self, idx: Idx, val: ValWithStoreInfo) {
         match (idx, &mut self.state) {
             (Idx::Const(idx, idx_source), ArrayInfoState::Const(ref mut cells)) => {
                 // [ 1: a, 3: b, [*]: def ][1] := x => [ 1: x, 3: b, [*]: def ]
@@ -710,7 +765,7 @@ impl ArrayInfo {
         }
     }
 
-    pub fn lookup_cell(&self, idx: Idx) -> NodeValue {
+    pub fn lookup_cell(&self, idx: Idx) -> ValWithStoreInfo {
         match (idx, &self.state) {
             (Idx::Const(idx, _), ArrayInfoState::Const(cells)) => {
                 // [ 1: a, 3: b, [*]: def ][1] = a
@@ -848,7 +903,7 @@ pub struct ObjectInfo {
     ty: ClassTy,
     mem: MemoryArea,
     // stores a value for each field
-    fields: Vec<NodeValue>,
+    fields: Vec<ValWithStoreInfo>,
 }
 
 impl fmt::Debug for ObjectInfo {
@@ -877,7 +932,7 @@ impl ObjectInfo {
             mem,
             fields: ty
                 .fields()
-                .map(|field| NodeValue::zero(field.ty().mode()))
+                .map(|field| NodeValue::zero(field.ty().mode()).into())
                 .collect(),
         }
     }
@@ -887,7 +942,10 @@ impl ObjectInfo {
             kind: Allocator,
             ty,
             mem: MemoryArea::external(),
-            fields: ty.fields().map(|field| external_val(field.ty())).collect(),
+            fields: ty
+                .fields()
+                .map(|field| external_val(field.ty()).into())
+                .collect(),
         }
     }
 
@@ -898,7 +956,7 @@ impl ObjectInfo {
             mem,
             fields: ty
                 .fields()
-                .map(|field| NodeValue::non_const_val(field.ty().mode(), field_mem.clone()))
+                .map(|field| NodeValue::non_const_val(field.ty().mode(), field_mem.clone()).into())
                 .collect(),
         }
     }
@@ -917,17 +975,17 @@ impl ObjectInfo {
         mem
     }
 
-    pub fn join_field(&mut self, field: Entity, val: &NodeValue) {
+    pub fn join_field(&mut self, field: Entity, val: &ValWithStoreInfo) {
         let field_idx = self.ty.idx_of_field(field);
         self.fields[field_idx] = val.join(&self.fields[field_idx]);
     }
 
-    pub fn update_field(&mut self, field: Entity, val: &NodeValue) {
+    pub fn update_field(&mut self, field: Entity, val: &ValWithStoreInfo) {
         let field_idx = self.ty.idx_of_field(field);
         self.fields[field_idx] = val.clone();
     }
 
-    pub fn lookup_field(&self, field: Entity) -> &NodeValue {
+    pub fn lookup_field(&self, field: Entity) -> &ValWithStoreInfo {
         let idx = self.ty.idx_of_field(field);
         &self.fields[idx]
     }
