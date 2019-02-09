@@ -680,6 +680,7 @@ pub enum BinopKind {
     Or,
     Xor,
     Shr,
+    Shrs,
     Shl,
 }
 

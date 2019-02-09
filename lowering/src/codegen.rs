@@ -644,6 +644,10 @@ impl<'f> Codegen<'f> {
                         val: $dst,
                         by: $src,
                     }),
+                    lir::BinopKind::Shrs => instrs.push(Shrs {
+                        val: $dst,
+                        by: $src,
+                    }),
                     lir::BinopKind::Shl => instrs.push(Shl {
                         val: $dst,
                         by: $src,
@@ -1284,6 +1288,10 @@ pub(crate) enum Instruction {
         by: SrcOperand,
         val: DstOperand,
     },
+    Shrs {
+        by: SrcOperand,
+        val: DstOperand,
+    },
     Shl {
         by: SrcOperand,
         val: DstOperand,
@@ -1339,6 +1347,7 @@ impl Instruction {
             | Or { src, dst }
             | Xor { src, dst }
             | Shr { by: src, val: dst }
+            | Shrs { by: src, val: dst }
             | Shl { by: src, val: dst }
             | Cmp {
                 subtrahend: src,
@@ -1396,8 +1405,9 @@ impl fmt::Display for Instruction {
             And { src, dst } => write!(fmt, "\tand{} {}, {}", self.instr_suffix(), src, dst),
             Or { src, dst } => write!(fmt, "\tor{} {}, {}", self.instr_suffix(), src, dst),
             Xor { src, dst } => write!(fmt, "\txor{} {}, {}", self.instr_suffix(), src, dst),
-            Shr { by, val } => write!(fmt, "\tsar{} {}, {}", self.instr_suffix(), by, val),
-            Shl { by, val } => write!(fmt, "\tsal{} {}, {}", self.instr_suffix(), by, val),
+            Shl { by, val } => write!(fmt, "\tshl{} {}, {}", self.instr_suffix(), by, val),
+            Shr { by, val } => write!(fmt, "\tshr{} {}, {}", self.instr_suffix(), by, val),
+            Shrs { by, val } => write!(fmt, "\tsar{} {}, {}", self.instr_suffix(), by, val),
             Cmp {
                 subtrahend,
                 minuend,
