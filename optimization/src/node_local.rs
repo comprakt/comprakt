@@ -136,6 +136,9 @@ impl NodeLocal {
                                     .graph
                                     .new_const(Tarval::val(i64::from(shift_amount), Mode::Iu()));
 
+                                let const_31 = self.graph.new_const(Tarval::val(31, Mode::Iu()));
+                                let const_1 = self.graph.new_const(Tarval::mj_int(1));
+
                                 let div_proj_res = if let Some(res) = div.out_proj_res() {
                                     res
                                 } else {
@@ -153,14 +156,22 @@ impl NodeLocal {
                                 if div.left().in_nodes().len() != 1 {
                                     return;
                                 }
+
                                 let real_left = div.left().in_nodes().nth(0).unwrap();
 
-                                let shr = div.block().new_shr(real_left, shift_amount_node);
+                                let block = div.block();
+                                let shr_by_31 = block.new_shrs(real_left, const_31);
+                                let shl_1_by_shift = block.new_shl(const_1, shift_amount_node);
+                                let shl_1_by_shift_minus_1 = block.new_sub(shl_1_by_shift, const_1);
+                                let binary_and = block.new_and(shr_by_31, shl_1_by_shift_minus_1);
+                                let add_binary_and = block.new_add(real_left, binary_and);
+                                let shift_to_result =
+                                    block.new_shrs(add_binary_and, shift_amount_node);
 
                                 let shr_end = if has_minus {
-                                    Node::Minus(div.block().new_minus(shr))
+                                    Node::Minus(div.block().new_minus(shift_to_result))
                                 } else {
-                                    Node::Shr(shr)
+                                    Node::Shrs(shift_to_result)
                                 };
 
                                 log::debug!(
