@@ -47,13 +47,17 @@ impl NodeLocal {
                         log::debug!("Div2Shift: divisor {:?}!", divisor);
                         if let TarvalKind::Long(divisor_value) = divisor.tarval().kind() {
                             log::debug!("Div2Shift: divisor value {:?}!", divisor_value);
-                            if is_abs_power_of_two(divisor_value) {
-                                let has_minus = divisor_value < 0;
 
+                            // cannot crash since min_val is not a power of two
+                            let abs_divisor_value: u64 = divisor_value.abs() as u64;
+                            let has_minus = divisor_value < 0;
+
+                            if abs_divisor_value.is_power_of_two() {
                                 log::debug!("Div2Shift: is power of two!");
-                                let shift_amount = (divisor_value.abs() as f64).log2() as i64;
-                                let shift_amount_node =
-                                    self.graph.new_const(Tarval::val(shift_amount, Mode::Iu()));
+                                let shift_amount = 64 - 1 - abs_divisor_value.leading_zeros();
+                                let shift_amount_node = self
+                                    .graph
+                                    .new_const(Tarval::val(shift_amount as i64, Mode::Iu()));
 
                                 let div_proj_res = if let Some(res) = div.out_proj_res() {
                                     res
@@ -134,26 +138,5 @@ impl NodeLocal {
         }
 
         self.changed
-    }
-}
-
-fn is_abs_power_of_two(x: i64) -> bool {
-    // this is just a wrapper around the popcount intrinsic
-    x.count_ones() == 1 || (-x).count_ones() == 1
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn power_of_two() {
-        assert_eq!((2 as i64).count_ones(), 1);
-        assert_eq!((-0 as i64).count_ones(), 0);
-        assert_eq!((-2 as i64).count_ones(), 63);
-
-        assert!(is_abs_power_of_two(2));
-        assert!(is_abs_power_of_two(-2));
-        assert!(!is_abs_power_of_two(0));
     }
 }
