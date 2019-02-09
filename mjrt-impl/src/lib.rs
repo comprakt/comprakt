@@ -73,6 +73,11 @@ pub extern "C" fn mjrt_new(size: i32) -> *mut c_void {
 }
 
 #[no_mangle]
+pub extern "C" fn mjrt_new_array(size: i32) -> *mut c_void {
+    mjrt_new(size)
+}
+
+#[no_mangle]
 pub extern "C" fn mjrt_system_in_read() -> MjInt {
     let mut byte: [u8; 1] = [0];
 

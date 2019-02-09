@@ -500,6 +500,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                         self.runtime.new.ty(),
                     ),
                 );
+                call.set_ty(self.runtime.generic_new_ty(class_ty));
                 act_block.set_store(call.new_proj_m());
 
                 Value(
@@ -542,12 +543,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                         .new_add(alloc_size, self.graph.new_size(Mode::Is(), len_entity.ty()))
                         .into();
                 }
+                let call_ent = self.runtime.new;
                 let call = act_block.new_call(
                     act_block.cur_store(),
-                    self.graph.new_address(self.runtime.new),
+                    self.graph.new_address(call_ent),
                     &[alloc_size],
-                    self.runtime.new.ty(),
+                    call_ent.ty(),
                 );
+                call.set_ty(self.runtime.generic_new_ty(array_ty));
                 let call = self.with_spanned(expr, call);
                 act_block.set_store(call.new_proj_m());
                 let array = call.new_proj_t_result().new_proj(0, Mode::P());

@@ -11,6 +11,7 @@ pub enum RuntimeFunction {
     SystemOutFlush,
     SystemInRead,
     New,
+    NewArray,
     Dumpstack,
     NullUsage,
     ArrayOutOfBounds,
@@ -49,8 +50,10 @@ impl RTLib for Mjrt {
             RuntimeFunction::NullUsage => "mjrt_null_usage",
             RuntimeFunction::ArrayOutOfBounds => "mjrt_array_out_of_bounds",
             RuntimeFunction::New => "mjrt_new",
+            RuntimeFunction::NewArray => "mjrt_new_array",
         }
     }
+
     fn mj_main_name(&self) -> &'static str {
         "mj_main"
     }
@@ -155,5 +158,15 @@ impl Runtime {
             null_usage,
             array_out_of_bounds,
         }
+    }
+
+    pub fn generic_new_ty(&self, array_ty: Ty) -> Ty {
+        let size = PrimitiveTy::i32();
+        let mut t = MethodTyBuilder::new();
+
+        t.add_param(size.into());
+        t.set_res(array_ty);
+
+        t.build_no_this_call().into()
     }
 }
