@@ -2,6 +2,10 @@
 //! - some algebraic simplifications, e.g. a << 2
 //! - div of power of two to a sequence of shifts
 //! - mod of power of two to a sequence of shifts
+// TODO: this could be done without assure_outs, we just have to walk the memory
+// chain first, collecting all memory edges into a div (out memory of div). Then
+// graph chunks representing divisions can be matched by simply matching the
+// result projection and walking it's preds until the Div Node is found.
 use super::Outcome;
 use crate::optimization;
 use libfirm_rs::{
