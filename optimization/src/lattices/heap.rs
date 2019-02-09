@@ -85,7 +85,7 @@ impl Heap {
         }
     }
 
-    pub fn last_stores_into(&self, mem: &MemoryArea) -> HashSet<Store> {
+    pub fn last_stores_into(&self, _mem: &MemoryArea) -> HashSet<Store> {
         HashSet::new()
     }
 

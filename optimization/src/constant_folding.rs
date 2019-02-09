@@ -457,7 +457,7 @@ impl ConstantFolding {
             Call(call) => {
                 let mem_val = self.lookup(call.mem());
                 match (mem_val, call.new_kind(), call.out_single_result()) {
-                    (NodeLattice::NotReachableYet, _, _) => return NodeLattice::NotReachableYet,
+                    (NodeLattice::NotReachableYet, _, _) => NodeLattice::NotReachableYet,
                     (mem_val, Some(_new_kind), None) => {
                         NodeLattice::tuple(NodeLattice::Invalid, mem_val.clone())
                     }
@@ -577,8 +577,8 @@ impl ConstantFolding {
                 deps.push(ptr_node);
 
                 match (self.lookup(mem), self.lookup_val(ptr_node)) {
-                    (NodeLattice::NotReachableYet, _) => return NodeLattice::NotReachableYet,
-                    (_, None) => return NodeLattice::NotReachableYet,
+                    (NodeLattice::NotReachableYet, _) => NodeLattice::NotReachableYet,
+                    (_, None) => NodeLattice::NotReachableYet,
                     (NodeLattice::Heap(heap), Some(ptr_val)) if ptr_val.is_pointer() => {
                         let o = ptr_val.source_or_some(ptr_node);
                         let ptr = ptr_val.as_pointer().unwrap();
