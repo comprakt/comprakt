@@ -32,7 +32,6 @@ impl NodeLocal {
         // which just does random shit in libfirm.
         log::debug!("LO: visiting {:?}", current_node);
 
-        #[allow(clippy::single_match)]
         match current_node {
             Node::Add(add) => {
                 let left = add.left();
