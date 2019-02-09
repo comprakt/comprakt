@@ -14,5 +14,20 @@ SCRIPT_PATH="`pwd`";
 popd  > /dev/null
 
 TARGET="${TARGET:-release}"
+COMPILER_CLI="$SCRIPT_PATH/target/$TARGET/compiler-cli"
 
-exec "$SCRIPT_PATH/target/$TARGET/compiler-cli" "$@"
+export VANILLA=1
+
+if [[ $BENCH == "1" ]]; then
+    exec $COMPILER_CLI "$@"
+else
+    if [[ $# == 1 ]] ; then
+        exec $COMPILER_CLI "--compile" "-O" "moderate" "$1"
+    elif [[ $# == 2 ]] && [[ $1 == "--compile" ]]; then
+        exec $COMPILER_CLI "--compile" "-O" "moderate" "$2"
+    elif [[ $# == 2 ]] && [[ $1 == "--compile-firm" ]]; then
+        exec $COMPILER_CLI "--compile-firm" "-O" "moderate" "$2"
+    else
+        exec $COMPILER_CLI "$@"
+    fi
+fi
