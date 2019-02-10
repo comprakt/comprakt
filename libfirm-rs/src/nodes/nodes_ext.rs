@@ -29,17 +29,17 @@ impl Node {
     }
 
     pub fn must_member(self) -> Member {
-        assert!(Self::is_member(self));
+        debug_assert!(Self::is_member(self));
         Member::new(self.internal_ir_node())
     }
 
     pub fn must_sel(self) -> Sel {
-        assert!(Self::is_sel(self));
+        debug_assert!(Self::is_sel(self));
         Sel::new(self.internal_ir_node())
     }
 
     pub fn must_phi(self) -> Phi {
-        assert!(Self::is_phi(self));
+        debug_assert!(Self::is_phi(self));
         Phi::new(self.internal_ir_node())
     }
 
@@ -427,8 +427,8 @@ impl Block {
     }
 
     pub fn phi_or_node(self, nodes: &[Node]) -> Node {
-        assert!(!nodes.is_empty());
-        assert!(nodes.iter().all(|n| n.mode() == nodes[0].mode()));
+        debug_assert!(!nodes.is_empty());
+        debug_assert!(nodes.iter().all(|n| n.mode() == nodes[0].mode()));
 
         if nodes.len() == 1 {
             nodes[0]

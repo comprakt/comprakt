@@ -383,7 +383,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     // booleans are mode::Bu, hence XOR does the job.
                     // could also use mode::Bi and -1 for true:
                     // => could use Neg / Not, but would rely on 2's complement
-                    assert_eq!(val.mode(), Mode::Bu());
+                    debug_assert_eq!(val.mode(), Mode::Bu());
                     Value(
                         act_block,
                         act_block.new_eor(val, gen_const_bool(true, graph)).into(),

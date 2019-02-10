@@ -331,7 +331,7 @@ impl Inline {
         );
         self.depth += 1;
         let existing = map.insert(old, new_node);
-        assert!(existing.is_none());
+        debug_assert!(existing.is_none());
 
         let new_in_nodes: Vec<_> = old
             .in_nodes()

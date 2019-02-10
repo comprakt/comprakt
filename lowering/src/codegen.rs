@@ -257,7 +257,7 @@ impl<'f> Codegen<'f> {
             .lir_to_src_operand(lir::Operand::Var(*dst))
             .try_into()
             .unwrap();
-        assert_eq!(src.size(), dst.size(), "src: {:?}, dst: {:?}", src, dst);
+        debug_assert_eq!(src.size(), dst.size(), "src: {:?}, dst: {:?}", src, dst);
         instrs.push(Mov { src, dst });
     }
 
@@ -510,12 +510,12 @@ impl<'f> Codegen<'f> {
         let base: Reg = match base {
             // the base address of ac is stored in a reg, this is fine
             SrcOperand::Reg(reg) => {
-                assert!(reg.size() == Size::Eight); // must be a pointer
+                debug_assert!(reg.size() == Size::Eight); // must be a pointer
                 already_in_registers.push(reg.reg);
                 reg
             }
             SrcOperand::Imm(tv) => {
-                assert!(tv.is_long());
+                debug_assert!(tv.is_long());
                 if tv.get_long() == 0 {
                     // some operation relative to the null pointer
                     // let's use the undefined behavior here
@@ -540,7 +540,7 @@ impl<'f> Codegen<'f> {
                 match index {
                     // the index is stored in a reg, this is fine
                     SrcOperand::Reg(reg) => {
-                        assert!(
+                        debug_assert!(
                             reg.size() == Size::Four,
                             "minijava only allows indexing by int"
                         );
@@ -663,8 +663,8 @@ impl<'f> Codegen<'f> {
             .unwrap();
 
         // src1.size == src2.size == dst.size
-        assert_eq!(src1.size(), src2.size());
-        assert_eq!(src2.size(), dst.size());
+        debug_assert_eq!(src1.size(), src2.size());
+        debug_assert_eq!(src2.size(), dst.size());
         let size = src1.size();
 
         // all operands are potentially mem operands (in AR)
@@ -716,7 +716,7 @@ impl<'f> Codegen<'f> {
             .lir_to_src_operand(lir::Operand::Var(dst))
             .try_into()
             .unwrap();
-        assert_eq!(src.size(), dst.size());
+        debug_assert_eq!(src.size(), dst.size());
 
         // TODO peephole this away if src == rax == Reg::*
         let spill = Reg {
@@ -1505,6 +1505,7 @@ pub(crate) struct CallInstruction {
 /// Amd64 requires 16-byte aligned stacks.
 /// The emitted assembly works for 8-byte aligned stacks.
 /// (This works because we always spill quad-words (pushQ, popQ)).
+#[allow(clippy::unimplemented)]
 impl fmt::Display for CallInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // FIXME

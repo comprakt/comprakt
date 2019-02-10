@@ -306,7 +306,7 @@ impl ClassTy {
 
     pub fn idx_of_field(self, field: Entity) -> usize {
         let idx = unsafe { bindings::get_class_member_index(self.ir_type(), field.ir_entity()) };
-        assert!(idx < self.fields().count());
+        debug_assert!(idx < self.fields().count());
         idx
     }
 

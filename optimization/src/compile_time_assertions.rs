@@ -117,7 +117,7 @@ impl CompileTimeAssertions {
 
 fn assert_const(call: nodes::Call, phase: &Phase) {
     for node in get_args(call) {
-        assert!(
+        debug_assert!(
             Node::is_const(node),
             build_assert_msg(
                 format!(
@@ -134,7 +134,7 @@ fn assert_const(call: nodes::Call, phase: &Phase) {
 
 fn assert_not_const(call: nodes::Call, phase: &Phase) {
     for node in get_args(call) {
-        assert!(
+        debug_assert!(
             !Node::is_const(node),
             build_assert_msg(
                 format!(
@@ -157,7 +157,7 @@ fn assert_different_node(call: nodes::Call, phase: &Phase) {
 }
 fn assert_node_equality(call: nodes::Call, phase: &Phase, expect_same: bool) {
     let nodes = get_args(call);
-    assert!(
+    debug_assert!(
         nodes.len() >= 2,
         build_assert_msg(
             format!(
@@ -170,7 +170,7 @@ fn assert_node_equality(call: nodes::Call, phase: &Phase, expect_same: bool) {
 
     for (idx, curr_node) in nodes.iter().enumerate() {
         for other in &nodes[(idx + 1)..] {
-            assert!(
+            debug_assert!(
                 if expect_same {
                     other == curr_node
                 } else {

@@ -727,7 +727,7 @@ where
             operand_stack: &mut Vec<Box<Spanned<'f, ast::Expr<'f>>>>,
             op: ast::BinaryOp,
         ) {
-            assert!(operand_stack.len() >= 2); // Invariant: we only construct valid RPN
+            debug_assert!(operand_stack.len() >= 2); // Invariant: we only construct valid RPN
             let rhs = operand_stack.pop().unwrap();
             let lhs = operand_stack.pop().unwrap();
             let result =
@@ -765,7 +765,7 @@ where
             rpn_eval(&mut operand_stack, op)
         }
 
-        assert_eq!(operand_stack.len(), 1);
+        debug_assert_eq!(operand_stack.len(), 1);
         Ok(operand_stack.remove(0))
     }
 

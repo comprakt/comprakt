@@ -110,6 +110,7 @@ impl GenInstrBlock {
     ///
     /// ### All other nodes
     /// All other nodes produce a value value.
+    #[allow(clippy::cyclomatic_complexity)]
     fn gen_value_walk_callback(
         &mut self,
         graph: Ptr<BlockGraph>,
@@ -226,7 +227,7 @@ impl GenInstrBlock {
             Node::Minus(neg) => gen_unop!(Neg, neg, block, node),
             Node::Return(ret) => {
                 let value: Option<Operand> = if ret.return_res().len() != 0 {
-                    assert_eq!(ret.return_res().len(), 1);
+                    debug_assert_eq!(ret.return_res().len(), 1);
                     log::debug!("{:?}", ret);
                     Some(self.gen_operand_jit(ret.return_res().idx(0).unwrap()))
                 } else {
@@ -244,7 +245,7 @@ impl GenInstrBlock {
             // Cmp and Cond are handled together
             Node::Cmp(cmp) => {
                 let succs = cmp.out_nodes().collect::<Vec<_>>();
-                assert_eq!(1, succs.len());
+                debug_assert_eq!(1, succs.len());
                 match succs[0] {
                     Node::Cond(_) => (),
                     x => panic!(
@@ -255,7 +256,7 @@ impl GenInstrBlock {
             }
             Node::Cond(cond) => {
                 let preds = cond.in_nodes().collect::<Vec<_>>();
-                assert_eq!(1, preds.len());
+                debug_assert_eq!(1, preds.len());
                 let cmp = match preds[0] {
                     Node::Cmp(cmp) => cmp,
                     x => panic!(
@@ -294,7 +295,7 @@ impl GenInstrBlock {
                     Node::Address(addr) => addr.entity(),
                     x => panic!("call must go to an Address node, got {:?}", x),
                 };
-                assert!(func.ty().is_method());
+                debug_assert!(func.ty().is_method());
                 log::debug!("called func={:?}", func.ld_name());
 
                 // Allocate var for this call node as described in match arm comment
@@ -311,7 +312,7 @@ impl GenInstrBlock {
                         // the FIRM node for the Var produced by this call.
                         // And there cannot be multiple Vars produced by a call.
                         // So this assumption better hold!
-                        assert_eq!(tuple_elems.len(), 1);
+                        debug_assert_eq!(tuple_elems.len(), 1);
                         tuple_elems[0]
                     });
 

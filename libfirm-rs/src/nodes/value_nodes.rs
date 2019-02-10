@@ -62,7 +62,7 @@ impl ValueNode for Const {
     }
 
     fn compute(&self, values: Vec<Tarval>) -> Tarval {
-        assert!(values.is_empty());
+        debug_assert!(values.is_empty());
         self.tarval()
     }
 }
@@ -101,7 +101,7 @@ impl ValueNode for Proj {
     }
 
     fn compute(&self, values: Vec<Tarval>) -> Tarval {
-        assert!(values.len() <= 1);
+        debug_assert!(values.len() <= 1);
         if values.len() == 1 {
             values[0]
         } else {
@@ -138,7 +138,7 @@ macro_rules! empty_value_node_impl {
             }
 
             fn compute(&self, values: Vec<Tarval>) -> Tarval {
-                assert!(values.len() == 0);
+                debug_assert!(values.len() == 0);
                 Tarval::bad()
             }
         }
@@ -186,7 +186,7 @@ macro_rules! binop_impl {
             }
 
             fn compute(&self, values: Vec<Tarval>) -> Tarval {
-                assert!(values.len() == 2);
+                debug_assert!(values.len() == 2);
                 BinOp::compute(self, values[0], values[1])
             }
         }
@@ -227,7 +227,7 @@ macro_rules! unaryop_impl {
             }
 
             fn compute(&self, values: Vec<Tarval>) -> Tarval {
-                assert!(values.len() == 1);
+                debug_assert!(values.len() == 1);
                 UnaryOp::compute(self, values[0])
             }
         }

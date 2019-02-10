@@ -150,7 +150,7 @@ impl<'src, 'ast> FirmProgram<'src, 'ast> {
         method: Rc<ClassMethodDef<'src, 'ast>>,
         type_system: &'src TypeSystem<'src, 'ast>,
     ) {
-        assert!(!method.is_static || (method.is_static && method.is_main));
+        debug_assert!(!method.is_static || (method.is_static && method.is_main));
         let mut method_ty_builder = MethodTyBuilder::new();
 
         // add this parameter

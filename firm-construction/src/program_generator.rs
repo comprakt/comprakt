@@ -142,7 +142,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
         body: &'ast Body<'src, 'ast>,
         program: &FirmProgram<'src, 'ast>,
     ) -> Graph {
-        assert!(!method.def.is_static || (method.def.is_static && method.def.is_main));
+        debug_assert!(!method.def.is_static || (method.def.is_static && method.def.is_main));
 
         let local_vars_count = LocalVarDefVisitor::count_local_vars(&NodeKind::from(body));
         let this_param = if method.def.is_main { 0 } else { 1 };

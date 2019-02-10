@@ -422,7 +422,7 @@ impl Heap {
 }
 
 pub fn external_val(ty: Ty) -> NodeValue {
-    assert!(!ty.mode().is_pointer() || PointerTy::from(ty).is_some());
+    debug_assert!(!ty.mode().is_pointer() || PointerTy::from(ty).is_some());
     NodeValue::non_const_val(ty.mode(), MemoryArea::external())
 }
 
@@ -485,7 +485,7 @@ impl Lattice for Heap {
                         if info1 == info2 {
                             Rc::clone(info1)
                         } else {
-                            assert_eq!(info1.kind, info2.kind);
+                            debug_assert_eq!(info1.kind, info2.kind);
                             Rc::new(info1.join(info2, context, info1.kind))
                         },
                     );
@@ -516,7 +516,7 @@ impl Lattice for Heap {
                         if info1 == info2 {
                             Rc::clone(info1)
                         } else {
-                            assert_eq!(info1.kind, info2.kind);
+                            debug_assert_eq!(info1.kind, info2.kind);
                             Rc::new(info1.join(info2, context, info1.kind))
                         },
                     );
@@ -853,7 +853,7 @@ impl ArrayInfo {
 
     fn join(&self, other: &Self, context: &mut JoinContext, kind: InfoKind) -> Self {
         use self::ArrayInfoState::*;
-        assert!(self.item_ty == other.item_ty);
+        debug_assert!(self.item_ty == other.item_ty);
 
         let mut default_val = self.default_val.join_default(&other.default_val);
 
@@ -1059,7 +1059,7 @@ impl ObjectInfo {
     }
 
     fn join(&self, other: &Self, context: &mut JoinContext, kind: InfoKind) -> Self {
-        assert!(self.ty == other.ty);
+        debug_assert!(self.ty == other.ty);
 
         let mut updated_fields = Vec::with_capacity(self.fields.len());
         for (field_idx, field_val) in self.fields.iter().enumerate() {

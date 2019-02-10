@@ -274,11 +274,11 @@ pub(super) struct ValueReq {
 
 impl ValueReq {
     fn must_consistency_check(&self) {
-        assert!(!self.from.is_empty());
+        debug_assert!(!self.from.is_empty());
         if self.from.len() == 1 {
-            assert_eq!(self.firm, self.from[0].1);
+            debug_assert_eq!(self.firm, self.from[0].1);
         } else {
-            assert!(Node::is_phi(self.firm));
+            debug_assert!(Node::is_phi(self.firm));
             let mut occurrences: HashMap<Node, HashSet<libfirm_rs::nodes::Block>> = HashMap::new();
             for (block, phi_in) in self.firm.must_phi().preds() {
                 let source_blocks = occurrences.entry(phi_in).or_insert_with(HashSet::new);
@@ -287,7 +287,7 @@ impl ValueReq {
                 }
             }
             for (orig_block, val) in &self.from {
-                assert!(
+                debug_assert!(
                     occurrences.contains_key(val),
                     "from contains an entry {:?} from block {:?}\
                      that is not a predecessor of {:?}",
@@ -305,7 +305,7 @@ impl ValueReq {
                 }
             }
             for (_, origs) in occurrences {
-                assert!(
+                debug_assert!(
                     origs.is_empty(),
                     "ValueReq and Phi node {:?} are not in sync: {:?}",
                     self.firm,
@@ -874,7 +874,7 @@ impl Ptr<BlockGraph> {
             });
 
             for ValueReq { firm, from } in &block.value_requirements {
-                assert!(!from.is_empty());
+                debug_assert!(!from.is_empty());
 
                 if !firm.mode().is_data() {
                     // Mem nodes are in value_requirements, but not relevant at this point
@@ -963,7 +963,7 @@ impl Ptr<BlockGraph> {
     }
 
     pub(super) fn always_new_var(mut self, firm: Node) -> Var {
-        assert!(
+        debug_assert!(
             self.can_be_var(firm),
             "firm node cannot be a var: {:?} {:?}",
             firm.mode(),
@@ -1111,12 +1111,12 @@ mod tests {
             })
             .cloned()
             .collect::<Vec<_>>();
-        assert_eq!(res.len(), 8);
+        debug_assert_eq!(res.len(), 8);
 
         let (_, is_sorted) = res.iter().cloned().fold((0, true), |(prev, sorted), next| {
             (next, sorted && prev <= next)
         });
-        assert!(is_sorted);
+        debug_assert!(is_sorted);
     }
 }
 
@@ -1170,8 +1170,8 @@ mod lir_cleanup {
             match (self, other) {
                 (Var(a), Var(b)) => a.num.cmp(&b.num),
                 (Tarval(a), Tarval(b)) => {
-                    assert!(a.is_long());
-                    assert!(b.is_long());
+                    debug_assert!(a.is_long());
+                    debug_assert!(b.is_long());
                     a.get_long().cmp(&b.get_long())
                 }
                 (Var(_), Tarval(_)) => std::cmp::Ordering::Greater,

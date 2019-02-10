@@ -312,7 +312,7 @@ impl From<Option<Node>> for NodeValueSource {
 
 impl NodeValue {
     pub fn new(value: AbstractValue, source: Option<Node>) -> Self {
-        assert!(
+        debug_assert!(
             match (&value, &source) {
                 (AbstractValue::Pointer(..), node) => {
                     node.map(|n| n.mode() == Mode::P()).unwrap_or(true)
