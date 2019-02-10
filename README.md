@@ -15,6 +15,7 @@
 **Available Optimizations**
 - `Inline`: method inlining
 - `ConstantFolding`: constant folding and unreachable code elimination
+- `ConstantFoldingWithLoadStore`: constant folding, unreachable code elimination and load-store optimization
 - `ControlFlow`: remove unnecessary (un)conditional jumps
 - `NodeLocal`: replace some operations with a sequence of shifts
 - `CommonSubExpr`: block-local common subexpression elimination of commutative operations
