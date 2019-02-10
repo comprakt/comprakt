@@ -255,7 +255,6 @@ pub struct NodeValue {
 pub enum NodeValueSource {
     Unknown,
     Node(Node),
-    //Phi(PhiId),
 }
 
 impl fmt::Debug for NodeValueSource {
@@ -425,7 +424,7 @@ impl fmt::Debug for NodeValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.value)?;
         match &self.source {
-            NodeValueSource::Node(..) /*| NodeValueSource::Phi(..)*/ => {
+            NodeValueSource::Node(..) => {
                 write!(f, "←{:?}", self.source)?;
             }
             _ => {}
@@ -449,8 +448,8 @@ impl Lattice for NodeValue {
                 JoinContext::PhiWith2Preds {
                     phi,
                     phi_container,
-                    cur_info_idx: _,
                     cur_phi_id,
+                    ..
                 } => {
                     assert!(phi.in_nodes().len() == 2);
 

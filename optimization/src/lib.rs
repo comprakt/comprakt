@@ -1,3 +1,4 @@
+#![allow(clippy::single_match)]
 #![feature(try_trait)]
 
 use crate::{firm::FirmProgram, timing::Measurement};

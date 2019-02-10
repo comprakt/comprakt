@@ -865,9 +865,9 @@ impl ArrayInfo {
                     match context {
                         JoinContext::PhiWith2Preds {
                             phi,
-                            phi_container: _,
                             cur_info_idx,
                             cur_phi_id,
+                            ..
                         } => {
                             *cur_phi_id = Some(PhiId::Array(*phi, cur_info_idx.unwrap(), *idx));
                         }
