@@ -2,7 +2,7 @@ mod heap;
 mod mem;
 pub use self::{heap::*, mem::*};
 use libfirm_rs::{
-    nodes::{Node, NodeDebug, NodeTrait, Phi},
+    nodes::{Block, Node, NodeDebug, NodeTrait, Phi},
     Mode, Tarval, TarvalKind,
 };
 use std::{collections::HashMap, fmt, rc::Rc};
@@ -280,10 +280,10 @@ impl NodeValueSource {
 */
 
 impl NodeValueSource {
-    pub fn is_unknown(&self) -> bool {
+    pub fn is_usable_from(&self, block: Block) -> bool {
         match self {
-            NodeValueSource::Unknown => true,
-            _ => false,
+            NodeValueSource::Unknown => false,
+            NodeValueSource::Node(node) => node.block().dominates(block),
         }
     }
 }
@@ -444,7 +444,7 @@ impl Lattice for NodeValue {
             (NodeValueSource::Node(node1), NodeValueSource::Node(node2)) if node1 == node2 => {
                 NodeValueSource::Node(*node1)
             }
-            (NodeValueSource::Node(node1), NodeValueSource::Node(node2)) => match context {
+            /*(NodeValueSource::Node(node1), NodeValueSource::Node(node2)) => match context {
                 JoinContext::PhiWith2Preds {
                     phi,
                     phi_container,
@@ -479,7 +479,7 @@ impl Lattice for NodeValue {
                 }
 
                 _ => NodeValueSource::Unknown,
-            },
+            },*/
             _ => NodeValueSource::Unknown,
         };
 
