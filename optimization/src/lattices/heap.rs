@@ -124,7 +124,7 @@ impl Heap {
         mem
     }
 
-    pub fn reset_mem(&self, mem: &MemoryArea) -> Heap {
+    pub fn reset_mem(&self, mem: &MemoryArea) -> Self {
         if mem.is_empty() {
             return self.clone();
         }
@@ -167,7 +167,7 @@ impl Heap {
             })
             .collect();
 
-        Heap {
+        Self {
             array_infos,
             object_infos,
         }
@@ -422,7 +422,7 @@ impl Heap {
 }
 
 pub fn external_val(ty: Ty) -> NodeValue {
-    assert!(!ty.mode().is_pointer() || PointerTy::from(ty).is_some());
+    debug_assert!(!ty.mode().is_pointer() || PointerTy::from(ty).is_some());
     NodeValue::non_const_val(ty.mode(), MemoryArea::external())
 }
 
@@ -485,7 +485,7 @@ impl Lattice for Heap {
                         if info1 == info2 {
                             Rc::clone(info1)
                         } else {
-                            assert_eq!(info1.kind, info2.kind);
+                            debug_assert_eq!(info1.kind, info2.kind);
                             Rc::new(info1.join(info2, context, info1.kind))
                         },
                     );
@@ -516,7 +516,7 @@ impl Lattice for Heap {
                         if info1 == info2 {
                             Rc::clone(info1)
                         } else {
-                            assert_eq!(info1.kind, info2.kind);
+                            debug_assert_eq!(info1.kind, info2.kind);
                             Rc::new(info1.join(info2, context, info1.kind))
                         },
                     );
@@ -529,7 +529,7 @@ impl Lattice for Heap {
             },
         );
 
-        Heap {
+        Self {
             object_infos,
             array_infos,
         }
@@ -544,10 +544,10 @@ pub struct ValWithStoreInfo {
 }
 
 impl ValWithStoreInfo {
-    pub fn single_store(val: NodeValue, store: Store) -> ValWithStoreInfo {
+    pub fn single_store(val: NodeValue, store: Store) -> Self {
         let mut stores = HashSet::new();
         stores.insert(store);
-        ValWithStoreInfo { val, stores }
+        Self { val, stores }
     }
 
     pub fn points_to(&self) -> MemoryArea {
@@ -572,7 +572,7 @@ impl fmt::Debug for ValWithStoreInfo {
 
 impl From<NodeValue> for ValWithStoreInfo {
     fn from(val: NodeValue) -> Self {
-        ValWithStoreInfo {
+        Self {
             val,
             stores: HashSet::new(),
         }
@@ -585,7 +585,7 @@ impl Lattice for ValWithStoreInfo {
     }
 
     fn join(&self, other: &Self, context: &mut JoinContext) -> Self {
-        ValWithStoreInfo {
+        Self {
             val: self.val.join(&other.val, context),
             stores: &self.stores | &other.stores,
         }
@@ -621,7 +621,7 @@ impl CellInfo {
     }
 
     pub fn join(&self, other: &Self, context: &mut JoinContext) -> Self {
-        CellInfo {
+        Self {
             idx_source: match (self.idx_source, other.idx_source) {
                 (Some(a), Some(b)) if a == b => Some(a),
                 _ => None,
@@ -631,14 +631,14 @@ impl CellInfo {
     }
 
     pub fn join_val(&self, other: &ValWithStoreInfo, context: &mut JoinContext) -> Self {
-        CellInfo {
+        Self {
             idx_source: None,
             val: self.val.join(other, context),
         }
     }
 
     pub fn join_val_flipped(&self, other: &ValWithStoreInfo, context: &mut JoinContext) -> Self {
-        CellInfo {
+        Self {
             idx_source: None,
             val: other.join(&self.val, context),
         }
@@ -852,11 +852,11 @@ impl ArrayInfo {
     }
 
     fn join(&self, other: &Self, context: &mut JoinContext, kind: InfoKind) -> Self {
-        assert!(self.item_ty == other.item_ty);
+        use self::ArrayInfoState::*;
+        debug_assert!(self.item_ty == other.item_ty);
 
         let mut default_val = self.default_val.join_default(&other.default_val);
 
-        use self::ArrayInfoState::*;
         let state = match (&self.state, &other.state) {
             (Const(cells1), Const(cells2)) => {
                 let mut cells = HashMap::new();
@@ -1059,7 +1059,7 @@ impl ObjectInfo {
     }
 
     fn join(&self, other: &Self, context: &mut JoinContext, kind: InfoKind) -> Self {
-        assert!(self.ty == other.ty);
+        debug_assert!(self.ty == other.ty);
 
         let mut updated_fields = Vec::with_capacity(self.fields.len());
         for (field_idx, field_val) in self.fields.iter().enumerate() {

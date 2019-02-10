@@ -1,5 +1,14 @@
 #![allow(clippy::single_match)]
 #![feature(try_trait)]
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::single_match_else,
+    clippy::use_self
+)]
 
 use crate::{firm::FirmProgram, timing::Measurement};
 use libfirm_rs::{bindings, Graph};
@@ -61,7 +70,7 @@ where
         let mut collector = OutcomeCollector::new();
         for method in program.methods.values() {
             if let Some(graph) = method.borrow().graph {
-                collector.push(T::optimize_function(graph));
+                collector.push(Self::optimize_function(graph));
             }
         }
         collector.result()
@@ -125,7 +134,7 @@ pub enum Level {
 }
 
 impl Default for Level {
-    fn default() -> Level {
+    fn default() -> Self {
         Level::None
     }
 }
@@ -217,7 +226,7 @@ pub struct OutcomeCollector {
 }
 
 impl OutcomeCollector {
-    pub fn new() -> OutcomeCollector {
+    pub fn new() -> Self {
         Self::default()
     }
 

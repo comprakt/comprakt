@@ -1,3 +1,15 @@
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self,
+    clippy::use_debug
+)]
+
 //! The diagnostics object controls the output of warnings and errors generated
 //! by the compiler during the lexing, parsing and semantic analysis phases.
 //! It also tracks the number of warnings and errors generated for flow control.
@@ -457,7 +469,7 @@ impl<'span, 'file> LineFormatter<'span, 'file> {
 }
 
 #[cfg(test)]
-#[allow(clippy::print_stdout)]
+#[allow(clippy::print_stdout, clippy::use_debug)]
 mod tests {
     use super::*;
 

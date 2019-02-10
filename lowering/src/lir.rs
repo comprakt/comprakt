@@ -75,7 +75,7 @@ impl From<&firm::FirmProgram<'_, '_>> for LIR {
             functions.push(function);
         }
 
-        LIR {
+        Self {
             allocator,
             functions,
         }
@@ -101,7 +101,7 @@ impl Function {
 
         let returns = method.def.return_ty != CheckedType::Void;
         log::debug!("Generating block graph for {}", method.def.name);
-        Function {
+        Self {
             name: method.entity.ld_name().to_str().unwrap().to_owned(),
             nargs: method.def.params.len() + if method.def.is_static { 0 } else { 1 },
             returns,
@@ -140,7 +140,7 @@ impl fmt::Display for Var {
 
 /// a variable is only identified by its number
 ///
-/// intended for use in live_variable_analysis
+/// intended for use in `live_variable_analysis`
 impl PartialEq for Var {
     fn eq(&self, other: &Self) -> bool {
         self.num == other.num
@@ -151,7 +151,7 @@ impl Eq for Var {}
 
 /// a variable is only identified by its number
 ///
-/// intended for use in live_variable_analysis
+/// intended for use in `live_variable_analysis`
 impl Hash for Var {
     fn hash<H: Hasher>(&self, h: &mut H) {
         self.num.hash(h)
@@ -186,7 +186,7 @@ pub struct Code<CopyInInstr, CopyOutInstr, BodyInstr, LeaveInstr> {
 
 impl<A, B, C, D> Default for Code<A, B, C, D> {
     fn default() -> Self {
-        Code {
+        Self {
             copy_in: vec![],
             body: vec![],
             copy_out: vec![],
@@ -219,6 +219,7 @@ impl<A: fmt::Debug, B: fmt::Debug, C: fmt::Debug, D: fmt::Debug> fmt::Debug
     }
 }
 
+#[allow(clippy::use_self)]
 impl<A, B, C, D> CodeInstruction<&Ptr<A>, &Ptr<B>, &Ptr<C>, &Ptr<D>> {
     pub fn clone_ptred(&self) -> CodeInstruction<Ptr<A>, Ptr<B>, Ptr<C>, Ptr<D>> {
         use self::CodeInstruction::*;
@@ -257,7 +258,7 @@ impl<A, B, C, D> Code<A, B, C, D> {
 /// ## Simple In-Flow from a preceding block
 ///
 /// A value V produced in one block A and used in a subsequent block B is
-/// a ValueReq of block B.
+/// a `ValueReq` of block B.
 /// `firm` will be V, and `from` will contain a single entry (A,V).
 ///
 /// ## Phi Node
@@ -273,11 +274,11 @@ pub(super) struct ValueReq {
 
 impl ValueReq {
     fn must_consistency_check(&self) {
-        assert!(!self.from.is_empty());
+        debug_assert!(!self.from.is_empty());
         if self.from.len() == 1 {
-            assert_eq!(self.firm, self.from[0].1);
+            debug_assert_eq!(self.firm, self.from[0].1);
         } else {
-            assert!(Node::is_phi(self.firm));
+            debug_assert!(Node::is_phi(self.firm));
             let mut occurrences: HashMap<Node, HashSet<libfirm_rs::nodes::Block>> = HashMap::new();
             for (block, phi_in) in self.firm.must_phi().preds() {
                 let source_blocks = occurrences.entry(phi_in).or_insert_with(HashSet::new);
@@ -286,7 +287,7 @@ impl ValueReq {
                 }
             }
             for (orig_block, val) in &self.from {
-                assert!(
+                debug_assert!(
                     occurrences.contains_key(val),
                     "from contains an entry {:?} from block {:?}\
                      that is not a predecessor of {:?}",
@@ -304,7 +305,7 @@ impl ValueReq {
                 }
             }
             for (_, origs) in occurrences {
-                assert!(
+                debug_assert!(
                     origs.is_empty(),
                     "ValueReq and Phi node {:?} are not in sync: {:?}",
                     self.firm,
@@ -444,7 +445,7 @@ impl fmt::Debug for Instruction {
 }
 
 /// This implements address computation, see
-/// http://www.c-jump.com/CIS77/CPU/x86/lecture.html#X77_0110_scaled_indexed
+/// <http://www.c-jump.com/CIS77/CPU/x86/lecture.html#X77_0110_scaled_indexed>
 #[derive(Debug, Copy, Clone)]
 pub struct AddressComputation<Op: Display + Copy> {
     // offset(base, index, stride) = offset + base + index * stride
@@ -473,7 +474,7 @@ impl<Op: Display + Copy> std::fmt::Display for AddressComputation<Op> {
     }
 }
 
-/// Index of AddressComputation variant of the Instruction enum.
+/// Index of `AddressComputation` variant of the Instruction enum.
 #[derive(Debug, Copy, Clone)]
 pub enum IndexComputation<Op: Display + Copy> {
     Displacement(Op, Stride),
@@ -619,7 +620,7 @@ impl fmt::Debug for Leave {
 }
 
 /// The representation of a single element in
-/// ControlFlowTransfer.register_transitions. The consumer of the LIR
+/// `ControlFlowTransfer.register_transitions`. The consumer of the LIR
 /// (a register allocator / target arch code generator) emits the
 /// concrete instructions to flow values from one basic block to the other.
 /// It will commonly have to choose between using registers or spill code.
@@ -727,7 +728,7 @@ impl BlockGraph {
         }
 
         firm_graph.assure_outs();
-        let graph = BlockGraph::build_skeleton(firm_graph, alloc);
+        let graph = Self::build_skeleton(firm_graph, alloc);
         graph.ssa_with_requirements();
         graph.fill_instrs(alloc);
         graph.ssa_deconstruction(alloc);
@@ -765,7 +766,7 @@ impl BlockGraph {
     }
 }
 
-/// BlockGraph construction
+/// `BlockGraph` construction
 impl BlockGraph {
     fn build_skeleton(firm_graph: libfirm_rs::Graph, alloc: &Allocator) -> Ptr<Self> {
         let mut blocks = HashMap::new();
@@ -795,7 +796,7 @@ impl BlockGraph {
             .get(&firm_graph.end_block())
             .expect("All blocks (including end block) should have been generated");
 
-        let graph = alloc.graph(BlockGraph {
+        let graph = alloc.graph(Self {
             var_counter: 0,
             vars: HashMap::new(),
             firm: firm_graph,
@@ -818,8 +819,8 @@ impl Ptr<BlockGraph> {
     fn ssa_with_requirements(self) {
         self.firm.walk_blocks(|visit, firm_block| match visit {
             VisitTime::BeforePredecessors => {
-                let mut block = self.get_block(*firm_block);
                 use itertools::Itertools;
+                let mut block = self.get_block(*firm_block);
                 let reqs = firm_block
                     .all_nodes_in_block()
                     // all nodes outside of this block that this block requires
@@ -840,13 +841,26 @@ impl Ptr<BlockGraph> {
                     .unique_by(|node| node.node_id())
                     .map(|node| {
                         let from = if let Some(phi) = node.opt_phi() {
-                            phi.preds()
+                            let preds = phi
+                                .preds()
                                 .map(|(pred_block, pred)| (self.get_block(pred_block), pred))
-                                .collect()
+                                .collect::<Vec<_>>();
+                            // uphold consistency check below:
+                            // there can be phis with a single predecessor
+                            if preds.len() > 1 {
+                                preds
+                            } else {
+                                vec![(self.get_block(node.block()), node)]
+                            }
                         } else {
                             vec![(self.get_block(node.block()), node)]
                         };
-                        ValueReq { firm: node, from }
+                        let req = ValueReq { firm: node, from };
+                        debug_assert!({
+                            req.must_consistency_check();
+                            true
+                        });
+                        req
                     })
                     .collect::<Vec<_>>();
 
@@ -873,7 +887,7 @@ impl Ptr<BlockGraph> {
             });
 
             for ValueReq { firm, from } in &block.value_requirements {
-                assert!(!from.is_empty());
+                debug_assert!(!from.is_empty());
 
                 if !firm.mode().is_data() {
                     // Mem nodes are in value_requirements, but not relevant at this point
@@ -962,7 +976,7 @@ impl Ptr<BlockGraph> {
     }
 
     pub(super) fn always_new_var(mut self, firm: Node) -> Var {
-        assert!(
+        debug_assert!(
             self.can_be_var(firm),
             "firm node cannot be a var: {:?} {:?}",
             firm.mode(),
@@ -1063,12 +1077,12 @@ impl BasicBlockPostorderVisitor {
 
 impl BasicBlock {
     fn skeleton_block(
-        known_blocks: &mut HashMap<libfirm_rs::nodes::Block, Ptr<BasicBlock>>,
+        known_blocks: &mut HashMap<libfirm_rs::nodes::Block, Ptr<Self>>,
         firm: libfirm_rs::nodes::Block,
         alloc: &Allocator,
     ) -> Ptr<Self> {
         *known_blocks.entry(firm).or_insert_with(|| {
-            alloc.block(BasicBlock {
+            alloc.block(Self {
                 value_requirements: vec![],
                 values_to_compute: vec![],
                 num: firm.node_id(),
@@ -1103,19 +1117,19 @@ mod tests {
         let res = code
             .iter_unified()
             .map(|instr| match instr {
-                CodeInstruction::CopyIn(v) => v,
-                CodeInstruction::Body(v) => v,
-                CodeInstruction::CopyOut(v) => v,
-                CodeInstruction::Leave(v) => v,
+                CodeInstruction::CopyIn(v)
+                | CodeInstruction::CopyOut(v)
+                | CodeInstruction::Body(v)
+                | CodeInstruction::Leave(v) => v,
             })
             .cloned()
             .collect::<Vec<_>>();
-        assert_eq!(res.len(), 8);
+        debug_assert_eq!(res.len(), 8);
 
         let (_, is_sorted) = res.iter().cloned().fold((0, true), |(prev, sorted), next| {
             (next, sorted && prev <= next)
         });
-        assert!(is_sorted);
+        debug_assert!(is_sorted);
     }
 }
 
@@ -1124,7 +1138,7 @@ mod lir_cleanup {
 
     use super::{CopyPropagationSrc, Tarval, Var};
 
-    /// Uniform representation of CopyPropagation src and dst operand.
+    /// Uniform representation of `CopyPropagation` src and dst operand.
     #[derive(PartialEq, Eq)]
     pub enum HomogenizedOperand {
         Var(Var),
@@ -1140,7 +1154,7 @@ mod lir_cleanup {
         }
     }
     impl From<&CopyPropagationSrc> for HomogenizedOperand {
-        fn from(src: &CopyPropagationSrc) -> HomogenizedOperand {
+        fn from(src: &CopyPropagationSrc) -> Self {
             match src {
                 CopyPropagationSrc::Imm(tv) => HomogenizedOperand::Tarval(*tv),
                 CopyPropagationSrc::Var(var) => HomogenizedOperand::Var(*var),
@@ -1158,7 +1172,7 @@ mod lir_cleanup {
     }
 
     impl PartialOrd for HomogenizedOperand {
-        fn partial_cmp(&self, other: &HomogenizedOperand) -> Option<std::cmp::Ordering> {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
             Some(self.cmp(other))
         }
     }
@@ -1169,8 +1183,8 @@ mod lir_cleanup {
             match (self, other) {
                 (Var(a), Var(b)) => a.num.cmp(&b.num),
                 (Tarval(a), Tarval(b)) => {
-                    assert!(a.is_long());
-                    assert!(b.is_long());
+                    debug_assert!(a.is_long());
+                    debug_assert!(b.is_long());
                     a.get_long().cmp(&b.get_long())
                 }
                 (Var(_), Tarval(_)) => std::cmp::Ordering::Greater,

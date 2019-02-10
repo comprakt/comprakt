@@ -3,6 +3,17 @@
 //! of `cargo test`.
 #![feature(proc_macro_hygiene)]
 #![recursion_limit = "128"]
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self,
+    clippy::use_debug
+)]
 
 extern crate proc_macro;
 extern crate proc_macro2;

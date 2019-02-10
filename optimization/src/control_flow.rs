@@ -30,7 +30,7 @@ pub struct ControlFlow {
 
 impl optimization::Local for ControlFlow {
     fn optimize_function(graph: Graph) -> Outcome {
-        ControlFlow::new(graph).run()
+        Self::new(graph).run()
     }
 }
 

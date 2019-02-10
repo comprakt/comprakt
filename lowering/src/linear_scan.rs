@@ -33,7 +33,7 @@ impl From<LinearScanAllocator> for LSAResult {
             num_regs_required,
             ..
         } = lsa;
-        LSAResult {
+        Self {
             stack_vars_counter,
             var_location,
             num_regs_required,
@@ -64,7 +64,7 @@ pub(crate) fn register_allocation(func: &mut lir::Function, lva_result: LVAResul
 struct Active(LiveRange);
 
 impl Ord for Active {
-    fn cmp(&self, other: &Active) -> Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         match self.interval.upper().cmp(&other.interval.upper()) {
             // If the upper bound is the same take the var that was allocated earlier
             Ordering::Equal => self.var.num().cmp(&other.var.num()),
@@ -74,7 +74,7 @@ impl Ord for Active {
 }
 
 impl PartialOrd for Active {
-    fn partial_cmp(&self, other: &Active) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -147,6 +147,7 @@ impl LinearScanAllocator {
         var_live: BTreeSet<LiveRange>,
         params: &[Param],
     ) -> Self {
+        use std::iter::FromIterator;
         let mut active = BTreeSet::new();
         let mut var_location = HashMap::new();
         let mut reg_lr_map = HashMap::new();
@@ -171,7 +172,6 @@ impl LinearScanAllocator {
 
         let num_regs_required = active.len();
 
-        use std::iter::FromIterator;
         let params = HashMap::from_iter(params.iter().map(|param| (param.var, *param)));
         log::debug!("PARAMS {:#?}", params);
 

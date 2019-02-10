@@ -1,4 +1,15 @@
 #![feature(try_from)]
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self,
+    clippy::use_debug
+)]
 
 pub mod lextest;
 
@@ -17,6 +28,7 @@ macro_rules! match_op {
     ($input:expr, $( ($token_string:expr, $token:expr) ),+: $len:expr, $default:expr) => {{
         // unwrap is safe because we have already peeked ahead, ensuring EOF is not the case
         let span = $input.peek_at_most($len).unwrap();
+        #[allow(clippy::single_match_else)]
         match span.as_str() {
             $(
                 $token_string => match_op!($input, span, $len, $token),
@@ -355,7 +367,7 @@ pub struct Lexer<'f, 's> {
 }
 
 /// Test if the given characters are whitespace characters according
-/// to the MiniJava specification
+/// to the `MiniJava` specification
 fn is_minijava_whitespace(c: char) -> bool {
     match c {
         ' ' | '\n' | '\r' | '\t' => true,
@@ -598,7 +610,7 @@ impl<'f, 's> Iterator for Lexer<'f, 's> {
 }
 
 #[cfg(test)]
-#[allow(clippy::print_stdout)]
+#[allow(clippy::print_stdout, clippy::use_debug)]
 mod tests {
 
     use super::{is_minijava_whitespace, Keyword, Operator, TokenKind};

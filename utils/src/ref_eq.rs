@@ -13,7 +13,7 @@ impl<'a, T> std::hash::Hash for RefEq<&'a T> {
 }
 
 impl<'a, 'b, T> PartialEq<RefEq<&'b T>> for RefEq<&'b T> {
-    fn eq(&self, other: &'_ RefEq<&'b T>) -> bool {
+    fn eq(&self, other: &'_ Self) -> bool {
         self.0 as *const T == other.0 as *const T
     }
 }

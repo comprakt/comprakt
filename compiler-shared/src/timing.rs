@@ -25,7 +25,7 @@ pub struct Measurement {
 }
 
 impl Measurement {
-    pub fn start(label: &str) -> Measurement {
+    pub fn start(label: &str) -> Self {
         Self {
             start: Instant::now(),
             label: label.to_string(),
@@ -42,7 +42,7 @@ impl Measurement {
     }
 
     pub fn guard(label: &str) -> MeasurementGuard {
-        MeasurementGuard(Measurement::start(label))
+        MeasurementGuard(Self::start(label))
     }
 }
 

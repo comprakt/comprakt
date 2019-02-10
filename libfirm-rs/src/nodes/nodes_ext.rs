@@ -15,7 +15,7 @@ lazy_static! {
 }
 
 impl Node {
-    pub fn wrap(ir_node: *mut bindings::ir_node) -> Node {
+    pub fn wrap(ir_node: *mut bindings::ir_node) -> Self {
         //NodeFactory::new().create(ir_node)
         NODE_FACTORY.create(ir_node)
     }
@@ -29,22 +29,22 @@ impl Node {
     }
 
     pub fn must_member(self) -> Member {
-        assert!(Node::is_member(self));
+        debug_assert!(Self::is_member(self));
         Member::new(self.internal_ir_node())
     }
 
     pub fn must_sel(self) -> Sel {
-        assert!(Node::is_sel(self));
+        debug_assert!(Self::is_sel(self));
         Sel::new(self.internal_ir_node())
     }
 
     pub fn must_phi(self) -> Phi {
-        assert!(Node::is_phi(self));
+        debug_assert!(Self::is_phi(self));
         Phi::new(self.internal_ir_node())
     }
 
     pub fn opt_phi(self) -> Option<Phi> {
-        if Node::is_phi(self) {
+        if Self::is_phi(self) {
             Some(Phi::new(self.internal_ir_node()))
         } else {
             None
@@ -112,7 +112,7 @@ macro_rules! simple_node_iterator {
 }
 
 /// A trait to abstract from Node enum and various *-Node structs.
-/// Inspired by https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java.
+/// Inspired by <https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java>.
 pub trait NodeTrait {
     fn internal_ir_node(&self) -> *mut bindings::ir_node;
 
@@ -371,21 +371,21 @@ linked_list_iterator!(
 );
 
 impl Block {
-    pub fn deepest_common_dominator(a: Block, b: Block) -> Block {
+    pub fn deepest_common_dominator(a: Self, b: Self) -> Self {
         let cdom = unsafe {
             bindings::ir_deepest_common_dominator(a.internal_ir_node(), b.internal_ir_node())
         };
 
-        Block::new(cdom)
+        Self::new(cdom)
     }
 
-    pub fn immediate_dominator(self) -> Option<Block> {
+    pub fn immediate_dominator(self) -> Option<Self> {
         // TODO: check if dominators are computed
         let idom = unsafe { bindings::get_Block_idom(self.internal_ir_node()) };
         if idom.is_null() {
             None
         } else {
-            Some(Block::new(idom))
+            Some(Self::new(idom))
         }
     }
 
@@ -395,13 +395,13 @@ impl Block {
         unsafe { bindings::get_loop_depth(loop_ref) }
     }
 
-    pub fn immediate_post_dominator(self) -> Option<Block> {
+    pub fn immediate_post_dominator(self) -> Option<Self> {
         // TODO: check if post dominators are computed
         let ipostdom = unsafe { bindings::get_Block_ipostdom(self.internal_ir_node()) };
         if ipostdom.is_null() {
             None
         } else {
-            Some(Block::new(ipostdom))
+            Some(Self::new(ipostdom))
         }
     }
 
@@ -427,8 +427,8 @@ impl Block {
     }
 
     pub fn phi_or_node(self, nodes: &[Node]) -> Node {
-        assert!(!nodes.is_empty());
-        assert!(nodes.iter().all(|n| n.mode() == nodes[0].mode()));
+        debug_assert!(!nodes.is_empty());
+        debug_assert!(nodes.iter().all(|n| n.mode() == nodes[0].mode()));
 
         if nodes.len() == 1 {
             nodes[0]
@@ -492,7 +492,7 @@ impl Block {
         unsafe { get_Block_dom_depth(self.internal_ir_node()) as usize }
     }
 
-    pub fn dominates(self, other: Block) -> bool {
+    pub fn dominates(self, other: Self) -> bool {
         unsafe { bindings::block_dominates(self.internal_ir_node(), other.internal_ir_node()) != 0 }
     }
 }
@@ -530,8 +530,8 @@ impl Phi {
 simple_node_iterator!(PhiPredsIterator, get_Phi_n_preds, get_Phi_pred, i32);
 
 impl Proj {
-    pub fn new_proj(self, num: u32, mode: Mode) -> Proj {
-        Proj::new(unsafe {
+    pub fn new_proj(self, num: u32, mode: Mode) -> Self {
+        Self::new(unsafe {
             bindings::new_r_Proj(self.internal_ir_node(), mode.libfirm_mode(), num)
         })
     }

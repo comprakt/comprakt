@@ -187,12 +187,12 @@ pub enum Shape {
 }
 
 impl Label {
-    pub fn from_text(text: String) -> Label {
-        Label::default().text(text)
+    pub fn from_text(text: String) -> Self {
+        Self::default().text(text)
     }
 
-    pub fn from_html(text: String) -> Label {
-        Label::default().html(text)
+    pub fn from_html(text: String) -> Self {
+        Self::default().html(text)
     }
 
     pub fn style(mut self, val: Style) -> Self {

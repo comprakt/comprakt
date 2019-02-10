@@ -12,7 +12,7 @@ pub enum AST<'t> {
 }
 
 /// This is the top-level AST node. It stores all class declarations of the
-/// MiniJava program.
+/// `MiniJava` program.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Program<'t> {
     pub classes: Vec<Spanned<'t, ClassDeclaration<'t>>>,
@@ -43,7 +43,7 @@ pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
 /// * `Field(type)`: a declaration of a field of a class
 /// * `Method(type, params, body)`: a method of a class
 /// * `MainMethod(params, body)`: a main method, which is a special method that
-/// is only allowed once in a MiniJava Program. `params` is guaranteed to
+/// is only allowed once in a `MiniJava` Program. `params` is guaranteed to
 /// only contain the `String[] IDENT` parameter.
 #[strum_discriminants(derive(Display, Hash, PartialOrd, Ord))]
 #[derive(EnumDiscriminants, Debug, PartialEq, Eq, Clone)]
@@ -216,8 +216,7 @@ impl<'f> ClassMemberKind<'f> {
     pub fn is_method(&self) -> bool {
         use self::ClassMemberKind::*;
         match self {
-            Method(_, _, _) => true,
-            MainMethod(_, _) => true,
+            Method(_, _, _) | MainMethod(_, _) => true,
             Field(_) => false,
         }
     }

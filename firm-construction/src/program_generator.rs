@@ -27,8 +27,8 @@ pub struct Spans {
 }
 
 impl Spans {
-    pub fn new() -> Spans {
-        Spans::default()
+    pub fn new() -> Self {
+        Self::default()
     }
     pub fn lookup_span(node: impl NodeTrait) -> Option<Span<'static>> {
         SPANS.lock().unwrap().lookup_span_(node)
@@ -49,8 +49,8 @@ impl Spans {
     }
 
     pub fn copy_span(target_node: impl NodeTrait, source_node: impl NodeTrait) {
-        if let Some(span) = Spans::lookup_span(source_node) {
-            Spans::add_span(target_node, span);
+        if let Some(span) = Self::lookup_span(source_node) {
+            Self::add_span(target_node, span);
         }
     }
 
@@ -142,7 +142,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
         body: &'ast Body<'src, 'ast>,
         program: &FirmProgram<'src, 'ast>,
     ) -> Graph {
-        assert!(!method.def.is_static || (method.def.is_static && method.def.is_main));
+        debug_assert!(!method.def.is_static || (method.def.is_static && method.def.is_main));
 
         let local_vars_count = LocalVarDefVisitor::count_local_vars(&NodeKind::from(body));
         let this_param = if method.def.is_main { 0 } else { 1 };
@@ -170,7 +170,7 @@ struct LocalVarDefVisitor {
 
 impl<'a, 'f> LocalVarDefVisitor {
     fn count_local_vars(node: &NodeKind<'a, 'f>) -> usize {
-        let mut visitor = LocalVarDefVisitor::new();
+        let mut visitor = Self::new();
         visitor.visit(node);
         visitor.count
     }

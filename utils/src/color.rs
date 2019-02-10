@@ -4,7 +4,7 @@
 //! and styles after writing through a drop(.) guard/destructor.
 //!
 //! Calls to functions should pass the raw writer, each function should create
-//! its own ColorOutput object that is dropped on return.
+//! its own `ColorOutput` object that is dropped on return.
 //!
 //! This may result in unnecessary/suboptimal color controls in the output.
 //!

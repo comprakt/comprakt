@@ -1,4 +1,14 @@
 #![feature(proc_macro_hygiene, decl_macro)]
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self
+)]
 
 //! This is a browser-based graphical debugger for FIRM graphs.
 //!
@@ -153,6 +163,7 @@ pub fn pause(_breakpoint: Breakpoint, _program: HashMap<String, GraphState>) {}
 
 #[cfg(feature = "debugger_gui")]
 #[allow(clippy::implicit_hasher)]
+#[allow(clippy::print_stdout)]
 pub fn pause(breakpoint: Breakpoint, program: HashMap<String, GraphState>) {
     if let Ok(fnname) = std::env::var("COMPRAKT_DEBUGGER_GUI_DUMP_LIR_DOT_GRAPH") {
         if breakpoint.label.matches("LIR").count() > 0 {
@@ -247,7 +258,7 @@ impl BreakpointFilters {
 
 impl Default for BreakpointFilters {
     fn default() -> Self {
-        let mut filters = BreakpointFilters::new();
+        let mut filters = Self::new();
 
         if let Ok(labels) = std::env::var("FILTER_BREAKPOINT_LABEL") {
             for label in labels.split(',') {

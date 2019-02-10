@@ -32,7 +32,7 @@ struct UnsafeSlidingWindow<'s, T> {
 
 impl<'s, T> UnsafeSlidingWindow<'s, T> {
     fn new(slice: &'s mut [T], width: usize) -> UnsafeSlidingWindow<'s, T> {
-        assert!(width > 0);
+        debug_assert!(width > 0);
         UnsafeSlidingWindow {
             slice,
             width,

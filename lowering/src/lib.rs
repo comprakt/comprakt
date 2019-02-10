@@ -4,8 +4,16 @@
 #![feature(core_intrinsics)]
 #![feature(try_from)]
 #![feature(uniform_paths)]
-#![warn(clippy::print_stdout)]
-#![warn(clippy::all)]
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self
+)]
 
 #[macro_use]
 extern crate derive_more;
@@ -26,6 +34,7 @@ use debugging;
 use firm_construction::FirmProgram;
 use lir::LIR;
 
+#[allow(clippy::similar_names)]
 pub fn run_backend(
     firm_program: &FirmProgram<'_, '_>,
     out: &mut impl std::io::Write,

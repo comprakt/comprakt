@@ -53,7 +53,7 @@ pub struct ConstantFolding {
 
 impl optimization::Local for ConstantFolding {
     fn optimize_function(graph: Graph) -> Outcome {
-        let mut constant_folding = ConstantFolding::new(graph);
+        let mut constant_folding = Self::new(graph);
         constant_folding.run();
         constant_folding.apply()
     }
@@ -225,6 +225,7 @@ impl ConstantFolding {
         cur_lattice: &'_ NodeLattice,
         deps: &mut Vec<Node>,
     ) -> NodeLattice {
+        use self::{Node::*, ProjKind::*};
         self.breakpoint(cur_node);
 
         let reachable = cur_lattice.reachable()
@@ -242,7 +243,6 @@ impl ConstantFolding {
             return NodeLattice::NotReachableYet;
         }
 
-        use self::{Node::*, ProjKind::*};
         match cur_node {
             // == Conditionals ==
             Cond(cond) => self.lookup(cond.selector()).clone(),
