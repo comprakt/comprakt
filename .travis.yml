@@ -79,12 +79,14 @@ script: |
         cargo test $FLAGS ;
         ;;
       mjtest)
-        cargo build --release && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py lexer && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py syntax && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py semantic && \
-        MJ_TIMEOUT=0 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py compile-firm --all_exec_tests && \
-        MJ_TIMEOUT=0 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py compile --all_exec_tests ;
+        ./build && \
+        MJ_TIMEOUT=60 MJ_RUN=./run python3 ./mjtest/mjt.py lexer && \
+        MJ_TIMEOUT=60 MJ_RUN=./run python3 ./mjtest/mjt.py syntax && \
+        MJ_TIMEOUT=60 MJ_RUN=./run python3 ./mjtest/mjt.py semantic && \
+        MJ_TIMEOUT=0 MJ_RUN=./run python3 ./mjtest/mjt.py compile-firm --all_exec_tests && \
+        BENCH=1 MJ_TIMEOUT=0 MJ_RUN=./run python3 ./mjtest/mjt.py compile-firm --all_exec_tests && \
+        MJ_TIMEOUT=0 MJ_RUN=./run python3 ./mjtest/mjt.py compile --all_exec_tests && \
+        BENCH=1 MJ_TIMEOUT=0 MJ_RUN=./run python3 ./mjtest/mjt.py compile --all_exec_tests ;
         ;;
       submission-system)
         ./build && \
