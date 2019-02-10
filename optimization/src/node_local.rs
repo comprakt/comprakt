@@ -2,6 +2,53 @@
 //! - some algebraic simplifications, e.g. a << 2
 //! - div of power of two to a sequence of shifts
 //! - mod of power of two to a sequence of shifts
+//!
+//! To verify changes to these optimizations, you can compare the output of our
+//! compiler with the output of the java compiler for the whole integer range as
+//! follows, e.g. to test the substitution for modulo:
+//!
+//! ```
+//! class ModAllBy8 {
+//!     public static void main(String[] args) {
+//!         int min = -2147483648;
+//!         int max = 2147483647;
+//!         int remainder = 8;
+//!
+//!         /* reject fast by testing boundaries */
+//!         System.out.println(min % remainder);
+//!         System.out.println(max % remainder);
+//!         System.out.println(-100 % remainder);
+//!         System.out.println(-1 % remainder);
+//!         System.out.println(0 % remainder);
+//!         System.out.println(1 % remainder);
+//!         System.out.println(100 % remainder);
+//!
+//!         /* check all possible ints */
+//!         int i = min;
+//!
+//!         while (i <= max) {
+//!             System.out.println(i % remainder);
+//!             i = i + 1;
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! Compile both and check the optimization was actually applied:
+//!
+//! ```
+//! javac ModAllBy8.java
+//! cargo run -- --compile -o ModAllBy8-comprakt.out --emit-asm ModAllBy8-comprakt.S
+//! grep -q div ModAllBy8-comprakt.S; echo $? # this should print a 1!
+//! ```
+//!
+//! Compare both using one of the commands below (don't write to disk! this
+//! would take about 50GB!):
+//!
+//! ```
+//! bash -c "diff -q <(./ModAllBy8-comprakt.out) <(java ModAllBy8)"
+//! bash -c "comm -3 <(./ModAllBy8-comprakt.out) <(java ModAllBy8)"
+//! ```
 // TODO: this could be done without assure_outs, we just have to walk the memory
 // chain first, collecting all memory edges into a div (out memory of div). Then
 // graph chunks representing divisions can be matched by simply matching the
