@@ -144,11 +144,13 @@ impl Level {
                 Optimization::new(Kind::Inline),
                 Optimization::new(Kind::ConstantFolding),
                 Optimization::new(Kind::ControlFlow),
+                Optimization::new(Kind::NodeLocal)
                 // this sequence results in global common subexpression elimination
-                // and loop invariant code motion
-                Optimization::new(Kind::EarliestPlacement),
-                Optimization::new(Kind::CommonSubExprElim),
-                Optimization::new(Kind::CostMinimizingPlacement),
+                // and loop invariant code motion. Pretty expensive and no measurable
+                // change in benchmarks.
+                //Optimization::new(Kind::EarliestPlacement),
+                //Optimization::new(Kind::CommonSubExprElim),
+                //Optimization::new(Kind::CostMinimizingPlacement),
             ],
             Level::Custom(list) => list.clone(),
         }
