@@ -117,7 +117,15 @@ pub struct Pointer {
     pub can_be_null: bool,
 }
 
+#[allow(clippy::wrong_self_convention)]
 impl Pointer {
+    pub fn to_null_and(target: MemoryArea) -> Self {
+        Self {
+            target,
+            can_be_null: true,
+        }
+    }
+
     pub fn to(target: MemoryArea) -> Self {
         Self {
             target,

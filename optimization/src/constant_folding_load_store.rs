@@ -302,6 +302,52 @@ impl ConstantFoldingWithLoadStore {
         "None".to_owned()
     }
 
+    // used for debugging
+    #[allow(clippy::single_match)]
+    fn debug_dump_heap(node: Node, heap: &Heap) -> String {
+        if let Some(span) = Spans::lookup_span(node) {
+            let mut result = String::new();
+            write!(
+                &mut result,
+                "highlight-line:{},{},{},{}",
+                span.start_position().line_number(),
+                span.start_position().column() + 1,
+                span.end_position().line_number(),
+                span.end_position().column() + 1,
+            )
+            .unwrap();
+
+            let mut text = HashMap::new();
+            for (node, info) in &heap.array_infos {
+                if let InfoIdx::Node(node) = node {
+                    text.insert(*node, format!("{:?}", info));
+                }
+            }
+            for (node, info) in &heap.object_infos {
+                if let InfoIdx::Node(node) = node {
+                    text.insert(*node, format!("{:?}", info));
+                }
+            }
+
+            for (node, info) in &text {
+                if let Some(span) = Spans::lookup_span(*node) {
+                    write!(
+                        &mut result,
+                        "\n{}:{}: {}",
+                        span.start_position().line_number(),
+                        (*node).debug_fmt().short(true),
+                        info
+                    )
+                    .unwrap();
+                }
+            }
+
+            result
+        } else {
+            "None".to_owned()
+        }
+    }
+
     fn lookup(&self, node: Node) -> &NodeLattice {
         &self.values[&node]
     }
@@ -527,26 +573,48 @@ impl ConstantFoldingWithLoadStore {
                             }
                         }
 
-                        log::debug!(
-                            "{:?} uses {:?} and {:?} as args",
-                            call,
-                            used_mem,
-                            used_nodes
-                        );
-                        let accessible_mem = heap.mem_reachable_from(used_mem);
+                        if format!("{:?}", call).contains("__log") {
+                            log::info!(
+                                "Log call in {}: {:?} heap: <<<<{}>>>>",
+                                Spans::span_str(call),
+                                call.args()
+                                    .filter_map(|a| self.lookup_val(a).map(|v| (a, v)))
+                                    .map(|(a, val)| format!(
+                                        "{:?}{}: {:?}",
+                                        a,
+                                        Spans::span_str(a),
+                                        val
+                                    ))
+                                    .collect::<Vec<_>>()
+                                    .join(","),
+                                Self::debug_dump_heap(call.as_node(), heap)
+                            );
+                            NodeLattice::tuple(
+                                NodeLattice::Invalid,
+                                NodeLattice::Heap(heap.clone()),
+                            )
+                        } else {
+                            log::debug!(
+                                "{:?} uses {:?} and {:?} as args",
+                                call,
+                                used_mem,
+                                used_nodes
+                            );
+                            let accessible_mem = heap.mem_reachable_from(used_mem);
 
-                        mark_stores_as_required(&heap.last_stores_into(&accessible_mem));
+                            mark_stores_as_required(&heap.last_stores_into(&accessible_mem));
 
-                        let heap = heap.reset_mem(&accessible_mem);
+                            let heap = heap.reset_mem(&accessible_mem);
 
-                        NodeLattice::tuple(
-                            call.single_result_ty()
-                                .map(|ty| {
-                                    NodeValue::non_const_val(ty.mode(), accessible_mem).into()
-                                })
-                                .unwrap_or(NodeLattice::Invalid),
-                            NodeLattice::Heap(Rc::new(heap)),
-                        )
+                            NodeLattice::tuple(
+                                call.single_result_ty()
+                                    .map(|ty| {
+                                        NodeValue::non_const_val(ty.mode(), accessible_mem).into()
+                                    })
+                                    .unwrap_or(NodeLattice::Invalid),
+                                NodeLattice::Heap(Rc::new(heap)),
+                            )
+                        }
                     }
                     val => panic!("unreachable {:?}", val),
                 }
@@ -644,9 +712,20 @@ impl ConstantFoldingWithLoadStore {
                                     return NodeLattice::NotReachableYet;
                                 };
 
-                                let is_source_usable = val.source.is_usable_from(cur_node.block());
+                                let is_source_usable = if let Some(source_node) =
+                                    val.source.usable_source_node(cur_node.block())
+                                {
+                                    log::debug!(
+                                        "{:?} uses {:?} directly instead of loading it",
+                                        load,
+                                        source_node
+                                    );
+                                    true
+                                } else {
+                                    false
+                                };
                                 // TODO use is_source_usable here in this check!
-                                if is_source_usable && val.tarval().is_bad() {
+                                if !is_source_usable && val.tarval().is_bad() {
                                     mark_stores_as_required(&stores);
                                 }
 
@@ -692,7 +771,7 @@ impl ConstantFoldingWithLoadStore {
 
             // == Conditionals ==
             Cmp(cmp) => {
-                #[derive(Clone, Copy)]
+                #[derive(Clone, Copy, Debug)]
                 enum SimpleRelation {
                     Equal,
                     NotEqual,
@@ -704,10 +783,10 @@ impl ConstantFoldingWithLoadStore {
                         bindings::ir_relation::Equal => Some(SimpleRelation::Equal),
                         bindings::ir_relation::LessGreater => Some(SimpleRelation::NotEqual),
                         _ => None,
-                    };
-                    None
+                    }
                 }
 
+                #[derive(Clone, Copy, Debug)]
                 enum CmpResult {
                     Bool(bool),
                     NotReachableYet,
@@ -726,11 +805,14 @@ impl ConstantFoldingWithLoadStore {
                             &val1.value,
                             &val2.value,
                             as_simple_relation(cmp.relation()),
-                            &val1.source,
+                            (&val1.source, &val2.source),
                         ) {
-                            (_, _, Some(simple_rel), NodeValueSource::Node(_))
-                                if val1.source == val2.source =>
-                            {
+                            (
+                                _,
+                                _,
+                                Some(simple_rel),
+                                (NodeValueSource::Node(src1), NodeValueSource::Node(src2)),
+                            ) if src1 == src2 => {
                                 // we have `node == node` or `node != node`
                                 match simple_rel {
                                     SimpleRelation::Equal => CmpResult::Bool(true),
@@ -743,7 +825,7 @@ impl ConstantFoldingWithLoadStore {
                                 rel,
                                 _,
                             ) => {
-                                match (rel, ptr1.eq(ptr2)) {
+                                let result = match (rel, ptr1.eq(ptr2)) {
                                     (Some(SimpleRelation::Equal), Some(res)) => {
                                         // e.g. p1 == p2
                                         // with p1 -> {obj1,null} and p2 -> {@obj2}
@@ -755,7 +837,17 @@ impl ConstantFoldingWithLoadStore {
                                         CmpResult::Bool(!res)
                                     }
                                     _ => CmpResult::Bad,
-                                }
+                                };
+
+                                log::info!(
+                                    "Result of compare: {:?} {:?} {:?} = {:?} in {}",
+                                    ptr1,
+                                    rel,
+                                    ptr2,
+                                    result,
+                                    Spans::span_str(cmp),
+                                );
+                                CmpResult::Bad
                             }
                             (AbstractValue::Tarval(t1), AbstractValue::Tarval(t2), _, _) => {
                                 if t1.is_bad() || t2.is_bad() {
@@ -940,11 +1032,11 @@ impl ConstantFoldingWithLoadStore {
                     const_node.into()
                 } else {
                     match source_node {
-                        /*NodeValueSource::Node(new_node)
+                        NodeValueSource::Node(new_node)
                             if source_node.is_usable_from(node.block()) =>
                         {
                             new_node
-                        }*/
+                        }
                         _ => continue,
                     }
                 };
@@ -1006,8 +1098,9 @@ impl ConstantFoldingWithLoadStore {
 
                 optimized_conds += 1;
                 log::debug!(
-                    "Replace {:?} with {:?} to {:?}",
+                    "Replace {:?}{} with {:?} to {:?}",
                     always_taken_path,
+                    Spans::span_str(always_taken_path),
                     jmp,
                     target_block
                 );
@@ -1023,9 +1116,9 @@ impl ConstantFoldingWithLoadStore {
 
         for (&node, _lattice) in &values {
             match node {
-                /*Node::Store(n) if !self.required_stores.contains(&n) => {
+                Node::Store(n) if !self.required_stores.contains(&n) => {
                     patch(n.mem(), n.out_proj_m(), None, n.as_node())
-                }*/
+                }
                 Node::Load(n) => patch(n.mem(), n.out_proj_m(), n.out_proj_res(), n.as_node()),
                 _ => {}
             };

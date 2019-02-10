@@ -280,6 +280,19 @@ impl NodeValueSource {
 */
 
 impl NodeValueSource {
+    pub fn usable_source_node(&self, block: Block) -> Option<Node> {
+        match self {
+            NodeValueSource::Unknown => None,
+            NodeValueSource::Node(node) => {
+                if node.block().dominates(block) {
+                    Some(*node)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
     pub fn is_usable_from(&self, block: Block) -> bool {
         match self {
             NodeValueSource::Unknown => false,
@@ -343,7 +356,7 @@ impl NodeValue {
         if mode.is_pointer() {
             if val.is_bad() {
                 // still cannot point to created objects in the current method
-                NodeValue::new(Pointer::to(MemoryArea::external()).into(), source)
+                NodeValue::new(Pointer::to_null_and(MemoryArea::external()).into(), source)
             } else if val.is_zero() {
                 NodeValue::new(Pointer::null().into(), source)
             } else {
@@ -444,7 +457,7 @@ impl Lattice for NodeValue {
             (NodeValueSource::Node(node1), NodeValueSource::Node(node2)) if node1 == node2 => {
                 NodeValueSource::Node(*node1)
             }
-            /*(NodeValueSource::Node(node1), NodeValueSource::Node(node2)) => match context {
+            (NodeValueSource::Node(node1), NodeValueSource::Node(node2)) => match context {
                 JoinContext::PhiWith2Preds {
                     phi,
                     phi_container,
@@ -479,7 +492,7 @@ impl Lattice for NodeValue {
                 }
 
                 _ => NodeValueSource::Unknown,
-            },*/
+            },
             _ => NodeValueSource::Unknown,
         };
 
