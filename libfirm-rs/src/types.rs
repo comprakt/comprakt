@@ -294,8 +294,8 @@ impl ClassTy {
         .expect("Expected class type")
     }
 
-    pub fn new_anon(tag: &str) -> ClassTy {
-        ClassTy::from(Ty::from_ir_type(unsafe {
+    pub fn new_anon(tag: &str) -> Self {
+        Self::from(Ty::from_ir_type(unsafe {
             let tag_c = CString::new(tag).unwrap();
             let name_id = bindings::id_unique(tag_c.as_ptr());
             bindings::new_type_class(name_id)
