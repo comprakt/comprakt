@@ -435,6 +435,9 @@
 <span id="435">435</span>
 <span id="436">436</span>
 <span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{
@@ -647,6 +650,9 @@
                 <span class="self">self</span>.<span class="ident">body</span>.<span class="ident">push</span>(<span class="ident">Instruction</span>::<span class="ident">Conv</span> { <span class="ident">src</span>, <span class="ident">dst</span> });
             }
 
+            <span class="ident">Node</span>::<span class="ident">Shr</span>(<span class="ident">shr</span>) <span class="op">=&gt;</span> <span class="macro">gen_binop</span><span class="macro">!</span>(<span class="ident">Shr</span>, <span class="ident">shr</span>, <span class="ident">block</span>, <span class="ident">node</span>),
+            <span class="ident">Node</span>::<span class="ident">Shrs</span>(<span class="ident">shrs</span>) <span class="op">=&gt;</span> <span class="macro">gen_binop</span><span class="macro">!</span>(<span class="ident">Shrs</span>, <span class="ident">shrs</span>, <span class="ident">block</span>, <span class="ident">node</span>),
+            <span class="ident">Node</span>::<span class="ident">Shl</span>(<span class="ident">shl</span>) <span class="op">=&gt;</span> <span class="macro">gen_binop</span><span class="macro">!</span>(<span class="ident">Shl</span>, <span class="ident">shl</span>, <span class="ident">block</span>, <span class="ident">node</span>),
             <span class="ident">Node</span>::<span class="ident">Add</span>(<span class="ident">add</span>) <span class="op">=&gt;</span> <span class="macro">gen_binop</span><span class="macro">!</span>(<span class="ident">Add</span>, <span class="ident">add</span>, <span class="ident">block</span>, <span class="ident">node</span>),
             <span class="ident">Node</span>::<span class="ident">Sub</span>(<span class="ident">sub</span>) <span class="op">=&gt;</span> <span class="macro">gen_binop</span><span class="macro">!</span>(<span class="ident">Sub</span>, <span class="ident">sub</span>, <span class="ident">block</span>, <span class="ident">node</span>),
             <span class="ident">Node</span>::<span class="ident">Mul</span>(<span class="ident">mul</span>) <span class="op">=&gt;</span> <span class="macro">gen_binop</span><span class="macro">!</span>(<span class="ident">Mul</span>, <span class="ident">mul</span>, <span class="ident">block</span>, <span class="ident">node</span>),

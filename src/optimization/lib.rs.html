@@ -266,7 +266,13 @@
 <span id="266">266</span>
 <span id="267">267</span>
 <span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">single_match</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">try_trait</span>)]</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">firm</span>::<span class="ident">FirmProgram</span>, <span class="ident">timing</span>::<span class="ident">Measurement</span>};
@@ -305,6 +311,8 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">common_subexpr_elim</span>::<span class="ident">CommonSubExpr</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">compile_time_assertions</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">compile_time_assertions</span>::{<span class="ident">CompileTimeAssertions</span>, <span class="ident">Phase</span>};
+<span class="kw">mod</span> <span class="ident">node_local</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">node_local</span>::<span class="ident">NodeLocal</span>;
 <span class="kw">mod</span> <span class="ident">lattices</span>;
 
 <span class="doccomment">/// An optimization that optimizes the whole program by examining all function</span>
@@ -354,6 +362,7 @@
     <span class="ident">CostMinimizingPlacement</span>,
     <span class="ident">CodePlacement</span>,
     <span class="ident">CommonSubExprElim</span>,
+    <span class="ident">NodeLocal</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Kind</span> {
@@ -368,6 +377,7 @@
             <span class="ident">Kind</span>::<span class="ident">CostMinimizingPlacement</span> <span class="op">=&gt;</span> <span class="ident">CostMinimizingPlacement</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
             <span class="ident">Kind</span>::<span class="ident">CodePlacement</span> <span class="op">=&gt;</span> <span class="ident">CodePlacement</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
             <span class="ident">Kind</span>::<span class="ident">CommonSubExprElim</span> <span class="op">=&gt;</span> <span class="ident">CommonSubExpr</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
+            <span class="ident">Kind</span>::<span class="ident">NodeLocal</span> <span class="op">=&gt;</span> <span class="ident">NodeLocal</span>::<span class="ident">optimize</span>(<span class="ident">program</span>),
         }
     }
 }
@@ -404,17 +414,17 @@
                 <span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">ControlFlow</span>),
             ],
             <span class="ident">Level</span>::<span class="ident">Aggressive</span> <span class="op">=&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[
-                <span class="comment">// TODO: code placement in combination with inlining can be</span>
-                <span class="comment">// very expensive</span>
                 <span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">Inline</span>),
-                <span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">ConstantFolding</span>),
+                <span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">ConstantFoldingWithLoadStore</span>),
                 <span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">ControlFlow</span>),
-                <span class="comment">// this sequence results in global common subexpression elimination</span>
-                <span class="comment">// and loop invariant code motion</span>
-                <span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">EarliestPlacement</span>),
-                <span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">CommonSubExprElim</span>),
-                <span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">CostMinimizingPlacement</span>),
+                <span class="ident">Optimization</span>::<span class="ident">new</span>(<span class="ident">Kind</span>::<span class="ident">NodeLocal</span>),
             ],
+            <span class="comment">// this sequence results in global common subexpression elimination</span>
+            <span class="comment">// and loop invariant code motion. Pretty expensive in combination</span>
+            <span class="comment">// with inlining and no measurable change in benchmarks.</span>
+            <span class="comment">//Optimization::new(Kind::EarliestPlacement),</span>
+            <span class="comment">//Optimization::new(Kind::CommonSubExprElim),</span>
+            <span class="comment">//Optimization::new(Kind::CostMinimizingPlacement),</span>
             <span class="ident">Level</span>::<span class="ident">Custom</span>(<span class="ident">list</span>) <span class="op">=&gt;</span> <span class="ident">list</span>.<span class="ident">clone</span>(),
         }
     }
