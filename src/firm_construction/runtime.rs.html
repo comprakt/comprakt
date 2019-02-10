@@ -148,28 +148,6 @@
 <span id="148">148</span>
 <span id="149">149</span>
 <span id="150">150</span>
-<span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
-<span id="157">157</span>
-<span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
-<span id="164">164</span>
-<span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
-<span id="168">168</span>
-<span id="169">169</span>
-<span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">types</span>::<span class="kw-2">*</span>, <span class="ident">Entity</span>};
 <span class="kw">use</span> <span class="ident">strum_macros</span>::<span class="ident">EnumDiscriminants</span>;
@@ -184,7 +162,6 @@
     <span class="ident">SystemOutFlush</span>,
     <span class="ident">SystemInRead</span>,
     <span class="ident">New</span>,
-    <span class="ident">NewArray</span>,
     <span class="ident">Dumpstack</span>,
     <span class="ident">NullUsage</span>,
     <span class="ident">ArrayOutOfBounds</span>,
@@ -223,10 +200,8 @@
             <span class="ident">RuntimeFunction</span>::<span class="ident">NullUsage</span> <span class="op">=&gt;</span> <span class="string">&quot;mjrt_null_usage&quot;</span>,
             <span class="ident">RuntimeFunction</span>::<span class="ident">ArrayOutOfBounds</span> <span class="op">=&gt;</span> <span class="string">&quot;mjrt_array_out_of_bounds&quot;</span>,
             <span class="ident">RuntimeFunction</span>::<span class="ident">New</span> <span class="op">=&gt;</span> <span class="string">&quot;mjrt_new&quot;</span>,
-            <span class="ident">RuntimeFunction</span>::<span class="ident">NewArray</span> <span class="op">=&gt;</span> <span class="string">&quot;mjrt_new_array&quot;</span>,
         }
     }
-
     <span class="kw">fn</span> <span class="ident">mj_main_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
         <span class="string">&quot;mj_main&quot;</span>
     }
@@ -306,17 +281,8 @@
         };
 
         <span class="kw">let</span> <span class="ident">array_out_of_bounds</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="ident">PrimitiveTy</span>::<span class="ident">i64</span>();
-            <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">PrimitiveTy</span>::<span class="ident">i64</span>();
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">MethodTyBuilder</span>::<span class="ident">new</span>();
-
-            <span class="ident">t</span>.<span class="ident">add_param</span>(<span class="ident">idx</span>.<span class="ident">into</span>());
-            <span class="ident">t</span>.<span class="ident">add_param</span>(<span class="ident">len</span>.<span class="ident">into</span>());
-
-            <span class="ident">Entity</span>::<span class="ident">new_global</span>(
-                <span class="ident">lib</span>.<span class="ident">ld_name</span>(<span class="ident">RuntimeFunction</span>::<span class="ident">ArrayOutOfBounds</span>),
-                <span class="ident">t</span>.<span class="ident">build_no_this_call</span>().<span class="ident">into</span>(),
-            )
+            <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">MethodTyBuilder</span>::<span class="ident">new</span>().<span class="ident">build_no_this_call</span>();
+            <span class="ident">Entity</span>::<span class="ident">new_global</span>(<span class="ident">lib</span>.<span class="ident">ld_name</span>(<span class="ident">RuntimeFunction</span>::<span class="ident">ArrayOutOfBounds</span>), <span class="ident">t</span>.<span class="ident">into</span>())
         };
 
         <span class="ident">Runtime</span> {
@@ -331,16 +297,6 @@
             <span class="ident">null_usage</span>,
             <span class="ident">array_out_of_bounds</span>,
         }
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generic_new_ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">array_ty</span>: <span class="ident">Ty</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
-        <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">PrimitiveTy</span>::<span class="ident">i64</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">MethodTyBuilder</span>::<span class="ident">new</span>();
-
-        <span class="ident">t</span>.<span class="ident">add_param</span>(<span class="ident">size</span>.<span class="ident">into</span>());
-        <span class="ident">t</span>.<span class="ident">set_res</span>(<span class="ident">array_ty</span>);
-
-        <span class="ident">t</span>.<span class="ident">build_no_this_call</span>().<span class="ident">into</span>()
     }
 }
 </pre></div>

@@ -3581,11 +3581,7 @@
             <span class="op">|</span> <span class="string">&quot;mjrt_system_out_write&quot;</span>
             <span class="op">|</span> <span class="string">&quot;mjrt_system_out_flush&quot;</span>
             <span class="op">|</span> <span class="string">&quot;mjrt_system_in_read&quot;</span>
-            <span class="op">|</span> <span class="string">&quot;mjrt_new&quot;</span>
-            <span class="op">|</span> <span class="string">&quot;mjrt_dumpstack&quot;</span>
-            <span class="op">|</span> <span class="string">&quot;mjrt_div_by_zero&quot;</span>
-            <span class="op">|</span> <span class="string">&quot;mjrt_null_usage&quot;</span>
-            <span class="op">|</span> <span class="string">&quot;mjrt_array_out_of_bounds&quot;</span> <span class="op">=&gt;</span> {
+            <span class="op">|</span> <span class="string">&quot;mjrt_new&quot;</span> <span class="op">=&gt;</span> {
                 <span class="macro">writeln</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\tpushq %rsp&quot;</span>)<span class="question-mark">?</span>;
                 <span class="macro">writeln</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\tpushq (%rsp)&quot;</span>)<span class="question-mark">?</span>;
                 <span class="macro">writeln</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\tandq $-16, %rsp&quot;</span>)<span class="question-mark">?</span>;
@@ -3593,6 +3589,10 @@
                 <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\tmovq 8(%rsp), %rsp&quot;</span>)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(())
             }
+            <span class="string">&quot;mjrt_dumpstack&quot;</span>
+            <span class="op">|</span> <span class="string">&quot;mjrt_div_by_zero&quot;</span>
+            <span class="op">|</span> <span class="string">&quot;mjrt_null_usage&quot;</span>
+            <span class="op">|</span> <span class="string">&quot;mjrt_array_out_of_bounds&quot;</span> <span class="op">=&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(),
             <span class="comment">// We don&#39;t need to align the stack pointer for our own functions, since we address</span>
             <span class="comment">// always correctly in our own interpretation of System V AMD64 ABI calling convention</span>
             <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">fmt</span>, <span class="string">&quot;\tcall {}&quot;</span>, <span class="self">self</span>.<span class="ident">label</span>),

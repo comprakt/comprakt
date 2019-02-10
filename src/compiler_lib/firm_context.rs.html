@@ -204,13 +204,11 @@
 <span id="204">204</span>
 <span id="205">205</span>
 <span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">firm</span>::{
         <span class="ident">runtime</span>::{<span class="self">self</span>, <span class="ident">Runtime</span>},
-        <span class="ident">safety</span>, <span class="ident">FirmProgram</span>, <span class="ident">Options</span>, <span class="ident">ProgramGenerator</span>,
+        <span class="ident">FirmProgram</span>, <span class="ident">Options</span>, <span class="ident">ProgramGenerator</span>,
     },
     <span class="ident">strtab</span>::<span class="ident">StringTable</span>,
     <span class="ident">type_checking</span>::{<span class="ident">type_analysis</span>::<span class="ident">TypeAnalysis</span>, <span class="ident">type_system</span>::<span class="ident">TypeSystem</span>},
@@ -268,7 +266,6 @@
     <span class="doccomment">/// it will panic otherwise.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(
         <span class="ident">dump_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-        <span class="ident">safety_flags</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> [<span class="ident">safety</span>::<span class="ident">Flag</span>],
         <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
         <span class="ident">type_analysis</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
         <span class="ident">strtab</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">StringTable</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
@@ -310,8 +307,7 @@
         }
 
         <span class="kw">let</span> <span class="ident">runtime</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">rc</span>::<span class="ident">Rc</span>::<span class="ident">new</span>(<span class="ident">Runtime</span>::<span class="ident">new</span>(<span class="ident">rtlib</span>));
-        <span class="kw">let</span> <span class="ident">generator</span> <span class="op">=</span>
-            <span class="ident">ProgramGenerator</span>::<span class="ident">new</span>(<span class="ident">runtime</span>, <span class="ident">safety_flags</span>, <span class="ident">type_system</span>, <span class="ident">type_analysis</span>, <span class="ident">strtab</span>);
+        <span class="kw">let</span> <span class="ident">generator</span> <span class="op">=</span> <span class="ident">ProgramGenerator</span>::<span class="ident">new</span>(<span class="ident">runtime</span>, <span class="ident">type_system</span>, <span class="ident">type_analysis</span>, <span class="ident">strtab</span>);
         <span class="kw">let</span> <span class="ident">program</span> <span class="op">=</span> <span class="ident">generator</span>.<span class="ident">generate</span>();
 
         <span class="ident">FirmContext</span> {

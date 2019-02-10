@@ -192,16 +192,8 @@
 <span id="192">192</span>
 <span id="193">193</span>
 <span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">firm_program</span>::<span class="kw-2">*</span>, <span class="ident">runtime</span>::<span class="ident">Runtime</span>, <span class="ident">safety</span>, <span class="ident">MethodBodyGenerator</span>};
+<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">firm_program</span>::<span class="kw-2">*</span>, <span class="ident">runtime</span>::<span class="ident">Runtime</span>, <span class="ident">MethodBodyGenerator</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">asciifile</span>::<span class="ident">Span</span>,
     <span class="ident">ast</span>,
@@ -303,7 +295,6 @@
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ProgramGenerator</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
     <span class="ident">runtime</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">Runtime</span><span class="op">&gt;</span>,
-    <span class="ident">safety_flags</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> [<span class="ident">safety</span>::<span class="ident">Flag</span>],
     <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
     <span class="ident">type_analysis</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
     <span class="ident">strtab</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">StringTable</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
@@ -312,14 +303,12 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> <span class="ident">ProgramGenerator</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
         <span class="ident">runtime</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">Runtime</span><span class="op">&gt;</span>,
-        <span class="ident">safety_flags</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> [<span class="ident">safety</span>::<span class="ident">Flag</span>],
         <span class="ident">type_system</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">TypeSystem</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
         <span class="ident">type_analysis</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">TypeAnalysis</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span>,
         <span class="ident">strtab</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;src</span> <span class="ident">StringTable</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span><span class="op">&gt;</span>,
     ) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">runtime</span>,
-            <span class="ident">safety_flags</span>,
             <span class="ident">type_system</span>,
             <span class="ident">type_analysis</span>,
             <span class="ident">strtab</span>,
@@ -327,11 +316,7 @@
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate</span>(<span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">FirmProgram</span><span class="op">&lt;</span><span class="lifetime">&#39;src</span>, <span class="lifetime">&#39;ast</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">program</span> <span class="op">=</span> <span class="ident">FirmProgram</span>::<span class="ident">new</span>(
-            <span class="self">self</span>.<span class="ident">type_system</span>,
-            <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">runtime</span>),
-            <span class="self">self</span>.<span class="ident">safety_flags</span>,
-        );
+        <span class="kw">let</span> <span class="ident">program</span> <span class="op">=</span> <span class="ident">FirmProgram</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">type_system</span>, <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">runtime</span>));
 
         <span class="kw">for</span> <span class="ident">method</span> <span class="kw">in</span> <span class="ident">program</span>.<span class="ident">methods</span>.<span class="ident">values</span>() {
             <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;generate method body for {:?}&quot;</span>, <span class="ident">method</span>.<span class="ident">borrow</span>().<span class="ident">def</span>.<span class="ident">name</span>);
@@ -366,7 +351,6 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">type_analysis</span>,
             <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">runtime</span>,
             <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">strtab</span>,
-            <span class="self">self</span>.<span class="ident">safety_flags</span>,
         );
         <span class="ident">method_body_gen</span>.<span class="ident">gen_method</span>(<span class="ident">body</span>);
         <span class="ident">Spans</span>::<span class="ident">add_spans</span>(<span class="kw-2">&amp;</span><span class="ident">method_body_gen</span>.<span class="ident">spans</span>);
