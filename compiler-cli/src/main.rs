@@ -27,7 +27,6 @@ use compiler_lib::{
     firm::{
         self,
         runtime::{self, RTLib},
-        safety::Flag as SafetyFlag,
     },
     lexer::{lextest, Lexer, TokenKind},
     print,
@@ -174,10 +173,6 @@ pub struct PreBackendOptions {
     #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
     pub opt_level: optimization_arg::Arg,
 
-    /// List of safety features to enable. Possible values are: `check-null'
-    #[structopt(long = "safety", default_value = "none")]
-    pub safety: Vec<SafetyFlag>,
-
     /// A MiniJava input file
     #[structopt(name = "FILE", parse(from_os_str))]
     pub input: PathBuf,
@@ -191,7 +186,6 @@ impl PreBackendOptions {
             dump_class_layouts: bool::default(),
             opt_level: optimization_arg::Arg::from_str("aggressive").unwrap(), // checked in test
             input,
-            safety: vec![SafetyFlag::None],
         }
     }
 }
@@ -451,13 +445,6 @@ macro_rules! compile_command_common {
 
         let mut $firm_ctx = compiler_lib::FirmContext::build(
             &pre_be_opts.dump_folder,
-            if pre_be_opts.safety.contains(&SafetyFlag::None) {
-                &[]
-            } else if pre_be_opts.safety.contains(&SafetyFlag::All) {
-                &[SafetyFlag::CheckNull, SafetyFlag::CheckArrayBounds]
-            } else {
-                &pre_be_opts.safety
-            },
             &type_system,
             &type_analysis,
             &strtab,

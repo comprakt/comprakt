@@ -1,4 +1,4 @@
-use super::{firm_program::*, runtime::Runtime, safety, MethodBodyGenerator};
+use super::{firm_program::*, runtime::Runtime, MethodBodyGenerator};
 use crate::{
     asciifile::Span,
     ast,
@@ -100,7 +100,6 @@ impl Spans {
 
 pub struct ProgramGenerator<'src, 'ast> {
     runtime: Rc<Runtime>,
-    safety_flags: &'src [safety::Flag],
     type_system: &'src TypeSystem<'src, 'ast>,
     type_analysis: &'src TypeAnalysis<'src, 'ast>,
     strtab: &'src StringTable<'src>,
@@ -109,14 +108,12 @@ pub struct ProgramGenerator<'src, 'ast> {
 impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
     pub fn new(
         runtime: Rc<Runtime>,
-        safety_flags: &'src [safety::Flag],
         type_system: &'src TypeSystem<'src, 'ast>,
         type_analysis: &'src TypeAnalysis<'src, 'ast>,
         strtab: &'src StringTable<'src>,
     ) -> Self {
         Self {
             runtime,
-            safety_flags,
             type_system,
             type_analysis,
             strtab,
@@ -124,11 +121,7 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
     }
 
     pub fn generate(mut self) -> FirmProgram<'src, 'ast> {
-        let program = FirmProgram::new(
-            self.type_system,
-            Rc::clone(&self.runtime),
-            self.safety_flags,
-        );
+        let program = FirmProgram::new(self.type_system, Rc::clone(&self.runtime));
 
         for method in program.methods.values() {
             log::debug!("generate method body for {:?}", method.borrow().def.name);
@@ -163,7 +156,6 @@ impl<'src, 'ast> ProgramGenerator<'src, 'ast> {
             &self.type_analysis,
             &self.runtime,
             &self.strtab,
-            self.safety_flags,
         );
         method_body_gen.gen_method(body);
         Spans::add_spans(&method_body_gen.spans);

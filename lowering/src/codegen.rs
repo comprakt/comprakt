@@ -1483,11 +1483,7 @@ impl fmt::Display for CallInstruction {
             | "mjrt_system_out_write"
             | "mjrt_system_out_flush"
             | "mjrt_system_in_read"
-            | "mjrt_new"
-            | "mjrt_dumpstack"
-            | "mjrt_div_by_zero"
-            | "mjrt_null_usage"
-            | "mjrt_array_out_of_bounds" => {
+            | "mjrt_new" => {
                 writeln!(fmt, "\tpushq %rsp")?;
                 writeln!(fmt, "\tpushq (%rsp)")?;
                 writeln!(fmt, "\tandq $-16, %rsp")?;
@@ -1495,6 +1491,10 @@ impl fmt::Display for CallInstruction {
                 write!(fmt, "\tmovq 8(%rsp), %rsp")?;
                 Ok(())
             }
+            "mjrt_dumpstack"
+            | "mjrt_div_by_zero"
+            | "mjrt_null_usage"
+            | "mjrt_array_out_of_bounds" => unimplemented!(),
             // We don't need to align the stack pointer for our own functions, since we address
             // always correctly in our own interpretation of System V AMD64 ABI calling convention
             _ => write!(fmt, "\tcall {}", self.label),
