@@ -271,9 +271,27 @@
 <span id="271">271</span>
 <span id="272">272</span>
 <span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">single_match</span>)]</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">try_trait</span>)]</span>
+<span class="attribute">#![<span class="ident">warn</span>(
+    <span class="ident">clippy</span>::<span class="ident">print_stdout</span>,
+    <span class="ident">clippy</span>::<span class="ident">unimplemented</span>,
+    <span class="ident">clippy</span>::<span class="ident">doc_markdown</span>,
+    <span class="ident">clippy</span>::<span class="ident">items_after_statements</span>,
+    <span class="ident">clippy</span>::<span class="ident">match_same_arms</span>,
+    <span class="ident">clippy</span>::<span class="ident">single_match_else</span>,
+    <span class="ident">clippy</span>::<span class="ident">use_self</span>
+)]</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">firm</span>::<span class="ident">FirmProgram</span>, <span class="ident">timing</span>::<span class="ident">Measurement</span>};
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{<span class="ident">bindings</span>, <span class="ident">Graph</span>};
@@ -335,7 +353,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">collector</span> <span class="op">=</span> <span class="ident">OutcomeCollector</span>::<span class="ident">new</span>();
         <span class="kw">for</span> <span class="ident">method</span> <span class="kw">in</span> <span class="ident">program</span>.<span class="ident">methods</span>.<span class="ident">values</span>() {
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">graph</span>) <span class="op">=</span> <span class="ident">method</span>.<span class="ident">borrow</span>().<span class="ident">graph</span> {
-                <span class="ident">collector</span>.<span class="ident">push</span>(<span class="ident">T</span>::<span class="ident">optimize_function</span>(<span class="ident">graph</span>));
+                <span class="ident">collector</span>.<span class="ident">push</span>(<span class="self">Self</span>::<span class="ident">optimize_function</span>(<span class="ident">graph</span>));
             }
         }
         <span class="ident">collector</span>.<span class="ident">result</span>()
@@ -399,7 +417,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">Level</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-&gt;</span> <span class="ident">Level</span> {
+    <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="ident">Level</span>::<span class="prelude-val">None</span>
     }
 }
@@ -491,7 +509,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">OutcomeCollector</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="ident">OutcomeCollector</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span>::<span class="ident">default</span>()
     }
 

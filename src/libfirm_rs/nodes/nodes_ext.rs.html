@@ -871,7 +871,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Node</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wrap</span>(<span class="ident">ir_node</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wrap</span>(<span class="ident">ir_node</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="comment">//NodeFactory::new().create(ir_node)</span>
         <span class="ident">NODE_FACTORY</span>.<span class="ident">create</span>(<span class="ident">ir_node</span>)
     }
@@ -885,22 +885,22 @@
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">must_member</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Member</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">Node</span>::<span class="ident">is_member</span>(<span class="self">self</span>));
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">Self</span>::<span class="ident">is_member</span>(<span class="self">self</span>));
         <span class="ident">Member</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">must_sel</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Sel</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">Node</span>::<span class="ident">is_sel</span>(<span class="self">self</span>));
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">Self</span>::<span class="ident">is_sel</span>(<span class="self">self</span>));
         <span class="ident">Sel</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">must_phi</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Phi</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">Node</span>::<span class="ident">is_phi</span>(<span class="self">self</span>));
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">Self</span>::<span class="ident">is_phi</span>(<span class="self">self</span>));
         <span class="ident">Phi</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>())
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">opt_phi</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Phi</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">Node</span>::<span class="ident">is_phi</span>(<span class="self">self</span>) {
+        <span class="kw">if</span> <span class="self">Self</span>::<span class="ident">is_phi</span>(<span class="self">self</span>) {
             <span class="prelude-val">Some</span>(<span class="ident">Phi</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()))
         } <span class="kw">else</span> {
             <span class="prelude-val">None</span>
@@ -968,7 +968,7 @@
 }
 
 <span class="doccomment">/// A trait to abstract from Node enum and various *-Node structs.</span>
-<span class="doccomment">/// Inspired by https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java.</span>
+<span class="doccomment">/// Inspired by &lt;https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java&gt;.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">NodeTrait</span> {
     <span class="kw">fn</span> <span class="ident">internal_ir_node</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_node</span>;
 
@@ -1227,21 +1227,21 @@
 );
 
 <span class="kw">impl</span> <span class="ident">Block</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deepest_common_dominator</span>(<span class="ident">a</span>: <span class="ident">Block</span>, <span class="ident">b</span>: <span class="ident">Block</span>) <span class="op">-&gt;</span> <span class="ident">Block</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deepest_common_dominator</span>(<span class="ident">a</span>: <span class="self">Self</span>, <span class="ident">b</span>: <span class="self">Self</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">cdom</span> <span class="op">=</span> <span class="kw">unsafe</span> {
             <span class="ident">bindings</span>::<span class="ident">ir_deepest_common_dominator</span>(<span class="ident">a</span>.<span class="ident">internal_ir_node</span>(), <span class="ident">b</span>.<span class="ident">internal_ir_node</span>())
         };
 
-        <span class="ident">Block</span>::<span class="ident">new</span>(<span class="ident">cdom</span>)
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">cdom</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">immediate_dominator</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Block</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">immediate_dominator</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="comment">// TODO: check if dominators are computed</span>
         <span class="kw">let</span> <span class="ident">idom</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Block_idom</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) };
         <span class="kw">if</span> <span class="ident">idom</span>.<span class="ident">is_null</span>() {
             <span class="prelude-val">None</span>
         } <span class="kw">else</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">Block</span>::<span class="ident">new</span>(<span class="ident">idom</span>))
+            <span class="prelude-val">Some</span>(<span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">idom</span>))
         }
     }
 
@@ -1251,13 +1251,13 @@
         <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_loop_depth</span>(<span class="ident">loop_ref</span>) }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">immediate_post_dominator</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Block</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">immediate_post_dominator</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="comment">// TODO: check if post dominators are computed</span>
         <span class="kw">let</span> <span class="ident">ipostdom</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_Block_ipostdom</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) };
         <span class="kw">if</span> <span class="ident">ipostdom</span>.<span class="ident">is_null</span>() {
             <span class="prelude-val">None</span>
         } <span class="kw">else</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">Block</span>::<span class="ident">new</span>(<span class="ident">ipostdom</span>))
+            <span class="prelude-val">Some</span>(<span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">ipostdom</span>))
         }
     }
 
@@ -1283,8 +1283,8 @@
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">phi_or_node</span>(<span class="self">self</span>, <span class="ident">nodes</span>: <span class="kw-2">&amp;</span>[<span class="ident">Node</span>]) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">nodes</span>.<span class="ident">is_empty</span>());
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">nodes</span>.<span class="ident">iter</span>().<span class="ident">all</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span>.<span class="ident">mode</span>() <span class="op">==</span> <span class="ident">nodes</span>[<span class="number">0</span>].<span class="ident">mode</span>()));
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">nodes</span>.<span class="ident">is_empty</span>());
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">nodes</span>.<span class="ident">iter</span>().<span class="ident">all</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span>.<span class="ident">mode</span>() <span class="op">==</span> <span class="ident">nodes</span>[<span class="number">0</span>].<span class="ident">mode</span>()));
 
         <span class="kw">if</span> <span class="ident">nodes</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> {
             <span class="ident">nodes</span>[<span class="number">0</span>]
@@ -1348,7 +1348,7 @@
         <span class="kw">unsafe</span> { <span class="ident">get_Block_dom_depth</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>()) <span class="kw">as</span> <span class="ident">usize</span> }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dominates</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="ident">Block</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dominates</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="self">Self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
         <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">block_dominates</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>(), <span class="ident">other</span>.<span class="ident">internal_ir_node</span>()) <span class="op">!=</span> <span class="number">0</span> }
     }
 }
@@ -1386,8 +1386,8 @@
 <span class="macro">simple_node_iterator</span><span class="macro">!</span>(<span class="ident">PhiPredsIterator</span>, <span class="ident">get_Phi_n_preds</span>, <span class="ident">get_Phi_pred</span>, <span class="ident">i32</span>);
 
 <span class="kw">impl</span> <span class="ident">Proj</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_proj</span>(<span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>, <span class="ident">mode</span>: <span class="ident">Mode</span>) <span class="op">-&gt;</span> <span class="ident">Proj</span> {
-        <span class="ident">Proj</span>::<span class="ident">new</span>(<span class="kw">unsafe</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_proj</span>(<span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>, <span class="ident">mode</span>: <span class="ident">Mode</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="kw">unsafe</span> {
             <span class="ident">bindings</span>::<span class="ident">new_r_Proj</span>(<span class="self">self</span>.<span class="ident">internal_ir_node</span>(), <span class="ident">mode</span>.<span class="ident">libfirm_mode</span>(), <span class="ident">num</span>)
         })
     }

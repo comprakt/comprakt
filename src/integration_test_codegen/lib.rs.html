@@ -260,12 +260,34 @@
 <span id="260">260</span>
 <span id="261">261</span>
 <span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! A macro that generates a test case for each test available during</span>
 <span class="doccomment">//! compilation. We do this to make them show up as single tests in the output</span>
 <span class="doccomment">//! of `cargo test`.</span>
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">proc_macro_hygiene</span>)]</span>
 <span class="attribute">#![<span class="ident">recursion_limit</span> <span class="op">=</span> <span class="string">&quot;128&quot;</span>]</span>
+<span class="attribute">#![<span class="ident">warn</span>(
+    <span class="ident">clippy</span>::<span class="ident">print_stdout</span>,
+    <span class="ident">clippy</span>::<span class="ident">unimplemented</span>,
+    <span class="ident">clippy</span>::<span class="ident">doc_markdown</span>,
+    <span class="ident">clippy</span>::<span class="ident">items_after_statements</span>,
+    <span class="ident">clippy</span>::<span class="ident">match_same_arms</span>,
+    <span class="ident">clippy</span>::<span class="ident">similar_names</span>,
+    <span class="ident">clippy</span>::<span class="ident">single_match_else</span>,
+    <span class="ident">clippy</span>::<span class="ident">use_self</span>,
+    <span class="ident">clippy</span>::<span class="ident">use_debug</span>
+)]</span>
 
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">proc_macro</span>;
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">proc_macro2</span>;

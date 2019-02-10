@@ -238,6 +238,7 @@
 <span id="238">238</span>
 <span id="239">239</span>
 <span id="240">240</span>
+<span id="241">241</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">bindings</span>, <span class="ident">nodes</span>::<span class="kw-2">*</span>, <span class="ident">tarval</span>::<span class="ident">Tarval</span>, <span class="ident">types</span>::<span class="ident">TyTrait</span>};
 
@@ -265,20 +266,20 @@
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueNode</span><span class="op">&gt;&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">n</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueNode</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">n</span>.<span class="ident">internal_ir_node</span>())
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">n</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueNode</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>::<span class="ident">wrap</span>(<span class="ident">n</span>.<span class="ident">internal_ir_node</span>())
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueNode</span><span class="op">&gt;&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">n</span>: <span class="kw-2">&amp;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueNode</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">n</span>.<span class="ident">internal_ir_node</span>())
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">n</span>: <span class="kw-2">&amp;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueNode</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>::<span class="ident">wrap</span>(<span class="ident">n</span>.<span class="ident">internal_ir_node</span>())
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">ValueNode</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Node</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">n</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">ValueNode</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
-        <span class="ident">Node</span>::<span class="ident">wrap</span>(<span class="ident">n</span>.<span class="ident">internal_ir_node</span>())
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">n</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">ValueNode</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>::<span class="ident">wrap</span>(<span class="ident">n</span>.<span class="ident">internal_ir_node</span>())
     }
 }
 
@@ -303,7 +304,7 @@
     }
 
     <span class="kw">fn</span> <span class="ident">compute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Tarval</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">values</span>.<span class="ident">is_empty</span>());
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">values</span>.<span class="ident">is_empty</span>());
         <span class="self">self</span>.<span class="ident">tarval</span>()
     }
 }
@@ -334,14 +335,15 @@
 <span class="kw">impl</span> <span class="ident">ValueNode</span> <span class="kw">for</span> <span class="ident">Proj</span> {
     <span class="kw">fn</span> <span class="ident">value_nodes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ValueNode</span><span class="op">&gt;&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span>.<span class="ident">kind</span>() {
-            <span class="ident">ProjKind</span>::<span class="ident">Div_Res</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">try_as_value_node</span>(<span class="self">self</span>.<span class="ident">pred</span>()).<span class="ident">unwrap</span>()],
-            <span class="ident">ProjKind</span>::<span class="ident">Mod_Res</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">try_as_value_node</span>(<span class="self">self</span>.<span class="ident">pred</span>()).<span class="ident">unwrap</span>()],
+            <span class="ident">ProjKind</span>::<span class="ident">Div_Res</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">ProjKind</span>::<span class="ident">Mod_Res</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {
+                <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">try_as_value_node</span>(<span class="self">self</span>.<span class="ident">pred</span>()).<span class="ident">unwrap</span>()]
+            }
             <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[],
         }
     }
 
     <span class="kw">fn</span> <span class="ident">compute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Tarval</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">values</span>.<span class="ident">len</span>() <span class="op">&lt;=</span> <span class="number">1</span>);
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">values</span>.<span class="ident">len</span>() <span class="op">&lt;=</span> <span class="number">1</span>);
         <span class="kw">if</span> <span class="ident">values</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> {
             <span class="ident">values</span>[<span class="number">0</span>]
         } <span class="kw">else</span> {
@@ -378,7 +380,7 @@
             }
 
             <span class="kw">fn</span> <span class="ident">compute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Tarval</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
-                <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">values</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">0</span>);
+                <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">values</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">0</span>);
                 <span class="ident">Tarval</span>::<span class="ident">bad</span>()
             }
         }
@@ -426,7 +428,7 @@
             }
 
             <span class="kw">fn</span> <span class="ident">compute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Tarval</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
-                <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">values</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">2</span>);
+                <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">values</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">2</span>);
                 <span class="ident">BinOp</span>::<span class="ident">compute</span>(<span class="self">self</span>, <span class="ident">values</span>[<span class="number">0</span>], <span class="ident">values</span>[<span class="number">1</span>])
             }
         }
@@ -467,7 +469,7 @@
             }
 
             <span class="kw">fn</span> <span class="ident">compute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Tarval</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Tarval</span> {
-                <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">values</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span>);
+                <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">values</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span>);
                 <span class="ident">UnaryOp</span>::<span class="ident">compute</span>(<span class="self">self</span>, <span class="ident">values</span>[<span class="number">0</span>])
             }
         }

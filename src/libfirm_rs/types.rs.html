@@ -517,7 +517,7 @@
 );
 
 <span class="kw">impl</span> <span class="ident">Ty</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_ir_type</span>(<span class="ident">ty</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_type</span>) <span class="op">-&gt;</span> <span class="ident">Ty</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_ir_type</span>(<span class="ident">ty</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_type</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">unsafe</span> {
             <span class="kw">if</span> <span class="ident">bindings</span>::<span class="ident">is_Primitive_type</span>(<span class="ident">ty</span>) <span class="op">!=</span> <span class="number">0</span> {
                 <span class="ident">Ty</span>::<span class="ident">Primitive</span>(<span class="ident">PrimitiveTy</span>(<span class="ident">ty</span>))
@@ -671,28 +671,28 @@
 }
 
 <span class="kw">impl</span> <span class="ident">PrimitiveTy</span> {
-    <span class="kw">fn</span> <span class="ident">from_ir_type</span>(<span class="ident">ir_type</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_type</span>) <span class="op">-&gt;</span> <span class="ident">PrimitiveTy</span> {
+    <span class="kw">fn</span> <span class="ident">from_ir_type</span>(<span class="ident">ir_type</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">bindings</span>::<span class="ident">ir_type</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="comment">// if we trust libfirm, we could just return `PrimitiveTy(ir_type)` here</span>
-        <span class="ident">PrimitiveTy</span>::<span class="ident">from</span>(<span class="ident">Ty</span>::<span class="ident">from_ir_type</span>(<span class="ident">ir_type</span>)).<span class="ident">expect</span>(<span class="string">&quot;ir_type must a primitive type&quot;</span>)
+        <span class="self">Self</span>::<span class="ident">from</span>(<span class="ident">Ty</span>::<span class="ident">from_ir_type</span>(<span class="ident">ir_type</span>)).<span class="ident">expect</span>(<span class="string">&quot;ir_type must a primitive type&quot;</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_mode</span>(<span class="ident">mode</span>: <span class="ident">Mode</span>) <span class="op">-&gt;</span> <span class="ident">PrimitiveTy</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_mode</span>(<span class="ident">mode</span>: <span class="ident">Mode</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span>::<span class="ident">from_ir_type</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_type_primitive</span>(<span class="ident">mode</span>.<span class="ident">libfirm_mode</span>()) })
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">i32</span>() <span class="op">-&gt;</span> <span class="ident">PrimitiveTy</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">i32</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span>::<span class="ident">from_ir_type</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_type_primitive</span>(<span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Is</span>) })
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">i64</span>() <span class="op">-&gt;</span> <span class="ident">PrimitiveTy</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">i64</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span>::<span class="ident">from_ir_type</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_type_primitive</span>(<span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Ls</span>) })
     }
     <span class="doccomment">/// Not part of MiniJava, but useful for malloc RT-function</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">u32</span>() <span class="op">-&gt;</span> <span class="ident">PrimitiveTy</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">u32</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span>::<span class="ident">from_ir_type</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_type_primitive</span>(<span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Iu</span>) })
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bool</span>() <span class="op">-&gt;</span> <span class="ident">PrimitiveTy</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bool</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span>::<span class="ident">from_ir_type</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_type_primitive</span>(<span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Bu</span>) })
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ptr</span>() <span class="op">-&gt;</span> <span class="ident">PrimitiveTy</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ptr</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span>::<span class="ident">from_ir_type</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">new_type_primitive</span>(<span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">P</span>) })
     }
 }
@@ -711,8 +711,8 @@
 }
 
 <span class="kw">impl</span> <span class="ident">ClassTy</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-&gt;</span> <span class="ident">ClassTy</span> {
-        <span class="ident">ClassTy</span>::<span class="ident">from</span>(<span class="ident">Ty</span>::<span class="ident">from_ir_type</span>(<span class="kw">unsafe</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>::<span class="ident">from</span>(<span class="ident">Ty</span>::<span class="ident">from_ir_type</span>(<span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">name_c</span> <span class="op">=</span> <span class="ident">CString</span>::<span class="ident">new</span>(<span class="ident">name</span>).<span class="ident">unwrap</span>();
             <span class="kw">let</span> <span class="ident">name_id</span> <span class="op">=</span> <span class="ident">bindings</span>::<span class="ident">new_id_from_str</span>(<span class="ident">name_c</span>.<span class="ident">as_ptr</span>());
             <span class="ident">bindings</span>::<span class="ident">new_type_class</span>(<span class="ident">name_id</span>)
@@ -732,7 +732,7 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">idx_of_field</span>(<span class="self">self</span>, <span class="ident">field</span>: <span class="ident">Entity</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
         <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_class_member_index</span>(<span class="self">self</span>.<span class="ident">ir_type</span>(), <span class="ident">field</span>.<span class="ident">ir_entity</span>()) };
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">idx</span> <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">fields</span>().<span class="ident">count</span>());
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">idx</span> <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">fields</span>().<span class="ident">count</span>());
         <span class="ident">idx</span>
     }
 
@@ -795,7 +795,7 @@
     <span class="ident">Entity</span>,
 );
 
-<span class="doccomment">/// Builder for new_type_method</span>
+<span class="doccomment">/// Builder for `new_type_method`</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MethodTyBuilder</span> {
     <span class="ident">params</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ty</span><span class="op">&gt;</span>,
@@ -804,7 +804,7 @@
 
 <span class="kw">impl</span> <span class="ident">MethodTyBuilder</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="ident">MethodTyBuilder</span> {
+        <span class="self">Self</span> {
             <span class="ident">params</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
             <span class="ident">result</span>: <span class="prelude-val">None</span>,
         }

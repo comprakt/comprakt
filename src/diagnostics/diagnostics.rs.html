@@ -474,7 +474,31 @@
 <span id="474">474</span>
 <span id="475">475</span>
 <span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="attribute">#![<span class="ident">warn</span>(
+    <span class="ident">clippy</span>::<span class="ident">print_stdout</span>,
+    <span class="ident">clippy</span>::<span class="ident">unimplemented</span>,
+    <span class="ident">clippy</span>::<span class="ident">doc_markdown</span>,
+    <span class="ident">clippy</span>::<span class="ident">items_after_statements</span>,
+    <span class="ident">clippy</span>::<span class="ident">match_same_arms</span>,
+    <span class="ident">clippy</span>::<span class="ident">similar_names</span>,
+    <span class="ident">clippy</span>::<span class="ident">single_match_else</span>,
+    <span class="ident">clippy</span>::<span class="ident">use_self</span>,
+    <span class="ident">clippy</span>::<span class="ident">use_debug</span>
+)]</span>
+
 <span class="doccomment">//! The diagnostics object controls the output of warnings and errors generated</span>
 <span class="doccomment">//! by the compiler during the lexing, parsing and semantic analysis phases.</span>
 <span class="doccomment">//! It also tracks the number of warnings and errors generated for flow control.</span>
@@ -934,7 +958,7 @@
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">print_stdout</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">print_stdout</span>, <span class="ident">clippy</span>::<span class="ident">use_debug</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 

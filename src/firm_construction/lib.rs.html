@@ -53,8 +53,30 @@
 <span id="53">53</span>
 <span id="54">54</span>
 <span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">feature</span>(<span class="ident">result_map_or_else</span>)]</span>
+<span class="attribute">#![<span class="ident">warn</span>(
+    <span class="ident">clippy</span>::<span class="ident">print_stdout</span>,
+    <span class="ident">clippy</span>::<span class="ident">unimplemented</span>,
+    <span class="ident">clippy</span>::<span class="ident">doc_markdown</span>,
+    <span class="ident">clippy</span>::<span class="ident">items_after_statements</span>,
+    <span class="ident">clippy</span>::<span class="ident">match_same_arms</span>,
+    <span class="ident">clippy</span>::<span class="ident">similar_names</span>,
+    <span class="ident">clippy</span>::<span class="ident">single_match_else</span>,
+    <span class="ident">clippy</span>::<span class="ident">use_self</span>,
+    <span class="ident">clippy</span>::<span class="ident">use_debug</span>
+)]</span>
 
 <span class="doccomment">//! Lowers the output of the semantic analysis phase (AST, Type System, Type</span>
 <span class="doccomment">//! Analysis), into Firm for code generation.</span>
@@ -62,18 +84,18 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Generated Labels</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! A dot (`.`) is a valid character in an ASM label, but not in MiniJava. This</span>
-<span class="doccomment">//! is why it&#39;s used as a separator. As properties and methods live in their</span>
-<span class="doccomment">//! own namespaces, fields have the additional segment `.F.`, methods have the</span>
-<span class="doccomment">//! additional segment `.M.`.</span>
+<span class="doccomment">//! A dot (`.`) is a valid character in an ASM label, but not in `MiniJava`.</span>
+<span class="doccomment">//! This is why it&#39;s used as a separator. As properties and methods live in</span>
+<span class="doccomment">//! their own namespaces, fields have the additional segment `.F.`, methods have</span>
+<span class="doccomment">//! the additional segment `.M.`.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Unused Struct Properties</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! While building the firm graph, identifiers are created for Firm entities</span>
-<span class="doccomment">//! using CString, which heap-allocates. However, firm only contains raw</span>
-<span class="doccomment">//! pointers to the CString instances, hence the CString must be kept around</span>
-<span class="doccomment">//! for the lifetime of the graph. Otherwise rust would de allocate the CString</span>
-<span class="doccomment">//! to early!</span>
+<span class="doccomment">//! using `CString`, which heap-allocates. However, firm only contains raw</span>
+<span class="doccomment">//! pointers to the `CString` instances, hence the `CString` must be kept around</span>
+<span class="doccomment">//! for the lifetime of the graph. Otherwise rust would de allocate the</span>
+<span class="doccomment">//! `CString` to early!</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">firm_program</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">method_body_generator</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">program_generator</span>;

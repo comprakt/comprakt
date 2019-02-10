@@ -2,7 +2,7 @@
 <p>It primarily ensures that you do not forget to reset the terminal colors
 and styles after writing through a drop(.) guard/destructor.</p>
 <p>Calls to functions should pass the raw writer, each function should create
-its own ColorOutput object that is dropped on return.</p>
+its own <code>ColorOutput</code> object that is dropped on return.</p>
 <p>This may result in unnecessary/suboptimal color controls in the output.</p>
 <p>NOT thread-safe.</p>
 </div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>

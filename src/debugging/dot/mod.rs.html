@@ -524,12 +524,12 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Label</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_text</span>(<span class="ident">text</span>: <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="ident">Label</span> {
-        <span class="ident">Label</span>::<span class="ident">default</span>().<span class="ident">text</span>(<span class="ident">text</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_text</span>(<span class="ident">text</span>: <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>::<span class="ident">default</span>().<span class="ident">text</span>(<span class="ident">text</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_html</span>(<span class="ident">text</span>: <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="ident">Label</span> {
-        <span class="ident">Label</span>::<span class="ident">default</span>().<span class="ident">html</span>(<span class="ident">text</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_html</span>(<span class="ident">text</span>: <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>::<span class="ident">default</span>().<span class="ident">html</span>(<span class="ident">text</span>)
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">val</span>: <span class="ident">Style</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {

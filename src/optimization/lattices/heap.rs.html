@@ -1226,7 +1226,7 @@
         <span class="ident">mem</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reset_mem</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">mem</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryArea</span>) <span class="op">-&gt;</span> <span class="ident">Heap</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reset_mem</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">mem</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryArea</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">if</span> <span class="ident">mem</span>.<span class="ident">is_empty</span>() {
             <span class="kw">return</span> <span class="self">self</span>.<span class="ident">clone</span>();
         }
@@ -1269,7 +1269,7 @@
             })
             .<span class="ident">collect</span>();
 
-        <span class="ident">Heap</span> {
+        <span class="self">Self</span> {
             <span class="ident">array_infos</span>,
             <span class="ident">object_infos</span>,
         }
@@ -1524,7 +1524,7 @@
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">external_val</span>(<span class="ident">ty</span>: <span class="ident">Ty</span>) <span class="op">-&gt;</span> <span class="ident">NodeValue</span> {
-    <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">ty</span>.<span class="ident">mode</span>().<span class="ident">is_pointer</span>() <span class="op">||</span> <span class="ident">PointerTy</span>::<span class="ident">from</span>(<span class="ident">ty</span>).<span class="ident">is_some</span>());
+    <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">ty</span>.<span class="ident">mode</span>().<span class="ident">is_pointer</span>() <span class="op">||</span> <span class="ident">PointerTy</span>::<span class="ident">from</span>(<span class="ident">ty</span>).<span class="ident">is_some</span>());
     <span class="ident">NodeValue</span>::<span class="ident">non_const_val</span>(<span class="ident">ty</span>.<span class="ident">mode</span>(), <span class="ident">MemoryArea</span>::<span class="ident">external</span>())
 }
 
@@ -1587,7 +1587,7 @@
                         <span class="kw">if</span> <span class="ident">info1</span> <span class="op">==</span> <span class="ident">info2</span> {
                             <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">info1</span>)
                         } <span class="kw">else</span> {
-                            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">info1</span>.<span class="ident">kind</span>, <span class="ident">info2</span>.<span class="ident">kind</span>);
+                            <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">info1</span>.<span class="ident">kind</span>, <span class="ident">info2</span>.<span class="ident">kind</span>);
                             <span class="ident">Rc</span>::<span class="ident">new</span>(<span class="ident">info1</span>.<span class="ident">join</span>(<span class="ident">info2</span>, <span class="ident">context</span>, <span class="ident">info1</span>.<span class="ident">kind</span>))
                         },
                     );
@@ -1618,7 +1618,7 @@
                         <span class="kw">if</span> <span class="ident">info1</span> <span class="op">==</span> <span class="ident">info2</span> {
                             <span class="ident">Rc</span>::<span class="ident">clone</span>(<span class="ident">info1</span>)
                         } <span class="kw">else</span> {
-                            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">info1</span>.<span class="ident">kind</span>, <span class="ident">info2</span>.<span class="ident">kind</span>);
+                            <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">info1</span>.<span class="ident">kind</span>, <span class="ident">info2</span>.<span class="ident">kind</span>);
                             <span class="ident">Rc</span>::<span class="ident">new</span>(<span class="ident">info1</span>.<span class="ident">join</span>(<span class="ident">info2</span>, <span class="ident">context</span>, <span class="ident">info1</span>.<span class="ident">kind</span>))
                         },
                     );
@@ -1631,7 +1631,7 @@
             },
         );
 
-        <span class="ident">Heap</span> {
+        <span class="self">Self</span> {
             <span class="ident">object_infos</span>,
             <span class="ident">array_infos</span>,
         }
@@ -1646,10 +1646,10 @@
 }
 
 <span class="kw">impl</span> <span class="ident">ValWithStoreInfo</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">single_store</span>(<span class="ident">val</span>: <span class="ident">NodeValue</span>, <span class="ident">store</span>: <span class="ident">Store</span>) <span class="op">-&gt;</span> <span class="ident">ValWithStoreInfo</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">single_store</span>(<span class="ident">val</span>: <span class="ident">NodeValue</span>, <span class="ident">store</span>: <span class="ident">Store</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stores</span> <span class="op">=</span> <span class="ident">HashSet</span>::<span class="ident">new</span>();
         <span class="ident">stores</span>.<span class="ident">insert</span>(<span class="ident">store</span>);
-        <span class="ident">ValWithStoreInfo</span> { <span class="ident">val</span>, <span class="ident">stores</span> }
+        <span class="self">Self</span> { <span class="ident">val</span>, <span class="ident">stores</span> }
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">points_to</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">MemoryArea</span> {
@@ -1674,7 +1674,7 @@
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">NodeValue</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ValWithStoreInfo</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">NodeValue</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="ident">ValWithStoreInfo</span> {
+        <span class="self">Self</span> {
             <span class="ident">val</span>,
             <span class="ident">stores</span>: <span class="ident">HashSet</span>::<span class="ident">new</span>(),
         }
@@ -1687,7 +1687,7 @@
     }
 
     <span class="kw">fn</span> <span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>, <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JoinContext</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="ident">ValWithStoreInfo</span> {
+        <span class="self">Self</span> {
             <span class="ident">val</span>: <span class="self">self</span>.<span class="ident">val</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="ident">val</span>, <span class="ident">context</span>),
             <span class="ident">stores</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stores</span> <span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="ident">stores</span>,
         }
@@ -1723,7 +1723,7 @@
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>, <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JoinContext</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="ident">CellInfo</span> {
+        <span class="self">Self</span> {
             <span class="ident">idx_source</span>: <span class="kw">match</span> (<span class="self">self</span>.<span class="ident">idx_source</span>, <span class="ident">other</span>.<span class="ident">idx_source</span>) {
                 (<span class="prelude-val">Some</span>(<span class="ident">a</span>), <span class="prelude-val">Some</span>(<span class="ident">b</span>)) <span class="kw">if</span> <span class="ident">a</span> <span class="op">==</span> <span class="ident">b</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">a</span>),
                 <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
@@ -1733,14 +1733,14 @@
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">join_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">ValWithStoreInfo</span>, <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JoinContext</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="ident">CellInfo</span> {
+        <span class="self">Self</span> {
             <span class="ident">idx_source</span>: <span class="prelude-val">None</span>,
             <span class="ident">val</span>: <span class="self">self</span>.<span class="ident">val</span>.<span class="ident">join</span>(<span class="ident">other</span>, <span class="ident">context</span>),
         }
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">join_val_flipped</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">ValWithStoreInfo</span>, <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JoinContext</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="ident">CellInfo</span> {
+        <span class="self">Self</span> {
             <span class="ident">idx_source</span>: <span class="prelude-val">None</span>,
             <span class="ident">val</span>: <span class="ident">other</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">val</span>, <span class="ident">context</span>),
         }
@@ -1954,11 +1954,11 @@
     }
 
     <span class="kw">fn</span> <span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>, <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JoinContext</span>, <span class="ident">kind</span>: <span class="ident">InfoKind</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">item_ty</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">item_ty</span>);
+        <span class="kw">use</span> <span class="self">self</span>::<span class="ident">ArrayInfoState</span>::<span class="kw-2">*</span>;
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">item_ty</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">item_ty</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">default_val</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">default_val</span>.<span class="ident">join_default</span>(<span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="ident">default_val</span>);
 
-        <span class="kw">use</span> <span class="self">self</span>::<span class="ident">ArrayInfoState</span>::<span class="kw-2">*</span>;
         <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> (<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">state</span>, <span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="ident">state</span>) {
             (<span class="ident">Const</span>(<span class="ident">cells1</span>), <span class="ident">Const</span>(<span class="ident">cells2</span>)) <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cells</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
@@ -2161,7 +2161,7 @@ true
     }
 
     <span class="kw">fn</span> <span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>, <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JoinContext</span>, <span class="ident">kind</span>: <span class="ident">InfoKind</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">ty</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">ty</span>);
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">ty</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">ty</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">updated_fields</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="self">self</span>.<span class="ident">fields</span>.<span class="ident">len</span>());
         <span class="kw">for</span> (<span class="ident">field_idx</span>, <span class="ident">field_val</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">fields</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {

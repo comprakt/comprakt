@@ -533,7 +533,7 @@
 
 <span class="kw">impl</span> <span class="ident">optimization</span>::<span class="ident">Local</span> <span class="kw">for</span> <span class="ident">NodeLocal</span> {
     <span class="kw">fn</span> <span class="ident">optimize_function</span>(<span class="ident">graph</span>: <span class="ident">Graph</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
-        <span class="ident">NodeLocal</span>::<span class="ident">new</span>(<span class="ident">graph</span>).<span class="ident">run</span>()
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">graph</span>).<span class="ident">run</span>()
     }
 }
 

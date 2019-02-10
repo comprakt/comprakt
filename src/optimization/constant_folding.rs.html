@@ -491,7 +491,7 @@
 
 <span class="kw">impl</span> <span class="ident">optimization</span>::<span class="ident">Local</span> <span class="kw">for</span> <span class="ident">ConstantFolding</span> {
     <span class="kw">fn</span> <span class="ident">optimize_function</span>(<span class="ident">graph</span>: <span class="ident">Graph</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">constant_folding</span> <span class="op">=</span> <span class="ident">ConstantFolding</span>::<span class="ident">new</span>(<span class="ident">graph</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">constant_folding</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">graph</span>);
         <span class="ident">constant_folding</span>.<span class="ident">run</span>();
         <span class="ident">constant_folding</span>.<span class="ident">apply</span>()
     }
@@ -663,6 +663,7 @@
         <span class="ident">cur_lattice</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="ident">NodeLattice</span>,
         <span class="ident">deps</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span>,
     ) <span class="op">-&gt;</span> <span class="ident">NodeLattice</span> {
+        <span class="kw">use</span> <span class="self">self</span>::{<span class="ident">Node</span>::<span class="kw-2">*</span>, <span class="ident">ProjKind</span>::<span class="kw-2">*</span>};
         <span class="self">self</span>.<span class="ident">breakpoint</span>(<span class="ident">cur_node</span>);
 
         <span class="kw">let</span> <span class="ident">reachable</span> <span class="op">=</span> <span class="ident">cur_lattice</span>.<span class="ident">reachable</span>()
@@ -680,7 +681,6 @@
             <span class="kw">return</span> <span class="ident">NodeLattice</span>::<span class="ident">NotReachableYet</span>;
         }
 
-        <span class="kw">use</span> <span class="self">self</span>::{<span class="ident">Node</span>::<span class="kw-2">*</span>, <span class="ident">ProjKind</span>::<span class="kw-2">*</span>};
         <span class="kw">match</span> <span class="ident">cur_node</span> {
             <span class="comment">// == Conditionals ==</span>
             <span class="ident">Cond</span>(<span class="ident">cond</span>) <span class="op">=&gt;</span> <span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">cond</span>.<span class="ident">selector</span>()).<span class="ident">clone</span>(),

@@ -1174,8 +1174,6 @@
 <span id="1174">1174</span>
 <span id="1175">1175</span>
 <span id="1176">1176</span>
-<span id="1177">1177</span>
-<span id="1178">1178</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">lattices</span>::<span class="kw-2">*</span>, <span class="ident">Outcome</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">dot</span>::<span class="kw-2">*</span>, <span class="ident">optimization</span>};
@@ -1252,7 +1250,7 @@
             }
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">constant_folding</span> <span class="op">=</span> <span class="ident">ConstantFoldingWithLoadStore</span>::<span class="ident">new</span>(<span class="ident">graph</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">constant_folding</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">graph</span>);
         <span class="ident">constant_folding</span>.<span class="ident">run</span>();
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">constant_folding</span>.<span class="ident">apply</span>();
 
@@ -1656,6 +1654,7 @@
         <span class="ident">required_stores</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span>,
         <span class="kw-2">mut</span> <span class="ident">phi_container</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="kw-2">mut</span> <span class="ident">PhiContainer</span>,
     ) <span class="op">-&gt;</span> <span class="ident">NodeLattice</span> {
+        <span class="kw">use</span> <span class="self">self</span>::{<span class="ident">Node</span>::<span class="kw-2">*</span>, <span class="ident">ProjKind</span>::<span class="kw-2">*</span>};
         <span class="self">self</span>.<span class="ident">breakpoint</span>(<span class="ident">cur_node</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">mark_stores_as_required</span> <span class="op">=</span> <span class="op">|</span><span class="ident">stores</span>: <span class="kw-2">&amp;</span><span class="ident">HashSet</span><span class="op">&lt;</span><span class="self">self</span>::<span class="ident">Store</span><span class="op">&gt;</span><span class="op">|</span> {
@@ -1685,7 +1684,6 @@
             <span class="kw">return</span> <span class="ident">NodeLattice</span>::<span class="ident">NotReachableYet</span>;
         }
 
-        <span class="kw">use</span> <span class="self">self</span>::{<span class="ident">Node</span>::<span class="kw-2">*</span>, <span class="ident">ProjKind</span>::<span class="kw-2">*</span>};
         <span class="kw">match</span> <span class="ident">cur_node</span> {
             <span class="comment">// == Load-Store optimizations ==</span>
             <span class="ident">Return</span>(<span class="ident">ret</span>) <span class="op">=&gt;</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">ret</span>.<span class="ident">mem</span>()) {
@@ -1853,8 +1851,7 @@
                 <span class="ident">deps</span>.<span class="ident">push</span>(<span class="ident">ptr_node</span>);
 
                 <span class="kw">match</span> (<span class="self">self</span>.<span class="ident">lookup</span>(<span class="ident">mem</span>), <span class="self">self</span>.<span class="ident">lookup_val</span>(<span class="ident">ptr_node</span>)) {
-                    (<span class="ident">NodeLattice</span>::<span class="ident">NotReachableYet</span>, <span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">NodeLattice</span>::<span class="ident">NotReachableYet</span>,
-                    (<span class="kw">_</span>, <span class="prelude-val">None</span>) <span class="op">=&gt;</span> <span class="ident">NodeLattice</span>::<span class="ident">NotReachableYet</span>,
+                    (<span class="ident">NodeLattice</span>::<span class="ident">NotReachableYet</span>, <span class="kw">_</span>) <span class="op">|</span> (<span class="kw">_</span>, <span class="prelude-val">None</span>) <span class="op">=&gt;</span> <span class="ident">NodeLattice</span>::<span class="ident">NotReachableYet</span>,
                     (<span class="ident">NodeLattice</span>::<span class="ident">Heap</span>(<span class="ident">heap</span>), <span class="prelude-val">Some</span>(<span class="ident">ptr_val</span>)) <span class="kw">if</span> <span class="ident">ptr_val</span>.<span class="ident">is_pointer</span>() <span class="op">=&gt;</span> {
                         <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">ptr_val</span>.<span class="ident">source_or_some_ex</span>(<span class="ident">ptr_node</span>);
                         <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">ptr_val</span>.<span class="ident">as_pointer</span>().<span class="ident">unwrap</span>();
@@ -1977,8 +1974,7 @@
                 <span class="kw">let</span> <span class="ident">right_val</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">lookup_val</span>(<span class="ident">cmp</span>.<span class="ident">right</span>());
 
                 <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">left_val</span>, <span class="ident">right_val</span>) {
-                    (<span class="prelude-val">None</span>, <span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">CmpResult</span>::<span class="ident">NotReachableYet</span>,
-                    (<span class="kw">_</span>, <span class="prelude-val">None</span>) <span class="op">=&gt;</span> <span class="ident">CmpResult</span>::<span class="ident">NotReachableYet</span>,
+                    (<span class="prelude-val">None</span>, <span class="kw">_</span>) <span class="op">|</span> (<span class="kw">_</span>, <span class="prelude-val">None</span>) <span class="op">=&gt;</span> <span class="ident">CmpResult</span>::<span class="ident">NotReachableYet</span>,
                     (<span class="prelude-val">Some</span>(<span class="ident">val1</span>), <span class="prelude-val">Some</span>(<span class="ident">val2</span>)) <span class="op">=&gt;</span> {
                         <span class="kw">match</span> (
                             <span class="kw-2">&amp;</span><span class="ident">val1</span>.<span class="ident">value</span>,

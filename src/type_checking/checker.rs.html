@@ -431,8 +431,8 @@
                                 <span class="ident">previous_params</span>.<span class="ident">insert</span>(<span class="ident">p</span>.<span class="ident">name</span>);
                                 <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">p</span>.<span class="ident">ty</span>.<span class="ident">data</span>.<span class="ident">basic</span>.<span class="ident">data</span> {
                                     <span class="ident">ast</span>::<span class="ident">BasicType</span>::<span class="ident">MainParam</span> <span class="op">=&gt;</span> {
-                                        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">is_main</span>);
-                                        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">p</span>.<span class="ident">ty</span>.<span class="ident">data</span>.<span class="ident">array_depth</span>, <span class="number">0</span>);
+                                        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">is_main</span>);
+                                        <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">p</span>.<span class="ident">ty</span>.<span class="ident">data</span>.<span class="ident">array_depth</span>, <span class="number">0</span>);
                                         <span class="ident">CheckedType</span>::<span class="ident">Array</span>(<span class="kw">box</span> <span class="ident">builtin_types</span>.<span class="ident">string</span>.<span class="ident">clone</span>())
                                     }
                                     <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">checked_type_from_ty</span>(

@@ -377,6 +377,7 @@
 <span id="377">377</span>
 <span id="378">378</span>
 <span id="379">379</span>
+<span id="380">380</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">entity</span>::<span class="ident">Entity</span>,
@@ -407,10 +408,10 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Graph</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">function_with_entity</span>(<span class="ident">entity</span>: <span class="ident">Entity</span>, <span class="ident">num_slots</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">Graph</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">function_with_entity</span>(<span class="ident">entity</span>: <span class="ident">Entity</span>, <span class="ident">num_slots</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">irg</span> <span class="op">=</span> <span class="ident">bindings</span>::<span class="ident">new_ir_graph</span>(<span class="ident">entity</span>.<span class="ident">ir_entity</span>(), <span class="ident">num_slots</span> <span class="kw">as</span> <span class="ident">i32</span>);
-            <span class="ident">Graph</span> { <span class="ident">irg</span> }
+            <span class="self">Self</span> { <span class="ident">irg</span> }
         }
     }
 
@@ -663,9 +664,10 @@
     <span class="doccomment">/// nodes dominated by it as unreachable. The whole subtree can then be</span>
     <span class="doccomment">/// removed using `Graph::remove_bads`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mark_as_bad</span>(<span class="self">self</span>, <span class="ident">node</span>: <span class="kw">impl</span> <span class="ident">NodeTrait</span>) {
-        <span class="ident">Graph</span>::<span class="ident">exchange</span>(<span class="ident">node</span>, <span class="self">self</span>.<span class="ident">new_bad</span>(<span class="ident">Mode</span>::<span class="ident">b</span>()))
+        <span class="self">Self</span>::<span class="ident">exchange</span>(<span class="ident">node</span>, <span class="self">self</span>.<span class="ident">new_bad</span>(<span class="ident">Mode</span>::<span class="ident">b</span>()))
     }
 
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">similar_names</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">copy_node_without_ins</span>(<span class="self">self</span>, <span class="ident">node</span>: <span class="ident">Node</span>, <span class="ident">target</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Block</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Node</span> {
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">internal_ir_node</span>();

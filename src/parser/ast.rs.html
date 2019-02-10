@@ -259,7 +259,6 @@
 <span id="259">259</span>
 <span id="260">260</span>
 <span id="261">261</span>
-<span id="262">262</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">asciifile</span>::<span class="ident">Spanned</span>;
 <span class="kw">use</span> <span class="ident">diagnostics</span>::<span class="ident">MessageLevel</span>;
@@ -275,7 +274,7 @@
 }
 
 <span class="doccomment">/// This is the top-level AST node. It stores all class declarations of the</span>
-<span class="doccomment">/// MiniJava program.</span>
+<span class="doccomment">/// `MiniJava` program.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Program</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="ident">classes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Spanned</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span>, <span class="ident">ClassDeclaration</span><span class="op">&lt;</span><span class="lifetime">&#39;t</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
@@ -306,7 +305,7 @@
 <span class="doccomment">/// * `Field(type)`: a declaration of a field of a class</span>
 <span class="doccomment">/// * `Method(type, params, body)`: a method of a class</span>
 <span class="doccomment">/// * `MainMethod(params, body)`: a main method, which is a special method that</span>
-<span class="doccomment">/// is only allowed once in a MiniJava Program. `params` is guaranteed to</span>
+<span class="doccomment">/// is only allowed once in a `MiniJava` Program. `params` is guaranteed to</span>
 <span class="doccomment">/// only contain the `String[] IDENT` parameter.</span>
 <span class="attribute">#[<span class="ident">strum_discriminants</span>(<span class="ident">derive</span>(<span class="ident">Display</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>))]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">EnumDiscriminants</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>)]</span>
@@ -479,8 +478,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_method</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
         <span class="kw">use</span> <span class="self">self</span>::<span class="ident">ClassMemberKind</span>::<span class="kw-2">*</span>;
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Method</span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=&gt;</span> <span class="bool-val">true</span>,
-            <span class="ident">MainMethod</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=&gt;</span> <span class="bool-val">true</span>,
+            <span class="ident">Method</span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) <span class="op">|</span> <span class="ident">MainMethod</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=&gt;</span> <span class="bool-val">true</span>,
             <span class="ident">Field</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="bool-val">false</span>,
         }
     }

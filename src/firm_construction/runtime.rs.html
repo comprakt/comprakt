@@ -174,7 +174,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">type_system</span>::<span class="ident">BuiltinMethodBody</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RuntimeFunction</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">mb</span>: <span class="ident">type_system</span>::<span class="ident">BuiltinMethodBody</span>) <span class="op">-&gt;</span> <span class="ident">RuntimeFunction</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">mb</span>: <span class="ident">type_system</span>::<span class="ident">BuiltinMethodBody</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">use</span> <span class="self">self</span>::<span class="ident">type_system</span>::<span class="ident">BuiltinMethodBody</span>;
         <span class="kw">match</span> <span class="ident">mb</span> {
             <span class="ident">BuiltinMethodBody</span>::<span class="ident">SystemOutPrintln</span> <span class="op">=&gt;</span> <span class="ident">RuntimeFunction</span>::<span class="ident">SystemOutPrintln</span>,
@@ -223,7 +223,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Runtime</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">lib</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">RTLib</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Runtime</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">lib</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">RTLib</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">dumpstack</span> <span class="op">=</span> {
             <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">MethodTyBuilder</span>::<span class="ident">new</span>().<span class="ident">build_no_this_call</span>();
             <span class="ident">Entity</span>::<span class="ident">new_global</span>(<span class="ident">lib</span>.<span class="ident">ld_name</span>(<span class="ident">RuntimeFunction</span>::<span class="ident">Dumpstack</span>), <span class="ident">t</span>.<span class="ident">into</span>())
@@ -285,7 +285,7 @@
             <span class="ident">Entity</span>::<span class="ident">new_global</span>(<span class="ident">lib</span>.<span class="ident">ld_name</span>(<span class="ident">RuntimeFunction</span>::<span class="ident">ArrayOutOfBounds</span>), <span class="ident">t</span>.<span class="ident">into</span>())
         };
 
-        <span class="ident">Runtime</span> {
+        <span class="self">Self</span> {
             <span class="ident">lib</span>,
             <span class="ident">system_out_println</span>,
             <span class="ident">system_out_write</span>,

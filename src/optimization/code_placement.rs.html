@@ -767,7 +767,7 @@
 <span class="doccomment">///! NOTE: the built in libfirm backend for amd64 calls `place_code` (libfirm&#39;s</span>
 <span class="doccomment">///! own implementation of this optimization) even when optimizations are</span>
 <span class="doccomment">///! disabled. You have to either use our backend or comment out</span>
-<span class="doccomment">///! line 3337 in file &lt;ir/be/amd64/amd64_transform.c&gt; to debug this</span>
+<span class="doccomment">///! line 3337 in file &lt;`ir/be/amd64/amd64_transform.c`&gt; to debug this</span>
 <span class="doccomment">///! optimization.</span>
 <span class="doccomment">///!</span>
 <span class="doccomment">///! ---</span>
@@ -796,8 +796,8 @@
 <span class="doccomment">///! - Libfirm distingiusies between floating and pinned nodes.</span>
 <span class="doccomment">///! - Pinned nodes should not be moved.</span>
 <span class="doccomment">///! - Some pinned nodes are:</span>
-<span class="doccomment">///!     - Control Flow Nodes: Jmp, Cond, Switch, IJmp, Return...</span>
-<span class="doccomment">///!     - Start Block Nodes: NoMem, Unknown</span>
+<span class="doccomment">///!     - Control Flow Nodes: Jmp, Cond, Switch, `IJmp`, Return...</span>
+<span class="doccomment">///!     - Start Block Nodes: `NoMem`, Unknown</span>
 <span class="doccomment">///!     - Memory Nodes: Free, Alloc</span>
 <span class="doccomment">///!     - Structural Nodes: Block, End, Start, Phi, Anchor</span>
 <span class="doccomment">///!     - Confirm, Bad, Dummy, Unknown, Deleted ...</span>
@@ -839,7 +839,7 @@
 <span class="doccomment">///! # References</span>
 <span class="doccomment">///!</span>
 <span class="doccomment">///! Lecture slides on the algorithm:</span>
-<span class="doccomment">///! http://compilers.cs.uni-saarland.de/teaching/cc/2009/slides/l10_pre.pdf</span>
+<span class="doccomment">///! &lt;http://compilers.cs.uni-saarland.de/teaching/cc/2009/slides/l10_pre.pdf&gt;</span>
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">CommonSubExpr</span>, <span class="ident">Outcome</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">dot</span>::<span class="kw-2">*</span>,
@@ -859,7 +859,7 @@
 
 <span class="kw">impl</span> <span class="ident">optimization</span>::<span class="ident">Local</span> <span class="kw">for</span> <span class="ident">CodePlacement</span> {
     <span class="kw">fn</span> <span class="ident">optimize_function</span>(<span class="ident">graph</span>: <span class="ident">Graph</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
-        <span class="ident">CodePlacement</span>::<span class="ident">new</span>(<span class="ident">graph</span>).<span class="ident">run</span>()
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">graph</span>).<span class="ident">run</span>()
     }
 }
 
@@ -915,7 +915,7 @@
 
 <span class="kw">impl</span> <span class="ident">optimization</span>::<span class="ident">Local</span> <span class="kw">for</span> <span class="ident">EarliestPlacement</span> {
     <span class="kw">fn</span> <span class="ident">optimize_function</span>(<span class="ident">graph</span>: <span class="ident">Graph</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
-        <span class="ident">EarliestPlacement</span>::<span class="ident">new</span>(<span class="ident">graph</span>).<span class="ident">run</span>()
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">graph</span>).<span class="ident">run</span>()
     }
 }
 

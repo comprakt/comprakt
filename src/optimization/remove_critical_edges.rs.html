@@ -195,7 +195,7 @@
 
 <span class="kw">impl</span> <span class="ident">optimization</span>::<span class="ident">Local</span> <span class="kw">for</span> <span class="ident">RemoveCriticalEdges</span> {
     <span class="kw">fn</span> <span class="ident">optimize_function</span>(<span class="ident">graph</span>: <span class="ident">Graph</span>) <span class="op">-&gt;</span> <span class="ident">Outcome</span> {
-        <span class="ident">RemoveCriticalEdges</span>::<span class="ident">new</span>(<span class="ident">graph</span>).<span class="ident">run</span>()
+        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">graph</span>).<span class="ident">run</span>()
     }
 }
 
@@ -259,7 +259,7 @@
                 <span class="ident">node</span> <span class="kw">if</span> <span class="ident">Node</span>::<span class="ident">is_bad</span>(<span class="ident">node</span>) <span class="op">=&gt;</span> <span class="kw">continue</span>,
                 <span class="ident">Node</span>::<span class="ident">Jmp</span>(..) <span class="op">=&gt;</span> <span class="kw">continue</span>,
                 <span class="kw">_</span> <span class="op">=&gt;</span> {
-                    <span class="macro">unimplemented</span><span class="macro">!</span>();
+                    <span class="macro">unreachable</span><span class="macro">!</span>();
                 }
             }
         }

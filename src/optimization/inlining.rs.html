@@ -350,6 +350,7 @@
 <span id="350">350</span>
 <span id="351">351</span>
 <span id="352">352</span>
+<span id="353">353</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">analysis</span>::<span class="ident">CallGraph</span>,
@@ -453,7 +454,7 @@
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">std</span>::<span class="ident">option</span>::<span class="ident">NoneError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InlineError</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">_err</span>: <span class="ident">std</span>::<span class="ident">option</span>::<span class="ident">NoneError</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="ident">InlineError</span> {}
+        <span class="self">Self</span> {}
     }
 }
 
@@ -471,10 +472,11 @@
         <span class="kw">let</span> <span class="ident">graph</span> <span class="op">=</span> <span class="ident">call</span>.<span class="ident">graph</span>();
         <span class="ident">graph</span>.<span class="ident">assure_outs</span>();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">Inline</span> { <span class="ident">graph</span>, <span class="ident">depth</span>: <span class="number">0</span> };
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="self">Self</span> { <span class="ident">graph</span>, <span class="ident">depth</span>: <span class="number">0</span> };
         <span class="ident">i</span>.<span class="ident">inline_with_context</span>(<span class="ident">call</span>)
     }
 
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">items_after_statements</span>)]</span>
     <span class="kw">fn</span> <span class="ident">inline_with_context</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">call</span>: <span class="ident">Call</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">InlineError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">graph</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">graph</span>;
         <span class="kw">let</span> <span class="ident">proj_m</span> <span class="op">=</span> <span class="ident">call</span>.<span class="ident">out_proj_m</span>().<span class="ident">unwrap</span>();
@@ -683,7 +685,7 @@
         );
         <span class="self">self</span>.<span class="ident">depth</span> <span class="op">+=</span> <span class="number">1</span>;
         <span class="kw">let</span> <span class="ident">existing</span> <span class="op">=</span> <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">old</span>, <span class="ident">new_node</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">existing</span>.<span class="ident">is_none</span>());
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">existing</span>.<span class="ident">is_none</span>());
 
         <span class="kw">let</span> <span class="ident">new_in_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">old</span>
             .<span class="ident">in_nodes</span>()

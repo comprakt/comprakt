@@ -76,6 +76,7 @@
 <span id="76">76</span>
 <span id="77">77</span>
 <span id="78">78</span>
+<span id="79">79</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">libfirm_rs_bindings</span> <span class="kw">as</span> <span class="ident">bindings</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>;
@@ -92,9 +93,10 @@
     };
 }
 
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">use_self</span>)]</span>
 <span class="kw">impl</span> <span class="ident">Mode</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_libfirm</span>(<span class="ident">mode</span>: <span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Type</span>) <span class="op">-&gt;</span> <span class="ident">Mode</span> {
-        <span class="ident">Mode</span>(<span class="ident">mode</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_libfirm</span>(<span class="ident">mode</span>: <span class="ident">bindings</span>::<span class="ident">mode</span>::<span class="ident">Type</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>(<span class="ident">mode</span>)
     }
 
     <span class="macro">mode</span><span class="macro">!</span>(<span class="ident">Any</span>, <span class="ident">mode_ANY</span>);
@@ -133,18 +135,18 @@
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_mem</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="self">self</span> <span class="op">==</span> <span class="ident">Mode</span>::<span class="ident">M</span>()
+        <span class="self">self</span> <span class="op">==</span> <span class="self">Self</span>::<span class="ident">M</span>()
     }
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_data</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
         <span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">mode_is_data</span>(<span class="self">self</span>.<span class="number">0</span>) <span class="op">!=</span> <span class="number">0</span> }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reference_offset_mode</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Mode</span> {
-        <span class="ident">Mode</span>::<span class="ident">from_libfirm</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_reference_offset_mode</span>(<span class="self">self</span>.<span class="number">0</span>) })
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reference_offset_mode</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>::<span class="ident">from_libfirm</span>(<span class="kw">unsafe</span> { <span class="ident">bindings</span>::<span class="ident">get_reference_offset_mode</span>(<span class="self">self</span>.<span class="number">0</span>) })
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_pointer</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="self">self</span> <span class="op">==</span> <span class="ident">Mode</span>::<span class="ident">P</span>()
+        <span class="self">self</span> <span class="op">==</span> <span class="self">Self</span>::<span class="ident">P</span>()
     }
 }
 

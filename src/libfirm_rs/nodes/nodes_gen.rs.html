@@ -6863,11 +6863,33 @@
 <span id="6863">6863</span>
 <span id="6864">6864</span>
 <span id="6865">6865</span>
+<span id="6866">6866</span>
+<span id="6867">6867</span>
+<span id="6868">6868</span>
+<span id="6869">6869</span>
+<span id="6870">6870</span>
+<span id="6871">6871</span>
+<span id="6872">6872</span>
+<span id="6873">6873</span>
+<span id="6874">6874</span>
+<span id="6875">6875</span>
+<span id="6876">6876</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file is generated! Do not edit by hand!</span>
 <span class="comment">// Follow the instructions in the README on how to update this file.</span>
 
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+<span class="attribute">#![<span class="ident">allow</span>(
+    <span class="ident">clippy</span>::<span class="ident">print_stdout</span>,
+    <span class="ident">clippy</span>::<span class="ident">unimplemented</span>,
+    <span class="ident">clippy</span>::<span class="ident">doc_markdown</span>,
+    <span class="ident">clippy</span>::<span class="ident">items_after_statements</span>,
+    <span class="ident">clippy</span>::<span class="ident">match_same_arms</span>,
+    <span class="ident">clippy</span>::<span class="ident">similar_names</span>,
+    <span class="ident">clippy</span>::<span class="ident">single_match_else</span>,
+    <span class="ident">clippy</span>::<span class="ident">use_self</span>,
+    <span class="ident">clippy</span>::<span class="ident">use_debug</span>
+)]</span>
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">bindings</span>,
     <span class="ident">nodes</span>::{<span class="ident">NodeDebug</span>, <span class="ident">NodeDebugOpts</span>, <span class="ident">NodeTrait</span>},

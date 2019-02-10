@@ -438,6 +438,8 @@
 <span id="438">438</span>
 <span id="439">439</span>
 <span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">libfirm_rs</span>::{
@@ -460,14 +462,14 @@
         <span class="kw-2">mut</span> <span class="ident">block</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;</span>,
         <span class="ident">alloc</span>: <span class="kw-2">&amp;</span><span class="ident">Allocator</span>,
     ) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">b</span> <span class="op">=</span> <span class="ident">GenInstrBlock</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">b</span> <span class="op">=</span> <span class="self">Self</span> {
             <span class="ident">graph</span>,
             <span class="ident">visisted</span>: <span class="ident">HashSet</span>::<span class="ident">new</span>(),
             <span class="ident">body</span>: <span class="macro">vec</span><span class="macro">!</span>[],
             <span class="ident">leave</span>: <span class="macro">vec</span><span class="macro">!</span>[],
         };
         <span class="ident">b</span>.<span class="ident">gen</span>(<span class="ident">graph</span>, <span class="ident">block</span>);
-        <span class="kw">let</span> <span class="ident">GenInstrBlock</span> { <span class="ident">body</span>, <span class="ident">leave</span>, .. } <span class="op">=</span> <span class="ident">b</span>;
+        <span class="kw">let</span> <span class="self">Self</span> { <span class="ident">body</span>, <span class="ident">leave</span>, .. } <span class="op">=</span> <span class="ident">b</span>;
         <span class="comment">// do not overwrite block.code because it already contains instrs from</span>
         <span class="comment">// construction / LoadParam</span>
         <span class="ident">block</span>
@@ -551,12 +553,14 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// ### All other nodes</span>
     <span class="doccomment">/// All other nodes produce a value value.</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cyclomatic_complexity</span>)]</span>
     <span class="kw">fn</span> <span class="ident">gen_value_walk_callback</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">graph</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BlockGraph</span><span class="op">&gt;</span>,
         <span class="ident">block</span>: <span class="ident">Ptr</span><span class="op">&lt;</span><span class="ident">BasicBlock</span><span class="op">&gt;</span>,
         <span class="ident">node</span>: <span class="ident">Node</span>,
     ) {
+        <span class="kw">use</span> <span class="self">self</span>::{<span class="ident">BinopKind</span>::<span class="kw-2">*</span>, <span class="ident">UnopKind</span>::<span class="kw-2">*</span>};
         <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;visit node={:?}&quot;</span>, <span class="ident">node</span>);
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">visisted</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">node</span>) {
             <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;\tnode has already been&quot;</span>);
@@ -564,7 +568,6 @@
         }
         <span class="self">self</span>.<span class="ident">visisted</span>.<span class="ident">insert</span>(<span class="ident">node</span>);
 
-        <span class="kw">use</span> <span class="self">self</span>::{<span class="ident">BinopKind</span>::<span class="kw-2">*</span>, <span class="ident">UnopKind</span>::<span class="kw-2">*</span>};
         <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">op_operand</span> {
             (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
                 <span class="kw">let</span> <span class="ident">node</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>();
@@ -612,7 +615,6 @@
                     });
                 }
             }};
-
         }
         <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">gen_unop</span> {
             (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">kind</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">op</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">block</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">node</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> {{
@@ -625,6 +627,7 @@
                 });
             }};
         }
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">match_same_arms</span>)]</span>
         <span class="kw">match</span> <span class="ident">node</span> {
             <span class="comment">// Start node is always ready</span>
             <span class="ident">Node</span>::<span class="ident">Start</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {}
@@ -667,7 +670,7 @@
             <span class="ident">Node</span>::<span class="ident">Minus</span>(<span class="ident">neg</span>) <span class="op">=&gt;</span> <span class="macro">gen_unop</span><span class="macro">!</span>(<span class="ident">Neg</span>, <span class="ident">neg</span>, <span class="ident">block</span>, <span class="ident">node</span>),
             <span class="ident">Node</span>::<span class="ident">Return</span>(<span class="ident">ret</span>) <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">value</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Operand</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">ret</span>.<span class="ident">return_res</span>().<span class="ident">len</span>() <span class="op">!=</span> <span class="number">0</span> {
-                    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">ret</span>.<span class="ident">return_res</span>().<span class="ident">len</span>(), <span class="number">1</span>);
+                    <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">ret</span>.<span class="ident">return_res</span>().<span class="ident">len</span>(), <span class="number">1</span>);
                     <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">ret</span>);
                     <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">gen_operand_jit</span>(<span class="ident">ret</span>.<span class="ident">return_res</span>().<span class="ident">idx</span>(<span class="number">0</span>).<span class="ident">unwrap</span>()))
                 } <span class="kw">else</span> {
@@ -685,7 +688,7 @@
             <span class="comment">// Cmp and Cond are handled together</span>
             <span class="ident">Node</span>::<span class="ident">Cmp</span>(<span class="ident">cmp</span>) <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">succs</span> <span class="op">=</span> <span class="ident">cmp</span>.<span class="ident">out_nodes</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
-                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="number">1</span>, <span class="ident">succs</span>.<span class="ident">len</span>());
+                <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="number">1</span>, <span class="ident">succs</span>.<span class="ident">len</span>());
                 <span class="kw">match</span> <span class="ident">succs</span>[<span class="number">0</span>] {
                     <span class="ident">Node</span>::<span class="ident">Cond</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> (),
                     <span class="ident">x</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(
@@ -696,7 +699,7 @@
             }
             <span class="ident">Node</span>::<span class="ident">Cond</span>(<span class="ident">cond</span>) <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">preds</span> <span class="op">=</span> <span class="ident">cond</span>.<span class="ident">in_nodes</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
-                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="number">1</span>, <span class="ident">preds</span>.<span class="ident">len</span>());
+                <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="number">1</span>, <span class="ident">preds</span>.<span class="ident">len</span>());
                 <span class="kw">let</span> <span class="ident">cmp</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">preds</span>[<span class="number">0</span>] {
                     <span class="ident">Node</span>::<span class="ident">Cmp</span>(<span class="ident">cmp</span>) <span class="op">=&gt;</span> <span class="ident">cmp</span>,
                     <span class="ident">x</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(
@@ -735,7 +738,7 @@
                     <span class="ident">Node</span>::<span class="ident">Address</span>(<span class="ident">addr</span>) <span class="op">=&gt;</span> <span class="ident">addr</span>.<span class="ident">entity</span>(),
                     <span class="ident">x</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;call must go to an Address node, got {:?}&quot;</span>, <span class="ident">x</span>),
                 };
-                <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">func</span>.<span class="ident">ty</span>().<span class="ident">is_method</span>());
+                <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">func</span>.<span class="ident">ty</span>().<span class="ident">is_method</span>());
                 <span class="ident">log</span>::<span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;called func={:?}&quot;</span>, <span class="ident">func</span>.<span class="ident">ld_name</span>());
 
                 <span class="comment">// Allocate var for this call node as described in match arm comment</span>
@@ -752,7 +755,7 @@
                         <span class="comment">// the FIRM node for the Var produced by this call.</span>
                         <span class="comment">// And there cannot be multiple Vars produced by a call.</span>
                         <span class="comment">// So this assumption better hold!</span>
-                        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">tuple_elems</span>.<span class="ident">len</span>(), <span class="number">1</span>);
+                        <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">tuple_elems</span>.<span class="ident">len</span>(), <span class="number">1</span>);
                         <span class="ident">tuple_elems</span>[<span class="number">0</span>]
                     });
 
@@ -782,7 +785,10 @@
             }
             <span class="comment">// Call_TResult and Call_TResult_Arg are handled in Node::Call match arm</span>
             <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="kw">_</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_TResult</span>(<span class="kw">_</span>))
-            <span class="op">|</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="kw">_</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_TResult_Arg</span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)) <span class="op">=&gt;</span> {}
+            <span class="op">|</span> <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="kw">_</span>, <span class="ident">ProjKind</span>::<span class="ident">Call_TResult_Arg</span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)) <span class="op">=&gt;</span> (),
+
+            <span class="comment">// handled in Node::Load match arm</span>
+            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="kw">_</span>, <span class="ident">ProjKind</span>::<span class="ident">Load_Res</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> (),
 
             <span class="ident">Node</span>::<span class="ident">Unknown</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {
                 <span class="comment">// TODO ??? this happens in the runtime function wrapper&#39;s</span>
@@ -799,8 +805,6 @@
                         .<span class="ident">push</span>(<span class="ident">Instruction</span>::<span class="ident">LoadMem</span>(<span class="ident">LoadMem</span> { <span class="ident">src</span>, <span class="ident">dst</span>, <span class="ident">size</span> }));
                 }
             }
-            <span class="comment">// handled in Node::Load match arm</span>
-            <span class="ident">Node</span>::<span class="ident">Proj</span>(<span class="kw">_</span>, <span class="ident">ProjKind</span>::<span class="ident">Load_Res</span>(<span class="kw">_</span>)) <span class="op">=&gt;</span> {}
 
             <span class="ident">Node</span>::<span class="ident">Store</span>(<span class="ident">store</span>) <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gen_operand_jit</span>(<span class="ident">store</span>.<span class="ident">value</span>());
