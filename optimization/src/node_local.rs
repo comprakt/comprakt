@@ -96,7 +96,13 @@ impl NodeLocal {
                 left
             );
 
-            let tarval_1 = self.graph.new_const(Tarval::val(1, Mode::Iu()));
+            let shift_operand_mode = if let Some(mode) = mode_to_unsigned(right.mode()) {
+                mode
+            } else {
+                return;
+            };
+
+            let tarval_1 = self.graph.new_const(Tarval::val(1, shift_operand_mode));
 
             let shl = add.block().new_shl(left, tarval_1);
 
@@ -109,18 +115,18 @@ impl NodeLocal {
         let left = mul.left();
         let right = mul.right();
 
-        let (other, power) = {
+        let (power_node, other, power) = {
             if let Node::Const(op1) = left {
                 // power of two * a
                 if let TarvalKind::Long(val) = op1.tarval().kind() {
-                    (right, val)
+                    (left, right, val)
                 } else {
                     return;
                 }
             } else if let Node::Const(op2) = right {
                 // a * power of two
                 if let TarvalKind::Long(val) = op2.tarval().kind() {
-                    (left, val)
+                    (right, left, val)
                 } else {
                     return;
                 }
@@ -129,15 +135,29 @@ impl NodeLocal {
             }
         };
 
-        let abs_power = power.abs() as u64;
+        // this can be an Ls if ConstantFolding is run before this optimization
+        // on `new int[4]`. We would need u128 for Ls with INT_MIN, simply ignore this
+        // case instead of crashing the compiler.
+        let abs_power = if let Some(abs) = power.checked_abs() {
+            abs as u64
+        } else {
+            return;
+        };
+
         let has_minus = power < 0;
 
         if abs_power.is_power_of_two() {
             let shift_amount = 64 - 1 - abs_power.leading_zeros();
 
+            let shift_operand_mode = if let Some(mode) = mode_to_unsigned(power_node.mode()) {
+                mode
+            } else {
+                return;
+            };
+
             let shift_amount_node = self
                 .graph
-                .new_const(Tarval::val(i64::from(shift_amount), Mode::Iu()));
+                .new_const(Tarval::val(i64::from(shift_amount), shift_operand_mode));
 
             let shl = mul.block().new_shl(other, shift_amount_node);
             let shl_end = if has_minus {
@@ -431,5 +451,15 @@ impl NodeLocal {
         }
 
         self.changed
+    }
+}
+
+fn mode_to_unsigned(mode: Mode) -> Option<Mode> {
+    if mode == Mode::Is() {
+        Some(Mode::Iu())
+    } else if mode == Mode::Ls() {
+        Some(Mode::Lu())
+    } else {
+        None
     }
 }
