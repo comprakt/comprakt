@@ -1,0 +1,18 @@
+---
+optimizations: [NodeLocal]
+expect: change
+# the at-character is 64 in the ascii table
+stdin:
+    is: "@"
+
+stdout:
+    is: "256\n"
+---
+
+class Simple {
+  public static void main(String[] args) {
+    int a = System.in.read();
+    int res = 4 * a;
+    System.out.println(res);
+  }
+}

@@ -13,6 +13,7 @@
 //! ```sh
 //! COMPILER_BINARY="./run" cargo test --test integration
 //! ```
+use ::optimization::Level;
 use integration_test_codegen::*;
 use runner_integration_tests::*;
 use std::path::PathBuf;
@@ -25,13 +26,6 @@ gen_semantic_integration_tests!();
 gen_lints_integration_tests!();
 gen_ast_inspector_tests!();
 gen_assembly_integration_tests!();
-gen_binary_integration_tests!(Backend::Own);
-gen_binary_integration_tests!(Backend::Libfirm);
-gen_optimized_binary_integration_tests!(Backend::Own);
-gen_optimized_binary_integration_tests!(Backend::Libfirm);
-gen_timeout_integration_tests!(Backend::Own);
-gen_timeout_integration_tests!(Backend::Libfirm);
-gen_optimized_timeout_integration_tests!(Backend::Own);
-gen_optimized_timeout_integration_tests!(Backend::Libfirm);
-gen_optimization_integration_tests!(Backend::Own);
-gen_optimization_integration_tests!(Backend::Libfirm);
+gen_binary_integration_tests!();
+gen_timeout_integration_tests!();
+gen_optimization_integration_tests!();

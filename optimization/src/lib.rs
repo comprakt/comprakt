@@ -37,6 +37,8 @@ mod common_subexpr_elim;
 pub use self::common_subexpr_elim::CommonSubExpr;
 pub mod compile_time_assertions;
 pub use self::compile_time_assertions::{CompileTimeAssertions, Phase};
+mod node_local;
+pub use self::node_local::NodeLocal;
 mod lattices;
 
 /// An optimization that optimizes the whole program by examining all function
@@ -86,6 +88,7 @@ pub enum Kind {
     CostMinimizingPlacement,
     CodePlacement,
     CommonSubExprElim,
+    NodeLocal,
 }
 
 impl Kind {
@@ -100,6 +103,7 @@ impl Kind {
             Kind::CostMinimizingPlacement => CostMinimizingPlacement::optimize(program),
             Kind::CodePlacement => CodePlacement::optimize(program),
             Kind::CommonSubExprElim => CommonSubExpr::optimize(program),
+            Kind::NodeLocal => NodeLocal::optimize(program),
         }
     }
 }
@@ -136,17 +140,17 @@ impl Level {
                 Optimization::new(Kind::ControlFlow),
             ],
             Level::Aggressive => vec![
-                // TODO: code placement in combination with inlining can be
-                // very expensive
                 Optimization::new(Kind::Inline),
                 Optimization::new(Kind::ConstantFoldingWithLoadStore),
                 Optimization::new(Kind::ControlFlow),
-                // this sequence results in global common subexpression elimination
-                // and loop invariant code motion
-                Optimization::new(Kind::EarliestPlacement),
-                Optimization::new(Kind::CommonSubExprElim),
-                Optimization::new(Kind::CostMinimizingPlacement),
+                Optimization::new(Kind::NodeLocal),
             ],
+            // this sequence results in global common subexpression elimination
+            // and loop invariant code motion. Pretty expensive in combination
+            // with inlining and no measurable change in benchmarks.
+            //Optimization::new(Kind::EarliestPlacement),
+            //Optimization::new(Kind::CommonSubExprElim),
+            //Optimization::new(Kind::CostMinimizingPlacement),
             Level::Custom(list) => list.clone(),
         }
     }

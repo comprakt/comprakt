@@ -1,7 +1,7 @@
 ---
 optimizations: [ConstantFolding]
 expect: unchanged
-dont_compare_asm_with_own_backend: true
+backend_asm: [Libfirm]
 exitcode:
     is: "terminated by signal or crashed."
 ---

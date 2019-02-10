@@ -49,7 +49,8 @@ pub struct OptimizationTestData {
     /// the unoptimized and the optimized asm of
     /// the binary.
     pub expect: AsmComparisonOutcome,
-    pub dont_compare_asm_with_own_backend: Option<bool>,
+    pub backend_asm: Option<Vec<Backend>>,
+    pub backend: Option<Vec<Backend>>,
 }
 
 impl FromReferencesPath<OptimizationTestData> for OptimizationTestData {
@@ -67,7 +68,8 @@ impl FromReferencesPath<OptimizationTestData> for OptimizationTestData {
             stdin: None,
             optimizations: vec![],
             expect: AsmComparisonOutcome::Change,
-            dont_compare_asm_with_own_backend: None,
+            backend: Some(vec![Backend::Own, Backend::Libfirm]),
+            backend_asm: Some(vec![Backend::Own, Backend::Libfirm]),
         }
     }
 }
@@ -145,7 +147,7 @@ pub fn exec_optimization_test(input: PathBuf, backend: Backend) {
 
     let setup = TestSpec {
         references: input.clone(),
-        input,
+        input: input.clone(),
         generate_tentatives: true,
     };
 
@@ -153,6 +155,21 @@ pub fn exec_optimization_test(input: PathBuf, backend: Backend) {
 
     if test_data.reference.optimizations.is_empty() {
         panic!("you MUST at least specify one optimization. none given.");
+    }
+
+    if !test_data
+        .reference
+        .backend
+        .as_ref()
+        .map(|v| v.contains(&backend))
+        .unwrap_or(true)
+    {
+        log::warn!(
+            "ignoring {} test for backend {:?}",
+            input.display(),
+            backend
+        );
+        return;
     }
 
     let callinfo_actual = CompilerCall::RawCompiler(CompilerPhase::Binary {
@@ -276,14 +293,20 @@ pub fn exec_optimization_test(input: PathBuf, backend: Backend) {
     )
     .unwrap();
 
-    match test_data.reference.dont_compare_asm_with_own_backend {
-        Some(true) => {
-            if backend == Backend::Own {
-                return;
-            }
-        }
-        None | Some(false) => (),
-    };
+    if !test_data
+        .reference
+        .backend_asm
+        .as_ref()
+        .map(|v| v.contains(&backend))
+        .unwrap_or(true)
+    {
+        log::warn!(
+            "ignoring asm comparison in {} test for backend {:?}",
+            input.display(),
+            backend
+        );
+        return;
+    }
 
     match test_data.reference.expect {
         AsmComparisonOutcome::Change => {
