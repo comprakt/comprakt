@@ -449,7 +449,7 @@ impl Lattice for NodeValue {
                 JoinContext::PhiWith2Preds {
                     phi,
                     phi_container,
-                    cur_info_idx,
+                    cur_info_idx: _,
                     cur_phi_id,
                 } => {
                     assert!(phi.in_nodes().len() == 2);

@@ -474,12 +474,7 @@ impl Lattice for Heap {
             |ptr_source, kind| match kind {
                 Both(info1, info2) => {
                     match context {
-                        JoinContext::PhiWith2Preds {
-                            phi,
-                            phi_container,
-                            cur_info_idx,
-                            cur_phi_id,
-                        } => {
+                        JoinContext::PhiWith2Preds { cur_info_idx, .. } => {
                             *cur_info_idx = Some(*ptr_source);
                         }
                         _ => {}
@@ -510,12 +505,7 @@ impl Lattice for Heap {
             |ptr_source, kind| match kind {
                 Both(info1, info2) => {
                     match context {
-                        JoinContext::PhiWith2Preds {
-                            phi,
-                            phi_container,
-                            cur_info_idx,
-                            cur_phi_id,
-                        } => {
+                        JoinContext::PhiWith2Preds { cur_info_idx, .. } => {
                             *cur_info_idx = Some(*ptr_source);
                         }
                         _ => {}
@@ -527,7 +517,7 @@ impl Lattice for Heap {
                             Rc::clone(info1)
                         } else {
                             assert_eq!(info1.kind, info2.kind);
-                            Rc::new(info1.join(info2, &mut JoinContext::None, info1.kind))
+                            Rc::new(info1.join(info2, context, info1.kind))
                         },
                     );
                 }
@@ -875,7 +865,7 @@ impl ArrayInfo {
                     match context {
                         JoinContext::PhiWith2Preds {
                             phi,
-                            phi_container,
+                            phi_container: _,
                             cur_info_idx,
                             cur_phi_id,
                         } => {
@@ -1076,9 +1066,9 @@ impl ObjectInfo {
             match context {
                 JoinContext::PhiWith2Preds {
                     phi,
-                    phi_container,
                     cur_info_idx,
                     cur_phi_id,
+                    ..
                 } => {
                     *cur_phi_id = Some(PhiId::Field(*phi, cur_info_idx.unwrap(), field_idx));
                 }

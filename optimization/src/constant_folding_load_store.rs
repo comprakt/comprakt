@@ -788,8 +788,6 @@ impl ConstantFoldingWithLoadStore {
 
             // == Phi ==
             Phi(phi) => {
-                let last_idx = -1;
-
                 let mut join_context = if phi.mode().is_mem() && phi.in_nodes().len() == 2 {
                     JoinContext::PhiWith2Preds {
                         phi,
@@ -801,43 +799,43 @@ impl ConstantFoldingWithLoadStore {
                     JoinContext::None
                 };
 
-                let result = phi.in_nodes().zip(phi.block().in_nodes()).enumerate().fold(
-                    None,
-                    |acc, (idx, (pred, block))| {
-                        // only consider reachable blocks for phi inputs
-                        if !self.lookup(block).reachable() {
-                            // we must get informed when that block gets reachable
-                            deps.push(block);
-                            log::debug!(
-                                "{:?} is unreachable, thus {:?} can be ignored",
-                                block,
-                                pred
-                            );
-                            acc.or(Some(NodeLattice::NotReachableYet))
-                        } else {
-                            let pred_lat = self.lookup(pred);
-                            match acc {
-                                None => Some(pred_lat.clone()),
-                                Some(acc) => {
-                                    let new_lat = acc.join(pred_lat, &mut join_context);
-                                    match new_lat {
-                                        NodeLattice::Value(val) => {
-                                            Some(val.into_updated_source_ex(phi.as_node()).into())
+                let result =
+                    phi.in_nodes()
+                        .zip(phi.block().in_nodes())
+                        .fold(None, |acc, (pred, block)| {
+                            // only consider reachable blocks for phi inputs
+                            if !self.lookup(block).reachable() {
+                                // we must get informed when that block gets reachable
+                                deps.push(block);
+                                log::debug!(
+                                    "{:?} is unreachable, thus {:?} can be ignored",
+                                    block,
+                                    pred
+                                );
+                                acc.or(Some(NodeLattice::NotReachableYet))
+                            } else {
+                                let pred_lat = self.lookup(pred);
+                                match acc {
+                                    None => Some(pred_lat.clone()),
+                                    Some(acc) => {
+                                        let new_lat = acc.join(pred_lat, &mut join_context);
+                                        match new_lat {
+                                            NodeLattice::Value(val) => Some(
+                                                val.into_updated_source_ex(phi.as_node()).into(),
+                                            ),
+                                            lat => Some(lat),
                                         }
-                                        lat => Some(lat),
                                     }
                                 }
-                            }
 
-                            /*log::debug!(
-                                "for {:?}; pred_val: {:?} -> val: {:?}",
-                                pred,
-                                pred_lat,
-                                new_lat
-                            );*/
-                        }
-                    },
-                );
+                                /*log::debug!(
+                                    "for {:?}; pred_val: {:?} -> val: {:?}",
+                                    pred,
+                                    pred_lat,
+                                    new_lat
+                                );*/
+                            }
+                        });
 
                 result.unwrap_or(NodeLattice::NotReachableYet)
             }
