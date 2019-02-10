@@ -38,7 +38,7 @@ pub enum CompilerPhase {
     },
 }
 
-#[derive(strum_macros::EnumString, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(strum_macros::EnumString, Debug, Clone, Copy, PartialEq, Eq, serde_derive::Deserialize)]
 pub enum Backend {
     Own,
     Libfirm,

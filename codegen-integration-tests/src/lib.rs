@@ -57,14 +57,8 @@ pub fn gen_assembly_integration_tests(_args: TokenStream) -> TokenStream {
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
-pub fn gen_timeout_integration_tests(args: TokenStream) -> TokenStream {
-    let backend = proc_macro2::TokenStream::from(args);
-    let backend_label = backend
-        .to_string()
-        .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
-    let backend_label = format!("_{}", backend_label);
-
-    gen_integration_tests("timeout", &backend_label, |test_name, mj_file| {
+pub fn gen_timeout_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests("timeout", "", |test_name, mj_file| {
         let function_name = Ident::new(&test_name, Span::call_site());
         let path_str = mj_file.to_str().unwrap();
 
@@ -72,7 +66,10 @@ pub fn gen_timeout_integration_tests(args: TokenStream) -> TokenStream {
             #[test]
             fn #function_name() {
                 let input = PathBuf::from(#path_str);
-                exec_timeout_test(input, ::optimization::Level::None, #backend);
+                exec_timeout_test(input.clone(), Level::None, Backend::Own);
+                exec_timeout_test(input.clone(), Level::None, Backend::Libfirm);
+                exec_timeout_test(input.clone(), Level::Aggressive, Backend::Own);
+                exec_timeout_test(input.clone(), Level::Aggressive, Backend::Libfirm);
             }
         }
     })
@@ -80,14 +77,8 @@ pub fn gen_timeout_integration_tests(args: TokenStream) -> TokenStream {
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
-pub fn gen_optimized_timeout_integration_tests(args: TokenStream) -> TokenStream {
-    let backend = proc_macro2::TokenStream::from(args);
-    let backend_label = backend
-        .to_string()
-        .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
-    let backend_label = format!("_optimized_{}", backend_label);
-
-    gen_integration_tests("timeout", &backend_label, |test_name, mj_file| {
+pub fn gen_binary_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests("binary", "", |test_name, mj_file| {
         let function_name = Ident::new(&test_name, Span::call_site());
         let path_str = mj_file.to_str().unwrap();
 
@@ -95,7 +86,10 @@ pub fn gen_optimized_timeout_integration_tests(args: TokenStream) -> TokenStream
             #[test]
             fn #function_name() {
                 let input = PathBuf::from(#path_str);
-                exec_timeout_test(input, ::optimization::Level::Aggressive, #backend);
+                exec_binary_test(input.clone(), Level::None, Backend::Own);
+                exec_binary_test(input.clone(), Level::None, Backend::Libfirm);
+                exec_binary_test(input.clone(), Level::Aggressive, Backend::Own);
+                exec_binary_test(input.clone(), Level::Aggressive, Backend::Libfirm);
             }
         }
     })
@@ -103,14 +97,8 @@ pub fn gen_optimized_timeout_integration_tests(args: TokenStream) -> TokenStream
 
 #[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
 #[proc_macro]
-pub fn gen_binary_integration_tests(args: TokenStream) -> TokenStream {
-    let backend = proc_macro2::TokenStream::from(args);
-    let backend_label = backend
-        .to_string()
-        .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
-    let backend_label = format!("_{}", backend_label);
-
-    gen_integration_tests("binary", &backend_label, |test_name, mj_file| {
+pub fn gen_optimization_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests("optimization", "", |test_name, mj_file| {
         let function_name = Ident::new(&test_name, Span::call_site());
         let path_str = mj_file.to_str().unwrap();
 
@@ -118,60 +106,8 @@ pub fn gen_binary_integration_tests(args: TokenStream) -> TokenStream {
             #[test]
             fn #function_name() {
                 let input = PathBuf::from(#path_str);
-                exec_binary_test(input, ::optimization::Level::None, #backend);
-            }
-        }
-    })
-}
-
-#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
-#[proc_macro]
-pub fn gen_optimized_binary_integration_tests(args: TokenStream) -> TokenStream {
-    let backend = proc_macro2::TokenStream::from(args);
-    let backend_label = backend
-        .to_string()
-        .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
-
-    gen_integration_tests(
-        "binary",
-        &format!("_optimized_{}", backend_label),
-        |test_name, mj_file| {
-            let function_name = Ident::new(&test_name, Span::call_site());
-            let path_str = mj_file.to_str().unwrap();
-
-            quote! {
-                #[test]
-                fn #function_name() {
-                    let input = PathBuf::from(#path_str);
-                    exec_binary_test(
-                        input,
-                        optimization::Level::Aggressive,
-                        #backend
-                    );
-                }
-            }
-        },
-    )
-}
-
-#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
-#[proc_macro]
-pub fn gen_optimization_integration_tests(args: TokenStream) -> TokenStream {
-    let backend = proc_macro2::TokenStream::from(args);
-    let backend_label = backend
-        .to_string()
-        .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
-    let backend_label = format!("_{}", backend_label);
-
-    gen_integration_tests("optimization", &backend_label, |test_name, mj_file| {
-        let function_name = Ident::new(&test_name, Span::call_site());
-        let path_str = mj_file.to_str().unwrap();
-
-        quote! {
-            #[test]
-            fn #function_name() {
-                let input = PathBuf::from(#path_str);
-                exec_optimization_test(input, #backend);
+                exec_optimization_test(input.clone(), Backend::Own);
+                exec_optimization_test(input.clone(), Backend::Libfirm);
             }
         }
     })

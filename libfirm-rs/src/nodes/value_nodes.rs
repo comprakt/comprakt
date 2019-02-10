@@ -1,4 +1,4 @@
-use crate::{bindings, nodes::*, tarval::Tarval};
+use crate::{bindings, nodes::*, tarval::Tarval, types::TyTrait};
 
 #[derive(Debug)]
 pub struct DowncastErr(Node);
@@ -64,6 +64,17 @@ impl ValueNode for Const {
     fn compute(&self, values: Vec<Tarval>) -> Tarval {
         assert!(values.is_empty());
         self.tarval()
+    }
+}
+
+impl ValueNode for Size {
+    fn value_nodes(&self) -> Vec<Box<dyn ValueNode>> {
+        vec![]
+    }
+
+    fn compute(&self, values: Vec<Tarval>) -> Tarval {
+        assert!(values.is_empty());
+        Tarval::val(i64::from(self.ty().size()), self.mode())
     }
 }
 
@@ -145,7 +156,6 @@ empty_value_node_impl!(Offset);
 empty_value_node_impl!(Shl);
 empty_value_node_impl!(Shr);
 empty_value_node_impl!(Shrs);
-empty_value_node_impl!(Size);
 
 // ============ BinOps ============
 
