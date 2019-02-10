@@ -221,7 +221,6 @@ impl NodeLocal {
                     .new_const(Tarval::val(i64::from(shift_amount), Mode::Iu()));
 
                 let const_31 = self.graph.new_const(Tarval::val(31, Mode::Iu()));
-                let const_1 = self.graph.new_const(Tarval::mj_int(1));
 
                 let modulo_proj_res = if let Some(res) = modulo.out_proj_res() {
                     res
@@ -245,9 +244,9 @@ impl NodeLocal {
 
                 let block = modulo.block();
                 let shr_by_31 = block.new_shrs(real_left, const_31);
-                let shl_1_by_shift = block.new_shl(const_1, shift_amount_node);
-                let shl_1_by_shift_minus_1 = block.new_sub(shl_1_by_shift, const_1);
-                let binary_and = block.new_and(shr_by_31, shl_1_by_shift_minus_1);
+                let mask_const = (1i32 << shift_amount) - 1;
+                let mask_const_node = self.graph.new_const(Tarval::mj_int(i64::from(mask_const)));
+                let binary_and = block.new_and(shr_by_31, mask_const_node);
                 let add_binary_and = block.new_add(real_left, binary_and);
                 let shift_to_result = block.new_shrs(add_binary_and, shift_amount_node);
 
@@ -336,7 +335,6 @@ impl NodeLocal {
                     .new_const(Tarval::val(i64::from(shift_amount), Mode::Iu()));
 
                 let const_31 = self.graph.new_const(Tarval::val(31, Mode::Iu()));
-                let const_1 = self.graph.new_const(Tarval::mj_int(1));
 
                 let div_proj_res = if let Some(res) = div.out_proj_res() {
                     res
@@ -360,9 +358,9 @@ impl NodeLocal {
 
                 let block = div.block();
                 let shr_by_31 = block.new_shrs(real_left, const_31);
-                let shl_1_by_shift = block.new_shl(const_1, shift_amount_node);
-                let shl_1_by_shift_minus_1 = block.new_sub(shl_1_by_shift, const_1);
-                let binary_and = block.new_and(shr_by_31, shl_1_by_shift_minus_1);
+                let mask_const = (1i32 << shift_amount) - 1;
+                let mask_const_node = self.graph.new_const(Tarval::mj_int(i64::from(mask_const)));
+                let binary_and = block.new_and(shr_by_31, mask_const_node);
                 let add_binary_and = block.new_add(real_left, binary_and);
                 let shift_to_result = block.new_shrs(add_binary_and, shift_amount_node);
 
