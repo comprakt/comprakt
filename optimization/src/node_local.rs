@@ -7,7 +7,7 @@
 //! compiler with the output of the java compiler for the whole integer range as
 //! follows, e.g. to test the substitution for modulo:
 //!
-//! ```
+//! ```ignore
 //! class ModAllBy8 {
 //!     public static void main(String[] args) {
 //!         int min = -2147483648;
@@ -36,7 +36,7 @@
 //!
 //! Compile both and check the optimization was actually applied:
 //!
-//! ```
+//! ```ignore
 //! javac ModAllBy8.java
 //! cargo run -- --compile -o ModAllBy8-comprakt.out --emit-asm ModAllBy8-comprakt.S
 //! grep -q div ModAllBy8-comprakt.S; echo $? # this should print a 1!
@@ -45,7 +45,7 @@
 //! Compare both using one of the commands below (don't write to disk! this
 //! would take about 50GB!):
 //!
-//! ```
+//! ```ignore
 //! bash -c "diff -q <(./ModAllBy8-comprakt.out) <(java ModAllBy8)"
 //! bash -c "comm -3 <(./ModAllBy8-comprakt.out) <(java ModAllBy8)"
 //! ```
