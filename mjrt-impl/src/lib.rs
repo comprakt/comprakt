@@ -17,11 +17,14 @@ pub type MjInt = i64;
 
 macro_rules! mjrt_runtimeexception {
     ($fn_name:ident, $description:expr) => {
+        mjrt_runtimeexception!($fn_name, $description,);
+    };
+    ($fn_name:ident, $description:expr, $( $arg:ident: $type:ty ),*) => {
         #[no_mangle]
-        pub extern "C" fn $fn_name() -> ! {
+        pub extern "C" fn $fn_name( $( $arg: $type ),* ) -> ! {
             use backtrace::Backtrace;
             let bt = Backtrace::new();
-            println!("{}\n{:?}", $description, bt);
+            println!(concat!($description, "\n{:?}"), $( $arg, )* bt);
             unsafe { libc::abort() }
         }
     };
@@ -30,16 +33,22 @@ macro_rules! mjrt_runtimeexception {
 mjrt_runtimeexception!(mjrt_dumpstack, "dumpstack");
 mjrt_runtimeexception!(mjrt_div_by_zero, "division by zero");
 mjrt_runtimeexception!(mjrt_null_usage, "reference is null");
-mjrt_runtimeexception!(mjrt_array_out_of_bounds, "array access out of bounds");
+mjrt_runtimeexception!(
+    mjrt_array_out_of_bounds,
+    "array access out of bounds: [{}] (len = {})",
+    idx: i64,
+    len: i64
+);
 mjrt_runtimeexception!(
     mjrt_negative_allocation,
-    "cannot allocate less than 0 bytes"
+    "cannot allocate negative amount of bytes: {}",
+    num_bytes: i64
 );
 
 #[no_mangle]
 pub extern "C" fn mjrt_new(size: i64) -> *mut c_void {
     if size < 0 {
-        mjrt_negative_allocation()
+        mjrt_negative_allocation(size)
     }
     let size = if size > 0 {
         size

@@ -219,6 +219,7 @@ version = "0.0.1"
 dependencies = [
  "compiler-lib 0.0.1",
  "compiler-shared 0.1.0",
+ "derive_more 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "inspect-ast 0.1.0",

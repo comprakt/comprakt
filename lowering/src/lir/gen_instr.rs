@@ -401,7 +401,15 @@ impl GenInstrBlock {
                 )
             }
             Node::Sel(sel) => {
-                let base = self.gen_operand_jit(sel.ptr());
+                let (offset, base) = if let Node::Member(member) = sel.ptr() {
+                    (
+                        member.entity().offset() as isize,
+                        self.gen_operand_jit(member.ptr()),
+                    )
+                } else {
+                    (0, self.gen_operand_jit(sel.ptr()))
+                };
+
                 let elem_ty = if let Ty::Array(arr) = sel.ty() {
                     arr.element_type()
                 } else {
@@ -427,7 +435,7 @@ impl GenInstrBlock {
 
                 (
                     AddressComputation {
-                        offset: 0,
+                        offset,
                         base,
                         index,
                     },
