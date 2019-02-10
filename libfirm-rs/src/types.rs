@@ -91,7 +91,7 @@ gen_debug!(Ty;
 );
 
 impl Ty {
-    pub fn from_ir_type(ty: *mut bindings::ir_type) -> Ty {
+    pub fn from_ir_type(ty: *mut bindings::ir_type) -> Self {
         unsafe {
             if bindings::is_Primitive_type(ty) != 0 {
                 Ty::Primitive(PrimitiveTy(ty))
@@ -245,28 +245,28 @@ impl fmt::Debug for ArrayTy {
 }
 
 impl PrimitiveTy {
-    fn from_ir_type(ir_type: *mut bindings::ir_type) -> PrimitiveTy {
+    fn from_ir_type(ir_type: *mut bindings::ir_type) -> Self {
         // if we trust libfirm, we could just return `PrimitiveTy(ir_type)` here
-        PrimitiveTy::from(Ty::from_ir_type(ir_type)).expect("ir_type must a primitive type")
+        Self::from(Ty::from_ir_type(ir_type)).expect("ir_type must a primitive type")
     }
 
-    pub fn from_mode(mode: Mode) -> PrimitiveTy {
+    pub fn from_mode(mode: Mode) -> Self {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(mode.libfirm_mode()) })
     }
-    pub fn i32() -> PrimitiveTy {
+    pub fn i32() -> Self {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::Is) })
     }
-    pub fn i64() -> PrimitiveTy {
+    pub fn i64() -> Self {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::Ls) })
     }
     /// Not part of MiniJava, but useful for malloc RT-function
-    pub fn u32() -> PrimitiveTy {
+    pub fn u32() -> Self {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::Iu) })
     }
-    pub fn bool() -> PrimitiveTy {
+    pub fn bool() -> Self {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::Bu) })
     }
-    pub fn ptr() -> PrimitiveTy {
+    pub fn ptr() -> Self {
         Self::from_ir_type(unsafe { bindings::new_type_primitive(bindings::mode::P) })
     }
 }
@@ -285,8 +285,8 @@ impl PartialEq for PrimitiveTy {
 }
 
 impl ClassTy {
-    pub fn new(name: &str) -> ClassTy {
-        ClassTy::from(Ty::from_ir_type(unsafe {
+    pub fn new(name: &str) -> Self {
+        Self::from(Ty::from_ir_type(unsafe {
             let name_c = CString::new(name).unwrap();
             let name_id = bindings::new_id_from_str(name_c.as_ptr());
             bindings::new_type_class(name_id)
@@ -369,7 +369,7 @@ generate_iterator!(
     Entity,
 );
 
-/// Builder for new_type_method
+/// Builder for `new_type_method`
 #[derive(Default)]
 pub struct MethodTyBuilder {
     params: Vec<Ty>,
@@ -378,7 +378,7 @@ pub struct MethodTyBuilder {
 
 impl MethodTyBuilder {
     pub fn new() -> Self {
-        MethodTyBuilder {
+        Self {
             params: Vec::new(),
             result: None,
         }

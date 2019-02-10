@@ -24,20 +24,20 @@ pub trait ValueNode: NodeTrait {
 }
 
 impl From<Box<dyn ValueNode>> for Node {
-    fn from(n: Box<dyn ValueNode>) -> Node {
-        Node::wrap(n.internal_ir_node())
+    fn from(n: Box<dyn ValueNode>) -> Self {
+        Self::wrap(n.internal_ir_node())
     }
 }
 
 impl From<&Box<dyn ValueNode>> for Node {
-    fn from(n: &Box<dyn ValueNode>) -> Node {
-        Node::wrap(n.internal_ir_node())
+    fn from(n: &Box<dyn ValueNode>) -> Self {
+        Self::wrap(n.internal_ir_node())
     }
 }
 
 impl From<&dyn ValueNode> for Node {
-    fn from(n: &dyn ValueNode) -> Node {
-        Node::wrap(n.internal_ir_node())
+    fn from(n: &dyn ValueNode) -> Self {
+        Self::wrap(n.internal_ir_node())
     }
 }
 
@@ -93,8 +93,9 @@ impl ValueNode for Phi {
 impl ValueNode for Proj {
     fn value_nodes(&self) -> Vec<Box<dyn ValueNode>> {
         match self.kind() {
-            ProjKind::Div_Res(_) => vec![try_as_value_node(self.pred()).unwrap()],
-            ProjKind::Mod_Res(_) => vec![try_as_value_node(self.pred()).unwrap()],
+            ProjKind::Div_Res(_) | ProjKind::Mod_Res(_) => {
+                vec![try_as_value_node(self.pred()).unwrap()]
+            }
             _ => vec![],
         }
     }
