@@ -71,7 +71,7 @@ pub(crate) struct LiveRange {
 }
 
 impl Ord for LiveRange {
-    fn cmp(&self, other: &LiveRange) -> Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         match self.interval.lower().cmp(&other.interval.lower()) {
             Ordering::Equal => self.var.num().cmp(&other.var.num()),
             ord => ord,
@@ -80,7 +80,7 @@ impl Ord for LiveRange {
 }
 
 impl PartialOrd for LiveRange {
-    fn partial_cmp(&self, other: &LiveRange) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -285,7 +285,7 @@ pub(super) struct Block {
 }
 
 impl PartialEq for Block {
-    fn eq(&self, other: &Block) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.num == other.num
     }
 }
@@ -365,11 +365,13 @@ where
         match self {
             CI::Body(body) => match body.borrow() {
                 // LoadParam::dst is a src_operand for the purposes of LVA:
-                LoadParam { .. } => None,
-                Binop { dst, .. } | Div { dst, .. } | Mod { dst, .. } => Some(*dst),
-                Unop { dst, .. } | Conv { dst, .. } => Some(*dst),
-                StoreMem(StoreMem { .. }) => None,
-                LoadMem(LoadMem { dst, .. }) => Some(*dst),
+                LoadParam { .. } | StoreMem(StoreMem { .. }) => None,
+                Binop { dst, .. }
+                | Div { dst, .. }
+                | Mod { dst, .. }
+                | Unop { dst, .. }
+                | Conv { dst, .. }
+                | LoadMem(LoadMem { dst, .. }) => Some(*dst),
                 Call(lir::Call { dst, .. }) => dst.to_owned(),
             },
             CI::CopyIn(mov) | CI::CopyOut(mov) => {

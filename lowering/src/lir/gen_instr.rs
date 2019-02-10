@@ -19,14 +19,14 @@ impl GenInstrBlock {
         mut block: Ptr<BasicBlock>,
         alloc: &Allocator,
     ) {
-        let mut b = GenInstrBlock {
+        let mut b = Self {
             graph,
             visisted: HashSet::new(),
             body: vec![],
             leave: vec![],
         };
         b.gen(graph, block);
-        let GenInstrBlock { body, leave, .. } = b;
+        let Self { body, leave, .. } = b;
         // do not overwrite block.code because it already contains instrs from
         // construction / LoadParam
         block
@@ -116,6 +116,7 @@ impl GenInstrBlock {
         block: Ptr<BasicBlock>,
         node: Node,
     ) {
+        use self::{BinopKind::*, UnopKind::*};
         log::debug!("visit node={:?}", node);
         if self.visisted.contains(&node) {
             log::debug!("\tnode has already been");
@@ -123,7 +124,6 @@ impl GenInstrBlock {
         }
         self.visisted.insert(node);
 
-        use self::{BinopKind::*, UnopKind::*};
         macro_rules! op_operand {
             ($name:ident, $op:expr) => {{
                 let node = $op.$name();
@@ -171,7 +171,6 @@ impl GenInstrBlock {
                     });
                 }
             }};
-
         }
         macro_rules! gen_unop {
             ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
@@ -184,6 +183,7 @@ impl GenInstrBlock {
                 });
             }};
         }
+        #[allow(clippy::match_same_arms)]
         match node {
             // Start node is always ready
             Node::Start(_) => {}
@@ -341,7 +341,10 @@ impl GenInstrBlock {
             }
             // Call_TResult and Call_TResult_Arg are handled in Node::Call match arm
             Node::Proj(_, ProjKind::Call_TResult(_))
-            | Node::Proj(_, ProjKind::Call_TResult_Arg(_, _, _)) => {}
+            | Node::Proj(_, ProjKind::Call_TResult_Arg(_, _, _)) => (),
+
+            // handled in Node::Load match arm
+            Node::Proj(_, ProjKind::Load_Res(_)) => (),
 
             Node::Unknown(_) => {
                 // TODO ??? this happens in the runtime function wrapper's
@@ -358,8 +361,6 @@ impl GenInstrBlock {
                         .push(Instruction::LoadMem(LoadMem { src, dst, size }));
                 }
             }
-            // handled in Node::Load match arm
-            Node::Proj(_, ProjKind::Load_Res(_)) => {}
 
             Node::Store(store) => {
                 let src = self.gen_operand_jit(store.value());
