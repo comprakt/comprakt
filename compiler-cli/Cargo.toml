@@ -35,7 +35,6 @@ termcolor = "1.0.4"
 tempfile = "3.0"
 env_logger = "0.6"
 log = "0.4"
-derive_more = "0.13"
 
 [features]
 # Enable all UB-safe-making features by default.
