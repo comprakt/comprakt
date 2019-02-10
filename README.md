@@ -1,10 +1,34 @@
+# comprakt - A [MiniJava](https://pp.ipd.kit.edu/lehre/WS201819/compprakt/intern/sprachbericht.pdf) compiler
 [![Build Status](https://travis-ci.org/comprakt/comprakt.svg?branch=master)](https://travis-ci.org/comprakt/comprakt)
 [![API documentation for master branch](https://img.shields.io/badge/API%20documentation-master-brightgreen.svg?longCache=true&style=flat)](https://comprakt.github.io/comprakt)
 [![LibFirm API Doxygen Docs](https://img.shields.io/badge/LibFirm%20API%20Doxygen-master-brightgreen.svg?longCache=true&style=flat)](https://comprakt.github.io/comprakt/doxygen_libfirm/)
 
-# comprakt
+**Special features:**
+- State-of-the-art error messages and warnings in the style of Elm and Rust
+- A backend using linear-scan register allocation
+- A language extension for attribution of programs, classes and methods
+- A Linter that detects possible logical mistakes / software quality issues
+- A memory-safe mode that aborts the program in a reproducable manner on invalid memory acccesses (NullPointerException, IndexOutOfBounds)
+- A safe Rust wrapper and abstraction around [libfirm](https://github.com/libfirm/libfirm).
+- A [visual debugger](https://github.com/comprakt/dot-visualizer) that can be used to inspect the internal compiler state in the browser (and in Visual Studio Code)
 
-A [MiniJava](https://pp.ipd.kit.edu/lehre/WS201819/compprakt/intern/sprachbericht.pdf) compiler
+**Available Optimizations**
+- `Inline`: method inlining
+- `ConstantFolding`: constant folding and unreachable code elimination
+- `ControlFlow`: remove unnecessary (un)conditional jumps
+- `NodeLocal`: replace some operations with a sequence of shifts
+- `CommonSubExpr`: block-local common subexpression elimination of commutative operations
+- `EarliestPlacement`: move all operations to the earliest valid point
+- `CostMinimizingPlacement`: move all operations to a cost minimizing location (subsumes Loop Invariant Code Motion)
+- `CodePlacement`: `EarliestPlacement` + `CommonSubExprElim` + `CostMinimizingPlacement` results in GCSE taking all opportunities
+
+**Available Optimization Levels**
+- `-O None`: no optimizations
+- `-O Moderate` (correctness submission): Inline,ConstantFolding,ControlFlow
+- `-O Aggressive` (`BENCH=1` submission): Inline,ConstantFoldingWithLoadStore,ControlFlow,NodeLocal
+- `-O Custom:[OptimizationName,]+`: a custom list of optimizations, e.g. `-O Custom:Inline,ConstantFolding,ControlFlow` is equivalent to `-O Moderate`
+
+(The optimizations in `CodePlacement` are not recommended given their speed-up vs. compile-time cost trade-off. Just consider them unfinished.)
 
 ## Checkout & Install Build Dependencies
 
