@@ -856,7 +856,10 @@ impl Ptr<BlockGraph> {
                             vec![(self.get_block(node.block()), node)]
                         };
                         let req = ValueReq { firm: node, from };
-                        debug_assert!({req.must_consistency_check(); true});
+                        debug_assert!({
+                            req.must_consistency_check();
+                            true
+                        });
                         req
                     })
                     .collect::<Vec<_>>();
