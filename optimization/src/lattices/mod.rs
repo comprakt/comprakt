@@ -453,17 +453,29 @@ impl Lattice for NodeValue {
                 } => {
                     assert!(phi.in_nodes().len() == 2);
 
-                    let created_phi = phi_container
-                        .phis
-                        .entry(
-                            cur_phi_id.expect("JoinContext to have a phi id set by ObjInfo::join"),
-                        )
-                        .and_modify(|created_phi| {
-                            created_phi.set_in_nodes(&[*node1, *node2]);
-                        })
-                        .or_insert_with(|| phi.block().new_phi(&[*node1, *node2], node1.mode()));
+                    let phi_block = phi.block();
+                    let node1_block = phi_block.cfg_preds().idx(0).unwrap().block();
+                    let node2_block = phi_block.cfg_preds().idx(1).unwrap().block();
 
-                    NodeValueSource::Node(created_phi.as_node())
+                    if node1.block().dominates(node1_block) && node2.block().dominates(node2_block)
+                    {
+                        let created_phi = phi_container
+                            .phis
+                            .entry(
+                                cur_phi_id
+                                    .expect("JoinContext to have a phi id set by ObjInfo::join"),
+                            )
+                            .and_modify(|created_phi| {
+                                created_phi.set_in_nodes(&[*node1, *node2]);
+                            })
+                            .or_insert_with(|| {
+                                phi.block().new_phi(&[*node1, *node2], node1.mode())
+                            });
+
+                        NodeValueSource::Node(created_phi.as_node())
+                    } else {
+                        NodeValueSource::Unknown
+                    }
                 }
 
                 _ => NodeValueSource::Unknown,

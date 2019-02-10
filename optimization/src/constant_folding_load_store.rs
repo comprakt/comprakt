@@ -644,13 +644,19 @@ impl ConstantFoldingWithLoadStore {
                                     return NodeLattice::NotReachableYet;
                                 };
 
-                                // TODO check whether source is usable here!!!!!!!!!!!
-                                if val.source.is_unknown() && val.tarval().is_bad() {
+                                let is_source_usable = match val.source {
+                                    NodeValueSource::Unknown => false,
+                                    NodeValueSource::Node(new_node) => {
+                                        new_node.block().dominates(cur_node.block())
+                                    }
+                                };
+
+                                if val.tarval().is_bad() {
                                     mark_stores_as_required(&stores);
                                 }
 
                                 let val = match load.out_proj_res() {
-                                    Some(res) if val.source.is_unknown() => {
+                                    Some(res) if false && !is_source_usable => {
                                         let val = val.into_updated_source_ex(res.into());
                                         let val = ValWithStoreInfo { val, stores };
                                         match target_kind {
@@ -949,6 +955,11 @@ impl ConstantFoldingWithLoadStore {
                         continue;
                     }*/
                 };
+
+                if !new_node.block().dominates(node.block()) {
+                    // can we use new_node here?
+                    continue;
+                }
 
                 if let Node::Phi(phi) = new_node {
                     if self.created_phis.contains(&phi) {
