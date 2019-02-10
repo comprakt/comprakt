@@ -138,7 +138,7 @@ impl Level {
                 // TODO: code placement in combination with inlining can be
                 // very expensive
                 Optimization::new(Kind::Inline),
-                Optimization::new(Kind::ConstantFolding),
+                Optimization::new(Kind::ConstantFoldingWithLoadStore),
                 Optimization::new(Kind::ControlFlow),
                 // this sequence results in global common subexpression elimination
                 // and loop invariant code motion
