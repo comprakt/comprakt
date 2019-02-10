@@ -19,6 +19,7 @@ pub(crate) mod cycle_removal;
 pub(crate) mod linear_scan;
 pub(crate) mod lir;
 pub(crate) mod live_variable_analysis;
+pub(crate) mod peephole;
 pub(crate) mod register;
 
 use debugging;
@@ -28,6 +29,7 @@ use lir::LIR;
 pub fn run_backend(
     firm_program: &FirmProgram<'_, '_>,
     out: &mut impl std::io::Write,
+    no_peep: bool,
 ) -> std::io::Result<()> {
     let mut lir = LIR::from(firm_program);
     debugging::breakpoint!("LIR stage 1", lir, &|block: &lir::BasicBlock| {
@@ -52,9 +54,11 @@ pub fn run_backend(
 
         // TODO local peepholer
 
-        let function_asm = codegen.emit_function();
+        let mut function_asm = codegen.emit_function();
 
-        // TODO global peepholer
+        if !no_peep {
+            peephole::global_peephole(&mut function_asm);
+        }
 
         for instr in function_asm {
             writeln!(out, "{}", instr)?;

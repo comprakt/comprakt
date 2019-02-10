@@ -37,7 +37,7 @@ mjrt_runtimeexception!(
 );
 
 #[no_mangle]
-pub extern "C" fn mjrt_new(size: i32) -> *mut c_void {
+pub extern "C" fn mjrt_new(size: i64) -> *mut c_void {
     if size < 0 {
         mjrt_negative_allocation()
     }

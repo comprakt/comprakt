@@ -111,6 +111,8 @@ pub enum CliCommand {
     /// Analyze the input file and report errors, but don't build object files
     #[structopt(name = "--check")]
     Check {
+        #[structopt(short = "-l", long = "--lint")]
+        lint: bool,
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
@@ -143,6 +145,8 @@ pub struct CompileFirmOptions {
 /// Command-line options for the [`CliCommand::Compile`] (`--compile`) call.
 #[derive(StructOpt, Debug, Clone)]
 pub struct CompileOptions {
+    #[structopt(long = "no-peep")]
+    no_peep: bool,
     #[structopt(flatten)]
     pre_backend_options: PreBackendOptions,
     #[structopt(flatten)]
@@ -221,6 +225,7 @@ fn main() {
         log::debug!("no-arg mode detected: {:?}", input);
         let input = PathBuf::from(input);
         let opts = CompileOptions {
+            no_peep: false,
             pre_backend_options: PreBackendOptions::default_with_input(input),
             backend_options: BackendOptions::default(),
         };
@@ -272,7 +277,7 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::ParserTest { path } => cmd_parsetest(path),
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
-        CliCommand::Check { path } => cmd_check(path),
+        CliCommand::Check { path, lint } => cmd_check(path, *lint),
         CliCommand::CompileFirm(options) => cmd_compile_firm(options),
         CliCommand::Compile(options) => cmd_compile(options),
     }
@@ -339,6 +344,9 @@ macro_rules! setup_io {
 
 macro_rules! until_after_type_check {
     (let ($strtab:ident, $type_system:ident, $type_analysis:ident) = $input:expr) => {
+        until_after_type_check!(let ($strtab, $type_system, $type_analysis) = $input, false)
+    };
+    (let ($strtab:ident, $type_system:ident, $type_analysis:ident) = $input:expr, $lint:expr) => {
         let input = $input;
         setup_io!(let context = input);
 
@@ -374,6 +382,20 @@ macro_rules! until_after_type_check {
 
         m_parser.stop();
 
+        if $lint {
+            let m_linter = compiler_shared::timing::Measurement::start("frontend::linter_ast");
+
+            let mut linter = compiler_lib::linter::Linter::default();
+            if let Err(lint_err) = linter.check_ast(&context, &ast) {
+                log::debug!("linter error");
+                context.diagnostics.error(&lint_err);
+                context.diagnostics.write_statistics();
+                exit(1);
+            }
+
+            m_linter.stop();
+        }
+
         let m_typecheck = compiler_shared::timing::Measurement::start("semantics");
 
         let ($type_system, $type_analysis) = crate::semantics::check(&mut $strtab, &ast, &context)
@@ -384,6 +406,19 @@ macro_rules! until_after_type_check {
 
         m_typecheck.stop();
 
+        if $lint {
+            let m_linter = compiler_shared::timing::Measurement::start("frontend::linter_semantic");
+
+            let mut linter = compiler_lib::linter::Linter::default();
+            if let Err(lint_err) = linter.check_semantic(&context, &ast, &$type_analysis) {
+                log::debug!("linter error");
+                context.diagnostics.error(&lint_err);
+                context.diagnostics.write_statistics();
+                exit(1);
+            }
+
+            m_linter.stop();
+        }
     }
 }
 
@@ -454,7 +489,10 @@ fn cmd_compile(options: &CompileOptions) -> Result<(), Error> {
     compile_command_common!( let (firm_ctx, bingen) =
                              (&options.pre_backend_options, &options.backend_options, rtlib));
 
-    let mut backend: Box<dyn backend::AsmBackend> = box backend::amd64::Backend { firm_ctx };
+    let mut backend: Box<dyn backend::AsmBackend> = box backend::amd64::Backend {
+        firm_ctx,
+        no_peep: options.no_peep,
+    };
 
     let dump_asm = options
         .backend_options
@@ -578,9 +616,9 @@ impl BinaryGenerator {
     }
 }
 
-fn cmd_check(path: &PathBuf) -> Result<(), Error> {
+fn cmd_check(path: &PathBuf, lint: bool) -> Result<(), Error> {
     // if the check fials, until_after_type_check exits with exit code 1
-    until_after_type_check!(let (strtab, _type_system, _type_analysis) = path);
+    until_after_type_check!(let (strtab, _type_system, _type_analysis) = path, lint);
     Ok(())
 }
 

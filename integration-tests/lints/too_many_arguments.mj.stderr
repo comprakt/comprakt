@@ -1,0 +1,6 @@
+error: too many arguments. Try to use 6 or less arguments
+    | 
+ 11 |     public void f(int _1, int _2, int _3, int _4, int _5, int _6, int _7) {}
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Compilation aborted due to an error

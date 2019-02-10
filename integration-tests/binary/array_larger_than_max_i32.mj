@@ -1,0 +1,13 @@
+---
+stdout:
+  is: ""
+stderr:
+  is: ""
+exitcode:
+  is: 0
+---
+class Test {
+    public static void main(String[] args) {
+        Test[] t = new Test[536870911];
+    }
+}

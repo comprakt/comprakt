@@ -1,4 +1,5 @@
 use asciifile::Spanned;
+use diagnostics::MessageLevel;
 use lexer::IntLit;
 use strtab::Symbol;
 use strum_macros::EnumDiscriminants;
@@ -15,6 +16,7 @@ pub enum AST<'t> {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Program<'t> {
     pub classes: Vec<Spanned<'t, ClassDeclaration<'t>>>,
+    pub attrs: Vec<Spanned<'t, Attribute<'t>>>,
 }
 
 /// This AST node stores the Class declaration, which consists of a name and
@@ -23,6 +25,7 @@ pub struct Program<'t> {
 pub struct ClassDeclaration<'t> {
     pub name: Spanned<'t, Symbol<'t>>,
     pub members: Vec<Spanned<'t, ClassMember<'t>>>,
+    pub attrs: Vec<Spanned<'t, Attribute<'t>>>,
 }
 
 /// This AST node describes a class member. Variants of class members are
@@ -31,6 +34,7 @@ pub struct ClassDeclaration<'t> {
 pub struct ClassMember<'t> {
     pub kind: ClassMemberKind<'t>,
     pub name: Symbol<'t>,
+    pub attrs: Vec<Spanned<'t, Attribute<'t>>>,
 }
 
 pub type ParameterList<'t> = Vec<Spanned<'t, Parameter<'t>>>;
@@ -235,14 +239,24 @@ impl<'f> ClassMemberKind<'f> {
     }
 }
 
-// impl std::cmp::PartialOrd for ClassMember<'_> {
-//     fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
-//         Some(crate::print::pretty::compare_class_member(self, rhs))
-//     }
-// }
-
-// impl std::cmp::Ord for ClassMember<'_> {
-//     fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
-//         crate::print::pretty::compare_class_member(self, rhs)
-//     }
-// }
+/// Attributes can be given to a program with
+/// ```ignore
+/// #!attribute_name
+/// ```
+/// at the start of the file.
+///
+/// For classes, methods and fields use the syntax
+/// ```ignore
+/// #attribute_name
+/// public void f() {}
+/// ```
+///
+/// Available attributes are:
+/// - Lint level: `?!level:lint_name` level can be one of `allow`, `info`,
+///   `warning` or `error` e.g `?allow:unused_argument`
+/// - Inline: `?!inline`, `?!noinline`
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Attribute<'t> {
+    LintLevel(MessageLevel, Spanned<'t, Symbol<'t>>),
+    Inline(bool),
+}

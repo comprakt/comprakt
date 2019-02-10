@@ -492,10 +492,19 @@ pub enum Stride {
     Eight,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JmpKind {
     Unconditional,
     Conditional(CondOp),
+}
+
+impl JmpKind {
+    pub fn conditional(self) -> Option<CondOp> {
+        match self {
+            JmpKind::Unconditional => None,
+            JmpKind::Conditional(op) => Some(op),
+        }
+    }
 }
 
 impl std::fmt::Display for JmpKind {
@@ -513,7 +522,7 @@ impl std::fmt::Display for JmpKind {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CondOp {
     Equals,
     NotEquals,
@@ -535,6 +544,17 @@ impl CondOp {
             CondOp::LessEquals => CondOp::GreaterEquals,
             CondOp::GreaterEquals => CondOp::LessEquals,
             op => op,
+        }
+    }
+    pub fn invert(self) -> Self {
+        use CondOp::*;
+        match self {
+            LessEquals => GreaterThan,
+            GreaterEquals => LessThan,
+            LessThan => GreaterEquals,
+            GreaterThan => LessEquals,
+            NotEquals => Equals,
+            Equals => NotEquals,
         }
     }
 }

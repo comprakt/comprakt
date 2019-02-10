@@ -1,0 +1,15 @@
+info: inverting a bool literal. This can be simplified to `true`
+   | 
+ 6 |         boolean x = !false;
+   |                     ^^^^^^
+
+info: inverting a bool literal. This can be simplified to `false`
+    | 
+ 12 |         boolean y = !true;
+    |                     ^^^^^
+
+warning: unused argument: `x`. Consider using `_x` instead
+    | 
+ 11 |     public void f(int x) {
+    |                   ^^^^^
+
