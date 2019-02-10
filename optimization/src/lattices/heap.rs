@@ -879,7 +879,7 @@ impl ArrayInfo {
                             cur_info_idx,
                             cur_phi_id,
                         } => {
-                            *cur_phi_id = Some(PhiId::Field(*phi, cur_info_idx.unwrap(), *idx));
+                            *cur_phi_id = Some(PhiId::Array(*phi, cur_info_idx.unwrap(), *idx));
                         }
                         _ => {}
                     }

@@ -3,7 +3,9 @@ use crate::{dot::*, optimization};
 use firm_construction::program_generator::Spans;
 use libfirm_rs::{
     bindings,
-    nodes::{try_as_value_node, Block, NewKind, Node, NodeDebug, NodeTrait, Proj, ProjKind, Store},
+    nodes::{
+        try_as_value_node, Block, NewKind, Node, NodeDebug, NodeTrait, Phi, Proj, ProjKind, Store,
+    },
     types::{Ty, TyTrait},
     Entity, Graph, Mode, Tarval, TarvalKind,
 };
@@ -57,6 +59,7 @@ pub struct ConstantFoldingWithLoadStore {
     node_update_count: usize,
     // this field is for debugging only.
     cur_node: Option<Node>,
+    created_phis: HashSet<Phi>,
 }
 
 impl optimization::Local for ConstantFoldingWithLoadStore {
@@ -216,6 +219,7 @@ impl ConstantFoldingWithLoadStore {
             deps: HashMap::new(),
             node_update_count: 0,
             required_stores: HashSet::new(),
+            created_phis: HashSet::new(),
         }
     }
 
@@ -372,6 +376,7 @@ impl ConstantFoldingWithLoadStore {
 
         self.required_stores = required_stores;
         self.cur_node = None;
+        self.created_phis = phi_container.phis.values().cloned().collect();
     }
 
     fn breakpoint(&self, cur_node: Node) {
@@ -891,7 +896,7 @@ impl ConstantFoldingWithLoadStore {
         let mut optimized_conds = 0;
         let mut optimized_stores = 0;
 
-        let mut created_phis = 0;
+        let mut optimized_phis = 0;
 
         for (&node, lattice) in &values {
             if Node::is_const(node) {
@@ -946,6 +951,12 @@ impl ConstantFoldingWithLoadStore {
                         continue;
                     }*/
                 };
+
+                if let Node::Phi(phi) = new_node {
+                    if self.created_phis.contains(&phi) {
+                        optimized_phis += 1;
+                    }
+                }
 
                 if new_node == node {
                     continue;
@@ -1080,15 +1091,17 @@ impl ConstantFoldingWithLoadStore {
         log::info!(
             "Optimized {:>3} constants, {:>3} loads, {:>3} stores, \
              {:>2} news, {:>2} phis and {:>2} conds \
-             with {:>4} node updates and {:>4} total nodes in graph {}",
+             with {:>4} node updates from {:>4} total nodes and {:>2} \
+             phi creations in graph {}",
             folded_constants,
             optimized_loads,
             optimized_stores,
             removed_news,
-            created_phis,
+            optimized_phis,
             optimized_conds,
             self.node_update_count,
             self.node_topo_idx.len(),
+            self.created_phis.len(),
             self.graph.entity().name_string(),
         );
 

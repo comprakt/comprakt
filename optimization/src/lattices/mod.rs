@@ -15,7 +15,7 @@ pub enum PhiId {
 
 #[derive(Default)]
 pub struct PhiContainer {
-    phis: HashMap<PhiId, Phi>,
+    pub phis: HashMap<PhiId, Phi>,
 }
 
 impl PhiContainer {
