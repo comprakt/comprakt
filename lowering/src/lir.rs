@@ -840,13 +840,23 @@ impl Ptr<BlockGraph> {
                     .unique_by(|node| node.node_id())
                     .map(|node| {
                         let from = if let Some(phi) = node.opt_phi() {
-                            phi.preds()
+                            let preds = phi
+                                .preds()
                                 .map(|(pred_block, pred)| (self.get_block(pred_block), pred))
-                                .collect()
+                                .collect::<Vec<_>>();
+                            // uphold consistency check below:
+                            // there can be phis with a single predecessor
+                            if preds.len() > 1 {
+                                preds
+                            } else {
+                                vec![(self.get_block(node.block()), node)]
+                            }
                         } else {
                             vec![(self.get_block(node.block()), node)]
                         };
-                        ValueReq { firm: node, from }
+                        let req = ValueReq { firm: node, from };
+                        debug_assert!({req.must_consistency_check(); true});
+                        req
                     })
                     .collect::<Vec<_>>();
 
