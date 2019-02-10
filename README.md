@@ -8,7 +8,7 @@
 - A backend using linear-scan register allocation
 - A language extension for attribution of programs, classes and methods
 - A Linter that detects possible logical mistakes / software quality issues
-- A memory-safe mode that aborts the program in a reproducable manner on invalid memory acccesses (NullPointerException, IndexOutOfBounds)
+- A memory-safe mode that aborts the program in a reproducable manner on invalid memory acccesses (NullPointerException, IndexOutOfBounds) ([PR](https://github.com/comprakt/comprakt/pull/258) awaiting merge)
 - A safe Rust wrapper and abstraction around [libfirm](https://github.com/libfirm/libfirm).
 - A [visual debugger](https://github.com/comprakt/dot-visualizer) that can be used to inspect the internal compiler state in the browser (and in Visual Studio Code)
 
