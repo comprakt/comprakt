@@ -19,7 +19,7 @@ pub struct PhiContainer {
 }
 
 impl PhiContainer {
-    pub fn new() -> PhiContainer {
+    pub fn new() -> Self {
         Self::default()
     }
 }
@@ -148,7 +148,7 @@ impl Lattice for NodeLattice {
             (Value(val1), Value(val2)) => Value(val1.join(val2, context)),
             (Heap(heap1), Heap(heap2)) => Heap(Rc::new(heap1.join(heap2, context))),
             (Tuple(a1, a2), Tuple(b1, b2)) => {
-                NodeLattice::tuple(a1.join(b1, context), a2.join(b2, context))
+                Self::tuple(a1.join(b1, context), a2.join(b2, context))
             }
             (val1, val2) => panic!(
                 "Cannot join value {:?} with {:?} - they have different types.",
@@ -302,7 +302,7 @@ impl NodeValueSource {
 }
 
 impl From<Option<Node>> for NodeValueSource {
-    fn from(opt: Option<Node>) -> NodeValueSource {
+    fn from(opt: Option<Node>) -> Self {
         match opt {
             Some(node) => NodeValueSource::Node(node),
             None => NodeValueSource::Unknown,
@@ -356,9 +356,9 @@ impl NodeValue {
         if mode.is_pointer() {
             if val.is_bad() {
                 // still cannot point to created objects in the current method
-                NodeValue::new(Pointer::to_null_and(MemoryArea::external()).into(), source)
+                Self::new(Pointer::to_null_and(MemoryArea::external()).into(), source)
             } else if val.is_zero() {
-                NodeValue::new(Pointer::null().into(), source)
+                Self::new(Pointer::null().into(), source)
             } else {
                 panic!(
                     "Got unexpected non-bad pointer val {:?} and expected mode {:?}",
@@ -366,7 +366,7 @@ impl NodeValue {
                 )
             }
         } else {
-            NodeValue::new(val.into(), source)
+            Self::new(val.into(), source)
         }
     }
 
@@ -374,7 +374,7 @@ impl NodeValue {
         Self::from_known_tarval(Tarval::bad(), source.mode(), Some(source))
     }
 
-    pub fn non_const_val(mode: Mode, mem: MemoryArea) -> NodeValue {
+    pub fn non_const_val(mode: Mode, mem: MemoryArea) -> Self {
         if mode.is_pointer() {
             Self::value(Pointer::to(mem).into())
         } else {
@@ -464,7 +464,7 @@ impl Lattice for NodeValue {
                     cur_phi_id,
                     ..
                 } => {
-                    assert!(phi.in_nodes().len() == 2);
+                    debug_assert!(phi.in_nodes().len() == 2);
 
                     let phi_block = phi.block();
                     let node1_block = phi_block.cfg_preds().idx(0).unwrap().block();
@@ -496,7 +496,7 @@ impl Lattice for NodeValue {
             _ => NodeValueSource::Unknown,
         };
 
-        NodeValue {
+        Self {
             value: self.value.join(&other.value, context),
             source,
         }

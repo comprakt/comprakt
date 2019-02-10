@@ -638,7 +638,7 @@ impl CellInfo {
     }
 
     pub fn join_val_flipped(&self, other: &ValWithStoreInfo, context: &mut JoinContext) -> Self {
-        CellInfo {
+        Self {
             idx_source: None,
             val: other.join(&self.val, context),
         }

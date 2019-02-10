@@ -67,7 +67,7 @@ pub struct NodeLocal {
 
 impl optimization::Local for NodeLocal {
     fn optimize_function(graph: Graph) -> Outcome {
-        NodeLocal::new(graph).run()
+        Self::new(graph).run()
     }
 }
 
