@@ -22,7 +22,7 @@ pub struct RemoveCriticalEdges {
 
 impl optimization::Local for RemoveCriticalEdges {
     fn optimize_function(graph: Graph) -> Outcome {
-        RemoveCriticalEdges::new(graph).run()
+        Self::new(graph).run()
     }
 }
 
@@ -86,7 +86,7 @@ impl RemoveCriticalEdges {
                 node if Node::is_bad(node) => continue,
                 Node::Jmp(..) => continue,
                 _ => {
-                    unimplemented!();
+                    unreachable!();
                 }
             }
         }

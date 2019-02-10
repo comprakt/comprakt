@@ -73,7 +73,7 @@ pub enum NodeLattice {
 }
 
 impl NodeLattice {
-    pub fn start() -> NodeLattice {
+    pub fn start() -> Self {
         NodeLattice::NotReachableYet
     }
 
@@ -84,11 +84,11 @@ impl NodeLattice {
         }
     }
 
-    pub fn tuple(val1: NodeLattice, val2: NodeLattice) -> NodeLattice {
+    pub fn tuple(val1: Self, val2: Self) -> Self {
         NodeLattice::Tuple(Box::new(val1), Box::new(val2))
     }
 
-    pub fn tuple_1(&self) -> &NodeLattice {
+    pub fn tuple_1(&self) -> &Self {
         match self {
             NodeLattice::Tuple(t1, _t2) => &t1,
             NodeLattice::NotReachableYet => &NodeLattice::NotReachableYet,
@@ -96,7 +96,7 @@ impl NodeLattice {
         }
     }
 
-    pub fn tuple_2(&self) -> &NodeLattice {
+    pub fn tuple_2(&self) -> &Self {
         match self {
             NodeLattice::Tuple(_t1, t2) => &t2,
             NodeLattice::NotReachableYet => &NodeLattice::NotReachableYet,

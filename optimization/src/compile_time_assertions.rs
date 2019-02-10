@@ -51,7 +51,7 @@ impl CompileTimeAssertions {
     }
 
     pub fn check_program(&self, program: &FirmProgram<'_, '_>, phase: Phase) {
-        if CompileTimeAssertions::disabled() {
+        if Self::disabled() {
             return;
         }
 
@@ -100,7 +100,7 @@ impl CompileTimeAssertions {
     // check all assertions, panic if the an assertion is
     // wrong.
     pub fn check_graph(&self, graph: Graph, phase: Phase) {
-        if CompileTimeAssertions::disabled() {
+        if Self::disabled() {
             return;
         }
 

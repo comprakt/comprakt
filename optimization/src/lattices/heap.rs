@@ -124,7 +124,7 @@ impl Heap {
         mem
     }
 
-    pub fn reset_mem(&self, mem: &MemoryArea) -> Heap {
+    pub fn reset_mem(&self, mem: &MemoryArea) -> Self {
         if mem.is_empty() {
             return self.clone();
         }
@@ -167,7 +167,7 @@ impl Heap {
             })
             .collect();
 
-        Heap {
+        Self {
             array_infos,
             object_infos,
         }
@@ -529,7 +529,7 @@ impl Lattice for Heap {
             },
         );
 
-        Heap {
+        Self {
             object_infos,
             array_infos,
         }
@@ -544,10 +544,10 @@ pub struct ValWithStoreInfo {
 }
 
 impl ValWithStoreInfo {
-    pub fn single_store(val: NodeValue, store: Store) -> ValWithStoreInfo {
+    pub fn single_store(val: NodeValue, store: Store) -> Self {
         let mut stores = HashSet::new();
         stores.insert(store);
-        ValWithStoreInfo { val, stores }
+        Self { val, stores }
     }
 
     pub fn points_to(&self) -> MemoryArea {
@@ -572,7 +572,7 @@ impl fmt::Debug for ValWithStoreInfo {
 
 impl From<NodeValue> for ValWithStoreInfo {
     fn from(val: NodeValue) -> Self {
-        ValWithStoreInfo {
+        Self {
             val,
             stores: HashSet::new(),
         }
@@ -585,7 +585,7 @@ impl Lattice for ValWithStoreInfo {
     }
 
     fn join(&self, other: &Self, context: &mut JoinContext) -> Self {
-        ValWithStoreInfo {
+        Self {
             val: self.val.join(&other.val, context),
             stores: &self.stores | &other.stores,
         }
@@ -621,7 +621,7 @@ impl CellInfo {
     }
 
     pub fn join(&self, other: &Self, context: &mut JoinContext) -> Self {
-        CellInfo {
+        Self {
             idx_source: match (self.idx_source, other.idx_source) {
                 (Some(a), Some(b)) if a == b => Some(a),
                 _ => None,
@@ -631,7 +631,7 @@ impl CellInfo {
     }
 
     pub fn join_val(&self, other: &ValWithStoreInfo, context: &mut JoinContext) -> Self {
-        CellInfo {
+        Self {
             idx_source: None,
             val: self.val.join(other, context),
         }
@@ -852,11 +852,11 @@ impl ArrayInfo {
     }
 
     fn join(&self, other: &Self, context: &mut JoinContext, kind: InfoKind) -> Self {
+        use self::ArrayInfoState::*;
         assert!(self.item_ty == other.item_ty);
 
         let mut default_val = self.default_val.join_default(&other.default_val);
 
-        use self::ArrayInfoState::*;
         let state = match (&self.state, &other.state) {
             (Const(cells1), Const(cells2)) => {
                 let mut cells = HashMap::new();

@@ -100,7 +100,7 @@ struct InlineError {}
 
 impl From<std::option::NoneError> for InlineError {
     fn from(_err: std::option::NoneError) -> Self {
-        InlineError {}
+        Self {}
     }
 }
 
@@ -118,10 +118,11 @@ impl Inline {
         let graph = call.graph();
         graph.assure_outs();
 
-        let mut i = Inline { graph, depth: 0 };
+        let mut i = Self { graph, depth: 0 };
         i.inline_with_context(call)
     }
 
+    #[allow(clippy::items_after_statements)]
     fn inline_with_context(&mut self, call: Call) -> Result<(), InlineError> {
         let graph = self.graph;
         let proj_m = call.out_proj_m().unwrap();
