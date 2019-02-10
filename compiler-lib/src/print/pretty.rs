@@ -171,8 +171,9 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
                 printer.newline();
                 printer.indent();
                 for stmt in &block.statements {
+                    #[allow(clippy::single_match_else)]
                     match stmt.data {
-                        crate::ast::Stmt::Empty => {}
+                        crate::ast::Stmt::Empty => (),
                         _ => {
                             do_prettyprint(&NodeKind::from(stmt), printer);
                             printer.newline();
@@ -189,8 +190,8 @@ fn do_prettyprint(n: &NodeKind<'_, '_>, printer: &mut IndentPrinter<'_>) {
         Expr(expr) => do_prettyprint_expr(expr, printer),
 
         BinaryOp(bin_op) => {
-            printer.print_str(&" ");
             use crate::ast::BinaryOp::*;
+            printer.print_str(&" ");
             match bin_op {
                 Assign => printer.print_str(&"="),
                 Equals => printer.print_str(&"=="),
