@@ -219,6 +219,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         then_arm: &'ast Spanned<'src, ast::Stmt<'src>>,
         else_arm: &'ast Option<Box<Spanned<'src, ast::Stmt<'src>>>>,
     ) -> ActiveBlock {
+        use self::ActiveBlock::*;
         // We evaluate the condition
         let CondProjection { tr, fls } = self
             .gen_expr(act_block, cond)
@@ -235,7 +236,6 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             ActiveBlock::Some(else_block)
         };
 
-        use self::ActiveBlock::*;
         match (then_block, else_block) {
             (Some(then_block), Some(else_block)) => {
                 let next_block = self
@@ -264,8 +264,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             act_block
         };
 
-        let ret = self.with_span(span, act_block.new_return(act_block.cur_store(), &res));
-        self.graph.end_block().imm_add_pred(ret);
+        let return_node = self.with_span(span, act_block.new_return(act_block.cur_store(), &res));
+        self.graph.end_block().imm_add_pred(return_node);
 
         ActiveBlock::None
     }
@@ -278,6 +278,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         return_type: Option<Mode>,
         args: &[Node],
     ) -> ExprResult<'src> {
+        use self::ExprResult::*;
         let call = act_block.new_call(
             act_block.cur_store(),
             self.graph.new_address(func),
@@ -289,7 +290,6 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
 
         act_block.set_store(call.new_proj_m());
 
-        use self::ExprResult::*;
         match return_type {
             Some(mode) => Value(act_block, call.new_proj_t_result().new_proj(0, mode).into()),
             None => Void(act_block),
@@ -376,14 +376,14 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 Value(act_block, act_block.new_minus(expr).into())
             }
             Unary(ast::UnaryOp::Not, expr) => {
-                let expr = self.gen_expr(act_block, expr);
                 use self::ExprResult::*;
+                let expr = self.gen_expr(act_block, expr);
                 let graph = self.graph;
                 let inverse_val = |(act_block, val): (Block, Node)| {
                     // booleans are mode::Bu, hence XOR does the job.
                     // could also use mode::Bi and -1 for true:
                     // => could use Neg / Not, but would rely on 2's complement
-                    assert_eq!(val.mode(), Mode::Bu());
+                    debug_assert_eq!(val.mode(), Mode::Bu());
                     Value(
                         act_block,
                         act_block.new_eor(val, gen_const_bool(true, graph)).into(),
@@ -397,7 +397,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     Cond(proj) => Cond(proj.flip()),
                 }
             }
-            MethodInvocation(_, _method, arguments) | ThisMethodInvocation(_method, arguments) => {
+            MethodInvocation(_, _, arguments) | ThisMethodInvocation(_, arguments) => {
                 let class_method_def = match &self.type_analysis.expr_info(expr).ref_info {
                     Some(RefInfo::Method(class_method_def)) => Rc::clone(class_method_def),
                     _ => panic!("type analysis inconsistent"),
@@ -658,7 +658,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 let lhs = self.with_span(span, act_block.new_conv(lhs, Mode::Ls()));
                 let rhs = self.with_span(span, act_block.new_conv(rhs, Mode::Ls()));
 
-                let (res, mem) = match op {
+                let (result, mem) = match op {
                     BinaryOp::Div => {
                         let node = self.with_span(span, act_block.new_div(mem, lhs, rhs, pinned));
                         (node.new_proj_res(Mode::Ls()), node.new_proj_m())
@@ -670,9 +670,9 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                     _ => unreachable!(),
                 };
 
-                let res = self.with_span(span, act_block.new_conv(res, Mode::Is()));
+                let result = self.with_span(span, act_block.new_conv(result, Mode::Is()));
                 act_block.set_store(mem);
-                Value(act_block, res.into())
+                Value(act_block, result.into())
             }
             BinaryOp::LogicalOr => {
                 let lhs = self.gen_expr(act_block, lhs).enforce_cond(self, self.graph);
@@ -702,8 +702,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             }
             BinaryOp::Assign => {
                 let (act_block, lvalue) = self.gen_expr(act_block, lhs).expect_lvalue();
-                let (act_block, value) = self.gen_value(act_block, rhs);
-                ExprResult::value_tuple(lvalue.gen_assign(span, self, act_block, value))
+                let (act_block, assign_value) = self.gen_value(act_block, rhs);
+                ExprResult::value_tuple(lvalue.gen_assign(span, self, act_block, assign_value))
             }
             _ => unreachable!(),
         }
@@ -781,15 +781,15 @@ struct CondProjection {
 
 impl CondProjection {
     fn new(cond: Cond) -> Self {
-        CondProjection {
+        Self {
             tr: cond.new_proj_true().into(),
             fls: cond.new_proj_false().into(),
         }
     }
 
-    fn flip(self) -> CondProjection {
-        let CondProjection { tr, fls } = self;
-        CondProjection { tr: fls, fls: tr }
+    fn flip(self) -> Self {
+        let Self { tr, fls } = self;
+        Self { tr: fls, fls: tr }
     }
 }
 

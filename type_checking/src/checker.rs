@@ -164,8 +164,8 @@ fn add_types_from_ast<'ctx, 'src, 'ast, 'ana>(
                                 previous_params.insert(p.name);
                                 let ty = match p.ty.data.basic.data {
                                     ast::BasicType::MainParam => {
-                                        assert!(is_main);
-                                        assert_eq!(p.ty.data.array_depth, 0);
+                                        debug_assert!(is_main);
+                                        debug_assert_eq!(p.ty.data.array_depth, 0);
                                         CheckedType::Array(box builtin_types.string.clone())
                                     }
                                     _ => checked_type_from_ty(

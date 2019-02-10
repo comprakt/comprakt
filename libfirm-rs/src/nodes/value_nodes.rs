@@ -24,20 +24,20 @@ pub trait ValueNode: NodeTrait {
 }
 
 impl From<Box<dyn ValueNode>> for Node {
-    fn from(n: Box<dyn ValueNode>) -> Node {
-        Node::wrap(n.internal_ir_node())
+    fn from(n: Box<dyn ValueNode>) -> Self {
+        Self::wrap(n.internal_ir_node())
     }
 }
 
 impl From<&Box<dyn ValueNode>> for Node {
-    fn from(n: &Box<dyn ValueNode>) -> Node {
-        Node::wrap(n.internal_ir_node())
+    fn from(n: &Box<dyn ValueNode>) -> Self {
+        Self::wrap(n.internal_ir_node())
     }
 }
 
 impl From<&dyn ValueNode> for Node {
-    fn from(n: &dyn ValueNode) -> Node {
-        Node::wrap(n.internal_ir_node())
+    fn from(n: &dyn ValueNode) -> Self {
+        Self::wrap(n.internal_ir_node())
     }
 }
 
@@ -62,7 +62,7 @@ impl ValueNode for Const {
     }
 
     fn compute(&self, values: Vec<Tarval>) -> Tarval {
-        assert!(values.is_empty());
+        debug_assert!(values.is_empty());
         self.tarval()
     }
 }
@@ -93,14 +93,15 @@ impl ValueNode for Phi {
 impl ValueNode for Proj {
     fn value_nodes(&self) -> Vec<Box<dyn ValueNode>> {
         match self.kind() {
-            ProjKind::Div_Res(_) => vec![try_as_value_node(self.pred()).unwrap()],
-            ProjKind::Mod_Res(_) => vec![try_as_value_node(self.pred()).unwrap()],
+            ProjKind::Div_Res(_) | ProjKind::Mod_Res(_) => {
+                vec![try_as_value_node(self.pred()).unwrap()]
+            }
             _ => vec![],
         }
     }
 
     fn compute(&self, values: Vec<Tarval>) -> Tarval {
-        assert!(values.len() <= 1);
+        debug_assert!(values.len() <= 1);
         if values.len() == 1 {
             values[0]
         } else {
@@ -137,7 +138,7 @@ macro_rules! empty_value_node_impl {
             }
 
             fn compute(&self, values: Vec<Tarval>) -> Tarval {
-                assert!(values.len() == 0);
+                debug_assert!(values.len() == 0);
                 Tarval::bad()
             }
         }
@@ -185,7 +186,7 @@ macro_rules! binop_impl {
             }
 
             fn compute(&self, values: Vec<Tarval>) -> Tarval {
-                assert!(values.len() == 2);
+                debug_assert!(values.len() == 2);
                 BinOp::compute(self, values[0], values[1])
             }
         }
@@ -226,7 +227,7 @@ macro_rules! unaryop_impl {
             }
 
             fn compute(&self, values: Vec<Tarval>) -> Tarval {
-                assert!(values.len() == 1);
+                debug_assert!(values.len() == 1);
                 UnaryOp::compute(self, values[0])
             }
         }

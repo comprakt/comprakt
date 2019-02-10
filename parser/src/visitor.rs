@@ -153,7 +153,6 @@ impl<'a, 't> NodeKind<'a, 't> {
             Parameter(p) => ccb!(&p.ty),
             ParameterList(l) => ccb!(for_each l.iter()),
             Type(t) => Some(cb(NodeKind::from(&t.basic))),
-            BasicType(_) => None,
             Block(b) => ccb!(for_each b.statements.iter()),
             Stmt(s) => {
                 use crate::ast::Stmt::*;
@@ -184,7 +183,7 @@ impl<'a, 't> NodeKind<'a, 't> {
                         ccb!(lhs.as_ref());
                         ccb!(rhs.as_ref())
                     }
-                    Unary(_, expr) => ccb!(expr.as_ref()),
+                    Unary(_, expr) | NewArray(_, expr, _) => ccb!(expr.as_ref()),
                     MethodInvocation(target_expr, _, al) => {
                         ccb!(target_expr.as_ref());
                         ccb!(for_each al.data.iter())
@@ -194,13 +193,11 @@ impl<'a, 't> NodeKind<'a, 't> {
                         ccb!(target_expr.as_ref());
                         ccb!(idx_expr.as_ref())
                     }
-                    Null | Boolean(_) | Int(_) | NegInt(_) | Var(_) | This => None,
                     ThisMethodInvocation(_, al) => ccb!(for_each al.iter()),
-                    NewObject(_) => None,
-                    NewArray(_, expr, _) => ccb!(expr.as_ref()),
+                    Null | Boolean(_) | Int(_) | NegInt(_) | Var(_) | This | NewObject(_) => None,
                 }
             }
-            BinaryOp(_) | UnaryOp(_) => None,
+            BasicType(_) | BinaryOp(_) | UnaryOp(_) => None,
         }
     }
 }

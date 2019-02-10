@@ -24,7 +24,7 @@ pub trait RTLib {
 }
 
 impl From<type_system::BuiltinMethodBody> for RuntimeFunction {
-    fn from(mb: type_system::BuiltinMethodBody) -> RuntimeFunction {
+    fn from(mb: type_system::BuiltinMethodBody) -> Self {
         use self::type_system::BuiltinMethodBody;
         match mb {
             BuiltinMethodBody::SystemOutPrintln => RuntimeFunction::SystemOutPrintln,
@@ -75,7 +75,7 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn new(lib: Box<dyn RTLib>) -> Runtime {
+    pub fn new(lib: Box<dyn RTLib>) -> Self {
         let dumpstack = {
             let t = MethodTyBuilder::new().build_no_this_call();
             Entity::new_global(lib.ld_name(RuntimeFunction::Dumpstack), t.into())
@@ -146,7 +146,7 @@ impl Runtime {
             )
         };
 
-        Runtime {
+        Self {
             lib,
             system_out_println,
             system_out_write,

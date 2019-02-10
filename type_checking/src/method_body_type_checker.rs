@@ -276,8 +276,7 @@ where
             }
             Null => Ok(CheckedType::Null.into()),
             Boolean(_) => Ok(CheckedType::Boolean.into()),
-            Int(_) => Ok(CheckedType::Int.into()),
-            NegInt(_) => Ok(CheckedType::Int.into()),
+            Int(_) | NegInt(_) => Ok(CheckedType::Int.into()),
             Var(name) => self.check_var(&name),
             This => {
                 if self.current_method.is_static {
@@ -329,6 +328,7 @@ where
         lhs: &'ast Spanned<'src, ast::Expr<'src>>,
         rhs: &'ast Spanned<'src, ast::Expr<'src>>,
     ) -> Result<ExprInfo<'src, 'ast>, CouldNotDetermineType> {
+        use self::RefInfo::*;
         use ast::BinaryOp::*;
         match op {
             Assign => {
@@ -338,7 +338,6 @@ where
                 } = self.type_expr(lhs)?;
                 self.check_type(rhs, &lhs_type); // IMPROVEMENT check even on Err
 
-                use self::RefInfo::*;
                 match ref_info {
                     Some(GlobalVar(_)) | Some(Method(_)) | Some(This(_)) | None => {
                         self.context

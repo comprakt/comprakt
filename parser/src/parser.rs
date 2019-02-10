@@ -1,4 +1,14 @@
 #![feature(box_syntax)]
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self
+)]
 
 pub mod ast;
 mod spantracker;
@@ -337,19 +347,16 @@ where
     {
         let got = self.lexer.peek().ok()?;
 
-        match want.matching(&got.data) {
-            Some(yielded) => {
-                let got = self.lexer.next().unwrap();
-                self.alternatives.pop_front();
-                Some(got.map(|_| yielded))
+        if let Some(yielded) = want.matching(&got.data) {
+            let got = self.lexer.next().unwrap();
+            self.alternatives.pop_front();
+            Some(got.map(|_| yielded))
+        } else {
+            if self.alternatives.get(0).is_none() {
+                self.alternatives.push_back(Alternatives::new())
             }
-            None => {
-                if self.alternatives.get(0).is_none() {
-                    self.alternatives.push_back(Alternatives::new())
-                }
-                self.alternatives[0].insert(want.into());
-                None
-            }
+            self.alternatives[0].insert(want.into());
+            None
         }
     }
 
@@ -716,18 +723,19 @@ where
     /// [2]: https://en.wikipedia.org/wiki/Reverse_Polish_notation#Postfix_evaluation_algorithm
     /// [3]: https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
     fn parse_binary_expression(&mut self) -> BoxedResult<'f, ast::Expr<'f>> {
-        let mut operator_stack = Vec::new();
-        let mut operand_stack = Vec::new();
         fn rpn_eval<'f>(
             operand_stack: &mut Vec<Box<Spanned<'f, ast::Expr<'f>>>>,
             op: ast::BinaryOp,
         ) {
-            assert!(operand_stack.len() >= 2); // Invariant: we only construct valid RPN
+            debug_assert!(operand_stack.len() >= 2); // Invariant: we only construct valid RPN
             let rhs = operand_stack.pop().unwrap();
             let lhs = operand_stack.pop().unwrap();
-            let res = lhs.combine_boxed_with_boxed(rhs, |lhs, rhs| ast::Expr::Binary(op, lhs, rhs));
-            operand_stack.push(box res);
+            let result =
+                lhs.combine_boxed_with_boxed(rhs, |lhs, rhs| ast::Expr::Binary(op, lhs, rhs));
+            operand_stack.push(box result);
         }
+        let mut operator_stack = Vec::new();
+        let mut operand_stack = Vec::new();
 
         operand_stack.push(self.parse_unary_expression()?);
 
@@ -757,7 +765,7 @@ where
             rpn_eval(&mut operand_stack, op)
         }
 
-        assert_eq!(operand_stack.len(), 1);
+        debug_assert_eq!(operand_stack.len(), 1);
         Ok(operand_stack.remove(0))
     }
 
@@ -1207,15 +1215,14 @@ mod tests {
     use mjtest_macros::gen_syntax_tests;
 
     fn do_mjtest_syntax_test(tc: &SyntaxTestCase) {
+        use self::SyntaxTestCase::*;
         println!("file name: {:?}", tc.file_name());
         let contents = std::fs::read(tc.path()).unwrap();
         let contents = String::from_utf8(contents).unwrap();
         lex_input!(lx = &contents);
         let res = Parser::new(lx).parse();
-        use self::SyntaxTestCase::*;
         match (tc, res) {
-            (Valid(_), Ok(_)) => (),
-            (Invalid(_), Err(_)) => (),
+            (Valid(_), Ok(_)) | (Invalid(_), Err(_)) => (),
             (tc, res) => {
                 println!("test case: {:?}", tc);
                 println!("result:    {:?}", res);

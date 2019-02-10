@@ -75,6 +75,7 @@ pub fn exec_timeout_test(input: PathBuf, optimizations: optimization::Level, bac
         .map(|duration| duration.0)
         .unwrap_or_else(|| Duration::from_secs(DEFAULT_TIMEOUT_SECONDS));
 
+    #[allow(clippy::single_match_else)]
     let _status_code = match child.wait_timeout(timeout).unwrap() {
         Some(status) => {
             panic!(

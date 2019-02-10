@@ -52,8 +52,8 @@ impl<'f> Codegen<'f> {
         // %rbp is also callee save, but we never allocate this register
         // There are 10 caller save registers, but %rsp is reserved, so we need to save
         // registers if more than 9 registers are required.
-        let mut saved_regs = SaveRegList::default();
         use Amd64Reg::*;
+        let mut saved_regs = SaveRegList::default();
         match lsa_result.num_regs_required {
             x if x < 9 => (), // Enough caller save registers available
             9 => saved_regs.add_regs(&[B]),
@@ -257,7 +257,7 @@ impl<'f> Codegen<'f> {
             .lir_to_src_operand(lir::Operand::Var(*dst))
             .try_into()
             .unwrap();
-        assert_eq!(src.size(), dst.size(), "src: {:?}, dst: {:?}", src, dst);
+        debug_assert_eq!(src.size(), dst.size(), "src: {:?}, dst: {:?}", src, dst);
         instrs.push(Mov { src, dst });
     }
 
@@ -359,8 +359,7 @@ impl<'f> Codegen<'f> {
                     let src: SrcOperand = self.lir_to_src_operand(src);
                     match src {
                         // the src is stored in a reg, this is fine
-                        SrcOperand::Reg(_) => src,
-                        SrcOperand::Imm(_) => src,
+                        SrcOperand::Reg(_) | SrcOperand::Imm(_) => src,
                         // the source is stored in the activation record, move to scratch
                         SrcOperand::Ar(_) => {
                             let src = spill_ctx.spill_and_load_operand(src);
@@ -499,7 +498,7 @@ impl<'f> Codegen<'f> {
         ac: lir::AddressComputation<lir::Operand>,
         spill_ctx: &mut SpillContext,
     ) -> (lir::AddressComputation<Reg>, Vec<Amd64Reg>) {
-        use self::Instruction::Mov;
+        use self::{lir::IndexComputation, Instruction::Mov};
 
         let lir::AddressComputation {
             offset,
@@ -511,12 +510,12 @@ impl<'f> Codegen<'f> {
         let base: Reg = match base {
             // the base address of ac is stored in a reg, this is fine
             SrcOperand::Reg(reg) => {
-                assert!(reg.size() == Size::Eight); // must be a pointer
+                debug_assert!(reg.size() == Size::Eight); // must be a pointer
                 already_in_registers.push(reg.reg);
                 reg
             }
             SrcOperand::Imm(tv) => {
-                assert!(tv.is_long());
+                debug_assert!(tv.is_long());
                 if tv.get_long() == 0 {
                     // some operation relative to the null pointer
                     // let's use the undefined behavior here
@@ -534,14 +533,14 @@ impl<'f> Codegen<'f> {
             // base address of ac operand is stored in the AR, we need it in a register
             SrcOperand::Ar(_) => spill_ctx.spill_and_load_operand(base),
         };
-        use self::lir::IndexComputation;
         let index: IndexComputation<Reg> = {
             if let IndexComputation::Displacement(index, stride) = index {
                 let index = self.lir_to_src_operand(index);
+                #[allow(clippy::match_same_arms)]
                 match index {
                     // the index is stored in a reg, this is fine
                     SrcOperand::Reg(reg) => {
-                        assert!(
+                        debug_assert!(
                             reg.size() == Size::Four,
                             "minijava only allows indexing by int"
                         );
@@ -664,8 +663,8 @@ impl<'f> Codegen<'f> {
             .unwrap();
 
         // src1.size == src2.size == dst.size
-        assert_eq!(src1.size(), src2.size());
-        assert_eq!(src2.size(), dst.size());
+        debug_assert_eq!(src1.size(), src2.size());
+        debug_assert_eq!(src2.size(), dst.size());
         let size = src1.size();
 
         // all operands are potentially mem operands (in AR)
@@ -717,7 +716,7 @@ impl<'f> Codegen<'f> {
             .lir_to_src_operand(lir::Operand::Var(dst))
             .try_into()
             .unwrap();
-        assert_eq!(src.size(), dst.size());
+        debug_assert_eq!(src.size(), dst.size());
 
         // TODO peephole this away if src == rax == Reg::*
         let spill = Reg {
@@ -933,6 +932,7 @@ impl<'f> Codegen<'f> {
         });
     }
 
+    #[allow(clippy::items_after_statements)]
     fn gen_call(&self, call: &lir::Call, instrs: &mut Vec<Instruction>) {
         use self::Instruction::{Mov, Popq, Pushq};
 
@@ -967,11 +967,12 @@ impl<'f> Codegen<'f> {
         impl<T> DesiredLocation<T> {
             fn arg_idx(&self) -> usize {
                 match self {
-                    DesiredLocation::Stack { arg_idx, .. } => *arg_idx,
-                    DesiredLocation::Register { arg_idx, .. } => *arg_idx,
+                    DesiredLocation::Stack { arg_idx, .. }
+                    | DesiredLocation::Register { arg_idx, .. } => *arg_idx,
                 }
             }
         }
+        #[allow(clippy::use_self)]
         impl DesiredLocation<lir::Operand> {
             fn into_arch(self, codegen: &Codegen) -> DesiredLocation<SrcOperand> {
                 use DesiredLocation::*;
@@ -1366,9 +1367,8 @@ impl Instruction {
                 src2: dst,
             } => {
                 let relevant_size = match (src, dst) {
-                    (SrcOperand::Imm(_), _) => dst.size(),
+                    (SrcOperand::Imm(_), _) | (SrcOperand::Ar(_), DstOperand::Reg(_)) => dst.size(),
                     (SrcOperand::Reg(_), DstOperand::Ar(_)) => src.size(),
-                    (SrcOperand::Ar(_), DstOperand::Reg(_)) => dst.size(),
                     (SrcOperand::Reg(_), DstOperand::Reg(_)) => {
                         debug_assert_eq!(src.size(), dst.size());
                         src.size()
@@ -1505,6 +1505,7 @@ pub(crate) struct CallInstruction {
 /// Amd64 requires 16-byte aligned stacks.
 /// The emitted assembly works for 8-byte aligned stacks.
 /// (This works because we always spill quad-words (pushQ, popQ)).
+#[allow(clippy::unimplemented)]
 impl fmt::Display for CallInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // FIXME
@@ -1542,6 +1543,7 @@ pub(crate) struct MovInstruction {
 impl fmt::Display for MovInstruction {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::Size::*;
+        #[allow(clippy::match_same_arms)]
         let (mov_suffix, src, dst) = match (self.src.size(), self.dst.size()) {
             (One, One) => ("b", self.src, self.dst),
             (One, Four) => ("sbl", self.src, self.dst),
@@ -1574,17 +1576,9 @@ impl fmt::Display for MovInstruction {
                     mov_suffix, src, dst, self.comment
                 )
             }
-            (SrcOperand::Reg(_), DstOperand::Ar(_)) => write!(
-                fmt,
-                "mov{} {}, {}\t\t/* {} */",
-                mov_suffix, src, dst, self.comment
-            ),
-            (SrcOperand::Imm(_), DstOperand::Ar(_)) => write!(
-                fmt,
-                "mov{} {}, {}\t\t/* {} */",
-                mov_suffix, src, dst, self.comment
-            ),
-            (SrcOperand::Reg(_), DstOperand::Reg(_)) => write!(
+            (SrcOperand::Reg(_), DstOperand::Ar(_))
+            | (SrcOperand::Imm(_), DstOperand::Ar(_))
+            | (SrcOperand::Reg(_), DstOperand::Reg(_)) => write!(
                 fmt,
                 "mov{} {}, {}\t\t/* {} */",
                 mov_suffix, src, dst, self.comment
@@ -1644,12 +1638,12 @@ impl fmt::Display for StoreInstruction {
     }
 }
 
-/// SpillContext tracks the temporary spilling of registers, which is usually
+/// `SpillContext` tracks the temporary spilling of registers, which is usually
 /// necessary to satisfy x86 operand constraints.
 ///
 /// Registers from `free_regs` are eligible for spilling, i.e., being pushed
-/// onto the stack, then reused for another SrcOperand, and later popped back to
-/// their original value.
+/// onto the stack, then reused for another `SrcOperand`, and later popped back
+/// to their original value.
 struct SpillContext {
     used_regs: HashSet<Amd64Reg>,
     free_regs: Box<dyn Iterator<Item = Amd64Reg>>,
@@ -1662,7 +1656,7 @@ impl SpillContext {
     /// `free_regs` must return a register at most once
     /// It must not return `Amd64Reg::Sp` or `Amd64Reg::Bp`.
     fn new(free_regs: Vec<Amd64Reg>) -> Self {
-        SpillContext {
+        Self {
             used_regs: HashSet::new(),
             free_regs: box free_regs.into_iter(),
             spills: SaveRegList::default(),
@@ -1828,10 +1822,12 @@ impl OperandTrait for Ar {
 
 impl OperandUsingRegs for SrcOperand {
     fn used_regs(self) -> Vec<Amd64Reg> {
+        #[allow(clippy::match_same_arms)]
         match self {
             SrcOperand::Reg(reg) => vec![reg.reg],
             SrcOperand::Imm(_) => vec![],
-            SrcOperand::Ar(_) => vec![], // trait definition says rbp is not part of used_regs
+            // trait definition says rbp is not part of used_regs
+            SrcOperand::Ar(_) => vec![],
         }
     }
 }
@@ -1885,7 +1881,7 @@ impl OperandUsingRegs for DstOperand {
     }
 }
 
-/// A LoadOrStoreMem represents the commonalities of LoadMem and StoreMem
+/// A `LoadOrStoreMem` represents the commonalities of `LoadMem` and `StoreMem`
 /// instructions:
 trait LoadOrStoreMem {
     /// The address computation for the memory address (not a stack address
@@ -1959,7 +1955,7 @@ struct Mov {
     dst: DstOperand,
 }
 
-/// A newtype around DstOperand for the purpose of copy propagation cycle
+/// A newtype around `DstOperand` for the purpose of copy propagation cycle
 /// removal.
 #[derive(Debug, Clone, Copy, From)]
 struct SortCopyPropEntity(DstOperand);
@@ -2031,18 +2027,17 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
     let mut mov_imm = vec![];
     let mut transfers: Vec<RegToRegTransfer<SortCopyPropEntity>> = vec![];
     for instr in copies.iter() {
-        match instr.src {
-            SrcOperand::Imm(tv) => mov_imm.push(Mov(MovInstruction {
+        if let SrcOperand::Imm(tv) = instr.src {
+            mov_imm.push(Mov(MovInstruction {
                 src: SrcOperand::Imm(tv),
                 dst: instr.dst,
                 comment: "copy prop imm move".to_owned(),
-            })),
-            _ => {
-                transfers.push(RegToRegTransfer {
-                    src: SortCopyPropEntity(instr.src.try_into().unwrap()),
-                    dst: instr.dst.into(),
-                });
-            }
+            }))
+        } else {
+            transfers.push(RegToRegTransfer {
+                src: SortCopyPropEntity(instr.src.try_into().unwrap()),
+                dst: instr.dst.into(),
+            });
         }
     }
     let reg_graph = RegGraph::new(transfers);
@@ -2085,7 +2080,7 @@ fn sort_copy_prop(copies: &[Mov], instrs: &mut Vec<Instruction>) {
     }
 }
 
-/// SaveRegList stores a list of registers to be saved before
+/// `SaveRegList` stores a list of registers to be saved before
 /// and restored after a function call.
 #[derive(Debug, Clone)]
 struct SaveRegList<Reg> {
@@ -2122,6 +2117,6 @@ impl<Reg: Clone> SaveRegList<Reg> {
 
 impl<T> Default for SaveRegList<T> {
     fn default() -> Self {
-        SaveRegList { saved_regs: vec![] }
+        Self { saved_regs: vec![] }
     }
 }

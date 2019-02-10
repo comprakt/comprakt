@@ -14,6 +14,7 @@ impl<T> De<T> {
     }
 }
 
+#[allow(clippy::use_self)]
 impl<'de> Deserialize<'de> for De<Duration> {
     fn deserialize<D>(d: D) -> Result<De<Duration>, D::Error>
     where
@@ -23,6 +24,7 @@ impl<'de> Deserialize<'de> for De<Duration> {
     }
 }
 
+#[allow(clippy::use_self)]
 impl<'de> Deserialize<'de> for De<Option<Duration>> {
     fn deserialize<D>(d: D) -> Result<De<Option<Duration>>, D::Error>
     where

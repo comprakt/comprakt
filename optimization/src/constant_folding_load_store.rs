@@ -73,7 +73,7 @@ impl optimization::Local for ConstantFoldingWithLoadStore {
             }
         }
 
-        let mut constant_folding = ConstantFoldingWithLoadStore::new(graph);
+        let mut constant_folding = Self::new(graph);
         constant_folding.run();
         let result = constant_folding.apply();
 
@@ -477,6 +477,7 @@ impl ConstantFoldingWithLoadStore {
         required_stores: &mut HashSet<Store>,
         mut phi_container: &'_ mut PhiContainer,
     ) -> NodeLattice {
+        use self::{Node::*, ProjKind::*};
         self.breakpoint(cur_node);
 
         let mut mark_stores_as_required = |stores: &HashSet<self::Store>| {
@@ -506,7 +507,6 @@ impl ConstantFoldingWithLoadStore {
             return NodeLattice::NotReachableYet;
         }
 
-        use self::{Node::*, ProjKind::*};
         match cur_node {
             // == Load-Store optimizations ==
             Return(ret) => match self.lookup(ret.mem()) {
@@ -674,8 +674,7 @@ impl ConstantFoldingWithLoadStore {
                 deps.push(ptr_node);
 
                 match (self.lookup(mem), self.lookup_val(ptr_node)) {
-                    (NodeLattice::NotReachableYet, _) => NodeLattice::NotReachableYet,
-                    (_, None) => NodeLattice::NotReachableYet,
+                    (NodeLattice::NotReachableYet, _) | (_, None) => NodeLattice::NotReachableYet,
                     (NodeLattice::Heap(heap), Some(ptr_val)) if ptr_val.is_pointer() => {
                         let o = ptr_val.source_or_some_ex(ptr_node);
                         let ptr = ptr_val.as_pointer().unwrap();
@@ -798,8 +797,7 @@ impl ConstantFoldingWithLoadStore {
                 let right_val = self.lookup_val(cmp.right());
 
                 let result = match (left_val, right_val) {
-                    (None, _) => CmpResult::NotReachableYet,
-                    (_, None) => CmpResult::NotReachableYet,
+                    (None, _) | (_, None) => CmpResult::NotReachableYet,
                     (Some(val1), Some(val2)) => {
                         match (
                             &val1.value,

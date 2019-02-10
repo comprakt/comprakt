@@ -152,6 +152,7 @@ impl<R: std::hash::Hash + Eq + Clone + Copy> RegGraph<R> {
     pub fn into_instructions<I: From<RegGraphMinLeftEdgeInstruction<R>>>(
         self,
     ) -> impl Iterator<Item = I> {
+        use self::RegGraphMinLeftEdgeInstruction::*;
         let mut instrs = vec![];
 
         let reg_graph_len = self.len();
@@ -160,7 +161,6 @@ impl<R: std::hash::Hash + Eq + Clone + Copy> RegGraph<R> {
         debug_assert_eq!(nodes.len(), reg_graph_len);
 
         let mut recover = vec![];
-        use self::RegGraphMinLeftEdgeInstruction::*;
         let mut visited = HashSet::new();
         for node in nodes.iter().rev() {
             visited.insert(node.reg);

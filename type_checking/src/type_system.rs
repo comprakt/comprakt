@@ -271,6 +271,7 @@ impl<'src> CheckedType<'src> {
     ) -> bool {
         use self::CheckedType::*;
 
+        #[allow(clippy::match_same_arms)]
         match self {
             // dont generate errors for unknown types as they are invalid anyways
             UnknownType(_) => true,

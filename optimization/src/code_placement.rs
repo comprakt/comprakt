@@ -3,7 +3,7 @@
 ///! NOTE: the built in libfirm backend for amd64 calls `place_code` (libfirm's
 ///! own implementation of this optimization) even when optimizations are
 ///! disabled. You have to either use our backend or comment out
-///! line 3337 in file <ir/be/amd64/amd64_transform.c> to debug this
+///! line 3337 in file <`ir/be/amd64/amd64_transform.c`> to debug this
 ///! optimization.
 ///!
 ///! ---
@@ -32,8 +32,8 @@
 ///! - Libfirm distingiusies between floating and pinned nodes.
 ///! - Pinned nodes should not be moved.
 ///! - Some pinned nodes are:
-///!     - Control Flow Nodes: Jmp, Cond, Switch, IJmp, Return...
-///!     - Start Block Nodes: NoMem, Unknown
+///!     - Control Flow Nodes: Jmp, Cond, Switch, `IJmp`, Return...
+///!     - Start Block Nodes: `NoMem`, Unknown
 ///!     - Memory Nodes: Free, Alloc
 ///!     - Structural Nodes: Block, End, Start, Phi, Anchor
 ///!     - Confirm, Bad, Dummy, Unknown, Deleted ...
@@ -75,7 +75,7 @@
 ///! # References
 ///!
 ///! Lecture slides on the algorithm:
-///! http://compilers.cs.uni-saarland.de/teaching/cc/2009/slides/l10_pre.pdf
+///! <http://compilers.cs.uni-saarland.de/teaching/cc/2009/slides/l10_pre.pdf>
 use super::{CommonSubExpr, Outcome};
 use crate::{
     dot::*,
@@ -95,7 +95,7 @@ pub struct CodePlacement {
 
 impl optimization::Local for CodePlacement {
     fn optimize_function(graph: Graph) -> Outcome {
-        CodePlacement::new(graph).run()
+        Self::new(graph).run()
     }
 }
 
@@ -151,7 +151,7 @@ pub struct EarliestPlacement {
 
 impl optimization::Local for EarliestPlacement {
     fn optimize_function(graph: Graph) -> Outcome {
-        EarliestPlacement::new(graph).run()
+        Self::new(graph).run()
     }
 }
 

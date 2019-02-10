@@ -27,10 +27,10 @@ impl Into<*const bindings::ir_graph> for Graph {
 }
 
 impl Graph {
-    pub fn function_with_entity(entity: Entity, num_slots: usize) -> Graph {
+    pub fn function_with_entity(entity: Entity, num_slots: usize) -> Self {
         unsafe {
             let irg = bindings::new_ir_graph(entity.ir_entity(), num_slots as i32);
-            Graph { irg }
+            Self { irg }
         }
     }
 
@@ -283,9 +283,10 @@ impl Graph {
     /// nodes dominated by it as unreachable. The whole subtree can then be
     /// removed using `Graph::remove_bads`.
     pub fn mark_as_bad(self, node: impl NodeTrait) {
-        Graph::exchange(node, self.new_bad(Mode::b()))
+        Self::exchange(node, self.new_bad(Mode::b()))
     }
 
+    #[allow(clippy::similar_names)]
     pub fn copy_node_without_ins(self, node: Node, target: Option<Block>) -> Node {
         unsafe {
             let ptr = node.internal_ir_node();

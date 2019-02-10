@@ -47,7 +47,7 @@ impl Hash for SubExprNode {
 }
 
 impl PartialEq for SubExprNode {
-    fn eq(&self, other: &SubExprNode) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         debug_assert!(CommonSubExpr::node_qualifies_for_elim(self.0));
         debug_assert!(CommonSubExpr::node_qualifies_for_elim(other.0));
         debug_assert!(!Node::is_block(self.0));
@@ -145,7 +145,7 @@ pub struct CommonSubExpr {
 
 impl optimization::Local for CommonSubExpr {
     fn optimize_function(graph: Graph) -> Outcome {
-        CommonSubExpr::new(graph).run()
+        Self::new(graph).run()
     }
 }
 
@@ -205,7 +205,7 @@ impl CommonSubExpr {
     }
 
     fn attempt_cse(&mut self, current_node: Node, debug_context: &str) -> Outcome {
-        if !CommonSubExpr::node_qualifies_for_elim(current_node) {
+        if !Self::node_qualifies_for_elim(current_node) {
             // its only important to move depth first over the predecessors
             // of a chunk of nodes that all qualify for CSE. Since
             // the current node cannot be eliminated, we can push it onto
@@ -328,7 +328,7 @@ impl CommonSubExpr {
             let operand_left =
                 Node::wrap(unsafe { bindings::get_binop_left(node.internal_ir_node()) });
 
-            if CommonSubExpr::cmp_node(operand_left, operand_right) == Ordering::Greater {
+            if Self::cmp_node(operand_left, operand_right) == Ordering::Greater {
                 breakpoint!(
                     &format!(
                         "CSE: normalizing order of commutative operands {:?} and {:?} of {:?}",

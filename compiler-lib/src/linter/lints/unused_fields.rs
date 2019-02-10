@@ -84,34 +84,31 @@ impl<'a, 'f> SemanticLintPass<'a, 'f> for UnusedFieldsPass<'f> {
         }
         let class = cx.locator.class();
         if let ClassMemberKind::Field(..) = class_member.kind {
-            match self.used_fields.get(&(class, class_member.name)) {
-                Some(num_usage) => {
-                    if let Some(num_assigned) =
-                        self.fields_in_assignment.get(&(class, class_member.name))
-                    {
-                        debug_assert!(num_assigned <= num_usage);
-                        if num_usage == num_assigned {
-                            cx.struct_lint(
-                                UNUSED_FIELDS,
-                                class_member.span,
-                                &format!(
-                                    "this field is assigned to but never used: `{0}`",
-                                    class_member.name.as_str()
-                                ),
-                            );
-                        }
+            if let Some(num_usage) = self.used_fields.get(&(class, class_member.name)) {
+                if let Some(num_assigned) =
+                    self.fields_in_assignment.get(&(class, class_member.name))
+                {
+                    debug_assert!(num_assigned <= num_usage);
+                    if num_usage == num_assigned {
+                        cx.struct_lint(
+                            UNUSED_FIELDS,
+                            class_member.span,
+                            &format!(
+                                "this field is assigned to but never used: `{0}`",
+                                class_member.name.as_str()
+                            ),
+                        );
                     }
                 }
-                None => {
-                    cx.struct_lint(
-                        UNUSED_FIELDS,
-                        class_member.span,
-                        &format!(
-                            "unused field: `{0}`. Consider using `_{0}` instead",
-                            class_member.name,
-                        ),
-                    );
-                }
+            } else {
+                cx.struct_lint(
+                    UNUSED_FIELDS,
+                    class_member.span,
+                    &format!(
+                        "unused field: `{0}`. Consider using `_{0}` instead",
+                        class_member.name,
+                    ),
+                );
             }
         }
     }

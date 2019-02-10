@@ -12,17 +12,17 @@ use std::{
 pub struct Entity(*mut bindings::ir_entity);
 
 impl Entity {
-    pub fn new_entity(owning_ty: Ty, name: &str, ty: Ty) -> Entity {
+    pub fn new_entity(owning_ty: Ty, name: &str, ty: Ty) -> Self {
         unsafe {
             let name_c = CString::new(name).unwrap();
             let name_id = bindings::new_id_from_str(name_c.as_ptr());
             let entity = bindings::new_entity(owning_ty.ir_type(), name_id, ty.ir_type());
-            Entity::new(entity)
+            Self::new(entity)
         }
     }
 
-    pub fn new_global(id: &str, ty: Ty) -> Entity {
-        Entity::new(unsafe {
+    pub fn new_global(id: &str, ty: Ty) -> Self {
+        Self::new(unsafe {
             let global_type = bindings::get_glob_type();
             let name_c = CString::new(id).unwrap();
             let name = bindings::new_id_from_str(name_c.as_ptr());
@@ -30,8 +30,8 @@ impl Entity {
         })
     }
 
-    pub fn new(ir_entity: *mut bindings::ir_entity) -> Entity {
-        Entity(ir_entity)
+    pub fn new(ir_entity: *mut bindings::ir_entity) -> Self {
+        Self(ir_entity)
     }
 
     pub fn ir_entity(self) -> *mut bindings::ir_entity {

@@ -2,6 +2,17 @@
 // Follow the instructions in the README on how to update this file.
 
 #![allow(dead_code)]
+#![allow(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self,
+    clippy::use_debug
+)]
 use crate::{
     bindings,
     nodes::{NodeDebug, NodeDebugOpts, NodeTrait},

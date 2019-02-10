@@ -1,3 +1,15 @@
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self,
+    clippy::use_debug
+)]
+
 //! This is the runtime automatically linked into
 //! the compiled mini java file
 use libc::{c_int, c_void};
@@ -63,10 +75,8 @@ pub extern "C" fn mjrt_new(size: i64) -> *mut c_void {
     };
     unsafe {
         let ptr = libc::calloc(size as usize, 1);
-        if cfg!(feature = "checked_new") {
-            if ptr == std::ptr::null_mut() {
-                panic!("allocation failed");
-            }
+        if cfg!(feature = "checked_new") && ptr.is_null() {
+            panic!("allocation failed");
         }
         ptr
     }

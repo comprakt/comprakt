@@ -9,9 +9,10 @@ pub struct Allocator<T> {
     elems: RefCell<Vec<*mut T>>,
 }
 
+#[allow(clippy::use_self)]
 impl<T> Default for Allocator<T> {
     fn default() -> Allocator<T> {
-        Allocator {
+        Self {
             elems: RefCell::new(Vec::new()),
         }
     }
@@ -40,6 +41,7 @@ macro_rules! derive_ptr_debug {
     };
 }
 
+#[allow(clippy::use_self)]
 impl<T> Clone for Ptr<T> {
     fn clone(&self) -> Ptr<T> {
         Ptr(self.0)
@@ -47,6 +49,7 @@ impl<T> Clone for Ptr<T> {
 }
 impl<T> Copy for Ptr<T> {}
 
+#[allow(clippy::use_self)]
 impl<T> Ptr<T> {
     pub fn null() -> Self {
         Ptr(std::ptr::null_mut())
@@ -132,6 +135,7 @@ impl<T> DerefMut for HashPtr<T> {
     }
 }
 
+#[allow(clippy::use_self)]
 impl<T> Clone for HashPtr<T> {
     fn clone(&self) -> HashPtr<T> {
         HashPtr(self.0)

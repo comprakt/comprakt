@@ -19,14 +19,14 @@ impl GenInstrBlock {
         mut block: Ptr<BasicBlock>,
         alloc: &Allocator,
     ) {
-        let mut b = GenInstrBlock {
+        let mut b = Self {
             graph,
             visisted: HashSet::new(),
             body: vec![],
             leave: vec![],
         };
         b.gen(graph, block);
-        let GenInstrBlock { body, leave, .. } = b;
+        let Self { body, leave, .. } = b;
         // do not overwrite block.code because it already contains instrs from
         // construction / LoadParam
         block
@@ -110,12 +110,14 @@ impl GenInstrBlock {
     ///
     /// ### All other nodes
     /// All other nodes produce a value value.
+    #[allow(clippy::cyclomatic_complexity)]
     fn gen_value_walk_callback(
         &mut self,
         graph: Ptr<BlockGraph>,
         block: Ptr<BasicBlock>,
         node: Node,
     ) {
+        use self::{BinopKind::*, UnopKind::*};
         log::debug!("visit node={:?}", node);
         if self.visisted.contains(&node) {
             log::debug!("\tnode has already been");
@@ -123,7 +125,6 @@ impl GenInstrBlock {
         }
         self.visisted.insert(node);
 
-        use self::{BinopKind::*, UnopKind::*};
         macro_rules! op_operand {
             ($name:ident, $op:expr) => {{
                 let node = $op.$name();
@@ -171,7 +172,6 @@ impl GenInstrBlock {
                     });
                 }
             }};
-
         }
         macro_rules! gen_unop {
             ($kind:ident, $op:expr, $block:expr, $node:expr) => {{
@@ -184,6 +184,7 @@ impl GenInstrBlock {
                 });
             }};
         }
+        #[allow(clippy::match_same_arms)]
         match node {
             // Start node is always ready
             Node::Start(_) => {}
@@ -226,7 +227,7 @@ impl GenInstrBlock {
             Node::Minus(neg) => gen_unop!(Neg, neg, block, node),
             Node::Return(ret) => {
                 let value: Option<Operand> = if ret.return_res().len() != 0 {
-                    assert_eq!(ret.return_res().len(), 1);
+                    debug_assert_eq!(ret.return_res().len(), 1);
                     log::debug!("{:?}", ret);
                     Some(self.gen_operand_jit(ret.return_res().idx(0).unwrap()))
                 } else {
@@ -244,7 +245,7 @@ impl GenInstrBlock {
             // Cmp and Cond are handled together
             Node::Cmp(cmp) => {
                 let succs = cmp.out_nodes().collect::<Vec<_>>();
-                assert_eq!(1, succs.len());
+                debug_assert_eq!(1, succs.len());
                 match succs[0] {
                     Node::Cond(_) => (),
                     x => panic!(
@@ -255,7 +256,7 @@ impl GenInstrBlock {
             }
             Node::Cond(cond) => {
                 let preds = cond.in_nodes().collect::<Vec<_>>();
-                assert_eq!(1, preds.len());
+                debug_assert_eq!(1, preds.len());
                 let cmp = match preds[0] {
                     Node::Cmp(cmp) => cmp,
                     x => panic!(
@@ -294,7 +295,7 @@ impl GenInstrBlock {
                     Node::Address(addr) => addr.entity(),
                     x => panic!("call must go to an Address node, got {:?}", x),
                 };
-                assert!(func.ty().is_method());
+                debug_assert!(func.ty().is_method());
                 log::debug!("called func={:?}", func.ld_name());
 
                 // Allocate var for this call node as described in match arm comment
@@ -311,7 +312,7 @@ impl GenInstrBlock {
                         // the FIRM node for the Var produced by this call.
                         // And there cannot be multiple Vars produced by a call.
                         // So this assumption better hold!
-                        assert_eq!(tuple_elems.len(), 1);
+                        debug_assert_eq!(tuple_elems.len(), 1);
                         tuple_elems[0]
                     });
 
@@ -341,7 +342,10 @@ impl GenInstrBlock {
             }
             // Call_TResult and Call_TResult_Arg are handled in Node::Call match arm
             Node::Proj(_, ProjKind::Call_TResult(_))
-            | Node::Proj(_, ProjKind::Call_TResult_Arg(_, _, _)) => {}
+            | Node::Proj(_, ProjKind::Call_TResult_Arg(_, _, _)) => (),
+
+            // handled in Node::Load match arm
+            Node::Proj(_, ProjKind::Load_Res(_)) => (),
 
             Node::Unknown(_) => {
                 // TODO ??? this happens in the runtime function wrapper's
@@ -358,8 +362,6 @@ impl GenInstrBlock {
                         .push(Instruction::LoadMem(LoadMem { src, dst, size }));
                 }
             }
-            // handled in Node::Load match arm
-            Node::Proj(_, ProjKind::Load_Res(_)) => {}
 
             Node::Store(store) => {
                 let src = self.gen_operand_jit(store.value());

@@ -29,7 +29,7 @@ enum FirmContextState {
     ExternalBackend,
 }
 
-/// FirmContext is a singleton that represents the global state of libFIRM
+/// `FirmContext` is a singleton that represents the global state of `libFIRM`
 /// library configuration and FIRM-graph construction.
 pub struct FirmContext<'src, 'ast> {
     state: FirmContextState,

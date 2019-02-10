@@ -1,6 +1,18 @@
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self,
+    clippy::use_debug
+)]
+
 use std::collections::HashMap;
 
-/// SymbolTable associates a Symbol `S` with a stored value `T`.
+/// `SymbolTable` associates a Symbol `S` with a stored value `T`.
 pub type SymbolTable<S, T> = HashMap<S, T>;
 
 #[derive(Clone, Copy)]
@@ -9,7 +21,7 @@ enum ScopeIdx {
     Dynamic(usize),
 }
 
-/// Scoped implements scoping for SymbolTable.
+/// Scoped implements scoping for `SymbolTable`.
 /// The generic type `S` is the Symbol and `T` is the value stored for that
 /// symbol.
 pub struct Scoped<S, T>
@@ -32,7 +44,7 @@ where
     S: std::hash::Hash + Eq + Copy,
 {
     pub fn new() -> Self {
-        Scoped {
+        Self {
             root: SymbolTable::new(),
             scopes: Vec::new(),
             visible_defs: HashMap::new(),

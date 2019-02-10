@@ -41,8 +41,7 @@ impl std::fmt::Display for Reg {
         use self::{Amd64Reg::*, Size::*};
         let (prefix, suffix) = match (self.reg, self.size) {
             (name, One) => match name {
-                A | B | C | D => ("", "l"),
-                Si | Di | Sp | Bp => ("", "l"),
+                A | B | C | D | Si | Di | Sp | Bp => ("", "l"),
                 R8 | R9 | R10 | R11 | R12 | R13 | R14 | R15 => ("", "b"),
             },
             (name, Four) => match name {
@@ -106,7 +105,7 @@ impl Amd64Reg {
 
 #[rustfmt::skip]
 impl From<Amd64Reg> for usize {
-    fn from(reg: Amd64Reg) -> usize {
+    fn from(reg: Amd64Reg) -> Self {
         match reg {
             Amd64Reg::Di => 0,   // Caller-save
             Amd64Reg::Si => 1,   // Caller-save
@@ -160,7 +159,7 @@ impl TryFrom<usize> for Amd64Reg {
 }
 
 impl Ord for Amd64Reg {
-    fn cmp(&self, other: &Amd64Reg) -> Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         let l: usize = (*self).into();
         let r: usize = (*other).into();
         l.cmp(&r)
@@ -168,7 +167,7 @@ impl Ord for Amd64Reg {
 }
 
 impl PartialOrd for Amd64Reg {
-    fn partial_cmp(&self, other: &Amd64Reg) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -267,7 +266,7 @@ impl Amd64Reg {
 
     pub fn all_but_rsp_and_rbp() -> impl Iterator<Item = Self> {
         // inclusive range
-        (0..=13).map(|i| Amd64Reg::try_from(i).unwrap())
+        (0..=13).map(|i| Self::try_from(i).unwrap())
     }
 }
 
