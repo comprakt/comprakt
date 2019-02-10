@@ -315,7 +315,7 @@ impl Heap {
             if info.kind.is_allocator() && info.mem.intersects(mem) && info.ty == class_ty {
                 result = match result {
                     None => Some((**info).make_cached()),
-                    Some(last) => Some(last.join(info, &JoinContext::None, Cache)),
+                    Some(last) => Some(last.join(info, &mut JoinContext::None, Cache)),
                 };
             }
         }
@@ -328,7 +328,7 @@ impl Heap {
             if info.kind.is_allocator() && info.mem.intersects(mem) && info.item_ty == item_ty {
                 result = match result {
                     None => Some((**info).make_cached()),
-                    Some(last) => Some(last.join(info, &JoinContext::None, Cache)),
+                    Some(last) => Some(last.join(info, &mut JoinContext::None, Cache)),
                 };
             }
         }
@@ -464,7 +464,7 @@ impl Lattice for Heap {
         true
     }
 
-    fn join(&self, other: &Self, context: &JoinContext) -> Self {
+    fn join(&self, other: &Self, context: &'_ mut JoinContext) -> Self {
         use self::IntersectionType::*;
 
         let mut object_infos: HashMap<_, Rc<ObjectInfo>> = HashMap::new();
@@ -473,6 +473,18 @@ impl Lattice for Heap {
             &other.object_infos,
             |ptr_source, kind| match kind {
                 Both(info1, info2) => {
+                    match context {
+                        JoinContext::PhiWith2Preds {
+                            phi,
+                            phi_container,
+                            cur_info_idx,
+                            cur_phi_id,
+                        } => {
+                            *cur_info_idx = Some(*ptr_source);
+                        }
+                        _ => {}
+                    }
+
                     object_infos.insert(
                         *ptr_source,
                         if info1 == info2 {
@@ -497,13 +509,25 @@ impl Lattice for Heap {
             &other.array_infos,
             |ptr_source, kind| match kind {
                 Both(info1, info2) => {
+                    match context {
+                        JoinContext::PhiWith2Preds {
+                            phi,
+                            phi_container,
+                            cur_info_idx,
+                            cur_phi_id,
+                        } => {
+                            *cur_info_idx = Some(*ptr_source);
+                        }
+                        _ => {}
+                    }
+
                     array_infos.insert(
                         *ptr_source,
                         if info1 == info2 {
                             Rc::clone(info1)
                         } else {
                             assert_eq!(info1.kind, info2.kind);
-                            Rc::new(info1.join(info2, context, info1.kind))
+                            Rc::new(info1.join(info2, &mut JoinContext::None, info1.kind))
                         },
                     );
                 }
@@ -570,7 +594,7 @@ impl Lattice for ValWithStoreInfo {
         true
     }
 
-    fn join(&self, other: &Self, context: &JoinContext) -> Self {
+    fn join(&self, other: &Self, context: &mut JoinContext) -> Self {
         ValWithStoreInfo {
             val: self.val.join(&other.val, context),
             stores: &self.stores | &other.stores,
@@ -606,7 +630,7 @@ impl CellInfo {
         Self { idx_source, val }
     }
 
-    pub fn join(&self, other: &Self, context: &JoinContext) -> Self {
+    pub fn join(&self, other: &Self, context: &mut JoinContext) -> Self {
         CellInfo {
             idx_source: match (self.idx_source, other.idx_source) {
                 (Some(a), Some(b)) if a == b => Some(a),
@@ -616,10 +640,17 @@ impl CellInfo {
         }
     }
 
-    pub fn join_val(&self, other: &ValWithStoreInfo, context: &JoinContext) -> Self {
+    pub fn join_val(&self, other: &ValWithStoreInfo, context: &mut JoinContext) -> Self {
         CellInfo {
             idx_source: None,
             val: self.val.join(other, context),
+        }
+    }
+
+    pub fn join_val_flipped(&self, other: &ValWithStoreInfo, context: &mut JoinContext) -> Self {
+        CellInfo {
+            idx_source: None,
+            val: other.join(&self.val, context),
         }
     }
 }
@@ -830,7 +861,7 @@ impl ArrayInfo {
         }
     }
 
-    fn join(&self, other: &Self, context: &JoinContext, kind: InfoKind) -> Self {
+    fn join(&self, other: &Self, context: &mut JoinContext, kind: InfoKind) -> Self {
         assert!(self.item_ty == other.item_ty);
 
         let mut default_val = self.default_val.join_default(&other.default_val);
@@ -840,24 +871,38 @@ impl ArrayInfo {
             (Const(cells1), Const(cells2)) => {
                 let mut cells = HashMap::new();
 
-                for (idx, val1) in cells1 {
-                    if let Some(val2) = cells2.get(idx) {
-                        cells.insert(*idx, val1.join(val2, context));
-                    } else {
-                        cells.insert(*idx, val1.join_val(&other.default_val, context));
+                intersect(cells1, cells2, |idx, kind| {
+                    match context {
+                        JoinContext::PhiWith2Preds {
+                            phi,
+                            phi_container,
+                            cur_info_idx,
+                            cur_phi_id,
+                        } => {
+                            *cur_phi_id = Some(PhiId::Field(*phi, cur_info_idx.unwrap(), *idx));
+                        }
+                        _ => {}
                     }
-                }
-                for (idx, val2) in cells2 {
-                    if !cells1.contains_key(&idx) {
-                        cells.insert(*idx, val2.join_val(&self.default_val, context));
+
+                    match kind {
+                        IntersectionType::Both(val1, val2) => {
+                            cells.insert(*idx, val1.join(val2, context));
+                        }
+                        IntersectionType::Only1(val1) => {
+                            cells.insert(*idx, val1.join_val(&other.default_val, context));
+                        }
+                        IntersectionType::Only2(val2) => {
+                            cells.insert(*idx, val2.join_val_flipped(&self.default_val, context));
+                        }
                     }
-                }
+                });
 
                 Const(cells)
             }
             (Dynamic(node1, val1), Dynamic(node2, val2)) => {
+                let mut context = JoinContext::None;
                 if node1 == node2 {
-                    Dynamic(*node1, val1.join(val2, context))
+                    Dynamic(*node1, val1.join(val2, &mut context))
                 } else {
                     // we could either keep node1 or node2 but not both.
                     // for symmetry reasons, we discard both.
@@ -1023,11 +1068,23 @@ impl ObjectInfo {
         &self.fields[idx]
     }
 
-    fn join(&self, other: &Self, context: &JoinContext, kind: InfoKind) -> Self {
+    fn join(&self, other: &Self, context: &mut JoinContext, kind: InfoKind) -> Self {
         assert!(self.ty == other.ty);
 
         let mut updated_fields = Vec::with_capacity(self.fields.len());
         for (field_idx, field_val) in self.fields.iter().enumerate() {
+            match context {
+                JoinContext::PhiWith2Preds {
+                    phi,
+                    phi_container,
+                    cur_info_idx,
+                    cur_phi_id,
+                } => {
+                    *cur_phi_id = Some(PhiId::Field(*phi, cur_info_idx.unwrap(), field_idx));
+                }
+                _ => {}
+            }
+
             updated_fields.push(field_val.join(&other.fields[field_idx], context));
         }
         Self {

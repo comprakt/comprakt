@@ -5,23 +5,43 @@ use libfirm_rs::{
     nodes::{Node, NodeDebug, NodeTrait, Phi},
     Mode, Tarval, TarvalKind,
 };
-use std::{fmt, rc::Rc};
+use std::{collections::HashMap, fmt, rc::Rc};
 
-pub enum JoinContext {
+#[derive(Clone, Copy, Hash, Eq, PartialEq, Debug)]
+pub enum PhiId {
+    Array(Phi, InfoIdx, usize),
+    Field(Phi, InfoIdx, usize),
+}
+
+#[derive(Default)]
+pub struct PhiContainer {
+    phis: HashMap<PhiId, Phi>,
+}
+
+impl PhiContainer {
+    pub fn new() -> PhiContainer {
+        Self::default()
+    }
+}
+
+pub enum JoinContext<'t> {
     None,
-    Phi {
+    PhiWith2Preds {
+        // self is pred 0,
+        // other is pred 1,
         phi: Phi,
-        is_self_initial: bool,
-        other_pred_idx: usize,
+        phi_container: &'t mut PhiContainer,
+        cur_info_idx: Option<InfoIdx>,
+        cur_phi_id: Option<PhiId>,
     },
 }
 
 pub trait Lattice: Eq + Clone {
     fn is_progression_of(&self, other: &Self) -> bool;
-    fn join(&self, other: &Self, context: &JoinContext) -> Self;
+    fn join(&self, other: &Self, context: &mut JoinContext) -> Self;
 
     fn join_default(&self, other: &Self) -> Self {
-        self.join(other, &JoinContext::None)
+        self.join(other, &mut JoinContext::None)
     }
 
     /*fn join_many<'t, I>(vals: I) -> Option<Self>
@@ -120,7 +140,7 @@ impl Lattice for NodeLattice {
         }
     }
 
-    fn join(&self, other: &Self, context: &JoinContext) -> Self {
+    fn join(&self, other: &Self, context: &mut JoinContext) -> Self {
         use self::NodeLattice::*;
         match (self, other) {
             (NotReachableYet, arg2) => arg2.clone(),
@@ -200,7 +220,7 @@ impl Lattice for AbstractValue {
         true
     }
 
-    fn join(&self, other: &Self, context: &JoinContext) -> Self {
+    fn join(&self, other: &Self, context: &mut JoinContext) -> Self {
         use self::AbstractValue::*;
         match (self, other) {
             (Tarval(val1), Tarval(val2)) => Tarval(val1.join(*val2)),
@@ -231,13 +251,11 @@ pub struct NodeValue {
     pub source: NodeValueSource,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum NodeValueSource {
     Unknown,
     Node(Node),
-    // child NodeValueSource are not unknown
-    Phi(Phi, Vec<Rc<NodeValueSource>>),
+    //Phi(PhiId),
 }
 
 impl fmt::Debug for NodeValueSource {
@@ -245,20 +263,22 @@ impl fmt::Debug for NodeValueSource {
         match self {
             NodeValueSource::Unknown => write!(f, ""),
             NodeValueSource::Node(node) => write!(f, "{}", node.debug_fmt().short(true)),
-            NodeValueSource::Phi(_phi, preds) => write!(f, "phi{{{:?}}}", preds),
+            //NodeValueSource::Phi(phi_id) => write!(f, "phi{{{:?}}}", phi_id),
         }
     }
 }
 
+/*
 impl NodeValueSource {
     pub fn mode(&self) -> Option<Mode> {
         match self {
             NodeValueSource::Unknown => None,
             NodeValueSource::Node(node) => Some(node.mode()),
-            NodeValueSource::Phi(_phi, preds) => Some(preds.first().unwrap().mode().unwrap()),
+            //NodeValueSource::Phi(_phi, preds) => Some(preds.first().unwrap().mode().unwrap()),
         }
     }
 }
+*/
 
 impl NodeValueSource {
     pub fn is_unknown(&self) -> bool {
@@ -405,7 +425,7 @@ impl fmt::Debug for NodeValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.value)?;
         match &self.source {
-            NodeValueSource::Node(..) | NodeValueSource::Phi(..) => {
+            NodeValueSource::Node(..) /*| NodeValueSource::Phi(..)*/ => {
                 write!(f, "←{:?}", self.source)?;
             }
             _ => {}
@@ -420,41 +440,36 @@ impl Lattice for NodeValue {
         true
     }
 
-    fn join(&self, other: &Self, context: &JoinContext) -> Self {
-        let source = match context {
-            /*JoinContext::Phi {
-                phi,
-                is_self_initial,
-                other_pred_idx: _,
-            } => {
-                if *is_self_initial {
-                    match (&self.source, &other.source) {
-                        (NodeValueSource::Unknown, _) | (_, NodeValueSource::Unknown) => {
-                            // or: if self.source.block is no dominator of phi.preds(0)
-                            // or if source.block is no dom of phi.preds(idx)
-                            NodeValueSource::Unknown
-                        }
-                        _ => {
-                            let preds =
-                                vec![Rc::new(self.source.clone()), Rc::new(other.source.clone())];
-                            NodeValueSource::Phi(*phi, preds)
-                        }
-                    }
-                } else {
-                    unimplemented!()
-                    / * match (&self.source, other.source) {
-                        (NodeValueSource::Phi(phi, preds), _) => {
-                            //
-                        }
-                    }* /
+    fn join(&self, other: &Self, context: &mut JoinContext) -> Self {
+        let source = match (&self.source, &other.source) {
+            (NodeValueSource::Node(node1), NodeValueSource::Node(node2)) if node1 == node2 => {
+                NodeValueSource::Node(*node1)
+            }
+            (NodeValueSource::Node(node1), NodeValueSource::Node(node2)) => match context {
+                JoinContext::PhiWith2Preds {
+                    phi,
+                    phi_container,
+                    cur_info_idx,
+                    cur_phi_id,
+                } => {
+                    assert!(phi.in_nodes().len() == 2);
+
+                    let created_phi = phi_container
+                        .phis
+                        .entry(
+                            cur_phi_id.expect("JoinContext to have a phi id set by ObjInfo::join"),
+                        )
+                        .and_modify(|created_phi| {
+                            created_phi.set_in_nodes(&[*node1, *node2]);
+                        })
+                        .or_insert_with(|| phi.block().new_phi(&[*node1, *node2], node1.mode()));
+
+                    NodeValueSource::Node(created_phi.as_node())
                 }
-            }*/
-            _ => match (&self.source, &other.source) {
-                (NodeValueSource::Node(node1), NodeValueSource::Node(node2)) if node1 == node2 => {
-                    NodeValueSource::Node(*node1)
-                }
+
                 _ => NodeValueSource::Unknown,
             },
+            _ => NodeValueSource::Unknown,
         };
 
         NodeValue {

@@ -3,9 +3,7 @@ use crate::{dot::*, optimization};
 use firm_construction::program_generator::Spans;
 use libfirm_rs::{
     bindings,
-    nodes::{
-        try_as_value_node, Block, NewKind, Node, NodeDebug, NodeTrait, Phi, Proj, ProjKind, Store,
-    },
+    nodes::{try_as_value_node, Block, NewKind, Node, NodeDebug, NodeTrait, Proj, ProjKind, Store},
     types::{Ty, TyTrait},
     Entity, Graph, Mode, Tarval, TarvalKind,
 };
@@ -330,6 +328,7 @@ impl ConstantFoldingWithLoadStore {
         }
 
         let mut required_stores = HashSet::new();
+        let mut phi_container = PhiContainer::new();
 
         let mut deps = Vec::new();
 
@@ -337,8 +336,13 @@ impl ConstantFoldingWithLoadStore {
             self.cur_node = Some(cur_node);
             self.node_update_count += 1;
             let cur_lattice = self.lookup(cur_node);
-            let updated_lattice =
-                self.update_node(cur_node, cur_lattice, &mut deps, &mut required_stores);
+            let updated_lattice = self.update_node(
+                cur_node,
+                cur_lattice,
+                &mut deps,
+                &mut required_stores,
+                &mut phi_container,
+            );
             if &updated_lattice != cur_lattice {
                 if let Some(deps) = self.deps.get(&cur_node) {
                     for out_node in deps.iter() {
@@ -420,6 +424,7 @@ impl ConstantFoldingWithLoadStore {
         cur_lattice: &'_ NodeLattice,
         deps: &mut Vec<Node>,
         required_stores: &mut HashSet<Store>,
+        mut phi_container: &'_ mut PhiContainer,
     ) -> NodeLattice {
         self.breakpoint(cur_node);
 
@@ -779,6 +784,18 @@ impl ConstantFoldingWithLoadStore {
             // == Phi ==
             Phi(phi) => {
                 let last_idx = -1;
+
+                let mut join_context = if phi.mode().is_mem() && phi.in_nodes().len() == 2 {
+                    JoinContext::PhiWith2Preds {
+                        phi,
+                        phi_container: &mut phi_container,
+                        cur_info_idx: None,
+                        cur_phi_id: None,
+                    }
+                } else {
+                    JoinContext::None
+                };
+
                 let result = phi.in_nodes().zip(phi.block().in_nodes()).enumerate().fold(
                     None,
                     |acc, (idx, (pred, block))| {
@@ -797,13 +814,7 @@ impl ConstantFoldingWithLoadStore {
                             match acc {
                                 None => Some(pred_lat.clone()),
                                 Some(acc) => {
-                                    let join_context = JoinContext::Phi {
-                                        phi,
-                                        is_self_initial: last_idx == 1,
-                                        other_pred_idx: idx,
-                                    };
-
-                                    let new_lat = acc.join(pred_lat, &join_context);
+                                    let new_lat = acc.join(pred_lat, &mut join_context);
                                     match new_lat {
                                         NodeLattice::Value(val) => {
                                             Some(val.into_updated_source_ex(phi.as_node()).into())
@@ -880,7 +891,7 @@ impl ConstantFoldingWithLoadStore {
         let mut optimized_conds = 0;
         let mut optimized_stores = 0;
 
-        let mut created_phis = HashMap::new();
+        let mut created_phis = 0;
 
         for (&node, lattice) in &values {
             if Node::is_const(node) {
@@ -899,7 +910,7 @@ impl ConstantFoldingWithLoadStore {
                     Spans::copy_span(const_node, node);
                     const_node.into()
                 } else {
-                    fn get_or_create_node(
+                    /*fn get_or_create_node(
                         created_phis: &mut HashMap<NodeValueSource, Phi>,
                         source: &NodeValueSource,
                     ) -> Option<Node> {
@@ -922,13 +933,18 @@ impl ConstantFoldingWithLoadStore {
                                 }
                             }
                         }
-                    };
+                    };*/
 
-                    if let Some(node) = get_or_create_node(&mut created_phis, &source_node) {
+                    match source_node {
+                        NodeValueSource::Node(node) => node,
+                        _ => continue,
+                    }
+
+                    /*if let Some(node) = get_or_create_node(&mut created_phis, &source_node) {
                         node
                     } else {
                         continue;
-                    }
+                    }*/
                 };
 
                 if new_node == node {
@@ -1069,7 +1085,7 @@ impl ConstantFoldingWithLoadStore {
             optimized_loads,
             optimized_stores,
             removed_news,
-            created_phis.len(),
+            created_phis,
             optimized_conds,
             self.node_update_count,
             self.node_topo_idx.len(),
