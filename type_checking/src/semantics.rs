@@ -347,8 +347,7 @@ mod tests {
         let input = std::fs::read_to_string(tc.path()).unwrap().into_bytes();
         gen_check_code!(check_res = &input);
         match (tc, check_res) {
-            (SemanticTestCase::Valid(_), Ok(_)) => (),
-            (SemanticTestCase::Invalid(_), Err(_)) => (),
+            (SemanticTestCase::Valid(_), Ok(_)) | (SemanticTestCase::Invalid(_), Err(_)) => (),
             (tc, res) => {
                 println!("test case: {:?}", tc);
                 println!("result:    {:?}", res);
