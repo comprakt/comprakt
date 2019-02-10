@@ -1,4 +1,4 @@
-use super::Lattice;
+use super::{JoinContext, Lattice};
 use libfirm_rs::nodes::{Node, NodeDebug};
 use std::{collections::HashSet, fmt};
 
@@ -76,7 +76,7 @@ impl Lattice for MemoryArea {
         self.allocators.is_superset(&other.allocators) && (!other.external || self.external)
     }
 
-    fn join(&self, other: &Self) -> Self {
+    fn join(&self, other: &Self, _context: &mut JoinContext) -> Self {
         Self {
             allocators: &self.allocators | &other.allocators,
             external: self.external || other.external,
@@ -117,7 +117,15 @@ pub struct Pointer {
     pub can_be_null: bool,
 }
 
+#[allow(clippy::wrong_self_convention)]
 impl Pointer {
+    pub fn to_null_and(target: MemoryArea) -> Self {
+        Self {
+            target,
+            can_be_null: true,
+        }
+    }
+
     pub fn to(target: MemoryArea) -> Self {
         Self {
             target,
@@ -159,9 +167,9 @@ impl Lattice for Pointer {
         self.target.is_progression_of(&other.target) && (!other.can_be_null || self.can_be_null)
     }
 
-    fn join(&self, other: &Self) -> Self {
+    fn join(&self, other: &Self, context: &mut JoinContext) -> Self {
         Self {
-            target: self.target.join(&other.target),
+            target: self.target.join(&other.target, context),
             can_be_null: self.can_be_null || other.can_be_null,
         }
     }

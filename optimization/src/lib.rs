@@ -1,3 +1,4 @@
+#![allow(clippy::single_match)]
 #![feature(try_trait)]
 
 use crate::{firm::FirmProgram, timing::Measurement};
@@ -140,7 +141,7 @@ impl Level {
             ],
             Level::Aggressive => vec![
                 Optimization::new(Kind::Inline),
-                Optimization::new(Kind::ConstantFolding),
+                Optimization::new(Kind::ConstantFoldingWithLoadStore),
                 Optimization::new(Kind::ControlFlow),
                 Optimization::new(Kind::NodeLocal),
             ],
