@@ -12,6 +12,8 @@
 - A safe Rust wrapper and abstraction around [libfirm](https://github.com/libfirm/libfirm).
 - A [visual debugger](https://github.com/comprakt/dot-visualizer) that can be used to inspect the internal compiler state in the browser (and in Visual Studio Code)
 
+Check out the [final project presentation](https://docs.google.com/presentation/d/1mmG-rlV8M3qIKPPUmNSMatB6oPqe1suQ_aQdgaNYTmU/edit?usp=sharing) (German).
+
 **Available Optimizations**
 - `Inline`: method inlining
 - `ConstantFolding`: constant folding and unreachable code elimination
