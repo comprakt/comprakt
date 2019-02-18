@@ -11,6 +11,7 @@ pub enum RuntimeFunction {
     SystemOutFlush,
     SystemInRead,
     New,
+    NewArray,
     Dumpstack,
     NullUsage,
     ArrayOutOfBounds,
@@ -49,8 +50,10 @@ impl RTLib for Mjrt {
             RuntimeFunction::NullUsage => "mjrt_null_usage",
             RuntimeFunction::ArrayOutOfBounds => "mjrt_array_out_of_bounds",
             RuntimeFunction::New => "mjrt_new",
+            RuntimeFunction::NewArray => "mjrt_new_array",
         }
     }
+
     fn mj_main_name(&self) -> &'static str {
         "mj_main"
     }
@@ -130,8 +133,17 @@ impl Runtime {
         };
 
         let array_out_of_bounds = {
-            let t = MethodTyBuilder::new().build_no_this_call();
-            Entity::new_global(lib.ld_name(RuntimeFunction::ArrayOutOfBounds), t.into())
+            let idx = PrimitiveTy::i64();
+            let len = PrimitiveTy::i64();
+            let mut t = MethodTyBuilder::new();
+
+            t.add_param(idx.into());
+            t.add_param(len.into());
+
+            Entity::new_global(
+                lib.ld_name(RuntimeFunction::ArrayOutOfBounds),
+                t.build_no_this_call().into(),
+            )
         };
 
         Self {
@@ -146,5 +158,15 @@ impl Runtime {
             null_usage,
             array_out_of_bounds,
         }
+    }
+
+    pub fn generic_new_ty(&self, array_ty: Ty) -> Ty {
+        let size = PrimitiveTy::i64();
+        let mut t = MethodTyBuilder::new();
+
+        t.add_param(size.into());
+        t.set_res(array_ty);
+
+        t.build_no_this_call().into()
     }
 }

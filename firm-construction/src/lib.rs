@@ -33,6 +33,7 @@ pub mod firm_program;
 pub mod method_body_generator;
 pub mod program_generator;
 pub mod runtime;
+pub mod safety;
 mod type_translation;
 
 // hacks for legacy imports

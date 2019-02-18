@@ -1,8 +1,4 @@
-use super::{
-    firm_program::FirmProgram,
-    type_translation::{get_firm_mode, ty_from_checked_type},
-    Runtime,
-};
+use super::{firm_program::FirmProgram, safety, type_translation::get_firm_mode, Runtime};
 use crate::{
     asciifile::{Span, Spanned},
     ast::{self, BinaryOp},
@@ -35,6 +31,7 @@ pub struct MethodBodyGenerator<'ir, 'src, 'ast> {
     type_analysis: &'ir TypeAnalysis<'src, 'ast>,
     strtab: &'ir StringTable<'src>,
     pub spans: HashMap<Node, Span<'src>>,
+    safety_flags: &'src [safety::Flag],
 }
 
 enum ActiveBlock {
@@ -43,6 +40,7 @@ enum ActiveBlock {
 }
 
 impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         graph: Graph,
         program: &'ir FirmProgram<'src, 'ast>,
@@ -51,6 +49,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         type_analysis: &'ir TypeAnalysis<'src, 'ast>,
         runtime: &'ir Runtime,
         strtab: &'ir StringTable<'src>,
+        safety_flags: &'src [safety::Flag],
     ) -> Self {
         Self {
             graph,
@@ -62,6 +61,7 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             type_analysis,
             type_system,
             strtab,
+            safety_flags,
             spans: HashMap::new(),
         }
     }
@@ -454,18 +454,27 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             }
             ArrayAccess(target, idx_expr) => {
                 let item_ty = &self.type_analysis.expr_info(expr).ty;
-                let item_ty = ty_from_checked_type(item_ty, self.type_system, self.program)
+                let item_ty = self
+                    .program
+                    .ty_from_checked_type(item_ty)
                     .expect("not void");
-                let arr_ty = item_ty.array().into();
+                let array_ty = &self.type_analysis.expr_info(target).ty;
+                let array_ty = self
+                    .program
+                    .ty_from_checked_type(array_ty)
+                    .expect("not void");
+
                 let (act_block, target) = self.gen_value(act_block, target);
-                let (act_block, idx_node) = self.gen_value(act_block, idx_expr);
-                let sel = self.with_spanned(expr, act_block.new_sel(target, idx_node, arr_ty));
+                let (act_block, idx) = self.gen_value(act_block, idx_expr);
+
                 Assignable(
                     act_block,
-                    LValue::ArrayOrField {
-                        span: expr.span,
-                        sel_or_mem: sel.into(),
+                    LValue::Array {
+                        target,
+                        idx,
+                        array_ty,
                         item_ty,
+                        span: expr.span,
                     },
                 )
             }
@@ -491,6 +500,8 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                         self.runtime.new.ty(),
                     ),
                 );
+                // TODO This seems right, but for some reason it breaks the libfirm backend:
+                // call.set_ty(self.runtime.generic_new_ty(class_ty));
                 act_block.set_store(call.new_proj_m());
 
                 Value(
@@ -499,32 +510,73 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
                 )
             }
             NewArray(_, num_expr, _) => {
-                let checked_elem_ty = &self
-                    .type_analysis
-                    .expr_info(expr)
-                    .ty
+                let checked_array_ty = &self.type_analysis.expr_info(expr).ty;
+                let checked_elem_ty = checked_array_ty
                     .inner_type()
                     .expect("type of array must have inner type");
-                let elem_ty = ty_from_checked_type(checked_elem_ty, self.type_system, self.program)
+
+                let array_ty = self
+                    .program
+                    .ty_from_checked_type(checked_array_ty)
                     .expect("To be a valid type");
+                let elem_ty = self
+                    .program
+                    .ty_from_checked_type(checked_elem_ty)
+                    .expect("To be a valid type");
+
+                let len_entity = if let Ty::Pointer(array_ty) = array_ty {
+                    if let Ty::Class(array_ty) = array_ty.points_to() {
+                        if self.safety_flags.contains(&safety::Flag::CheckArrayBounds) {
+                            Some(array_ty.fields().next().unwrap())
+                        } else {
+                            None
+                        }
+                    } else {
+                        unreachable!("Array type should be pointer to struct");
+                    }
+                } else {
+                    unreachable!("Array type should be pointer");
+                };
+
                 let (act_block, num_elts) = self.gen_value(act_block, num_expr);
                 // TODO refactor: Mode::Ls corresponds to PrimitiveTy::i64 required for mjrt_new
                 let num_elts = act_block.new_conv(num_elts, Mode::Ls());
                 let elt_size = self.graph.new_size(Mode::Ls(), elem_ty);
 
-                let alloc_size = act_block.new_mul(num_elts, elt_size); // Is Mode::Ls()?
+                let mut alloc_size = act_block.new_mul(num_elts, elt_size).into();
+                if let Some(len_entity) = len_entity {
+                    alloc_size = act_block
+                        .new_add(alloc_size, self.graph.new_size(Mode::Ls(), len_entity.ty()))
+                        .into();
+                }
+                let call_ent = self.runtime.new;
                 let call = act_block.new_call(
                     act_block.cur_store(),
-                    self.graph.new_address(self.runtime.new),
-                    &[alloc_size.into()],
-                    self.runtime.new.ty(),
+                    self.graph.new_address(call_ent),
+                    &[alloc_size],
+                    call_ent.ty(),
                 );
+                call.set_ty(self.runtime.generic_new_ty(array_ty));
                 let call = self.with_spanned(expr, call);
                 act_block.set_store(call.new_proj_m());
-                Value(
-                    act_block,
-                    call.new_proj_t_result().new_proj(0, Mode::P()).into(),
-                )
+                let array = call.new_proj_t_result().new_proj(0, Mode::P());
+
+                if let Some(len_entity) = len_entity {
+                    let len_member = act_block.new_member(array, len_entity);
+                    let store = self.with_spanned(
+                        expr,
+                        act_block.new_store(
+                            act_block.cur_store(),
+                            len_member,
+                            num_elts,
+                            len_entity.ty(),
+                            bindings::ir_cons_flags::None,
+                        ),
+                    );
+                    act_block.set_store(store.new_proj_m());
+                }
+
+                Value(act_block, array.into())
             }
         }
     }
@@ -539,10 +591,10 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
         let field = self.program.field(Rc::clone(&field_def)).unwrap();
         let field_entity = field.borrow().entity;
         let member = self.with_span(span, act_block.new_member(target, field_entity));
-        let lvalue = LValue::ArrayOrField {
+        let lvalue = LValue::Field {
             span,
-            sel_or_mem: member.into(),
-            item_ty: field_entity.ty(),
+            member,
+            target_ty: field_entity.ty(),
         };
         ExprResult::Assignable(act_block, lvalue)
     }
@@ -655,6 +707,20 @@ impl<'a, 'ir, 'src, 'ast> MethodBodyGenerator<'ir, 'src, 'ast> {
             }
             _ => unreachable!(),
         }
+    }
+
+    fn gen_err_block(&self, preds: &[Node], err_fn: Entity, args: &[Node]) {
+        let err_block = self.graph.new_block(preds);
+        let err_call = err_block.new_call(
+            err_block.cur_store(),
+            self.graph.new_address(err_fn),
+            args,
+            err_fn.ty(),
+        );
+        err_block.set_store(err_call.new_proj_m());
+        err_block.keep_alive();
+        err_call.keep_alive();
+        err_block.mature();
     }
 
     /// Allocate a new local variable in the next free slot
@@ -823,23 +889,30 @@ enum LValue<'src> {
         mode: Mode,
         span: Span<'src>,
     },
-    // Array or field access
-    ArrayOrField {
-        sel_or_mem: Node,
+    // Array acccess
+    Array {
+        target: Node,
+        idx: Node,
+        array_ty: Ty,
         item_ty: Ty,
+        span: Span<'src>,
+    },
+    // Field access
+    Field {
+        member: Member,
+        target_ty: Ty,
         span: Span<'src>,
     },
 }
 
 impl<'src> LValue<'src> {
     /// Evaluate the lvalue just as if it were handled as a normal expression
-    fn gen_eval(
+    pub fn gen_eval(
         self,
         span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
         act_block: Block,
     ) -> (Block, Node) {
         use self::LValue::*;
-
         match self {
             Var {
                 slot_idx,
@@ -852,34 +925,53 @@ impl<'src> LValue<'src> {
                 }
                 (act_block, val)
             }
-            ArrayOrField {
-                sel_or_mem,
-                item_ty,
+            Array { item_ty, span, .. } => {
+                let (act_block, sel) = self.gen_array_sel(span_storage, act_block);
+
+                self.load_array_or_field(span_storage, Node::Sel(sel), item_ty, span, act_block)
+            }
+
+            Field {
+                member,
+                target_ty,
                 span,
             } => {
-                let load = span_storage.with_span(
+                let act_block = self.gen_null_ptr_check(member.ptr(), span_storage, act_block);
+                self.load_array_or_field(
+                    span_storage,
+                    Node::Member(member),
+                    target_ty,
                     span,
-                    act_block.new_load(
-                        act_block.cur_store(),
-                        sel_or_mem,
-                        item_ty.mode(),
-                        item_ty,
-                        bindings::ir_cons_flags::None,
-                    ),
-                );
-                act_block.set_store(load.new_proj_m());
-                (
                     act_block,
-                    span_storage
-                        .with_span(span, load.new_proj_res(item_ty.mode()))
-                        .into(),
                 )
             }
         }
     }
 
+    fn load_array_or_field(
+        &self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        sel_or_mem: Node,
+        item_ty: Ty,
+        span: Span<'src>,
+        act_block: Block,
+    ) -> (Block, Node) {
+        let load = span_storage.with_span(
+            span,
+            act_block.new_load(
+                act_block.cur_store(),
+                sel_or_mem,
+                item_ty.mode(),
+                item_ty,
+                bindings::ir_cons_flags::None,
+            ),
+        );
+        act_block.set_store(load.new_proj_m());
+        (act_block, load.new_proj_res(item_ty.mode()).into())
+    }
+
     /// Store the given value at the location described by this lvalue
-    fn gen_assign(
+    pub fn gen_assign(
         self,
         span: Span<'src>,
         span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
@@ -892,24 +984,181 @@ impl<'src> LValue<'src> {
                 act_block.set_value(slot_idx, value);
                 (act_block, value)
             }
-            ArrayOrField {
-                sel_or_mem,
-                item_ty,
-                ..
-            } => {
-                let store = span_storage.with_span(
+
+            Array { item_ty, .. } => {
+                let (act_block, sel) = self.gen_array_sel(span_storage, act_block);
+                self.store_array_or_field(
+                    span_storage,
+                    Node::Sel(sel),
+                    item_ty,
+                    value,
                     span,
-                    act_block.new_store(
-                        act_block.cur_store(),
-                        sel_or_mem,
-                        value,
-                        item_ty,
-                        bindings::ir_cons_flags::None,
-                    ),
-                );
-                act_block.set_store(store.new_proj_m());
-                (act_block, value)
+                    act_block,
+                )
+            }
+
+            Field {
+                member, target_ty, ..
+            } => {
+                let act_block = self.gen_null_ptr_check(member.ptr(), span_storage, act_block);
+                self.store_array_or_field(
+                    span_storage,
+                    Node::Member(member),
+                    target_ty,
+                    value,
+                    span,
+                    act_block,
+                )
             }
         }
+    }
+
+    fn store_array_or_field(
+        &self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        sel_or_mem: Node,
+        item_ty: Ty,
+        value: Node,
+        span: Span<'src>,
+        act_block: Block,
+    ) -> (Block, Node) {
+        let store = span_storage.with_span(
+            span,
+            act_block.new_store(
+                act_block.cur_store(),
+                sel_or_mem,
+                value,
+                item_ty,
+                bindings::ir_cons_flags::None,
+            ),
+        );
+        act_block.set_store(store.new_proj_m());
+        (act_block, value)
+    }
+
+    fn gen_array_sel(
+        &self,
+        span_storage: &mut MethodBodyGenerator<'_, 'src, '_>,
+        act_block: Block,
+    ) -> (Block, Sel) {
+        match self {
+            LValue::Array {
+                target,
+                idx,
+                array_ty,
+                ..
+            } => {
+                let act_block = if let Node::Member(target) = target {
+                    self.gen_null_ptr_check(target.ptr(), span_storage, act_block)
+                } else {
+                    self.gen_null_ptr_check(*target, span_storage, act_block)
+                };
+
+                let (len_entity, data_entity) = if let Ty::Pointer(array_ty) = array_ty {
+                    if let Ty::Class(array_ty) = array_ty.points_to() {
+                        let mut fields = array_ty.fields();
+                        if span_storage
+                            .safety_flags
+                            .contains(&safety::Flag::CheckArrayBounds)
+                        {
+                            (Some(fields.next().unwrap()), fields.next().unwrap())
+                        } else {
+                            (None, fields.next().unwrap())
+                        }
+                    } else {
+                        unreachable!("Array type should be pointer to struct");
+                    }
+                } else {
+                    unreachable!("Array type should be pointer");
+                };
+
+                let data = act_block.new_member(*target, data_entity);
+                let sel = act_block.new_sel(data, *idx, data_entity.ty());
+
+                let act_block =
+                    self.gen_array_bounds_check(*target, *idx, len_entity, span_storage, act_block);
+
+                (act_block, sel)
+            }
+            _ => panic!("This function should only be called for arrays"),
+        }
+    }
+
+    fn gen_null_ptr_check(
+        &self,
+        ptr: Node,
+        method_body: &mut MethodBodyGenerator<'_, 'src, '_>,
+        act_block: Block,
+    ) -> Block {
+        if !method_body.safety_flags.contains(&safety::Flag::CheckNull) {
+            return act_block;
+        }
+
+        let cmp_with_null = act_block.new_cmp(
+            ptr,
+            method_body.graph.new_const(Tarval::zero(Mode::P())),
+            bindings::ir_relation::Equal,
+        );
+
+        let CondProjection {
+            tr: is_null,
+            fls: is_not_null,
+        } = CondProjection::new(act_block.new_cond(cmp_with_null));
+
+        method_body.gen_err_block(&[is_null], method_body.runtime.null_usage, &[]);
+        method_body.graph.new_block(&[is_not_null])
+    }
+
+    fn gen_array_bounds_check(
+        &self,
+        target: Node,
+        idx: Node,
+        len_entity: Option<Entity>,
+        method_body: &mut MethodBodyGenerator<'_, 'src, '_>,
+        act_block: Block,
+    ) -> Block {
+        let len_entity = if let Some(len_entity) = len_entity {
+            len_entity
+        } else {
+            return act_block;
+        };
+
+        let len = act_block.new_member(target, len_entity);
+        let load = act_block.new_load(
+            act_block.cur_store(),
+            len,
+            len_entity.ty().mode(),
+            len_entity.ty(),
+            bindings::ir_cons_flags::None,
+        );
+        act_block.set_store(load.new_proj_m());
+        let len = load.new_proj_res(len_entity.ty().mode());
+
+        let idx = act_block.new_conv(idx, Mode::Ls());
+        let cmp_with_upper_bound = act_block.new_cmp(idx, len, bindings::ir_relation::Less);
+        let CondProjection {
+            tr: below_upper_bound,
+            fls: above_upper_bound,
+        } = CondProjection::new(act_block.new_cond(cmp_with_upper_bound));
+
+        let upper_bound_holds = method_body.graph.new_block(&[below_upper_bound]);
+
+        let cmp_with_lower_bound = upper_bound_holds.new_cmp(
+            idx,
+            method_body.graph.new_const(Tarval::zero(Mode::Ls())),
+            bindings::ir_relation::GreaterEqual,
+        );
+        let CondProjection {
+            tr: within_bounds,
+            fls: below_lower_bound,
+        } = CondProjection::new(upper_bound_holds.new_cond(cmp_with_lower_bound));
+
+        method_body.gen_err_block(
+            &[above_upper_bound, below_lower_bound],
+            method_body.runtime.array_out_of_bounds,
+            &[Node::Conv(idx), len.into()],
+        );
+
+        method_body.graph.new_block(&[within_bounds])
     }
 }
