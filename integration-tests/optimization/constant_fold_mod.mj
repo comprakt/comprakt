@@ -8,7 +8,7 @@ expect:
               System.out.println(3);
             }
           }
-        
+backend_asm: [Libfirm]        
 stdout:
     is: "3\n"
 ---

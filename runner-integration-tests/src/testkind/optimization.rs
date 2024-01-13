@@ -1,5 +1,5 @@
 use crate::*;
-use compiler_lib::optimization::{self, Optimization};
+use optimization::{self, Optimization};
 use serde_derive::Deserialize;
 use std::{
     fs::File,
@@ -49,6 +49,8 @@ pub struct OptimizationTestData {
     /// the unoptimized and the optimized asm of
     /// the binary.
     pub expect: AsmComparisonOutcome,
+    pub backend_asm: Option<Vec<Backend>>,
+    pub backend: Option<Vec<Backend>>,
 }
 
 impl FromReferencesPath<OptimizationTestData> for OptimizationTestData {
@@ -66,6 +68,8 @@ impl FromReferencesPath<OptimizationTestData> for OptimizationTestData {
             stdin: None,
             optimizations: vec![],
             expect: AsmComparisonOutcome::Change,
+            backend: Some(vec![Backend::Own, Backend::Libfirm]),
+            backend_asm: Some(vec![Backend::Own, Backend::Libfirm]),
         }
     }
 }
@@ -120,7 +124,7 @@ impl OptimizationTestData {
     }
 }
 
-pub fn exec_optimization_test(input: PathBuf) {
+pub fn exec_optimization_test(input: PathBuf, backend: Backend) {
     // 1.) compile asm and binary for the unoptimized reference binary
     //     this is either
     //     - the file specified by 'expect: IsIdenticalTo: path"
@@ -132,14 +136,18 @@ pub fn exec_optimization_test(input: PathBuf) {
     //     - if 'expect: Change', that the asm is different
     //     - if 'expect: Unchanged', that the asm is the same
     //     - if 'expect: IsIdenticalTo', that the asm is the same
-    let path_binary_optimized = input.with_extension("optimized.out");
-    let path_binary_reference = input.with_extension("reference.out");
-    let path_asm_optimized = input.with_extension("optimized.S");
-    let path_asm_reference = input.with_extension("reference.S");
+    let path_binary_optimized =
+        input.with_extension(&format!("{}.optimized.out", backend.to_ascii_label()));
+    let path_binary_reference =
+        input.with_extension(&format!("{}.reference.out", backend.to_ascii_label()));
+    let path_asm_optimized =
+        input.with_extension(&format!("{}.optimized.S", backend.to_ascii_label()));
+    let path_asm_reference =
+        input.with_extension(&format!("{}.reference.S", backend.to_ascii_label()));
 
     let setup = TestSpec {
         references: input.clone(),
-        input,
+        input: input.clone(),
         generate_tentatives: true,
     };
 
@@ -149,7 +157,23 @@ pub fn exec_optimization_test(input: PathBuf) {
         panic!("you MUST at least specify one optimization. none given.");
     }
 
+    if !test_data
+        .reference
+        .backend
+        .as_ref()
+        .map(|v| v.contains(&backend))
+        .unwrap_or(true)
+    {
+        log::warn!(
+            "ignoring {} test for backend {:?}",
+            input.display(),
+            backend
+        );
+        return;
+    }
+
     let callinfo_actual = CompilerCall::RawCompiler(CompilerPhase::Binary {
+        backend,
         output: path_binary_optimized.clone(),
         assembly: Some(path_asm_optimized.clone()),
         optimizations: optimization::Level::Custom(
@@ -208,6 +232,7 @@ pub fn exec_optimization_test(input: PathBuf) {
     };
 
     let callinfo_reference = CompilerCall::RawCompiler(CompilerPhase::Binary {
+        backend,
         output: path_binary_reference.clone(),
         assembly: Some(path_asm_reference.clone()),
         optimizations: optimization::Level::None,
@@ -268,6 +293,21 @@ pub fn exec_optimization_test(input: PathBuf) {
     )
     .unwrap();
 
+    if !test_data
+        .reference
+        .backend_asm
+        .as_ref()
+        .map(|v| v.contains(&backend))
+        .unwrap_or(true)
+    {
+        log::warn!(
+            "ignoring asm comparison in {} test for backend {:?}",
+            input.display(),
+            backend
+        );
+        return;
+    }
+
     match test_data.reference.expect {
         AsmComparisonOutcome::Change => {
             if normalized_reference_asm == normalized_optimized_asm {
@@ -305,8 +345,21 @@ fn strip_comments(s: &str) -> String {
     regex.replace_all(s, "").to_string()
 }
 
+fn remove_labels(s: &str) -> String {
+    let regex = regex::RegexBuilder::new(r"^\.L[0-9]+:\n")
+        .multi_line(true)
+        .build()
+        .unwrap();
+    let s = regex.replace_all(s, "").to_string();
+    let regex = regex::RegexBuilder::new(r"^.*j(mp|lt|gt|e|ne|ge|le) \.L[0-9]+\n")
+        .multi_line(true)
+        .build()
+        .unwrap();
+    regex.replace_all(&s, "").to_string()
+}
+
 // TODO: not sure if this is actually necessary
-fn sort_blocks(s: &str) -> String {
+fn sort_functions(s: &str) -> String {
     let mut blocks = s
         .split("# -- Begin  ")
         .map(|block| block.trim())
@@ -330,9 +383,14 @@ fn remove_trailing_whitespace(s: &str) -> String {
 }
 
 fn normalize_asm(asm: &str) -> String {
-    let no_comments = strip_comments(asm);
-    let no_trailing = remove_trailing_whitespace(&no_comments);
-    sort_blocks(&no_trailing)
+    [
+        strip_comments,
+        remove_trailing_whitespace,
+        remove_labels,
+        sort_functions,
+    ]
+    .iter()
+    .fold(asm.to_owned(), |acc, transform| transform(&acc))
 }
 
 fn assert_binary(

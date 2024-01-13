@@ -3,6 +3,17 @@
 //! of `cargo test`.
 #![feature(proc_macro_hygiene)]
 #![recursion_limit = "128"]
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self,
+    clippy::use_debug
+)]
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -66,7 +77,10 @@ pub fn gen_timeout_integration_tests(_args: TokenStream) -> TokenStream {
             #[test]
             fn #function_name() {
                 let input = PathBuf::from(#path_str);
-                exec_timeout_test(input);
+                exec_timeout_test(input.clone(), Level::None, Backend::Own);
+                exec_timeout_test(input.clone(), Level::None, Backend::Libfirm);
+                exec_timeout_test(input.clone(), Level::Aggressive, Backend::Own);
+                exec_timeout_test(input.clone(), Level::Aggressive, Backend::Libfirm);
             }
         }
     })
@@ -83,27 +97,10 @@ pub fn gen_binary_integration_tests(_args: TokenStream) -> TokenStream {
             #[test]
             fn #function_name() {
                 let input = PathBuf::from(#path_str);
-                exec_binary_test(input, compiler_lib::optimization::Level::None);
-            }
-        }
-    })
-}
-
-#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
-#[proc_macro]
-pub fn gen_optimized_binary_integration_tests(_args: TokenStream) -> TokenStream {
-    gen_integration_tests("binary", "_optimized", |test_name, mj_file| {
-        let function_name = Ident::new(&test_name, Span::call_site());
-        let path_str = mj_file.to_str().unwrap();
-
-        quote! {
-            #[test]
-            fn #function_name() {
-                let input = PathBuf::from(#path_str);
-                exec_binary_test(
-                    input,
-                    compiler_lib::optimization::Level::Aggressive
-                );
+                exec_binary_test(input.clone(), Level::None, Backend::Own);
+                exec_binary_test(input.clone(), Level::None, Backend::Libfirm);
+                exec_binary_test(input.clone(), Level::Aggressive, Backend::Own);
+                exec_binary_test(input.clone(), Level::Aggressive, Backend::Libfirm);
             }
         }
     })
@@ -120,7 +117,8 @@ pub fn gen_optimization_integration_tests(_args: TokenStream) -> TokenStream {
             #[test]
             fn #function_name() {
                 let input = PathBuf::from(#path_str);
-                exec_optimization_test(input);
+                exec_optimization_test(input.clone(), Backend::Own);
+                exec_optimization_test(input.clone(), Backend::Libfirm);
             }
         }
     })
@@ -189,6 +187,18 @@ pub fn gen_ast_inspector_tests(_args: TokenStream) -> TokenStream {
                 exec_ast_inspector_test(input);
             }
         }
+    })
+}
+
+#[allow(clippy::needless_pass_by_value)] // rust-clippy/issues/3067
+#[proc_macro]
+pub fn gen_lints_integration_tests(_args: TokenStream) -> TokenStream {
+    gen_integration_tests("lints", "", |test_name, mj_file| {
+        default_test_generator(
+            &quote! { CompilerCall::RawCompiler(CompilerPhase::Linter) },
+            test_name,
+            mj_file,
+        )
     })
 }
 

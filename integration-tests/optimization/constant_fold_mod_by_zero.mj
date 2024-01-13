@@ -1,6 +1,7 @@
 ---
 optimizations: [ConstantFolding]
 expect: unchanged
+backend_asm: [Libfirm]
 exitcode:
     is: "terminated by signal or crashed."
 ---

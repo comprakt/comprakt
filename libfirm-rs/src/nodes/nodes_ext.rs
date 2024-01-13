@@ -1,67 +1,58 @@
 use super::nodes_gen::*;
-use crate::{bindings, Entity, Graph, Mode};
+use crate::{
+    bindings,
+    types::{ArrayTy, ClassTy, MethodTy, Ty},
+    Entity, Graph, Mode,
+};
 use std::{
+    collections::HashSet,
     fmt,
     hash::{Hash, Hasher},
 };
 
-macro_rules! generate_iterator {
-    (
-        $iter_name: ident,
-        $len_fn: ident,
-        $node_name: ident,
-        $idx_name: ident,
-        $idx_type: ty,
-        $result_expr: expr,
-        $result_type: ty,
-    ) => {
-        pub struct $iter_name {
-            node: *mut bindings::ir_node,
-            cur: $idx_type,
-            len: $idx_type,
-        }
-
-        impl $iter_name {
-            fn new(node: *mut bindings::ir_node) -> Self {
-                Self {
-                    node,
-                    len: unsafe { bindings::$len_fn(node) },
-                    cur: 0,
-                }
-            }
-
-            pub fn idx(&self, $idx_name: $idx_type) -> Option<$result_type> {
-                if (0..self.len).contains(&$idx_name) {
-                    let $node_name = self.node;
-                    $result_expr
-                } else {
-                    None
-                }
-            }
-        }
-
-        impl Iterator for $iter_name {
-            type Item = $result_type;
-
-            fn next(&mut self) -> Option<$result_type> {
-                if self.cur == self.len {
-                    None
-                } else {
-                    let $idx_name = self.cur;
-                    self.cur += 1;
-                    let $node_name = self.node;
-                    $result_expr
-                }
-            }
-        }
-
-        impl ExactSizeIterator for $iter_name {
-            fn len(&self) -> usize {
-                self.len as usize
-            }
-        }
-    };
+lazy_static! {
+    static ref NODE_FACTORY: NodeFactory = NodeFactory::new();
 }
+
+impl Node {
+    pub fn wrap(ir_node: *mut bindings::ir_node) -> Self {
+        //NodeFactory::new().create(ir_node)
+        NODE_FACTORY.create(ir_node)
+    }
+
+    pub fn is_proj_kind_argtuple_arg(n: Self) -> bool {
+        if let Node::Proj(_, ProjKind::Start_TArgs_Arg(..)) = n {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn must_member(self) -> Member {
+        debug_assert!(Self::is_member(self));
+        Member::new(self.internal_ir_node())
+    }
+
+    pub fn must_sel(self) -> Sel {
+        debug_assert!(Self::is_sel(self));
+        Sel::new(self.internal_ir_node())
+    }
+
+    pub fn must_phi(self) -> Phi {
+        debug_assert!(Self::is_phi(self));
+        Phi::new(self.internal_ir_node())
+    }
+
+    pub fn opt_phi(self) -> Option<Phi> {
+        if Self::is_phi(self) {
+            Some(Phi::new(self.internal_ir_node()))
+        } else {
+            None
+        }
+    }
+}
+
+unsafe impl Send for Node {}
 
 macro_rules! linked_list_iterator {
     ($iter_name: ident, $item: ident, $head_fn: ident, $next_fn: ident) => {
@@ -106,13 +97,14 @@ macro_rules! simple_node_iterator {
     ($iter_name: ident, $len_fn: ident, $get_fn: ident, $idx_type: ty) => {
         generate_iterator!(
             $iter_name,
+            *mut bindings::ir_node,
             $len_fn,
             node,
             idx,
             $idx_type,
             {
                 let out = unsafe { bindings::$get_fn(node, idx) };
-                Some(NodeFactory::node(out))
+                Node::wrap(out)
             },
             Node,
         );
@@ -120,9 +112,13 @@ macro_rules! simple_node_iterator {
 }
 
 /// A trait to abstract from Node enum and various *-Node structs.
-/// Inspired by https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java.
+/// Inspired by <https://github.com/libfirm/jFirm/blob/master/src/firm/nodes/Node.java>.
 pub trait NodeTrait {
     fn internal_ir_node(&self) -> *mut bindings::ir_node;
+
+    fn as_node(&self) -> Node {
+        Node::wrap(self.internal_ir_node())
+    }
 
     // TODO move to graph
     fn keep_alive(&self) {
@@ -134,6 +130,9 @@ pub trait NodeTrait {
     }
 
     fn block(&self) -> Block {
+        if Node::is_block(self.as_node()) {
+            return Block::new(self.internal_ir_node());
+        }
         let block_ir_node = unsafe { bindings::get_nodes_block(self.internal_ir_node()) };
         Block::new(block_ir_node)
     }
@@ -143,10 +142,12 @@ pub trait NodeTrait {
     }
 
     fn out_nodes(&self) -> OutNodeIterator {
+        self.graph().assure_outs();
         OutNodeIterator::new(self.internal_ir_node())
     }
 
     fn out_nodes_ex(&self) -> OutNodeExIterator {
+        self.graph().assure_outs();
         OutNodeExIterator::new(self.internal_ir_node())
     }
 
@@ -187,11 +188,111 @@ pub trait NodeTrait {
         unsafe { bindings::get_irn_node_nr(self.internal_ir_node()) }
     }
 
+    fn is_pinned(&self) -> bool {
+        unsafe { bindings::get_irn_pinned(self.internal_ir_node()) > 0 }
+    }
+
+    fn is_commutative(&self) -> bool {
+        let op = unsafe { bindings::get_irn_op(self.internal_ir_node()) };
+        let flags = unsafe { bindings::get_op_flags(op) };
+        (flags & bindings::irop_flags::Commutative) > 0
+    }
+
+    fn is_only_valid_in_start_block(&self) -> bool {
+        unsafe { bindings::is_irn_start_block_placed(self.internal_ir_node()) > 0 }
+    }
+
     fn graph(&self) -> Graph {
         Graph {
             irg: unsafe { bindings::get_irn_irg(self.internal_ir_node()) },
         }
     }
+
+    /// libifrm irg_walk wrapper
+    ///
+    /// Walks over the ir graph, starting at the this node and going to all
+    /// predecessors, i.e., dependencies (operands) of this node.
+    /// Note that this traversal crosses block boundaries, since blocks are
+    /// also just predecessors in the Graph.
+    fn walk<F>(&self, mut walker: F)
+    where
+        F: FnMut(VisitTime, Node),
+        Self: Sized,
+    {
+        // We need the type ascription here, because otherwise rust infers `&mut F`,
+        // but in `closure_handler` we transmute to `&mut &mut dyn FnMut(_)` (because
+        // `closure_handler` doesn't know the concrete `F`.
+        let mut fat_pointer: &mut dyn FnMut(VisitTime, Node) = &mut walker;
+        let thin_pointer = &mut fat_pointer;
+
+        unsafe {
+            use std::ffi::c_void;
+            bindings::irg_walk(
+                self.internal_ir_node(),
+                Some(pre_closure_handler),
+                Some(post_closure_handler),
+                thin_pointer as *mut &mut _ as *mut c_void,
+            );
+        }
+    }
+
+    /// Perform a DFS over all nodes within `block` starting at `self`.
+    /// As soon as a Phi node is reached, that branch of the DFS is canceled.
+    /// There is no callback for a Phi node.
+    /// The primary use case for this API is in codegen.
+    fn walk_dfs_in_block_stop_at_phi_node<Callback>(&self, block: Block, callback: &mut Callback)
+    where
+        Callback: FnMut(Node),
+        Self: Sized,
+    {
+        fn recurse<Callback>(
+            visited: &mut HashSet<Node>,
+            cur_node: Node,
+            block: Block,
+            callback: &mut Callback,
+        ) where
+            Callback: FnMut(Node),
+        {
+            if cur_node.block() == block {
+                let visit_nodes = cur_node
+                    .in_nodes()
+                    .filter(|n| !Node::is_phi(*n))
+                    .collect::<Vec<_>>();
+                log::debug!("DFS PRELOOP visit_nodes.len()={:?}", visit_nodes.len());
+                for operand in visit_nodes {
+                    // cannot filter before the loop because recurse adds to visited
+                    if visited.contains(&operand) {
+                        continue;
+                    }
+                    visited.insert(operand);
+                    recurse(visited, operand, block, callback);
+                }
+                log::debug!("DFS PRE callback for {:?}", cur_node);
+                callback(cur_node);
+                log::debug!("DFS POST callback for {:?}", cur_node);
+            }
+        }
+
+        let mut visited = HashSet::new();
+
+        let this = Node::wrap(self.internal_ir_node());
+        recurse(&mut visited, this, block, callback);
+    }
+}
+
+pub use crate::VisitTime;
+use std::{ffi::c_void, mem};
+
+unsafe extern "C" fn pre_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, Node) = mem::transmute(closure);
+    closure(VisitTime::BeforePredecessors, Node::wrap(node));
+}
+
+unsafe extern "C" fn post_closure_handler(node: *mut bindings::ir_node, closure: *mut c_void) {
+    #[allow(clippy::transmute_ptr_to_ref)]
+    let closure: &mut &mut FnMut(VisitTime, Node) = mem::transmute(closure);
+    closure(VisitTime::AfterPredecessors, Node::wrap(node));
 }
 
 simple_node_iterator!(InNodeIterator, get_irn_arity, get_irn_n, i32);
@@ -201,6 +302,7 @@ simple_node_iterator!(OutNodeIterator, get_irn_n_outs, get_irn_out, u32);
 
 generate_iterator!(
     OutNodeExIterator,
+    *mut bindings::ir_node,
     get_irn_n_outs,
     node,
     idx,
@@ -208,7 +310,7 @@ generate_iterator!(
     {
         let mut in_pos: i32 = 0;
         let out = unsafe { bindings::get_irn_out_ex(node, idx, &mut in_pos) };
-        Some((NodeFactory::node(out), in_pos))
+        (Node::wrap(out), in_pos)
     },
     (Node, i32),
 );
@@ -269,6 +371,40 @@ linked_list_iterator!(
 );
 
 impl Block {
+    pub fn deepest_common_dominator(a: Self, b: Self) -> Self {
+        let cdom = unsafe {
+            bindings::ir_deepest_common_dominator(a.internal_ir_node(), b.internal_ir_node())
+        };
+
+        Self::new(cdom)
+    }
+
+    pub fn immediate_dominator(self) -> Option<Self> {
+        // TODO: check if dominators are computed
+        let idom = unsafe { bindings::get_Block_idom(self.internal_ir_node()) };
+        if idom.is_null() {
+            None
+        } else {
+            Some(Self::new(idom))
+        }
+    }
+
+    pub fn loop_depth(self) -> u32 {
+        // TODO: check if loop info is computed
+        let loop_ref = unsafe { bindings::get_irn_loop(self.internal_ir_node()) };
+        unsafe { bindings::get_loop_depth(loop_ref) }
+    }
+
+    pub fn immediate_post_dominator(self) -> Option<Self> {
+        // TODO: check if post dominators are computed
+        let ipostdom = unsafe { bindings::get_Block_ipostdom(self.internal_ir_node()) };
+        if ipostdom.is_null() {
+            None
+        } else {
+            Some(Self::new(ipostdom))
+        }
+    }
+
     pub fn cfg_preds(self) -> CfgPredsIterator {
         CfgPredsIterator::new(self.internal_ir_node())
     }
@@ -291,8 +427,8 @@ impl Block {
     }
 
     pub fn phi_or_node(self, nodes: &[Node]) -> Node {
-        assert!(!nodes.is_empty());
-        assert!(nodes.iter().all(|n| n.mode() == nodes[0].mode()));
+        debug_assert!(!nodes.is_empty());
+        debug_assert!(nodes.iter().all(|n| n.mode() == nodes[0].mode()));
 
         if nodes.len() == 1 {
             nodes[0]
@@ -315,7 +451,7 @@ impl Block {
     }
 
     pub fn value(self, slot_idx: usize, mode: Mode) -> Node {
-        NodeFactory::node(unsafe {
+        Node::wrap(unsafe {
             bindings::get_b_value(
                 self.internal_ir_node(),
                 slot_idx as i32,
@@ -335,7 +471,7 @@ impl Block {
     }
 
     pub fn cur_store(self) -> Node {
-        NodeFactory::node(unsafe { bindings::get_b_store(self.internal_ir_node()) })
+        Node::wrap(unsafe { bindings::get_b_store(self.internal_ir_node()) })
     }
 
     pub fn set_store(self, s: impl NodeTrait) {
@@ -347,6 +483,22 @@ impl Block {
             bindings::add_immBlock_pred(self.internal_ir_node(), pred.internal_ir_node());
         }
     }
+
+    pub fn all_nodes_in_block(self) -> impl Iterator<Item = Node> {
+        self.out_nodes()
+    }
+
+    pub fn dom_depth(self) -> usize {
+        unsafe { get_Block_dom_depth(self.internal_ir_node()) as usize }
+    }
+
+    pub fn dominates(self, other: Self) -> bool {
+        unsafe { bindings::block_dominates(self.internal_ir_node(), other.internal_ir_node()) != 0 }
+    }
+}
+
+extern "C" {
+    pub fn get_Block_dom_depth(bl: *const bindings::ir_node) -> ::std::os::raw::c_int;
 }
 
 simple_node_iterator!(
@@ -360,13 +512,26 @@ impl Phi {
     pub fn phi_preds(self) -> PhiPredsIterator {
         PhiPredsIterator::new(self.internal_ir_node())
     }
+
+    /// `Node` is the result of the phi node when entering this phi's block via
+    /// `Block`
+    pub fn preds(self) -> impl Iterator<Item = (Block, Node)> {
+        // From libfirm docs:
+        // A phi node has 1 input for each predecessor of its block. If a
+        // block is entered from its nth predecessor all phi nodes produce
+        // their nth input as result.
+        let block = self.block();
+        PhiPredsIterator::new(self.internal_ir_node())
+            .enumerate()
+            .map(move |(i, pred)| (block.cfg_preds().idx(i as i32).unwrap().block(), pred))
+    }
 }
 
 simple_node_iterator!(PhiPredsIterator, get_Phi_n_preds, get_Phi_pred, i32);
 
 impl Proj {
-    pub fn new_proj(self, num: u32, mode: Mode) -> Proj {
-        Proj::new(unsafe {
+    pub fn new_proj(self, num: u32, mode: Mode) -> Self {
+        Self::new(unsafe {
             bindings::new_r_Proj(self.internal_ir_node(), mode.libfirm_mode(), num)
         })
     }
@@ -376,7 +541,7 @@ impl Proj {
             None
         } else {
             let unwrapped = unsafe { bindings::get_Proj_pred(self.internal_ir_node()) };
-            Some(NodeFactory::node(unwrapped))
+            Some(Node::wrap(unwrapped))
         }
     }
 }
@@ -421,13 +586,88 @@ impl Address {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum NewKind {
+    Object(ClassTy),
+    Array { item_ty: Ty, item_count: Node },
+}
+
 impl Call {
     pub fn args(self) -> CallArgsIterator {
         CallArgsIterator::new(self.internal_ir_node())
     }
+
+    pub fn out_single_result(self) -> Option<Node> {
+        for out_node in self.out_nodes() {
+            if let Node::Proj(proj, ProjKind::Call_TResult(_)) = out_node {
+                return proj.out_nodes().idx(0);
+            }
+        }
+        None
+    }
+
+    pub fn method_name(self) -> Option<String> {
+        if let Some(addr) = Node::as_address(self.ptr()) {
+            Some(addr.entity().name_string())
+        } else {
+            None
+        }
+    }
+
+    pub fn new_kind(self) -> Option<NewKind> {
+        if self.method_name()? != "mjrt_new" {
+            return None;
+        }
+
+        match self.args().idx(0)? {
+            Node::Size(size_node) => {
+                let class_ty = ClassTy::from(size_node.ty()).unwrap();
+                Some(NewKind::Object(class_ty))
+            }
+            Node::Mul(mul) => {
+                if let Some(size_node) = Node::as_size(mul.right()) {
+                    let item_ty = size_node.ty();
+                    let item_count = mul.left();
+                    Some(NewKind::Array {
+                        item_ty,
+                        item_count,
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    pub fn method_ty(self) -> MethodTy {
+        unsafe {
+            MethodTy::from(Ty::from_ir_type(bindings::get_Call_type(
+                self.internal_ir_node(),
+            )))
+            .unwrap()
+        }
+    }
+
+    pub fn single_result_ty(self) -> Option<Ty> {
+        self.method_ty().single_result_ty()
+    }
 }
 
 simple_node_iterator!(CallArgsIterator, get_Call_n_params, get_Call_param, i32);
+
+impl Size {
+    pub fn ty(self) -> Ty {
+        unsafe { Ty::from_ir_type(bindings::get_Size_type(self.internal_ir_node())) }
+    }
+}
+
+impl Sel {
+    pub fn element_ty(self) -> Ty {
+        let arr = ArrayTy::from(self.ty()).unwrap();
+        arr.element_type()
+    }
+}
 
 // = Debug fmt =
 
@@ -442,27 +682,33 @@ pub trait NodeDebug {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct NodeDebugOpts {
-    short: bool,
+    pub short: bool,
+    pub new_print_class: bool,
+    pub print_id: bool,
 }
 
 impl NodeDebugOpts {
-    pub fn short(self) -> bool {
-        self.short
-    }
-
-    pub fn with_short(mut self, val: bool) -> Self {
-        self.short = val;
-        self
+    pub fn default() -> Self {
+        Self {
+            short: false,
+            new_print_class: true,
+            print_id: true,
+        }
     }
 }
 
 #[derive(Copy, Clone)]
 pub struct NodeDebugFmt<T: NodeDebug + Sized + Copy>(T, NodeDebugOpts);
 impl<T: NodeDebug + Copy> NodeDebugFmt<T> {
-    pub fn short(self, val: bool) -> Self {
-        NodeDebugFmt(self.0, self.1.with_short(val))
+    pub fn short(mut self, val: bool) -> Self {
+        self.1.short = val;
+        self
+    }
+    pub fn new_print_class(mut self, val: bool) -> Self {
+        self.1.new_print_class = val;
+        self
     }
     pub fn with(self, opts: NodeDebugOpts) -> Self {
         NodeDebugFmt(self.0, opts)
@@ -484,8 +730,22 @@ impl<T: NodeDebug + Copy> fmt::Debug for NodeDebugFmt<T> {
 // = Debug fmt impls =
 
 impl NodeDebug for Proj {
-    fn fmt(&self, f: &mut fmt::Formatter, _opts: NodeDebugOpts) -> fmt::Result {
-        write!(f, "Proj {}: {:?}", self.node_id(), self.kind())
+    fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
+        if opts.short {
+            let info = match self.pred() {
+                Node::Call(_) => "Call".to_owned(),
+                Node::Load(_) => "Load".to_owned(),
+                Node::Store(_) => "Store".to_owned(),
+                _ => "".to_owned(),
+            };
+            write!(f, "Prj{}{}", self.node_id(), info)
+        } else if let ProjKind::Call_TResult_Arg(idx, call, _) = self.kind() {
+            write!(f, "Proj{}.{}@{:?}", self.node_id(), idx, call)
+        } else if let ProjKind::Start_TArgs_Arg(idx, start, _) = self.kind() {
+            write!(f, "Proj{}.{}@{:?}", self.node_id(), idx, start)
+        } else {
+            write!(f, "Proj{}: {:?}", self.node_id(), self.kind())
+        }
     }
 }
 
@@ -497,15 +757,39 @@ impl NodeDebug for Const {
 
 impl NodeDebug for Call {
     fn fmt(&self, f: &mut fmt::Formatter, opts: NodeDebugOpts) -> fmt::Result {
-        if opts.short {
-            write!(f, "Call {}", self.node_id())
-        } else {
-            write!(
+        match self.new_kind() {
+            Some(NewKind::Object(class_ty)) => write!(
                 f,
-                "Call to {} {}",
-                self.ptr().debug_fmt().short(true),
+                "New{} {}",
+                if opts.new_print_class {
+                    format!(" {:?}", class_ty)
+                } else {
+                    "".to_string()
+                },
                 self.node_id()
-            )
+            ),
+            Some(NewKind::Array { item_ty, .. }) => write!(
+                f,
+                "New{}[] {}",
+                if opts.new_print_class {
+                    format!(" {:?}", item_ty)
+                } else {
+                    "".to_string()
+                },
+                self.node_id()
+            ),
+            _ => {
+                if opts.short {
+                    write!(f, "Call {}", self.node_id())
+                } else {
+                    write!(
+                        f,
+                        "Call to {} {}",
+                        self.ptr().debug_fmt().short(true),
+                        self.node_id()
+                    )
+                }
+            }
         }
     }
 }

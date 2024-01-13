@@ -192,7 +192,7 @@ interface TypeDef {
 const internal_ir_node = "internal_ir_node";
 
 const nodeType: TypeDef = ({
-    wrap: (expr: string) => `NodeFactory::node(${expr})`,
+    wrap: (expr: string) => `Node::wrap(${expr})`,
     unwrap: (expr: string) => `${expr}.${internal_ir_node}()`,
     rustInName: "impl NodeTrait",
     rustOutName: "Node",
@@ -316,12 +316,12 @@ generateGraphImpl();
 generateBlockImpl();
 
 w.closeFile("nodes_gen.rs");
-w.save("../src/nodes/");
-
-exec("cargo fmt --package libfirm-rs", (err, stdout, stderr) => {
-    if (err) { console.error(err); }
-    if (stderr) { console.error(stderr); }
-    if (stdout) { console.log(stdout); }
+w.save("../src/nodes/").then(() => {
+    exec("cargo fmt --package libfirm-rs", (err, stdout, stderr) => {
+        if (err) { console.error(err); }
+        if (stderr) { console.error(stderr); }
+        if (stdout) { console.log(stdout); }
+    });
 });
 
 
@@ -417,10 +417,6 @@ function generateNodeFactory() {
     w.line(`NodeFactory(map)`);
     w.unindent("}");
     w.line();
-
-    w.indent(`pub fn node(ir_node: ${ir_node_type}) -> Node {`);
-    w.line(`Self::new().create(ir_node)`);
-    w.unindent("}");
     w.line();
 
     w.indent(`pub fn create(&self, ir_node: ${ir_node_type}) -> Node {`);
@@ -564,12 +560,13 @@ function generateNodeImpl(node: NodeImpl) {
         if (out.comment) { w.line(`/// ${out.comment}.`); }
 
         w.indent(`pub fn ${out.out_proj_fnName}(self) -> Option<Proj> {`);
-        w.indent(`for out_node in self.out_nodes() {`);
-        w.indent(`if let Node::Proj(proj, ProjKind::${out.projKind_variantCtor("_")}) = out_node {`);
-        w.line(`return Some(proj);`);
-        w.unindent(`}`);
-        w.unindent(`}`);
-        w.line(`None`);
+        w.indent(`let mut res = self.out_nodes().filter_map(|out_node| match out_node {`);
+        w.indent(`Node::Proj(proj, ProjKind::${out.projKind_variantCtor("_")}) => Some(proj),`);
+        w.line(`    _ => None,`);
+        w.unindent(`});`);
+        w.line(`let ret = res.next();`);
+        w.line(`debug_assert!(res.count() == 0, "expect at most one of ProjKind::${out.projKind_variantCtor("_")}");`);
+        w.line(`ret`);
         w.unindent(`}`);
         w.line();
     }

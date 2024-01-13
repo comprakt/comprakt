@@ -1,0 +1,31 @@
+info: inverting a bool literal. This can be simplified to `true`
+   | 
+ 8 |         boolean x = !false;
+   |                     ^^^^^^
+
+error: inverting a bool literal. This can be simplified to `false`
+    | 
+ 13 |         boolean y = !true;
+    |                     ^^^^^
+
+info: comparison of differing boolean literals. Consider using `false`
+    | 
+ 14 |         boolean z = true == false;
+    |                     ^^^^^^^^^^^^^
+
+info: comparison with a boolean literal. Consider using `b`
+    | 
+ 24 |         if (b == true); /* this should be an info */
+    |             ^^^^^^^^^
+
+warning: inverting a bool literal. This can be simplified to `true`
+    | 
+ 25 |         if (!false); /* This should be uneffected */
+    |             ^^^^^^
+
+warning: unused argument: `x`. Consider using `_x` instead
+    | 
+ 18 |     public void g(int x) {}
+    |                   ^^^^^
+
+Compilation aborted due to an error

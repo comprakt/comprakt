@@ -4,9 +4,6 @@ expect:
     identical-to:
         is: |
           class A {
-            public int a() {
-              return 12;
-            }
             public static void main(String[] args) {
               A a = new A();
               System.out.println(12);

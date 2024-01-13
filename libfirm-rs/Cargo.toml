@@ -14,3 +14,5 @@ edition = "2018"
 libfirm-rs-bindings = { path = "../libfirm-rs-bindings" }
 derive_more = "0.13"
 strum_macros = "*"
+log = "*"
+lazy_static = "1.2.0"

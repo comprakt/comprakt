@@ -2,7 +2,7 @@ use super::mode::Mode;
 use libfirm_rs_bindings as bindings;
 use std::{ffi::CStr, ptr};
 
-#[derive(Clone, Copy, From, Into)]
+#[derive(Clone, Copy, From, Into, Eq)]
 pub struct Tarval(*mut bindings::ir_tarval);
 
 impl Into<*const bindings::ir_tarval> for Tarval {
@@ -12,7 +12,7 @@ impl Into<*const bindings::ir_tarval> for Tarval {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum TarvalKind {
     Bool(bool),
     Unknown,
@@ -23,17 +23,17 @@ pub enum TarvalKind {
 
 impl Tarval {
     #[inline]
-    pub fn unknown() -> Tarval {
+    pub fn unknown() -> Self {
         unsafe { bindings::tarval_unknown }.into()
     }
 
     #[inline]
-    pub fn bad() -> Tarval {
+    pub fn bad() -> Self {
         unsafe { bindings::tarval_bad }.into()
     }
 
     #[inline]
-    pub fn bool_val(val: bool) -> Tarval {
+    pub fn bool_val(val: bool) -> Self {
         unsafe {
             if val {
                 bindings::tarval_b_true
@@ -45,17 +45,27 @@ impl Tarval {
     }
 
     #[inline]
-    pub fn mj_int(val: i64) -> Tarval {
+    pub fn mj_int(val: i64) -> Self {
         unsafe { bindings::new_tarval_from_long(val, bindings::mode::Is) }.into()
     }
 
+    /// used for mjrt_new
     #[inline]
-    pub fn zero(mode: Mode) -> Tarval {
-        unsafe { bindings::new_tarval_from_long(0, mode.libfirm_mode()) }.into()
+    pub fn mj_size(val: i64) -> Self {
+        unsafe { bindings::new_tarval_from_long(val, bindings::mode::Ls) }.into()
     }
 
     #[inline]
-    pub fn val(val: i64, mode: Mode) -> Tarval {
+    pub fn zero(mode: Mode) -> Self {
+        unsafe { bindings::new_tarval_from_long(0, mode.libfirm_mode()) }.into()
+    }
+
+    pub fn is_zero(self) -> bool {
+        self.get_long() == 0
+    }
+
+    #[inline]
+    pub fn val(val: i64, mode: Mode) -> Self {
         unsafe { bindings::new_tarval_from_long(val, mode.libfirm_mode()) }.into()
     }
 
@@ -119,7 +129,7 @@ impl Tarval {
     }
 
     #[inline]
-    pub fn cast(self, mode: Mode) -> Option<Tarval> {
+    pub fn cast(self, mode: Mode) -> Option<Self> {
         if self.can_be_cast_into(mode) {
             Some(unsafe { bindings::tarval_convert_to(self.0, mode.libfirm_mode()) }.into())
         } else {
@@ -142,35 +152,34 @@ impl Tarval {
         let actual_rel = unsafe { bindings::tarval_cmp(self.into(), other.into()) };
 
         if actual_rel == bindings::ir_relation::False {
-            Tarval::bad()
+            Self::bad()
         } else {
-            Tarval::bool_val(rel & actual_rel != 0)
+            Self::bool_val(rel & actual_rel != 0)
         }
     }
 
-    pub fn lattice_eq(self, o: Tarval) -> bool {
+    pub fn lattice_eq(self, o: Self) -> bool {
         self.lattice_cmp(bindings::ir_relation::Equal, o)
             .is_bool_val(true)
     }
 
-    pub fn join(self, o: Tarval) -> Tarval {
+    pub fn join(self, o: Self) -> Self {
         use self::TarvalKind::*;
         match (self.kind(), o.kind()) {
-            (Bad, _) | (_, Bad) => Tarval::bad(),
+            (Bad, _) | (_, Bad) => Self::bad(),
             (Unknown, _) => o,
             (_, Unknown) => self,
             _ if self.lattice_eq(o) => self,
-            _ => Tarval::bad(),
+            _ => Self::bad(),
         }
     }
 }
 
 impl PartialEq for Tarval {
     // TODO write tests for this
-    fn eq(&self, o: &Tarval) -> bool {
+    fn eq(&self, o: &Self) -> bool {
         match (self.kind(), o.kind()) {
-            (TarvalKind::Unknown, TarvalKind::Unknown) => true,
-            (TarvalKind::Bad, TarvalKind::Bad) => true,
+            (TarvalKind::Unknown, TarvalKind::Unknown) | (TarvalKind::Bad, TarvalKind::Bad) => true,
             _ if self.kind() == o.kind() => self.lattice_eq(*o),
             _ => false,
         }
@@ -187,7 +196,7 @@ impl Debug for Tarval {
             let s = CStr::from_ptr(v.as_ptr()).to_string_lossy();
             let s = s.trim_start_matches("<");
             let s = s.trim_end_matches(">");
-            write!(fmt, "{{{}, mode: {}}}", s, self.mode().name_string())
+            write!(fmt, "{}:{}", self.mode().name_string(), s)
         }
     }
 }
@@ -226,9 +235,9 @@ impl_binop_on_tarval!(BitXor, bitxor, bindings::tarval_eor);
 impl_binop_on_tarval!(Rem, rem, bindings::tarval_mod);
 
 impl std::ops::Neg for Tarval {
-    type Output = Tarval;
+    type Output = Self;
 
-    fn neg(self) -> Tarval {
+    fn neg(self) -> Self {
         unsafe { bindings::tarval_neg(self.0) }.into()
     }
 }
@@ -237,7 +246,7 @@ impl std::ops::Neg for Tarval {
 mod tests {
     use super::{super::init, *};
 
-    /// API assertion: bitwise AND on ir_relation means logical inclusion
+    /// API assertion: bitwise AND on `ir_relation` means logical inclusion
     /// I.e. `a & b == 0` means `a => b`
     #[test]
     fn tarval_cmp_behavior() {
@@ -274,7 +283,7 @@ mod tests {
         }
     }
 
-    /// API assertion: mode_b tarvals (`true` and `false`) are always
+    /// API assertion: `mode_b` tarvals (`true` and `false`) are always
     ///identical (can be compered using ptr-eq)
     #[test]
     fn tarval_b_idents() {

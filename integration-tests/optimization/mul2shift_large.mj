@@ -1,0 +1,20 @@
+---
+optimizations: [NodeLocal]
+expect: change
+
+stdout:
+    file: mul2shift_large.out.stdout
+---
+
+class Simple {
+  public static void main(String[] args) {
+        System.out.println(2147483647 * 4);
+        System.out.println(-2147483648 * 4);   
+        
+        System.out.println(-1 * 4);
+        System.out.println(0 * 4);
+        System.out.println(-10 * 4);
+        System.out.println(-9 * 4);
+        System.out.println(10 * 4);
+  }
+}

@@ -1,3 +1,15 @@
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self,
+    clippy::use_debug
+)]
+
 //! This is the runtime automatically linked into
 //! the compiled mini java file
 use libc::{c_int, c_void};
@@ -13,7 +25,7 @@ extern "C" {
     pub fn mj_main();
 }
 
-pub type MjInt = i32;
+pub type MjInt = i64;
 
 macro_rules! mjrt_runtimeexception {
     ($fn_name:ident, $description:expr) => {
@@ -37,7 +49,7 @@ mjrt_runtimeexception!(
 );
 
 #[no_mangle]
-pub extern "C" fn mjrt_new(size: i32) -> *mut c_void {
+pub extern "C" fn mjrt_new(size: i64) -> *mut c_void {
     if size < 0 {
         mjrt_negative_allocation()
     }
@@ -54,10 +66,8 @@ pub extern "C" fn mjrt_new(size: i32) -> *mut c_void {
     };
     unsafe {
         let ptr = libc::calloc(size as usize, 1);
-        if cfg!(feature = "checked_new") {
-            if ptr == std::ptr::null_mut() {
-                panic!("allocation failed");
-            }
+        if cfg!(feature = "checked_new") && ptr.is_null() {
+            panic!("allocation failed");
         }
         ptr
     }
@@ -68,7 +78,7 @@ pub extern "C" fn mjrt_system_in_read() -> MjInt {
     let mut byte: [u8; 1] = [0];
 
     match stdin().read_exact(&mut byte) {
-        Ok(()) => i32::from(byte[0]),
+        Ok(()) => i64::from(byte[0]),
         Err(_) => -1,
     }
 }
@@ -76,7 +86,10 @@ pub extern "C" fn mjrt_system_in_read() -> MjInt {
 #[no_mangle]
 pub extern "C" fn mjrt_system_out_println(num: MjInt) {
     unsafe {
-        libc::printf(CStr::from_bytes_with_nul_unchecked(b"%d\n\0").as_ptr(), num);
+        libc::printf(
+            CStr::from_bytes_with_nul_unchecked(b"%d\n\0").as_ptr(),
+            num as i32,
+        );
     }
 }
 

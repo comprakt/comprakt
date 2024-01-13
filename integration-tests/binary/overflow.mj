@@ -1,0 +1,14 @@
+class Overflow {
+    public static void main(String[] args) {
+        int MAX_INT_HALF = 1073741824;
+        int MIN_INT = MAX_INT_HALF * 2;
+        System.out.println(MIN_INT*2);
+
+        while (MIN_INT > 0) {
+            MIN_INT = MIN_INT - 1;
+            System.out.println(42);
+        }
+
+        System.out.println(10);
+    }
+}

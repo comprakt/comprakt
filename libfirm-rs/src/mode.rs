@@ -1,7 +1,7 @@
 use libfirm_rs_bindings as bindings;
 use std::ffi::CStr;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Mode(bindings::mode::Type);
 
 macro_rules! mode {
@@ -13,9 +13,10 @@ macro_rules! mode {
     };
 }
 
+#[allow(clippy::use_self)]
 impl Mode {
-    pub fn from_libfirm(mode: bindings::mode::Type) -> Mode {
-        Mode(mode)
+    pub fn from_libfirm(mode: bindings::mode::Type) -> Self {
+        Self(mode)
     }
 
     mode!(Any, mode_ANY);
@@ -54,7 +55,18 @@ impl Mode {
     }
 
     pub fn is_mem(self) -> bool {
-        self == Mode::M()
+        self == Self::M()
+    }
+    pub fn is_data(self) -> bool {
+        unsafe { bindings::mode_is_data(self.0) != 0 }
+    }
+
+    pub fn reference_offset_mode(self) -> Self {
+        Self::from_libfirm(unsafe { bindings::get_reference_offset_mode(self.0) })
+    }
+
+    pub fn is_pointer(self) -> bool {
+        self == Self::P()
     }
 }
 

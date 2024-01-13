@@ -11,9 +11,7 @@
 //! }
 //! ```
 #![warn(rust_2018_idioms)]
-#![warn(clippy::print_stdout)]
 #![feature(try_from)]
-#![feature(if_while_or_patterns)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(const_str_as_bytes)]
 #![feature(box_syntax)]
@@ -24,27 +22,30 @@
 #![feature(custom_attribute)]
 
 use compiler_lib::{
-    asciifile, ast,
+    asciifile, ast, backend,
     context::Context,
-    firm,
-    lexer::{Lexer, TokenKind},
-    parser::Parser,
-    print::{self, lextest},
-    semantics,
+    firm::{
+        self,
+        runtime::{self, RTLib},
+    },
+    lexer::{lextest, Lexer, TokenKind},
+    print,
     strtab::StringTable,
+    type_checking::semantics,
     OutputSpecification,
 };
 use env_logger;
-use failure::{Error, Fail, ResultExt};
+use failure::{format_err, Error, Fail, ResultExt};
 use memmap::Mmap;
+use parser::Parser;
 use std::{
     fs::File,
     io::{self, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{exit, Command},
 };
 use structopt::StructOpt;
-use tempfile::tempdir;
+use tempfile::{tempdir, TempDir};
 use termcolor::{ColorChoice, StandardStream};
 
 mod optimization_arg;
@@ -110,28 +111,57 @@ pub enum CliCommand {
     /// Analyze the input file and report errors, but don't build object files
     #[structopt(name = "--check")]
     Check {
+        #[structopt(short = "-l", long = "--lint")]
+        lint: bool,
         #[structopt(name = "FILE", parse(from_os_str))]
         path: PathBuf,
     },
-    /// Output x86-assembler and optionally the firm graph in various stages.
-    /// Defaults to writing to standard out.
-    #[structopt(name = "--emit-asm")]
-    EmitAsm(AsmLoweringOptions),
 
-    /// Output an executable. Defaults to 'a.out' in the current working
-    /// directory.
+    /// Compile to an ELF executable using libFIRM's backend.
+    /// Defaults to 'a.out' in the current working directory.
     #[structopt(name = "--compile-firm")]
-    CompileFirm(BinaryLoweringOptions),
+    CompileFirm(CompileFirmOptions),
+
+    /// Compile to an ELF executable using the comprakt backend.
+    /// Defaults to 'a.out' in the current working directory.
+    #[structopt(name = "--compile")]
+    Compile(CompileOptions),
 }
 
-/// Command-line options for the [`CliCommand::EmitAsm`]  (`--emit-asm`) call.
-#[derive(StructOpt, Debug, Clone, Default)]
-pub struct AsmLoweringOptions {
+use std::str::FromStr;
+
+/// Command-line options for the [`CliCommand::CompileFirm`] (`--compile-firm`)
+/// call.
+#[derive(StructOpt, Debug, Clone)]
+pub struct CompileFirmOptions {
+    // backend is (implicitly) FIRM
+    // gotta do that because of exercise sheet's CLI interface requirements
+    #[structopt(flatten)]
+    pre_backend_options: PreBackendOptions,
+    #[structopt(flatten)]
+    backend_options: BackendOptions,
+}
+
+/// Command-line options for the [`CliCommand::Compile`] (`--compile`) call.
+#[derive(StructOpt, Debug, Clone)]
+pub struct CompileOptions {
+    #[structopt(long = "no-peep")]
+    no_peep: bool,
+    #[structopt(flatten)]
+    pre_backend_options: PreBackendOptions,
+    #[structopt(flatten)]
+    backend_options: BackendOptions,
+}
+
+/// Common options for compiler-phases pre backend.
+#[derive(StructOpt, Debug, Clone)]
+pub struct PreBackendOptions {
     /// Folder to dump graphs to
     #[structopt(long = "--emit-to", default_value = ".", parse(from_os_str))]
     pub dump_folder: PathBuf,
 
-    /// Output the matured unlowered firm graphs as VCG files to the dump_folder
+    /// Output the matured but unoptimized firm graphs as VCG files to the
+    /// dump_folder. The file name will contain the word 'high-level'.
     #[structopt(long = "--emit-firm-graph", short = "-g")]
     pub dump_firm_graph: bool,
 
@@ -139,87 +169,76 @@ pub struct AsmLoweringOptions {
     #[structopt(long = "--emit-class-layouts", short = "-c")]
     pub dump_class_layouts: bool,
 
-    /// Write primary output artifact to the given file or directory
-    #[structopt(long = "--output", short = "-o", parse(from_os_str))]
-    pub output: Option<PathBuf>,
-
     /// Optimization level that should be applied
     #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
-    pub optimizations: optimization_arg::Arg,
+    pub opt_level: optimization_arg::Arg,
 
     /// A MiniJava input file
     #[structopt(name = "FILE", parse(from_os_str))]
-    pub path: PathBuf,
+    pub input: PathBuf,
 }
 
-impl Into<firm::Options> for AsmLoweringOptions {
-    fn into(self) -> firm::Options {
-        firm::Options {
-            dump_assembler: Some(match self.output {
-                None => OutputSpecification::Stdout,
-                Some(path) => OutputSpecification::File(path),
-            }),
-            dump_folder: self.dump_folder,
-            dump_firm_graph: self.dump_firm_graph,
-            dump_class_layouts: self.dump_class_layouts,
-            optimizations: self.optimizations.into(),
+impl PreBackendOptions {
+    fn default_with_input(input: PathBuf) -> Self {
+        PreBackendOptions {
+            dump_folder: PathBuf::default(),
+            dump_firm_graph: bool::default(),
+            dump_class_layouts: bool::default(),
+            opt_level: optimization_arg::Arg::from_str("aggressive").unwrap(), // checked in test
+            input,
         }
     }
 }
 
-/// Command-line options for the [`CliCommand::CompileFirm`] (`--compile-firm`)
-/// call.
+impl Into<firm::Options> for PreBackendOptions {
+    fn into(self) -> firm::Options {
+        firm::Options {
+            dump_firm_graph: self.dump_firm_graph,
+            dump_class_layouts: self.dump_class_layouts,
+        }
+    }
+}
+
+/// Common options for the backend ("lowering").
 #[derive(StructOpt, Debug, Clone, Default)]
-pub struct BinaryLoweringOptions {
-    /// Folder to dump graphs to
-    #[structopt(long = "--emit-to", default_value = ".", parse(from_os_str))]
-    pub dump_folder: PathBuf,
-
-    /// Output the matured unlowered firm graphs as VCG files to the dump_folder
-    #[structopt(long = "--emit-firm-graph", short = "-g")]
-    pub dump_firm_graph: bool,
-
-    /// Dump class layouts in text form to dump_folder
-    #[structopt(long = "--emit-class-layouts", short = "-c")]
-    pub dump_class_layouts: bool,
-
-    /// Write assembly for user code
+pub struct BackendOptions {
+    /// Write assembly for user code (will still produce a binary, too).
     #[structopt(long = "--emit-asm", short = "-a", parse(from_os_str))]
     pub dump_assembly: Option<PathBuf>,
 
     /// Write binary to the given file or directory
     #[structopt(long = "--output", short = "-o", parse(from_os_str))]
     pub output: Option<PathBuf>,
-
-    /// Optimization level that should be applied
-    #[structopt(long = "--optimization", short = "-O", default_value = "aggressive")]
-    pub optimizations: optimization_arg::Arg,
-
-    /// A MiniJava input file
-    #[structopt(name = "FILE", parse(from_os_str))]
-    pub path: PathBuf,
 }
-
-impl Into<firm::Options> for BinaryLoweringOptions {
-    fn into(self) -> firm::Options {
-        firm::Options {
-            dump_assembler: self.dump_assembly.map(OutputSpecification::File),
-            dump_folder: self.dump_folder,
-            dump_firm_graph: self.dump_firm_graph,
-            dump_class_layouts: self.dump_class_layouts,
-            optimizations: self.optimizations.into(),
-        }
-    }
-}
-
 fn main() {
     build_logger().init();
 
-    let cmd = CliCommand::from_args();
+    libfirm_rs::init();
+
+    // support compilation without any flags, as required by exercise sheet
+    let single_arg = std::env::args().len() == 2;
+    let no_arg_mode = std::env::args()
+        .nth(1)
+        .map(|p| (p.clone(), std::fs::File::open(p)))
+        .map(|(p, r)| (single_arg, p, r.is_ok()));
+    let cmd = if let Some((true, input, true)) = no_arg_mode {
+        log::debug!("no-arg mode detected: {:?}", input);
+        let input = PathBuf::from(input);
+        let opts = CompileOptions {
+            no_peep: false,
+            pre_backend_options: PreBackendOptions::default_with_input(input),
+            backend_options: BackendOptions::default(),
+        };
+        CliCommand::Compile(opts)
+    } else {
+        CliCommand::from_args()
+    };
 
     if let Err(msg) = run_compiler(&cmd) {
         exit_with_error(&msg);
     }
+
+    compiler_shared::timing::print();
 }
 
 use env_logger::{
@@ -258,9 +277,9 @@ pub fn run_compiler(cmd: &CliCommand) -> Result<(), Error> {
         CliCommand::ParserTest { path } => cmd_parsetest(path),
         CliCommand::PrintAst { path } => cmd_printast(path, &print::pretty::print),
         CliCommand::DebugDumpAst { path } => cmd_printast(path, &print::structure::print),
-        CliCommand::Check { path } => cmd_check(path),
-        CliCommand::EmitAsm(options) => cmd_emit_asm(options),
+        CliCommand::Check { path, lint } => cmd_check(path, *lint),
         CliCommand::CompileFirm(options) => cmd_compile_firm(options),
+        CliCommand::Compile(options) => cmd_compile(options),
     }
 }
 
@@ -323,177 +342,283 @@ macro_rules! setup_io {
     };
 }
 
-const DEFAULT_BINARY_FILENAME: &str = "a.out";
-
-fn cmd_compile_firm(options: &BinaryLoweringOptions) -> Result<(), Error> {
-    let input = &options.path;
-    setup_io!(let context = input);
-    let mut strtab = StringTable::new();
-    let lexer = Lexer::new(&mut strtab, &context);
-
-    // adapt lexer to fail on first error
-    // filter whitespace and comments
-    let unforgiving_lexer = lexer.filter_map(|result| match result {
-        Ok(token) => match token.data {
-            TokenKind::Whitespace | TokenKind::Comment(_) => None,
-            _ => Some(token),
-        },
-        Err(lexical_error) => {
-            context.diagnostics.error(&lexical_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    });
-
-    let mut parser = Parser::new(unforgiving_lexer);
-
-    let ast = match parser.parse() {
-        Ok(p) => p,
-        Err(parser_error) => {
-            context.diagnostics.error(&parser_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
+macro_rules! until_after_type_check {
+    (let ($strtab:ident, $type_system:ident, $type_analysis:ident) = $input:expr) => {
+        until_after_type_check!(let ($strtab, $type_system, $type_analysis) = $input, false)
     };
+    (let ($strtab:ident, $type_system:ident, $type_analysis:ident) = $input:expr, $lint:expr) => {
+        let input = $input;
+        setup_io!(let context = input);
 
-    let (type_system, type_analysis) = crate::semantics::check(&mut strtab, &ast, &context)
-        .unwrap_or_else(|()| {
-            context.diagnostics.write_statistics();
-            exit(1);
+        let m_parser = compiler_shared::timing::Measurement::start("frontend::ast_construction");
+
+        let mut $strtab = StringTable::new();
+        let lexer = Lexer::new(&mut $strtab, &context);
+
+        // adapt lexer to fail on first error
+        // filter whitespace and comments
+        let unforgiving_lexer = lexer.filter_map(|result| match result {
+            Ok(token) => match token.data {
+                TokenKind::Whitespace | TokenKind::Comment(_) => None,
+                _ => Some(token),
+            },
+            Err(lexical_error) => {
+                context.diagnostics.error(&lexical_error);
+                context.diagnostics.write_statistics();
+                exit(1);
+            }
         });
 
-    let temp_dir = tempdir()?;
-    let compilation_dir = temp_dir.path().to_path_buf();
+        let mut parser = Parser::new(unforgiving_lexer);
 
-    let user_assembly = if let Some(ref path) = options.dump_assembly {
-        path.clone()
-    } else {
-        compilation_dir.join("a.s")
-    };
+        let ast = match parser.parse() {
+            Ok(p) => p,
+            Err(parser_error) => {
+                context.diagnostics.error(&parser_error);
+                context.diagnostics.write_statistics();
+                exit(1);
+            }
+        };
 
-    let mut lowering_options: compiler_lib::firm::Options = (options.clone()).into();
-    lowering_options.dump_assembler = Some(OutputSpecification::File(user_assembly.clone()));
+        m_parser.stop();
 
-    unsafe { firm::build(&lowering_options, &type_system, &type_analysis, &mut strtab)? };
+        if $lint {
+            let m_linter = compiler_shared::timing::Measurement::start("frontend::linter_ast");
 
-    // get runtime library
-    let runtime_path = compilation_dir.join("mjrt.a");
-    {
-        let mut file = File::create(&runtime_path)?;
-        file.write_all(mjrt::STATIC_LIB)?;
+            let mut linter = compiler_lib::linter::Linter::default();
+            if let Err(lint_err) = linter.check_ast(&context, &ast) {
+                log::debug!("linter error");
+                context.diagnostics.error(&lint_err);
+                context.diagnostics.write_statistics();
+                exit(1);
+            }
+
+            m_linter.stop();
+        }
+
+        let m_typecheck = compiler_shared::timing::Measurement::start("semantics");
+
+        let ($type_system, $type_analysis) = crate::semantics::check(&mut $strtab, &ast, &context)
+            .unwrap_or_else(|()| {
+                context.diagnostics.write_statistics();
+                exit(1);
+            });
+
+        m_typecheck.stop();
+
+        if $lint {
+            let m_linter = compiler_shared::timing::Measurement::start("frontend::linter_semantic");
+
+            let mut linter = compiler_lib::linter::Linter::default();
+            if let Err(lint_err) = linter.check_semantic(&context, &ast, &$type_analysis) {
+                log::debug!("linter error");
+                context.diagnostics.error(&lint_err);
+                context.diagnostics.write_statistics();
+                exit(1);
+            }
+
+            m_linter.stop();
+        }
     }
+}
 
-    let binary_path = match &options.output {
-        Some(dir) if dir.is_dir() => dir.join(DEFAULT_BINARY_FILENAME),
-        Some(file) => file.clone(),
-        None => PathBuf::from(DEFAULT_BINARY_FILENAME),
-    };
+const DEFAULT_BINARY_FILENAME: &str = "a.out";
 
-    // link runtime static library with user's code
-    let linker_status = Command::new("cc")
-        .arg("-o")
-        .arg(&binary_path)
-        .args(mjrt::LINKER_FLAGS)
-        .arg(&user_assembly)
-        .arg(&runtime_path)
-        .args(mjrt::LINKER_LIBS)
-        .status()
-        .context(CliError::LinkingFailed)?;
+// TODO convert this to a trait?
+macro_rules! compile_command_common {
+    (let ($firm_ctx:ident, $bingen:ident) =
+         ($pre_backend_options:expr, $backend_options:expr, $runtime:expr)) => {
 
+        let pre_be_opts: &PreBackendOptions = $pre_backend_options;
+        let be_opts: &BackendOptions = $backend_options;
+        let rt: Box<dyn RTLib> = $runtime;
+
+        until_after_type_check!(let (strtab, type_system, type_analysis) = &pre_be_opts.input);
+
+        let binary_path = match &be_opts.output {
+            Some(dir) if dir.is_dir() => dir.join(DEFAULT_BINARY_FILENAME),
+            Some(file) => file.clone(),
+            None => PathBuf::from(DEFAULT_BINARY_FILENAME),
+        };
+
+        let mut $bingen = BinaryGenerator::new(&binary_path)?;
+
+        let mut $firm_ctx = compiler_lib::FirmContext::build(
+            &pre_be_opts.dump_folder,
+            &type_system,
+            &type_analysis,
+            &strtab,
+            rt,
+        );
+
+        let firm_dump_opts = pre_be_opts.clone().into();
+        $firm_ctx.high_level_dump(&firm_dump_opts);
+
+        let opt_level = pre_be_opts.opt_level.clone().into();
+        $firm_ctx.run_optimizations(opt_level);
+    }
+}
+
+fn cmd_compile_firm(options: &CompileFirmOptions) -> Result<(), Error> {
+    // --compile-firm always uses bingen, hence always use our own runtime Mjrt
+
+    let rtlib = box runtime::Mjrt;
+    compile_command_common!(let (firm_ctx, bingen) =
+                            (&options.pre_backend_options, &options.backend_options, rtlib));
+
+    let dump_asm = options
+        .backend_options
+        .dump_assembly
+        .clone()
+        .map(OutputSpecification::File);
+
+    let res = bingen.emit_binary(&mut firm_ctx, dump_asm);
     if std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP").is_ok() {
-        // `into_path(.)` has the side effect "Persist the temporary directory to disk"
-        let path = temp_dir.into_path();
+        let path = bingen.stop_and_keep_temp_dir();
         eprintln!(
             "Temporary compilation directory was persisted to {:?}",
             path
         );
     }
+    res
+}
 
-    if !linker_status.success() {
-        Err(CliError::LinkingFailed.into())
-    } else {
-        Ok(())
+fn cmd_compile(options: &CompileOptions) -> Result<(), Error> {
+    let rtlib: Box<dyn RTLib> = box runtime::Mjrt;
+
+    compile_command_common!( let (firm_ctx, bingen) =
+                             (&options.pre_backend_options, &options.backend_options, rtlib));
+
+    let mut backend: Box<dyn backend::AsmBackend> = box backend::amd64::Backend {
+        firm_ctx,
+        no_peep: options.no_peep,
+    };
+
+    let dump_asm = options
+        .backend_options
+        .dump_assembly
+        .clone()
+        .map(OutputSpecification::File);
+
+    let res = bingen.emit_binary(&mut *backend, dump_asm);
+    if std::env::var("COMPRAKT_LINKER_FAILURE_KEEP_TMP").is_ok() {
+        let path = bingen.stop_and_keep_temp_dir();
+        eprintln!(
+            "Temporary compilation directory was persisted to {:?}",
+            path
+        );
+    }
+    res
+}
+
+enum BinaryGeneratorState {
+    PreAsmOut { asm_out_file: std::fs::File },
+    PostAsmOut,
+}
+
+struct BinaryGenerator {
+    temp_dir: TempDir,
+    asm_out: PathBuf,
+    binary_path: std::path::PathBuf,
+    state: BinaryGeneratorState,
+}
+
+impl BinaryGenerator {
+    pub fn new(binary_path: &Path) -> Result<BinaryGenerator, Error> {
+        let temp_dir = tempdir().context(format_err!("cannot create tempdir"))?;
+        let asm_out = temp_dir.path().join("a.s");
+        let asm_out_file = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .read(true) // for dump_asm
+            .create(true)
+            .open(&asm_out)?;
+        Ok(BinaryGenerator {
+            temp_dir,
+            asm_out,
+            state: BinaryGeneratorState::PreAsmOut { asm_out_file },
+            binary_path: binary_path.to_owned(),
+        })
+    }
+
+    pub fn asm_out(&self) -> &Path {
+        &self.asm_out
+    }
+
+    pub fn stop_and_keep_temp_dir(self) -> PathBuf {
+        // `into_path(.)` has the side effect "Persist the temporary directory to disk"
+        self.temp_dir.into_path()
+    }
+
+    pub fn emit_binary(
+        &mut self,
+        backend: &mut dyn compiler_lib::backend::AsmBackend,
+        dump_asm: Option<OutputSpecification>,
+    ) -> Result<(), Error> {
+        // move state forward
+        let prev = std::mem::replace(&mut self.state, BinaryGeneratorState::PostAsmOut);
+        let mut asm_out_file = match prev {
+            BinaryGeneratorState::PreAsmOut { asm_out_file } => asm_out_file,
+            BinaryGeneratorState::PostAsmOut => panic!("must only call emit_binary once"),
+        };
+
+        // call backend, the work is happening here
+        backend
+            .emit_asm(&mut asm_out_file)
+            .context(format_err!("backend cannot emit assembly to tempfile"))?;
+
+        // if requested, emit assembly by copying it from the tempfile
+        let dump_asm: Option<Box<dyn std::io::Write>> = match dump_asm {
+            Some(OutputSpecification::File(path)) => Some(
+                box std::fs::OpenOptions::new()
+                    .write(true)
+                    .truncate(true)
+                    .create(true)
+                    .open(path)?,
+            ),
+            Some(OutputSpecification::Stdout) => Some(box std::io::stdout()),
+            None => None,
+        };
+        if let Some(mut dump_asm) = dump_asm {
+            // NOTE: we cannot use std::io::Tee because backend::AsmOut requires AsRawFd
+            use std::io::{Seek, SeekFrom};
+            asm_out_file.seek(SeekFrom::Start(0))?;
+            std::io::copy(&mut asm_out_file, &mut dump_asm)
+                .context(format_err!("cannot emit asm"))?;
+        }
+
+        // drop here to make sure cc sees the written file
+        drop(asm_out_file);
+
+        // get runtime library
+        let runtime_path = self.temp_dir.path().join("mjrt.a");
+        {
+            let mut file = File::create(&runtime_path)?;
+            file.write_all(mjrt::STATIC_LIB)?;
+        }
+
+        // link runtime static library with user's code
+        let linker_status = Command::new("cc")
+            .arg("-o")
+            .arg(&self.binary_path)
+            .args(mjrt::LINKER_FLAGS)
+            .arg(self.asm_out())
+            .arg(&runtime_path)
+            .args(mjrt::LINKER_LIBS)
+            .status()
+            .context(CliError::LinkingFailed)?;
+
+        if !linker_status.success() {
+            Err(CliError::LinkingFailed.into())
+        } else {
+            Ok(())
+        }
     }
 }
 
-fn cmd_emit_asm(opts: &AsmLoweringOptions) -> Result<(), Error> {
-    let input = &opts.path;
-    setup_io!(let context = input);
-    let mut strtab = StringTable::new();
-    let lexer = Lexer::new(&mut strtab, &context);
-
-    // adapt lexer to fail on first error
-    // filter whitespace and comments
-    let unforgiving_lexer = lexer.filter_map(|result| match result {
-        Ok(token) => match token.data {
-            TokenKind::Whitespace | TokenKind::Comment(_) => None,
-            _ => Some(token),
-        },
-        Err(lexical_error) => {
-            context.diagnostics.error(&lexical_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    });
-
-    let mut parser = Parser::new(unforgiving_lexer);
-
-    let ast = match parser.parse() {
-        Ok(p) => p,
-        Err(parser_error) => {
-            context.diagnostics.error(&parser_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    };
-
-    let (type_system, type_analysis) = crate::semantics::check(&mut strtab, &ast, &context)
-        .unwrap_or_else(|()| {
-            context.diagnostics.write_statistics();
-            exit(1);
-        });
-
-    let firm_options = opts.clone().into();
-    unsafe { firm::build(&firm_options, &type_system, &type_analysis, &mut strtab)? };
-    Ok(())
-}
-
-fn cmd_check(path: &PathBuf) -> Result<(), Error> {
-    setup_io!(let context = path);
-    let mut strtab = StringTable::new();
-    let lexer = Lexer::new(&mut strtab, &context);
-
-    // adapt lexer to fail on first error
-    // filter whitespace and comments
-    let unforgiving_lexer = lexer.filter_map(|result| match result {
-        Ok(token) => match token.data {
-            TokenKind::Whitespace | TokenKind::Comment(_) => None,
-            _ => Some(token),
-        },
-        Err(lexical_error) => {
-            context.diagnostics.error(&lexical_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    });
-
-    let mut parser = Parser::new(unforgiving_lexer);
-
-    let ast = match parser.parse() {
-        Ok(p) => p,
-        Err(parser_error) => {
-            context.diagnostics.error(&parser_error);
-            context.diagnostics.write_statistics();
-            exit(1);
-        }
-    };
-
-    let check_res = crate::semantics::check(&mut strtab, &ast, &context);
-    if check_res.is_err() {
-        context.diagnostics.write_statistics();
-        exit(1)
-    }
-
+fn cmd_check(path: &PathBuf, lint: bool) -> Result<(), Error> {
+    // if the check fials, until_after_type_check exits with exit code 1
+    until_after_type_check!(let (strtab, _type_system, _type_analysis) = path, lint);
     Ok(())
 }
 

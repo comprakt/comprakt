@@ -1,0 +1,807 @@
+---
+stdin:
+    file: echoserver.out.stdin
+---
+/*import lib.HttpServer;*/
+
+class EchoServer {
+    public static void main(String[] args) throws Exception {
+        Application app = new Application();
+        new HttpServer().init(app).run();
+    }
+}
+
+class Application {
+    public HttpServer server;
+    public void init(HttpServer server) {
+        this.server = server;
+    }
+    public void processRequest(Request request) {
+        Str str1 = new Str().init11(89, 111, 117, 32, 109, 97, 100, 101, 32, 97, 32); /* You made a  */
+        Str str2 = new Str().init12(32, 114, 101, 113, 117, 101, 115, 116, 32, 116, 111, 32); /*  request to  */
+
+        Str content = str1.concat(request.getMethod()).concat(str2).concat(request.getUrl());
+        Response response = new Response().init(200, content);
+        server.sendResponse(response);
+    }
+}
+
+/* #####################
+
+   imported from file: lib/HttpServer.java
+
+   #####################
+*/
+/*package lib;*/
+
+/*import lib.BufferedReader;*/
+
+/**
+ * This is a library that allows you to write your own web server.
+ *
+ * As MiniJava does not support polymorphism, I chose a different way to get the
+ * callbacks from this class to your: You have to implement the Application
+ * class and pass an instance to this HttpServer. The Application class should
+ * look as following:
+ * https://git.scc.kit.edu/ufebl/mjtest-scripts/blob/master/ExampleApplication.java
+ *
+ * You can then start the server using:
+ *
+ * new HttpServer().init(new Application()).run();
+ *
+ *
+ * To test the webserver in action you can use the following bash script:
+ * https://git.scc.kit.edu/ufebl/mjtest-scripts/blob/master/mj_server.sh
+ *
+ */
+/*public*/ class HttpServer {
+    public Application app;
+
+    public HttpServer init(Application app) {
+        this.app = app;
+        app.init(this);
+        return this;
+    }
+
+    public void run() throws Exception {
+        BufferedReader reader = new BufferedReader().init();
+        Str line = reader.readLine();
+        Request request = null;
+        while (line != null) {
+            if (line.length == 0 || line.length == 1 && (line.chars[0] == 10 || line.chars[0] == 13)) {
+                /* end of request */
+                app.processRequest(request);
+                request = null;
+            } else if (request == null && line.length > 2) {
+                /* this is the first line which contains method and url */
+                int firstSpace = line.indexOf(32);
+                int secondSpace = line.indexOfAfter(32, firstSpace);
+                Str method = line.substring(0, firstSpace);
+                Str url = line.substring(firstSpace + 1, secondSpace);
+
+                request = new Request().init(method, url);
+            } else if (line.length > 2) {
+                /* add header to request */
+                request.addHeader(line);
+            }
+
+            line = reader.readLine();
+        }
+    }
+
+    public void sendResponse(Response response) {
+        new Str().init9(72, 84, 84, 80, 47, 49, 46, 48, 32).print(); /* HTTP/1.0 */
+        new Str().fromInt(response.statusCode).println();
+
+        /* print headers */
+        HeaderLinkedListElement header = response.headers;
+        while (header != null) {
+            header.getHeader().println();
+            header = header.getNext();
+        }
+
+        System.out.write(10); /* empty line to separate content */
+        response.content.println();
+    }
+}
+
+class Request {
+    public Str method;
+    public Str url;
+    public HeaderLinkedListElement headers;
+
+    public Request init(Str method, Str url) {
+        this.method = method;
+        this.url = url;
+        return this;
+    }
+
+    public Str getMethod() {
+        return method;
+    }
+
+    public Str getUrl() {
+        return url;
+    }
+
+    public void addHeader(Str header) {
+        HeaderLinkedListElement newElement = new HeaderLinkedListElement().init(header);
+        if (headers == null) {
+            headers = newElement;
+        } else {
+            headers.appendToList(newElement);
+        }
+    }
+}
+
+class Response {
+    public int statusCode;
+    public Str content;
+    public HeaderLinkedListElement headers;
+
+    public Response init(int statusCode, Str content) {
+        this.statusCode = statusCode;
+        this.content = content;
+        /* The most important header is the content length */
+        Str contentLength = new Str().init16(67, 111, 110, 116, 101, 110, 116, 45, 76, 101, 110, 103, 116, 104, 58,
+                32); /* Content-Length: */
+        this.headers = new HeaderLinkedListElement().init(contentLength.concat(new Str().fromInt(content.length)));
+        return this;
+    }
+
+    public int getStatusCode() {
+        return statusCode;
+    }
+
+    public Str getContent() {
+        return content;
+    }
+
+    public HeaderLinkedListElement getHeaders() {
+        return headers;
+    }
+
+    public void addHeader(Str header) {
+        /*
+         * because we added the content-length in init(), there is always a headers
+         * element
+         */
+        this.headers.appendToList(new HeaderLinkedListElement().init(header));
+    }
+}
+
+class HeaderLinkedListElement {
+    public Str header;
+    public HeaderLinkedListElement next;
+
+    public HeaderLinkedListElement init(Str header) {
+        this.header = header;
+        return this;
+    }
+
+    public Str getHeader() {
+        return header;
+    }
+
+    public HeaderLinkedListElement getNext() {
+        return next;
+    }
+
+    public Str getKey() {
+        int index = header.indexOf(58); /* : */
+        return header.substring(0, index);
+    }
+
+    public Str getValue() {
+        int index = header.indexOf(58); /* : */
+        return header.substring(index + 1, header.length);
+    }
+
+    public void appendToList(HeaderLinkedListElement newElement) {
+        if (next == null) {
+            next = newElement;
+        } else {
+            next.appendToList(newElement);
+        }
+    }
+}
+
+/* #####################
+
+   imported from file: lib/BufferedReader.java
+
+   #####################
+*/
+/*package lib;*/
+
+/*import lib.Str;*/
+
+/**
+ * This class helps to read the stdin line by line and returns Str strings. You
+ * need to remember to call new BufferedReader().init() to initialize it.
+ */
+/*public*/ class BufferedReader {
+    public int BUFFER_SIZE;
+
+    public BufferedReader init() {
+        BUFFER_SIZE = 16;
+        return this;
+    }
+
+    /* Use this init method in case you already know how big your input is */
+    public BufferedReader initBufferSize(int bufferSize) {
+        this.BUFFER_SIZE = bufferSize;
+        return this;
+    }
+
+    public Str readLine() throws Exception {
+        int c = System.in.read();
+
+        if (c == -1) { /* There is nothing to read */
+            return null;
+        }
+
+        Str result = null;
+
+        int[] buffer = new int[BUFFER_SIZE];
+        int index = 0;
+
+        while (c != 10 && c != 0 && c != -1) {
+            if (index >= BUFFER_SIZE) {
+                Str newStr = new Str().init(buffer, BUFFER_SIZE);
+                if (result == null) {
+                    result = newStr;
+                } else {
+                    result = result.concat(newStr);
+                }
+                buffer = new int[BUFFER_SIZE];
+                index = 0;
+            }
+            buffer[index] = c;
+            index = index + 1;
+            c = System.in.read();
+        }
+
+        Str newStr = new Str().init(buffer, index);
+        if (result == null) {
+            return newStr;
+        } else {
+            return result.concat(newStr);
+        }
+    }
+}
+
+/* #####################
+
+   imported from file: lib/Str.java
+
+   #####################
+*/
+/*package lib;*/
+
+/**
+ * A very simple and wasteful implementation of strings
+ *
+ * To quickly generate code for strings, you can use this script:
+ * https://git.scc.kit.edu/ufebl/mjtest-scripts/blob/master/str_tool.py
+ */
+/*public*/ class Str {
+    public int[] chars;
+    public int length;
+
+    public Str init(int[] chars, int length) {
+        this.chars = chars;
+        this.length = length;
+        return this;
+    }
+
+    /**** generated constructors ****/
+    public Str init0() {
+        this.chars = new int[0];
+        this.length = 0;
+        return this;
+    }
+
+    public Str init1(int c1) {
+        this.chars = new int[1];
+        this.length = 1;
+        this.chars[0] = c1;
+        return this;
+    }
+
+    public Str init2(int c1, int c2) {
+        this.chars = new int[2];
+        this.length = 2;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        return this;
+    }
+
+    public Str init3(int c1, int c2, int c3) {
+        this.chars = new int[3];
+        this.length = 3;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        return this;
+    }
+
+    public Str init4(int c1, int c2, int c3, int c4) {
+        this.chars = new int[4];
+        this.length = 4;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        return this;
+    }
+
+    public Str init5(int c1, int c2, int c3, int c4, int c5) {
+        this.chars = new int[5];
+        this.length = 5;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        return this;
+    }
+
+    public Str init6(int c1, int c2, int c3, int c4, int c5, int c6) {
+        this.chars = new int[6];
+        this.length = 6;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        return this;
+    }
+
+    public Str init7(int c1, int c2, int c3, int c4, int c5, int c6, int c7) {
+        this.chars = new int[7];
+        this.length = 7;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        return this;
+    }
+
+    public Str init8(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8) {
+        this.chars = new int[8];
+        this.length = 8;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        return this;
+    }
+
+    public Str init9(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9) {
+        this.chars = new int[9];
+        this.length = 9;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        return this;
+    }
+
+    public Str init10(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9, int c10) {
+        this.chars = new int[10];
+        this.length = 10;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        this.chars[9] = c10;
+        return this;
+    }
+
+    public Str init11(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9, int c10, int c11) {
+        this.chars = new int[11];
+        this.length = 11;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        this.chars[9] = c10;
+        this.chars[10] = c11;
+        return this;
+    }
+
+    public Str init12(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9, int c10, int c11,
+            int c12) {
+        this.chars = new int[12];
+        this.length = 12;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        this.chars[9] = c10;
+        this.chars[10] = c11;
+        this.chars[11] = c12;
+        return this;
+    }
+
+    public Str init13(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9, int c10, int c11, int c12,
+            int c13) {
+        this.chars = new int[13];
+        this.length = 13;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        this.chars[9] = c10;
+        this.chars[10] = c11;
+        this.chars[11] = c12;
+        this.chars[12] = c13;
+        return this;
+    }
+
+    public Str init14(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9, int c10, int c11, int c12,
+            int c13, int c14) {
+        this.chars = new int[14];
+        this.length = 14;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        this.chars[9] = c10;
+        this.chars[10] = c11;
+        this.chars[11] = c12;
+        this.chars[12] = c13;
+        this.chars[13] = c14;
+        return this;
+    }
+
+    public Str init15(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9, int c10, int c11, int c12,
+            int c13, int c14, int c15) {
+        this.chars = new int[15];
+        this.length = 15;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        this.chars[9] = c10;
+        this.chars[10] = c11;
+        this.chars[11] = c12;
+        this.chars[12] = c13;
+        this.chars[13] = c14;
+        this.chars[14] = c15;
+        return this;
+    }
+
+    public Str init16(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9, int c10, int c11, int c12,
+            int c13, int c14, int c15, int c16) {
+        this.chars = new int[16];
+        this.length = 16;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        this.chars[9] = c10;
+        this.chars[10] = c11;
+        this.chars[11] = c12;
+        this.chars[12] = c13;
+        this.chars[13] = c14;
+        this.chars[14] = c15;
+        this.chars[15] = c16;
+        return this;
+    }
+
+    public Str init17(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9, int c10, int c11, int c12,
+            int c13, int c14, int c15, int c16, int c17) {
+        this.chars = new int[17];
+        this.length = 17;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        this.chars[9] = c10;
+        this.chars[10] = c11;
+        this.chars[11] = c12;
+        this.chars[12] = c13;
+        this.chars[13] = c14;
+        this.chars[14] = c15;
+        this.chars[15] = c16;
+        this.chars[16] = c17;
+        return this;
+    }
+
+    public Str init18(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9, int c10, int c11, int c12,
+            int c13, int c14, int c15, int c16, int c17, int c18) {
+        this.chars = new int[18];
+        this.length = 18;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        this.chars[9] = c10;
+        this.chars[10] = c11;
+        this.chars[11] = c12;
+        this.chars[12] = c13;
+        this.chars[13] = c14;
+        this.chars[14] = c15;
+        this.chars[15] = c16;
+        this.chars[16] = c17;
+        this.chars[17] = c18;
+        return this;
+    }
+
+    public Str init19(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9, int c10, int c11, int c12,
+            int c13, int c14, int c15, int c16, int c17, int c18, int c19) {
+        this.chars = new int[19];
+        this.length = 19;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        this.chars[9] = c10;
+        this.chars[10] = c11;
+        this.chars[11] = c12;
+        this.chars[12] = c13;
+        this.chars[13] = c14;
+        this.chars[14] = c15;
+        this.chars[15] = c16;
+        this.chars[16] = c17;
+        this.chars[17] = c18;
+        this.chars[18] = c19;
+        return this;
+    }
+
+    public Str init20(int c1, int c2, int c3, int c4, int c5, int c6, int c7, int c8, int c9, int c10, int c11, int c12,
+            int c13, int c14, int c15, int c16, int c17, int c18, int c19, int c20) {
+        this.chars = new int[20];
+        this.length = 20;
+        this.chars[0] = c1;
+        this.chars[1] = c2;
+        this.chars[2] = c3;
+        this.chars[3] = c4;
+        this.chars[4] = c5;
+        this.chars[5] = c6;
+        this.chars[6] = c7;
+        this.chars[7] = c8;
+        this.chars[8] = c9;
+        this.chars[9] = c10;
+        this.chars[10] = c11;
+        this.chars[11] = c12;
+        this.chars[12] = c13;
+        this.chars[13] = c14;
+        this.chars[14] = c15;
+        this.chars[15] = c16;
+        this.chars[16] = c17;
+        this.chars[17] = c18;
+        this.chars[18] = c19;
+        this.chars[19] = c20;
+        return this;
+    }
+
+    /**** generated constructors end ****/
+
+    public void print() {
+        int i = 0;
+        while (i < length) {
+            System.out.write(chars[i]);
+            i = i + 1;
+        }
+    }
+
+    public void println() {
+        print();
+        System.out.write(10); /* \n */
+        System.out.flush();
+    }
+
+    public Str fromInt(int number) {
+        boolean negative = number < 0;
+        if (negative) {
+            number = -number;
+        }
+
+        /* count digits */
+        int copyOfNumber = number;
+        int digits = 1;
+        while (copyOfNumber >= 10) {
+            copyOfNumber = copyOfNumber / 10;
+            digits = digits + 1;
+        }
+
+        length = digits;
+        if (negative) {
+            length = length + 1;
+        }
+
+        chars = new int[length];
+        int i = length - 1;
+        if (negative) {
+            chars[0] = 45;
+        }
+
+        while ((!negative && i >= 0) || i > 0) {
+            chars[i] = digitToChar(number % 10);
+            number = number / 10;
+            i = i - 1;
+        }
+        return this;
+    }
+
+    /*
+     * Returns an integer if the string depics one. Undefined if the string is not
+     * an integer.
+     */
+    public int toInt() {
+        int number = 0;
+        int i = 0;
+        boolean negative = false;
+        if (chars[0] == 45) {
+            negative = true;
+        }
+
+        while (i < length) {
+            int c = charToDigit(chars[i]);
+            if (c == -1) {
+                return 0;
+            }
+            number = number * 10 + c;
+            i = i + 1;
+        }
+        if (negative)
+            return -number;
+        return number;
+    }
+
+    public int digitToChar(int digit) {
+        return digit + 48;
+    }
+
+    public int charToDigit(int character) {
+        if (character >= 48 && character <= 57) {
+            return character - 48;
+        } else {
+            return -1;
+        }
+
+    }
+
+    /*
+     * concats another string after this one and returns a new string with both
+     * concatenated
+     */
+    public Str concat(Str other) {
+        Str newString = new Str();
+        newString.length = length + other.length;
+        newString.chars = new int[newString.length];
+
+        {
+            int i = 0;
+            while (i < length) {
+                newString.chars[i] = chars[i];
+                i = i + 1;
+            }
+        }
+        {
+            int i = 0;
+            while (i < other.length) {
+                newString.chars[i + length] = other.chars[i];
+                i = i + 1;
+            }
+        }
+        return newString;
+    }
+
+    /**
+     * returns the first index that character appears or -1 if it does not appear
+     */
+    public int indexOf(int character) {
+        return indexOfAfter(character, -1);
+    }
+
+    public int indexOfAfter(int character, int position) {
+        int i = position + 1;
+        while (i < length) {
+            if (chars[i] == character) {
+                return i;
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    /**
+     * Returns the substring between startIndex(inclusive) and endIndex(exclusive)
+     */
+    public Str substring(int startIndex, int endIndex) {
+        Str newString = new Str();
+        newString.length = endIndex - startIndex;
+        newString.chars = new int[newString.length];
+
+        int i = startIndex;
+        while (i < endIndex) {
+            newString.chars[i - startIndex] = chars[i];
+            i = i + 1;
+        }
+
+        return newString;
+    }
+
+    public boolean equals(Str other) {
+        if (length != other.length) {
+            return false;
+        }
+
+        int i = 0;
+        while (i < length) {
+            if (chars[i] != other.chars[i]) {
+                return false;
+            }
+            i = i + 1;
+        }
+        return true;
+    }
+
+}

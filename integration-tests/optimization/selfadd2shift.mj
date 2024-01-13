@@ -1,0 +1,23 @@
+---
+optimizations: [NodeLocal]
+expect: change
+
+# the libfirm backend always runs this optimization
+# only test our own backend
+backend: [Own]
+
+# the a-character is 97 in the ascii table
+stdin:
+    is: "a"
+
+stdout:
+    is: "194\n"
+---
+
+class Simple {
+  public static void main(String[] args) {
+    int a = System.in.read();
+    int res = a + a;
+    System.out.println(res);
+  }
+}

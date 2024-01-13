@@ -1,0 +1,31 @@
+[package]
+name = "type-checking"
+version = "0.1.0"
+authors = [
+    "flip1995 <>",
+    "hediet <>",
+    "joshuabach <>",
+    "problame <>",
+    "reiner-dolp <>"
+]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+asciifile = { path = "../asciifile" }
+compiler-shared = { path = "../compiler-shared" }
+lexer = { path = "../lexer" }
+parser = { path = "../parser" }
+strtab = { path = "../strtab" }
+symtab = { path = "../symtab" }
+utils = { path = "../utils" }
+
+failure = "0.1.3"
+derive_more = "0.13"
+strum = "0.11.0"
+strum_macros = "0.11.0"
+itertools = "0.7"
+
+[dev-dependencies]
+mjtest = { path = "../mjtest-rs" }
+mjtest_macros = { path = "../mjtest-rs/mjtest_macros" }

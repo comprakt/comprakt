@@ -1,9 +1,10 @@
 language: rust
 
 rust:
-  - nightly-2018-10-14
+  - nightly-2018-12-17
 
-cache: cargo
+# Caching must not be activated because runner-integration-test
+# lacks cache invalidation when new integration-tests/* are added.
 
 branches:
   only:
@@ -49,8 +50,8 @@ install: |
         pip install typing --user && \
         git clone https://git.scc.kit.edu/IPDSnelting/mjtest.git && \
         cd mjtest && \
-        git submodule update --init && \
-        git submodule update --remote && \
+        git submodule update --init --remote && \
+        rm tests/exec/big/bench_binarytrees.* && \
         cd -;
         ;;
       submission-system)
@@ -78,11 +79,14 @@ script: |
         cargo test $FLAGS ;
         ;;
       mjtest)
-        cargo build --release && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py lexer && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py syntax && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py semantic && \
-        MJ_TIMEOUT=60 MJ_RUN=target/release/compiler-cli python3 ./mjtest/mjt.py compile-firm ;
+        ./build && \
+        MJ_TIMEOUT=60 MJ_RUN=./run python3 ./mjtest/mjt.py lexer && \
+        MJ_TIMEOUT=60 MJ_RUN=./run python3 ./mjtest/mjt.py syntax && \
+        MJ_TIMEOUT=60 MJ_RUN=./run python3 ./mjtest/mjt.py semantic && \
+        MJ_TIMEOUT=0 MJ_RUN=./run python3 ./mjtest/mjt.py compile-firm --all_exec_tests && \
+        BENCH=1 MJ_TIMEOUT=0 MJ_RUN=./run python3 ./mjtest/mjt.py compile-firm --all_exec_tests && \
+        MJ_TIMEOUT=0 MJ_RUN=./run python3 ./mjtest/mjt.py compile --all_exec_tests && \
+        BENCH=1 MJ_TIMEOUT=0 MJ_RUN=./run python3 ./mjtest/mjt.py compile --all_exec_tests ;
         ;;
       submission-system)
         ./build && \

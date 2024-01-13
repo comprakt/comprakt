@@ -1,4 +1,4 @@
-error: expected 'class', found 'interface'
+error: expected 'class' or `/`, found 'interface'
    | 
  1 | interface Foo {}
    | ^^^^^^^^^

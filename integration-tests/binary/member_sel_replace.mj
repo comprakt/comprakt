@@ -1,0 +1,15 @@
+class Foo {
+    public boolean y;
+    public int x;
+
+    public static void main(String[] args) {
+        Foo foo = new Foo();
+        boolean[] a = new boolean[10];
+        int[] b = new int[10];
+
+        int x = foo.x;
+        boolean y = foo.y;
+        boolean z = a[1];
+        int zz = b[2];
+    }
+}

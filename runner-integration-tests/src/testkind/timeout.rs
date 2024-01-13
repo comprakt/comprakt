@@ -1,5 +1,5 @@
 use crate::*;
-use compiler_lib::optimization;
+use optimization;
 
 pub const DEFAULT_TIMEOUT_SECONDS: u64 = 3;
 
@@ -45,15 +45,17 @@ impl IntoReferenceData for Data {
     }
 }
 
-pub fn exec_timeout_test(input: PathBuf) {
+pub fn exec_timeout_test(input: PathBuf, optimizations: optimization::Level, backend: Backend) {
     use wait_timeout::ChildExt;
-    let binary_path = input.with_extension("out");
+    let binary_path = input.with_extension(format!("{}.out", backend.to_ascii_label()));
+    let assembly_file = input.with_extension(format!("{}.out.S", backend.to_ascii_label()));
 
     let test_data = assert_compiler_phase::<Data>(
         CompilerCall::RawCompiler(CompilerPhase::Binary {
             output: binary_path.clone(),
-            optimizations: optimization::Level::None,
-            assembly: None,
+            backend,
+            optimizations,
+            assembly: Some(assembly_file),
         }),
         &TestSpec {
             references: input.clone(),
@@ -73,6 +75,7 @@ pub fn exec_timeout_test(input: PathBuf) {
         .map(|duration| duration.0)
         .unwrap_or_else(|| Duration::from_secs(DEFAULT_TIMEOUT_SECONDS));
 
+    #[allow(clippy::single_match_else)]
     let _status_code = match child.wait_timeout(timeout).unwrap() {
         Some(status) => {
             panic!(

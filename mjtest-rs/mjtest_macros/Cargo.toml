@@ -12,10 +12,10 @@ authors = [
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+mjtest = { path = "../" }
 quote = "0.6"
 proc-macro2 = "0.4"
 syn = { version = "0.15", features = [ "full" ] }
-mjtest = { path = "../" }
 
 [lib]
 proc-macro = true

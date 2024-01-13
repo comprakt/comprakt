@@ -1,12 +1,22 @@
 #![feature(nll)]
+#![warn(
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self
+)]
 
 pub mod lookup;
+pub mod serde_humantime;
 mod testkind;
 pub mod yaml;
 pub use self::{lookup::*, testkind::*};
-use compiler_lib::optimization::Level;
 use difference::Changeset;
 use failure::Fail;
+use optimization::{compile_time_assertions, Level};
 use serde::de::DeserializeOwned;
 use serde_derive::Deserialize;
 use std::{
@@ -28,12 +38,28 @@ pub enum CompilerPhase {
     Parser,
     Ast,
     Semantic,
-    Assembly,
+    Linter,
     Binary {
+        backend: Backend,
         output: PathBuf,
         assembly: Option<PathBuf>,
         optimizations: Level,
     },
+}
+
+#[derive(strum_macros::EnumString, Debug, Clone, Copy, PartialEq, Eq, serde_derive::Deserialize)]
+pub enum Backend {
+    Own,
+    Libfirm,
+}
+
+impl Backend {
+    pub fn to_ascii_label(self) -> &'static str {
+        match self {
+            Backend::Own => "own",
+            Backend::Libfirm => "libfirm",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -54,14 +80,20 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
         CompilerPhase::Parser => &["--parsetest"],
         CompilerPhase::Ast => &["--print-ast"],
         CompilerPhase::Semantic => &["--check"],
-        CompilerPhase::Assembly => &["--emit-asm"],
+        CompilerPhase::Linter => &["--check", "--lint"],
         CompilerPhase::Binary {
+            backend,
             output,
             assembly,
             optimizations,
         } => {
+            let cmd_flag = match backend {
+                Backend::Libfirm => "--compile-firm",
+                Backend::Own => "--compile",
+            };
+
             let mut flags = vec![
-                OsString::from("--compile-firm"),
+                OsString::from(cmd_flag),
                 OsString::from("-o"),
                 output.as_os_str().to_os_string(),
             ];
@@ -96,21 +128,28 @@ fn compiler_args(phase: CompilerPhase) -> Vec<OsString> {
     args.iter().map(OsString::from).collect::<Vec<_>>()
 }
 
-fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
+pub fn compiler_call(compiler_call: CompilerCall, filepath: &PathBuf) -> Command {
     match compiler_call {
         CompilerCall::RawCompiler(phase) => {
             let mut cmd = env::var("COMPILER_BINARY")
                 .map(|path| {
-                    println!("Test run using alternate compiler binary at {}", path);
+                    log::debug!("Test run using alternate compiler binary at {}", path);
                     Command::new(path)
                 })
                 .unwrap_or_else(|_| {
                     let binary = project_binary(Some("compiler-cli"));
-                    println!("Test run using the default compiler binary at {:?}", binary);
+                    log::debug!("Test run using the default compiler binary at {:?}", binary);
                     Command::new(binary)
                 });
 
             cmd.env("TERM", "dumb"); // disable color output
+            cmd.env(compile_time_assertions::ENV_VAR_NAME, "enabled");
+            match phase {
+                CompilerPhase::Parser | CompilerPhase::Linter => {
+                    cmd.env("CHOCOLATE", "1");
+                }
+                _ => (),
+            }
 
             cmd.args(compiler_args(phase));
             cmd.arg(filepath.as_os_str());
@@ -434,6 +473,8 @@ fn project_binary(subproject: Option<&'static str>) -> PathBuf {
         cmd.arg("-p");
         cmd.arg(workspace_crate);
     }
+
+    log::error!("cmd for compiler-cli compilation: {:?}", cmd);
 
     let output = cmd.output().expect("failed to invoke cargo");
 

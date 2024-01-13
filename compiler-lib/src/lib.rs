@@ -2,7 +2,6 @@
 #![warn(clippy::print_stdout)]
 #![allow(clippy::unneeded_field_pattern)]
 #![feature(try_from)]
-#![feature(if_while_or_patterns)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(const_str_as_bytes)]
 #![feature(slice_patterns)]
@@ -15,32 +14,47 @@
 #![feature(result_map_or_else)]
 #![feature(proc_macro_hygiene, decl_macro)]
 #![feature(try_trait)]
-#[macro_use]
-extern crate derive_more;
+#![feature(weak_ptr_eq)]
+#![feature(type_ascription)]
+#![feature(duration_as_u128)]
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self,
+    clippy::use_debug
+)]
 
-mod analysis;
-pub mod asciifile;
+pub use asciifile;
+pub mod backend;
+pub mod linter;
+
 #[macro_use]
-mod utils;
-pub mod ast;
-mod color;
-pub mod context;
-pub mod diagnostics;
-pub mod lexer;
-pub mod parser;
+extern crate utils;
+pub use utils::ref_eq;
+
+pub use diagnostics;
+
+pub use compiler_shared::context;
+
+pub use lexer;
+
 #[macro_use]
-pub mod visitor;
-pub mod dot;
-#[macro_use]
-#[allow(dead_code)]
-pub mod debugging;
-pub mod firm;
-pub mod optimization;
+extern crate parser;
+
+pub use parser::{ast, visitor};
+
+pub use firm_construction as firm;
 pub mod print;
-mod ref_eq;
-pub mod semantics;
-mod spantracker;
-pub mod strtab;
-pub mod symtab;
-pub mod type_checking;
+
 pub use self::utils::OutputSpecification;
+pub use strtab;
+pub use symtab;
+pub use type_checking;
+
+mod firm_context;
+pub use crate::firm_context::FirmContext;

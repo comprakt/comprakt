@@ -1,4 +1,15 @@
 #![feature(try_from)]
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self,
+    clippy::use_debug
+)]
 
 extern crate serde_json;
 #[macro_use]
@@ -36,7 +47,7 @@ enum SyntaxAndSemanticFilePathError {
 impl SyntaxAndSemanticFilePath {
     fn all<TestCaseType>(p: &PathBuf) -> Result<Vec<TestCaseType>, Error>
     where
-        TestCaseType: From<SyntaxAndSemanticFilePath>,
+        TestCaseType: From<Self>,
     {
         let files = std::fs::read_dir(&p).context(format_err!(
             "cannot read syntax test case directory {:?}",
@@ -45,14 +56,14 @@ impl SyntaxAndSemanticFilePath {
         let mut cases: Vec<TestCaseType> = Vec::new();
         for f in files {
             let f = f.expect("could not unwrap dir entry");
-            if let Some(fp) = SyntaxAndSemanticFilePath::from_dir_entry(&f)? {
+            if let Some(fp) = Self::from_dir_entry(&f)? {
                 cases.push(TestCaseType::from(fp));
             }
         }
         Ok(cases)
     }
 
-    fn from_dir_entry(f: &std::fs::DirEntry) -> Result<Option<SyntaxAndSemanticFilePath>, Error> {
+    fn from_dir_entry(f: &std::fs::DirEntry) -> Result<Option<Self>, Error> {
         let ft = f
             .file_type()
             .context(SyntaxAndSemanticFilePathError::GetFileType)?;
@@ -86,8 +97,9 @@ impl SyntaxAndSemanticFilePath {
 
     pub fn path(&self) -> &PathBuf {
         match self {
-            SyntaxAndSemanticFilePath::Valid(ref p) => p,
-            SyntaxAndSemanticFilePath::Invalid(ref p) => p,
+            SyntaxAndSemanticFilePath::Valid(ref p) | SyntaxAndSemanticFilePath::Invalid(ref p) => {
+                p
+            }
         }
     }
 
@@ -121,14 +133,13 @@ impl Deref for SyntaxTestCase {
     type Target = SyntaxAndSemanticFilePath;
     fn deref(&self) -> &Self::Target {
         match self {
-            SyntaxTestCase::Valid(p) => p,
-            SyntaxTestCase::Invalid(p) => p,
+            SyntaxTestCase::Valid(p) | SyntaxTestCase::Invalid(p) => p,
         }
     }
 }
 
 impl SyntaxTestCase {
-    pub fn all() -> Result<Vec<SyntaxTestCase>, Error> {
+    pub fn all() -> Result<Vec<Self>, Error> {
         let p = mjtests_path().join("./syntax");
         SyntaxAndSemanticFilePath::all(&p)
     }
@@ -153,14 +164,13 @@ impl Deref for SemanticTestCase {
     type Target = SyntaxAndSemanticFilePath;
     fn deref(&self) -> &Self::Target {
         match self {
-            SemanticTestCase::Valid(p) => p,
-            SemanticTestCase::Invalid(p) => p,
+            SemanticTestCase::Valid(p) | SemanticTestCase::Invalid(p) => p,
         }
     }
 }
 
 impl SemanticTestCase {
-    pub fn all() -> Result<Vec<SemanticTestCase>, Error> {
+    pub fn all() -> Result<Vec<Self>, Error> {
         let p = mjtests_path().join("./semantic");
         SyntaxAndSemanticFilePath::all(&p)
     }

@@ -1,0 +1,15 @@
+---
+optimizations: [ConstantFolding]
+expect: change
+
+# the libfirm backend always runs this optimization
+# only test our own backend
+# backend: [Own]
+
+---
+class B {
+    public static void main(String[] args) {
+        /* Fold 4 * 4 to 16 */
+        int[] i = new int[4];
+    }
+}

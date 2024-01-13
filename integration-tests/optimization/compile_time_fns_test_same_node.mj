@@ -1,0 +1,44 @@
+---
+optimizations: [ConstantFolding]
+expect: unchanged
+        
+stdout:
+    is: "9\n9\n4\n"
+---
+
+class ConstantFoldingAfter {
+    public void is_const(int expr) {}
+    public void is_not_const(int expr) {}
+    public void is_same_node(int expr, int expr2) {}
+    public void is_different_node(int expr, int expr2) {}
+    public void is_different_node_3(int expr, int expr2, int expr3) {}
+}
+
+class ConstantFoldingBefore {
+    public void is_const(int expr) {}
+    public void is_not_const(int expr) {}
+    public void is_same_node(int expr, int expr2) {}
+    public void is_different_node(int expr, int expr2) {}
+    public void is_different_node_3(int expr, int expr2, int expr3) {}
+}
+
+class CF_Sub {
+  public static void main(String[] args) {
+    ConstantFoldingAfter expect_after = new ConstantFoldingAfter();
+    ConstantFoldingBefore expect_before = new ConstantFoldingBefore();
+    int a = 9;
+    int b = a;
+    int c = 4;
+    int d = 2;
+
+    expect_before.is_same_node(a, b);
+    expect_after.is_same_node(a, b);
+    expect_after.is_different_node(a, c);
+    expect_before.is_different_node(a, c);
+    expect_before.is_different_node_3(a, c, d);
+
+    System.out.println(a);
+    System.out.println(b);
+    System.out.println(c);
+  }
+}

@@ -1,4 +1,15 @@
 #![warn(clippy::print_stdout)]
+#![warn(
+    clippy::print_stdout,
+    clippy::unimplemented,
+    clippy::doc_markdown,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::use_self,
+    clippy::use_debug
+)]
 use failure::{Error, Fail, ResultExt};
 use regex::Regex;
 use std::{
@@ -15,15 +26,15 @@ use compiler_lib::{
     ast::{self, Expr},
     context::{self, Context},
     lexer::{Lexer, TokenKind},
-    parser::Parser,
-    semantics,
     strtab::StringTable,
     type_checking::{
+        semantics,
         type_analysis::{ExprInfo, RefInfo, TypeAnalysis},
         type_system::CheckedType,
     },
     visitor::NodeKind,
 };
+use parser::Parser;
 
 #[derive(Debug, Fail)]
 pub enum CliError {
